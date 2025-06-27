@@ -64,13 +64,14 @@ export function XMLRenderer({ xmlContent, className }: XMLRendererProps) {
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
         "text-gray-600";
 
-      // Extract UUID for sections/articles for scroll-to functionality
-      const uuidMatch = node.children?.find(
-        (child) => child.type === "tag" && child.tagName === "uuid",
-      );
-      const sectionUuid = uuidMatch?.children?.find(
-        (child) => child.type === "text",
-      )?.content;
+      // Extract UUID from attributes for sections/articles for scroll-to functionality
+      let sectionUuid: string | undefined;
+
+      // Check if this node has a uuid attribute (for article/section tags)
+      if (node.tagName === "article" || node.tagName === "section") {
+        const uuidMatch = node.content.match(/uuid="([^"]*)"/);
+        sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
+      }
 
       const dataAttributes = sectionUuid
         ? { "data-section-uuid": sectionUuid }
