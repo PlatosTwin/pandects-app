@@ -64,8 +64,20 @@ export function XMLRenderer({ xmlContent, className }: XMLRendererProps) {
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
         "text-gray-600";
 
+      // Extract UUID for sections/articles for scroll-to functionality
+      const uuidMatch = node.children?.find(
+        (child) => child.type === "tag" && child.tagName === "uuid",
+      );
+      const sectionUuid = uuidMatch?.children?.find(
+        (child) => child.type === "text",
+      )?.content;
+
+      const dataAttributes = sectionUuid
+        ? { "data-section-uuid": sectionUuid }
+        : {};
+
       return (
-        <div key={tagId} className="my-1">
+        <div key={tagId} className="my-1" {...dataAttributes}>
           <div className="flex items-start">
             {/* Chevron in gutter */}
             <div className="w-4 flex-shrink-0">
