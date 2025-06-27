@@ -34,26 +34,24 @@ export default function Search() {
     <div className="w-full font-roboto flex flex-col">
       <div className="flex flex-col gap-8 p-12">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <FileText className="w-8 h-8 text-material-blue" />
-          <h1 className="text-2xl font-medium text-material-text-primary">
+        <div className="flex items-center gap-3">
+          <FileText className="w-6 h-6 text-material-text-secondary" />
+          <h1 className="text-xl font-normal text-material-text-primary">
             M&A Clause Search
           </h1>
         </div>
 
         {/* Search Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Announcement Year */}
+          {/* Year */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Announcement Year
+              Year
             </label>
             <div className="relative">
               <select
-                value={filters.announcementYear}
-                onChange={(e) =>
-                  actions.updateFilter("announcementYear", e.target.value)
-                }
+                value={filters.year}
+                onChange={(e) => actions.updateFilter("year", e.target.value)}
                 className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
               >
                 <option value="">All Years</option>
@@ -287,18 +285,18 @@ export default function Search() {
                         </div>
                         <div>
                           <span className="font-medium text-material-text-secondary">
-                            Article:
+                            Article Title:
                           </span>
                           <div className="text-material-text-primary">
-                            {result.article}
+                            {result.articleTitle}
                           </div>
                         </div>
                         <div>
                           <span className="font-medium text-material-text-secondary">
-                            Section:
+                            Section Title:
                           </span>
                           <div className="text-material-text-primary">
-                            {result.section}
+                            {result.sectionTitle}
                           </div>
                         </div>
                       </div>
