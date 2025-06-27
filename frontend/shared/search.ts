@@ -1,7 +1,7 @@
 // M&A Search Types
 
 export interface SearchFilters {
-  announcementYear?: string;
+  year?: string;
   target?: string;
   acquirer?: string;
   clauseType?: string;
@@ -12,8 +12,8 @@ export interface SearchResult {
   year: string;
   target: string;
   acquirer: string;
-  article: string;
-  section: string;
+  articleTitle: string;
+  sectionTitle: string;
   text: string;
   sectionUuid: string;
   agreementUuid: string;
@@ -37,11 +37,11 @@ export interface FilterOptions {
 
 // CSV Export format
 export interface CSVRow {
-  announcementDate: string;
+  year: string;
   target: string;
   acquirer: string;
-  article: string;
-  section: string;
+  articleTitle: string;
+  sectionTitle: string;
   text: string;
   sectionUuid: string;
   agreementUuid: string;

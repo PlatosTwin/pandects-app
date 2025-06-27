@@ -3,7 +3,7 @@ import { SearchFilters, SearchResult } from "@shared/search";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
-    announcementYear: "",
+    year: "",
     target: "",
     acquirer: "",
     clauseType: "",
@@ -43,8 +43,8 @@ export function useSearch() {
           year: "2023",
           target: "TechCorp Inc.",
           acquirer: "MegaCorp LLC",
-          article: "Article VII",
-          section: "Section 7.2",
+          articleTitle: "Article VII",
+          sectionTitle: "Section 7.2",
           text: "In the event of a material adverse change affecting the target company, the acquirer may terminate this agreement with thirty (30) days written notice. Such termination shall not affect any obligations that have accrued prior to the effective date of termination.",
           sectionUuid: "uuid-section-001",
           agreementUuid: "uuid-agreement-001",
@@ -55,8 +55,8 @@ export function useSearch() {
           year: "2023",
           target: "DataSystems Corp",
           acquirer: "Global Holdings",
-          article: "Article V",
-          section: "Section 5.4",
+          articleTitle: "Article V",
+          sectionTitle: "Section 5.4",
           text: "The target company represents and warrants that all material contracts to which it is a party are valid, binding, and enforceable in accordance with their terms, and no breach or default exists under any such contract.",
           sectionUuid: "uuid-section-002",
           agreementUuid: "uuid-agreement-002",
@@ -67,8 +67,8 @@ export function useSearch() {
           year: "2022",
           target: "CloudTech Solutions",
           acquirer: "Enterprise Systems",
-          article: "Article IX",
-          section: "Section 9.1",
+          articleTitle: "Article IX",
+          sectionTitle: "Section 9.1",
           text: "Each party shall indemnify and hold harmless the other party from and against any and all losses, damages, liabilities, costs, and expenses arising out of or resulting from any breach of the representations, warranties, or covenants contained herein.",
           sectionUuid: "uuid-section-003",
           agreementUuid: "uuid-agreement-003",
@@ -90,11 +90,11 @@ export function useSearch() {
 
     // Create CSV content
     const headers = [
-      "Announcement Date",
+      "Year",
       "Target",
       "Acquirer",
-      "Article",
-      "Section",
+      "Article Title",
+      "Section Title",
       "Text",
       "Section UUID",
       "Agreement UUID",
@@ -104,11 +104,11 @@ export function useSearch() {
       headers.join(","),
       ...searchResults.map((result) =>
         [
-          result.announcementDate,
+          result.year,
           `"${result.target}"`,
           `"${result.acquirer}"`,
-          `"${result.article}"`,
-          `"${result.section}"`,
+          `"${result.articleTitle}"`,
+          `"${result.sectionTitle}"`,
           `"${result.text.replace(/"/g, '""')}"`,
           result.sectionUuid,
           result.agreementUuid,
@@ -127,7 +127,7 @@ export function useSearch() {
 
   const clearFilters = useCallback(() => {
     setFilters({
-      announcementYear: "",
+      year: "",
       target: "",
       acquirer: "",
       clauseType: "",
