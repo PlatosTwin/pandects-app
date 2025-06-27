@@ -317,46 +317,62 @@ export default function Search() {
                     >
                       {/* Header with metadata */}
                       <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Year:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.year}
+                        <div className="flex items-center justify-between">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm flex-1">
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Year:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.year}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Target:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.target}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Acquirer:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.acquirer}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Article:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.articleTitle}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Section:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.sectionTitle}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Target:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.target}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Acquirer:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.acquirer}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Article:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.articleTitle}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Section:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.sectionTitle}
-                            </div>
+
+                          {/* Open Agreement Button */}
+                          <div className="ml-4">
+                            <button
+                              onClick={() => openAgreement(result)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
+                              title="Open source agreement"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span className="hidden sm:inline">
+                                Open Agreement
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
