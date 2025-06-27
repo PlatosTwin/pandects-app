@@ -166,6 +166,23 @@ function parseXMLContent(xmlContent: string): XMLNode[] {
       }
     }
 
+    // Skip XML declarations and comments
+    if (xmlContent.slice(tagStart, tagStart + 4) === "<!--") {
+      const commentEnd = xmlContent.indexOf("-->", tagStart);
+      if (commentEnd !== -1) {
+        currentIndex = commentEnd + 3;
+        continue;
+      }
+    }
+
+    if (xmlContent.slice(tagStart, tagStart + 5) === "<?xml") {
+      const declEnd = xmlContent.indexOf("?>", tagStart);
+      if (declEnd !== -1) {
+        currentIndex = declEnd + 2;
+        continue;
+      }
+    }
+
     // Find the end of the opening tag
     const tagEnd = xmlContent.indexOf(">", tagStart);
     if (tagEnd === -1) {
@@ -177,9 +194,9 @@ function parseXMLContent(xmlContent: string): XMLNode[] {
       break;
     }
 
-    // Extract tag name
+    // Extract tag content and name
     const tagContent = xmlContent.slice(tagStart + 1, tagEnd);
-    const tagName = tagContent.split(" ")[0]; // Handle tags with attributes
+    const tagName = tagContent.split(/\s/)[0]; // Get tag name before any attributes
 
     // Check if it's a self-closing tag
     if (tagContent.endsWith("/")) {
