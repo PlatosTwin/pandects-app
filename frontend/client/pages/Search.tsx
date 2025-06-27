@@ -423,6 +423,17 @@ export default function Search() {
         title="No Results Found"
         message="No results to display given the selected filters."
       />
+
+      {/* Agreement Modal */}
+      {selectedAgreement && (
+        <AgreementModal
+          isOpen={!!selectedAgreement}
+          onClose={closeAgreement}
+          agreementUuid={selectedAgreement.agreementUuid}
+          targetSectionUuid={selectedAgreement.sectionUuid}
+          agreementMetadata={selectedAgreement.metadata}
+        />
+      )}
     </div>
   );
 }
