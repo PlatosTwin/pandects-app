@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Search as SearchIcon, Download, FileText } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { SearchPagination } from "@/components/SearchPagination";
+import ErrorModal from "@/components/ErrorModal";
 import { useEffect } from "react";
 
 export default function Search() {
