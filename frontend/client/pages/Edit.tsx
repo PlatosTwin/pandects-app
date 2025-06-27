@@ -206,6 +206,14 @@ export default function Index() {
         onClose={actions.closeErrorModal}
         message={state.errorMessage}
       />
+
+      {/* Info Modal */}
+      <InfoModal
+        isOpen={state.showInfoModal}
+        onClose={actions.closeInfoModal}
+        title="Page Not Found"
+        message={state.infoMessage}
+      />
     </div>
   );
 }
