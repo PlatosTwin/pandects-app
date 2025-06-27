@@ -337,7 +337,7 @@ export default function Search() {
                             scrollbarColor: "#e5e7eb #f9fafb",
                           }}
                         >
-                          {result.xml}
+                          <XMLRenderer xmlContent={result.xml} />
                         </div>
                       </div>
                     </div>
