@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
+import ErrorModal from "@/components/ErrorModal";
 
 export default function Index() {
   const { state, actions } = useLLMOutput();
@@ -196,6 +197,13 @@ export default function Index() {
         onCancel={actions.cancelSave}
         title="Confirm Save"
         message="Are you sure you want to save these changes? This will overwrite any existing content."
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={state.showErrorModal}
+        onClose={actions.closeErrorModal}
+        message={state.errorMessage}
       />
     </div>
   );

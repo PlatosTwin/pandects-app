@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 export interface LLMOutputState {
   pageUuid: string;
-  promptId: string,
+  promptId: string;
   isLoading: boolean;
   isSaved: boolean;
   showSettings: boolean;
@@ -14,6 +14,8 @@ export interface LLMOutputState {
   showCopySuccess: boolean;
   copyError: boolean;
   showSaveConfirmation: boolean;
+  showErrorModal: boolean;
+  errorMessage: string;
 }
 
 export function useLLMOutput() {
@@ -31,6 +33,8 @@ export function useLLMOutput() {
     showCopySuccess: false,
     copyError: false,
     showSaveConfirmation: false,
+    showErrorModal: false,
+    errorMessage: "",
   });
 
   // Load settings from localStorage on mount
@@ -88,14 +92,37 @@ export function useLLMOutput() {
     updateState({ isLoading: true });
 
     try {
-      // Simulate API call - replace with actual implementation
-      // await new Promise((resolve) => setTimeout(resolve, 1500));
-      const res = await fetch(`http://127.0.0.1:5000/api/llm/${state.pageUuid}`);
-      const { promptId, llmOutput, llmOutputCorrected } = await res.json();
-      const output = llmOutputCorrected ?? llmOutput;
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/llm/${state.pageUuid}`,
+      );
 
-      // For demo purposes, load some sample content
-      // const sampleContent = `This is sample LLM output for page UUID: ${state.pageUuid}`;
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        if (res.status === 404) {
+          // UUID not found in database
+          updateState({
+            showErrorModal: true,
+            errorMessage: "No page with that UUID exists in mna.llm_output.",
+          });
+          return;
+        }
+        // Other HTTP errors
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const responseData = await res.json();
+
+      // Check if the response data is empty or null
+      if (!responseData || Object.keys(responseData).length === 0) {
+        updateState({
+          showErrorModal: true,
+          errorMessage: "No page with that UUID exists in mna.llm_output.",
+        });
+        return;
+      }
+
+      const { promptId, llmOutput, llmOutputCorrected } = responseData;
+      const output = llmOutputCorrected ?? llmOutput;
 
       updateState({
         promptId: promptId,
@@ -105,6 +132,20 @@ export function useLLMOutput() {
       });
     } catch (error) {
       console.error("Failed to load page:", error);
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      } else {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      }
     } finally {
       updateState({ isLoading: false });
     }
@@ -120,21 +161,24 @@ export function useLLMOutput() {
     updateState({ showSaveConfirmation: false });
 
     try {
-      // Simulate API call - replace with actual implementation
-      // await new Promise((resolve) => setTimeout(resolve, 500));
-      console.log(state.llmOutput)
-      await fetch(
-      `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      console.log(state.llmOutput);
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            llmOutputCorrected: state.llmOutput,
+          }),
         },
-        body: JSON.stringify({
-          llmOutputCorrected: state.llmOutput,
-        }),
+      );
+
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-    );
 
       updateState({
         isSaved: true,
@@ -142,8 +186,22 @@ export function useLLMOutput() {
       });
     } catch (error) {
       console.error("Failed to save page:", error);
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      } else {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      }
     }
-  }, [state.llmOutput, updateState]);
+  }, [state.llmOutput, state.pageUuid, state.promptId, updateState]);
 
   const cancelSave = useCallback(() => {
     updateState({ showSaveConfirmation: false });
@@ -247,6 +305,13 @@ export function useLLMOutput() {
     [updateState],
   );
 
+  const closeErrorModal = useCallback(() => {
+    updateState({
+      showErrorModal: false,
+      errorMessage: "",
+    });
+  }, [updateState]);
+
   return {
     state,
     actions: {
@@ -261,6 +326,7 @@ export function useLLMOutput() {
       toggleSettings,
       updatePageUuid,
       updateLLMOutput,
+      closeErrorModal,
     },
   };
 }
