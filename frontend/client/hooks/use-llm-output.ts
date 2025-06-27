@@ -33,6 +33,8 @@ export function useLLMOutput() {
     showCopySuccess: false,
     copyError: false,
     showSaveConfirmation: false,
+    showErrorModal: false,
+    errorMessage: "",
   });
 
   // Load settings from localStorage on mount
