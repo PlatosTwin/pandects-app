@@ -357,6 +357,21 @@ export default function Search() {
           </div>
         )}
       </div>
+
+      {/* Backend Connection Error Modal */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={actions.closeErrorModal}
+        message={errorMessage}
+      />
+
+      {/* No Results Modal */}
+      <ErrorModal
+        isOpen={showNoResultsModal}
+        onClose={actions.closeNoResultsModal}
+        title="No Results Found"
+        message="No results to display given the selected filters."
+      />
     </div>
   );
 }
