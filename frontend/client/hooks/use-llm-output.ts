@@ -305,6 +305,13 @@ export function useLLMOutput() {
     [updateState],
   );
 
+  const closeErrorModal = useCallback(() => {
+    updateState({
+      showErrorModal: false,
+      errorMessage: "",
+    });
+  }, [updateState]);
+
   return {
     state,
     actions: {
@@ -319,6 +326,7 @@ export function useLLMOutput() {
       toggleSettings,
       updatePageUuid,
       updateLLMOutput,
+      closeErrorModal,
     },
   };
 }
