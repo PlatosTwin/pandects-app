@@ -4,6 +4,7 @@ import { useSearch } from "@/hooks/use-search";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
+import { XMLRenderer } from "@/components/XMLRenderer";
 import { useEffect } from "react";
 
 export default function Search() {
