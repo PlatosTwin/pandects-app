@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
+import InfoModal from "@/components/InfoModal";
 
 export default function Index() {
   const { state, actions } = useLLMOutput();
