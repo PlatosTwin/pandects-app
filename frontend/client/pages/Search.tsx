@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import { Search as SearchIcon, Download, FileText } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { SearchPagination } from "@/components/SearchPagination";
+import ErrorModal from "@/components/ErrorModal";
+import InfoModal from "@/components/InfoModal";
 import { useEffect } from "react";
 
 export default function Search() {
@@ -14,6 +16,9 @@ export default function Search() {
     totalPages,
     currentPage,
     pageSize,
+    showErrorModal,
+    errorMessage,
+    showNoResultsModal,
     actions,
   } = useSearch();
 
@@ -353,6 +358,21 @@ export default function Search() {
           </div>
         )}
       </div>
+
+      {/* Backend Connection Error Modal */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={actions.closeErrorModal}
+        message={errorMessage}
+      />
+
+      {/* No Results Info Modal */}
+      <InfoModal
+        isOpen={showNoResultsModal}
+        onClose={actions.closeNoResultsModal}
+        title="No Results Found"
+        message="No results to display given the selected filters."
+      />
     </div>
   );
 }

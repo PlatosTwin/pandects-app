@@ -17,6 +17,9 @@ export function useSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showNoResultsModal, setShowNoResultsModal] = useState(false);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string) => {
@@ -28,6 +31,9 @@ export function useSearch() {
   const performSearch = useCallback(
     async (resetPage = false) => {
       setIsSearching(true);
+      setShowErrorModal(false);
+      setShowNoResultsModal(false);
+
       if (resetPage) {
         setHasSearched(true);
       }
@@ -81,6 +87,11 @@ export function useSearch() {
           const endIndex = startIndex + searchFilters.pageSize!;
           const paginatedResults = responseData.slice(startIndex, endIndex);
           setSearchResults(paginatedResults);
+
+          // Check if no results found with active filters
+          if (responseData.length === 0 && hasFiltersApplied(searchFilters)) {
+            setShowNoResultsModal(true);
+          }
         } else {
           // New format: API returns SearchResponse
           const searchResponse = responseData as SearchResponse;
@@ -88,18 +99,49 @@ export function useSearch() {
           setSearchResults(searchResponse.results);
           setTotalCount(searchResponse.totalCount);
           setTotalPages(searchResponse.totalPages);
+
+          // Check if no results found with active filters
+          if (
+            searchResponse.totalCount === 0 &&
+            hasFiltersApplied(searchFilters)
+          ) {
+            setShowNoResultsModal(true);
+          }
         }
       } catch (error) {
         console.error("Search failed:", error);
         setSearchResults([]);
         setTotalCount(0);
         setTotalPages(0);
+
+        // Check if it's a network error
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          setErrorMessage(
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+          );
+          setShowErrorModal(true);
+        } else {
+          setErrorMessage(
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+          );
+          setShowErrorModal(true);
+        }
       } finally {
         setIsSearching(false);
       }
     },
     [filters],
   );
+
+  // Helper function to check if any filters are applied
+  const hasFiltersApplied = (searchFilters: SearchFilters) => {
+    return !!(
+      searchFilters.year ||
+      searchFilters.target ||
+      searchFilters.acquirer ||
+      searchFilters.clauseType
+    );
+  };
 
   const downloadCSV = useCallback(() => {
     if (searchResults.length === 0) return;
@@ -186,6 +228,15 @@ export function useSearch() {
     [allResults],
   );
 
+  const closeErrorModal = useCallback(() => {
+    setShowErrorModal(false);
+    setErrorMessage("");
+  }, []);
+
+  const closeNoResultsModal = useCallback(() => {
+    setShowNoResultsModal(false);
+  }, []);
+
   return {
     filters,
     isSearching,
@@ -195,6 +246,9 @@ export function useSearch() {
     totalPages,
     currentPage: filters.page || 1,
     pageSize: filters.pageSize || 25,
+    showErrorModal,
+    errorMessage,
+    showNoResultsModal,
     actions: {
       updateFilter,
       performSearch,
@@ -202,6 +256,8 @@ export function useSearch() {
       clearFilters,
       goToPage,
       changePageSize,
+      closeErrorModal,
+      closeNoResultsModal,
     },
   };
 }

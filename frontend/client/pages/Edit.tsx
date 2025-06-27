@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
+import InfoModal from "@/components/InfoModal";
 
 export default function Index() {
   const { state, actions } = useLLMOutput();
@@ -204,6 +205,14 @@ export default function Index() {
         isOpen={state.showErrorModal}
         onClose={actions.closeErrorModal}
         message={state.errorMessage}
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        isOpen={state.showInfoModal}
+        onClose={actions.closeInfoModal}
+        title="Page Not Found"
+        message={state.infoMessage}
       />
     </div>
   );

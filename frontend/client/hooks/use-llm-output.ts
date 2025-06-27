@@ -16,6 +16,8 @@ export interface LLMOutputState {
   showSaveConfirmation: boolean;
   showErrorModal: boolean;
   errorMessage: string;
+  showInfoModal: boolean;
+  infoMessage: string;
 }
 
 export function useLLMOutput() {
@@ -35,6 +37,8 @@ export function useLLMOutput() {
     showSaveConfirmation: false,
     showErrorModal: false,
     errorMessage: "",
+    showInfoModal: false,
+    infoMessage: "",
   });
 
   // Load settings from localStorage on mount
@@ -99,10 +103,10 @@ export function useLLMOutput() {
       // Check if the response is ok (status 200-299)
       if (!res.ok) {
         if (res.status === 404) {
-          // UUID not found in database
+          // UUID not found in database - this is informational, not an error
           updateState({
-            showErrorModal: true,
-            errorMessage: "No page with that UUID exists in mna.llm_output.",
+            showInfoModal: true,
+            infoMessage: "No page with that UUID exists in mna.llm_output.",
           });
           return;
         }
@@ -115,8 +119,8 @@ export function useLLMOutput() {
       // Check if the response data is empty or null
       if (!responseData || Object.keys(responseData).length === 0) {
         updateState({
-          showErrorModal: true,
-          errorMessage: "No page with that UUID exists in mna.llm_output.",
+          showInfoModal: true,
+          infoMessage: "No page with that UUID exists in mna.llm_output.",
         });
         return;
       }
@@ -311,6 +315,13 @@ export function useLLMOutput() {
     });
   }, [updateState]);
 
+  const closeInfoModal = useCallback(() => {
+    updateState({
+      showInfoModal: false,
+      infoMessage: "",
+    });
+  }, [updateState]);
+
   return {
     state,
     actions: {
@@ -326,6 +337,7 @@ export function useLLMOutput() {
       updatePageUuid,
       updateLLMOutput,
       closeErrorModal,
+      closeInfoModal,
     },
   };
 }
