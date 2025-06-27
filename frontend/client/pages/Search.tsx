@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search as SearchIcon, Download, FileText } from "lucide-react";
+import {
+  Search as SearchIcon,
+  Download,
+  FileText,
+  ExternalLink,
+} from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
 import { XMLRenderer } from "@/components/XMLRenderer";
-import { useEffect } from "react";
+import { AgreementModal } from "@/components/AgreementModal";
 
 export default function Search() {
   const {
