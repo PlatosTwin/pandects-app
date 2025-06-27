@@ -1,10 +1,28 @@
 import { cn } from "@/lib/utils";
 import { Search as SearchIcon, Download, FileText } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
+import { SearchPagination } from "@/components/SearchPagination";
+import { useEffect } from "react";
 
 export default function Search() {
-  const { filters, isSearching, searchResults, hasSearched, actions } =
-    useSearch();
+  const {
+    filters,
+    isSearching,
+    searchResults,
+    hasSearched,
+    totalCount,
+    totalPages,
+    currentPage,
+    pageSize,
+    actions,
+  } = useSearch();
+
+  // Trigger search when page or pageSize changes (but not on initial load)
+  useEffect(() => {
+    if (hasSearched) {
+      actions.performSearch();
+    }
+  }, [currentPage, pageSize, hasSearched]);
 
   // Placeholder data for dropdowns
   const years = ["2024", "2023", "2022", "2021", "2020", "2019"];
@@ -199,7 +217,7 @@ export default function Search() {
         {/* Action Buttons */}
         <div className="flex items-center gap-4">
           <button
-            onClick={actions.performSearch}
+            onClick={() => actions.performSearch(true)}
             disabled={isSearching}
             className={cn(
               "flex items-center justify-center gap-2 px-6 py-3 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
@@ -230,18 +248,14 @@ export default function Search() {
 
         {/* Search Results */}
         {hasSearched && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-material-text-primary">
                 Search Results
               </h2>
-              <span className="text-sm text-material-text-secondary">
-                {searchResults.length}{" "}
-                {searchResults.length === 1 ? "result" : "results"} found
-              </span>
             </div>
 
-            {searchResults.length === 0 ? (
+            {totalCount === 0 ? (
               <div className="text-center py-12 text-material-text-secondary">
                 <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No clauses found matching your search criteria.</p>
@@ -250,73 +264,98 @@ export default function Search() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4">
-                {searchResults.map((result) => (
-                  <div
-                    key={result.id}
-                    className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
-                  >
-                    {/* Header with metadata */}
-                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-material-text-secondary">
-                            Year:
-                          </span>
-                          <div className="text-material-text-primary">
-                            {result.year}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-material-text-secondary">
-                            Target:
-                          </span>
-                          <div className="text-material-text-primary">
-                            {result.target}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-material-text-secondary">
-                            Acquirer:
-                          </span>
-                          <div className="text-material-text-primary">
-                            {result.acquirer}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-material-text-secondary">
-                            Article:
-                          </span>
-                          <div className="text-material-text-primary">
-                            {result.articleTitle}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-material-text-secondary">
-                            Section:
-                          </span>
-                          <div className="text-material-text-primary">
-                            {result.sectionTitle}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              <>
+                {/* Top pagination controls */}
+                <SearchPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalCount={totalCount}
+                  onPageChange={actions.goToPage}
+                  onPageSizeChange={actions.changePageSize}
+                  isLoading={isSearching}
+                />
 
-                    {/* Clause text */}
-                    <div className="p-4">
-                      <div
-                        className="h-32 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
-                        style={{
-                          scrollbarWidth: "thin",
-                          scrollbarColor: "#e5e7eb #f9fafb",
-                        }}
-                      >
-                        {result.xml}
+                {/* Results grid */}
+                <div className="grid gap-4">
+                  {searchResults.map((result) => (
+                    <div
+                      key={result.id}
+                      className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+                    >
+                      {/* Header with metadata */}
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium text-material-text-secondary">
+                              Year:
+                            </span>
+                            <div className="text-material-text-primary">
+                              {result.year}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-material-text-secondary">
+                              Target:
+                            </span>
+                            <div className="text-material-text-primary">
+                              {result.target}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-material-text-secondary">
+                              Acquirer:
+                            </span>
+                            <div className="text-material-text-primary">
+                              {result.acquirer}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-material-text-secondary">
+                              Article:
+                            </span>
+                            <div className="text-material-text-primary">
+                              {result.articleTitle}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-material-text-secondary">
+                              Section:
+                            </span>
+                            <div className="text-material-text-primary">
+                              {result.sectionTitle}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Clause text */}
+                      <div className="p-4">
+                        <div
+                          className="h-32 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
+                          style={{
+                            scrollbarWidth: "thin",
+                            scrollbarColor: "#e5e7eb #f9fafb",
+                          }}
+                        >
+                          {result.xml}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                {/* Bottom pagination controls */}
+                <SearchPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalCount={totalCount}
+                  onPageChange={actions.goToPage}
+                  onPageSizeChange={actions.changePageSize}
+                  isLoading={isSearching}
+                />
+              </>
             )}
           </div>
         )}
