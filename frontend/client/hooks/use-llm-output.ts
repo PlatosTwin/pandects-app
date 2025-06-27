@@ -161,10 +161,8 @@ export function useLLMOutput() {
     updateState({ showSaveConfirmation: false });
 
     try {
-      // Simulate API call - replace with actual implementation
-      // await new Promise((resolve) => setTimeout(resolve, 500));
       console.log(state.llmOutput);
-      await fetch(
+      const res = await fetch(
         `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
         {
           method: "PUT",
@@ -177,14 +175,33 @@ export function useLLMOutput() {
         },
       );
 
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
       updateState({
         isSaved: true,
         lastSaved: new Date().toLocaleString(),
       });
     } catch (error) {
       console.error("Failed to save page:", error);
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      } else {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      }
     }
-  }, [state.llmOutput, updateState]);
+  }, [state.llmOutput, state.pageUuid, state.promptId, updateState]);
 
   const cancelSave = useCallback(() => {
     updateState({ showSaveConfirmation: false });
