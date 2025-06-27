@@ -16,10 +16,10 @@ interface XMLRendererProps {
 }
 
 const XML_TAG_COLORS = {
-  text: "bg-blue-50 border-blue-200 text-blue-800",
-  definition: "bg-green-50 border-green-200 text-green-800",
-  page: "bg-purple-50 border-purple-200 text-purple-800",
-  pageUUID: "bg-orange-50 border-orange-200 text-orange-800",
+  text: "text-blue-600",
+  definition: "text-green-600",
+  page: "text-purple-600",
+  pageUUID: "text-orange-600",
 } as const;
 
 const COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
