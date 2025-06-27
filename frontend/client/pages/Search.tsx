@@ -22,7 +22,7 @@ export default function Search() {
     if (hasSearched) {
       actions.performSearch();
     }
-  }, [currentPage, pageSize, hasSearched]);
+  }, [currentPage, pageSize]);
 
   // Placeholder data for dropdowns
   const years = ["2024", "2023", "2022", "2021", "2020", "2019"];
