@@ -366,8 +366,8 @@ export default function Search() {
         message={errorMessage}
       />
 
-      {/* No Results Modal */}
-      <ErrorModal
+      {/* No Results Info Modal */}
+      <InfoModal
         isOpen={showNoResultsModal}
         onClose={actions.closeNoResultsModal}
         title="No Results Found"
