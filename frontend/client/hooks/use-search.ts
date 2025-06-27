@@ -13,6 +13,7 @@ export function useSearch() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [allResults, setAllResults] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -68,12 +69,22 @@ export function useSearch() {
 
         if (Array.isArray(responseData)) {
           // Backward compatibility: API returns SearchResult[]
-          setSearchResults(responseData);
+          setAllResults(responseData);
           setTotalCount(responseData.length);
-          setTotalPages(1);
+          setTotalPages(
+            Math.ceil(responseData.length / searchFilters.pageSize!),
+          );
+
+          // Apply pagination on frontend
+          const startIndex =
+            (searchFilters.page! - 1) * searchFilters.pageSize!;
+          const endIndex = startIndex + searchFilters.pageSize!;
+          const paginatedResults = responseData.slice(startIndex, endIndex);
+          setSearchResults(paginatedResults);
         } else {
           // New format: API returns SearchResponse
           const searchResponse = responseData as SearchResponse;
+          setAllResults(searchResponse.results);
           setSearchResults(searchResponse.results);
           setTotalCount(searchResponse.totalCount);
           setTotalPages(searchResponse.totalPages);
@@ -140,18 +151,40 @@ export function useSearch() {
       pageSize: 25,
     });
     setSearchResults([]);
+    setAllResults([]);
     setHasSearched(false);
     setTotalCount(0);
     setTotalPages(0);
   }, []);
 
-  const goToPage = useCallback((page: number) => {
-    setFilters((prev) => ({ ...prev, page }));
-  }, []);
+  const goToPage = useCallback(
+    (page: number) => {
+      setFilters((prev) => ({ ...prev, page }));
 
-  const changePageSize = useCallback((pageSize: number) => {
-    setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
-  }, []);
+      // Apply pagination on frontend if we have all results
+      if (allResults.length > 0) {
+        const startIndex = (page - 1) * (filters.pageSize || 25);
+        const endIndex = startIndex + (filters.pageSize || 25);
+        const paginatedResults = allResults.slice(startIndex, endIndex);
+        setSearchResults(paginatedResults);
+      }
+    },
+    [allResults, filters.pageSize],
+  );
+
+  const changePageSize = useCallback(
+    (pageSize: number) => {
+      setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
+
+      // Apply new page size on frontend if we have all results
+      if (allResults.length > 0) {
+        setTotalPages(Math.ceil(allResults.length / pageSize));
+        const paginatedResults = allResults.slice(0, pageSize);
+        setSearchResults(paginatedResults);
+      }
+    },
+    [allResults],
+  );
 
   return {
     filters,
