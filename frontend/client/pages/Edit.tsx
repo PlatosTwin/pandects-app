@@ -198,6 +198,13 @@ export default function Index() {
         title="Confirm Save"
         message="Are you sure you want to save these changes? This will overwrite any existing content."
       />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={state.showErrorModal}
+        onClose={actions.closeErrorModal}
+        message={state.errorMessage}
+      />
     </div>
   );
 }
