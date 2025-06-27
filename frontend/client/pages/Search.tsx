@@ -15,6 +15,9 @@ export default function Search() {
     totalPages,
     currentPage,
     pageSize,
+    showErrorModal,
+    errorMessage,
+    showNoResultsModal,
     actions,
   } = useSearch();
 
