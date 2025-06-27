@@ -16,6 +16,8 @@ export interface LLMOutputState {
   showSaveConfirmation: boolean;
   showErrorModal: boolean;
   errorMessage: string;
+  showInfoModal: boolean;
+  infoMessage: string;
 }
 
 export function useLLMOutput() {
