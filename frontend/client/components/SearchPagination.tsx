@@ -63,35 +63,8 @@ export function SearchPagination({
   const startResult = (currentPage - 1) * pageSize + 1;
   const endResult = Math.min(currentPage * pageSize, totalCount);
 
-  if (totalPages <= 1) {
-    return (
-      <div className="flex items-center justify-between gap-4 text-sm text-material-text-secondary">
-        <div className="flex items-center gap-2">
-          <span>Results per page:</span>
-          <Select
-            value={pageSize.toString()}
-            onValueChange={(value) => onPageSizeChange(parseInt(value))}
-            disabled={isLoading}
-          >
-            <SelectTrigger className="w-20 h-8 border-none border-b border-[rgba(0,0,0,0.42)] rounded-none bg-transparent focus:border-material-blue">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pageSizeOptions.map((size) => (
-                <SelectItem key={size} value={size.toString()}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {totalCount > 0 && (
-          <div>
-            Showing {startResult} to {endResult} of {totalCount} results
-          </div>
-        )}
-      </div>
-    );
+  if (totalCount === 0) {
+    return null;
   }
 
   return (
