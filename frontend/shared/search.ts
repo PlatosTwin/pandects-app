@@ -1,0 +1,48 @@
+// M&A Search Types
+
+export interface SearchFilters {
+  announcementYear?: string;
+  target?: string;
+  acquirer?: string;
+  clauseType?: string;
+}
+
+export interface SearchResult {
+  id: string;
+  year: string;
+  target: string;
+  acquirer: string;
+  article: string;
+  section: string;
+  text: string;
+  sectionUuid: string;
+  agreementUuid: string;
+  announcementDate: string;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+// Filter options (to be populated from API)
+export interface FilterOptions {
+  years: string[];
+  targets: string[];
+  acquirers: string[];
+  clauseTypes: string[];
+}
+
+// CSV Export format
+export interface CSVRow {
+  announcementDate: string;
+  target: string;
+  acquirer: string;
+  article: string;
+  section: string;
+  text: string;
+  sectionUuid: string;
+  agreementUuid: string;
+}
