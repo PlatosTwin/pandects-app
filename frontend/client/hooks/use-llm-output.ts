@@ -103,10 +103,10 @@ export function useLLMOutput() {
       // Check if the response is ok (status 200-299)
       if (!res.ok) {
         if (res.status === 404) {
-          // UUID not found in database
+          // UUID not found in database - this is informational, not an error
           updateState({
-            showErrorModal: true,
-            errorMessage: "No page with that UUID exists in mna.llm_output.",
+            showInfoModal: true,
+            infoMessage: "No page with that UUID exists in mna.llm_output.",
           });
           return;
         }
@@ -119,8 +119,8 @@ export function useLLMOutput() {
       // Check if the response data is empty or null
       if (!responseData || Object.keys(responseData).length === 0) {
         updateState({
-          showErrorModal: true,
-          errorMessage: "No page with that UUID exists in mna.llm_output.",
+          showInfoModal: true,
+          infoMessage: "No page with that UUID exists in mna.llm_output.",
         });
         return;
       }
