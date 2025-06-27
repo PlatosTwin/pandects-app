@@ -92,16 +92,37 @@ export function useLLMOutput() {
     updateState({ isLoading: true });
 
     try {
-      // Simulate API call - replace with actual implementation
-      // await new Promise((resolve) => setTimeout(resolve, 1500));
       const res = await fetch(
         `http://127.0.0.1:5000/api/llm/${state.pageUuid}`,
       );
-      const { promptId, llmOutput, llmOutputCorrected } = await res.json();
-      const output = llmOutputCorrected ?? llmOutput;
 
-      // For demo purposes, load some sample content
-      // const sampleContent = `This is sample LLM output for page UUID: ${state.pageUuid}`;
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        if (res.status === 404) {
+          // UUID not found in database
+          updateState({
+            showErrorModal: true,
+            errorMessage: "No page with that UUID exists in mna.llm_output.",
+          });
+          return;
+        }
+        // Other HTTP errors
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const responseData = await res.json();
+
+      // Check if the response data is empty or null
+      if (!responseData || Object.keys(responseData).length === 0) {
+        updateState({
+          showErrorModal: true,
+          errorMessage: "No page with that UUID exists in mna.llm_output.",
+        });
+        return;
+      }
+
+      const { promptId, llmOutput, llmOutputCorrected } = responseData;
+      const output = llmOutputCorrected ?? llmOutput;
 
       updateState({
         promptId: promptId,
@@ -111,6 +132,20 @@ export function useLLMOutput() {
       });
     } catch (error) {
       console.error("Failed to load page:", error);
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      } else {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      }
     } finally {
       updateState({ isLoading: false });
     }
