@@ -17,6 +17,9 @@ export function useSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showNoResultsModal, setShowNoResultsModal] = useState(false);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string) => {
