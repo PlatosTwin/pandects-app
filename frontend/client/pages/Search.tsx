@@ -29,6 +29,33 @@ export default function Search() {
     actions,
   } = useSearch();
 
+  // Agreement modal state
+  const [selectedAgreement, setSelectedAgreement] = useState<{
+    agreementUuid: string;
+    sectionUuid: string;
+    metadata: {
+      year: string;
+      target: string;
+      acquirer: string;
+    };
+  } | null>(null);
+
+  const openAgreement = (result: (typeof searchResults)[0]) => {
+    setSelectedAgreement({
+      agreementUuid: result.agreementUuid,
+      sectionUuid: result.sectionUuid,
+      metadata: {
+        year: result.year,
+        target: result.target,
+        acquirer: result.acquirer,
+      },
+    });
+  };
+
+  const closeAgreement = () => {
+    setSelectedAgreement(null);
+  };
+
   // Placeholder data for dropdowns
   const years = ["2024", "2023", "2022", "2021", "2020", "2019"];
   const targets = [
