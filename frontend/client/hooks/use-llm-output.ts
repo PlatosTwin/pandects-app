@@ -315,6 +315,13 @@ export function useLLMOutput() {
     });
   }, [updateState]);
 
+  const closeInfoModal = useCallback(() => {
+    updateState({
+      showInfoModal: false,
+      infoMessage: "",
+    });
+  }, [updateState]);
+
   return {
     state,
     actions: {
@@ -330,6 +337,7 @@ export function useLLMOutput() {
       updatePageUuid,
       updateLLMOutput,
       closeErrorModal,
+      closeInfoModal,
     },
   };
 }
