@@ -17,13 +17,6 @@ export default function Search() {
     actions,
   } = useSearch();
 
-  // Trigger search when page or pageSize changes (but not on initial load)
-  useEffect(() => {
-    if (hasSearched) {
-      actions.performSearch();
-    }
-  }, [currentPage, pageSize]);
-
   // Placeholder data for dropdowns
   const years = ["2024", "2023", "2022", "2021", "2020", "2019"];
   const targets = [
