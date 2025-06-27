@@ -20,7 +20,8 @@ export function useAgreement() {
       }
 
       const data: AgreementResponse = await response.json();
-      setAgreement(data.agreement);
+      console.log(data.agreement)
+      setAgreement(data);
     } catch (err) {
       console.error("Failed to fetch agreement:", err);
       setError(err instanceof Error ? err.message : "Failed to load agreement");
