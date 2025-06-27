@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { SearchFilters, SearchResult } from "@shared/search";
+import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
@@ -7,11 +7,15 @@ export function useSearch() {
     target: "",
     acquirer: "",
     clauseType: "",
+    page: 1,
+    pageSize: 25,
   });
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string) => {
@@ -20,54 +24,71 @@ export function useSearch() {
     [],
   );
 
-  const performSearch = useCallback(async () => {
-    setIsSearching(true);
-    setHasSearched(true);
+  const performSearch = useCallback(
+    async (resetPage = false) => {
+      setIsSearching(true);
+      if (resetPage) {
+        setHasSearched(true);
+      }
 
-    try {
-      const params = new URLSearchParams();
-      if (filters.year) params.append('year', filters.year);
-      if (filters.target) params.append('target', filters.target);
-      if (filters.acquirer) params.append('acquirer', filters.acquirer);
-      if (filters.clauseType) params.append('clauseType', filters.clauseType);
-
-      const queryString = params.toString();
-      const res = await fetch(`http://127.0.0.1:5000/api/search?${queryString}`);
-
-      // Check if the response is ok (status 200-299)
-      if (!res.ok) {
-        if (res.status === 404) {
-          // UUID not found in database
-          // updateState({
-          //   showErrorModal: true,
-          //   errorMessage: "No page with that UUID exists in mna.llm_output.",
-          // });
-          return;
+      try {
+        const searchFilters = resetPage ? { ...filters, page: 1 } : filters;
+        if (resetPage) {
+          setFilters((prev) => ({ ...prev, page: 1 }));
         }
-        // Other HTTP errors
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const params = new URLSearchParams();
+        if (searchFilters.year) params.append("year", searchFilters.year);
+        if (searchFilters.target) params.append("target", searchFilters.target);
+        if (searchFilters.acquirer)
+          params.append("acquirer", searchFilters.acquirer);
+        if (searchFilters.clauseType)
+          params.append("clauseType", searchFilters.clauseType);
+        if (searchFilters.page)
+          params.append("page", searchFilters.page.toString());
+        if (searchFilters.pageSize)
+          params.append("pageSize", searchFilters.pageSize.toString());
+
+        const queryString = params.toString();
+        const res = await fetch(
+          `http://127.0.0.1:5000/api/search?${queryString}`,
+        );
+
+        // Check if the response is ok (status 200-299)
+        if (!res.ok) {
+          if (res.status === 404) {
+            return;
+          }
+          // Other HTTP errors
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        // Try to parse as SearchResponse first, fallback to SearchResult[] for backward compatibility
+        const responseData = await res.json();
+
+        if (Array.isArray(responseData)) {
+          // Backward compatibility: API returns SearchResult[]
+          setSearchResults(responseData);
+          setTotalCount(responseData.length);
+          setTotalPages(1);
+        } else {
+          // New format: API returns SearchResponse
+          const searchResponse = responseData as SearchResponse;
+          setSearchResults(searchResponse.results);
+          setTotalCount(searchResponse.totalCount);
+          setTotalPages(searchResponse.totalPages);
+        }
+      } catch (error) {
+        console.error("Search failed:", error);
+        setSearchResults([]);
+        setTotalCount(0);
+        setTotalPages(0);
+      } finally {
+        setIsSearching(false);
       }
-
-      const responseData: SearchResult[] = await res.json();
-
-      // Check if the response data is empty or null
-      if (!responseData || Object.keys(responseData).length === 0) {
-        // updateState({
-        //   showErrorModal: true,
-        //   errorMessage: "No page with that UUID exists in mna.llm_output.",
-        // });
-        return;
-      }
-
-      setSearchResults(responseData);
-
-    } catch (error) {
-      console.error("Search failed:", error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [filters]);
+    },
+    [filters],
+  );
 
   const downloadCSV = useCallback(() => {
     if (searchResults.length === 0) return;
@@ -115,9 +136,21 @@ export function useSearch() {
       target: "",
       acquirer: "",
       clauseType: "",
+      page: 1,
+      pageSize: 25,
     });
     setSearchResults([]);
     setHasSearched(false);
+    setTotalCount(0);
+    setTotalPages(0);
+  }, []);
+
+  const goToPage = useCallback((page: number) => {
+    setFilters((prev) => ({ ...prev, page }));
+  }, []);
+
+  const changePageSize = useCallback((pageSize: number) => {
+    setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
   }, []);
 
   return {
@@ -125,11 +158,17 @@ export function useSearch() {
     isSearching,
     searchResults,
     hasSearched,
+    totalCount,
+    totalPages,
+    currentPage: filters.page || 1,
+    pageSize: filters.pageSize || 25,
     actions: {
       updateFilter,
       performSearch,
       downloadCSV,
       clearFilters,
+      goToPage,
+      changePageSize,
     },
   };
 }
