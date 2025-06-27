@@ -228,6 +228,15 @@ export function useSearch() {
     [allResults],
   );
 
+  const closeErrorModal = useCallback(() => {
+    setShowErrorModal(false);
+    setErrorMessage("");
+  }, []);
+
+  const closeNoResultsModal = useCallback(() => {
+    setShowNoResultsModal(false);
+  }, []);
+
   return {
     filters,
     isSearching,
@@ -237,6 +246,9 @@ export function useSearch() {
     totalPages,
     currentPage: filters.page || 1,
     pageSize: filters.pageSize || 25,
+    showErrorModal,
+    errorMessage,
+    showNoResultsModal,
     actions: {
       updateFilter,
       performSearch,
@@ -244,6 +256,8 @@ export function useSearch() {
       clearFilters,
       goToPage,
       changePageSize,
+      closeErrorModal,
+      closeNoResultsModal,
     },
   };
 }
