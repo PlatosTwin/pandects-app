@@ -161,7 +161,6 @@ export function useLLMOutput() {
     updateState({ showSaveConfirmation: false });
 
     try {
-      console.log(state.llmOutput);
       const res = await fetch(
         `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
         {

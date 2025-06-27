@@ -25,58 +25,42 @@ export function useSearch() {
     setHasSearched(true);
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/search', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(filters)
-      // });
-      // const data = await response.json();
+      const params = new URLSearchParams();
+      if (filters.year) params.append('year', filters.year);
+      if (filters.target) params.append('target', filters.target);
+      if (filters.acquirer) params.append('acquirer', filters.acquirer);
+      if (filters.clauseType) params.append('clauseType', filters.clauseType);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const queryString = params.toString();
+      const res = await fetch(`http://127.0.0.1:5000/api/search?${queryString}`);
 
-      // Mock search results - replace with actual API response
-      const mockResults: SearchResult[] = [
-        {
-          id: "1",
-          year: "2023",
-          target: "TechCorp Inc.",
-          acquirer: "MegaCorp LLC",
-          articleTitle: "Article VII",
-          sectionTitle: "Section 7.2",
-          text: "In the event of a material adverse change affecting the target company, the acquirer may terminate this agreement with thirty (30) days written notice. Such termination shall not affect any obligations that have accrued prior to the effective date of termination.",
-          sectionUuid: "uuid-section-001",
-          agreementUuid: "uuid-agreement-001",
-          announcementDate: "2023-03-15",
-        },
-        {
-          id: "2",
-          year: "2023",
-          target: "DataSystems Corp",
-          acquirer: "Global Holdings",
-          articleTitle: "Article V",
-          sectionTitle: "Section 5.4",
-          text: "The target company represents and warrants that all material contracts to which it is a party are valid, binding, and enforceable in accordance with their terms, and no breach or default exists under any such contract.",
-          sectionUuid: "uuid-section-002",
-          agreementUuid: "uuid-agreement-002",
-          announcementDate: "2023-06-22",
-        },
-        {
-          id: "3",
-          year: "2022",
-          target: "CloudTech Solutions",
-          acquirer: "Enterprise Systems",
-          articleTitle: "Article IX",
-          sectionTitle: "Section 9.1",
-          text: "Each party shall indemnify and hold harmless the other party from and against any and all losses, damages, liabilities, costs, and expenses arising out of or resulting from any breach of the representations, warranties, or covenants contained herein.",
-          sectionUuid: "uuid-section-003",
-          agreementUuid: "uuid-agreement-003",
-          announcementDate: "2022-11-08",
-        },
-      ];
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        if (res.status === 404) {
+          // UUID not found in database
+          // updateState({
+          //   showErrorModal: true,
+          //   errorMessage: "No page with that UUID exists in mna.llm_output.",
+          // });
+          return;
+        }
+        // Other HTTP errors
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
 
-      setSearchResults(mockResults);
+      const responseData: SearchResult[] = await res.json();
+
+      // Check if the response data is empty or null
+      if (!responseData || Object.keys(responseData).length === 0) {
+        // updateState({
+        //   showErrorModal: true,
+        //   errorMessage: "No page with that UUID exists in mna.llm_output.",
+        // });
+        return;
+      }
+
+      setSearchResults(responseData);
+
     } catch (error) {
       console.error("Search failed:", error);
       setSearchResults([]);
@@ -109,7 +93,7 @@ export function useSearch() {
           `"${result.acquirer}"`,
           `"${result.articleTitle}"`,
           `"${result.sectionTitle}"`,
-          `"${result.text.replace(/"/g, '""')}"`,
+          `"${result.xml.replace(/"/g, '""')}"`,
           result.sectionUuid,
           result.agreementUuid,
         ].join(","),

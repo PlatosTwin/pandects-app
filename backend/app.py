@@ -2,7 +2,8 @@ import os
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, Table, func, desc
+from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Integer, Table
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 # ── Flask setup ──────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -23,15 +24,31 @@ db = SQLAlchemy(app)
 # ── Reflect your existing llm_output table with a standalone engine ────
 engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
 metadata = MetaData()
+
 llm_output_table = Table(
     "llm_output",
     metadata,
     autoload_with=engine,
 )
-prompt_table = Table(
+prompts_table = Table(
     "prompts",
     metadata,
     autoload_with=engine,
+)
+agreements_table = Table(
+    "agreements",
+    metadata,
+    autoload_with=engine,
+)
+sections_table = Table(
+    "sections",
+    metadata,
+    Column("agreement_uuid", CHAR(36), nullable=False),
+    Column("section_uuid",   CHAR(36), primary_key=True),
+    Column("article_title",  TEXT,     nullable=False),
+    Column("section_title",  TEXT,     nullable=False),
+    Column("xml_content",    LONGTEXT, nullable=False),
+    schema="mna",
 )
 
 
@@ -39,31 +56,27 @@ class LLMOut(db.Model):
     __table__ = llm_output_table
 
 
-class Prompt(db.Model):
-    __table__ = prompt_table
+class Prompts(db.Model):
+    __table__ = prompts_table
+    
+
+class Sections(db.Model):
+    __table__ = sections_table
+    
+    
+class Agreements(db.Model):
+    __table__ = agreements_table
 
 
-# @app.route('/api/llm/<string:page_uuid>/<string:prompt_id>', methods=['GET'])
-# def get_llm(page_uuid, prompt_id):
-#     # pass a tuple of primary‐key values to get_or_404
-#     p = LLMOut.query.get_or_404((page_uuid, prompt_id))
-
-
-#     return jsonify({
-#         'pageUuid':           p.page_uuid,
-#         'promptId':           p.prompt_id,
-#         'llmOutput':          p.llm_output,
-#         'llmOutputCorrected': p.llm_output_corrected
-#     })
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
     # pick the most-recent prompt for this page (excluding SKIP outputs)
     latest_prompt_id = (
-        db.session.query(Prompt.prompt_id)
-        .join(LLMOut, Prompt.prompt_id == LLMOut.prompt_id)
+        db.session.query(Prompts.prompt_id)
+        .join(LLMOut, Prompts.prompt_id == LLMOut.prompt_id)
         .filter(LLMOut.page_uuid == page_uuid)
         .filter(func.coalesce(LLMOut.llm_output_corrected, LLMOut.llm_output) != "SKIP")
-        .order_by(desc(Prompt.updated_at))
+        .order_by(desc(Prompts.updated_at))
         .limit(1)
         .scalar()
     )
@@ -94,6 +107,62 @@ def update_llm(page_uuid, prompt_id):
     record.llm_output_corrected = corrected
     db.session.commit()
     return jsonify({"status": "updated"}), 200
+
+
+# ── the /api/search endpoint ───────────────────────────────────────
+@app.route("/api/search", methods=["GET"])
+def search_sections():
+    # pull in optional query params
+    year        = request.args.get("year",       type=int)
+    target      = request.args.get("target",     type=str)
+    acquirer    = request.args.get("acquirer",   type=str)
+    standard_id = request.args.get("standardID", type=str)
+
+    # build the base ORM query
+    q = (
+        db.session
+        .query(
+            Sections.section_uuid,
+            Sections.agreement_uuid,
+            Sections.xml_content,
+            Sections.article_title,
+            Sections.section_title,
+            Agreements.acquirer,
+            Agreements.target,
+            Agreements.year,
+        )
+        .join(Agreements, Sections.agreement_uuid == Agreements.uuid)
+    )
+
+    # apply filters only when provided
+    if year is not None:
+        q = q.filter(Agreements.year == year)
+    if target:
+        q = q.filter(Agreements.target.ilike(f"%{target}%"))
+    if acquirer:
+        q = q.filter(Agreements.acquirer.ilike(f"%{acquirer}%"))
+    if standard_id:
+        q = q.filter(Sections.standard_id == standard_id)
+
+    rows = q.all()
+
+    # marshal into JSON
+    results = [
+        {
+            "id":             r.section_uuid,
+            "agreementUuid": r.agreement_uuid,
+            "sectionUuid":   r.section_uuid,
+            "xml":            r.xml_content,
+            "articleTitle":   r.article_title,
+            "sectionTitle":   r.section_title,
+            "acquirer":       r.acquirer,
+            "target":         r.target,
+            "year":           r.year,
+        }
+        for r in rows
+    ]
+
+    return jsonify(results), 200
 
 
 if __name__ == "__main__":

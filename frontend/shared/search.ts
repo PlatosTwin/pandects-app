@@ -14,10 +14,9 @@ export interface SearchResult {
   acquirer: string;
   articleTitle: string;
   sectionTitle: string;
-  text: string;
+  xml: string;
   sectionUuid: string;
   agreementUuid: string;
-  announcementDate: string;
 }
 
 export interface SearchResponse {

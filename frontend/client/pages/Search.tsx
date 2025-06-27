@@ -285,7 +285,7 @@ export default function Search() {
                         </div>
                         <div>
                           <span className="font-medium text-material-text-secondary">
-                            Article Title:
+                            Article:
                           </span>
                           <div className="text-material-text-primary">
                             {result.articleTitle}
@@ -293,7 +293,7 @@ export default function Search() {
                         </div>
                         <div>
                           <span className="font-medium text-material-text-secondary">
-                            Section Title:
+                            Section:
                           </span>
                           <div className="text-material-text-primary">
                             {result.sectionTitle}
@@ -311,7 +311,7 @@ export default function Search() {
                           scrollbarColor: "#e5e7eb #f9fafb",
                         }}
                       >
-                        {result.text}
+                        {result.xml}
                       </div>
                     </div>
                   </div>
