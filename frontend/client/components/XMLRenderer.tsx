@@ -62,49 +62,50 @@ export function XMLRenderer({ xmlContent, className }: XMLRendererProps) {
       const isCollapsible = COLLAPSIBLE_TAGS.has(node.tagName || "");
       const colorClass =
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
-        "bg-gray-50 border-gray-200 text-gray-800";
+        "text-gray-600";
 
       return (
         <div key={tagId} className="my-1">
-          <div
-            className={cn(
-              "inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium",
-              colorClass,
-              isCollapsible &&
-                "cursor-pointer hover:opacity-80 transition-opacity",
-            )}
-            onClick={isCollapsible ? () => toggleCollapse(tagId) : undefined}
-          >
-            {isCollapsible && (
-              <span className="flex items-center">
-                {isCollapsed ? (
-                  <ChevronRight className="w-3 h-3" />
-                ) : (
-                  <ChevronDown className="w-3 h-3" />
-                )}
+          <div className="flex items-start">
+            {/* Chevron in gutter */}
+            <div className="w-4 flex-shrink-0">
+              {isCollapsible && (
+                <button
+                  onClick={() => toggleCollapse(tagId)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="w-3 h-3" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Tag content */}
+            <div className="flex-1">
+              <span className={cn("text-xs font-light", colorClass)}>
+                &lt;{node.tagName}&gt;
               </span>
-            )}
-            <span className="font-semibold">&lt;{node.tagName}&gt;</span>
+
+              {!isCollapsed && node.children && node.children.length > 0 && (
+                <div className="ml-4 mt-1">
+                  {node.children.map((child, childIndex) =>
+                    renderNode(child, childIndex, depth + 1),
+                  )}
+                </div>
+              )}
+
+              {!isCollapsed && (
+                <div className="mt-1">
+                  <span className={cn("text-xs font-light", colorClass)}>
+                    &lt;/{node.tagName}&gt;
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-
-          {!isCollapsed && node.children && node.children.length > 0 && (
-            <div className="ml-4 mt-1">
-              {node.children.map((child, childIndex) =>
-                renderNode(child, childIndex, depth + 1),
-              )}
-            </div>
-          )}
-
-          {!isCollapsed && (
-            <div
-              className={cn(
-                "inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium ml-2",
-                colorClass,
-              )}
-            >
-              <span className="font-semibold">&lt;/{node.tagName}&gt;</span>
-            </div>
-          )}
         </div>
       );
     }
