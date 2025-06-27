@@ -19,8 +19,15 @@ export function TableOfContents({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   const tocItems = useMemo(() => {
-    return extractTOCFromXML(xmlContent);
-  }, [xmlContent]);
+    const items = extractTOCFromXML(xmlContent);
+    // Auto-expand items that contain the target section
+    if (targetSectionUuid) {
+      const expandedSet = new Set<string>();
+      findAndExpandParents(items, targetSectionUuid, expandedSet);
+      setExpandedItems(expandedSet);
+    }
+    return items;
+  }, [xmlContent, targetSectionUuid]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems((prev) => {
@@ -43,7 +50,7 @@ export function TableOfContents({
       <div key={item.id} className="select-none">
         <div
           className={cn(
-            "flex items-center gap-1 py-1 px-2 text-sm cursor-pointer rounded hover:bg-gray-100 transition-colors",
+            "flex items-center gap-2 py-2 px-3 text-sm cursor-pointer rounded hover:bg-gray-100 transition-colors",
             isTarget && "bg-blue-50 text-blue-700 font-medium",
             depth > 0 && "ml-4",
           )}
@@ -67,7 +74,10 @@ export function TableOfContents({
               <FileText className="w-3 h-3 text-gray-400" />
             )}
           </div>
-          <span className="truncate text-gray-700" title={item.title}>
+          <span
+            className="truncate text-gray-700 leading-relaxed"
+            title={item.title}
+          >
             {item.title}
           </span>
         </div>
@@ -95,68 +105,153 @@ export function TableOfContents({
   );
 }
 
+function findAndExpandParents(
+  items: TOCItem[],
+  targetUuid: string,
+  expandedSet: Set<string>,
+): boolean {
+  for (const item of items) {
+    if (item.sectionUuid === targetUuid) {
+      return true;
+    }
+
+    if (
+      item.children &&
+      findAndExpandParents(item.children, targetUuid, expandedSet)
+    ) {
+      expandedSet.add(item.id);
+      return true;
+    }
+  }
+  return false;
+}
+
 function extractTOCFromXML(xmlContent: string): TOCItem[] {
   const items: TOCItem[] = [];
   let itemCounter = 0;
 
-  // Simple XML parsing to extract sections and articles
-  const articleMatches = xmlContent.matchAll(
-    /<article[^>]*>(.*?)<\/article>/gs,
-  );
+  try {
+    // First, let's check if there's a body tag and extract content from it
+    const bodyMatch = xmlContent.match(/<body[^>]*>(.*?)<\/body>/s);
+    const contentToScan = bodyMatch ? bodyMatch[1] : xmlContent;
 
-  for (const articleMatch of articleMatches) {
-    const articleContent = articleMatch[1];
-
-    // Try to extract article title
-    const titleMatch = articleContent.match(/<title[^>]*>(.*?)<\/title>/s);
-    const articleTitle = titleMatch
-      ? titleMatch[1].replace(/<[^>]*>/g, "").trim()
-      : `Article ${itemCounter + 1}`;
-
-    // Extract article UUID if present
-    const uuidMatch = articleContent.match(/<uuid[^>]*>(.*?)<\/uuid>/s);
-    const articleUuid = uuidMatch ? uuidMatch[1].trim() : undefined;
-
-    const articleItem: TOCItem = {
-      id: `article-${itemCounter++}`,
-      title: articleTitle,
-      level: 1,
-      sectionUuid: articleUuid,
-      children: [],
-    };
-
-    // Extract sections within this article
-    const sectionMatches = articleContent.matchAll(
-      /<section[^>]*>(.*?)<\/section>/gs,
+    // Extract all articles from the body
+    const articleMatches = contentToScan.matchAll(
+      /<article([^>]*)>(.*?)<\/article>/gs,
     );
 
-    for (const sectionMatch of sectionMatches) {
-      const sectionContent = sectionMatch[1];
+    for (const articleMatch of articleMatches) {
+      const articleAttributes = articleMatch[1];
+      const articleContent = articleMatch[2];
 
-      const sectionTitleMatch = sectionContent.match(
-        /<title[^>]*>(.*?)<\/title>/s,
+      // Extract title from article attributes
+      const titleMatch = articleAttributes.match(/title="([^"]*)"/);
+      const articleTitle = titleMatch
+        ? titleMatch[1]
+        : `Article ${itemCounter + 1}`;
+
+      // Extract UUID from article attributes
+      const uuidMatch = articleAttributes.match(/uuid="([^"]*)"/);
+      const articleUuid = uuidMatch ? uuidMatch[1] : undefined;
+
+      const articleItem: TOCItem = {
+        id: `article-${itemCounter++}`,
+        title: articleTitle,
+        level: 1,
+        sectionUuid: articleUuid,
+        children: [],
+      };
+
+      // Extract sections within this article
+      const sectionMatches = articleContent.matchAll(
+        /<section([^>]*)>(.*?)<\/section>/gs,
       );
-      const sectionTitle = sectionTitleMatch
-        ? sectionTitleMatch[1].replace(/<[^>]*>/g, "").trim()
-        : `Section ${articleItem.children!.length + 1}`;
 
-      const sectionUuidMatch = sectionContent.match(
-        /<uuid[^>]*>(.*?)<\/uuid>/s,
-      );
-      const sectionUuid = sectionUuidMatch
-        ? sectionUuidMatch[1].trim()
-        : undefined;
+      for (const sectionMatch of sectionMatches) {
+        const sectionAttributes = sectionMatch[1];
 
-      articleItem.children!.push({
-        id: `section-${itemCounter++}`,
+        // Extract title from section attributes
+        const sectionTitleMatch = sectionAttributes.match(/title="([^"]*)"/);
+        const sectionTitle = sectionTitleMatch
+          ? sectionTitleMatch[1]
+          : `Section ${articleItem.children!.length + 1}`;
+
+        // Extract UUID from section attributes
+        const sectionUuidMatch = sectionAttributes.match(/uuid="([^"]*)"/);
+        const sectionUuid = sectionUuidMatch ? sectionUuidMatch[1] : undefined;
+
+        // Extract order attribute if present for better sorting
+        const orderMatch = sectionAttributes.match(/order="([^"]*)"/);
+        const order = orderMatch
+          ? parseInt(orderMatch[1])
+          : articleItem.children!.length + 1;
+
+        articleItem.children!.push({
+          id: `section-${itemCounter++}`,
+          title: sectionTitle,
+          level: 2,
+          sectionUuid: sectionUuid,
+        });
+      }
+
+      // Sort sections by order if available
+      if (articleItem.children!.length > 0) {
+        articleItem.children!.sort((a, b) => {
+          // If we can extract order numbers from titles, use those
+          const aOrder = extractOrderFromTitle(a.title);
+          const bOrder = extractOrderFromTitle(b.title);
+          return aOrder - bOrder;
+        });
+      }
+
+      items.push(articleItem);
+    }
+
+    // Also look for any standalone sections that might not be in articles
+    const standaloneSectionMatches = contentToScan.matchAll(
+      /<section([^>]*)>(?!.*<\/article>)/gs,
+    );
+
+    for (const sectionMatch of standaloneSectionMatches) {
+      const sectionAttributes = sectionMatch[1];
+
+      const titleMatch = sectionAttributes.match(/title="([^"]*)"/);
+      const sectionTitle = titleMatch
+        ? titleMatch[1]
+        : `Section ${itemCounter + 1}`;
+
+      const uuidMatch = sectionAttributes.match(/uuid="([^"]*)"/);
+      const sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
+
+      items.push({
+        id: `standalone-section-${itemCounter++}`,
         title: sectionTitle,
-        level: 2,
+        level: 1,
         sectionUuid: sectionUuid,
       });
     }
-
-    items.push(articleItem);
+  } catch (error) {
+    console.error("Error parsing XML for TOC:", error);
+    // Return a basic structure if parsing fails
+    return [
+      {
+        id: "error-item",
+        title: "Unable to parse document structure",
+        level: 1,
+      },
+    ];
   }
 
   return items;
+}
+
+function extractOrderFromTitle(title: string): number {
+  // Try to extract section numbers like "1.1", "2.3", etc.
+  const match = title.match(/^(\d+)\.?(\d*)/);
+  if (match) {
+    const major = parseInt(match[1]) || 0;
+    const minor = parseInt(match[2]) || 0;
+    return major * 1000 + minor; // This ensures proper sorting
+  }
+  return 9999; // Put items without numbers at the end
 }
