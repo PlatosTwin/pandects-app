@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 export interface LLMOutputState {
   pageUuid: string;
-  promptId: string,
+  promptId: string;
   isLoading: boolean;
   isSaved: boolean;
   showSettings: boolean;
@@ -14,6 +14,8 @@ export interface LLMOutputState {
   showCopySuccess: boolean;
   copyError: boolean;
   showSaveConfirmation: boolean;
+  showErrorModal: boolean;
+  errorMessage: string;
 }
 
 export function useLLMOutput() {
@@ -90,7 +92,9 @@ export function useLLMOutput() {
     try {
       // Simulate API call - replace with actual implementation
       // await new Promise((resolve) => setTimeout(resolve, 1500));
-      const res = await fetch(`http://127.0.0.1:5000/api/llm/${state.pageUuid}`);
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/llm/${state.pageUuid}`,
+      );
       const { promptId, llmOutput, llmOutputCorrected } = await res.json();
       const output = llmOutputCorrected ?? llmOutput;
 
@@ -122,19 +126,19 @@ export function useLLMOutput() {
     try {
       // Simulate API call - replace with actual implementation
       // await new Promise((resolve) => setTimeout(resolve, 500));
-      console.log(state.llmOutput)
+      console.log(state.llmOutput);
       await fetch(
-      `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+        `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            llmOutputCorrected: state.llmOutput,
+          }),
         },
-        body: JSON.stringify({
-          llmOutputCorrected: state.llmOutput,
-        }),
-      }
-    );
+      );
 
       updateState({
         isSaved: true,
