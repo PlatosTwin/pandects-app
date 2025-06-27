@@ -37,6 +37,8 @@ export function useLLMOutput() {
     showSaveConfirmation: false,
     showErrorModal: false,
     errorMessage: "",
+    showInfoModal: false,
+    infoMessage: "",
   });
 
   // Load settings from localStorage on mount
