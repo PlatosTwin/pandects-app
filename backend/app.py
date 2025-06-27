@@ -40,6 +40,11 @@ agreements_table = Table(
     metadata,
     autoload_with=engine,
 )
+xml_table = Table(
+    "xml",
+    metadata,
+    autoload_with=engine,
+)
 sections_table = Table(
     "sections",
     metadata,
@@ -66,6 +71,10 @@ class Sections(db.Model):
     
 class Agreements(db.Model):
     __table__ = agreements_table
+    
+    
+class XML(db.Model):
+    __table__ = xml_table
 
 
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
@@ -109,7 +118,33 @@ def update_llm(page_uuid, prompt_id):
     return jsonify({"status": "updated"}), 200
 
 
-# ── the /api/search endpoint ───────────────────────────────────────
+@app.route("/api/agreements/<string:agreement_uuid>", methods=["GET"])
+def get_agreement(agreement_uuid):
+    # query year, target, acquirer, xml for this agreement_uuid
+    row = (
+        db.session.query(
+            Agreements.year,
+            Agreements.target,
+            Agreements.acquirer,
+            XML.xml
+        )
+        .join(XML, XML.agreement_uuid == Agreements.uuid)
+        .filter(Agreements.uuid == agreement_uuid)
+        .first()
+    )
+
+    if row is None:
+        abort(404)
+
+    year, target, acquirer, xml_content = row
+    return jsonify({
+        "year":     year,
+        "target":   target,
+        "acquirer": acquirer,
+        "xml":      xml_content
+    })
+
+
 @app.route("/api/search", methods=["GET"])
 def search_sections():
     # pull in optional query params

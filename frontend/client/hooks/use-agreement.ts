@@ -1,5 +1,9 @@
 import { useState, useCallback } from "react";
+<<<<<<< HEAD
 import { Agreement } from "@shared/agreement";
+=======
+import { Agreement, AgreementResponse } from "@shared/agreement";
+>>>>>>> b67e1464ae3dac5ea6912901280ebad2df92dbdd
 
 export function useAgreement() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
@@ -19,7 +23,12 @@ export function useAgreement() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
+<<<<<<< HEAD
       const data: Agreement = await response.json();
+=======
+      const data: AgreementResponse = await response.json();
+      console.log(data.agreement)
+>>>>>>> b67e1464ae3dac5ea6912901280ebad2df92dbdd
       setAgreement(data);
     } catch (err) {
       console.error("Failed to fetch agreement:", err);
