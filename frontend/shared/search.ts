@@ -5,6 +5,8 @@ export interface SearchFilters {
   target?: string;
   acquirer?: string;
   clauseType?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface SearchResult {
@@ -24,6 +26,7 @@ export interface SearchResponse {
   totalCount: number;
   page: number;
   pageSize: number;
+  totalPages: number;
 }
 
 // Filter options (to be populated from API)
