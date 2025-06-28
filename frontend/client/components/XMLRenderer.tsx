@@ -23,9 +23,14 @@ const XML_TAG_COLORS = {
   pageUUID: "text-orange-600",
 } as const;
 
-const COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
+const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
+const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
 
-export function XMLRenderer({ xmlContent, className }: XMLRendererProps) {
+export function XMLRenderer({
+  xmlContent,
+  className,
+  mode = "search",
+}: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
 
   const parsedXML = useMemo(() => {
