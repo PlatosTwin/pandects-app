@@ -13,6 +13,7 @@ interface XMLNode {
 interface XMLRendererProps {
   xmlContent: string;
   className?: string;
+  mode?: "search" | "agreement";
 }
 
 const XML_TAG_COLORS = {
