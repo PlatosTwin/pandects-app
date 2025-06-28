@@ -178,6 +178,7 @@ export function AgreementModal({
                 <div className="max-w-4xl mx-auto">
                   <XMLRenderer
                     xmlContent={agreement.xml}
+                    mode="agreement"
                     className="text-sm leading-relaxed"
                   />
                 </div>
