@@ -65,7 +65,11 @@ export function XMLRenderer({
     if (node.type === "tag") {
       const tagId = `${node.tagName}-${index}-${depth}`;
       const isCollapsed = collapsedTags.has(tagId);
-      const isCollapsible = COLLAPSIBLE_TAGS.has(node.tagName || "");
+      const collapsibleTags =
+        mode === "agreement"
+          ? AGREEMENT_COLLAPSIBLE_TAGS
+          : SEARCH_COLLAPSIBLE_TAGS;
+      const isCollapsible = collapsibleTags.has(node.tagName || "");
       const colorClass =
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
         "text-gray-600";
@@ -83,10 +87,120 @@ export function XMLRenderer({
         ? { "data-section-uuid": sectionUuid }
         : {};
 
+      // Handle text tags - remove tags and just render content
+      if (node.tagName === "text") {
+        if (mode === "search") {
+          // In search mode, keep text collapsible
+          return (
+            <div key={tagId} className="my-1">
+              <div className="flex items-start">
+                <div className="w-4 flex-shrink-0">
+                  <button
+                    onClick={() => toggleCollapse(tagId)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
+                <div className="flex-1">
+                  {!isCollapsed && node.children && (
+                    <div className="leading-relaxed">
+                      {node.children.map((child, childIndex) =>
+                        renderNode(child, childIndex, depth + 1),
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        } else {
+          // In agreement mode, just render content without tags
+          return (
+            <div key={tagId} className="my-1 leading-relaxed">
+              {node.children &&
+                node.children.map((child, childIndex) =>
+                  renderNode(child, childIndex, depth + 1),
+                )}
+            </div>
+          );
+        }
+      }
+
+      // Handle pageUUID and page tags - render inline
+      if (node.tagName === "pageUUID" || node.tagName === "page") {
+        const content =
+          node.children?.find((child) => child.type === "text")?.content || "";
+        return (
+          <span
+            key={tagId}
+            className={cn("text-xs font-light inline", colorClass)}
+          >
+            &lt;{node.tagName}&gt;{content}&lt;/{node.tagName}&gt;
+          </span>
+        );
+      }
+
+      // Handle article and section tags in agreement mode
+      if (
+        mode === "agreement" &&
+        (node.tagName === "article" || node.tagName === "section")
+      ) {
+        // Extract title from attributes
+        const titleMatch = node.content.match(/title="([^"]*)"/);
+        const title = titleMatch
+          ? titleMatch[1]
+          : `${node.tagName} ${index + 1}`;
+
+        const headerLevel =
+          node.tagName === "article"
+            ? "text-lg font-semibold"
+            : "text-base font-medium";
+
+        return (
+          <div key={tagId} className="my-4" {...dataAttributes}>
+            <div className="flex items-start">
+              <div className="w-4 flex-shrink-0">
+                {isCollapsible && (
+                  <button
+                    onClick={() => toggleCollapse(tagId)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <h3 className={cn(headerLevel, "text-gray-900 mb-2")}>
+                  {title}
+                </h3>
+
+                {!isCollapsed && node.children && node.children.length > 0 && (
+                  <div className="ml-2">
+                    {node.children.map((child, childIndex) =>
+                      renderNode(child, childIndex, depth + 1),
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // For other tags in search mode or non-collapsible tags
       return (
         <div key={tagId} className="my-1" {...dataAttributes}>
           <div className="flex items-start">
-            {/* Chevron in gutter */}
             <div className="w-4 flex-shrink-0">
               {isCollapsible && (
                 <button
@@ -102,7 +216,6 @@ export function XMLRenderer({
               )}
             </div>
 
-            {/* Tag content */}
             <div className="flex-1">
               <span className={cn("text-xs font-light", colorClass)}>
                 &lt;{node.tagName}&gt;
