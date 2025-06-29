@@ -159,7 +159,7 @@ export function AgreementModal({
         {/* Agreement Metadata */}
         {(agreementMetadata || agreement) && (
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="grid grid-cols-3 gap-6 text-sm">
+            <div className="grid grid-cols-4 gap-6 text-sm">
               <div>
                 <span className="font-medium text-material-text-secondary">
                   Year:
@@ -183,6 +183,22 @@ export function AgreementModal({
                 <div className="text-material-text-primary">
                   {agreementMetadata?.acquirer || agreement?.acquirer}
                 </div>
+              </div>
+
+              {/* Original Filing Link */}
+              <div className="flex justify-end">
+                {agreement?.url && (
+                  <a
+                    href={agreement.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-material-blue hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors group"
+                    title="View original SEC filing"
+                  >
+                    <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    <span>Original Filing</span>
+                  </a>
+                )}
               </div>
             </div>
           </div>
