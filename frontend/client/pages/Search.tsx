@@ -13,6 +13,7 @@ import InfoModal from "@/components/InfoModal";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
+import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 
 export default function Search() {
   const {
@@ -58,7 +59,29 @@ export default function Search() {
   };
 
   // Placeholder data for dropdowns
-  const years = ["2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008", "2007", "2006", "2005", "2004", "2003", "2002", "2001", "2000"];
+  const years = [
+    "2020",
+    "2019",
+    "2018",
+    "2017",
+    "2016",
+    "2015",
+    "2014",
+    "2013",
+    "2012",
+    "2011",
+    "2010",
+    "2009",
+    "2008",
+    "2007",
+    "2006",
+    "2005",
+    "2004",
+    "2003",
+    "2002",
+    "2001",
+    "2000",
+  ];
   const targets = [
     "Apple Inc.",
     "Microsoft Corp.",
@@ -73,19 +96,251 @@ export default function Search() {
     "Wells Fargo",
     "Goldman Sachs",
   ];
-  const clauseTypes = [
-    'Conditions to Closing',
-    'Covenants and Additional Agreements',
-    'Definitions',
-    'Dispute Resolution',
-    'Indemnification',
-    'Miscellaneous and General Provisions',
-    'Organizational Documents and Governance',
-    'Representations and Warranties',
-    'Tax Matters',
-    'Termination',
-    'Transaction Mechanics'
-  ];
+
+  const clauseTypesNested = {
+    "Conditions, Termination & Closing": {
+      "Closing Conditions": {
+        "Conditions to Closing \u2013 Mutual or Each Party": "",
+        "Conditions to Closing \u2013 Party Specific": "",
+      },
+      "Closing Mechanics": {
+        "Accountant Consents & Comfort Letters": "",
+        "Appraisal / Dissenters' Rights": "",
+        "Asset Purchase Mechanics": "",
+        "Basic Merger Mechanics": "",
+        "Closing Deliverables": "",
+        "Effective Time; Closing Filings": "",
+        "Effects of the Merger": "",
+        "Exchange & Payment Mechanics (Share Surrender)": "",
+        "Offer; Tender Procedures": "",
+        "Shareholder & Stockholder Meetings": "",
+        "Stock Purchase Mechanics": "",
+        "Top-Up Options & Short-Form Merger Provisions": "",
+      },
+      "Termination Rights & Fees": {
+        "Termination Effects": "",
+        "Termination Fees & Break-Up Fees": "",
+        "Termination Rights & Triggers": "",
+      },
+    },
+    "Consideration & Economics": {
+      "Assumption of Liabilities": {
+        "Assumed Liabilities": "",
+      },
+      "Purchase Price & Adjustments": {
+        "Contingent Value Rights (CVR) & Earn-Out Agreements": "",
+        Distributions: "",
+        "Fairness Opinions & Financial Advisors": "",
+        "Purchase Price and Post-Closing Adjustments": "",
+      },
+      "Stock & Equity Consideration": {
+        "Hook Stock & Treasury Shares": "",
+        "Stock Issuance & Reservation": "",
+      },
+    },
+    Covenants: {
+      "Disclosure Schedule Interpretation": {
+        "Disclosure Schedule Interpretation & Cross-References": "",
+      },
+      "Interim Covenants": {
+        "Access to Information / Inspection Rights": "",
+        "Disclosure Schedule Updates & Notice of Certain Events": "",
+        "Interim Operating Covenants & Forbearances": "",
+        "Merger Sub Covenants": "",
+        "Multiple Seller Coordination & Relationship Provisions": "",
+        "No-Shop / Non-Solicitation Covenants": "",
+        "Pre-Closing Reorganization & Structure Steps": "",
+        "Reasonable Best Efforts; Cooperation": "",
+        "Restrictive Covenants (Non-Competition / Non-Solicitation)": "",
+        "Transfer Restrictions & Lock-Up": "",
+      },
+      "Post-Closing Covenants": {
+        "Further Assurances & Post-Closing Cooperation": "",
+        "Integration Planning & Transitional Matters": "",
+        "Miscellaneous Covenants": "",
+        "Transition Services": "",
+        "Use of Name & Trademark Covenants": "",
+      },
+    },
+    "Employment & Benefits": {
+      "Employee Matters": {
+        "Equity Awards, Stock Options & Company Benefit Equity": "",
+        "Labor, Employment & Employee Benefit Plans": "",
+      },
+    },
+    "Financing & Funding": {
+      "Debt & Instruments": {
+        "Debt Instruments and Financing Arrangements": "",
+        "Derivatives & Hedging Arrangements": "",
+      },
+      "Financing Commitments & Ability": {
+        "Financing Ability / Funds Availability": "",
+        "Financing Source Provisions & Waivers": "",
+        "Parent/Holdco Guarantees": "",
+      },
+      "Financing Covenants": {
+        "Financing Cooperation & Support Covenants": "",
+      },
+    },
+    "General Provisions": {
+      "Boilerplate & Construction": {
+        "Alternative Transaction Structure / Change of Method": "",
+        "Amendments; Extensions; Waivers": "",
+        "Arbitration & Dispute Resolution": "",
+        "Assignment & Successors": "",
+        Confidentiality: "",
+        "Counterparts & Electronic Signatures": "",
+        "Entire Agreement": "",
+        "Governing Law; Jurisdiction; Jury Trial": "",
+        "Language & Translation": "",
+        "No Third Party Beneficiaries": "",
+        "Notices & Communications": "",
+        "Relationship of the Parties; Independent Contractor Status": "",
+        "Remedies; Specific Performance": "",
+        "Service of Process": "",
+        "Severability and Boilerplate Provisions": "",
+      },
+      Definitions: {
+        "Definitions & Interpretation": "",
+      },
+      "Expenses & Advisors": {
+        "Brokers & Finders Fees": "",
+        "Fees and Expenses": "",
+      },
+    },
+    "Governance & Shareholder Matters": {
+      "Board & Committees": {
+        "Board Approval & Recommendation": "",
+        "Conflicts Committee Matters": "",
+      },
+      "Post-Merger Governance": {
+        "Directors, Officers & Governance of Surviving Entity": "",
+      },
+      "Shareholder Agreements & Voting": {
+        "Securityholder Representative Provisions": "",
+        "Voting, Support & Shareholder Agreements": "",
+      },
+      "Takeover & Anti-Takeover": {
+        "Antitakeover / Takeover Statutes": "",
+        "UK Takeover Panel Matters": "",
+      },
+    },
+    "Indemnification & Liability": {
+      "Indemnification Mechanics": {
+        "Indemnifiable Losses Definition": "",
+        "Indemnification Escrow & Holdback Provisions": "",
+        "Indemnification Limitations (Caps & Baskets)": "",
+        "Indemnification Procedures": "",
+      },
+      Indemnities: {
+        "Indemnification by Purchaser / Buyer": "",
+        "Indemnification by Seller / Target": "",
+      },
+      "Survival & Recourse": {
+        "D&O Indemnification & Insurance": "",
+        "Indemnification \u2013 Exclusive Remedy / Sole Remedy": "",
+        "Non-Recourse & Limited Liability": "",
+        "Seller Releases & Waivers": "",
+        "Survival / Non-Survival of Reps & Warranties": "",
+      },
+    },
+    "Regulatory & Compliance": {
+      "Antitrust & Competition": {
+        "Antitrust & Competition Filings": "",
+      },
+      "Government Approvals": {
+        "Governmental Approvals & Consents": "",
+      },
+      "Insider Trading & Section 16": {
+        "Section 16 & Insider Trading Compliance (incl. Rule 16b-3)": "",
+      },
+      "Securities Filings & Disclosure": {
+        "Proxy Statement, Prospectus & Registration Matters": "",
+        "Public Disclosure, Press Releases & SEC Communications": "",
+        "Securities Documents & Capital Markets Filings": "",
+      },
+      "Stock Exchange": {
+        "Stock Exchange Listing": "",
+      },
+    },
+    "Representations & Warranties": {
+      "Assets & Liabilities": {
+        "Accounts Receivable & Accounts Payable": "",
+        "Assets; Inventory & Goodwill": "",
+        "Casualty Loss and Condemnation": "",
+        "Deposits & Deposit Liabilities (Banking)": "",
+        "Excluded Assets": "",
+        "Loan Portfolio & Asset Quality": "",
+        "Real Property & Tangible Assets": "",
+        "Undisclosed Liabilities": "",
+      },
+      "Books & Records": {
+        "Books & Records": "",
+      },
+      "Capital Structure": {
+        Capitalization: "",
+        "Stock Ownership Representations": "",
+      },
+      "Changes & Updates": {
+        "Absence of Certain Changes / Events": "",
+      },
+      "Contracts & Relationships": {
+        "Customers & Suppliers; Business Relationships": "",
+        "Material Contracts & Commitments": "",
+        "Related Party Transactions": "",
+      },
+      "Corporate Organization & Authority": {
+        "Authority & Non-Contravention": "",
+        "Charter & Bylaws of Surviving Entity": "",
+        "General / Introductory Representations & Warranties": "",
+        "Merger Sub Representations": "",
+        "Organizational Matters (Existence, Qualification, Subsidiaries)": "",
+        "Solvency Representations": "",
+      },
+      "Disclosure & Accuracy": {
+        "Disclaimer of Other Representations": "",
+        "Disclosure; Accuracy of Information": "",
+      },
+      "Financial Information & Controls": {
+        "Financial Projections & Forecasts": "",
+        "Financial Statements & Accounting": "",
+        "Interim Financial Information": "",
+        "Internal Controls & Sarbanes-Oxley Compliance": "",
+      },
+      "Insurance & Warranty": {
+        "Insurance Matters": "",
+        "Product Warranty & Liability": "",
+      },
+      "Intellectual Property": {
+        "Intellectual Property": "",
+      },
+      "Litigation & Disputes": {
+        "Litigation & Legal Proceedings": "",
+        "Shareholder & Securityholder Litigation": "",
+      },
+      "Operational Compliance & Permits": {
+        "Anti-Corruption & FCPA Compliance": "",
+        "Compliance with Laws and Regulatory Matters": "",
+        "Data Privacy & Cybersecurity": "",
+        "Environmental Matters": "",
+        "Permits & Franchises": "",
+      },
+    },
+    "Tax Matters": {
+      "Tax Covenants": {
+        "Other Tax Covenants / Tax Treatment of Payments": "",
+      },
+      "Tax Disputes": {
+        "Tax Proceedings; Disputes and Audit Contests": "",
+      },
+      "Tax Representations": {
+        "Tax Representations": "",
+      },
+      "Transfer Taxes": {
+        "Transfer Taxes": "",
+      },
+    },
+  };
 
   return (
     <div className="w-full font-roboto flex flex-col">
@@ -121,11 +376,12 @@ export default function Search() {
             onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
           />
 
-          <CheckboxFilter
+          <NestedCheckboxFilter
             label="Clause Type"
-            options={clauseTypes}
+            data={clauseTypesNested}
             selectedValues={filters.clauseType || []}
             onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
+            useModal={true}
           />
         </div>
 
