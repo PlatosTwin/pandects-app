@@ -3,10 +3,10 @@ import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
-    year: "",
-    target: "",
-    acquirer: "",
-    clauseType: "",
+    year: [],
+    target: [],
+    acquirer: [],
+    clauseType: [],
     page: 1,
     pageSize: 25,
   });
