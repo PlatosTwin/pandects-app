@@ -7,7 +7,6 @@ interface XMLNode {
   content: string;
   tagName?: string;
   children?: XMLNode[];
-  isCollapsible?: boolean;
 }
 
 interface XMLRendererProps {
