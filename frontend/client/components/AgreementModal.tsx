@@ -40,15 +40,37 @@ export function AgreementModal({
     }
   }, [isOpen, agreementUuid, fetchAgreement, clearAgreement]);
 
-  const scrollToSection = (sectionUuid: string) => {
+  const scrollToSection = (
+    sectionUuid: string,
+    shouldHighlight: boolean = false,
+  ) => {
     if (!contentRef.current) return;
 
     // Find element with data-section-uuid attribute
     const sectionElement = contentRef.current.querySelector(
       `[data-section-uuid="${sectionUuid}"]`,
-    );
+    ) as HTMLElement;
+
     if (sectionElement) {
-      sectionElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      // For articles, scroll to the top (start) of the article
+      // For sections, scroll to center
+      const isArticle =
+        sectionElement.querySelector("[data-article-header]") !== null;
+      const scrollOptions: ScrollIntoViewOptions = {
+        behavior: "smooth",
+        block: isArticle ? "start" : "center",
+      };
+
+      sectionElement.scrollIntoView(scrollOptions);
+
+      // Add highlighting if requested
+      if (shouldHighlight) {
+        setHighlightedSection(sectionUuid);
+        // Remove highlight after animation
+        setTimeout(() => {
+          setHighlightedSection(null);
+        }, 2000);
+      }
     }
   };
 
