@@ -76,9 +76,9 @@ export function AgreementModal({
 
   useEffect(() => {
     if (agreement && targetSectionUuid) {
-      // Delay scroll to allow content to render
+      // Delay scroll to allow content to render, and highlight the target section
       const timer = setTimeout(() => {
-        scrollToSection(targetSectionUuid);
+        scrollToSection(targetSectionUuid, true);
       }, 500);
       return () => clearTimeout(timer);
     }
