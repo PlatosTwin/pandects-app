@@ -63,16 +63,16 @@ class LLMOut(db.Model):
 
 class Prompts(db.Model):
     __table__ = prompts_table
-    
+
 
 class Sections(db.Model):
     __table__ = sections_table
-    
-    
+
+
 class Agreements(db.Model):
     __table__ = agreements_table
-    
-    
+
+
 class XML(db.Model):
     __table__ = xml_table
 
@@ -147,11 +147,12 @@ def get_agreement(agreement_uuid):
 
 @app.route("/api/search", methods=["GET"])
 def search_sections():
-    # pull in optional query params
-    year        = request.args.get("year",       type=int)
-    target      = request.args.get("target",     type=str)
-    acquirer    = request.args.get("acquirer",   type=str)
-    standard_id = request.args.get("standardID", type=str)
+    # pull in optional query params - now supporting multiple values
+    years        = request.args.getlist("year")
+    targets      = request.args.getlist("target")
+    acquirers    = request.args.getlist("acquirer")
+    clause_types = request.args.getlist("clauseType")
+    standard_id  = request.args.get("standardID", type=str)
 
     # build the base ORM query
     q = (
