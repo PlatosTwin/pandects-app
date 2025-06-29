@@ -220,10 +220,10 @@ export function useSearch() {
 
   const clearFilters = useCallback(() => {
     setFilters({
-      year: "",
-      target: "",
-      acquirer: "",
-      clauseType: "",
+      year: [],
+      target: [],
+      acquirer: [],
+      clauseType: [],
       page: 1,
       pageSize: 25,
     });
