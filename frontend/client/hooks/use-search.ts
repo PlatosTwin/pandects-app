@@ -286,6 +286,7 @@ export function useSearch() {
     showNoResultsModal,
     actions: {
       updateFilter,
+      toggleFilterValue,
       performSearch,
       downloadCSV,
       clearFilters,
