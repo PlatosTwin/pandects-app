@@ -94,157 +94,33 @@ export default function Search() {
 
         {/* Search Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Year */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Year
-            </label>
-            <div className="relative">
-              <select
-                value={filters.year}
-                onChange={(e) => actions.updateFilter("year", e.target.value)}
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Years</option>
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Year"
+            options={years}
+            selectedValues={filters.year || []}
+            onToggle={(value) => actions.toggleFilterValue("year", value)}
+          />
 
-          {/* Target */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Target
-            </label>
-            <div className="relative">
-              <select
-                value={filters.target}
-                onChange={(e) => actions.updateFilter("target", e.target.value)}
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Targets</option>
-                {targets.map((target) => (
-                  <option key={target} value={target}>
-                    {target}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Target"
+            options={targets}
+            selectedValues={filters.target || []}
+            onToggle={(value) => actions.toggleFilterValue("target", value)}
+          />
 
-          {/* Acquirer */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Acquirer
-            </label>
-            <div className="relative">
-              <select
-                value={filters.acquirer}
-                onChange={(e) =>
-                  actions.updateFilter("acquirer", e.target.value)
-                }
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Acquirers</option>
-                {acquirers.map((acquirer) => (
-                  <option key={acquirer} value={acquirer}>
-                    {acquirer}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Acquirer"
+            options={acquirers}
+            selectedValues={filters.acquirer || []}
+            onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
+          />
 
-          {/* Clause Type */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Clause Type
-            </label>
-            <div className="relative">
-              <select
-                value={filters.clauseType}
-                onChange={(e) =>
-                  actions.updateFilter("clauseType", e.target.value)
-                }
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Types</option>
-                {clauseTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Clause Type"
+            options={clauseTypes}
+            selectedValues={filters.clauseType || []}
+            onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
+          />
         </div>
 
         {/* Action Buttons */}
