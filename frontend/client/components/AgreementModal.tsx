@@ -52,24 +52,49 @@ export function AgreementModal({
     ) as HTMLElement;
 
     if (sectionElement) {
-      // Check if this element itself has the data-article-header attribute
-      const isArticle = sectionElement.hasAttribute("data-article-header");
+      // First, check if this section/article is collapsed and expand it if needed
+      const collapseButton = sectionElement.querySelector(
+        'button[class*="text-gray-400"]',
+      ) as HTMLButtonElement;
+      if (collapseButton) {
+        // Check if it's collapsed by looking for ChevronRight icon (collapsed state)
+        const chevronRight = collapseButton.querySelector(
+          'svg[class*="w-3 h-3"], svg[class*="w-4 h-4"]',
+        );
+        if (chevronRight) {
+          // If we find a chevron, click the button to expand
+          collapseButton.click();
 
-      // Both articles and sections should scroll to show their headers at the top
-      const scrollOptions: ScrollIntoViewOptions = {
-        behavior: "smooth",
-        block: "start", // Always scroll to start to show the header
-      };
+          // Wait a moment for the expansion animation to complete before scrolling
+          setTimeout(() => {
+            performScroll();
+          }, 100);
+        } else {
+          // Already expanded, scroll immediately
+          performScroll();
+        }
+      } else {
+        // No collapse button found, scroll immediately
+        performScroll();
+      }
 
-      sectionElement.scrollIntoView(scrollOptions);
+      function performScroll() {
+        // Both articles and sections should scroll to show their headers at the top
+        const scrollOptions: ScrollIntoViewOptions = {
+          behavior: "smooth",
+          block: "start", // Always scroll to start to show the header
+        };
 
-      // Add highlighting if requested
-      if (shouldHighlight) {
-        setHighlightedSection(sectionUuid);
-        // Remove highlight after animation
-        setTimeout(() => {
-          setHighlightedSection(null);
-        }, 2000);
+        sectionElement.scrollIntoView(scrollOptions);
+
+        // Add highlighting if requested
+        if (shouldHighlight) {
+          setHighlightedSection(sectionUuid);
+          // Remove highlight after animation
+          setTimeout(() => {
+            setHighlightedSection(null);
+          }, 2000);
+        }
       }
     }
   };
