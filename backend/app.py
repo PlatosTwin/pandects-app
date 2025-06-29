@@ -170,13 +170,28 @@ def search_sections():
         .join(Agreements, Sections.agreement_uuid == Agreements.uuid)
     )
 
-    # apply filters only when provided
-    if year is not None:
-        q = q.filter(Agreements.year == year)
-    if target:
-        q = q.filter(Agreements.target.ilike(f"%{target}%"))
-    if acquirer:
-        q = q.filter(Agreements.acquirer.ilike(f"%{acquirer}%"))
+    # apply filters only when provided - now handling multiple values
+    if years:
+        # Convert years to integers for filtering
+        year_ints = [int(year) for year in years if year.isdigit()]
+        if year_ints:
+            q = q.filter(Agreements.year.in_(year_ints))
+
+    if targets:
+        # Use OR conditions for multiple targets with ILIKE
+        target_conditions = [Agreements.target.ilike(f"%{target}%") for target in targets]
+        q = q.filter(db.or_(*target_conditions))
+
+    if acquirers:
+        # Use OR conditions for multiple acquirers with ILIKE
+        acquirer_conditions = [Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers]
+        q = q.filter(db.or_(*acquirer_conditions))
+
+    if clause_types:
+        # For clause types, we might need to filter on section content or add a clause_type field
+        # For now, this is a placeholder - you may need to adjust based on your data model
+        pass
+
     if standard_id:
         q = q.filter(Sections.standard_id == standard_id)
 
