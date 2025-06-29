@@ -205,6 +205,7 @@ export function AgreementModal({
                     xmlContent={agreement.xml}
                     mode="agreement"
                     className="text-sm leading-relaxed"
+                    highlightedSection={highlightedSection}
                   />
                 </div>
               </div>
