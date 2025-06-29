@@ -57,15 +57,11 @@ export function AgreementModal({
         'button[class*="text-gray-400"]',
       ) as HTMLButtonElement;
       if (collapseButton) {
-        // Check if it's collapsed by looking specifically for ChevronRight icon (collapsed state)
-        const chevronRight = collapseButton.querySelector("svg") as SVGElement;
-
-        // Check if the chevron is pointing right (collapsed) by looking at the SVG path or checking rotation
-        // ChevronRight has a different path than ChevronDown
+        // Check if it's collapsed by looking for the content div that should be visible when expanded
+        // In the XMLRenderer, collapsed content has children that are hidden/not rendered
+        const contentContainer = sectionElement.querySelector(".ml-2");
         const isCollapsed =
-          chevronRight &&
-          (chevronRight.innerHTML.includes("m9 18 6-6-6-6") || // ChevronRight path
-            chevronRight.querySelector('path[d*="m9 18 6-6-6-6"]') !== null);
+          !contentContainer || contentContainer.children.length === 0;
 
         if (isCollapsed) {
           // Section is collapsed, expand it first
