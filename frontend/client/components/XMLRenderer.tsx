@@ -178,8 +178,8 @@ export function XMLRenderer({
             {...dataAttributes}
             {...additionalAttributes}
           >
-            <div className="flex items-start">
-              <div className="w-4 flex-shrink-0">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
                 {isCollapsible && (
                   <button
                     onClick={() => toggleCollapse(tagId)}
