@@ -25,10 +25,35 @@ export function NestedCheckboxFilter({
   selectedValues,
   onToggle,
   className,
+  useModal = false,
 }: NestedCheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandState, setExpandState] = useState<ExpandState>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Initialize all categories as expanded when using modal mode
+  useEffect(() => {
+    if (useModal && isExpanded) {
+      const initializeExpandState = (
+        obj: NestedCategory,
+        path: string[] = [],
+      ): ExpandState => {
+        const state: ExpandState = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (typeof value === "object") {
+            const expandKey = [...path, key].join(".");
+            state[expandKey] = true;
+            Object.assign(
+              state,
+              initializeExpandState(value as NestedCategory, [...path, key]),
+            );
+          }
+        }
+        return state;
+      };
+      setExpandState(initializeExpandState(data));
+    }
+  }, [useModal, isExpanded, data]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
