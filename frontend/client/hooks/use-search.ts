@@ -22,8 +22,27 @@ export function useSearch() {
   const [showNoResultsModal, setShowNoResultsModal] = useState(false);
 
   const updateFilter = useCallback(
+    (field: keyof SearchFilters, value: string | string[]) => {
+      if (field === "page" || field === "pageSize") {
+        setFilters((prev) => ({ ...prev, [field]: value as number }));
+      } else {
+        setFilters((prev) => ({ ...prev, [field]: value as string[] }));
+      }
+    },
+    [],
+  );
+
+  const toggleFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
-      setFilters((prev) => ({ ...prev, [field]: value }));
+      if (field === "page" || field === "pageSize") return;
+
+      setFilters((prev) => {
+        const currentValues = (prev[field] as string[]) || [];
+        const newValues = currentValues.includes(value)
+          ? currentValues.filter((v) => v !== value)
+          : [...currentValues, value];
+        return { ...prev, [field]: newValues };
+      });
     },
     [],
   );
