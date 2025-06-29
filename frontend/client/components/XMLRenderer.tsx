@@ -26,7 +26,7 @@ const XML_TAG_COLORS = {
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
 const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
 
-export function XMLRenderer({
+export function XMLRenderer({ xmlContent, className, mode = "search", highlightedSection }: XMLRendererProps) {
   xmlContent,
   className,
   mode = "search",
