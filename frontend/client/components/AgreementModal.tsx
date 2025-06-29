@@ -95,6 +95,16 @@ export function AgreementModal({
 
         sectionElement.scrollIntoView(scrollOptions);
 
+        // Add additional offset to leave space at top (about 1/4 inch = ~18px)
+        setTimeout(() => {
+          if (contentRef.current) {
+            contentRef.current.scrollBy({
+              top: -20,
+              behavior: "smooth",
+            });
+          }
+        }, 100);
+
         // Add highlighting if requested
         if (shouldHighlight) {
           setHighlightedSection(sectionUuid);
