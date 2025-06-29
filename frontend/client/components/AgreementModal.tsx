@@ -27,6 +27,9 @@ export function AgreementModal({
   const { agreement, isLoading, error, fetchAgreement, clearAgreement } =
     useAgreement();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [highlightedSection, setHighlightedSection] = useState<string | null>(
+    null,
+  );
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
