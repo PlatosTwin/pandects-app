@@ -52,13 +52,13 @@ export function AgreementModal({
     ) as HTMLElement;
 
     if (sectionElement) {
-      // For articles, scroll to the top (start) of the article
-      // For sections, scroll to center
-      const isArticle =
-        sectionElement.querySelector("[data-article-header]") !== null;
+      // Check if this element itself has the data-article-header attribute
+      const isArticle = sectionElement.hasAttribute("data-article-header");
+
+      // Both articles and sections should scroll to show their headers at the top
       const scrollOptions: ScrollIntoViewOptions = {
         behavior: "smooth",
-        block: isArticle ? "start" : "center",
+        block: "start", // Always scroll to start to show the header
       };
 
       sectionElement.scrollIntoView(scrollOptions);
