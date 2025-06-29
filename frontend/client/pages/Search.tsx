@@ -99,11 +99,234 @@ export default function Search() {
   // TODO: Replace this placeholder with the actual nested clause types JSON
   // Format: { "TopCategory": { "SubCategory": { "SubSubCategory": "" } } }
   const clauseTypesNested = {
-    "Sample Category": {
-      "Sample Subcategory": {
-        "Sample Clause Type": "",
+    'Closing & Post-Closing Matters': {
+      'Appraisal & Dissenters': { "Appraisal / Dissenters' Rights": '' },
+      'Books & Records': { 'Books & Records': '' },
+      'D&O Matters': { 'D&O Indemnification & Insurance': '' },
+      'Effective Time & Filings': { 'Effective Time; Closing Filings': '' },
+      'Post-Closing Cooperation': {
+        'Further Assurances & Post-Closing Cooperation': '',
+        'Integration Planning & Transitional Matters': '',
+        'Transition Services': ''
       },
+      'Securityholder Matters': {
+        'Securityholder Representative Provisions': '',
+        'Seller Releases & Waivers': ''
+      }
     },
+    'Conditions to Closing': {
+      'Deliverables & Consents': {
+        'Accountant Consents & Comfort Letters': '',
+        'Closing Deliverables': ''
+      },
+      'Mutual Conditions': { 'Conditions to Closing – Mutual or Each Party': '' },
+      'Party-Specific Conditions': { 'Conditions to Closing – Party Specific': '' }
+    },
+    'Consideration & Deal Structure': {
+      'Asset & Liability Transfers': {
+        'Asset Purchase Mechanics': '',
+        'Assumed Liabilities': '',
+        'Excluded Assets': ''
+      },
+      'Basic Merger Mechanics': {
+        'Alternative Transaction Structure / Change of Method': '',
+        'Basic Merger Mechanics': '',
+        'Effective Time; Closing Filings': '',
+        'Effects of the Merger': '',
+        'Pre-Closing Reorganization & Structure Steps': ''
+      },
+      'Earn-Outs & Contingent Consideration': { 'Contingent Value Rights (CVR) & Earn-Out Agreements': '' },
+      'Equity & Stock Mechanics': {
+        'Hook Stock & Treasury Shares': '',
+        'Stock Issuance & Reservation': '',
+        'Stock Purchase Mechanics': '',
+        'Top-Up Options & Short-Form Merger Provisions': '',
+        'Transfer Restrictions & Lock-Up': ''
+      },
+      'Price Adjustments & Payment': {
+        'Distributions': '',
+        'Exchange & Payment Mechanics (Share Surrender)': '',
+        'Purchase Price and Post-Closing Adjustments': ''
+      }
+    },
+    'Covenants': {
+      'Confidentiality & Publicity': {
+        'Confidentiality': '',
+        'Public Disclosure, Press Releases & SEC Communications': ''
+      },
+      'Employee & Benefits Covenants': {
+        'Equity Awards, Stock Options & Company Benefit Equity': '',
+        'Labor, Employment & Employee Benefit Plans': '',
+        'Restrictive Covenants (Non-Competition / Non-Solicitation)': ''
+      },
+      'Financing Cooperation': {
+        'Financing Cooperation & Support Covenants': '',
+        'Financing Source Provisions & Waivers': ''
+      },
+      'Interim Conduct': {
+        'Interim Financial Information': '',
+        'Interim Operating Covenants & Forbearances': ''
+      },
+      'Merger Sub Covenants': { 'Merger Sub Covenants': '' },
+      'Operational Covenants': {
+        'Access to Information / Inspection Rights': '',
+        'Brokers & Finders Fees': '',
+        'Disclosure Schedule Updates & Notice of Certain Events': '',
+        'Fees and Expenses': '',
+        'Miscellaneous Covenants': '',
+        'Reasonable Best Efforts; Cooperation': '',
+        'Relationship of the Parties; Independent Contractor Status': '',
+        'Use of Name & Trademark Covenants': ''
+      },
+      'Regulatory & Antitrust Cooperation': {
+        'Antitakeover / Takeover Statutes': '',
+        'Antitrust & Competition Filings': '',
+        'Governmental Approvals & Consents': '',
+        'UK Takeover Panel Matters': ''
+      },
+      'Securityholder Coordination': {
+        'Multiple Seller Coordination & Relationship Provisions': '',
+        'Securityholder Representative Provisions': ''
+      },
+      'Shareholder Support & Solicitation': {
+        'Board Approval & Recommendation': '',
+        'No-Shop / Non-Solicitation Covenants': '',
+        'Offer; Tender Procedures': '',
+        'Proxy Statement, Prospectus & Registration Matters': '',
+        'Shareholder & Stockholder Meetings': '',
+        'Voting, Support & Shareholder Agreements': ''
+      }
+    },
+    'Disclosure & Communications': {
+      'Proxy, Prospectus & Registration': { 'Proxy Statement, Prospectus & Registration Matters': '' },
+      'Public Disclosure': { 'Public Disclosure, Press Releases & SEC Communications': '' }
+    },
+    'Employment & Employee Benefits': {
+      'Equity Compensation': { 'Equity Awards, Stock Options & Company Benefit Equity': '' },
+      'Plans & Benefits': { 'Labor, Employment & Employee Benefit Plans': '' },
+      'Restrictive Covenants': { 'Restrictive Covenants (Non-Competition / Non-Solicitation)': '' }
+    },
+    'Financing': {
+      'Debt & Financing Commitments': {
+        'Debt Instruments and Financing Arrangements': '',
+        'Financing Ability / Funds Availability': ''
+      },
+      'Derivatives & Hedging': { 'Derivatives & Hedging Arrangements': '' },
+      'Fairness Opinions & Advisors': { 'Fairness Opinions & Financial Advisors': '' },
+      'Financing Guarantees & Support': { 'Parent/Holdco Guarantees': '' },
+      'Financing Source Provisions': { 'Financing Source Provisions & Waivers': '' }
+    },
+    'Governance & Capital Markets': {
+      'Capital Markets Filings': {
+        'Securities Documents & Capital Markets Filings': '',
+        'Stock Exchange Listing': ''
+      },
+      'Conflicts & Committees': { 'Conflicts Committee Matters': '' },
+      'Post-Closing Governance': {
+        'Charter & Bylaws of Surviving Entity': '',
+        'Directors, Officers & Governance of Surviving Entity': ''
+      },
+      'Section 16 & Insider Compliance': { 'Section 16 & Insider Trading Compliance (incl. Rule 16b-3)': '' }
+    },
+    'Indemnification': {
+      'D&O and Other Special Indemnities': { 'D&O Indemnification & Insurance': '' },
+      'Indemnification by Buyer': { 'Indemnification by Purchaser / Buyer': '' },
+      'Indemnification by Seller': { 'Indemnification by Seller / Target': '' },
+      'Procedures & Limitations': {
+        'Indemnifiable Losses Definition': '',
+        'Indemnification Escrow & Holdback Provisions': '',
+        'Indemnification Limitations (Caps & Baskets)': '',
+        'Indemnification Procedures': '',
+        'Indemnification – Exclusive Remedy / Sole Remedy': ''
+      }
+    },
+    'Interpretation & Construction': {
+      'Boilerplate & Construction': {
+        'Amendments; Extensions; Waivers': '',
+        'Assignment & Successors': '',
+        'Counterparts & Electronic Signatures': '',
+        'Disclaimer of Other Representations': '',
+        'Disclosure Schedule Interpretation & Cross-References': '',
+        'Entire Agreement': '',
+        'Language & Translation': '',
+        'No Third Party Beneficiaries': '',
+        'Non-Recourse & Limited Liability': '',
+        'Severability and Boilerplate Provisions': ''
+      },
+      'Definitions': { 'Definitions & Interpretation': '' },
+      'Governing Law, Notices & Service': {
+        'Arbitration & Dispute Resolution': '',
+        'Governing Law; Jurisdiction; Jury Trial': '',
+        'Notices & Communications': '',
+        'Service of Process': ''
+      }
+    },
+    'Regulatory & Compliance': {
+      'Antitrust & Competition': {
+        'Antitakeover / Takeover Statutes': '',
+        'Antitrust & Competition Filings': '',
+        'UK Takeover Panel Matters': ''
+      },
+      'Government Approvals': { 'Governmental Approvals & Consents': '' }
+    },
+    'Remedies & Dispute Resolution': { 'Specific Performance & Remedies': { 'Remedies; Specific Performance': '' } },
+    'Representations & Warranties': {
+      'Business Assets & Operations': {
+        'Assets; Inventory & Goodwill': '',
+        'Books & Records': '',
+        'Customers & Suppliers; Business Relationships': '',
+        'Deposits & Deposit Liabilities (Banking)': '',
+        'Derivatives & Hedging Arrangements': '',
+        'Loan Portfolio & Asset Quality': '',
+        'Material Contracts & Commitments': '',
+        'Product Warranty & Liability': '',
+        'Real Property & Tangible Assets': '',
+        'Related Party Transactions': ''
+      },
+      'Compliance & Regulatory': {
+        'Anti-Corruption & FCPA Compliance': '',
+        'Compliance with Laws and Regulatory Matters': '',
+        'Data Privacy & Cybersecurity': '',
+        'Environmental Matters': '',
+        'Internal Controls & Sarbanes-Oxley Compliance': '',
+        'Permits & Franchises': ''
+      },
+      'Corporate & Organization': {
+        'Authority & Non-Contravention': '',
+        'Capitalization': '',
+        'General / Introductory Representations & Warranties': '',
+        'Merger Sub Representations': '',
+        'Organizational Matters (Existence, Qualification, Subsidiaries)': '',
+        'Solvency Representations': '',
+        'Stock Ownership Representations': ''
+      },
+      'Financial Matters': {
+        'Accounts Receivable & Accounts Payable': '',
+        'Financial Projections & Forecasts': '',
+        'Financial Statements & Accounting': '',
+        'Interim Financial Information': '',
+        'Undisclosed Liabilities': ''
+      },
+      'Intellectual Property': { 'Intellectual Property': '' },
+      'Litigation & Insurance': {
+        'Insurance Matters': '',
+        'Litigation & Legal Proceedings': '',
+        'Shareholder & Securityholder Litigation': ''
+      },
+      'Survival': { 'Survival / Non-Survival of Reps & Warranties': '' },
+      'Tax Representations': { 'Tax Representations': '' }
+    },
+    'Tax Matters': {
+      'Tax Covenants': { 'Other Tax Covenants / Tax Treatment of Payments': '' },
+      'Tax Proceedings': { 'Tax Proceedings; Disputes and Audit Contests': '' },
+      'Tax Representations': { 'Tax Representations': '' },
+      'Transfer Taxes': { 'Transfer Taxes': '' }
+    },
+    'Termination & Fees': {
+      'Break-Up & Termination Fees': { 'Termination Fees & Break-Up Fees': '' },
+      'Effects of Termination': { 'Termination Effects': '' },
+      'Termination Rights': { 'Termination Rights & Triggers': '' }
+    }
   };
 
   return (
