@@ -1,5 +1,11 @@
 import { useEffect, useState, useRef } from "react";
-import { X, ArrowLeft, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import {
+  X,
+  ArrowLeft,
+  PanelLeftOpen,
+  PanelLeftClose,
+  ExternalLink,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
 import { XMLRenderer } from "./XMLRenderer";
