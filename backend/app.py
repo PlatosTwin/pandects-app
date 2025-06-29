@@ -9,8 +9,9 @@ from sqlalchemy.dialects.mysql import LONGTEXT
 app = Flask(__name__)
 CORS(
     app,
-    resources={r"/api/*": {"origins": "http://localhost:8080"}},
-    methods=["GET", "PUT", "OPTIONS"],
+    resources={r"/api/*": {"origins": ["http://localhost:8080", "http://127.0.0.1:8080"]}},
+    methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"]
 )
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
