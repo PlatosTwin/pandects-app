@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { FileText, Search } from "lucide-react";
+import logo from '../../assets/logo.png';
 
 export default function Navigation() {
   const location = useLocation();
@@ -24,14 +25,15 @@ export default function Navigation() {
     <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div className="px-12 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo Placeholder */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-material-blue rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
+            <img
+              src={logo}
+              alt="Pandects Logo"
+              className="w-10 h-10 rounded-lg object-cover border-2 border-stone-700"
+            />
             <div className="flex flex-col">
               <span className="text-lg font-semibold text-material-text-primary">
-                LegalAI
+                Pandects
               </span>
               <span className="text-xs text-material-text-secondary">
                 M&A Research Platform
