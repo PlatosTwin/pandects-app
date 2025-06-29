@@ -57,18 +57,24 @@ export function AgreementModal({
         'button[class*="text-gray-400"]',
       ) as HTMLButtonElement;
       if (collapseButton) {
-        // Check if it's collapsed by looking for ChevronRight icon (collapsed state)
-        const chevronRight = collapseButton.querySelector(
-          'svg[class*="w-3 h-3"], svg[class*="w-4 h-4"]',
-        );
-        if (chevronRight) {
-          // If we find a chevron, click the button to expand
+        // Check if it's collapsed by looking specifically for ChevronRight icon (collapsed state)
+        const chevronRight = collapseButton.querySelector("svg") as SVGElement;
+
+        // Check if the chevron is pointing right (collapsed) by looking at the SVG path or checking rotation
+        // ChevronRight has a different path than ChevronDown
+        const isCollapsed =
+          chevronRight &&
+          (chevronRight.innerHTML.includes("m9 18 6-6-6-6") || // ChevronRight path
+            chevronRight.querySelector('path[d*="m9 18 6-6-6-6"]') !== null);
+
+        if (isCollapsed) {
+          // Section is collapsed, expand it first
           collapseButton.click();
 
           // Wait a moment for the expansion animation to complete before scrolling
           setTimeout(() => {
             performScroll();
-          }, 100);
+          }, 150);
         } else {
           // Already expanded, scroll immediately
           performScroll();
