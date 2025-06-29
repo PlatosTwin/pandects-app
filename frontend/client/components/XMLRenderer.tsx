@@ -26,10 +26,11 @@ const XML_TAG_COLORS = {
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
 const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
 
-export function XMLRenderer({ xmlContent, className, mode = "search", highlightedSection }: XMLRendererProps) {
+export function XMLRenderer({
   xmlContent,
   className,
   mode = "search",
+  highlightedSection,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
 
