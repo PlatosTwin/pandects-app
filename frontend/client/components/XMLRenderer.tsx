@@ -351,7 +351,6 @@ function parseXMLContent(xmlContent: string): XMLNode[] {
       content: `<${tagContent}>`,
       tagName: tagName,
       children: children,
-      isCollapsible: COLLAPSIBLE_TAGS.has(tagName),
     });
 
     currentIndex = closingTagStart + closingTag.length;
