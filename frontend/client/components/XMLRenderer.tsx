@@ -171,14 +171,14 @@ export function XMLRenderer({
           <div
             key={tagId}
             className={cn(
-              "my-4 transition-all duration-1000",
+              "my-4 transition-all duration-1000 scroll-mt-3",
               isHighlighted &&
                 "bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow-lg",
             )}
             {...dataAttributes}
             {...additionalAttributes}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (
                   <button
