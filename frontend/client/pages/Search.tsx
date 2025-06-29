@@ -1,10 +1,18 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search as SearchIcon, Download, FileText } from "lucide-react";
+import {
+  Search as SearchIcon,
+  Download,
+  FileText,
+  ExternalLink,
+} from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
-import { useEffect } from "react";
+import { XMLRenderer } from "@/components/XMLRenderer";
+import { AgreementModal } from "@/components/AgreementModal";
+import { CheckboxFilter } from "@/components/CheckboxFilter";
 
 export default function Search() {
   const {
@@ -22,8 +30,35 @@ export default function Search() {
     actions,
   } = useSearch();
 
+  // Agreement modal state
+  const [selectedAgreement, setSelectedAgreement] = useState<{
+    agreementUuid: string;
+    sectionUuid: string;
+    metadata: {
+      year: string;
+      target: string;
+      acquirer: string;
+    };
+  } | null>(null);
+
+  const openAgreement = (result: (typeof searchResults)[0]) => {
+    setSelectedAgreement({
+      agreementUuid: result.agreementUuid,
+      sectionUuid: result.sectionUuid,
+      metadata: {
+        year: result.year,
+        target: result.target,
+        acquirer: result.acquirer,
+      },
+    });
+  };
+
+  const closeAgreement = () => {
+    setSelectedAgreement(null);
+  };
+
   // Placeholder data for dropdowns
-  const years = ["2024", "2023", "2022", "2021", "2020", "2019"];
+  const years = ["2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008", "2007", "2006", "2005", "2004", "2003", "2002", "2001", "2000"];
   const targets = [
     "Apple Inc.",
     "Microsoft Corp.",
@@ -39,11 +74,17 @@ export default function Search() {
     "Goldman Sachs",
   ];
   const clauseTypes = [
-    "Termination",
-    "Material Adverse Change",
-    "Representations",
-    "Warranties",
-    "Indemnification",
+    'Conditions to Closing',
+    'Covenants and Additional Agreements',
+    'Definitions',
+    'Dispute Resolution',
+    'Indemnification',
+    'Miscellaneous and General Provisions',
+    'Organizational Documents and Governance',
+    'Representations and Warranties',
+    'Tax Matters',
+    'Termination',
+    'Transaction Mechanics'
   ];
 
   return (
@@ -59,157 +100,33 @@ export default function Search() {
 
         {/* Search Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Year */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Year
-            </label>
-            <div className="relative">
-              <select
-                value={filters.year}
-                onChange={(e) => actions.updateFilter("year", e.target.value)}
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Years</option>
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Year"
+            options={years}
+            selectedValues={filters.year || []}
+            onToggle={(value) => actions.toggleFilterValue("year", value)}
+          />
 
-          {/* Target */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Target
-            </label>
-            <div className="relative">
-              <select
-                value={filters.target}
-                onChange={(e) => actions.updateFilter("target", e.target.value)}
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Targets</option>
-                {targets.map((target) => (
-                  <option key={target} value={target}>
-                    {target}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Target"
+            options={targets}
+            selectedValues={filters.target || []}
+            onToggle={(value) => actions.toggleFilterValue("target", value)}
+          />
 
-          {/* Acquirer */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Acquirer
-            </label>
-            <div className="relative">
-              <select
-                value={filters.acquirer}
-                onChange={(e) =>
-                  actions.updateFilter("acquirer", e.target.value)
-                }
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Acquirers</option>
-                {acquirers.map((acquirer) => (
-                  <option key={acquirer} value={acquirer}>
-                    {acquirer}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Acquirer"
+            options={acquirers}
+            selectedValues={filters.acquirer || []}
+            onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
+          />
 
-          {/* Clause Type */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
-              Clause Type
-            </label>
-            <div className="relative">
-              <select
-                value={filters.clauseType}
-                onChange={(e) =>
-                  actions.updateFilter("clauseType", e.target.value)
-                }
-                className="w-full text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue appearance-none pr-8"
-              >
-                <option value="">All Types</option>
-                {clauseTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg
-                  className="w-4 h-4 text-material-text-secondary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
-            </div>
-          </div>
+          <CheckboxFilter
+            label="Clause Type"
+            options={clauseTypes}
+            selectedValues={filters.clauseType || []}
+            onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
+          />
         </div>
 
         {/* Action Buttons */}
@@ -283,46 +200,62 @@ export default function Search() {
                     >
                       {/* Header with metadata */}
                       <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Year:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.year}
+                        <div className="flex items-center justify-between">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm flex-1">
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Year:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.year}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Target:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.target}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Acquirer:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.acquirer}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Article:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.articleTitle}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-material-text-secondary">
+                                Section:
+                              </span>
+                              <div className="text-material-text-primary">
+                                {result.sectionTitle}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Target:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.target}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Acquirer:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.acquirer}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Article:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.articleTitle}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="font-medium text-material-text-secondary">
-                              Section:
-                            </span>
-                            <div className="text-material-text-primary">
-                              {result.sectionTitle}
-                            </div>
+
+                          {/* Open Agreement Button */}
+                          <div className="ml-4">
+                            <button
+                              onClick={() => openAgreement(result)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
+                              title="Open source agreement"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span className="hidden sm:inline">
+                                Open Agreement
+                              </span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -336,7 +269,7 @@ export default function Search() {
                             scrollbarColor: "#e5e7eb #f9fafb",
                           }}
                         >
-                          {result.xml}
+                          <XMLRenderer xmlContent={result.xml} mode="search" />
                         </div>
                       </div>
                     </div>
@@ -373,6 +306,17 @@ export default function Search() {
         title="No Results Found"
         message="No results to display given the selected filters."
       />
+
+      {/* Agreement Modal */}
+      {selectedAgreement && (
+        <AgreementModal
+          isOpen={!!selectedAgreement}
+          onClose={closeAgreement}
+          agreementUuid={selectedAgreement.agreementUuid}
+          targetSectionUuid={selectedAgreement.sectionUuid}
+          agreementMetadata={selectedAgreement.metadata}
+        />
+      )}
     </div>
   );
 }

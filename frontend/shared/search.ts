@@ -1,10 +1,10 @@
 // M&A Search Types
 
 export interface SearchFilters {
-  year?: string;
-  target?: string;
-  acquirer?: string;
-  clauseType?: string;
+  year?: string[];
+  target?: string[];
+  acquirer?: string[];
+  clauseType?: string[];
   page?: number;
   pageSize?: number;
 }

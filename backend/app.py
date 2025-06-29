@@ -9,8 +9,9 @@ from sqlalchemy.dialects.mysql import LONGTEXT
 app = Flask(__name__)
 CORS(
     app,
-    resources={r"/api/*": {"origins": "http://localhost:8080"}},
-    methods=["GET", "PUT", "OPTIONS"],
+    resources={r"/api/*": {"origins": ["http://localhost:8080", "http://127.0.0.1:8080"]}},
+    methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"]
 )
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
@@ -40,6 +41,11 @@ agreements_table = Table(
     metadata,
     autoload_with=engine,
 )
+xml_table = Table(
+    "xml",
+    metadata,
+    autoload_with=engine,
+)
 sections_table = Table(
     "sections",
     metadata,
@@ -58,14 +64,18 @@ class LLMOut(db.Model):
 
 class Prompts(db.Model):
     __table__ = prompts_table
-    
+
 
 class Sections(db.Model):
     __table__ = sections_table
-    
-    
+
+
 class Agreements(db.Model):
     __table__ = agreements_table
+
+
+class XML(db.Model):
+    __table__ = xml_table
 
 
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
@@ -109,14 +119,43 @@ def update_llm(page_uuid, prompt_id):
     return jsonify({"status": "updated"}), 200
 
 
-# ── the /api/search endpoint ───────────────────────────────────────
+@app.route("/api/agreements/<string:agreement_uuid>", methods=["GET"])
+def get_agreement(agreement_uuid):
+    # query year, target, acquirer, xml, url for this agreement_uuid
+    row = (
+        db.session.query(
+            Agreements.year,
+            Agreements.target,
+            Agreements.acquirer,
+            Agreements.url,
+            XML.xml
+        )
+        .join(XML, XML.agreement_uuid == Agreements.uuid)
+        .filter(Agreements.uuid == agreement_uuid)
+        .first()
+    )
+
+    if row is None:
+        abort(404)
+
+    year, target, acquirer, url, xml_content = row
+    return jsonify({
+        "year":     year,
+        "target":   target,
+        "acquirer": acquirer,
+        "url":      url,
+        "xml":      xml_content
+    })
+
+
 @app.route("/api/search", methods=["GET"])
 def search_sections():
-    # pull in optional query params
-    year        = request.args.get("year",       type=int)
-    target      = request.args.get("target",     type=str)
-    acquirer    = request.args.get("acquirer",   type=str)
-    standard_id = request.args.get("standardID", type=str)
+    # pull in optional query params - now supporting multiple values
+    years        = request.args.getlist("year")
+    targets      = request.args.getlist("target")
+    acquirers    = request.args.getlist("acquirer")
+    clause_types = request.args.getlist("clauseType")
+    standard_id  = request.args.get("standardID", type=str)
 
     # build the base ORM query
     q = (
@@ -134,13 +173,28 @@ def search_sections():
         .join(Agreements, Sections.agreement_uuid == Agreements.uuid)
     )
 
-    # apply filters only when provided
-    if year is not None:
-        q = q.filter(Agreements.year == year)
-    if target:
-        q = q.filter(Agreements.target.ilike(f"%{target}%"))
-    if acquirer:
-        q = q.filter(Agreements.acquirer.ilike(f"%{acquirer}%"))
+    # apply filters only when provided - now handling multiple values
+    if years:
+        # Convert years to integers for filtering
+        year_ints = [int(year) for year in years if year.isdigit()]
+        if year_ints:
+            q = q.filter(Agreements.year.in_(year_ints))
+
+    if targets:
+        # Use OR conditions for multiple targets with ILIKE
+        target_conditions = [Agreements.target.ilike(f"%{target}%") for target in targets]
+        q = q.filter(db.or_(*target_conditions))
+
+    if acquirers:
+        # Use OR conditions for multiple acquirers with ILIKE
+        acquirer_conditions = [Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers]
+        q = q.filter(db.or_(*acquirer_conditions))
+
+    if clause_types:
+        # For clause types, we might need to filter on section content or add a clause_type field
+        # For now, this is a placeholder - you may need to adjust based on your data model
+        pass
+
     if standard_id:
         q = q.filter(Sections.standard_id == standard_id)
 

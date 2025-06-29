@@ -3,10 +3,10 @@ import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
-    year: "",
-    target: "",
-    acquirer: "",
-    clauseType: "",
+    year: [],
+    target: [],
+    acquirer: [],
+    clauseType: [],
     page: 1,
     pageSize: 25,
   });
@@ -22,8 +22,27 @@ export function useSearch() {
   const [showNoResultsModal, setShowNoResultsModal] = useState(false);
 
   const updateFilter = useCallback(
+    (field: keyof SearchFilters, value: string | string[]) => {
+      if (field === "page" || field === "pageSize") {
+        setFilters((prev) => ({ ...prev, [field]: value as number }));
+      } else {
+        setFilters((prev) => ({ ...prev, [field]: value as string[] }));
+      }
+    },
+    [],
+  );
+
+  const toggleFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
-      setFilters((prev) => ({ ...prev, [field]: value }));
+      if (field === "page" || field === "pageSize") return;
+
+      setFilters((prev) => {
+        const currentValues = (prev[field] as string[]) || [];
+        const newValues = currentValues.includes(value)
+          ? currentValues.filter((v) => v !== value)
+          : [...currentValues, value];
+        return { ...prev, [field]: newValues };
+      });
     },
     [],
   );
@@ -45,12 +64,28 @@ export function useSearch() {
         }
 
         const params = new URLSearchParams();
-        if (searchFilters.year) params.append("year", searchFilters.year);
-        if (searchFilters.target) params.append("target", searchFilters.target);
-        if (searchFilters.acquirer)
-          params.append("acquirer", searchFilters.acquirer);
-        if (searchFilters.clauseType)
-          params.append("clauseType", searchFilters.clauseType);
+
+        // Handle array filters - append each value separately
+        if (searchFilters.year && searchFilters.year.length > 0) {
+          searchFilters.year.forEach((year) => params.append("year", year));
+        }
+        if (searchFilters.target && searchFilters.target.length > 0) {
+          searchFilters.target.forEach((target) =>
+            params.append("target", target),
+          );
+        }
+        if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
+          searchFilters.acquirer.forEach((acquirer) =>
+            params.append("acquirer", acquirer),
+          );
+        }
+        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
+          searchFilters.clauseType.forEach((clauseType) =>
+            params.append("clauseType", clauseType),
+          );
+        }
+
+        // Handle pagination
         if (searchFilters.page)
           params.append("page", searchFilters.page.toString());
         if (searchFilters.pageSize)
@@ -136,10 +171,10 @@ export function useSearch() {
   // Helper function to check if any filters are applied
   const hasFiltersApplied = (searchFilters: SearchFilters) => {
     return !!(
-      searchFilters.year ||
-      searchFilters.target ||
-      searchFilters.acquirer ||
-      searchFilters.clauseType
+      (searchFilters.year && searchFilters.year.length > 0) ||
+      (searchFilters.target && searchFilters.target.length > 0) ||
+      (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
+      (searchFilters.clauseType && searchFilters.clauseType.length > 0)
     );
   };
 
@@ -185,10 +220,10 @@ export function useSearch() {
 
   const clearFilters = useCallback(() => {
     setFilters({
-      year: "",
-      target: "",
-      acquirer: "",
-      clauseType: "",
+      year: [],
+      target: [],
+      acquirer: [],
+      clauseType: [],
       page: 1,
       pageSize: 25,
     });
@@ -251,6 +286,7 @@ export function useSearch() {
     showNoResultsModal,
     actions: {
       updateFilter,
+      toggleFilterValue,
       performSearch,
       downloadCSV,
       clearFilters,

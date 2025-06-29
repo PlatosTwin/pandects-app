@@ -7,3 +7,5 @@ backend/node_modules/
 # Build outputs
 frontend/dist/
 backend/build/
+
+TODO.md
