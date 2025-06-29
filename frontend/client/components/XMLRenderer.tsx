@@ -161,9 +161,23 @@ export function XMLRenderer({
           node.tagName === "article"
             ? "text-lg font-semibold"
             : "text-base font-medium";
+        const isHighlighted = highlightedSection === sectionUuid;
+
+        // Add article header attribute for scroll targeting
+        const additionalAttributes =
+          node.tagName === "article" ? { "data-article-header": "true" } : {};
 
         return (
-          <div key={tagId} className="my-4" {...dataAttributes}>
+          <div
+            key={tagId}
+            className={cn(
+              "my-4 transition-all duration-1000",
+              isHighlighted &&
+                "bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow-lg",
+            )}
+            {...dataAttributes}
+            {...additionalAttributes}
+          >
             <div className="flex items-start">
               <div className="w-4 flex-shrink-0">
                 {isCollapsible && (
@@ -197,7 +211,6 @@ export function XMLRenderer({
           </div>
         );
       }
-
       // For other tags in search mode or non-collapsible tags
       return (
         <div key={tagId} className="my-1" {...dataAttributes}>
