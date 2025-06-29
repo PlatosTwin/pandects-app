@@ -55,7 +55,7 @@ export function NestedCheckboxFilter({
     }
   }, [useModal, isExpanded, data]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (only for dropdown mode, not modal mode)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -66,14 +66,14 @@ export function NestedCheckboxFilter({
       }
     }
 
-    if (isExpanded) {
+    if (isExpanded && !useModal) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isExpanded]);
+  }, [isExpanded, useModal]);
 
   // Get all leaf values (final clause types) from nested structure
   const getAllLeafValues = (
