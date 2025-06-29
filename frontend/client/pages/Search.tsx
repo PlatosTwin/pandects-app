@@ -433,9 +433,9 @@ export default function Search() {
             onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
           />
 
-          <CheckboxFilter
+          <NestedCheckboxFilter
             label="Clause Type"
-            options={clauseTypes}
+            data={clauseTypesNested}
             selectedValues={filters.clauseType || []}
             onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
           />
