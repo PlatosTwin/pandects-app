@@ -12,6 +12,7 @@ import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
+import { CheckboxFilter } from "@/components/CheckboxFilter";
 
 export default function Search() {
   const {
