@@ -164,7 +164,7 @@ export function AgreementModal({
                 <TableOfContents
                   xmlContent={agreement.xml}
                   targetSectionUuid={targetSectionUuid}
-                  onSectionClick={scrollToSection}
+                  onSectionClick={(uuid) => scrollToSection(uuid, false)}
                   className="h-full"
                 />
               )}
