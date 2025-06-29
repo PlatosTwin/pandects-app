@@ -13,6 +13,7 @@ interface XMLRendererProps {
   xmlContent: string;
   className?: string;
   mode?: "search" | "agreement";
+  highlightedSection?: string | null;
 }
 
 const XML_TAG_COLORS = {
