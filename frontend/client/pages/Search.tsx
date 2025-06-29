@@ -13,6 +13,7 @@ import InfoModal from "@/components/InfoModal";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
+import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 
 export default function Search() {
   const {
@@ -58,7 +59,29 @@ export default function Search() {
   };
 
   // Placeholder data for dropdowns
-  const years = ["2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008", "2007", "2006", "2005", "2004", "2003", "2002", "2001", "2000"];
+  const years = [
+    "2020",
+    "2019",
+    "2018",
+    "2017",
+    "2016",
+    "2015",
+    "2014",
+    "2013",
+    "2012",
+    "2011",
+    "2010",
+    "2009",
+    "2008",
+    "2007",
+    "2006",
+    "2005",
+    "2004",
+    "2003",
+    "2002",
+    "2001",
+    "2000",
+  ];
   const targets = [
     "Apple Inc.",
     "Microsoft Corp.",
@@ -74,17 +97,17 @@ export default function Search() {
     "Goldman Sachs",
   ];
   const clauseTypes = [
-    'Conditions to Closing',
-    'Covenants and Additional Agreements',
-    'Definitions',
-    'Dispute Resolution',
-    'Indemnification',
-    'Miscellaneous and General Provisions',
-    'Organizational Documents and Governance',
-    'Representations and Warranties',
-    'Tax Matters',
-    'Termination',
-    'Transaction Mechanics'
+    "Conditions to Closing",
+    "Covenants and Additional Agreements",
+    "Definitions",
+    "Dispute Resolution",
+    "Indemnification",
+    "Miscellaneous and General Provisions",
+    "Organizational Documents and Governance",
+    "Representations and Warranties",
+    "Tax Matters",
+    "Termination",
+    "Transaction Mechanics",
   ];
 
   return (
