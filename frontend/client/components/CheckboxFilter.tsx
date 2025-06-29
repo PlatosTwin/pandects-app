@@ -46,7 +46,7 @@ export function CheckboxFilter({
         {label}
       </label>
 
-      <div className="relative">
+      <div ref={dropdownRef} className="relative">
         {/* Header showing selected count or "All" */}
         <button
           type="button"
