@@ -120,12 +120,13 @@ def update_llm(page_uuid, prompt_id):
 
 @app.route("/api/agreements/<string:agreement_uuid>", methods=["GET"])
 def get_agreement(agreement_uuid):
-    # query year, target, acquirer, xml for this agreement_uuid
+    # query year, target, acquirer, xml, url for this agreement_uuid
     row = (
         db.session.query(
             Agreements.year,
             Agreements.target,
             Agreements.acquirer,
+            Agreements.url,
             XML.xml
         )
         .join(XML, XML.agreement_uuid == Agreements.uuid)
@@ -136,11 +137,12 @@ def get_agreement(agreement_uuid):
     if row is None:
         abort(404)
 
-    year, target, acquirer, xml_content = row
+    year, target, acquirer, url, xml_content = row
     return jsonify({
         "year":     year,
         "target":   target,
         "acquirer": acquirer,
+        "url":      url,
         "xml":      xml_content
     })
 
