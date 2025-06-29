@@ -171,10 +171,10 @@ export function useSearch() {
   // Helper function to check if any filters are applied
   const hasFiltersApplied = (searchFilters: SearchFilters) => {
     return !!(
-      searchFilters.year ||
-      searchFilters.target ||
-      searchFilters.acquirer ||
-      searchFilters.clauseType
+      (searchFilters.year && searchFilters.year.length > 0) ||
+      (searchFilters.target && searchFilters.target.length > 0) ||
+      (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
+      (searchFilters.clauseType && searchFilters.clauseType.length > 0)
     );
   };
 
