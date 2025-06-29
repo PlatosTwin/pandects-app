@@ -5,6 +5,7 @@ export interface Agreement {
   target: string;
   acquirer: string;
   xml: string;
+  url?: string;
 }
 
 // Table of Contents types for XML navigation
