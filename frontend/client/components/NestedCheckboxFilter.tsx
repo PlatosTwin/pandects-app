@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NestedCategory {
@@ -12,6 +12,7 @@ interface NestedCheckboxFilterProps {
   selectedValues: string[];
   onToggle: (value: string) => void;
   className?: string;
+  useModal?: boolean;
 }
 
 interface ExpandState {
