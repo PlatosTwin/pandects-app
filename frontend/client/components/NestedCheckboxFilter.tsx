@@ -34,19 +34,13 @@ export function NestedCheckboxFilter({
   // Initialize all categories as expanded when using modal mode
   useEffect(() => {
     if (useModal && isExpanded) {
-      const initializeExpandState = (
-        obj: NestedCategory,
-        path: string[] = [],
-      ): ExpandState => {
+      const initializeExpandState = (obj: NestedCategory, path: string[] = []): ExpandState => {
         const state: ExpandState = {};
         for (const [key, value] of Object.entries(obj)) {
           if (typeof value === "object") {
             const expandKey = [...path, key].join(".");
             state[expandKey] = true;
-            Object.assign(
-              state,
-              initializeExpandState(value as NestedCategory, [...path, key]),
-            );
+            Object.assign(state, initializeExpandState(value as NestedCategory, [...path, key]));
           }
         }
         return state;
@@ -76,10 +70,7 @@ export function NestedCheckboxFilter({
   }, [isExpanded]);
 
   // Get all leaf values (final clause types) from nested structure
-  const getAllLeafValues = (
-    obj: NestedCategory,
-    path: string[] = [],
-  ): string[] => {
+  const getAllLeafValues = (obj: NestedCategory, path: string[] = []): string[] => {
     const values: string[] = [];
 
     for (const [key, value] of Object.entries(obj)) {
@@ -96,10 +87,7 @@ export function NestedCheckboxFilter({
   };
 
   // Get all leaf values under a specific category path
-  const getLeafValuesUnderPath = (
-    obj: NestedCategory,
-    targetPath: string[],
-  ): string[] => {
+  const getLeafValuesUnderPath = (obj: NestedCategory, targetPath: string[]): string[] => {
     let current = obj;
 
     // Navigate to the target path
@@ -117,19 +105,13 @@ export function NestedCheckboxFilter({
   // Check if all children under a path are selected
   const areAllChildrenSelected = (path: string[]): boolean => {
     const childValues = getLeafValuesUnderPath(data, path);
-    return (
-      childValues.length > 0 &&
-      childValues.every((value) => selectedValues.includes(value))
-    );
+    return childValues.length > 0 && childValues.every(value => selectedValues.includes(value));
   };
 
   // Check if some (but not all) children under a path are selected
   const areSomeChildrenSelected = (path: string[]): boolean => {
     const childValues = getLeafValuesUnderPath(data, path);
-    return (
-      childValues.some((value) => selectedValues.includes(value)) &&
-      !areAllChildrenSelected(path)
-    );
+    return childValues.some(value => selectedValues.includes(value)) && !areAllChildrenSelected(path);
   };
 
   // Handle category selection (select/deselect all children)
@@ -139,14 +121,14 @@ export function NestedCheckboxFilter({
 
     if (allSelected) {
       // Deselect all children
-      childValues.forEach((value) => {
+      childValues.forEach(value => {
         if (selectedValues.includes(value)) {
           onToggle(value);
         }
       });
     } else {
       // Select all children
-      childValues.forEach((value) => {
+      childValues.forEach(value => {
         if (!selectedValues.includes(value)) {
           onToggle(value);
         }
@@ -156,22 +138,18 @@ export function NestedCheckboxFilter({
 
   // Toggle expand state for a category
   const toggleExpand = (key: string) => {
-    setExpandState((prev) => ({
+    setExpandState(prev => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: !prev[key]
     }));
   };
 
   // Render nested structure recursively
-  const renderNestedItems = (
-    obj: NestedCategory,
-    level: number = 0,
-    path: string[] = [],
-  ): JSX.Element[] => {
+  const renderNestedItems = (obj: NestedCategory, level: number = 0, path: string[] = []): JSX.Element[] => {
     // Sort keys alphabetically
     const sortedKeys = Object.keys(obj).sort();
 
-    return sortedKeys.map((key) => {
+    return sortedKeys.map(key => {
       const value = obj[key];
       const currentPath = [...path, key];
       const indentClass = level === 0 ? "" : level === 1 ? "ml-4" : "ml-8";
@@ -184,7 +162,7 @@ export function NestedCheckboxFilter({
             key={key}
             className={cn(
               "flex items-center gap-3 py-2 px-2 hover:bg-gray-50 cursor-pointer rounded text-sm",
-              indentClass,
+              indentClass
             )}
           >
             <input
@@ -229,19 +207,13 @@ export function NestedCheckboxFilter({
                   onChange={() => handleCategoryToggle(currentPath)}
                   className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
                 />
-                <span className="text-material-text-primary font-medium">
-                  {key}
-                </span>
+                <span className="text-material-text-primary font-medium">{key}</span>
               </label>
             </div>
 
             {isExpanded && (
               <div className="ml-2">
-                {renderNestedItems(
-                  value as NestedCategory,
-                  level + 1,
-                  currentPath,
-                )}
+                {renderNestedItems(value as NestedCategory, level + 1, currentPath)}
               </div>
             )}
           </div>
@@ -285,12 +257,60 @@ export function NestedCheckboxFilter({
         {/* Bottom border line */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
 
-        {/* Expanded nested checkbox list */}
-        {isExpanded && (
+        {/* Expanded nested checkbox list or Modal */}
+        {isExpanded && !useModal && (
           <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-80 overflow-y-auto">
-            <div className="p-2">{renderNestedItems(data)}</div>
+            <div className="p-2">
+              {renderNestedItems(data)}
+            </div>
           </div>
         )}
+      </div>
+
+      {/* Modal for clause types */}
+      {isExpanded && useModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setIsExpanded(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg font-medium text-material-text-primary">
+                Select {label}s
+              </h3>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {renderNestedItems(data)}
+            </div>
+
+            {/* Footer with selection summary */}
+            <div className="flex items-center justify-between p-6 border-t border-gray-200 flex-shrink-0">
+              <span className="text-sm text-material-text-secondary">
+                {totalSelected} of {totalOptions} selected
+              </span>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="px-4 py-2 bg-material-blue text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
