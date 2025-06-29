@@ -214,8 +214,8 @@ export function XMLRenderer({
       // For other tags in search mode or non-collapsible tags
       return (
         <div key={tagId} className="my-1" {...dataAttributes}>
-          <div className="flex items-start">
-            <div className="w-4 flex-shrink-0">
+          <div className="flex items-start gap-2">
+            <div className="flex-shrink-0">
               {isCollapsible && (
                 <button
                   onClick={() => toggleCollapse(tagId)}
