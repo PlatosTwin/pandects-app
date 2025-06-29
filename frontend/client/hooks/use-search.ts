@@ -64,12 +64,28 @@ export function useSearch() {
         }
 
         const params = new URLSearchParams();
-        if (searchFilters.year) params.append("year", searchFilters.year);
-        if (searchFilters.target) params.append("target", searchFilters.target);
-        if (searchFilters.acquirer)
-          params.append("acquirer", searchFilters.acquirer);
-        if (searchFilters.clauseType)
-          params.append("clauseType", searchFilters.clauseType);
+
+        // Handle array filters - append each value separately
+        if (searchFilters.year && searchFilters.year.length > 0) {
+          searchFilters.year.forEach((year) => params.append("year", year));
+        }
+        if (searchFilters.target && searchFilters.target.length > 0) {
+          searchFilters.target.forEach((target) =>
+            params.append("target", target),
+          );
+        }
+        if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
+          searchFilters.acquirer.forEach((acquirer) =>
+            params.append("acquirer", acquirer),
+          );
+        }
+        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
+          searchFilters.clauseType.forEach((clauseType) =>
+            params.append("clauseType", clauseType),
+          );
+        }
+
+        // Handle pagination
         if (searchFilters.page)
           params.append("page", searchFilters.page.toString());
         if (searchFilters.pageSize)
