@@ -264,10 +264,15 @@ export function CheckboxFilter({
                       <div className="p-2 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
                         Available
                       </div>
-                      {unselectedOptions.map((option) => (
+                      {unselectedOptions.map((option, index) => (
                         <label
                           key={`unselected-${option}`}
-                          className="flex items-center gap-3 py-2 px-2 hover:bg-gray-50 cursor-pointer rounded text-sm"
+                          className={cn(
+                            "flex items-center gap-3 py-2 px-2 cursor-pointer rounded text-sm",
+                            !searchTerm.trim() && highlightedIndex === index
+                              ? "bg-material-blue-light"
+                              : "hover:bg-gray-50",
+                          )}
                         >
                           <input
                             type="checkbox"
