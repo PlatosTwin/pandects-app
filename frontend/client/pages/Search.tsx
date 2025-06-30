@@ -18,6 +18,12 @@ import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Search() {
   const {
