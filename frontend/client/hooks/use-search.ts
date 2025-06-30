@@ -74,7 +74,7 @@ export function useSearch() {
   );
 
   const performSearch = useCallback(
-    async (resetPage = false) => {
+    async (resetPage = false, clauseTypesNested?: any) => {
       setIsSearching(true);
       setShowErrorModal(false);
       setShowNoResultsModal(false);
@@ -105,9 +105,19 @@ export function useSearch() {
             params.append("acquirer", acquirer),
           );
         }
-        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-          searchFilters.clauseType.forEach((clauseType) =>
-            params.append("clauseType", clauseType),
+
+        // Extract standard IDs from selected clause types and send them instead
+        if (
+          searchFilters.clauseType &&
+          searchFilters.clauseType.length > 0 &&
+          clauseTypesNested
+        ) {
+          const standardIds = extractStandardIds(
+            searchFilters.clauseType,
+            clauseTypesNested,
+          );
+          standardIds.forEach((standardId) =>
+            params.append("standardId", standardId),
           );
         }
 
