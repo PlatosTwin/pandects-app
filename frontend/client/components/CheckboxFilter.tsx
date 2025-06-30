@@ -203,7 +203,27 @@ export function CheckboxFilter({
 
         {/* Expanded dropdown with search and sticky selected items */}
         {isExpanded && (
-          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col">
+          <div
+            className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
+            onKeyDown={(e) => {
+              // Handle Enter and Escape keys to close dropdown
+              if (e.key === "Enter" || e.key === "Escape") {
+                const target = e.target as HTMLElement;
+                // Close dropdown if Enter/Escape pressed and not on specific interactive elements
+                if (
+                  target.tagName !== "INPUT" ||
+                  e.key === "Escape" ||
+                  (!searchTerm.trim() && highlightedIndex === -1)
+                ) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                  setSearchTerm("");
+                }
+              }
+            }}
+            tabIndex={-1}
+          >
             {/* Search Input */}
             <div className="p-3 border-b border-gray-200">
               <div className="relative">
