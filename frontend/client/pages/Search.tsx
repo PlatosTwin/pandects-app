@@ -518,6 +518,7 @@ export default function Search() {
           <button
             onClick={actions.clearFilters}
             disabled={isSearching}
+            tabIndex={6}
             className={cn(
               "flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-gray-400 text-gray-700 text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
               "hover:bg-gray-50 hover:border-gray-500",
