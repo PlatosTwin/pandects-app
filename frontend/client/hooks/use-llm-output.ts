@@ -93,7 +93,7 @@ export function useLLMOutput() {
   const loadPage = useCallback(async () => {
     if (!state.pageUuid.trim()) return;
 
-    updateState({ isLoading: true });
+    updateState({ isLoading: true, lastSaved: "" });
 
     try {
       const res = await fetch(
