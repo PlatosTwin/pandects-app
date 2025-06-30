@@ -61,15 +61,53 @@ export function NestedCheckboxFilter({
     return results;
   };
 
+  // Handle keyboard navigation for search results
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSearchResults || searchResults.length === 0) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedSearchIndex((prev) =>
+          prev < searchResults.length - 1 ? prev + 1 : 0,
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedSearchIndex((prev) =>
+          prev > 0 ? prev - 1 : searchResults.length - 1,
+        );
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (
+          highlightedSearchIndex >= 0 &&
+          highlightedSearchIndex < searchResults.length
+        ) {
+          const selectedResult = searchResults[highlightedSearchIndex];
+          handleSearchResultSelect(selectedResult);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        setSearchTerm("");
+        setShowSearchResults(false);
+        setHighlightedSearchIndex(-1);
+        break;
+    }
+  };
+
   // Handle search input changes
   useEffect(() => {
     if (searchTerm.trim()) {
       const results = searchLeafValues(data, searchTerm);
       setSearchResults(results);
       setShowSearchResults(true);
+      setHighlightedSearchIndex(results.length > 0 ? 0 : -1);
     } else {
       setSearchResults([]);
       setShowSearchResults(false);
+      setHighlightedSearchIndex(-1);
     }
   }, [searchTerm, data]);
 
