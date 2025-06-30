@@ -164,6 +164,13 @@ export function CheckboxFilter({
 
   // Handle keydown at component level when dropdown is expanded
   const handleComponentKeyDown = (e: React.KeyboardEvent) => {
+    console.log(
+      "CheckboxFilter keydown received:",
+      e.key,
+      "isExpanded:",
+      isExpanded,
+    );
+
     if (!isExpanded) return;
 
     if (e.key === "Enter" || e.key === "Escape") {
@@ -177,10 +184,13 @@ export function CheckboxFilter({
         searchTerm,
         "highlighted:",
         highlightedIndex,
+        "className:",
+        target.className,
       );
 
       // Always close on Escape
       if (e.key === "Escape") {
+        console.log("Closing on Escape");
         e.preventDefault();
         e.stopPropagation();
         setIsExpanded(false);
@@ -193,6 +203,7 @@ export function CheckboxFilter({
         target.tagName !== "INPUT" ||
         (!searchTerm.trim() && highlightedIndex === -1)
       ) {
+        console.log("Closing on Enter");
         e.preventDefault();
         e.stopPropagation();
         setIsExpanded(false);
