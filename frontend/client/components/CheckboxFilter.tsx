@@ -34,6 +34,7 @@ export function CheckboxFilter({
   selectedValues,
   onToggle,
   className,
+  tabIndex,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
