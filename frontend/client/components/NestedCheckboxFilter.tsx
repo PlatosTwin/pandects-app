@@ -188,6 +188,7 @@ export function NestedCheckboxFilter({
     if (!isExpanded) {
       setSearchTerm("");
       setShowSearchResults(false);
+      setHighlightedSearchIndex(-1);
     }
   }, [isExpanded]);
 
