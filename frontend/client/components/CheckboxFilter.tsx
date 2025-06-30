@@ -158,8 +158,51 @@ export function CheckboxFilter({
     }
   }, [isExpanded]);
 
+  // Handle keydown at component level when dropdown is expanded
+  const handleComponentKeyDown = (e: React.KeyboardEvent) => {
+    if (!isExpanded) return;
+
+    if (e.key === "Enter" || e.key === "Escape") {
+      const target = e.target as HTMLElement;
+      console.log(
+        "Component keydown:",
+        e.key,
+        "target:",
+        target.tagName,
+        "searchTerm:",
+        searchTerm,
+        "highlighted:",
+        highlightedIndex,
+      );
+
+      // Always close on Escape
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsExpanded(false);
+        setSearchTerm("");
+        return;
+      }
+
+      // Close on Enter if not actively using search input
+      if (
+        target.tagName !== "INPUT" ||
+        (!searchTerm.trim() && highlightedIndex === -1)
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsExpanded(false);
+        setSearchTerm("");
+      }
+    }
+  };
+
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div
+      className={cn("flex flex-col gap-2", className)}
+      onKeyDown={handleComponentKeyDown}
+      tabIndex={isExpanded ? 0 : -1}
+    >
       <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
         {label}
       </label>
