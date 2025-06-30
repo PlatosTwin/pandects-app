@@ -18,6 +18,23 @@ import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// Utility function to truncate text and determine if tooltip is needed
+const truncateText = (text: string, maxLength: number = 75) => {
+  if (text.length <= maxLength) {
+    return { truncated: text, needsTooltip: false };
+  }
+  return {
+    truncated: text.substring(0, maxLength) + "...",
+    needsTooltip: true,
+  };
+};
 
 export default function Search() {
   const {
@@ -525,64 +542,100 @@ export default function Search() {
                 />
 
                 {/* Results grid */}
-                <div className="grid gap-4">
-                  {searchResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
-                    >
-                      {/* Header with metadata */}
-                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
-                            <span className="text-material-text-primary font-medium">
-                              {result.year}
-                            </span>
-                            <span className="text-material-text-primary">
-                              <span className="font-bold">T:</span>{" "}
-                              {result.target}
-                            </span>
-                            <span className="text-material-text-primary">
-                              <span className="font-bold">A:</span>{" "}
-                              {result.acquirer}
-                            </span>
-                            <span className="text-material-text-secondary">
-                              {result.articleTitle} &gt;&gt;{" "}
-                              {result.sectionTitle}
-                            </span>
-                          </div>
+                <TooltipProvider>
+                  <div className="grid gap-4">
+                    {searchResults.map((result) => {
+                      const targetText = truncateText(result.target, 75);
+                      const acquirerText = truncateText(result.acquirer, 75);
 
-                          {/* Open Agreement Button */}
-                          <div className="ml-4">
-                            <button
-                              onClick={() => openAgreement(result)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
-                              title="Open source agreement"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="hidden sm:inline">
-                                Open Agreement
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Clause text */}
-                      <div className="p-4">
+                      return (
                         <div
-                          className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
-                          style={{
-                            scrollbarWidth: "thin",
-                            scrollbarColor: "#e5e7eb #f9fafb",
-                          }}
+                          key={result.id}
+                          className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
                         >
-                          <XMLRenderer xmlContent={result.xml} mode="search" />
+                          {/* Header with metadata */}
+                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
+                                <span className="text-material-text-primary font-medium">
+                                  {result.year}
+                                </span>
+                                <span className="text-material-text-primary">
+                                  <span className="font-bold">T:</span>{" "}
+                                  {targetText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {targetText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.target}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    targetText.truncated
+                                  )}
+                                </span>
+                                <span className="text-material-text-primary">
+                                  <span className="font-bold">A:</span>{" "}
+                                  {acquirerText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {acquirerText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.acquirer}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    acquirerText.truncated
+                                  )}
+                                </span>
+                                <span className="text-material-text-secondary">
+                                  {result.articleTitle} &gt;&gt;{" "}
+                                  {result.sectionTitle}
+                                </span>
+                              </div>
+
+                              {/* Open Agreement Button */}
+                              <div className="ml-4">
+                                <button
+                                  onClick={() => openAgreement(result)}
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
+                                  title="Open source agreement"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  <span className="hidden sm:inline">
+                                    Open Agreement
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Clause text */}
+                          <div className="p-4">
+                            <div
+                              className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
+                              style={{
+                                scrollbarWidth: "thin",
+                                scrollbarColor: "#e5e7eb #f9fafb",
+                              }}
+                            >
+                              <XMLRenderer
+                                xmlContent={result.xml}
+                                mode="search"
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                </TooltipProvider>
 
                 {/* Bottom pagination controls */}
                 <SearchPagination
