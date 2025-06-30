@@ -25,6 +25,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Utility function to truncate text and determine if tooltip is needed
+const truncateText = (text: string, maxLength: number = 75) => {
+  if (text.length <= maxLength) {
+    return { truncated: text, needsTooltip: false };
+  }
+  return {
+    truncated: text.substring(0, maxLength) + "...",
+    needsTooltip: true,
+  };
+};
+
 export default function Search() {
   const {
     filters,
