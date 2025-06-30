@@ -2,8 +2,8 @@ import os
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table
-from sqlalchemy.dialects.mysql import LONGTEXT
+from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table, text
+from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 
 # ── Flask setup ──────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -54,6 +54,8 @@ sections_table = Table(
     Column("article_title",  TEXT,     nullable=False),
     Column("section_title",  TEXT,     nullable=False),
     Column("xml_content",    LONGTEXT, nullable=False),
+    Column("article_standard_id",    TINYTEXT, nullable=False),
+    Column("section_standard_id",    TINYTEXT, nullable=False),
     schema="mna",
 )
 taxonomy_table = Table(
@@ -81,8 +83,8 @@ class Agreements(db.Model):
 
 class XML(db.Model):
     __table__ = xml_table
-    
-    
+
+
 class Taxonomy(db.Model):
     __table__ = taxonomy_table
 
@@ -155,6 +157,33 @@ def get_agreement(agreement_uuid):
         "url":      url,
         "xml":      xml_content
     })
+
+
+@app.route("/api/filter-options", methods=["GET"])
+def get_filter_options():
+    """Fetch distinct targets and acquirers from the database"""
+    try:
+        # Execute the SQL query to get distinct targets and acquirers
+        result = db.session.execute(
+            text("""
+            SELECT DISTINCT target, acquirer
+            FROM mna.agreements a
+            JOIN mna.xml x ON a.uuid = x.agreement_uuid
+            ORDER BY target, acquirer
+            """)
+        ).fetchall()
+
+        # Extract unique targets and acquirers
+        targets = sorted(set(row[0] for row in result if row[0]))
+        acquirers = sorted(set(row[1] for row in result if row[1]))
+
+        return jsonify({
+            "targets": targets,
+            "acquirers": acquirers
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/search", methods=["GET"])

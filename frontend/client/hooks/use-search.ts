@@ -1,12 +1,38 @@
 import { useState, useCallback } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 
+// Function to extract standard IDs from nested clause type structure
+const extractStandardIds = (
+  clauseTypeTexts: string[],
+  clauseTypesNested: any,
+): string[] => {
+  const standardIds: string[] = [];
+
+  const searchInNested = (obj: any): void => {
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string") {
+        // This is a leaf node - check if the key matches any selected clause type
+        if (clauseTypeTexts.includes(key)) {
+          standardIds.push(value as string);
+        }
+      } else if (typeof value === "object") {
+        // Recurse into nested object
+        searchInNested(value);
+      }
+    }
+  };
+
+  searchInNested(clauseTypesNested);
+  return standardIds;
+};
+
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
     year: [],
     target: [],
     acquirer: [],
     clauseType: [],
+    standardId: [],
     page: 1,
     pageSize: 25,
   });
@@ -48,7 +74,7 @@ export function useSearch() {
   );
 
   const performSearch = useCallback(
-    async (resetPage = false) => {
+    async (resetPage = false, clauseTypesNested?: any) => {
       setIsSearching(true);
       setShowErrorModal(false);
       setShowNoResultsModal(false);
@@ -79,9 +105,19 @@ export function useSearch() {
             params.append("acquirer", acquirer),
           );
         }
-        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-          searchFilters.clauseType.forEach((clauseType) =>
-            params.append("clauseType", clauseType),
+
+        // Extract standard IDs from selected clause types and send them instead
+        if (
+          searchFilters.clauseType &&
+          searchFilters.clauseType.length > 0 &&
+          clauseTypesNested
+        ) {
+          const standardIds = extractStandardIds(
+            searchFilters.clauseType,
+            clauseTypesNested,
+          );
+          standardIds.forEach((standardId) =>
+            params.append("standardId", standardId),
           );
         }
 
@@ -224,6 +260,7 @@ export function useSearch() {
       target: [],
       acquirer: [],
       clauseType: [],
+      standardId: [],
       page: 1,
       pageSize: 25,
     });
