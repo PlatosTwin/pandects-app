@@ -19,6 +19,7 @@ interface NestedCheckboxFilterProps {
   onToggle: (value: string) => void;
   className?: string;
   useModal?: boolean;
+  tabIndex?: number;
 }
 
 interface ExpandState {
