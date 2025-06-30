@@ -547,6 +547,65 @@ export default function Search() {
                       const targetText = truncateText(result.target, 75);
                       const acquirerText = truncateText(result.acquirer, 75);
 
+                      // Dynamic truncation for Article and Section titles
+                      // Calculate available space for both titles combined
+                      const articleTitle = result.articleTitle || "";
+                      const sectionTitle = result.sectionTitle || "";
+                      const totalTitleLength =
+                        articleTitle.length + sectionTitle.length;
+
+                      // If combined length is too long, apply dynamic truncation
+                      let articleText, sectionText;
+                      if (totalTitleLength > 80) {
+                        // Both are long - truncate both proportionally but with minimums
+                        const articleRatio =
+                          articleTitle.length / totalTitleLength;
+                        const sectionRatio =
+                          sectionTitle.length / totalTitleLength;
+
+                        const articleMaxLength = Math.max(
+                          20,
+                          Math.floor(40 * articleRatio),
+                        );
+                        const sectionMaxLength = Math.max(
+                          15,
+                          Math.floor(40 * sectionRatio),
+                        );
+
+                        articleText = truncateText(
+                          articleTitle,
+                          articleMaxLength,
+                        );
+                        sectionText = truncateText(
+                          sectionTitle,
+                          sectionMaxLength,
+                        );
+                      } else if (articleTitle.length > 50) {
+                        // Only article is long
+                        articleText = truncateText(articleTitle, 50);
+                        sectionText = {
+                          truncated: sectionTitle,
+                          needsTooltip: false,
+                        };
+                      } else if (sectionTitle.length > 50) {
+                        // Only section is long
+                        articleText = {
+                          truncated: articleTitle,
+                          needsTooltip: false,
+                        };
+                        sectionText = truncateText(sectionTitle, 50);
+                      } else {
+                        // Both are short enough
+                        articleText = {
+                          truncated: articleTitle,
+                          needsTooltip: false,
+                        };
+                        sectionText = {
+                          truncated: sectionTitle,
+                          needsTooltip: false,
+                        };
+                      }
+
                       return (
                         <div
                           key={result.id}
