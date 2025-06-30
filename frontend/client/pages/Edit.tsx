@@ -57,7 +57,7 @@ export default function Index() {
             <button
               disabled={state.isLoading || !state.pageUuid.trim()}
               onClick={actions.loadPage}
-              tabIndex={3}
+              tabIndex={2}
               style={{ opacity: state.isLoading ? 0.7 : 1 }}
               className={cn(
                 "flex items-center justify-center gap-2 px-6 py-2 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
