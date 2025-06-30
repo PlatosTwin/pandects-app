@@ -36,7 +36,6 @@ export function NestedCheckboxFilter({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const checkboxRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   // Search through leaf values (sub-sub-categories)
   const searchLeafValues = (
