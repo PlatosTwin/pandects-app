@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table
+from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table, text
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 
 # ── Flask setup ──────────────────────────────────────────────────────────
@@ -165,12 +165,12 @@ def get_filter_options():
     try:
         # Execute the SQL query to get distinct targets and acquirers
         result = db.session.execute(
-            """
+            text("""
             SELECT DISTINCT target, acquirer
             FROM mna.agreements a
             JOIN mna.xml x ON a.uuid = x.agreement_uuid
             ORDER BY target, acquirer
-            """
+            """)
         ).fetchall()
 
         # Extract unique targets and acquirers
