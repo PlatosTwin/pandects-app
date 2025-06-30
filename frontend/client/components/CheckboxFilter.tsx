@@ -142,16 +142,13 @@ export function CheckboxFilter({
       setSearchTerm("");
       setHighlightedIndex(-1);
     } else if (searchInputRef.current) {
-      // Focus search input when opening and set initial highlight
+      // Focus search input when opening but don't auto-highlight
       setTimeout(() => {
         searchInputRef.current?.focus();
-        // Set initial highlight to first unselected option if no search term
-        if (!searchTerm.trim() && unselectedOptions.length > 0) {
-          setHighlightedIndex(0);
-        }
+        setHighlightedIndex(-1); // Don't auto-highlight any option
       }, 100);
     }
-  }, [isExpanded, searchTerm, unselectedOptions.length]);
+  }, [isExpanded]);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
