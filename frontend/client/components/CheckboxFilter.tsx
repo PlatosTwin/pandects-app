@@ -163,7 +163,7 @@ export function CheckboxFilter({
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             tabIndex={tabIndex}
-            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue flex items-center justify-between min-h-[44px]"
+            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
           >
             {selectedValues.length === 0 ? (
               <span>{`All ${label}s`}</span>
