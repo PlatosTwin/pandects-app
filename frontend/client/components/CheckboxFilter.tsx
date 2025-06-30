@@ -87,6 +87,9 @@ export function CheckboxFilter({
         ) {
           const selectedOption = navigableOptions[highlightedIndex];
           onToggle(selectedOption);
+          // Keep dropdown open for multiple selections
+        } else {
+          // Close dropdown when no item is highlighted
           setSearchTerm("");
           setIsExpanded(false);
         }
