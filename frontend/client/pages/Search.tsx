@@ -5,8 +5,10 @@ import {
   Download,
   FileText,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
+import { useFilterOptions } from "@/hooks/use-filter-options";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
@@ -30,6 +32,14 @@ export default function Search() {
     showNoResultsModal,
     actions,
   } = useSearch();
+
+  // Get dynamic filter options
+  const {
+    targets,
+    acquirers,
+    isLoading: isLoadingFilterOptions,
+    error: filterOptionsError,
+  } = useFilterOptions();
 
   // Agreement modal state
   const [selectedAgreement, setSelectedAgreement] = useState<{
@@ -58,7 +68,7 @@ export default function Search() {
     setSelectedAgreement(null);
   };
 
-  // Placeholder data for dropdowns
+  // Static years data (not dynamic for now)
   const years = [
     "2020",
     "2019",
@@ -81,20 +91,6 @@ export default function Search() {
     "2002",
     "2001",
     "2000",
-  ];
-  const targets = [
-    "Apple Inc.",
-    "Microsoft Corp.",
-    "Google LLC",
-    "Amazon.com Inc.",
-    "Meta Platforms Inc.",
-  ];
-  const acquirers = [
-    "Berkshire Hathaway",
-    "JPMorgan Chase",
-    "Bank of America",
-    "Wells Fargo",
-    "Goldman Sachs",
   ];
 
   const clauseTypesNested = {
@@ -377,19 +373,33 @@ export default function Search() {
             onToggle={(value) => actions.toggleFilterValue("year", value)}
           />
 
-          <CheckboxFilter
-            label="Target"
-            options={targets}
-            selectedValues={filters.target || []}
-            onToggle={(value) => actions.toggleFilterValue("target", value)}
-          />
+          <div className="relative">
+            <CheckboxFilter
+              label="Target"
+              options={targets}
+              selectedValues={filters.target || []}
+              onToggle={(value) => actions.toggleFilterValue("target", value)}
+            />
+            {isLoadingFilterOptions && (
+              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
+                <Loader2 className="w-4 h-4 animate-spin text-material-blue" />
+              </div>
+            )}
+          </div>
 
-          <CheckboxFilter
-            label="Acquirer"
-            options={acquirers}
-            selectedValues={filters.acquirer || []}
-            onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
-          />
+          <div className="relative">
+            <CheckboxFilter
+              label="Acquirer"
+              options={acquirers}
+              selectedValues={filters.acquirer || []}
+              onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
+            />
+            {isLoadingFilterOptions && (
+              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
+                <Loader2 className="w-4 h-4 animate-spin text-material-blue" />
+              </div>
+            )}
+          </div>
 
           <NestedCheckboxFilter
             label="Clause Type"
@@ -399,6 +409,19 @@ export default function Search() {
             useModal={true}
           />
         </div>
+
+        {/* Filter Options Error */}
+        {filterOptionsError && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800 text-sm">
+              <strong>Filter Options Error:</strong> {filterOptionsError}
+            </p>
+            <p className="text-red-600 text-xs mt-1">
+              Some filter options may not be available. Please refresh the page
+              to try again.
+            </p>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-4">
