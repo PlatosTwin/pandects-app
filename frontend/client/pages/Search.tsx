@@ -475,6 +475,11 @@ export default function Search() {
                   <div className="flex items-center">
                     <select
                       className="text-sm border border-gray-300 rounded-l px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent border-r-0 appearance-none pr-2"
+                      style={{
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        backgroundImage: "none",
+                      }}
                       onChange={(e) =>
                         actions.sortResults(
                           e.target.value as "year" | "target" | "acquirer",
