@@ -105,6 +105,9 @@ export function NestedCheckboxFilter({
         ) {
           const selectedResult = searchResults[highlightedSearchIndex];
           handleSearchResultSelect(selectedResult);
+        } else if (!searchTerm.trim()) {
+          // Close modal when Enter is pressed with empty search
+          setIsExpanded(false);
         }
         break;
       case "Escape":
