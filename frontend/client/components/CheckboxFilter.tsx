@@ -188,9 +188,11 @@ export function CheckboxFilter({
         // Check if this event should close our dropdown
         const isInOurDropdown =
           target.closest(".absolute.top-full") === expandedDropdownRef.current;
+        const isBodyTarget = target.tagName === "BODY";
 
-        if (isInOurDropdown) {
-          console.log("Event is in our dropdown");
+        // Close dropdown if event is in our dropdown OR if target is BODY (no specific focus)
+        if (isInOurDropdown || isBodyTarget) {
+          console.log("Event is in our dropdown or body target");
 
           // Always close on Escape
           if (e.key === "Escape") {
@@ -202,10 +204,11 @@ export function CheckboxFilter({
             return;
           }
 
-          // Close on Enter if not actively using search input
+          // Close on Enter if not actively using search input or if target is BODY
           if (
             target.tagName !== "INPUT" ||
-            (!searchTerm.trim() && highlightedIndex === -1)
+            (!searchTerm.trim() && highlightedIndex === -1) ||
+            isBodyTarget
           ) {
             console.log("Closing on Enter");
             e.preventDefault();
