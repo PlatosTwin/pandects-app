@@ -156,6 +156,14 @@ export function NestedCheckboxFilter({
     };
   }, [isExpanded, useModal]);
 
+  // Reset search when modal is closed
+  useEffect(() => {
+    if (!isExpanded) {
+      setSearchTerm("");
+      setShowSearchResults(false);
+    }
+  }, [isExpanded]);
+
   // Get all leaf values (final clause types) from nested structure
   const getAllLeafValues = (
     obj: NestedCategory,
