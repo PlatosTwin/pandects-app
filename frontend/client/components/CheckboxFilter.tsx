@@ -42,6 +42,7 @@ export function CheckboxFilter({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const expandedDropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter options based on search term
   useEffect(() => {
