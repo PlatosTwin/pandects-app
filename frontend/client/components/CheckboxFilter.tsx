@@ -109,10 +109,16 @@ export function CheckboxFilter({
       setSearchTerm("");
       setHighlightedIndex(-1);
     } else if (searchInputRef.current) {
-      // Focus search input when opening
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      // Focus search input when opening and set initial highlight
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        // Set initial highlight to first unselected option if no search term
+        if (!searchTerm.trim() && unselectedOptions.length > 0) {
+          setHighlightedIndex(0);
+        }
+      }, 100);
     }
-  }, [isExpanded]);
+  }, [isExpanded, searchTerm, unselectedOptions.length]);
 
   // Separate selected and unselected options for sticky behavior
   const selectedOptions = options.filter((option) =>
