@@ -54,7 +54,7 @@ export default function Navigation() {
                   className={cn(
                     "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200",
                     isActive
-                      ? "bg-material-blue text-white shadow-md focus:outline-none focus:ring-4 focus:ring-gray-800 focus:ring-offset-2 focus:ring-offset-cream"
+                      ? "bg-material-blue text-white shadow-md focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2 focus:ring-offset-cream"
                       : "text-material-text-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2",
                   )}
                 >
