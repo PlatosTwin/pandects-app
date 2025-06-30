@@ -444,6 +444,7 @@ export function NestedCheckboxFilter({
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder="Search clause types..."
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
                 />
@@ -455,7 +456,12 @@ export function NestedCheckboxFilter({
                       <button
                         key={`${result.path.join(".")}.${result.key}`}
                         onClick={() => handleSearchResultSelect(result)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-sm border-b border-gray-100 last:border-b-0"
+                        className={cn(
+                          "w-full text-left px-3 py-2 focus:outline-none text-sm border-b border-gray-100 last:border-b-0",
+                          highlightedSearchIndex === index
+                            ? "bg-material-blue-light"
+                            : "hover:bg-gray-50 focus:bg-gray-50",
+                        )}
                       >
                         <div className="text-material-text-primary font-medium">
                           {result.key}
