@@ -265,9 +265,6 @@ export function NestedCheckboxFilter({
             )}
           >
             <input
-              ref={(el) => {
-                checkboxRefs.current[key] = el;
-              }}
               type="checkbox"
               checked={selectedValues.includes(key)}
               onChange={() => onToggle(key)}
