@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { FileText, Search } from "lucide-react";
-import logo from '../../assets/logo.png';
+import logo from "../../assets/logo.png";
 
 export default function Navigation() {
   const location = useLocation();
@@ -51,11 +51,12 @@ export default function Navigation() {
                 <Link
                   key={item.path}
                   to={item.path}
+                  tabIndex={item.path === "/" ? 7 : 8}
                   className={cn(
                     "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200",
                     isActive
-                      ? "bg-material-blue text-white shadow-md"
-                      : "text-material-text-primary hover:bg-gray-100",
+                      ? "bg-material-blue text-white shadow-md focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2 focus:ring-offset-cream"
+                      : "text-material-text-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2",
                   )}
                 >
                   <Icon className="w-5 h-5" />

@@ -37,6 +37,33 @@ export function useSearch() {
     pageSize: 25,
   });
 
+  // Helper function to sort results
+  const sortResultsArray = (
+    results: SearchResult[],
+    sortBy: "year" | "target" | "acquirer" | null,
+    direction: "asc" | "desc",
+  ): SearchResult[] => {
+    if (!sortBy) return results;
+
+    return [...results].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "year":
+          comparison = parseInt(a.year) - parseInt(b.year);
+          break;
+        case "target":
+          comparison = a.target.localeCompare(b.target);
+          break;
+        case "acquirer":
+          comparison = a.acquirer.localeCompare(b.acquirer);
+          break;
+        default:
+          return 0;
+      }
+      return direction === "desc" ? -comparison : comparison;
+    });
+  };
+
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [allResults, setAllResults] = useState<SearchResult[]>([]);
@@ -49,7 +76,7 @@ export function useSearch() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
-  >(null);
+  >("year");
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
@@ -150,17 +177,22 @@ export function useSearch() {
 
         if (Array.isArray(responseData)) {
           // Backward compatibility: API returns SearchResult[]
-          setAllResults(responseData);
-          setTotalCount(responseData.length);
+          const sortedResults = sortResultsArray(
+            responseData,
+            currentSort,
+            sortDirection,
+          );
+          setAllResults(sortedResults);
+          setTotalCount(sortedResults.length);
           setTotalPages(
-            Math.ceil(responseData.length / searchFilters.pageSize!),
+            Math.ceil(sortedResults.length / searchFilters.pageSize!),
           );
 
           // Apply pagination on frontend
           const startIndex =
             (searchFilters.page! - 1) * searchFilters.pageSize!;
           const endIndex = startIndex + searchFilters.pageSize!;
-          const paginatedResults = responseData.slice(startIndex, endIndex);
+          const paginatedResults = sortedResults.slice(startIndex, endIndex);
           setSearchResults(paginatedResults);
 
           // Check if no results found with active filters
@@ -170,8 +202,13 @@ export function useSearch() {
         } else {
           // New format: API returns SearchResponse
           const searchResponse = responseData as SearchResponse;
-          setAllResults(searchResponse.results);
-          setSearchResults(searchResponse.results);
+          const sortedResults = sortResultsArray(
+            searchResponse.results,
+            currentSort,
+            sortDirection,
+          );
+          setAllResults(sortedResults);
+          setSearchResults(sortedResults);
           setTotalCount(searchResponse.totalCount);
           setTotalPages(searchResponse.totalPages);
 
@@ -316,59 +353,23 @@ export function useSearch() {
   const sortResults = useCallback(
     (sortBy: "year" | "target" | "acquirer") => {
       setCurrentSort(sortBy);
-      setSearchResults((prev) => {
-        const sorted = [...prev].sort((a, b) => {
-          let comparison = 0;
-          switch (sortBy) {
-            case "year":
-              comparison = parseInt(a.year) - parseInt(b.year);
-              break;
-            case "target":
-              comparison = a.target.localeCompare(b.target);
-              break;
-            case "acquirer":
-              comparison = a.acquirer.localeCompare(b.acquirer);
-              break;
-            default:
-              return 0;
-          }
-          return sortDirection === "desc" ? -comparison : comparison;
-        });
-        return sorted;
-      });
+      setSearchResults((prev) => sortResultsArray(prev, sortBy, sortDirection));
     },
-    [sortDirection],
+    [sortDirection, sortResultsArray],
   );
 
   const toggleSortDirection = useCallback(() => {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
 
-  // Auto-refresh results when sort direction changes
+  // Auto-refresh results when sort direction changes or when new results are loaded
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
-      setSearchResults((prev) => {
-        const sorted = [...prev].sort((a, b) => {
-          let comparison = 0;
-          switch (currentSort) {
-            case "year":
-              comparison = parseInt(a.year) - parseInt(b.year);
-              break;
-            case "target":
-              comparison = a.target.localeCompare(b.target);
-              break;
-            case "acquirer":
-              comparison = a.acquirer.localeCompare(b.acquirer);
-              break;
-            default:
-              return 0;
-          }
-          return sortDirection === "desc" ? -comparison : comparison;
-        });
-        return sorted;
-      });
+      setSearchResults((prev) =>
+        sortResultsArray(prev, currentSort, sortDirection),
+      );
     }
-  }, [sortDirection, currentSort, searchResults.length]);
+  }, [sortDirection, currentSort, searchResults.length, sortResultsArray]);
 
   return {
     filters,

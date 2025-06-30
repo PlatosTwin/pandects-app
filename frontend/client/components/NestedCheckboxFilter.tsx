@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NestedCategory {
   [key: string]: NestedCategory | string;
@@ -13,11 +19,23 @@ interface NestedCheckboxFilterProps {
   onToggle: (value: string) => void;
   className?: string;
   useModal?: boolean;
+  tabIndex?: number;
 }
 
 interface ExpandState {
   [key: string]: boolean;
 }
+
+// Utility function to truncate text for display
+const truncateText = (text: string, maxLength: number = 40) => {
+  if (text.length <= maxLength) {
+    return { truncated: text, needsTooltip: false };
+  }
+  return {
+    truncated: text.substring(0, maxLength) + "...",
+    needsTooltip: true,
+  };
+};
 
 export function NestedCheckboxFilter({
   label,
@@ -26,6 +44,7 @@ export function NestedCheckboxFilter({
   onToggle,
   className,
   useModal = false,
+  tabIndex,
 }: NestedCheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandState, setExpandState] = useState<ExpandState>({});
@@ -37,6 +56,7 @@ export function NestedCheckboxFilter({
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Search through leaf values (sub-sub-categories)
   const searchLeafValues = (
@@ -189,10 +209,15 @@ export function NestedCheckboxFilter({
       setSearchTerm("");
       setShowSearchResults(false);
       setHighlightedSearchIndex(-1);
-    } else if (useModal && searchInputRef.current) {
-      // Auto-focus search input when modal opens
+    } else if (useModal) {
+      // Auto-focus modal container first, then search input
       setTimeout(() => {
-        searchInputRef.current?.focus();
+        if (modalRef.current) {
+          modalRef.current.focus();
+        }
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
       }, 100);
     }
   }, [isExpanded, useModal]);
@@ -383,26 +408,45 @@ export function NestedCheckboxFilter({
 
       <div ref={dropdownRef} className="relative">
         {/* Header showing selected count */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue flex items-center justify-between"
-        >
-          <span>
-            {totalSelected === 0
-              ? `All ${label}s`
-              : totalSelected === 1
-                ? selectedValues[0]
-                : totalSelected === totalOptions
-                  ? `All ${label}s`
-                  : `${totalSelected} selected`}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-material-text-secondary" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-material-text-secondary" />
-          )}
-        </button>
+        <TooltipProvider>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            tabIndex={tabIndex}
+            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
+          >
+            {totalSelected === 0 ? (
+              <span>{`All ${label}s`}</span>
+            ) : totalSelected === 1 ? (
+              (() => {
+                const { truncated, needsTooltip } = truncateText(
+                  selectedValues[0],
+                );
+                return needsTooltip ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="truncate">{truncated}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{selectedValues[0]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span>{truncated}</span>
+                );
+              })()
+            ) : totalSelected === totalOptions ? (
+              <span>{`All ${label}s`}</span>
+            ) : (
+              <span>{`${totalSelected} selected`}</span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            )}
+          </button>
+        </TooltipProvider>
 
         {/* Bottom border line */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
@@ -425,7 +469,29 @@ export function NestedCheckboxFilter({
           />
 
           {/* Modal */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+          <div
+            ref={modalRef}
+            className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+            onKeyDown={(e) => {
+              // Handle Enter and Escape keys to close modal
+              if (e.key === "Enter" || e.key === "Escape") {
+                const target = e.target as HTMLElement;
+                // Close modal if Enter/Escape pressed and:
+                // - Search is empty, OR
+                // - Not pressing on specific interactive elements (buttons, checkboxes)
+                if (
+                  !searchTerm.trim() ||
+                  e.key === "Escape" ||
+                  (target.tagName !== "BUTTON" && target.tagName !== "INPUT")
+                ) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                }
+              }
+            }}
+            tabIndex={-1}
+          >
             {/* Header */}
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
@@ -450,7 +516,17 @@ export function NestedCheckboxFilter({
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
+                  onKeyDown={(e) => {
+                    // Handle Enter key to close modal when search is empty
+                    if (e.key === "Enter" && !searchTerm.trim()) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsExpanded(false);
+                      return;
+                    }
+                    // Handle other keys with existing function
+                    handleSearchKeyDown(e);
+                  }}
                   placeholder="Search clause types..."
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
                 />

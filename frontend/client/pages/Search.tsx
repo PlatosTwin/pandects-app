@@ -8,6 +8,7 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
@@ -52,6 +53,49 @@ export default function Search() {
     sortDirection,
     actions,
   } = useSearch();
+
+  // Handle Enter key for search
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isSearching) {
+      // Check if any filter elements are focused or dropdowns are open
+      const activeElement = document.activeElement as HTMLElement;
+
+      // Check if any dropdowns are currently open by looking for expanded dropdown containers
+      const hasOpenDropdown =
+        document.querySelector(".absolute.top-full") || // CheckboxFilter dropdowns
+        document.querySelector('[role="dialog"]'); // Modal dialogs
+
+      // Don't trigger search if:
+      // - An input is focused
+      // - A button with dropdown functionality is focused
+      // - Any element inside a dropdown/modal is focused
+      // - Any dropdown is currently open
+      const isInputFocused = activeElement?.tagName === "INPUT";
+      const isButtonFocused = activeElement?.tagName === "BUTTON";
+      const isInsideDropdown =
+        activeElement?.closest('[role="combobox"]') ||
+        activeElement?.closest(".absolute") || // Dropdown containers
+        activeElement?.closest('[role="dialog"]'); // Modal containers
+
+      console.log("Global search keydown:", {
+        isInputFocused,
+        isButtonFocused,
+        isInsideDropdown,
+        hasOpenDropdown,
+        activeElement: activeElement?.tagName,
+        className: activeElement?.className,
+      });
+
+      if (
+        !isInputFocused &&
+        !isButtonFocused &&
+        !isInsideDropdown &&
+        !hasOpenDropdown
+      ) {
+        actions.performSearch(true, clauseTypesNested);
+      }
+    }
+  };
 
   // Get dynamic filter options
   const {
@@ -374,7 +418,11 @@ export default function Search() {
   };
 
   return (
-    <div className="w-full font-roboto flex flex-col">
+    <div
+      className="w-full font-roboto flex flex-col"
+      onKeyDown={handleKeyDown}
+      tabIndex={-1}
+    >
       <div className="flex flex-col gap-8 p-12">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -391,6 +439,7 @@ export default function Search() {
             options={years}
             selectedValues={filters.year || []}
             onToggle={(value) => actions.toggleFilterValue("year", value)}
+            tabIndex={1}
           />
 
           <div className="relative">
@@ -399,6 +448,7 @@ export default function Search() {
               options={targets}
               selectedValues={filters.target || []}
               onToggle={(value) => actions.toggleFilterValue("target", value)}
+              tabIndex={2}
             />
             {isLoadingFilterOptions && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
@@ -413,6 +463,7 @@ export default function Search() {
               options={acquirers}
               selectedValues={filters.acquirer || []}
               onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
+              tabIndex={3}
             />
             {isLoadingFilterOptions && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
@@ -427,6 +478,7 @@ export default function Search() {
             selectedValues={filters.clauseType || []}
             onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
             useModal={true}
+            tabIndex={4}
           />
         </div>
 
@@ -448,10 +500,12 @@ export default function Search() {
           <button
             onClick={() => actions.performSearch(true, clauseTypesNested)}
             disabled={isSearching}
+            tabIndex={5}
             className={cn(
               "flex items-center justify-center gap-2 px-6 py-3 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
               "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
               "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
+              "focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2 focus:ring-offset-cream",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
@@ -459,6 +513,20 @@ export default function Search() {
               className={cn("w-5 h-5", isSearching && "animate-spin-custom")}
             />
             <span>{isSearching ? "Searching..." : "Search"}</span>
+          </button>
+
+          <button
+            onClick={actions.clearFilters}
+            disabled={isSearching}
+            tabIndex={6}
+            className={cn(
+              "flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-gray-400 text-gray-700 text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
+              "hover:bg-gray-50 hover:border-gray-500",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>Clear Filters</span>
           </button>
 
           <button
@@ -497,9 +565,8 @@ export default function Search() {
                           e.target.value as "year" | "target" | "acquirer",
                         )
                       }
-                      defaultValue=""
+                      defaultValue="year"
                     >
-                      <option value="">Default</option>
                       <option value="year">Year</option>
                       <option value="target">Target</option>
                       <option value="acquirer">Acquirer</option>
@@ -556,11 +623,11 @@ export default function Search() {
                           {/* Header with metadata */}
                           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
-                                <span className="text-material-text-primary font-medium">
+                              <div className="flex items-center gap-4 text-sm flex-1 min-w-0">
+                                <span className="text-material-text-primary font-medium flex-shrink-0">
                                   {result.year}
                                 </span>
-                                <span className="text-material-text-primary">
+                                <span className="text-material-text-primary flex-shrink-0">
                                   <span className="font-bold">T:</span>{" "}
                                   {targetText.needsTooltip ? (
                                     <Tooltip>
@@ -577,7 +644,7 @@ export default function Search() {
                                     targetText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-primary">
+                                <span className="text-material-text-primary flex-shrink-0">
                                   <span className="font-bold">A:</span>{" "}
                                   {acquirerText.needsTooltip ? (
                                     <Tooltip>
@@ -594,7 +661,10 @@ export default function Search() {
                                     acquirerText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-secondary">
+                                <span
+                                  className="text-material-text-secondary"
+                                  title={`${result.articleTitle} >> ${result.sectionTitle}`}
+                                >
                                   {result.articleTitle} &gt;&gt;{" "}
                                   {result.sectionTitle}
                                 </span>

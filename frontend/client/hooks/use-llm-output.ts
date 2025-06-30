@@ -93,7 +93,7 @@ export function useLLMOutput() {
   const loadPage = useCallback(async () => {
     if (!state.pageUuid.trim()) return;
 
-    updateState({ isLoading: true });
+    updateState({ isLoading: true, lastSaved: "" });
 
     try {
       const res = await fetch(
@@ -132,7 +132,6 @@ export function useLLMOutput() {
         promptId: promptId,
         llmOutput: output,
         isSaved: true,
-        lastSaved: new Date().toLocaleString(),
       });
     } catch (error) {
       console.error("Failed to load page:", error);

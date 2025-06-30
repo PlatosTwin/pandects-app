@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, X } from "lucide-react";
 
@@ -16,10 +17,33 @@ export default function SaveConfirmationModal({
   title = "Confirm Save",
   message = "Are you sure you want to save these changes?",
 }: SaveConfirmationModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      ref={modalRef}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          onConfirm();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+      tabIndex={-1}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black bg-opacity-50"

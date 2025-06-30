@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CheckboxFilterProps {
   label: string;
@@ -8,7 +14,19 @@ interface CheckboxFilterProps {
   selectedValues: string[];
   onToggle: (value: string) => void;
   className?: string;
+  tabIndex?: number;
 }
+
+// Utility function to truncate text for display
+const truncateText = (text: string, maxLength: number = 40) => {
+  if (text.length <= maxLength) {
+    return { truncated: text, needsTooltip: false };
+  }
+  return {
+    truncated: text.substring(0, maxLength) + "...",
+    needsTooltip: true,
+  };
+};
 
 export function CheckboxFilter({
   label,
@@ -16,6 +34,7 @@ export function CheckboxFilter({
   selectedValues,
   onToggle,
   className,
+  tabIndex,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,6 +42,7 @@ export function CheckboxFilter({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const expandedDropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter options based on search term
   useEffect(() => {
@@ -52,15 +72,17 @@ export function CheckboxFilter({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < navigableOptions.length - 1 ? prev + 1 : 0,
-        );
+        setHighlightedIndex((prev) => {
+          if (prev === -1) return 0; // Start from first item if nothing highlighted
+          return prev < navigableOptions.length - 1 ? prev + 1 : 0;
+        });
         break;
       case "ArrowUp":
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : navigableOptions.length - 1,
-        );
+        setHighlightedIndex((prev) => {
+          if (prev === -1) return navigableOptions.length - 1; // Start from last item if nothing highlighted
+          return prev > 0 ? prev - 1 : navigableOptions.length - 1;
+        });
         break;
       case "Enter":
         e.preventDefault();
@@ -70,6 +92,12 @@ export function CheckboxFilter({
         ) {
           const selectedOption = navigableOptions[highlightedIndex];
           onToggle(selectedOption);
+          // Clear search term after selection and reset highlight
+          setSearchTerm("");
+          setHighlightedIndex(-1);
+          // Keep dropdown open for multiple selections
+        } else {
+          // Close dropdown when no item is highlighted
           setSearchTerm("");
           setIsExpanded(false);
         }
@@ -111,56 +139,173 @@ export function CheckboxFilter({
     (option) => !selectedValues.includes(option),
   );
 
+  // Component container ref for focus
+  const componentRef = useRef<HTMLDivElement>(null);
+
   // Reset search when closing
   useEffect(() => {
     if (!isExpanded) {
       setSearchTerm("");
       setHighlightedIndex(-1);
-    } else if (searchInputRef.current) {
-      // Focus search input when opening and set initial highlight
+    } else {
+      // Focus component container first so it can capture keydown events
       setTimeout(() => {
-        searchInputRef.current?.focus();
-        // Set initial highlight to first unselected option if no search term
-        if (!searchTerm.trim() && unselectedOptions.length > 0) {
-          setHighlightedIndex(0);
+        if (componentRef.current) {
+          componentRef.current.focus();
+          console.log("Focused component container");
         }
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        setHighlightedIndex(-1); // Don't auto-highlight any option
       }, 100);
     }
-  }, [isExpanded, searchTerm, unselectedOptions.length]);
+  }, [isExpanded]);
+
+  // Add document-level keydown listener when dropdown is expanded
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleDocumentKeyDown = (e: KeyboardEvent) => {
+      console.log(
+        "Document keydown for CheckboxFilter:",
+        e.key,
+        "isExpanded:",
+        isExpanded,
+      );
+
+      if (e.key === "Enter" || e.key === "Escape") {
+        const target = e.target as HTMLElement;
+        console.log(
+          "Target:",
+          target.tagName,
+          "searchTerm:",
+          searchTerm,
+          "highlighted:",
+          highlightedIndex,
+        );
+
+        // Check if this event should close our dropdown
+        const isInOurDropdown =
+          target.closest(".absolute.top-full") === expandedDropdownRef.current;
+        const isBodyTarget = target.tagName === "BODY";
+
+        // Close dropdown if event is in our dropdown OR if target is BODY (no specific focus)
+        if (isInOurDropdown || isBodyTarget) {
+          console.log("Event is in our dropdown or body target");
+
+          // Always close on Escape
+          if (e.key === "Escape") {
+            console.log("Closing on Escape");
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(false);
+            setSearchTerm("");
+            return;
+          }
+
+          // Close on Enter if not actively using search input or if target is BODY
+          if (
+            target.tagName !== "INPUT" ||
+            (!searchTerm.trim() && highlightedIndex === -1) ||
+            isBodyTarget
+          ) {
+            console.log("Closing on Enter");
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(false);
+            setSearchTerm("");
+          }
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown, true); // Use capture phase
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown, true);
+    };
+  }, [isExpanded, searchTerm, highlightedIndex]);
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div ref={componentRef} className={cn("flex flex-col gap-2", className)}>
       <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
         {label}
       </label>
 
       <div ref={dropdownRef} className="relative">
         {/* Header showing selected count or "All" */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue flex items-center justify-between"
-        >
-          <span>
-            {selectedValues.length === 0
-              ? `All ${label}s`
-              : selectedValues.length === 1
-                ? selectedValues[0]
-                : `${selectedValues.length} selected`}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-material-text-secondary" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-material-text-secondary" />
-          )}
-        </button>
+        <TooltipProvider>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            tabIndex={tabIndex}
+            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
+          >
+            {selectedValues.length === 0 ? (
+              <span>{`All ${label}s`}</span>
+            ) : selectedValues.length === 1 ? (
+              (() => {
+                const { truncated, needsTooltip } = truncateText(
+                  selectedValues[0],
+                );
+                return needsTooltip ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="truncate">{truncated}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{selectedValues[0]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span>{truncated}</span>
+                );
+              })()
+            ) : (
+              <span>{`${selectedValues.length} selected`}</span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            )}
+          </button>
+        </TooltipProvider>
 
         {/* Bottom border line */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
 
         {/* Expanded dropdown with search and sticky selected items */}
         {isExpanded && (
-          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col">
+          <div
+            ref={expandedDropdownRef}
+            className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
+            onKeyDown={(e) => {
+              // Handle Enter and Escape keys to close dropdown
+              if (e.key === "Enter" || e.key === "Escape") {
+                const target = e.target as HTMLElement;
+                // Always close on Escape
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                  setSearchTerm("");
+                  return;
+                }
+                // Close on Enter if not in search input, or if search is empty and nothing highlighted
+                if (
+                  target.tagName !== "INPUT" ||
+                  (!searchTerm.trim() && highlightedIndex === -1)
+                ) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                  setSearchTerm("");
+                }
+              }
+            }}
+            tabIndex={-1}
+          >
             {/* Search Input */}
             <div className="p-3 border-b border-gray-200">
               <div className="relative">

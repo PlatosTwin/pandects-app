@@ -8,6 +8,7 @@ import {
   Trash2,
   Minus,
   Plus,
+  FileText,
 } from "lucide-react";
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
@@ -33,7 +34,17 @@ export default function Index() {
                   placeholder="Enter page UUID"
                   value={state.pageUuid}
                   onChange={(e) => actions.updatePageUuid(e.target.value)}
-                  className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-material-text-primary bg-transparent border-none min-h-6 py-1 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      !state.isLoading &&
+                      state.pageUuid.trim()
+                    ) {
+                      actions.loadPage();
+                    }
+                  }}
+                  tabIndex={1}
+                  className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-material-text-primary bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-blue-50 transition-colors"
                 />
                 <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
               </div>
@@ -46,11 +57,13 @@ export default function Index() {
             <button
               disabled={state.isLoading || !state.pageUuid.trim()}
               onClick={actions.loadPage}
+              tabIndex={2}
               style={{ opacity: state.isLoading ? 0.7 : 1 }}
               className={cn(
                 "flex items-center justify-center gap-2 px-6 py-2 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
                 "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
                 "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
+                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
@@ -67,7 +80,8 @@ export default function Index() {
             <button
               disabled={state.isLoading}
               onClick={actions.requestSave}
-              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-[rgba(25,118,210,0.5)] text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-[rgba(25,118,210,0.05)]"
+              tabIndex={3}
+              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-[rgba(25,118,210,0.5)] text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-[rgba(25,118,210,0.05)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               <Check className="w-6 h-6 flex-shrink-0" />
               <span>Save</span>
@@ -122,7 +136,7 @@ export default function Index() {
                 LLM Output
               </h2>
               {state.lastSaved && (
-                <div className="text-xs text-material-text-secondary">
+                <div className="text-xs text-material-text-secondary flex items-center leading-none">
                   <span>Last saved: </span>
                   <span>{state.lastSaved}</span>
                 </div>
