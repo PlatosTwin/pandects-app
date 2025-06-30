@@ -40,28 +40,35 @@ export function CheckboxFilter({
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isExpanded || filteredOptions.length === 0) return;
+    if (!isExpanded) return;
+
+    // Determine which options to navigate through
+    const navigableOptions = searchTerm.trim()
+      ? filteredOptions
+      : unselectedOptions;
+
+    if (navigableOptions.length === 0) return;
 
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < filteredOptions.length - 1 ? prev + 1 : 0,
+          prev < navigableOptions.length - 1 ? prev + 1 : 0,
         );
         break;
       case "ArrowUp":
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredOptions.length - 1,
+          prev > 0 ? prev - 1 : navigableOptions.length - 1,
         );
         break;
       case "Enter":
         e.preventDefault();
         if (
           highlightedIndex >= 0 &&
-          highlightedIndex < filteredOptions.length
+          highlightedIndex < navigableOptions.length
         ) {
-          const selectedOption = filteredOptions[highlightedIndex];
+          const selectedOption = navigableOptions[highlightedIndex];
           onToggle(selectedOption);
           setSearchTerm("");
           setIsExpanded(false);
