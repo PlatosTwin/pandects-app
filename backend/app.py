@@ -81,8 +81,8 @@ class Agreements(db.Model):
 
 class XML(db.Model):
     __table__ = xml_table
-    
-    
+
+
 class Taxonomy(db.Model):
     __table__ = taxonomy_table
 
@@ -155,6 +155,33 @@ def get_agreement(agreement_uuid):
         "url":      url,
         "xml":      xml_content
     })
+
+
+@app.route("/api/filter-options", methods=["GET"])
+def get_filter_options():
+    """Fetch distinct targets and acquirers from the database"""
+    try:
+        # Execute the SQL query to get distinct targets and acquirers
+        result = db.session.execute(
+            """
+            SELECT DISTINCT target, acquirer
+            FROM mna.agreements a
+            JOIN mna.xml x ON a.uuid = x.agreement_uuid
+            ORDER BY target, acquirer
+            """
+        ).fetchall()
+
+        # Extract unique targets and acquirers
+        targets = sorted(set(row[0] for row in result if row[0]))
+        acquirers = sorted(set(row[1] for row in result if row[1]))
+
+        return jsonify({
+            "targets": targets,
+            "acquirers": acquirers
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/search", methods=["GET"])
