@@ -43,7 +43,7 @@ export default function Index() {
                       actions.loadPage();
                     }
                   }}
-                  tabIndex={2}
+                  tabIndex={1}
                   className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-material-text-primary bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-blue-50 transition-colors"
                 />
                 <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
