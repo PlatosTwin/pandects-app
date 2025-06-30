@@ -653,8 +653,35 @@ export default function Search() {
                                   )}
                                 </span>
                                 <span className="text-material-text-secondary">
-                                  {result.articleTitle} &gt;&gt;{" "}
-                                  {result.sectionTitle}
+                                  {articleText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {articleText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.articleTitle}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    articleText.truncated
+                                  )}
+                                  {" >> "}
+                                  {sectionText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {sectionText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.sectionTitle}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    sectionText.truncated
+                                  )}
                                 </span>
                               </div>
 
