@@ -353,28 +353,9 @@ export function useSearch() {
   const sortResults = useCallback(
     (sortBy: "year" | "target" | "acquirer") => {
       setCurrentSort(sortBy);
-      setSearchResults((prev) => {
-        const sorted = [...prev].sort((a, b) => {
-          let comparison = 0;
-          switch (sortBy) {
-            case "year":
-              comparison = parseInt(a.year) - parseInt(b.year);
-              break;
-            case "target":
-              comparison = a.target.localeCompare(b.target);
-              break;
-            case "acquirer":
-              comparison = a.acquirer.localeCompare(b.acquirer);
-              break;
-            default:
-              return 0;
-          }
-          return sortDirection === "desc" ? -comparison : comparison;
-        });
-        return sorted;
-      });
+      setSearchResults((prev) => sortResultsArray(prev, sortBy, sortDirection));
     },
-    [sortDirection],
+    [sortDirection, sortResultsArray],
   );
 
   const toggleSortDirection = useCallback(() => {
