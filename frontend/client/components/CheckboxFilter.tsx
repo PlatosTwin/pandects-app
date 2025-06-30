@@ -162,55 +162,66 @@ export function CheckboxFilter({
     }
   }, [isExpanded]);
 
-  // Handle keydown at component level when dropdown is expanded
-  const handleComponentKeyDown = (e: React.KeyboardEvent) => {
-    console.log(
-      "CheckboxFilter keydown received:",
-      e.key,
-      "isExpanded:",
-      isExpanded,
-    );
-
+  // Add document-level keydown listener when dropdown is expanded
+  useEffect(() => {
     if (!isExpanded) return;
 
-    if (e.key === "Enter" || e.key === "Escape") {
-      const target = e.target as HTMLElement;
+    const handleDocumentKeyDown = (e: KeyboardEvent) => {
       console.log(
-        "Component keydown:",
+        "Document keydown for CheckboxFilter:",
         e.key,
-        "target:",
-        target.tagName,
-        "searchTerm:",
-        searchTerm,
-        "highlighted:",
-        highlightedIndex,
-        "className:",
-        target.className,
+        "isExpanded:",
+        isExpanded,
       );
 
-      // Always close on Escape
-      if (e.key === "Escape") {
-        console.log("Closing on Escape");
-        e.preventDefault();
-        e.stopPropagation();
-        setIsExpanded(false);
-        setSearchTerm("");
-        return;
-      }
+      if (e.key === "Enter" || e.key === "Escape") {
+        const target = e.target as HTMLElement;
+        console.log(
+          "Target:",
+          target.tagName,
+          "searchTerm:",
+          searchTerm,
+          "highlighted:",
+          highlightedIndex,
+        );
 
-      // Close on Enter if not actively using search input
-      if (
-        target.tagName !== "INPUT" ||
-        (!searchTerm.trim() && highlightedIndex === -1)
-      ) {
-        console.log("Closing on Enter");
-        e.preventDefault();
-        e.stopPropagation();
-        setIsExpanded(false);
-        setSearchTerm("");
+        // Check if this event should close our dropdown
+        const isInOurDropdown =
+          target.closest(".absolute.top-full") === expandedDropdownRef.current;
+
+        if (isInOurDropdown) {
+          console.log("Event is in our dropdown");
+
+          // Always close on Escape
+          if (e.key === "Escape") {
+            console.log("Closing on Escape");
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(false);
+            setSearchTerm("");
+            return;
+          }
+
+          // Close on Enter if not actively using search input
+          if (
+            target.tagName !== "INPUT" ||
+            (!searchTerm.trim() && highlightedIndex === -1)
+          ) {
+            console.log("Closing on Enter");
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(false);
+            setSearchTerm("");
+          }
+        }
       }
-    }
-  };
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown, true); // Use capture phase
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown, true);
+    };
+  }, [isExpanded, searchTerm, highlightedIndex]);
 
   return (
     <div
