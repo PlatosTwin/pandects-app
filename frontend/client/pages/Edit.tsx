@@ -8,6 +8,7 @@ import {
   Trash2,
   Minus,
   Plus,
+  FileText,
 } from "lucide-react";
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
