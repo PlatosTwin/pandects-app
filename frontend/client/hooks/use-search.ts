@@ -344,7 +344,7 @@ export function useSearch() {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
 
-  // Auto-refresh results when sort direction changes
+  // Auto-refresh results when sort direction changes or when new results are loaded
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
       setSearchResults((prev) => {
