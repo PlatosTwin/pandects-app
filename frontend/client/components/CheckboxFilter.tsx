@@ -103,6 +103,14 @@ export function CheckboxFilter({
     };
   }, [isExpanded]);
 
+  // Separate selected and unselected options for sticky behavior
+  const selectedOptions = options.filter((option) =>
+    selectedValues.includes(option),
+  );
+  const unselectedOptions = options.filter(
+    (option) => !selectedValues.includes(option),
+  );
+
   // Reset search when closing
   useEffect(() => {
     if (!isExpanded) {
@@ -119,14 +127,6 @@ export function CheckboxFilter({
       }, 100);
     }
   }, [isExpanded, searchTerm, unselectedOptions.length]);
-
-  // Separate selected and unselected options for sticky behavior
-  const selectedOptions = options.filter((option) =>
-    selectedValues.includes(option),
-  );
-  const unselectedOptions = options.filter(
-    (option) => !selectedValues.includes(option),
-  );
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
