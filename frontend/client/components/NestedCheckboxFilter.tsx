@@ -29,7 +29,14 @@ export function NestedCheckboxFilter({
 }: NestedCheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandState, setExpandState] = useState<ExpandState>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ key: string; path: string[] }>
+  >([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const checkboxRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   // Initialize all categories as expanded when using modal mode
   useEffect(() => {
