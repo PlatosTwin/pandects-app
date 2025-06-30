@@ -457,8 +457,45 @@ export function NestedCheckboxFilter({
             </div>
 
             {/* Content */}
-            <div className="p-6 overflow-y-auto flex-1">
-              {renderNestedItems(data)}
+            <div className="overflow-y-auto flex-1 flex flex-col">
+              {/* Selected Items (Sticky at top) */}
+              {selectedValues.length > 0 && (
+                <div className="flex-shrink-0 bg-blue-50 border-b border-gray-200">
+                  <div className="p-4 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+                    Selected ({selectedValues.length})
+                  </div>
+                  <div className="px-4 pb-4">
+                    <div className="grid gap-2">
+                      {selectedValues.map((value) => (
+                        <div
+                          key={`selected-${value}`}
+                          className="flex items-center justify-between bg-white p-3 rounded border border-blue-200"
+                        >
+                          <span className="text-sm text-material-text-primary font-medium">
+                            {value}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onToggle(value)}
+                            className="p-1 hover:bg-red-100 rounded text-red-600 transition-colors"
+                            title="Remove filter"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* All Clause Types */}
+              <div className="p-6 flex-1">
+                <div className="text-xs font-medium text-material-text-secondary uppercase tracking-wider mb-4">
+                  All Clause Types
+                </div>
+                {renderNestedItems(data)}
+              </div>
             </div>
 
             {/* Footer with selection summary */}
