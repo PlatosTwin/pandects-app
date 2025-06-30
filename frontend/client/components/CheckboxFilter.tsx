@@ -18,7 +18,11 @@ export function CheckboxFilter({
   className,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredOptions, setFilteredOptions] = useState<string[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
