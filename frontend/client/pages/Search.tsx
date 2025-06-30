@@ -472,9 +472,9 @@ export default function Search() {
                   <span className="text-sm text-material-text-secondary">
                     Sort by:
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center">
                     <select
-                      className="text-sm border border-gray-300 rounded px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent"
+                      className="text-sm border border-gray-300 rounded-l px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent border-r-0 appearance-none pr-2"
                       onChange={(e) =>
                         actions.sortResults(
                           e.target.value as "year" | "target" | "acquirer",
@@ -489,7 +489,7 @@ export default function Search() {
                     </select>
                     <button
                       onClick={actions.toggleSortDirection}
-                      className="p-1 text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
+                      className="border border-gray-300 border-l-0 rounded-r px-2 py-1 bg-white hover:bg-gray-50 text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
                       title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
                     >
                       {sortDirection === "asc" ? (
