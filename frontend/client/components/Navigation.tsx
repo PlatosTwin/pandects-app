@@ -51,7 +51,7 @@ export default function Navigation() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  tabIndex={-1}
+                  tabIndex={item.path === "/" ? 6 : 7}
                   className={cn(
                     "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200",
                     isActive
