@@ -59,10 +59,16 @@ export default function Search() {
       // Check if any filter elements are focused or dropdowns are open
       const activeElement = document.activeElement as HTMLElement;
 
+      // Check if any dropdowns are currently open by looking for expanded dropdown containers
+      const hasOpenDropdown =
+        document.querySelector(".absolute.top-full") || // CheckboxFilter dropdowns
+        document.querySelector('[role="dialog"]'); // Modal dialogs
+
       // Don't trigger search if:
       // - An input is focused
       // - A button with dropdown functionality is focused
       // - Any element inside a dropdown/modal is focused
+      // - Any dropdown is currently open
       const isInputFocused = activeElement?.tagName === "INPUT";
       const isButtonFocused = activeElement?.tagName === "BUTTON";
       const isInsideDropdown =
@@ -70,7 +76,21 @@ export default function Search() {
         activeElement?.closest(".absolute") || // Dropdown containers
         activeElement?.closest('[role="dialog"]'); // Modal containers
 
-      if (!isInputFocused && !isButtonFocused && !isInsideDropdown) {
+      console.log("Global search keydown:", {
+        isInputFocused,
+        isButtonFocused,
+        isInsideDropdown,
+        hasOpenDropdown,
+        activeElement: activeElement?.tagName,
+        className: activeElement?.className,
+      });
+
+      if (
+        !isInputFocused &&
+        !isButtonFocused &&
+        !isInsideDropdown &&
+        !hasOpenDropdown
+      ) {
         actions.performSearch(true, clauseTypesNested);
       }
     }
