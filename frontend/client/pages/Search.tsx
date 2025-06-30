@@ -594,20 +594,13 @@ export default function Search() {
                                   )}
                                 </span>
                                 <span className="text-material-text-secondary min-w-0 flex-1">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="truncate block">
-                                        {result.articleTitle} &gt;&gt;{" "}
-                                        {result.sectionTitle}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>
-                                        {result.articleTitle} &gt;&gt;{" "}
-                                        {result.sectionTitle}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
+                                  <span
+                                    className="truncate block cursor-help"
+                                    title={`${result.articleTitle} >> ${result.sectionTitle}`}
+                                  >
+                                    {result.articleTitle} &gt;&gt;{" "}
+                                    {result.sectionTitle}
+                                  </span>
                                 </span>
                               </div>
 
