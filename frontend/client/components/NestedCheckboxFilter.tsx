@@ -44,6 +44,7 @@ export function NestedCheckboxFilter({
   onToggle,
   className,
   useModal = false,
+  tabIndex,
 }: NestedCheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandState, setExpandState] = useState<ExpandState>({});
