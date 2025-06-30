@@ -16,6 +16,17 @@ interface CheckboxFilterProps {
   className?: string;
 }
 
+// Utility function to truncate text for display
+const truncateText = (text: string, maxLength: number = 40) => {
+  if (text.length <= maxLength) {
+    return { truncated: text, needsTooltip: false };
+  }
+  return {
+    truncated: text.substring(0, maxLength) + "...",
+    needsTooltip: true,
+  };
+};
+
 export function CheckboxFilter({
   label,
   options,
