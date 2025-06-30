@@ -216,10 +216,17 @@ export function CheckboxFilter({
               // Handle Enter and Escape keys to close dropdown
               if (e.key === "Enter" || e.key === "Escape") {
                 const target = e.target as HTMLElement;
-                // Close dropdown if Enter/Escape pressed and not on specific interactive elements
+                // Always close on Escape
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                  setSearchTerm("");
+                  return;
+                }
+                // Close on Enter if not in search input, or if search is empty and nothing highlighted
                 if (
                   target.tagName !== "INPUT" ||
-                  e.key === "Escape" ||
                   (!searchTerm.trim() && highlightedIndex === -1)
                 ) {
                   e.preventDefault();
