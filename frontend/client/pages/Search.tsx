@@ -412,7 +412,7 @@ export default function Search() {
             <a
               href="/edit"
               tabIndex={5}
-              className="text-sm text-material-blue hover:text-blue-700 focus:outline-none focus:underline"
+              className="text-sm text-material-blue hover:text-blue-700 focus:outline-none focus:underline focus:bg-blue-50 px-2 py-1 rounded transition-colors"
             >
               Output Editor
             </a>
