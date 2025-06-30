@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NestedCategory {
