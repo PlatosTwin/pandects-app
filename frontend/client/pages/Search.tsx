@@ -500,6 +500,7 @@ export default function Search() {
           <button
             onClick={() => actions.performSearch(true, clauseTypesNested)}
             disabled={isSearching}
+            tabIndex={5}
             className={cn(
               "flex items-center justify-center gap-2 px-6 py-3 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
               "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
