@@ -6,6 +6,8 @@ import {
   FileText,
   ExternalLink,
   Loader2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
@@ -30,6 +32,7 @@ export default function Search() {
     showErrorModal,
     errorMessage,
     showNoResultsModal,
+    sortDirection,
     actions,
   } = useSearch();
 
@@ -469,20 +472,33 @@ export default function Search() {
                   <span className="text-sm text-material-text-secondary">
                     Sort by:
                   </span>
-                  <select
-                    className="text-sm border border-gray-300 rounded px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent"
-                    onChange={(e) =>
-                      actions.sortResults(
-                        e.target.value as "year" | "target" | "acquirer",
-                      )
-                    }
-                    defaultValue=""
-                  >
-                    <option value="">Default</option>
-                    <option value="year">Year</option>
-                    <option value="target">Target</option>
-                    <option value="acquirer">Acquirer</option>
-                  </select>
+                  <div className="flex items-center gap-1">
+                    <select
+                      className="text-sm border border-gray-300 rounded-l px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent border-r-0"
+                      onChange={(e) =>
+                        actions.sortResults(
+                          e.target.value as "year" | "target" | "acquirer",
+                        )
+                      }
+                      defaultValue=""
+                    >
+                      <option value="">Default</option>
+                      <option value="year">Year</option>
+                      <option value="target">Target</option>
+                      <option value="acquirer">Acquirer</option>
+                    </select>
+                    <button
+                      onClick={actions.toggleSortDirection}
+                      className="border border-gray-300 border-l-0 rounded-r px-2 py-1 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent transition-colors"
+                      title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+                    >
+                      {sortDirection === "asc" ? (
+                        <ChevronUp className="w-4 h-4 text-material-text-secondary" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-material-text-secondary" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
