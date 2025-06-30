@@ -260,6 +260,7 @@ export function useSearch() {
       target: [],
       acquirer: [],
       clauseType: [],
+      standardId: [],
       page: 1,
       pageSize: 25,
     });
