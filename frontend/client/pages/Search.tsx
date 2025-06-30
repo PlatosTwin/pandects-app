@@ -497,9 +497,8 @@ export default function Search() {
                           e.target.value as "year" | "target" | "acquirer",
                         )
                       }
-                      defaultValue=""
+                      defaultValue="year"
                     >
-                      <option value="">Default</option>
                       <option value="year">Year</option>
                       <option value="target">Target</option>
                       <option value="acquirer">Acquirer</option>
