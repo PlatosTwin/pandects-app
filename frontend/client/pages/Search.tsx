@@ -155,7 +155,7 @@ export default function Search() {
         "Stock Issuance & Reservation": "2014181a8401598b",
       },
     },
-    Covenants: {
+    "Covenants": {
       "Disclosure Schedule Interpretation": {
         "Disclosure Schedule Interpretation & Cross-References":
           "12778ed5811cb2c7",
