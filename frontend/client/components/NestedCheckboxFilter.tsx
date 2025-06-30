@@ -38,6 +38,80 @@ export function NestedCheckboxFilter({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const checkboxRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
+  // Search through leaf values (sub-sub-categories)
+  const searchLeafValues = (
+    obj: NestedCategory,
+    query: string,
+    path: string[] = [],
+  ): Array<{ key: string; path: string[] }> => {
+    const results: Array<{ key: string; path: string[] }> = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string") {
+        // This is a leaf node - check if it matches the search query
+        if (key.toLowerCase().includes(query.toLowerCase())) {
+          results.push({ key, path: [...path] });
+        }
+      } else {
+        // Recurse into nested object
+        results.push(...searchLeafValues(value, query, [...path, key]));
+      }
+    }
+
+    return results;
+  };
+
+  // Handle search input changes
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      const results = searchLeafValues(data, searchTerm);
+      setSearchResults(results);
+      setShowSearchResults(true);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  }, [searchTerm, data]);
+
+  // Handle search result selection
+  const handleSearchResultSelect = (result: {
+    key: string;
+    path: string[];
+  }) => {
+    // Select the checkbox
+    onToggle(result.key);
+
+    // Expand the path to make the item visible
+    const expandKeys: string[] = [];
+    for (let i = 0; i < result.path.length; i++) {
+      const expandKey = result.path.slice(0, i + 1).join(".");
+      expandKeys.push(expandKey);
+    }
+
+    setExpandState((prev) => {
+      const newState = { ...prev };
+      expandKeys.forEach((key) => {
+        newState[key] = true;
+      });
+      return newState;
+    });
+
+    // Clear search and hide results
+    setSearchTerm("");
+    setShowSearchResults(false);
+
+    // Scroll to the item after a brief delay to allow for expansion
+    setTimeout(() => {
+      const checkboxElement = checkboxRefs.current[result.key];
+      if (checkboxElement) {
+        checkboxElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 100);
+  };
+
   // Initialize all categories as expanded when using modal mode
   useEffect(() => {
     if (useModal && isExpanded) {
