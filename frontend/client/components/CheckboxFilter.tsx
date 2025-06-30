@@ -203,6 +203,7 @@ export function CheckboxFilter({
 
   return (
     <div
+      ref={componentRef}
       className={cn("flex flex-col gap-2", className)}
       onKeyDown={handleComponentKeyDown}
       tabIndex={isExpanded ? 0 : -1}
