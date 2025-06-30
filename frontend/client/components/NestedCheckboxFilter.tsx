@@ -400,26 +400,44 @@ export function NestedCheckboxFilter({
 
       <div ref={dropdownRef} className="relative">
         {/* Header showing selected count */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue flex items-center justify-between"
-        >
-          <span>
-            {totalSelected === 0
-              ? `All ${label}s`
-              : totalSelected === 1
-                ? selectedValues[0]
-                : totalSelected === totalOptions
-                  ? `All ${label}s`
-                  : `${totalSelected} selected`}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-material-text-secondary" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-material-text-secondary" />
-          )}
-        </button>
+        <TooltipProvider>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue flex items-center justify-between min-h-[44px]"
+          >
+            {totalSelected === 0 ? (
+              <span>{`All ${label}s`}</span>
+            ) : totalSelected === 1 ? (
+              (() => {
+                const { truncated, needsTooltip } = truncateText(
+                  selectedValues[0],
+                );
+                return needsTooltip ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="truncate">{truncated}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{selectedValues[0]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span>{truncated}</span>
+                );
+              })()
+            ) : totalSelected === totalOptions ? (
+              <span>{`All ${label}s`}</span>
+            ) : (
+              <span>{`${totalSelected} selected`}</span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+            )}
+          </button>
+        </TooltipProvider>
 
         {/* Bottom border line */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
