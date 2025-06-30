@@ -183,14 +183,19 @@ export function NestedCheckboxFilter({
     };
   }, [isExpanded, useModal]);
 
-  // Reset search when modal is closed
+  // Reset search when modal is closed and auto-focus when opened
   useEffect(() => {
     if (!isExpanded) {
       setSearchTerm("");
       setShowSearchResults(false);
       setHighlightedSearchIndex(-1);
+    } else if (useModal && searchInputRef.current) {
+      // Auto-focus search input when modal opens
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
     }
-  }, [isExpanded]);
+  }, [isExpanded, useModal]);
 
   // Get all leaf values (final clause types) from nested structure
   const getAllLeafValues = (
