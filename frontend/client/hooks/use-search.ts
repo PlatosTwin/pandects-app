@@ -49,7 +49,7 @@ export function useSearch() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
-  >(null);
+  >("year");
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
