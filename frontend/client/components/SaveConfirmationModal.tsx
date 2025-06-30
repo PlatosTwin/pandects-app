@@ -17,6 +17,14 @@ export default function SaveConfirmationModal({
   title = "Confirm Save",
   message = "Are you sure you want to save these changes?",
 }: SaveConfirmationModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
