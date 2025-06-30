@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table
-from sqlalchemy.dialects.mysql import LONGTEXT
+from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 
 # ── Flask setup ──────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -54,6 +54,8 @@ sections_table = Table(
     Column("article_title",  TEXT,     nullable=False),
     Column("section_title",  TEXT,     nullable=False),
     Column("xml_content",    LONGTEXT, nullable=False),
+    Column("article_standard_id",    TINYTEXT, nullable=False),
+    Column("section_standard_id",    TINYTEXT, nullable=False),
     schema="mna",
 )
 taxonomy_table = Table(
