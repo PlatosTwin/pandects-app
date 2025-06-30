@@ -514,6 +514,19 @@ export default function Search() {
           </button>
 
           <button
+            onClick={actions.clearFilters}
+            disabled={isSearching}
+            className={cn(
+              "flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-gray-400 text-gray-700 text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
+              "hover:bg-gray-50 hover:border-gray-500",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>Clear Filters</span>
+          </button>
+
+          <button
             onClick={actions.downloadCSV}
             disabled={searchResults.length === 0}
             className={cn(
