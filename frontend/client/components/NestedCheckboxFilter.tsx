@@ -466,7 +466,19 @@ export function NestedCheckboxFilter({
           />
 
           {/* Modal */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+          <div
+            className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                !searchTerm.trim() &&
+                searchResults.length === 0
+              ) {
+                setIsExpanded(false);
+              }
+            }}
+            tabIndex={-1}
+          >
             {/* Header */}
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
