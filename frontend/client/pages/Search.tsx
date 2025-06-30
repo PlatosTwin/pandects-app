@@ -32,7 +32,7 @@ const truncateText = (text: string, maxLength: number = 75) => {
   }
   return {
     truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true,
+    needsTooltip: true
   };
 };
 
@@ -542,32 +542,63 @@ export default function Search() {
                 />
 
                 {/* Results grid */}
-                <div className="grid gap-4">
-                  {searchResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
-                    >
-                      {/* Header with metadata */}
-                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
-                            <span className="text-material-text-primary font-medium">
-                              {result.year}
-                            </span>
-                            <span className="text-material-text-primary">
-                              <span className="font-bold">T:</span>{" "}
-                              {result.target}
-                            </span>
-                            <span className="text-material-text-primary">
-                              <span className="font-bold">A:</span>{" "}
-                              {result.acquirer}
-                            </span>
-                            <span className="text-material-text-secondary">
-                              {result.articleTitle} &gt;&gt;{" "}
-                              {result.sectionTitle}
-                            </span>
-                          </div>
+                <TooltipProvider>
+                  <div className="grid gap-4">
+                    {searchResults.map((result) => {
+                      const targetText = truncateText(result.target, 75);
+                      const acquirerText = truncateText(result.acquirer, 75);
+
+                      return (
+                        <div
+                          key={result.id}
+                          className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+                        >
+                          {/* Header with metadata */}
+                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
+                                <span className="text-material-text-primary font-medium">
+                                  {result.year}
+                                </span>
+                                <span className="text-material-text-primary">
+                                  <span className="font-bold">T:</span>{" "}
+                                  {targetText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {targetText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.target}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    targetText.truncated
+                                  )}
+                                </span>
+                                <span className="text-material-text-primary">
+                                  <span className="font-bold">A:</span>{" "}
+                                  {acquirerText.needsTooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          {acquirerText.truncated}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{result.acquirer}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    acquirerText.truncated
+                                  )}
+                                </span>
+                                <span className="text-material-text-secondary">
+                                  {result.articleTitle} &gt;&gt;{" "}
+                                  {result.sectionTitle}
+                                </span>
+                              </div>
 
                           {/* Open Agreement Button */}
                           <div className="ml-4">
