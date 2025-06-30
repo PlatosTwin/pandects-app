@@ -131,7 +131,7 @@ export default function Index() {
                 LLM Output
               </h2>
               {state.lastSaved && (
-                <div className="text-xs text-material-text-secondary flex items-center">
+                <div className="text-xs text-material-text-secondary flex items-center leading-none">
                   <span>Last saved: </span>
                   <span>{state.lastSaved}</span>
                 </div>
