@@ -30,6 +30,12 @@ export interface SearchResponse {
   totalPages: number;
 }
 
+// Filter options response from API
+export interface FilterOptionsResponse {
+  targets: string[];
+  acquirers: string[];
+}
+
 // Filter options (to be populated from API)
 export interface FilterOptions {
   years: string[];
