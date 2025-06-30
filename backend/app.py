@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Integer, Table
+from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table
 from sqlalchemy.dialects.mysql import LONGTEXT
 
 # ── Flask setup ──────────────────────────────────────────────────────────
@@ -56,6 +56,11 @@ sections_table = Table(
     Column("xml_content",    LONGTEXT, nullable=False),
     schema="mna",
 )
+taxonomy_table = Table(
+    "taxonomy",
+    metadata,
+    autoload_with=engine,
+)
 
 
 class LLMOut(db.Model):
@@ -76,6 +81,10 @@ class Agreements(db.Model):
 
 class XML(db.Model):
     __table__ = xml_table
+    
+    
+class Taxonomy(db.Model):
+    __table__ = taxonomy_table
 
 
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
@@ -155,7 +164,7 @@ def search_sections():
     targets      = request.args.getlist("target")
     acquirers    = request.args.getlist("acquirer")
     clause_types = request.args.getlist("clauseType")
-    standard_id  = request.args.get("standardID", type=str)
+    standard_ids = request.args.getlist("standardId")
 
     # build the base ORM query
     q = (
@@ -190,13 +199,12 @@ def search_sections():
         acquirer_conditions = [Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers]
         q = q.filter(db.or_(*acquirer_conditions))
 
-    if clause_types:
-        # For clause types, we might need to filter on section content or add a clause_type field
-        # For now, this is a placeholder - you may need to adjust based on your data model
-        pass
-
-    if standard_id:
-        q = q.filter(Sections.standard_id == standard_id)
+    if standard_ids:
+        q = (
+            q.join(Taxonomy, Sections.section_standard_id == Taxonomy.standard_id)
+             .filter(Taxonomy.type == "section")
+             .filter(Taxonomy.standard_id.in_(standard_ids))
+        )
 
     rows = q.all()
 
@@ -204,8 +212,8 @@ def search_sections():
     results = [
         {
             "id":             r.section_uuid,
-            "agreementUuid": r.agreement_uuid,
-            "sectionUuid":   r.section_uuid,
+            "agreementUuid":  r.agreement_uuid,
+            "sectionUuid":    r.section_uuid,
             "xml":            r.xml_content,
             "articleTitle":   r.article_title,
             "sectionTitle":   r.section_title,
