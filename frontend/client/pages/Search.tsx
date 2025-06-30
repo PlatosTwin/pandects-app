@@ -555,11 +555,11 @@ export default function Search() {
                           {/* Header with metadata */}
                           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-7 text-sm flex-1 min-w-0">
-                                <span className="text-material-text-primary font-medium">
+                              <div className="flex items-center gap-4 text-sm flex-1 min-w-0">
+                                <span className="text-material-text-primary font-medium flex-shrink-0">
                                   {result.year}
                                 </span>
-                                <span className="text-material-text-primary">
+                                <span className="text-material-text-primary flex-shrink-0">
                                   <span className="font-bold">T:</span>{" "}
                                   {targetText.needsTooltip ? (
                                     <Tooltip>
@@ -576,7 +576,7 @@ export default function Search() {
                                     targetText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-primary">
+                                <span className="text-material-text-primary flex-shrink-0">
                                   <span className="font-bold">A:</span>{" "}
                                   {acquirerText.needsTooltip ? (
                                     <Tooltip>
@@ -593,7 +593,7 @@ export default function Search() {
                                     acquirerText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-secondary min-w-0 flex-1">
+                                <span className="text-material-text-secondary min-w-0 flex-1 overflow-hidden">
                                   <span
                                     className="truncate block cursor-help"
                                     title={`${result.articleTitle} >> ${result.sectionTitle}`}
