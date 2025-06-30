@@ -309,6 +309,24 @@ export function useSearch() {
     setShowNoResultsModal(false);
   }, []);
 
+  const sortResults = useCallback((sortBy: "year" | "target" | "acquirer") => {
+    setSearchResults((prev) => {
+      const sorted = [...prev].sort((a, b) => {
+        switch (sortBy) {
+          case "year":
+            return parseInt(b.year) - parseInt(a.year); // Newest first
+          case "target":
+            return a.target.localeCompare(b.target);
+          case "acquirer":
+            return a.acquirer.localeCompare(b.acquirer);
+          default:
+            return 0;
+        }
+      });
+      return sorted;
+    });
+  }, []);
+
   return {
     filters,
     isSearching,
@@ -331,6 +349,7 @@ export function useSearch() {
       changePageSize,
       closeErrorModal,
       closeNoResultsModal,
+      sortResults,
     },
   };
 }
