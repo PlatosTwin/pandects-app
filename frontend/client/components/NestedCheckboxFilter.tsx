@@ -105,15 +105,6 @@ export function NestedCheckboxFilter({
         ) {
           const selectedResult = searchResults[highlightedSearchIndex];
           handleSearchResultSelect(selectedResult);
-        } else {
-          // Always close modal when Enter is pressed and no search result is highlighted
-          console.log(
-            "Closing modal - searchTerm:",
-            searchTerm,
-            "highlightedIndex:",
-            highlightedSearchIndex,
-          );
-          setIsExpanded(false);
         }
         break;
       case "Escape":
