@@ -593,36 +593,21 @@ export default function Search() {
                                     acquirerText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-secondary">
-                                  {articleText.needsTooltip ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-help">
-                                          {articleText.truncated}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{result.articleTitle}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    articleText.truncated
-                                  )}
-                                  {" >> "}
-                                  {sectionText.needsTooltip ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-help">
-                                          {sectionText.truncated}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{result.sectionTitle}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    sectionText.truncated
-                                  )}
+                                <span className="text-material-text-secondary min-w-0 flex-1">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="truncate block">
+                                        {result.articleTitle} &gt;&gt;{" "}
+                                        {result.sectionTitle}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>
+                                        {result.articleTitle} &gt;&gt;{" "}
+                                        {result.sectionTitle}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </span>
                               </div>
 
