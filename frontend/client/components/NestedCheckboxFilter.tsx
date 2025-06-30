@@ -99,17 +99,6 @@ export function NestedCheckboxFilter({
     // Clear search and hide results
     setSearchTerm("");
     setShowSearchResults(false);
-
-    // Scroll to the item after a brief delay to allow for expansion
-    setTimeout(() => {
-      const checkboxElement = checkboxRefs.current[result.key];
-      if (checkboxElement) {
-        checkboxElement.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }
-    }, 100);
   };
 
   // Initialize all categories as expanded when using modal mode
