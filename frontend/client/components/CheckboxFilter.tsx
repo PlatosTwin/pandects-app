@@ -71,15 +71,17 @@ export function CheckboxFilter({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < navigableOptions.length - 1 ? prev + 1 : 0,
-        );
+        setHighlightedIndex((prev) => {
+          if (prev === -1) return 0; // Start from first item if nothing highlighted
+          return prev < navigableOptions.length - 1 ? prev + 1 : 0;
+        });
         break;
       case "ArrowUp":
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : navigableOptions.length - 1,
-        );
+        setHighlightedIndex((prev) => {
+          if (prev === -1) return navigableOptions.length - 1; // Start from last item if nothing highlighted
+          return prev > 0 ? prev - 1 : navigableOptions.length - 1;
+        });
         break;
       case "Enter":
         e.preventDefault();
