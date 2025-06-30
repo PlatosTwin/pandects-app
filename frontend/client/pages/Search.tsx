@@ -617,6 +617,23 @@ export default function Search() {
                       </div>
 
                       {/* Clause text */}
+                          {/* Open Agreement Button */}
+                          <div className="ml-4">
+                            <button
+                              onClick={() => openAgreement(result)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
+                              title="Open source agreement"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span className="hidden sm:inline">
+                                Open Agreement
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Clause text */}
                       <div className="p-4">
                         <div
                           className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
@@ -629,8 +646,10 @@ export default function Search() {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+                  </div>
+                </TooltipProvider>
 
                 {/* Bottom pagination controls */}
                 <SearchPagination
