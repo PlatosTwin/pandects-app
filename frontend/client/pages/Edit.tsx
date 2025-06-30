@@ -105,7 +105,7 @@ export default function Index() {
               disabled={state.isLoading}
               onClick={actions.requestSave}
               tabIndex={4}
-              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-[rgba(25,118,210,0.5)] text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-[rgba(25,118,210,0.05)]"
+              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-[rgba(25,118,210,0.5)] text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-[rgba(25,118,210,0.05)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               <Check className="w-6 h-6 flex-shrink-0" />
               <span>Save</span>
