@@ -389,7 +389,11 @@ export default function Search() {
   };
 
   return (
-    <div className="w-full font-roboto flex flex-col">
+    <div
+      className="w-full font-roboto flex flex-col"
+      onKeyDown={handleKeyDown}
+      tabIndex={-1}
+    >
       <div className="flex flex-col gap-8 p-12">
         {/* Header */}
         <div className="flex items-center gap-3">
