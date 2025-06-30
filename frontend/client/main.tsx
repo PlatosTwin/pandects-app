@@ -10,6 +10,7 @@ import Index from "./pages/Edit";
 import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
 import Navigation from "./components/Navigation";
+import Footer from "./components/Footer";
 
 const queryClient = new QueryClient();
 
@@ -19,14 +20,17 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="min-h-screen bg-cream">
+        <div className="min-h-screen bg-cream flex flex-col">
           <Navigation />
-          <Routes>
-            <Route path="/" element={<Search />} />
-            <Route path="/editor" element={<Index />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <main className="flex-1">
+            <Routes>
+              <Route path="/" element={<Search />} />
+              <Route path="/editor" element={<Index />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+          <Footer />
         </div>
       </BrowserRouter>
     </TooltipProvider>

@@ -124,4 +124,15 @@
   .animate-spin-custom {
     animation: spin 1s linear infinite;
   }
+
+  .hide-select-arrow {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none;
+  }
+
+  .hide-select-arrow::-ms-expand {
+    display: none;
+  }
 }

@@ -6,6 +6,8 @@ import {
   FileText,
   ExternalLink,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
@@ -30,6 +32,7 @@ export default function Search() {
     showErrorModal,
     errorMessage,
     showNoResultsModal,
+    sortDirection,
     actions,
   } = useSearch();
 
@@ -462,6 +465,42 @@ export default function Search() {
               <h2 className="text-lg font-medium text-material-text-primary">
                 Search Results
               </h2>
+
+              {/* Sort By Dropdown */}
+              {totalCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-material-text-secondary">
+                    Sort by:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="text-sm border border-gray-300 rounded px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent"
+                      onChange={(e) =>
+                        actions.sortResults(
+                          e.target.value as "year" | "target" | "acquirer",
+                        )
+                      }
+                      defaultValue=""
+                    >
+                      <option value="">Default</option>
+                      <option value="year">Year</option>
+                      <option value="target">Target</option>
+                      <option value="acquirer">Acquirer</option>
+                    </select>
+                    <button
+                      onClick={actions.toggleSortDirection}
+                      className="text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
+                      title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+                    >
+                      {sortDirection === "asc" ? (
+                        <ArrowUp className="w-4 h-4" />
+                      ) : (
+                        <ArrowDown className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {totalCount === 0 ? (
@@ -493,49 +532,24 @@ export default function Search() {
                       className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
                     >
                       {/* Header with metadata */}
-                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                         <div className="flex items-center justify-between">
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm flex-1">
-                            <div>
-                              <span className="font-medium text-material-text-secondary">
-                                Year:
-                              </span>
-                              <div className="text-material-text-primary">
-                                {result.year}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium text-material-text-secondary">
-                                Target:
-                              </span>
-                              <div className="text-material-text-primary">
-                                {result.target}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium text-material-text-secondary">
-                                Acquirer:
-                              </span>
-                              <div className="text-material-text-primary">
-                                {result.acquirer}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium text-material-text-secondary">
-                                Article:
-                              </span>
-                              <div className="text-material-text-primary">
-                                {result.articleTitle}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-medium text-material-text-secondary">
-                                Section:
-                              </span>
-                              <div className="text-material-text-primary">
-                                {result.sectionTitle}
-                              </div>
-                            </div>
+                          <div className="flex items-center gap-7 text-sm flex-1 flex-wrap">
+                            <span className="text-material-text-primary font-medium">
+                              {result.year}
+                            </span>
+                            <span className="text-material-text-primary">
+                              <span className="font-bold">T:</span>{" "}
+                              {result.target}
+                            </span>
+                            <span className="text-material-text-primary">
+                              <span className="font-bold">A:</span>{" "}
+                              {result.acquirer}
+                            </span>
+                            <span className="text-material-text-secondary">
+                              {result.articleTitle} &gt;&gt;{" "}
+                              {result.sectionTitle}
+                            </span>
                           </div>
 
                           {/* Open Agreement Button */}
@@ -557,7 +571,7 @@ export default function Search() {
                       {/* Clause text */}
                       <div className="p-4">
                         <div
-                          className="h-32 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
+                          className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
                           style={{
                             scrollbarWidth: "thin",
                             scrollbarColor: "#e5e7eb #f9fafb",
