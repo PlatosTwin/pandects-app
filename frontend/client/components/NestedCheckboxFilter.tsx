@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NestedCategory {
   [key: string]: NestedCategory | string;
