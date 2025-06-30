@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 
 // Function to extract standard IDs from nested clause type structure
@@ -47,6 +47,9 @@ export function useSearch() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showNoResultsModal, setShowNoResultsModal] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [currentSort, setCurrentSort] = useState<
+    "year" | "target" | "acquirer" | null
+  >(null);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
@@ -312,6 +315,7 @@ export function useSearch() {
 
   const sortResults = useCallback(
     (sortBy: "year" | "target" | "acquirer") => {
+      setCurrentSort(sortBy);
       setSearchResults((prev) => {
         const sorted = [...prev].sort((a, b) => {
           let comparison = 0;
@@ -339,6 +343,32 @@ export function useSearch() {
   const toggleSortDirection = useCallback(() => {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
+
+  // Auto-refresh results when sort direction changes
+  useEffect(() => {
+    if (currentSort && searchResults.length > 0) {
+      setSearchResults((prev) => {
+        const sorted = [...prev].sort((a, b) => {
+          let comparison = 0;
+          switch (currentSort) {
+            case "year":
+              comparison = parseInt(a.year) - parseInt(b.year);
+              break;
+            case "target":
+              comparison = a.target.localeCompare(b.target);
+              break;
+            case "acquirer":
+              comparison = a.acquirer.localeCompare(b.acquirer);
+              break;
+            default:
+              return 0;
+          }
+          return sortDirection === "desc" ? -comparison : comparison;
+        });
+        return sorted;
+      });
+    }
+  }, [sortDirection, currentSort, searchResults.length]);
 
   return {
     filters,
