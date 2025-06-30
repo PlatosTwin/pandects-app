@@ -34,6 +34,7 @@ export function NestedCheckboxFilter({
     Array<{ key: string; path: string[] }>
   >([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
