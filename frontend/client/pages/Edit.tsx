@@ -34,7 +34,7 @@ export default function Index() {
             <a
               href="/"
               tabIndex={1}
-              className="text-sm text-material-blue hover:text-blue-700 focus:outline-none focus:underline"
+              className="text-sm text-material-blue hover:text-blue-700 focus:outline-none focus:underline focus:bg-blue-50 px-2 py-1 rounded transition-colors"
             >
               Clause Search
             </a>
