@@ -146,7 +146,7 @@ export default function Search() {
       "Purchase Price & Adjustments": {
         "Contingent Value Rights (CVR) & Earn-Out Agreements":
           "753cece4c610bcc3",
-        Distributions: "17a1631998eb3cef",
+        "Distributions": "17a1631998eb3cef",
         "Fairness Opinions & Financial Advisors": "d7ae412fdcc9d956",
         "Purchase Price and Post-Closing Adjustments": "2b4119d25d6309ee",
       },
