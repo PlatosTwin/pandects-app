@@ -209,10 +209,15 @@ export function NestedCheckboxFilter({
       setSearchTerm("");
       setShowSearchResults(false);
       setHighlightedSearchIndex(-1);
-    } else if (useModal && searchInputRef.current) {
-      // Auto-focus search input when modal opens
+    } else if (useModal) {
+      // Auto-focus modal container first, then search input
       setTimeout(() => {
-        searchInputRef.current?.focus();
+        if (modalRef.current) {
+          modalRef.current.focus();
+        }
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
       }, 100);
     }
   }, [isExpanded, useModal]);
