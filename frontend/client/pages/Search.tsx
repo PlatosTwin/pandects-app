@@ -472,7 +472,7 @@ export default function Search() {
                   <span className="text-sm text-material-text-secondary">
                     Sort by:
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <select
                       className="text-sm border border-gray-300 rounded px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent"
                       onChange={(e) =>
@@ -489,7 +489,7 @@ export default function Search() {
                     </select>
                     <button
                       onClick={actions.toggleSortDirection}
-                      className="ml-1 p-1 text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
+                      className="p-1 text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
                       title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
                     >
                       {sortDirection === "asc" ? (
