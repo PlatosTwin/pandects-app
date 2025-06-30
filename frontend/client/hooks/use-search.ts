@@ -37,6 +37,33 @@ export function useSearch() {
     pageSize: 25,
   });
 
+  // Helper function to sort results
+  const sortResultsArray = (
+    results: SearchResult[],
+    sortBy: "year" | "target" | "acquirer" | null,
+    direction: "asc" | "desc",
+  ): SearchResult[] => {
+    if (!sortBy) return results;
+
+    return [...results].sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case "year":
+          comparison = parseInt(a.year) - parseInt(b.year);
+          break;
+        case "target":
+          comparison = a.target.localeCompare(b.target);
+          break;
+        case "acquirer":
+          comparison = a.acquirer.localeCompare(b.acquirer);
+          break;
+        default:
+          return 0;
+      }
+      return direction === "desc" ? -comparison : comparison;
+    });
+  };
+
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [allResults, setAllResults] = useState<SearchResult[]>([]);
