@@ -32,7 +32,7 @@ const truncateText = (text: string, maxLength: number = 75) => {
   }
   return {
     truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true
+    needsTooltip: true,
   };
 };
 
@@ -600,54 +600,40 @@ export default function Search() {
                                 </span>
                               </div>
 
-                          {/* Open Agreement Button */}
-                          <div className="ml-4">
-                            <button
-                              onClick={() => openAgreement(result)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
-                              title="Open source agreement"
+                              {/* Open Agreement Button */}
+                              <div className="ml-4">
+                                <button
+                                  onClick={() => openAgreement(result)}
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
+                                  title="Open source agreement"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  <span className="hidden sm:inline">
+                                    Open Agreement
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Clause text */}
+                          <div className="p-4">
+                            <div
+                              className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
+                              style={{
+                                scrollbarWidth: "thin",
+                                scrollbarColor: "#e5e7eb #f9fafb",
+                              }}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="hidden sm:inline">
-                                Open Agreement
-                              </span>
-                            </button>
+                              <XMLRenderer
+                                xmlContent={result.xml}
+                                mode="search"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Clause text */}
-                          {/* Open Agreement Button */}
-                          <div className="ml-4">
-                            <button
-                              onClick={() => openAgreement(result)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
-                              title="Open source agreement"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="hidden sm:inline">
-                                Open Agreement
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Clause text */}
-                      <div className="p-4">
-                        <div
-                          className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
-                          style={{
-                            scrollbarWidth: "thin",
-                            scrollbarColor: "#e5e7eb #f9fafb",
-                          }}
-                        >
-                          <XMLRenderer xmlContent={result.xml} mode="search" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
                   </div>
                 </TooltipProvider>
 
