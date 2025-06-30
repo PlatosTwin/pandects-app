@@ -5,6 +5,7 @@ export interface SearchFilters {
   target?: string[];
   acquirer?: string[];
   clauseType?: string[];
+  standardId?: string[];
   page?: number;
   pageSize?: number;
 }
