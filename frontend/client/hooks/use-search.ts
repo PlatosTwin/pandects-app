@@ -46,6 +46,7 @@ export function useSearch() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showNoResultsModal, setShowNoResultsModal] = useState(false);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
@@ -309,22 +310,34 @@ export function useSearch() {
     setShowNoResultsModal(false);
   }, []);
 
-  const sortResults = useCallback((sortBy: "year" | "target" | "acquirer") => {
-    setSearchResults((prev) => {
-      const sorted = [...prev].sort((a, b) => {
-        switch (sortBy) {
-          case "year":
-            return parseInt(b.year) - parseInt(a.year); // Newest first
-          case "target":
-            return a.target.localeCompare(b.target);
-          case "acquirer":
-            return a.acquirer.localeCompare(b.acquirer);
-          default:
-            return 0;
-        }
+  const sortResults = useCallback(
+    (sortBy: "year" | "target" | "acquirer") => {
+      setSearchResults((prev) => {
+        const sorted = [...prev].sort((a, b) => {
+          let comparison = 0;
+          switch (sortBy) {
+            case "year":
+              comparison = parseInt(a.year) - parseInt(b.year);
+              break;
+            case "target":
+              comparison = a.target.localeCompare(b.target);
+              break;
+            case "acquirer":
+              comparison = a.acquirer.localeCompare(b.acquirer);
+              break;
+            default:
+              return 0;
+          }
+          return sortDirection === "desc" ? -comparison : comparison;
+        });
+        return sorted;
       });
-      return sorted;
-    });
+    },
+    [sortDirection],
+  );
+
+  const toggleSortDirection = useCallback(() => {
+    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
 
   return {
@@ -339,6 +352,7 @@ export function useSearch() {
     showErrorModal,
     errorMessage,
     showNoResultsModal,
+    sortDirection,
     actions: {
       updateFilter,
       toggleFilterValue,
@@ -350,6 +364,7 @@ export function useSearch() {
       closeErrorModal,
       closeNoResultsModal,
       sortResults,
+      toggleSortDirection,
     },
   };
 }
