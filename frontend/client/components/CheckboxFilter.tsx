@@ -31,7 +31,7 @@ export function CheckboxFilter({
         option.toLowerCase().includes(searchTerm.toLowerCase()),
       );
       setFilteredOptions(filtered);
-      setHighlightedIndex(0);
+      setHighlightedIndex(filtered.length > 0 ? 0 : -1);
     } else {
       setFilteredOptions([]);
       setHighlightedIndex(-1);
