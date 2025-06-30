@@ -177,17 +177,22 @@ export function useSearch() {
 
         if (Array.isArray(responseData)) {
           // Backward compatibility: API returns SearchResult[]
-          setAllResults(responseData);
-          setTotalCount(responseData.length);
+          const sortedResults = sortResultsArray(
+            responseData,
+            currentSort,
+            sortDirection,
+          );
+          setAllResults(sortedResults);
+          setTotalCount(sortedResults.length);
           setTotalPages(
-            Math.ceil(responseData.length / searchFilters.pageSize!),
+            Math.ceil(sortedResults.length / searchFilters.pageSize!),
           );
 
           // Apply pagination on frontend
           const startIndex =
             (searchFilters.page! - 1) * searchFilters.pageSize!;
           const endIndex = startIndex + searchFilters.pageSize!;
-          const paginatedResults = responseData.slice(startIndex, endIndex);
+          const paginatedResults = sortedResults.slice(startIndex, endIndex);
           setSearchResults(paginatedResults);
 
           // Check if no results found with active filters
