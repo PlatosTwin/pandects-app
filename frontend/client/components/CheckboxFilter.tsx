@@ -210,6 +210,7 @@ export function CheckboxFilter({
         {/* Expanded dropdown with search and sticky selected items */}
         {isExpanded && (
           <div
+            ref={expandedDropdownRef}
             className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
             onKeyDown={(e) => {
               // Handle Enter and Escape keys to close dropdown
