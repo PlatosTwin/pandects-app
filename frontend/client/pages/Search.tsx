@@ -593,9 +593,9 @@ export default function Search() {
                                     acquirerText.truncated
                                   )}
                                 </span>
-                                <span className="text-material-text-secondary min-w-0 flex-1 overflow-hidden">
+                                <span className="text-material-text-secondary flex-1">
                                   <span
-                                    className="truncate block cursor-help"
+                                    className="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap cursor-help"
                                     title={`${result.articleTitle} >> ${result.sectionTitle}`}
                                   >
                                     {result.articleTitle} &gt;&gt;{" "}
