@@ -396,11 +396,27 @@ export default function Search() {
     >
       <div className="flex flex-col gap-8 p-12">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-material-text-secondary" />
-          <h1 className="text-xl font-normal text-material-text-primary">
-            M&A Clause Search
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="w-6 h-6 text-material-text-secondary" />
+            <h1 className="text-xl font-normal text-material-text-primary">
+              M&A Clause Search
+            </h1>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-material-text-primary font-medium">
+              Clause Search
+            </span>
+            <a
+              href="/edit"
+              tabIndex={5}
+              className="text-sm text-material-blue hover:text-blue-700 focus:outline-none focus:underline"
+            >
+              Output Editor
+            </a>
+          </div>
         </div>
 
         {/* Search Filters */}
