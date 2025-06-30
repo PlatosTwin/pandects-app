@@ -202,8 +202,13 @@ export function useSearch() {
         } else {
           // New format: API returns SearchResponse
           const searchResponse = responseData as SearchResponse;
-          setAllResults(searchResponse.results);
-          setSearchResults(searchResponse.results);
+          const sortedResults = sortResultsArray(
+            searchResponse.results,
+            currentSort,
+            sortDirection,
+          );
+          setAllResults(sortedResults);
+          setSearchResults(sortedResults);
           setTotalCount(searchResponse.totalCount);
           setTotalPages(searchResponse.totalPages);
 
