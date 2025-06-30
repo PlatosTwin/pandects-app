@@ -224,12 +224,7 @@ export function CheckboxFilter({
   }, [isExpanded, searchTerm, highlightedIndex]);
 
   return (
-    <div
-      ref={componentRef}
-      className={cn("flex flex-col gap-2", className)}
-      onKeyDown={handleComponentKeyDown}
-      tabIndex={isExpanded ? 0 : -1}
-    >
+    <div ref={componentRef} className={cn("flex flex-col gap-2", className)}>
       <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
         {label}
       </label>
