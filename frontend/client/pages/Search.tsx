@@ -6,8 +6,8 @@ import {
   FileText,
   ExternalLink,
   Loader2,
-  ChevronUp,
-  ChevronDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
@@ -489,13 +489,13 @@ export default function Search() {
                     </select>
                     <button
                       onClick={actions.toggleSortDirection}
-                      className="border border-gray-300 border-l-0 rounded-r px-2 py-1 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent transition-colors"
+                      className="ml-1 p-1 text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
                       title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
                     >
                       {sortDirection === "asc" ? (
-                        <ChevronUp className="w-4 h-4 text-material-text-secondary" />
+                        <ArrowUp className="w-4 h-4" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-material-text-secondary" />
+                        <ArrowDown className="w-4 h-4" />
                       )}
                     </button>
                   </div>
