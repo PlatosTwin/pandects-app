@@ -410,6 +410,7 @@ export default function Search() {
             options={years}
             selectedValues={filters.year || []}
             onToggle={(value) => actions.toggleFilterValue("year", value)}
+            tabIndex={1}
           />
 
           <div className="relative">
@@ -418,6 +419,7 @@ export default function Search() {
               options={targets}
               selectedValues={filters.target || []}
               onToggle={(value) => actions.toggleFilterValue("target", value)}
+              tabIndex={2}
             />
             {isLoadingFilterOptions && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
@@ -432,6 +434,7 @@ export default function Search() {
               options={acquirers}
               selectedValues={filters.acquirer || []}
               onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
+              tabIndex={3}
             />
             {isLoadingFilterOptions && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
@@ -446,6 +449,7 @@ export default function Search() {
             selectedValues={filters.clauseType || []}
             onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
             useModal={true}
+            tabIndex={4}
           />
         </div>
 
