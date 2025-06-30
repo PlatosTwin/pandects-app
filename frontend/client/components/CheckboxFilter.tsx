@@ -144,10 +144,15 @@ export function CheckboxFilter({
     if (!isExpanded) {
       setSearchTerm("");
       setHighlightedIndex(-1);
-    } else if (searchInputRef.current) {
-      // Focus search input when opening but don't auto-highlight
+    } else {
+      // Focus dropdown container and search input when opening
       setTimeout(() => {
-        searchInputRef.current?.focus();
+        if (expandedDropdownRef.current) {
+          expandedDropdownRef.current.focus();
+        }
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
         setHighlightedIndex(-1); // Don't auto-highlight any option
       }, 100);
     }
