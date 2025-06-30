@@ -40,8 +40,6 @@ export function CheckboxFilter({
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    console.log("Key pressed:", e.key, "isExpanded:", isExpanded);
-
     if (!isExpanded) return;
 
     // Determine which options to navigate through
@@ -49,41 +47,20 @@ export function CheckboxFilter({
       ? filteredOptions
       : unselectedOptions;
 
-    console.log(
-      "navigableOptions:",
-      navigableOptions.length,
-      "searchTerm:",
-      searchTerm.trim(),
-      "highlightedIndex:",
-      highlightedIndex,
-    );
-
     if (navigableOptions.length === 0) return;
 
     switch (e.key) {
       case "ArrowDown":
-        console.log(
-          "ArrowDown pressed, current highlightedIndex:",
-          highlightedIndex,
-        );
         e.preventDefault();
-        setHighlightedIndex((prev) => {
-          const newIndex = prev < navigableOptions.length - 1 ? prev + 1 : 0;
-          console.log("Setting highlightedIndex to:", newIndex);
-          return newIndex;
-        });
+        setHighlightedIndex((prev) =>
+          prev < navigableOptions.length - 1 ? prev + 1 : 0,
+        );
         break;
       case "ArrowUp":
-        console.log(
-          "ArrowUp pressed, current highlightedIndex:",
-          highlightedIndex,
-        );
         e.preventDefault();
-        setHighlightedIndex((prev) => {
-          const newIndex = prev > 0 ? prev - 1 : navigableOptions.length - 1;
-          console.log("Setting highlightedIndex to:", newIndex);
-          return newIndex;
-        });
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : navigableOptions.length - 1,
+        );
         break;
       case "Enter":
         e.preventDefault();
