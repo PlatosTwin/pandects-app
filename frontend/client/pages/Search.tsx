@@ -56,13 +56,21 @@ export default function Search() {
   // Handle Enter key for search
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !isSearching) {
-      // Check if any filter dropdowns are open or search inputs are focused
-      const activeElement = document.activeElement;
-      const isFilterActive =
-        activeElement?.closest('[role="combobox"]') ||
-        activeElement?.tagName === "INPUT";
+      // Check if any filter elements are focused or dropdowns are open
+      const activeElement = document.activeElement as HTMLElement;
 
-      if (!isFilterActive) {
+      // Don't trigger search if:
+      // - An input is focused
+      // - A button with dropdown functionality is focused
+      // - Any element inside a dropdown/modal is focused
+      const isInputFocused = activeElement?.tagName === "INPUT";
+      const isButtonFocused = activeElement?.tagName === "BUTTON";
+      const isInsideDropdown =
+        activeElement?.closest('[role="combobox"]') ||
+        activeElement?.closest(".absolute") || // Dropdown containers
+        activeElement?.closest('[role="dialog"]'); // Modal containers
+
+      if (!isInputFocused && !isButtonFocused && !isInsideDropdown) {
         actions.performSearch(true, clauseTypesNested);
       }
     }
