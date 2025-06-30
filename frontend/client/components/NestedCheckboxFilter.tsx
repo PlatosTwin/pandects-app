@@ -469,11 +469,20 @@ export function NestedCheckboxFilter({
           <div
             className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !searchTerm.trim() &&
-                searchResults.length === 0
-              ) {
+              // Handle Enter key anywhere in modal to close when appropriate
+              if (e.key === "Enter") {
+                const target = e.target as HTMLElement;
+                // Only close if Enter is pressed outside of specific interactive elements
+                if (
+                  target.tagName !== "INPUT" &&
+                  target.tagName !== "BUTTON" &&
+                  !searchTerm.trim()
+                ) {
+                  setIsExpanded(false);
+                }
+              }
+              // Handle Escape key to close modal
+              if (e.key === "Escape") {
                 setIsExpanded(false);
               }
             }}
