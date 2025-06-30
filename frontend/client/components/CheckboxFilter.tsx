@@ -139,16 +139,20 @@ export function CheckboxFilter({
     (option) => !selectedValues.includes(option),
   );
 
+  // Component container ref for focus
+  const componentRef = useRef<HTMLDivElement>(null);
+
   // Reset search when closing
   useEffect(() => {
     if (!isExpanded) {
       setSearchTerm("");
       setHighlightedIndex(-1);
     } else {
-      // Focus dropdown container and search input when opening
+      // Focus component container first so it can capture keydown events
       setTimeout(() => {
-        if (expandedDropdownRef.current) {
-          expandedDropdownRef.current.focus();
+        if (componentRef.current) {
+          componentRef.current.focus();
+          console.log("Focused component container");
         }
         if (searchInputRef.current) {
           searchInputRef.current.focus();
