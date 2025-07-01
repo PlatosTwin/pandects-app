@@ -190,7 +190,7 @@ export default function Search() {
       "Purchase Price & Adjustments": {
         "Contingent Value Rights (CVR) & Earn-Out Agreements":
           "753cece4c610bcc3",
-        Distributions: "17a1631998eb3cef",
+        "Distributions": "17a1631998eb3cef",
         "Fairness Opinions & Financial Advisors": "d7ae412fdcc9d956",
         "Purchase Price and Post-Closing Adjustments": "2b4119d25d6309ee",
       },
@@ -199,7 +199,7 @@ export default function Search() {
         "Stock Issuance & Reservation": "2014181a8401598b",
       },
     },
-    Covenants: {
+    "Covenants": {
       "Disclosure Schedule Interpretation": {
         "Disclosure Schedule Interpretation & Cross-References":
           "12778ed5811cb2c7",
@@ -255,7 +255,7 @@ export default function Search() {
         "Amendments; Extensions; Waivers": "c20cd24a0d84ba56",
         "Arbitration & Dispute Resolution": "f383ecddb78f002f",
         "Assignment & Successors": "305bb88f1e98b4d4",
-        Confidentiality: "6df8bc88edff7e3d",
+        "Confidentiality": "6df8bc88edff7e3d",
         "Counterparts & Electronic Signatures": "d44006cdbbb8ad0c",
         "Entire Agreement": "10cd17a4560a7a7d",
         "Governing Law; Jurisdiction; Jury Trial": "b79e1996d2f7bcac",
@@ -268,7 +268,7 @@ export default function Search() {
         "Service of Process": "433ef1632fe94c19",
         "Severability and Boilerplate Provisions": "2560701d69ecbaff",
       },
-      Definitions: {
+      "Definitions": {
         "Definitions & Interpretation": "beee4c5deefdc2d0",
       },
       "Expenses & Advisors": {
@@ -301,7 +301,7 @@ export default function Search() {
         "Indemnification Limitations (Caps & Baskets)": "a73e0398ad8b0104",
         "Indemnification Procedures": "9613f111a9bf9db6",
       },
-      Indemnities: {
+      "Indemnities": {
         "Indemnification by Purchaser / Buyer": "b8ad9d98fefc6844",
         "Indemnification by Seller / Target": "3f4a09babc73019c",
       },
@@ -351,7 +351,7 @@ export default function Search() {
         "Books & Records": "842de2d70fbf1443",
       },
       "Capital Structure": {
-        Capitalization: "2091c8e1a4d26971",
+        "Capitalization": "2091c8e1a4d26971",
         "Stock Ownership Representations": "06b871f2e90569f1",
       },
       "Changes & Updates": {
