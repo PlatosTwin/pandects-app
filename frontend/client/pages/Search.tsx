@@ -403,12 +403,12 @@ export default function Search() {
   };
 
   return (
-    <div
-      className="w-full font-roboto flex h-screen"
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
-      <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={true}>
+      <div
+        className="w-full font-roboto flex h-screen"
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+      >
         {/* Collapsible Sidebar with Filters */}
         <SearchSidebar
           filters={filters}
@@ -422,7 +422,7 @@ export default function Search() {
         />
 
         {/* Main Content Area */}
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col flex-1">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-gray-200 p-6">
             <SidebarTrigger className="lg:hidden" />
