@@ -374,6 +374,40 @@ export function useSearch() {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
 
+  // Result selection handlers
+  const toggleResultSelection = useCallback((resultId: string) => {
+    setSelectedResults((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(resultId)) {
+        newSet.delete(resultId);
+      } else {
+        newSet.add(resultId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    const allSelected = searchResults.every((result) =>
+      selectedResults.has(result.id),
+    );
+    if (allSelected) {
+      // Deselect all current page results
+      setSelectedResults((prev) => {
+        const newSet = new Set(prev);
+        searchResults.forEach((result) => newSet.delete(result.id));
+        return newSet;
+      });
+    } else {
+      // Select all current page results
+      setSelectedResults((prev) => {
+        const newSet = new Set(prev);
+        searchResults.forEach((result) => newSet.add(result.id));
+        return newSet;
+      });
+    }
+  }, [searchResults, selectedResults]);
+
   // Auto-refresh results when sort direction changes or when new results are loaded
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
@@ -387,6 +421,7 @@ export function useSearch() {
     filters,
     isSearching,
     searchResults,
+    selectedResults,
     hasSearched,
     totalCount,
     totalPages,
@@ -408,6 +443,8 @@ export function useSearch() {
       closeNoResultsModal,
       sortResults,
       toggleSortDirection,
+      toggleResultSelection,
+      toggleSelectAll,
     },
   };
 }
