@@ -40,7 +40,12 @@ export function SearchSidebar({
   className,
 }: SearchSidebarProps) {
   return (
-    <Sidebar className={cn("w-80", className)} collapsible="offcanvas">
+    <Sidebar
+      className={className}
+      collapsible="offcanvas"
+      variant="sidebar"
+      side="left"
+    >
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium text-sidebar-foreground">
