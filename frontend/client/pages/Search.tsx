@@ -405,7 +405,7 @@ export default function Search() {
   return (
     <SidebarProvider defaultOpen={true}>
       <div
-        className="w-full font-roboto flex h-screen"
+        className="w-full font-roboto min-h-screen"
         onKeyDown={handleKeyDown}
         tabIndex={-1}
       >
