@@ -42,7 +42,7 @@ export function SearchSidebar({
   return (
     <Sidebar
       className={className}
-      collapsible="offcanvas"
+      collapsible="icon"
       variant="sidebar"
       side="left"
     >
