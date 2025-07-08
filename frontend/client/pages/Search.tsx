@@ -541,7 +541,7 @@ export default function Search() {
               )}
             </div>
           </div>
-        </SidebarInset>
+        </div>
 
         {/* Backend Connection Error Modal */}
         <ErrorModal
