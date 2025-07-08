@@ -318,6 +318,7 @@ export function useSearch() {
     });
     setSearchResults([]);
     setAllResults([]);
+    setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
     setTotalPages(0);
