@@ -8,7 +8,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
