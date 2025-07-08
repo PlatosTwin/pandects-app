@@ -112,6 +112,7 @@ export function useSearch() {
       setIsSearching(true);
       setShowErrorModal(false);
       setShowNoResultsModal(false);
+      setSelectedResults(new Set()); // Clear selected results when performing new search
 
       if (resetPage) {
         setHasSearched(true);
