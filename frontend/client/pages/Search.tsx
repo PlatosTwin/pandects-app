@@ -425,7 +425,7 @@ export default function Search() {
         <SidebarInset className="flex flex-col flex-1">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-gray-200 p-6">
-            <SidebarTrigger className="lg:hidden" />
+            <SidebarTrigger />
             <FileText className="w-6 h-6 text-material-text-secondary" />
             <h1 className="text-xl font-normal text-material-text-primary">
               M&A Clause Search
