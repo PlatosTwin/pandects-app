@@ -260,7 +260,13 @@ export function useSearch() {
   };
 
   const downloadCSV = useCallback(() => {
-    if (searchResults.length === 0) return;
+    // Filter results to only include selected ones, fallback to all results if none selected
+    const resultsToDownload =
+      selectedResults.size > 0
+        ? allResults.filter((result) => selectedResults.has(result.id))
+        : searchResults;
+
+    if (resultsToDownload.length === 0) return;
 
     // Create CSV content
     const headers = [
@@ -276,7 +282,7 @@ export function useSearch() {
 
     const csvContent = [
       headers.join(","),
-      ...searchResults.map((result) =>
+      ...resultsToDownload.map((result) =>
         [
           result.year,
           `"${result.target}"`,
@@ -294,10 +300,11 @@ export function useSearch() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `ma_clauses_${new Date().toISOString().split("T")[0]}.csv`;
+    const selectedText = selectedResults.size > 0 ? "_selected" : "";
+    link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [searchResults]);
+  }, [allResults, searchResults, selectedResults]);
 
   const clearFilters = useCallback(() => {
     setFilters({
