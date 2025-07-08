@@ -403,26 +403,25 @@ export default function Search() {
   };
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div
-        className="w-full font-roboto min-h-screen"
-        onKeyDown={handleKeyDown}
-        tabIndex={-1}
-      >
-        {/* Collapsible Sidebar with Filters */}
-        <SearchSidebar
-          filters={filters}
-          years={years}
-          targets={targets}
-          acquirers={acquirers}
-          clauseTypesNested={clauseTypesNested}
-          isLoadingFilterOptions={isLoadingFilterOptions}
-          onToggleFilterValue={actions.toggleFilterValue}
-          onClearFilters={actions.clearFilters}
-        />
+    <div
+      className="w-full font-roboto min-h-screen flex"
+      onKeyDown={handleKeyDown}
+      tabIndex={-1}
+    >
+      {/* Collapsible Sidebar with Filters */}
+      <SearchSidebar
+        filters={filters}
+        years={years}
+        targets={targets}
+        acquirers={acquirers}
+        clauseTypesNested={clauseTypesNested}
+        isLoadingFilterOptions={isLoadingFilterOptions}
+        onToggleFilterValue={actions.toggleFilterValue}
+        onClearFilters={actions.clearFilters}
+      />
 
-        {/* Main Content Area */}
-        <SidebarInset className="flex flex-col flex-1">
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-gray-200 p-6">
             <SidebarTrigger />
