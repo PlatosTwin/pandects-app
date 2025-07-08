@@ -34,11 +34,19 @@ export function SearchSidebar({
   className,
 }: SearchSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const handleToggle = () => {
+    setIsTransitioning(true);
+    setIsCollapsed(!isCollapsed);
+    // Clear transitioning state after animation completes
+    setTimeout(() => setIsTransitioning(false), 300);
+  };
 
   return (
     <div
       className={cn(
-        "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out relative",
+        "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out relative overflow-hidden",
         isCollapsed ? "w-12" : "w-80",
         className,
       )}
@@ -47,7 +55,7 @@ export function SearchSidebar({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={handleToggle}
         className="absolute top-4 -right-3 z-10 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md"
       >
         {isCollapsed ? (
@@ -60,8 +68,11 @@ export function SearchSidebar({
       {/* Sidebar Content */}
       <div
         className={cn(
-          "h-full flex flex-col transition-opacity duration-300",
-          isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100",
+          "h-full flex flex-col",
+          isCollapsed || isTransitioning
+            ? "opacity-0 pointer-events-none"
+            : "opacity-100",
+          "transition-opacity duration-150",
         )}
       >
         {/* Header */}
