@@ -26,6 +26,7 @@ export default function Search() {
     filters,
     isSearching,
     searchResults,
+    selectedResults,
     hasSearched,
     totalCount,
     totalPages,
