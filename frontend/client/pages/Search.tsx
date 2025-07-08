@@ -4,27 +4,22 @@ import {
   Search as SearchIcon,
   Download,
   FileText,
-  ExternalLink,
-  Loader2,
-  ArrowUp,
-  ArrowDown,
-  RotateCcw,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
-import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
-import { CheckboxFilter } from "@/components/CheckboxFilter";
-import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
+import { SearchSidebar } from "@/components/SearchSidebar";
+import { SearchResultsTable } from "@/components/SearchResultsTable";
+import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 
 // Utility function to truncate text and determine if tooltip is needed
 const truncateText = (text: string, maxLength: number = 75) => {
