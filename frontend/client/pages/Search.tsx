@@ -543,33 +543,33 @@ export default function Search() {
             </div>
           </div>
         </SidebarInset>
-      </SidebarProvider>
 
-      {/* Backend Connection Error Modal */}
-      <ErrorModal
-        isOpen={showErrorModal}
-        onClose={actions.closeErrorModal}
-        message={errorMessage}
-      />
-
-      {/* No Results Info Modal */}
-      <InfoModal
-        isOpen={showNoResultsModal}
-        onClose={actions.closeNoResultsModal}
-        title="No Results Found"
-        message="No results to display given the selected filters."
-      />
-
-      {/* Agreement Modal */}
-      {selectedAgreement && (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={closeAgreement}
-          agreementUuid={selectedAgreement.agreementUuid}
-          targetSectionUuid={selectedAgreement.sectionUuid}
-          agreementMetadata={selectedAgreement.metadata}
+        {/* Backend Connection Error Modal */}
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={actions.closeErrorModal}
+          message={errorMessage}
         />
-      )}
-    </div>
+
+        {/* No Results Info Modal */}
+        <InfoModal
+          isOpen={showNoResultsModal}
+          onClose={actions.closeNoResultsModal}
+          title="No Results Found"
+          message="No results to display given the selected filters."
+        />
+
+        {/* Agreement Modal */}
+        {selectedAgreement && (
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={closeAgreement}
+            agreementUuid={selectedAgreement.agreementUuid}
+            targetSectionUuid={selectedAgreement.sectionUuid}
+            agreementMetadata={selectedAgreement.metadata}
+          />
+        )}
+      </div>
+    </SidebarProvider>
   );
 }
