@@ -15,11 +15,6 @@ import { AgreementModal } from "@/components/AgreementModal";
 import { SearchSidebar } from "@/components/SearchSidebar";
 import { SearchResultsTable } from "@/components/SearchResultsTable";
 import { Button } from "@/components/ui/button";
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 
 export default function Search() {
   const {
