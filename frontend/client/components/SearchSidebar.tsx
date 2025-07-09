@@ -54,9 +54,10 @@ export function SearchSidebar({
       {/* Toggle Button */}
       <button
         onClick={handleToggle}
-        className="absolute top-4 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md flex items-center justify-center"
+        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md flex items-center justify-center transition-all duration-300 ease-in-out"
         style={{
-          right: "-18px",
+          top: "120px",
+          left: isCollapsed ? "36px" : "308px",
           zIndex: 9999,
         }}
       >
