@@ -31,17 +31,16 @@ export function SearchSidebar({
   isLoadingFilterOptions,
   onToggleFilterValue,
   onClearFilters,
-  isCollapsed,
   className,
 }: SearchSidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Track transitions
-  React.useEffect(() => {
+  const handleToggle = () => {
     setIsTransitioning(true);
-    const timer = setTimeout(() => setIsTransitioning(false), 300);
-    return () => clearTimeout(timer);
-  }, [isCollapsed]);
+    setIsCollapsed(!isCollapsed);
+    setTimeout(() => setIsTransitioning(false), 300);
+  };
 
   return (
     <div
@@ -51,6 +50,24 @@ export function SearchSidebar({
         className,
       )}
     >
+      {/* Toggle Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleToggle}
+        className="absolute top-4 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md"
+        style={{
+          right: "-12px",
+          zIndex: 1000,
+        }}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronLeft className="h-3 w-3" />
+        )}
+      </Button>
+
       {/* Sidebar Content */}
       <div
         className={cn(
