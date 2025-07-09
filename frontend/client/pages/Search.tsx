@@ -410,8 +410,9 @@ export default function Search() {
       {/* Sidebar Toggle Button - Positioned absolutely over everything */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="fixed top-4 left-72 z-50 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out"
+        className="absolute z-50 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out"
         style={{
+          top: "120px",
           left: sidebarCollapsed ? "36px" : "288px",
         }}
       >
