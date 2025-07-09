@@ -397,12 +397,29 @@ export default function Search() {
     },
   };
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div
-      className="w-full font-roboto min-h-screen flex"
+      className="w-full font-roboto min-h-screen flex relative"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
+      {/* Sidebar Toggle Button - Positioned absolutely over everything */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className="fixed top-4 left-72 z-50 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out"
+        style={{
+          left: sidebarCollapsed ? "36px" : "288px",
+        }}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronLeft className="h-3 w-3" />
+        )}
+      </button>
+
       {/* Collapsible Sidebar with Filters */}
       <SearchSidebar
         filters={filters}
@@ -413,6 +430,7 @@ export default function Search() {
         isLoadingFilterOptions={isLoadingFilterOptions}
         onToggleFilterValue={actions.toggleFilterValue}
         onClearFilters={actions.clearFilters}
+        isCollapsed={sidebarCollapsed}
       />
 
       {/* Main Content Area */}
