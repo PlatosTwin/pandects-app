@@ -410,7 +410,7 @@ export default function Search() {
       {/* Toggle Button - Positioned independently */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
+        className="absolute bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
         style={{
           top: "120px",
           left: sidebarCollapsed ? "36px" : "308px",
@@ -424,7 +424,7 @@ export default function Search() {
         )}
       </button>
 
-      <div className="flex">
+      <div className="flex min-h-screen">
         {/* Collapsible Sidebar with Filters */}
         <SearchSidebar
           filters={filters}
