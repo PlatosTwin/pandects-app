@@ -47,18 +47,16 @@ export function SearchSidebar({
       className={cn(
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out relative overflow-hidden",
         isCollapsed ? "w-12" : "w-80",
-        className,
+        className
       )}
     >
       {/* Toggle Button */}
-      <Button
-        variant="ghost"
-        size="sm"
+      <button
         onClick={handleToggle}
-        className="absolute top-4 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md"
+        className="absolute top-4 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md flex items-center justify-center"
         style={{
-          right: "-12px",
-          zIndex: 1000,
+          right: '-12px',
+          zIndex: 9999
         }}
       >
         {isCollapsed ? (
@@ -69,18 +67,16 @@ export function SearchSidebar({
       </Button>
 
       {/* Sidebar Content */}
-      <div
-        className={cn(
-          "h-full flex flex-col",
-          isCollapsed || isTransitioning
-            ? "opacity-0 pointer-events-none"
-            : "opacity-100",
-          "transition-opacity duration-150",
-        )}
-      >
+      <div className={cn(
+        "h-full flex flex-col",
+        isCollapsed || isTransitioning ? "opacity-0 pointer-events-none" : "opacity-100",
+        "transition-opacity duration-150"
+      )}>
         {/* Header */}
         <div className="border-b border-gray-200 p-4">
-          <h2 className="text-lg font-medium text-gray-900">Search Filters</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Search Filters
+          </h2>
         </div>
 
         {/* Scrollable Content */}
