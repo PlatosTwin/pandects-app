@@ -49,13 +49,14 @@ export function SearchSidebar({
         isCollapsed ? "w-12" : "w-80",
         className,
       )}
+      style={{ zIndex: 10 }}
     >
       {/* Toggle Button */}
       <button
         onClick={handleToggle}
         className="absolute top-4 bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-sm hover:shadow-md flex items-center justify-center"
         style={{
-          right: "-12px",
+          right: "-18px",
           zIndex: 9999,
         }}
       >
