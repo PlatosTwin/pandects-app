@@ -412,9 +412,9 @@ export default function Search() {
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
         style={{
-          top: '120px',
-          left: sidebarCollapsed ? '36px' : '308px',
-          zIndex: 10000
+          top: "120px",
+          left: sidebarCollapsed ? "36px" : "308px",
+          zIndex: 10000,
         }}
       >
         {sidebarCollapsed ? (
@@ -440,149 +440,152 @@ export default function Search() {
 
         {/* Main Content Area */}
         <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-200 p-6">
-          <FileText className="w-6 h-6 text-material-text-secondary" />
-          <h1 className="text-xl font-normal text-material-text-primary">
-            M&A Clause Search
-          </h1>
-        </div>
-
-        {/* Filter Options Error */}
-        {filterOptionsError && (
-          <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-red-800 text-sm">
-              <strong>Filter Options Error:</strong> {filterOptionsError}
-            </p>
-            <p className="text-red-600 text-xs mt-1">
-              Some filter options may not be available. Please refresh the page
-              to try again.
-            </p>
+          {/* Header */}
+          <div className="flex items-center gap-3 border-b border-gray-200 p-6">
+            <FileText className="w-6 h-6 text-material-text-secondary" />
+            <h1 className="text-xl font-normal text-material-text-primary">
+              M&A Clause Search
+            </h1>
           </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-4 p-6 border-b border-gray-200">
-          <Button
-            onClick={() => actions.performSearch(true, clauseTypesNested)}
-            disabled={isSearching}
-            className={cn(
-              "flex items-center justify-center gap-2 px-6 py-3 bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
-              "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
-              "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
-            )}
-          >
-            <SearchIcon
-              className={cn("w-5 h-5", isSearching && "animate-spin-custom")}
-            />
-            <span>{isSearching ? "Searching..." : "Search"}</span>
-          </Button>
+          {/* Filter Options Error */}
+          {filterOptionsError && (
+            <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-800 text-sm">
+                <strong>Filter Options Error:</strong> {filterOptionsError}
+              </p>
+              <p className="text-red-600 text-xs mt-1">
+                Some filter options may not be available. Please refresh the
+                page to try again.
+              </p>
+            </div>
+          )}
 
-          <Button
-            onClick={actions.downloadCSV}
-            disabled={searchResults.length === 0 && selectedResults.size === 0}
-            variant="outline"
-            className={cn(
-              "flex items-center justify-center gap-2 px-6 py-3 border-material-blue text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
-              "hover:bg-material-blue-light",
-            )}
-          >
-            <Download className="w-5 h-5" />
-            <span>
-              Download CSV{" "}
-              {selectedResults.size > 0 && `(${selectedResults.size})`}
-            </span>
-          </Button>
-        </div>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-4 p-6 border-b border-gray-200">
+            <Button
+              onClick={() => actions.performSearch(true, clauseTypesNested)}
+              disabled={isSearching}
+              className={cn(
+                "flex items-center justify-center gap-2 px-6 py-3 bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
+                "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
+                "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
+              )}
+            >
+              <SearchIcon
+                className={cn("w-5 h-5", isSearching && "animate-spin-custom")}
+              />
+              <span>{isSearching ? "Searching..." : "Search"}</span>
+            </Button>
 
-        {/* Main Content - Scrollable */}
-        <div className="flex-1 overflow-auto">
-          <div className="p-6">
-            {/* Search Results */}
-            {hasSearched && (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-material-text-primary">
-                    Search Results
-                  </h2>
-                </div>
+            <Button
+              onClick={actions.downloadCSV}
+              disabled={
+                searchResults.length === 0 && selectedResults.size === 0
+              }
+              variant="outline"
+              className={cn(
+                "flex items-center justify-center gap-2 px-6 py-3 border-material-blue text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
+                "hover:bg-material-blue-light",
+              )}
+            >
+              <Download className="w-5 h-5" />
+              <span>
+                Download CSV{" "}
+                {selectedResults.size > 0 && `(${selectedResults.size})`}
+              </span>
+            </Button>
+          </div>
 
-                {totalCount === 0 ? (
-                  <div className="text-center py-12 text-material-text-secondary">
-                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No clauses found matching your search criteria.</p>
-                    <p className="text-sm mt-2">
-                      Try adjusting your filters and search again.
-                    </p>
+          {/* Main Content - Scrollable */}
+          <div className="flex-1 overflow-auto">
+            <div className="p-6">
+              {/* Search Results */}
+              {hasSearched && (
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-medium text-material-text-primary">
+                      Search Results
+                    </h2>
                   </div>
-                ) : (
-                  <>
-                    {/* Top pagination controls */}
-                    <SearchPagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      pageSize={pageSize}
-                      totalCount={totalCount}
-                      onPageChange={actions.goToPage}
-                      onPageSizeChange={actions.changePageSize}
-                      isLoading={isSearching}
-                    />
 
-                    {/* Search Results Table with Checkboxes */}
-                    <SearchResultsTable
-                      searchResults={searchResults}
-                      selectedResults={selectedResults}
-                      sortDirection={sortDirection}
-                      onToggleResultSelection={actions.toggleResultSelection}
-                      onToggleSelectAll={actions.toggleSelectAll}
-                      onOpenAgreement={openAgreement}
-                      onSortResults={actions.sortResults}
-                      onToggleSortDirection={actions.toggleSortDirection}
-                    />
+                  {totalCount === 0 ? (
+                    <div className="text-center py-12 text-material-text-secondary">
+                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No clauses found matching your search criteria.</p>
+                      <p className="text-sm mt-2">
+                        Try adjusting your filters and search again.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Top pagination controls */}
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        totalCount={totalCount}
+                        onPageChange={actions.goToPage}
+                        onPageSizeChange={actions.changePageSize}
+                        isLoading={isSearching}
+                      />
 
-                    {/* Bottom pagination controls */}
-                    <SearchPagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      pageSize={pageSize}
-                      totalCount={totalCount}
-                      onPageChange={actions.goToPage}
-                      onPageSizeChange={actions.changePageSize}
-                      isLoading={isSearching}
-                    />
-                  </>
-                )}
-              </div>
-            )}
+                      {/* Search Results Table with Checkboxes */}
+                      <SearchResultsTable
+                        searchResults={searchResults}
+                        selectedResults={selectedResults}
+                        sortDirection={sortDirection}
+                        onToggleResultSelection={actions.toggleResultSelection}
+                        onToggleSelectAll={actions.toggleSelectAll}
+                        onOpenAgreement={openAgreement}
+                        onSortResults={actions.sortResults}
+                        onToggleSortDirection={actions.toggleSortDirection}
+                      />
+
+                      {/* Bottom pagination controls */}
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        totalCount={totalCount}
+                        onPageChange={actions.goToPage}
+                        onPageSizeChange={actions.changePageSize}
+                        isLoading={isSearching}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Backend Connection Error Modal */}
-      <ErrorModal
-        isOpen={showErrorModal}
-        onClose={actions.closeErrorModal}
-        message={errorMessage}
-      />
-
-      {/* No Results Info Modal */}
-      <InfoModal
-        isOpen={showNoResultsModal}
-        onClose={actions.closeNoResultsModal}
-        title="No Results Found"
-        message="No results to display given the selected filters."
-      />
-
-      {/* Agreement Modal */}
-      {selectedAgreement && (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={closeAgreement}
-          agreementUuid={selectedAgreement.agreementUuid}
-          targetSectionUuid={selectedAgreement.sectionUuid}
-          agreementMetadata={selectedAgreement.metadata}
+        {/* Backend Connection Error Modal */}
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={actions.closeErrorModal}
+          message={errorMessage}
         />
-      )}
+
+        {/* No Results Info Modal */}
+        <InfoModal
+          isOpen={showNoResultsModal}
+          onClose={actions.closeNoResultsModal}
+          title="No Results Found"
+          message="No results to display given the selected filters."
+        />
+
+        {/* Agreement Modal */}
+        {selectedAgreement && (
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={closeAgreement}
+            agreementUuid={selectedAgreement.agreementUuid}
+            targetSectionUuid={selectedAgreement.sectionUuid}
+            agreementMetadata={selectedAgreement.metadata}
+          />
+        )}
+      </div>
     </div>
   );
 }
