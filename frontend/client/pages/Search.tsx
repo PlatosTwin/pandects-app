@@ -399,26 +399,47 @@ export default function Search() {
     },
   };
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div
-      className="w-full font-roboto min-h-screen flex"
+      className="w-full font-roboto min-h-screen relative"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
-      {/* Collapsible Sidebar with Filters */}
-      <SearchSidebar
-        filters={filters}
-        years={years}
-        targets={targets}
-        acquirers={acquirers}
-        clauseTypesNested={clauseTypesNested}
-        isLoadingFilterOptions={isLoadingFilterOptions}
-        onToggleFilterValue={actions.toggleFilterValue}
-        onClearFilters={actions.clearFilters}
-      />
+      {/* Toggle Button - Positioned independently */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
+        style={{
+          top: '120px',
+          left: sidebarCollapsed ? '36px' : '308px',
+          zIndex: 10000
+        }}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronLeft className="h-3 w-3" />
+        )}
+      </button>
 
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex">
+        {/* Collapsible Sidebar with Filters */}
+        <SearchSidebar
+          filters={filters}
+          years={years}
+          targets={targets}
+          acquirers={acquirers}
+          clauseTypesNested={clauseTypesNested}
+          isLoadingFilterOptions={isLoadingFilterOptions}
+          onToggleFilterValue={actions.toggleFilterValue}
+          onClearFilters={actions.clearFilters}
+          isCollapsed={sidebarCollapsed}
+        />
+
+        {/* Main Content Area */}
+        <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-200 p-6">
           <FileText className="w-6 h-6 text-material-text-secondary" />
