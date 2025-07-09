@@ -19,6 +19,7 @@ interface SearchSidebarProps {
   isLoadingFilterOptions: boolean;
   onToggleFilterValue: (field: string, value: string) => void;
   onClearFilters: () => void;
+  isCollapsed: boolean;
   className?: string;
 }
 
