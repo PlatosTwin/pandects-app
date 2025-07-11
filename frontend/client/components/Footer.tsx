@@ -8,7 +8,13 @@ export default function Footer() {
 
   return (
     <footer className="mt-auto border-t border-gray-100">
-      <div className="px-12 py-3">
+      <div
+        className="py-3"
+        style={{
+          paddingLeft: isSearchPage ? "60px" : "48px",
+          paddingRight: "48px",
+        }}
+      >
         <div className="flex items-center justify-between">
           {/* Copyright on the left */}
           <div className="text-xs text-gray-400">
