@@ -144,6 +144,35 @@ export function useSearch() {
             params.append("acquirer", acquirer),
           );
         }
+        if (
+          searchFilters.transactionSize &&
+          searchFilters.transactionSize.length > 0
+        ) {
+          searchFilters.transactionSize.forEach((size) =>
+            params.append("transactionSize", size),
+          );
+        }
+        if (
+          searchFilters.transactionType &&
+          searchFilters.transactionType.length > 0
+        ) {
+          searchFilters.transactionType.forEach((type) =>
+            params.append("transactionType", type),
+          );
+        }
+        if (
+          searchFilters.considerationType &&
+          searchFilters.considerationType.length > 0
+        ) {
+          searchFilters.considerationType.forEach((type) =>
+            params.append("considerationType", type),
+          );
+        }
+        if (searchFilters.targetType && searchFilters.targetType.length > 0) {
+          searchFilters.targetType.forEach((type) =>
+            params.append("targetType", type),
+          );
+        }
 
         // Extract standard IDs from selected clause types and send them instead
         if (
