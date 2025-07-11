@@ -241,9 +241,15 @@ export function CheckboxFilter({
         <TooltipProvider>
           <button
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            tabIndex={tabIndex}
-            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
+            onClick={() => !disabled && setIsExpanded(!isExpanded)}
+            tabIndex={disabled ? -1 : tabIndex}
+            disabled={disabled}
+            className={cn(
+              "w-full text-left text-base font-normal bg-transparent border-none border-b py-2 flex items-center justify-between min-h-[44px] transition-colors",
+              disabled
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-material-text-primary border-[rgba(0,0,0,0.42)] focus:outline-none focus:border-material-blue focus:bg-blue-50 cursor-pointer",
+            )}
           >
             {selectedValues.length === 0 ? (
               <span>{`All ${label}s`}</span>
