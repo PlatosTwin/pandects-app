@@ -11,6 +11,10 @@ interface SearchSidebarProps {
     target?: string[];
     acquirer?: string[];
     clauseType?: string[];
+    transactionSize?: string[];
+    transactionType?: string[];
+    considerationType?: string[];
+    targetType?: string[];
   };
   years: string[];
   targets: string[];
