@@ -5,6 +5,7 @@ import logo from "../../assets/logo.png";
 
 export default function Navigation() {
   const location = useLocation();
+  const isSearchPage = location.pathname === "/";
 
   const navItems = [
     {
