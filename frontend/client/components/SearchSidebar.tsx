@@ -148,6 +148,7 @@ export function SearchSidebar({
                   onToggleFilterValue("transactionSize", value)
                 }
                 tabIndex={5}
+                hideSearch={true}
               />
             </div>
 
@@ -161,6 +162,7 @@ export function SearchSidebar({
                   onToggleFilterValue("transactionType", value)
                 }
                 tabIndex={6}
+                hideSearch={true}
               />
             </div>
 
@@ -174,6 +176,7 @@ export function SearchSidebar({
                   onToggleFilterValue("considerationType", value)
                 }
                 tabIndex={7}
+                hideSearch={true}
               />
             </div>
 
@@ -185,6 +188,7 @@ export function SearchSidebar({
                 selectedValues={filters.targetType || []}
                 onToggle={(value) => onToggleFilterValue("targetType", value)}
                 tabIndex={8}
+                hideSearch={true}
               />
             </div>
           </div>
