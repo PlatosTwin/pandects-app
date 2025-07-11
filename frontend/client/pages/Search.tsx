@@ -4,44 +4,26 @@ import {
   Search as SearchIcon,
   Download,
   FileText,
-  ExternalLink,
-  Loader2,
-  ArrowUp,
-  ArrowDown,
-  RotateCcw,
+  PanelLeftOpen,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { SearchPagination } from "@/components/SearchPagination";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
-import { XMLRenderer } from "@/components/XMLRenderer";
 import { AgreementModal } from "@/components/AgreementModal";
-import { CheckboxFilter } from "@/components/CheckboxFilter";
-import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-// Utility function to truncate text and determine if tooltip is needed
-const truncateText = (text: string, maxLength: number = 75) => {
-  if (text.length <= maxLength) {
-    return { truncated: text, needsTooltip: false };
-  }
-  return {
-    truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true,
-  };
-};
+import { SearchSidebar } from "@/components/SearchSidebar";
+import { SearchResultsTable } from "@/components/SearchResultsTable";
+import { Button } from "@/components/ui/button";
 
 export default function Search() {
   const {
     filters,
     isSearching,
     searchResults,
+    selectedResults,
     hasSearched,
     totalCount,
     totalPages,
@@ -417,337 +399,198 @@ export default function Search() {
     },
   };
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div
-      className="w-full font-roboto flex flex-col"
+      className="w-full font-roboto min-h-screen relative"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
-      <div className="flex flex-col gap-8 p-12">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-material-text-secondary" />
-          <h1 className="text-xl font-normal text-material-text-primary">
-            M&A Clause Search
-          </h1>
-        </div>
-
-        {/* Search Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <CheckboxFilter
-            label="Year"
-            options={years}
-            selectedValues={filters.year || []}
-            onToggle={(value) => actions.toggleFilterValue("year", value)}
-            tabIndex={1}
-          />
-
-          <div className="relative">
-            <CheckboxFilter
-              label="Target"
-              options={targets}
-              selectedValues={filters.target || []}
-              onToggle={(value) => actions.toggleFilterValue("target", value)}
-              tabIndex={2}
-            />
-            {isLoadingFilterOptions && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
-                <Loader2 className="w-4 h-4 animate-spin text-material-blue" />
-              </div>
-            )}
-          </div>
-
-          <div className="relative">
-            <CheckboxFilter
-              label="Acquirer"
-              options={acquirers}
-              selectedValues={filters.acquirer || []}
-              onToggle={(value) => actions.toggleFilterValue("acquirer", value)}
-              tabIndex={3}
-            />
-            {isLoadingFilterOptions && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
-                <Loader2 className="w-4 h-4 animate-spin text-material-blue" />
-              </div>
-            )}
-          </div>
-
-          <NestedCheckboxFilter
-            label="Clause Type"
-            data={clauseTypesNested}
-            selectedValues={filters.clauseType || []}
-            onToggle={(value) => actions.toggleFilterValue("clauseType", value)}
-            useModal={true}
-            tabIndex={4}
-          />
-        </div>
-
-        {/* Filter Options Error */}
-        {filterOptionsError && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-red-800 text-sm">
-              <strong>Filter Options Error:</strong> {filterOptionsError}
-            </p>
-            <p className="text-red-600 text-xs mt-1">
-              Some filter options may not be available. Please refresh the page
-              to try again.
-            </p>
-          </div>
+      {/* Toggle Button - Positioned independently */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
+        style={{
+          top: "72px",
+          left: sidebarCollapsed ? "36px" : "308px",
+          zIndex: 10000,
+        }}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronLeft className="h-3 w-3" />
         )}
+      </button>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => actions.performSearch(true, clauseTypesNested)}
-            disabled={isSearching}
-            tabIndex={5}
-            className={cn(
-              "flex items-center justify-center gap-2 px-6 py-3 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
-              "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
-              "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
-              "focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2 focus:ring-offset-cream",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            <SearchIcon
-              className={cn("w-5 h-5", isSearching && "animate-spin-custom")}
-            />
-            <span>{isSearching ? "Searching..." : "Search"}</span>
-          </button>
+      <div className="flex min-h-screen">
+        {/* Collapsible Sidebar with Filters */}
+        <SearchSidebar
+          filters={filters}
+          years={years}
+          targets={targets}
+          acquirers={acquirers}
+          clauseTypesNested={clauseTypesNested}
+          isLoadingFilterOptions={isLoadingFilterOptions}
+          onToggleFilterValue={actions.toggleFilterValue}
+          onClearFilters={actions.clearFilters}
+          isCollapsed={sidebarCollapsed}
+        />
 
-          <button
-            onClick={actions.clearFilters}
-            disabled={isSearching}
-            tabIndex={6}
-            className={cn(
-              "flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-gray-400 text-gray-700 text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
-              "hover:bg-gray-50 hover:border-gray-500",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            <RotateCcw className="w-5 h-5" />
-            <span>Clear Filters</span>
-          </button>
+        {/* Main Content Area */}
+        <div
+          className="flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out"
+          style={{
+            marginLeft: sidebarCollapsed ? "48px" : "320px",
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 border-b border-gray-200 p-6">
+            <FileText className="w-6 h-6 text-material-text-secondary" />
+            <h1 className="text-xl font-normal text-material-text-primary">
+              M&A Clause Search
+            </h1>
+          </div>
 
-          <button
-            onClick={actions.downloadCSV}
-            disabled={searchResults.length === 0}
-            className={cn(
-              "flex items-center justify-center gap-2 px-6 py-3 rounded-md border border-material-blue text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
-              "hover:bg-material-blue-light",
-              "disabled:opacity-50 disabled:cursor-not-allowed disabled:border-gray-400 disabled:text-gray-400",
-            )}
-          >
-            <Download className="w-5 h-5" />
-            <span>Download CSV</span>
-          </button>
-        </div>
+          {/* Filter Options Error */}
+          {filterOptionsError && (
+            <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-800 text-sm">
+                <strong>Filter Options Error:</strong> {filterOptionsError}
+              </p>
+              <p className="text-red-600 text-xs mt-1">
+                Some filter options may not be available. Please refresh the
+                page to try again.
+              </p>
+            </div>
+          )}
 
-        {/* Search Results */}
-        {hasSearched && (
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-material-text-primary">
-                Search Results
-              </h2>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-4 p-6 border-b border-gray-200">
+            <Button
+              onClick={() => actions.performSearch(true, clauseTypesNested)}
+              disabled={isSearching}
+              className={cn(
+                "flex items-center justify-center gap-2 px-6 py-3 bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
+                "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
+                "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
+              )}
+            >
+              <SearchIcon
+                className={cn("w-5 h-5", isSearching && "animate-spin-custom")}
+              />
+              <span>{isSearching ? "Searching..." : "Search"}</span>
+            </Button>
 
-              {/* Sort By Dropdown */}
-              {totalCount > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-material-text-secondary">
-                    Sort by:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <select
-                      className="text-sm border border-gray-300 rounded px-3 py-1 bg-white text-material-text-primary focus:outline-none focus:ring-2 focus:ring-material-blue focus:border-transparent"
-                      onChange={(e) =>
-                        actions.sortResults(
-                          e.target.value as "year" | "target" | "acquirer",
-                        )
-                      }
-                      defaultValue="year"
-                    >
-                      <option value="year">Year</option>
-                      <option value="target">Target</option>
-                      <option value="acquirer">Acquirer</option>
-                    </select>
-                    <button
-                      onClick={actions.toggleSortDirection}
-                      className="text-material-text-secondary hover:text-material-text-primary focus:outline-none transition-colors"
-                      title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-                    >
-                      {sortDirection === "asc" ? (
-                        <ArrowUp className="w-4 h-4" />
-                      ) : (
-                        <ArrowDown className="w-4 h-4" />
-                      )}
-                    </button>
+            <Button
+              onClick={actions.downloadCSV}
+              disabled={
+                searchResults.length === 0 && selectedResults.size === 0
+              }
+              variant="outline"
+              className={cn(
+                "flex items-center justify-center gap-2 px-6 py-3 border-material-blue text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase",
+                "hover:bg-material-blue-light",
+              )}
+            >
+              <Download className="w-5 h-5" />
+              <span>
+                Download CSV{" "}
+                {selectedResults.size > 0 && `(${selectedResults.size})`}
+              </span>
+            </Button>
+          </div>
+
+          {/* Main Content - Scrollable */}
+          <div className="flex-1 overflow-auto">
+            <div className="p-6">
+              {/* Search Results */}
+              {hasSearched && (
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-medium text-material-text-primary">
+                      Search Results
+                    </h2>
                   </div>
+
+                  {totalCount === 0 ? (
+                    <div className="text-center py-12 text-material-text-secondary">
+                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No clauses found matching your search criteria.</p>
+                      <p className="text-sm mt-2">
+                        Try adjusting your filters and search again.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Top pagination controls */}
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        totalCount={totalCount}
+                        onPageChange={actions.goToPage}
+                        onPageSizeChange={actions.changePageSize}
+                        isLoading={isSearching}
+                      />
+
+                      {/* Search Results Table with Checkboxes */}
+                      <SearchResultsTable
+                        searchResults={searchResults}
+                        selectedResults={selectedResults}
+                        sortDirection={sortDirection}
+                        onToggleResultSelection={actions.toggleResultSelection}
+                        onToggleSelectAll={actions.toggleSelectAll}
+                        onOpenAgreement={openAgreement}
+                        onSortResults={actions.sortResults}
+                        onToggleSortDirection={actions.toggleSortDirection}
+                      />
+
+                      {/* Bottom pagination controls */}
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        totalCount={totalCount}
+                        onPageChange={actions.goToPage}
+                        onPageSizeChange={actions.changePageSize}
+                        isLoading={isSearching}
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </div>
-
-            {totalCount === 0 ? (
-              <div className="text-center py-12 text-material-text-secondary">
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No clauses found matching your search criteria.</p>
-                <p className="text-sm mt-2">
-                  Try adjusting your filters and search again.
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Top pagination controls */}
-                <SearchPagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalCount={totalCount}
-                  onPageChange={actions.goToPage}
-                  onPageSizeChange={actions.changePageSize}
-                  isLoading={isSearching}
-                />
-
-                {/* Results grid */}
-                <TooltipProvider>
-                  <div className="grid gap-4">
-                    {searchResults.map((result) => {
-                      const targetText = truncateText(result.target, 75);
-                      const acquirerText = truncateText(result.acquirer, 75);
-
-                      return (
-                        <div
-                          key={result.id}
-                          className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
-                        >
-                          {/* Header with metadata */}
-                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4 text-sm flex-1 min-w-0">
-                                <span className="text-material-text-primary font-medium flex-shrink-0">
-                                  {result.year}
-                                </span>
-                                <span className="text-material-text-primary flex-shrink-0">
-                                  <span className="font-bold">T:</span>{" "}
-                                  {targetText.needsTooltip ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-help">
-                                          {targetText.truncated}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{result.target}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    targetText.truncated
-                                  )}
-                                </span>
-                                <span className="text-material-text-primary flex-shrink-0">
-                                  <span className="font-bold">A:</span>{" "}
-                                  {acquirerText.needsTooltip ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-help">
-                                          {acquirerText.truncated}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{result.acquirer}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    acquirerText.truncated
-                                  )}
-                                </span>
-                                <span
-                                  className="text-material-text-secondary"
-                                  title={`${result.articleTitle} >> ${result.sectionTitle}`}
-                                >
-                                  {result.articleTitle} &gt;&gt;{" "}
-                                  {result.sectionTitle}
-                                </span>
-                              </div>
-
-                              {/* Open Agreement Button */}
-                              <div className="ml-4">
-                                <button
-                                  onClick={() => openAgreement(result)}
-                                  className="flex items-center gap-2 px-3 py-2 text-sm text-material-blue hover:bg-material-blue-light rounded transition-colors"
-                                  title="Open source agreement"
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                  <span className="hidden sm:inline">
-                                    Open Agreement
-                                  </span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Clause text */}
-                          <div className="p-4">
-                            <div
-                              className="h-36 overflow-y-auto text-sm text-material-text-primary leading-relaxed"
-                              style={{
-                                scrollbarWidth: "thin",
-                                scrollbarColor: "#e5e7eb #f9fafb",
-                              }}
-                            >
-                              <XMLRenderer
-                                xmlContent={result.xml}
-                                mode="search"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </TooltipProvider>
-
-                {/* Bottom pagination controls */}
-                <SearchPagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalCount={totalCount}
-                  onPageChange={actions.goToPage}
-                  onPageSizeChange={actions.changePageSize}
-                  isLoading={isSearching}
-                />
-              </>
-            )}
           </div>
+        </div>
+
+        {/* Backend Connection Error Modal */}
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={actions.closeErrorModal}
+          message={errorMessage}
+        />
+
+        {/* No Results Info Modal */}
+        <InfoModal
+          isOpen={showNoResultsModal}
+          onClose={actions.closeNoResultsModal}
+          title="No Results Found"
+          message="No results to display given the selected filters."
+        />
+
+        {/* Agreement Modal */}
+        {selectedAgreement && (
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={closeAgreement}
+            agreementUuid={selectedAgreement.agreementUuid}
+            targetSectionUuid={selectedAgreement.sectionUuid}
+            agreementMetadata={selectedAgreement.metadata}
+          />
         )}
       </div>
-
-      {/* Backend Connection Error Modal */}
-      <ErrorModal
-        isOpen={showErrorModal}
-        onClose={actions.closeErrorModal}
-        message={errorMessage}
-      />
-
-      {/* No Results Info Modal */}
-      <InfoModal
-        isOpen={showNoResultsModal}
-        onClose={actions.closeNoResultsModal}
-        title="No Results Found"
-        message="No results to display given the selected filters."
-      />
-
-      {/* Agreement Modal */}
-      {selectedAgreement && (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={closeAgreement}
-          agreementUuid={selectedAgreement.agreementUuid}
-          targetSectionUuid={selectedAgreement.sectionUuid}
-          agreementMetadata={selectedAgreement.metadata}
-        />
-      )}
     </div>
   );
 }

@@ -189,11 +189,15 @@ def get_filter_options():
 @app.route("/api/search", methods=["GET"])
 def search_sections():
     # pull in optional query params - now supporting multiple values
-    years        = request.args.getlist("year")
-    targets      = request.args.getlist("target")
-    acquirers    = request.args.getlist("acquirer")
-    clause_types = request.args.getlist("clauseType")
-    standard_ids = request.args.getlist("standardId")
+    years              = request.args.getlist("year")
+    targets            = request.args.getlist("target")
+    acquirers          = request.args.getlist("acquirer")
+    clause_types       = request.args.getlist("clauseType")
+    standard_ids       = request.args.getlist("standardId")
+    transaction_sizes  = request.args.getlist("transactionSize")
+    transaction_types  = request.args.getlist("transactionType")
+    consideration_types = request.args.getlist("considerationType")
+    target_types       = request.args.getlist("targetType")
 
     # build the base ORM query
     q = (
@@ -234,6 +238,67 @@ def search_sections():
              .filter(Taxonomy.type == "section")
              .filter(Taxonomy.standard_id.in_(standard_ids))
         )
+
+    # Transaction Size filter - convert ranges to DB values
+    if transaction_sizes:
+        size_conditions = []
+        for size_range in transaction_sizes:
+            if size_range == "100M - 250M":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 100000000, Agreements.transaction_size < 250000000))
+            elif size_range == "250M - 500M":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 250000000, Agreements.transaction_size < 500000000))
+            elif size_range == "500M - 750M":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 500000000, Agreements.transaction_size < 750000000))
+            elif size_range == "750M - 1B":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 750000000, Agreements.transaction_size < 1000000000))
+            elif size_range == "1B - 5B":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 1000000000, Agreements.transaction_size < 5000000000))
+            elif size_range == "5B - 10B":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 5000000000, Agreements.transaction_size < 10000000000))
+            elif size_range == "10B - 20B":
+                size_conditions.append(db.and_(Agreements.transaction_size >= 10000000000, Agreements.transaction_size < 20000000000))
+            elif size_range == "20B+":
+                size_conditions.append(Agreements.transaction_size >= 20000000000)
+        if size_conditions:
+            q = q.filter(db.or_(*size_conditions))
+
+    # Transaction Type filter
+    if transaction_types:
+        # Convert frontend values to DB enum values
+        db_transaction_types = []
+        for t_type in transaction_types:
+            if t_type == "Strategic":
+                db_transaction_types.append("strategic")
+            elif t_type == "Financial":
+                db_transaction_types.append("financial")
+        if db_transaction_types:
+            q = q.filter(Agreements.transaction_type.in_(db_transaction_types))
+
+    # Consideration Type filter
+    if consideration_types:
+        # Convert frontend values to DB enum values
+        db_consideration_types = []
+        for c_type in consideration_types:
+            if c_type == "All stock":
+                db_consideration_types.append("stock")
+            elif c_type == "All cash":
+                db_consideration_types.append("cash")
+            elif c_type == "Mixed":
+                db_consideration_types.append("mixed")
+        if db_consideration_types:
+            q = q.filter(Agreements.consideration_type.in_(db_consideration_types))
+
+    # Target Type filter
+    if target_types:
+        # Convert frontend values to DB enum values
+        db_target_types = []
+        for t_type in target_types:
+            if t_type == "Public":
+                db_target_types.append("public")
+            elif t_type == "Private":
+                db_target_types.append("private")
+        if db_target_types:
+            q = q.filter(Agreements.target_type.in_(db_target_types))
 
     rows = q.all()
 

@@ -15,6 +15,8 @@ interface CheckboxFilterProps {
   onToggle: (value: string) => void;
   className?: string;
   tabIndex?: number;
+  hideSearch?: boolean;
+  disabled?: boolean;
 }
 
 // Utility function to truncate text for display
@@ -35,6 +37,8 @@ export function CheckboxFilter({
   onToggle,
   className,
   tabIndex,
+  hideSearch = false,
+  disabled = false,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -237,9 +241,15 @@ export function CheckboxFilter({
         <TooltipProvider>
           <button
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            tabIndex={tabIndex}
-            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
+            onClick={() => !disabled && setIsExpanded(!isExpanded)}
+            tabIndex={disabled ? -1 : tabIndex}
+            disabled={disabled}
+            className={cn(
+              "w-full text-left text-base font-normal bg-transparent border-none border-b py-2 flex items-center justify-between min-h-[44px] transition-colors",
+              disabled
+                ? "text-gray-400 border-gray-300 cursor-not-allowed"
+                : "text-material-text-primary border-[rgba(0,0,0,0.42)] focus:outline-none focus:border-material-blue focus:bg-blue-50 cursor-pointer",
+            )}
           >
             {selectedValues.length === 0 ? (
               <span>{`All ${label}s`}</span>
@@ -276,7 +286,7 @@ export function CheckboxFilter({
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
 
         {/* Expanded dropdown with search and sticky selected items */}
-        {isExpanded && (
+        {isExpanded && !disabled && (
           <div
             ref={expandedDropdownRef}
             className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
@@ -307,22 +317,24 @@ export function CheckboxFilter({
             tabIndex={-1}
           >
             {/* Search Input */}
-            <div className="p-3 border-b border-gray-200">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" />
+            {!hideSearch && (
+              <div className="p-3 border-b border-gray-200">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`Search ${label.toLowerCase()}s...`}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
+                  />
                 </div>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Search ${label.toLowerCase()}s...`}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
-                />
               </div>
-            </div>
+            )}
 
             {/* Selected Items (Sticky at top) */}
             {selectedOptions.length > 0 && (
@@ -365,7 +377,7 @@ export function CheckboxFilter({
 
             {/* Search Results or All Unselected Options */}
             <div className="flex-1 overflow-y-auto">
-              {searchTerm.trim() ? (
+              {!hideSearch && searchTerm.trim() ? (
                 // Show filtered search results
                 <div className="p-2">
                   {filteredOptions.length > 0 ? (
@@ -406,9 +418,6 @@ export function CheckboxFilter({
                 <div className="p-2">
                   {unselectedOptions.length > 0 && (
                     <>
-                      <div className="p-2 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                        Available
-                      </div>
                       {unselectedOptions.map((option, index) => (
                         <label
                           key={`unselected-${option}`}

@@ -6,6 +6,10 @@ export interface SearchFilters {
   acquirer?: string[];
   clauseType?: string[];
   standardId?: string[];
+  transactionSize?: string[];
+  transactionType?: string[];
+  considerationType?: string[];
+  targetType?: string[];
   page?: number;
   pageSize?: number;
 }
