@@ -1,7 +1,10 @@
 import { Github } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const location = useLocation();
+  const isSearchPage = location.pathname === "/";
 
   return (
     <footer className="mt-auto border-t border-gray-100">
