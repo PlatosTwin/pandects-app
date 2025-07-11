@@ -36,6 +36,7 @@ export function CheckboxFilter({
   onToggle,
   className,
   tabIndex,
+  hideSearch = false,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
