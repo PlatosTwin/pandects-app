@@ -210,19 +210,6 @@ export function SearchSidebar({
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-4">
-          <Button
-            onClick={onClearFilters}
-            variant="outline"
-            size="sm"
-            className="w-full justify-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Clear Filters
-          </Button>
-        </div>
       </div>
 
       {/* Collapsed State Icon */}
