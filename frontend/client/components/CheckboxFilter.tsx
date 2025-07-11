@@ -410,9 +410,6 @@ export function CheckboxFilter({
                 <div className="p-2">
                   {unselectedOptions.length > 0 && (
                     <>
-                      <div className="p-2 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                        Available
-                      </div>
                       {unselectedOptions.map((option, index) => (
                         <label
                           key={`unselected-${option}`}
