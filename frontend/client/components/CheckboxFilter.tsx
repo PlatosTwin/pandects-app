@@ -369,7 +369,7 @@ export function CheckboxFilter({
 
             {/* Search Results or All Unselected Options */}
             <div className="flex-1 overflow-y-auto">
-              {searchTerm.trim() ? (
+              {!hideSearch && searchTerm.trim() ? (
                 // Show filtered search results
                 <div className="p-2">
                   {filteredOptions.length > 0 ? (
