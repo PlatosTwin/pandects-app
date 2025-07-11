@@ -412,7 +412,7 @@ export default function Search() {
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
         style={{
-          top: "47px",
+          top: "52px",
           left: sidebarCollapsed ? "36px" : "308px",
           zIndex: 10000,
         }}
