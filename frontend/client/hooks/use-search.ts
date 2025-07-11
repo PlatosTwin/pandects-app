@@ -288,7 +288,14 @@ export function useSearch() {
       (searchFilters.year && searchFilters.year.length > 0) ||
       (searchFilters.target && searchFilters.target.length > 0) ||
       (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
-      (searchFilters.clauseType && searchFilters.clauseType.length > 0)
+      (searchFilters.clauseType && searchFilters.clauseType.length > 0) ||
+      (searchFilters.transactionSize &&
+        searchFilters.transactionSize.length > 0) ||
+      (searchFilters.transactionType &&
+        searchFilters.transactionType.length > 0) ||
+      (searchFilters.considerationType &&
+        searchFilters.considerationType.length > 0) ||
+      (searchFilters.targetType && searchFilters.targetType.length > 0)
     );
   };
 
