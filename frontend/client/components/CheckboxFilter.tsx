@@ -15,6 +15,7 @@ interface CheckboxFilterProps {
   onToggle: (value: string) => void;
   className?: string;
   tabIndex?: number;
+  hideSearch?: boolean;
 }
 
 // Utility function to truncate text for display
