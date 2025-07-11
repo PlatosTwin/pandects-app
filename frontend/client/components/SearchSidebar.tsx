@@ -68,7 +68,20 @@ export function SearchSidebar({
       >
         {/* Header */}
         <div className="border-b border-gray-200 p-4">
-          <h2 className="text-lg font-medium text-gray-900">Search Filters</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-medium text-gray-900">
+              Search Filters
+            </h2>
+          </div>
+          <Button
+            onClick={onClearFilters}
+            variant="outline"
+            size="sm"
+            className="w-full justify-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Clear Filters
+          </Button>
         </div>
 
         {/* Scrollable Content */}
