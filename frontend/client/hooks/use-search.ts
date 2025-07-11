@@ -33,6 +33,10 @@ export function useSearch() {
     acquirer: [],
     clauseType: [],
     standardId: [],
+    transactionSize: [],
+    transactionType: [],
+    considerationType: [],
+    targetType: [],
     page: 1,
     pageSize: 25,
   });
@@ -67,6 +71,9 @@ export function useSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [allResults, setAllResults] = useState<SearchResult[]>([]);
+  const [selectedResults, setSelectedResults] = useState<Set<string>>(
+    new Set(),
+  );
   const [hasSearched, setHasSearched] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -109,6 +116,7 @@ export function useSearch() {
       setIsSearching(true);
       setShowErrorModal(false);
       setShowNoResultsModal(false);
+      setSelectedResults(new Set()); // Clear selected results when performing new search
 
       if (resetPage) {
         setHasSearched(true);
@@ -134,6 +142,35 @@ export function useSearch() {
         if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
           searchFilters.acquirer.forEach((acquirer) =>
             params.append("acquirer", acquirer),
+          );
+        }
+        if (
+          searchFilters.transactionSize &&
+          searchFilters.transactionSize.length > 0
+        ) {
+          searchFilters.transactionSize.forEach((size) =>
+            params.append("transactionSize", size),
+          );
+        }
+        if (
+          searchFilters.transactionType &&
+          searchFilters.transactionType.length > 0
+        ) {
+          searchFilters.transactionType.forEach((type) =>
+            params.append("transactionType", type),
+          );
+        }
+        if (
+          searchFilters.considerationType &&
+          searchFilters.considerationType.length > 0
+        ) {
+          searchFilters.considerationType.forEach((type) =>
+            params.append("considerationType", type),
+          );
+        }
+        if (searchFilters.targetType && searchFilters.targetType.length > 0) {
+          searchFilters.targetType.forEach((type) =>
+            params.append("targetType", type),
           );
         }
 
@@ -251,12 +288,25 @@ export function useSearch() {
       (searchFilters.year && searchFilters.year.length > 0) ||
       (searchFilters.target && searchFilters.target.length > 0) ||
       (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
-      (searchFilters.clauseType && searchFilters.clauseType.length > 0)
+      (searchFilters.clauseType && searchFilters.clauseType.length > 0) ||
+      (searchFilters.transactionSize &&
+        searchFilters.transactionSize.length > 0) ||
+      (searchFilters.transactionType &&
+        searchFilters.transactionType.length > 0) ||
+      (searchFilters.considerationType &&
+        searchFilters.considerationType.length > 0) ||
+      (searchFilters.targetType && searchFilters.targetType.length > 0)
     );
   };
 
   const downloadCSV = useCallback(() => {
-    if (searchResults.length === 0) return;
+    // Filter results to only include selected ones, fallback to all results if none selected
+    const resultsToDownload =
+      selectedResults.size > 0
+        ? allResults.filter((result) => selectedResults.has(result.id))
+        : searchResults;
+
+    if (resultsToDownload.length === 0) return;
 
     // Create CSV content
     const headers = [
@@ -272,7 +322,7 @@ export function useSearch() {
 
     const csvContent = [
       headers.join(","),
-      ...searchResults.map((result) =>
+      ...resultsToDownload.map((result) =>
         [
           result.year,
           `"${result.target}"`,
@@ -290,10 +340,11 @@ export function useSearch() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `ma_clauses_${new Date().toISOString().split("T")[0]}.csv`;
+    const selectedText = selectedResults.size > 0 ? "_selected" : "";
+    link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [searchResults]);
+  }, [allResults, searchResults, selectedResults]);
 
   const clearFilters = useCallback(() => {
     setFilters({
@@ -302,11 +353,16 @@ export function useSearch() {
       acquirer: [],
       clauseType: [],
       standardId: [],
+      transactionSize: [],
+      transactionType: [],
+      considerationType: [],
+      targetType: [],
       page: 1,
       pageSize: 25,
     });
     setSearchResults([]);
     setAllResults([]);
+    setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
     setTotalPages(0);
@@ -362,6 +418,40 @@ export function useSearch() {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   }, []);
 
+  // Result selection handlers
+  const toggleResultSelection = useCallback((resultId: string) => {
+    setSelectedResults((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(resultId)) {
+        newSet.delete(resultId);
+      } else {
+        newSet.add(resultId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    const allSelected = searchResults.every((result) =>
+      selectedResults.has(result.id),
+    );
+    if (allSelected) {
+      // Deselect all current page results
+      setSelectedResults((prev) => {
+        const newSet = new Set(prev);
+        searchResults.forEach((result) => newSet.delete(result.id));
+        return newSet;
+      });
+    } else {
+      // Select all current page results
+      setSelectedResults((prev) => {
+        const newSet = new Set(prev);
+        searchResults.forEach((result) => newSet.add(result.id));
+        return newSet;
+      });
+    }
+  }, [searchResults, selectedResults]);
+
   // Auto-refresh results when sort direction changes or when new results are loaded
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
@@ -375,6 +465,7 @@ export function useSearch() {
     filters,
     isSearching,
     searchResults,
+    selectedResults,
     hasSearched,
     totalCount,
     totalPages,
@@ -396,6 +487,8 @@ export function useSearch() {
       closeNoResultsModal,
       sortResults,
       toggleSortDirection,
+      toggleResultSelection,
+      toggleSelectAll,
     },
   };
 }
