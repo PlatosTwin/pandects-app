@@ -38,6 +38,7 @@ export function CheckboxFilter({
   className,
   tabIndex,
   hideSearch = false,
+  disabled = false,
 }: CheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
