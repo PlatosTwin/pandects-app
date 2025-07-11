@@ -128,6 +128,65 @@ export function SearchSidebar({
                 tabIndex={4}
               />
             </div>
+
+            {/* Transaction Size Filter */}
+            <div>
+              <CheckboxFilter
+                label="Transaction Size"
+                options={[
+                  "100M - 250M",
+                  "250M - 500M",
+                  "500M - 750M",
+                  "750M - 1B",
+                  "1B - 5B",
+                  "5B - 10B",
+                  "10B - 20B",
+                  "20B+",
+                ]}
+                selectedValues={filters.transactionSize || []}
+                onToggle={(value) =>
+                  onToggleFilterValue("transactionSize", value)
+                }
+                tabIndex={5}
+              />
+            </div>
+
+            {/* Transaction Type Filter */}
+            <div>
+              <CheckboxFilter
+                label="Transaction Type"
+                options={["Strategic", "Financial"]}
+                selectedValues={filters.transactionType || []}
+                onToggle={(value) =>
+                  onToggleFilterValue("transactionType", value)
+                }
+                tabIndex={6}
+              />
+            </div>
+
+            {/* Consideration Type Filter */}
+            <div>
+              <CheckboxFilter
+                label="Consideration Type"
+                options={["All stock", "All cash", "Mixed"]}
+                selectedValues={filters.considerationType || []}
+                onToggle={(value) =>
+                  onToggleFilterValue("considerationType", value)
+                }
+                tabIndex={7}
+              />
+            </div>
+
+            {/* Target Type Filter */}
+            <div>
+              <CheckboxFilter
+                label="Target Type"
+                options={["Public", "Private"]}
+                selectedValues={filters.targetType || []}
+                onToggle={(value) => onToggleFilterValue("targetType", value)}
+                tabIndex={8}
+              />
+            </div>
           </div>
         </div>
 
