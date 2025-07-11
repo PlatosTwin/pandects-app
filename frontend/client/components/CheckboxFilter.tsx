@@ -16,6 +16,7 @@ interface CheckboxFilterProps {
   className?: string;
   tabIndex?: number;
   hideSearch?: boolean;
+  disabled?: boolean;
 }
 
 // Utility function to truncate text for display
