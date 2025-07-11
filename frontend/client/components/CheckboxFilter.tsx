@@ -286,7 +286,7 @@ export function CheckboxFilter({
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
 
         {/* Expanded dropdown with search and sticky selected items */}
-        {isExpanded && (
+        {isExpanded && !disabled && (
           <div
             ref={expandedDropdownRef}
             className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
