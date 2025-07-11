@@ -24,7 +24,13 @@ export default function Navigation() {
 
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="px-12 py-4">
+      <div
+        className="py-4"
+        style={{
+          paddingLeft: isSearchPage ? "60px" : "48px",
+          paddingRight: "48px",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
