@@ -149,6 +149,7 @@ export function SearchSidebar({
                 }
                 tabIndex={5}
                 hideSearch={true}
+                disabled={true}
               />
             </div>
 
@@ -163,6 +164,7 @@ export function SearchSidebar({
                 }
                 tabIndex={6}
                 hideSearch={true}
+                disabled={true}
               />
             </div>
 
@@ -177,6 +179,7 @@ export function SearchSidebar({
                 }
                 tabIndex={7}
                 hideSearch={true}
+                disabled={true}
               />
             </div>
 
@@ -189,6 +192,7 @@ export function SearchSidebar({
                 onToggle={(value) => onToggleFilterValue("targetType", value)}
                 tabIndex={8}
                 hideSearch={true}
+                disabled={true}
               />
             </div>
           </div>
