@@ -189,11 +189,15 @@ def get_filter_options():
 @app.route("/api/search", methods=["GET"])
 def search_sections():
     # pull in optional query params - now supporting multiple values
-    years        = request.args.getlist("year")
-    targets      = request.args.getlist("target")
-    acquirers    = request.args.getlist("acquirer")
-    clause_types = request.args.getlist("clauseType")
-    standard_ids = request.args.getlist("standardId")
+    years              = request.args.getlist("year")
+    targets            = request.args.getlist("target")
+    acquirers          = request.args.getlist("acquirer")
+    clause_types       = request.args.getlist("clauseType")
+    standard_ids       = request.args.getlist("standardId")
+    transaction_sizes  = request.args.getlist("transactionSize")
+    transaction_types  = request.args.getlist("transactionType")
+    consideration_types = request.args.getlist("considerationType")
+    target_types       = request.args.getlist("targetType")
 
     # build the base ORM query
     q = (
