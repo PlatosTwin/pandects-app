@@ -33,6 +33,10 @@ export function useSearch() {
     acquirer: [],
     clauseType: [],
     standardId: [],
+    transactionSize: [],
+    transactionType: [],
+    considerationType: [],
+    targetType: [],
     page: 1,
     pageSize: 25,
   });
