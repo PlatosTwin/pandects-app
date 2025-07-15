@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
+import { apiUrl } from "@/lib/api-config";
 
 // Function to extract standard IDs from nested clause type structure
 const extractStandardIds = (
@@ -196,9 +197,7 @@ export function useSearch() {
           params.append("pageSize", searchFilters.pageSize.toString());
 
         const queryString = params.toString();
-        const res = await fetch(
-          `http://127.0.0.1:5000/api/search?${queryString}`,
-        );
+        const res = await fetch(apiUrl(`api/search?${queryString}`));
 
         // Check if the response is ok (status 200-299)
         if (!res.ok) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiUrl } from "@/lib/api-config";
 
 export interface LLMOutputState {
   pageUuid: string;
@@ -96,9 +97,7 @@ export function useLLMOutput() {
     updateState({ isLoading: true, lastSaved: "" });
 
     try {
-      const res = await fetch(
-        `http://127.0.0.1:5000/api/llm/${state.pageUuid}`,
-      );
+      const res = await fetch(apiUrl(`api/llm/${state.pageUuid}`));
 
       // Check if the response is ok (status 200-299)
       if (!res.ok) {
@@ -165,7 +164,7 @@ export function useLLMOutput() {
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:5000/api/llm/${state.pageUuid}/${state.promptId}`,
+        apiUrl(`api/llm/${state.pageUuid}/${state.promptId}`),
         {
           method: "PUT",
           headers: {
