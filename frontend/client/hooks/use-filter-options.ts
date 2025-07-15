@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { FilterOptionsResponse } from "@shared/search";
+import { apiUrl } from "@/lib/api-config";
 
 interface UseFilterOptionsReturn {
   targets: string[];
@@ -33,9 +34,7 @@ export function useFilterOptions(): UseFilterOptionsReturn {
     // Fetch from API
     const fetchFilterOptions = async () => {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:5000/api/filter-options",
-        );
+        const response = await fetch(apiUrl("api/filter-options"));
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);

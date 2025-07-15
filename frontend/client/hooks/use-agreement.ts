@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Agreement } from "@shared/agreement";
+import { apiUrl } from "@/lib/api-config";
 
 export function useAgreement() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
@@ -11,9 +12,7 @@ export function useAgreement() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:5000/api/agreements/${agreementUuid}`,
-      );
+      const response = await fetch(apiUrl(`api/agreements/${agreementUuid}`));
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
