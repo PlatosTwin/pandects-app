@@ -9,3 +9,4 @@ frontend/dist/
 backend/build/
 
 TODO.md
+*.sql

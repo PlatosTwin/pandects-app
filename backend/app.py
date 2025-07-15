@@ -9,13 +9,18 @@ from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 app = Flask(__name__)
 CORS(
     app,
-    resources={r"/api/*": {"origins": ["http://localhost:8080", "http://127.0.0.1:8080"]}},
+    resources={r"/api/*": {"origins": ["http://localhost:8080", "http://127.0.0.1:8080", "https://pandects-app.fly.dev"]}},
     methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"]
 )
 
+DB_USER = os.environ["MARIADB_USER"]
+DB_PASS = os.environ["MARIADB_PASSWORD"]
+DB_HOST = os.environ["MARIADB_HOST"]
+DB_NAME = os.environ["MARIADB_DATABASE"]
+
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", "mysql+pymysql://root:abotbamxpeh@localhost:3306/mna"
+    "DATABASE_URL", f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:3306/{DB_NAME}"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 

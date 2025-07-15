@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for pandects-db on 2025-07-14T17:19:10-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'pandects-db'
+primary_region = 'iad'
+
+[build]
+  image = 'mariadb:11.8.2'
+
+[env]
+  MARIADB_DATABASE = 'mna'
+  MARIADB_USER = 'panda'
+  MARIADB_HOST = 'https://pandects-db.fly.dev'
+
+[processes]
+  app = '--datadir /data/mysql'
+
+[[mounts]]
+  source = 'pdex_data'
+  destination = '/data'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
