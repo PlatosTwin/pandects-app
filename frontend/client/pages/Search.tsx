@@ -414,7 +414,7 @@ export default function Search() {
         style={{
           top: "72px",
           left: sidebarCollapsed ? "36px" : "308px",
-          zIndex: 45, // Above sidebar but below modal (z-50)
+          zIndex: 20, // Above sidebar (z-10) but below modal (z-50)
         }}
       >
         {sidebarCollapsed ? (
