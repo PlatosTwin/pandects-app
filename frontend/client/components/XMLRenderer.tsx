@@ -210,9 +210,15 @@ export function XMLRenderer({
             {showHighlight && (
               <div
                 className={cn(
-                  "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+                  "absolute bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
                   isHighlighted ? "opacity-100" : "opacity-0",
                 )}
+                style={{
+                  top: "-8px",
+                  left: "-12px",
+                  right: "-20px",
+                  bottom: "-8px",
+                }}
               />
             )}
             <div className="flex items-start gap-1.5">
