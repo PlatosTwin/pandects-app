@@ -484,7 +484,7 @@ export default function Search() {
             </Button>
 
             <Button
-              onClick={actions.downloadCSV}
+              onClick={() => actions.downloadCSV(clauseTypesNested)}
               disabled={
                 searchResults.length === 0 && selectedResults.size === 0
               }
