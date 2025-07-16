@@ -177,9 +177,15 @@ export function XMLRenderer({
             {/* Highlight overlay that doesn't affect layout */}
             <div
               className={cn(
-                "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-all duration-1000",
+                "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
                 isHighlighted ? "opacity-100" : "opacity-0",
               )}
+              style={{
+                visibility:
+                  highlightedSection === sectionUuid || isHighlighted
+                    ? "visible"
+                    : "hidden",
+              }}
             />
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
