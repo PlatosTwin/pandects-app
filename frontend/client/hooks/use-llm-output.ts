@@ -188,10 +188,6 @@ export function useLLMOutput() {
     localStorage.setItem("llm-output-settings", JSON.stringify(settingsToSave));
   }, [state.fontSize, state.pageUuid, state.llmOutput]);
 
-  const updateState = useCallback((updates: Partial<LLMOutputState>) => {
-    setState((prev) => ({ ...prev, ...updates }));
-  }, []);
-
   const calculateStats = useCallback(() => {
     const words = state.llmOutput.trim()
       ? state.llmOutput.trim().split(/\s+/).length
