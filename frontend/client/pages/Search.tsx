@@ -408,21 +408,6 @@ export default function Search() {
       tabIndex={-1}
     >
       <div className="flex min-h-screen">
-        {/* Toggle Button - Inside main content area */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out z-20"
-          style={{
-            top: "72px",
-            left: sidebarCollapsed ? "36px" : "308px",
-          }}
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight className="h-3 w-3" />
-          ) : (
-            <ChevronLeft className="h-3 w-3" />
-          )}
-        </button>
         {/* Collapsible Sidebar with Filters */}
         <SearchSidebar
           filters={filters}
