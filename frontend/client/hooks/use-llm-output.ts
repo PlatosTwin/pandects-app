@@ -79,7 +79,13 @@ export function useLLMOutput() {
         pageUuid: pageUuid,
         isSaved: true,
         lastSaved: new Date(parseInt(timestamp)).toLocaleString(),
+        showSaveSuccess: true,
       }));
+
+      // Hide success message after 4 seconds
+      setTimeout(() => {
+        setState((prev) => ({ ...prev, showSaveSuccess: false }));
+      }, 4000);
 
       // Clean up URL by removing the success parameters (optional)
       // This creates a clean URL for bookmarking and sharing
