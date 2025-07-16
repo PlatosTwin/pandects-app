@@ -54,7 +54,7 @@ export function SearchSidebar({
     <div
       className={cn(
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out fixed left-0 top-0 overflow-hidden h-screen z-10",
-        isCollapsed ? "w-12" : "w-80",
+        isCollapsed ? "w-16" : "w-80",
         className,
       )}
     >
