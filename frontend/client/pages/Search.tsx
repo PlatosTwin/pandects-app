@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   Search as SearchIcon,
@@ -407,23 +407,6 @@ export default function Search() {
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
-      {/* Toggle Button - Positioned independently */}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
-        style={{
-          top: "72px",
-          left: sidebarCollapsed ? "36px" : "308px",
-          zIndex: 10000,
-        }}
-      >
-        {sidebarCollapsed ? (
-          <ChevronRight className="h-3 w-3" />
-        ) : (
-          <ChevronLeft className="h-3 w-3" />
-        )}
-      </button>
-
       <div className="flex min-h-screen">
         {/* Collapsible Sidebar with Filters */}
         <SearchSidebar
@@ -435,6 +418,7 @@ export default function Search() {
           isLoadingFilterOptions={isLoadingFilterOptions}
           onToggleFilterValue={actions.toggleFilterValue}
           onClearFilters={actions.clearFilters}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           isCollapsed={sidebarCollapsed}
         />
 

@@ -33,6 +33,36 @@ export function XMLRenderer({
   highlightedSection,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Handle highlight transitions
+  const [previousHighlightedSection, setPreviousHighlightedSection] = useState<
+    string | null
+  >(null);
+
+  useMemo(() => {
+    if (
+      previousHighlightedSection &&
+      previousHighlightedSection !== highlightedSection
+    ) {
+      // Start fading the previous highlight
+      setFadingHighlights((prev) =>
+        new Set(prev).add(previousHighlightedSection),
+      );
+
+      // Remove from fading set after transition completes
+      setTimeout(() => {
+        setFadingHighlights((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(previousHighlightedSection);
+          return newSet;
+        });
+      }, 1000); // Match the transition duration
+    }
+    setPreviousHighlightedSection(highlightedSection);
+  }, [highlightedSection, previousHighlightedSection]);
 
   const parsedXML = useMemo(() => {
     return parseXMLContent(xmlContent);
@@ -162,6 +192,8 @@ export function XMLRenderer({
             ? "text-lg font-semibold"
             : "text-base font-medium";
         const isHighlighted = highlightedSection === sectionUuid;
+        const isFading = fadingHighlights.has(sectionUuid || "");
+        const showHighlight = isHighlighted || isFading;
 
         // Add article header attribute for scroll targeting
         const additionalAttributes =
@@ -170,14 +202,25 @@ export function XMLRenderer({
         return (
           <div
             key={tagId}
-            className={cn(
-              "my-4 transition-all duration-1000 scroll-mt-3",
-              isHighlighted &&
-                "bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow-lg",
-            )}
+            className={cn("my-4 scroll-mt-3 relative", showHighlight && "z-10")}
             {...dataAttributes}
             {...additionalAttributes}
           >
+            {/* Highlight overlay that doesn't affect layout */}
+            {showHighlight && (
+              <div
+                className={cn(
+                  "absolute bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+                  isHighlighted ? "opacity-100" : "opacity-0",
+                )}
+                style={{
+                  top: "-8px",
+                  left: "-12px",
+                  right: "-20px",
+                  bottom: "-8px",
+                }}
+              />
+            )}
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (
