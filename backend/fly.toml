@@ -8,6 +8,11 @@ primary_region = 'iad'
 
 [build]
 
+[env]
+  MARIADB_DATABASE = 'mna'
+  MARIADB_USER = 'panda'
+  MARIADB_HOST = 'pandects-db.internal'
+
 [http_service]
   internal_port = 8080
   force_https = true

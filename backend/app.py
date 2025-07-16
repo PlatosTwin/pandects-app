@@ -2,16 +2,38 @@ import os
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table, text
+from sqlalchemy import (
+    create_engine,
+    MetaData,
+    Table,
+    func,
+    desc,
+    Column,
+    CHAR,
+    TEXT,
+    Table,
+    text,
+)
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Flask setup ──────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(
     app,
-    resources={r"/api/*": {"origins": ["http://localhost:8080", "http://127.0.0.1:8080", "https://pandects-app.fly.dev"]}},
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:8080",
+                "http://127.0.0.1:8080",
+                "https://pandects-app.fly.dev",
+            ]
+        }
+    },
     methods=["GET", "POST", "PUT", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"]
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 DB_USER = os.environ["MARIADB_USER"]
@@ -19,8 +41,8 @@ DB_PASS = os.environ["MARIADB_PASSWORD"]
 DB_HOST = os.environ["MARIADB_HOST"]
 DB_NAME = os.environ["MARIADB_DATABASE"]
 
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:3306/{DB_NAME}"
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:3306/{DB_NAME}"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -55,12 +77,12 @@ sections_table = Table(
     "sections",
     metadata,
     Column("agreement_uuid", CHAR(36), nullable=False),
-    Column("section_uuid",   CHAR(36), primary_key=True),
-    Column("article_title",  TEXT,     nullable=False),
-    Column("section_title",  TEXT,     nullable=False),
-    Column("xml_content",    LONGTEXT, nullable=False),
-    Column("article_standard_id",    TINYTEXT, nullable=False),
-    Column("section_standard_id",    TINYTEXT, nullable=False),
+    Column("section_uuid", CHAR(36), primary_key=True),
+    Column("article_title", TEXT, nullable=False),
+    Column("section_title", TEXT, nullable=False),
+    Column("xml_content", LONGTEXT, nullable=False),
+    Column("article_standard_id", TINYTEXT, nullable=False),
+    Column("section_standard_id", TINYTEXT, nullable=False),
     schema="mna",
 )
 taxonomy_table = Table(
@@ -144,7 +166,7 @@ def get_agreement(agreement_uuid):
             Agreements.target,
             Agreements.acquirer,
             Agreements.url,
-            XML.xml
+            XML.xml,
         )
         .join(XML, XML.agreement_uuid == Agreements.uuid)
         .filter(Agreements.uuid == agreement_uuid)
@@ -155,13 +177,15 @@ def get_agreement(agreement_uuid):
         abort(404)
 
     year, target, acquirer, url, xml_content = row
-    return jsonify({
-        "year":     year,
-        "target":   target,
-        "acquirer": acquirer,
-        "url":      url,
-        "xml":      xml_content
-    })
+    return jsonify(
+        {
+            "year": year,
+            "target": target,
+            "acquirer": acquirer,
+            "url": url,
+            "xml": xml_content,
+        }
+    )
 
 
 @app.route("/api/filter-options", methods=["GET"])
@@ -170,22 +194,21 @@ def get_filter_options():
     try:
         # Execute the SQL query to get distinct targets and acquirers
         result = db.session.execute(
-            text("""
+            text(
+                """
             SELECT DISTINCT target, acquirer
             FROM mna.agreements a
             JOIN mna.xml x ON a.uuid = x.agreement_uuid
             ORDER BY target, acquirer
-            """)
+            """
+            )
         ).fetchall()
 
         # Extract unique targets and acquirers
         targets = sorted(set(row[0] for row in result if row[0]))
         acquirers = sorted(set(row[1] for row in result if row[1]))
 
-        return jsonify({
-            "targets": targets,
-            "acquirers": acquirers
-        }), 200
+        return jsonify({"targets": targets, "acquirers": acquirers}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -194,31 +217,27 @@ def get_filter_options():
 @app.route("/api/search", methods=["GET"])
 def search_sections():
     # pull in optional query params - now supporting multiple values
-    years              = request.args.getlist("year")
-    targets            = request.args.getlist("target")
-    acquirers          = request.args.getlist("acquirer")
-    clause_types       = request.args.getlist("clauseType")
-    standard_ids       = request.args.getlist("standardId")
-    transaction_sizes  = request.args.getlist("transactionSize")
-    transaction_types  = request.args.getlist("transactionType")
+    years = request.args.getlist("year")
+    targets = request.args.getlist("target")
+    acquirers = request.args.getlist("acquirer")
+    clause_types = request.args.getlist("clauseType")
+    standard_ids = request.args.getlist("standardId")
+    transaction_sizes = request.args.getlist("transactionSize")
+    transaction_types = request.args.getlist("transactionType")
     consideration_types = request.args.getlist("considerationType")
-    target_types       = request.args.getlist("targetType")
+    target_types = request.args.getlist("targetType")
 
     # build the base ORM query
-    q = (
-        db.session
-        .query(
-            Sections.section_uuid,
-            Sections.agreement_uuid,
-            Sections.xml_content,
-            Sections.article_title,
-            Sections.section_title,
-            Agreements.acquirer,
-            Agreements.target,
-            Agreements.year,
-        )
-        .join(Agreements, Sections.agreement_uuid == Agreements.uuid)
-    )
+    q = db.session.query(
+        Sections.section_uuid,
+        Sections.agreement_uuid,
+        Sections.xml_content,
+        Sections.article_title,
+        Sections.section_title,
+        Agreements.acquirer,
+        Agreements.target,
+        Agreements.year,
+    ).join(Agreements, Sections.agreement_uuid == Agreements.uuid)
 
     # apply filters only when provided - now handling multiple values
     if years:
@@ -229,19 +248,23 @@ def search_sections():
 
     if targets:
         # Use OR conditions for multiple targets with ILIKE
-        target_conditions = [Agreements.target.ilike(f"%{target}%") for target in targets]
+        target_conditions = [
+            Agreements.target.ilike(f"%{target}%") for target in targets
+        ]
         q = q.filter(db.or_(*target_conditions))
 
     if acquirers:
         # Use OR conditions for multiple acquirers with ILIKE
-        acquirer_conditions = [Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers]
+        acquirer_conditions = [
+            Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers
+        ]
         q = q.filter(db.or_(*acquirer_conditions))
 
     if standard_ids:
         q = (
             q.join(Taxonomy, Sections.section_standard_id == Taxonomy.standard_id)
-             .filter(Taxonomy.type == "section")
-             .filter(Taxonomy.standard_id.in_(standard_ids))
+            .filter(Taxonomy.type == "section")
+            .filter(Taxonomy.standard_id.in_(standard_ids))
         )
 
     # Transaction Size filter - convert ranges to DB values
@@ -249,19 +272,54 @@ def search_sections():
         size_conditions = []
         for size_range in transaction_sizes:
             if size_range == "100M - 250M":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 100000000, Agreements.transaction_size < 250000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 100000000,
+                        Agreements.transaction_size < 250000000,
+                    )
+                )
             elif size_range == "250M - 500M":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 250000000, Agreements.transaction_size < 500000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 250000000,
+                        Agreements.transaction_size < 500000000,
+                    )
+                )
             elif size_range == "500M - 750M":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 500000000, Agreements.transaction_size < 750000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 500000000,
+                        Agreements.transaction_size < 750000000,
+                    )
+                )
             elif size_range == "750M - 1B":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 750000000, Agreements.transaction_size < 1000000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 750000000,
+                        Agreements.transaction_size < 1000000000,
+                    )
+                )
             elif size_range == "1B - 5B":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 1000000000, Agreements.transaction_size < 5000000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 1000000000,
+                        Agreements.transaction_size < 5000000000,
+                    )
+                )
             elif size_range == "5B - 10B":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 5000000000, Agreements.transaction_size < 10000000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 5000000000,
+                        Agreements.transaction_size < 10000000000,
+                    )
+                )
             elif size_range == "10B - 20B":
-                size_conditions.append(db.and_(Agreements.transaction_size >= 10000000000, Agreements.transaction_size < 20000000000))
+                size_conditions.append(
+                    db.and_(
+                        Agreements.transaction_size >= 10000000000,
+                        Agreements.transaction_size < 20000000000,
+                    )
+                )
             elif size_range == "20B+":
                 size_conditions.append(Agreements.transaction_size >= 20000000000)
         if size_conditions:
@@ -310,15 +368,15 @@ def search_sections():
     # marshal into JSON
     results = [
         {
-            "id":             r.section_uuid,
-            "agreementUuid":  r.agreement_uuid,
-            "sectionUuid":    r.section_uuid,
-            "xml":            r.xml_content,
-            "articleTitle":   r.article_title,
-            "sectionTitle":   r.section_title,
-            "acquirer":       r.acquirer,
-            "target":         r.target,
-            "year":           r.year,
+            "id": r.section_uuid,
+            "agreementUuid": r.agreement_uuid,
+            "sectionUuid": r.section_uuid,
+            "xml": r.xml_content,
+            "articleTitle": r.article_title,
+            "sectionTitle": r.section_title,
+            "acquirer": r.acquirer,
+            "target": r.target,
+            "year": r.year,
         }
         for r in rows
     ]
