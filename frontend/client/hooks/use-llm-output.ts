@@ -87,6 +87,14 @@ export function useLLMOutput() {
         setState((prev) => ({ ...prev, showSaveSuccess: false }));
       }, 4000);
 
+      // Auto-load the page data after showing success state
+      // This ensures the editor shows the saved content
+      if (pageUuid) {
+        setTimeout(() => {
+          loadPage();
+        }, 100); // Small delay to let state update first
+      }
+
       // Clean up URL by removing the success parameters (optional)
       // This creates a clean URL for bookmarking and sharing
       const newParams = new URLSearchParams(searchParams);
@@ -102,7 +110,7 @@ export function useLLMOutput() {
         },
       );
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, loadPage]);
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
