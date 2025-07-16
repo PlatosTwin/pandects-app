@@ -259,7 +259,7 @@ export function useSearch() {
         setIsSearching(false);
       }
     },
-    [filters],
+    [filters, currentSort, sortDirection],
   );
 
   // Helper function to check if any filters are applied
