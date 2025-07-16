@@ -33,6 +33,36 @@ export function XMLRenderer({
   highlightedSection,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Handle highlight transitions
+  const [previousHighlightedSection, setPreviousHighlightedSection] = useState<
+    string | null
+  >(null);
+
+  useMemo(() => {
+    if (
+      previousHighlightedSection &&
+      previousHighlightedSection !== highlightedSection
+    ) {
+      // Start fading the previous highlight
+      setFadingHighlights((prev) =>
+        new Set(prev).add(previousHighlightedSection),
+      );
+
+      // Remove from fading set after transition completes
+      setTimeout(() => {
+        setFadingHighlights((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(previousHighlightedSection);
+          return newSet;
+        });
+      }, 1000); // Match the transition duration
+    }
+    setPreviousHighlightedSection(highlightedSection);
+  }, [highlightedSection, previousHighlightedSection]);
 
   const parsedXML = useMemo(() => {
     return parseXMLContent(xmlContent);
@@ -162,6 +192,8 @@ export function XMLRenderer({
             ? "text-lg font-semibold"
             : "text-base font-medium";
         const isHighlighted = highlightedSection === sectionUuid;
+        const isFading = fadingHighlights.has(sectionUuid || "");
+        const showHighlight = isHighlighted || isFading;
 
         // Add article header attribute for scroll targeting
         const additionalAttributes =
