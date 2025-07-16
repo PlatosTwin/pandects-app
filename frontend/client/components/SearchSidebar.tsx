@@ -74,6 +74,13 @@ export function SearchSidebar({
             <h2 className="text-lg font-medium text-gray-900">
               Search Filters
             </h2>
+            <button
+              onClick={onToggleCollapse}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           </div>
           <Button
             onClick={onClearFilters}
