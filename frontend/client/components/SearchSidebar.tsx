@@ -217,7 +217,7 @@ export function SearchSidebar({
 
       {/* Collapsed State Content */}
       {isCollapsed && (
-        <div className="h-full pt-4 px-2">
+        <div className="h-full pt-4 flex justify-center">
           <button
             onClick={onToggleCollapse}
             className="text-gray-400 hover:text-gray-600 transition-colors p-1"
