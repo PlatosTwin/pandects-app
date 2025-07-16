@@ -217,10 +217,13 @@ export function useLLMOutput() {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
-      updateState({
-        isSaved: true,
-        lastSaved: new Date().toLocaleString(),
-      });
+      // POST/Redirect/GET pattern:
+      // After successful save, redirect to the same page with success parameters
+      // This prevents resubmission on browser refresh
+      const timestamp = Date.now();
+      const successUrl = `/editor?saved=true&pageUuid=${encodeURIComponent(state.pageUuid)}&timestamp=${timestamp}`;
+
+      navigate(successUrl);
     } catch (error) {
       console.error("Failed to save page:", error);
       // Check if it's a network error
@@ -238,7 +241,7 @@ export function useLLMOutput() {
         });
       }
     }
-  }, [state.llmOutput, state.pageUuid, state.promptId, updateState]);
+  }, [state.llmOutput, state.pageUuid, state.promptId, updateState, navigate]);
 
   const cancelSave = useCallback(() => {
     updateState({ showSaveConfirmation: false });
