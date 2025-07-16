@@ -427,11 +427,14 @@ export function useSearch() {
       pageSize: 25,
     });
     setSearchResults([]);
-    setAllResults([]);
     setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
     setTotalPages(0);
+    setHasNext(false);
+    setHasPrev(false);
+    setNextNum(null);
+    setPrevNum(null);
   }, []);
 
   const goToPage = useCallback(
