@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl } from "@/lib/api-config";
 
 export interface LLMOutputState {
