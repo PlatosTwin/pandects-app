@@ -66,6 +66,72 @@ export function useLLMOutput() {
     }
   }, []);
 
+  const updateState = useCallback((updates: Partial<LLMOutputState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  const loadPage = useCallback(async () => {
+    if (!state.pageUuid.trim()) return;
+
+    updateState({ isLoading: true, lastSaved: "" });
+
+    try {
+      const res = await fetch(apiUrl(`api/llm/${state.pageUuid}`));
+
+      // Check if the response is ok (status 200-299)
+      if (!res.ok) {
+        if (res.status === 404) {
+          // UUID not found in database - this is informational, not an error
+          updateState({
+            showInfoModal: true,
+            infoMessage: "No page with that UUID exists in mna.llm_output.",
+          });
+          return;
+        }
+        // Other HTTP errors
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const responseData = await res.json();
+
+      // Check if the response data is empty or null
+      if (!responseData || Object.keys(responseData).length === 0) {
+        updateState({
+          showInfoModal: true,
+          infoMessage: "No page with that UUID exists in mna.llm_output.",
+        });
+        return;
+      }
+
+      const { promptId, llmOutput, llmOutputCorrected } = responseData;
+      const output = llmOutputCorrected ?? llmOutput;
+
+      updateState({
+        promptId: promptId,
+        llmOutput: output,
+        isSaved: true,
+      });
+    } catch (error) {
+      console.error("Failed to load page:", error);
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      } else {
+        updateState({
+          showErrorModal: true,
+          errorMessage:
+            "Network error: unable to reach the back end database. Check your connection and try again.",
+        });
+      }
+    } finally {
+      updateState({ isLoading: false });
+    }
+  }, [state.pageUuid, updateState]);
+
   // Handle PRG pattern - check for success state in URL parameters
   useEffect(() => {
     const saved = searchParams.get("saved");
