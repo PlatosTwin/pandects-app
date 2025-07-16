@@ -37,6 +37,7 @@ export function SearchSidebar({
   isLoadingFilterOptions,
   onToggleFilterValue,
   onClearFilters,
+  onToggleCollapse,
   isCollapsed,
   className,
 }: SearchSidebarProps) {
