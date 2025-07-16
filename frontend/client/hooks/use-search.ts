@@ -212,53 +212,30 @@ export function useSearch() {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
-        // Try to parse as SearchResponse first, fallback to SearchResult[] for backward compatibility
-        const responseData = await res.json();
+        // Parse as SearchResponse with pagination metadata
+        const searchResponse = (await res.json()) as SearchResponse;
 
-        if (Array.isArray(responseData)) {
-          // Backward compatibility: API returns SearchResult[]
-          const sortedResults = sortResultsArray(
-            responseData,
-            currentSort,
-            sortDirection,
-          );
-          setAllResults(sortedResults);
-          setTotalCount(sortedResults.length);
-          setTotalPages(
-            Math.ceil(sortedResults.length / searchFilters.pageSize!),
-          );
+        // Apply client-side sorting to the current page results
+        const sortedResults = sortResultsArray(
+          searchResponse.results,
+          currentSort,
+          sortDirection,
+        );
 
-          // Apply pagination on frontend
-          const startIndex =
-            (searchFilters.page! - 1) * searchFilters.pageSize!;
-          const endIndex = startIndex + searchFilters.pageSize!;
-          const paginatedResults = sortedResults.slice(startIndex, endIndex);
-          setSearchResults(paginatedResults);
+        setSearchResults(sortedResults);
+        setTotalCount(searchResponse.totalCount);
+        setTotalPages(searchResponse.totalPages);
+        setHasNext(searchResponse.hasNext);
+        setHasPrev(searchResponse.hasPrev);
+        setNextNum(searchResponse.nextNum);
+        setPrevNum(searchResponse.prevNum);
 
-          // Check if no results found with active filters
-          if (responseData.length === 0 && hasFiltersApplied(searchFilters)) {
-            setShowNoResultsModal(true);
-          }
-        } else {
-          // New format: API returns SearchResponse
-          const searchResponse = responseData as SearchResponse;
-          const sortedResults = sortResultsArray(
-            searchResponse.results,
-            currentSort,
-            sortDirection,
-          );
-          setAllResults(sortedResults);
-          setSearchResults(sortedResults);
-          setTotalCount(searchResponse.totalCount);
-          setTotalPages(searchResponse.totalPages);
-
-          // Check if no results found with active filters
-          if (
-            searchResponse.totalCount === 0 &&
-            hasFiltersApplied(searchFilters)
-          ) {
-            setShowNoResultsModal(true);
-          }
+        // Check if no results found with active filters
+        if (
+          searchResponse.totalCount === 0 &&
+          hasFiltersApplied(searchFilters)
+        ) {
+          setShowNoResultsModal(true);
         }
       } catch (error) {
         console.error("Search failed:", error);
