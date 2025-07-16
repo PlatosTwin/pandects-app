@@ -279,138 +279,144 @@ export function useSearch() {
     );
   };
 
-  const downloadCSV = useCallback(async () => {
-    let resultsToDownload: SearchResult[] = [];
+  const downloadCSV = useCallback(
+    async (clauseTypesNested?: any) => {
+      let resultsToDownload: SearchResult[] = [];
 
-    if (selectedResults.size > 0) {
-      // If we have selected results, only download those from current page
-      resultsToDownload = searchResults.filter((result) =>
-        selectedResults.has(result.id),
-      );
-    } else {
-      // If no selected results, we need to fetch all results for the current filters
-      // This requires making a new API call without pagination to get all results
-      try {
-        const searchFilters = {
-          ...filters,
-          page: undefined,
-          pageSize: undefined,
-        };
-        const params = new URLSearchParams();
+      if (selectedResults.size > 0) {
+        // If we have selected results, only download those from current page
+        resultsToDownload = searchResults.filter((result) =>
+          selectedResults.has(result.id),
+        );
+      } else {
+        // If no selected results, we need to fetch all results for the current filters
+        // This requires making a new API call without pagination to get all results
+        try {
+          const searchFilters = {
+            ...filters,
+            page: undefined,
+            pageSize: undefined,
+          };
+          const params = new URLSearchParams();
 
-        // Build the same filter parameters as in performSearch
-        if (searchFilters.year && searchFilters.year.length > 0) {
-          searchFilters.year.forEach((year) => params.append("year", year));
-        }
-        if (searchFilters.target && searchFilters.target.length > 0) {
-          searchFilters.target.forEach((target) =>
-            params.append("target", target),
-          );
-        }
-        if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
-          searchFilters.acquirer.forEach((acquirer) =>
-            params.append("acquirer", acquirer),
-          );
-        }
-        if (
-          searchFilters.transactionSize &&
-          searchFilters.transactionSize.length > 0
-        ) {
-          searchFilters.transactionSize.forEach((size) =>
-            params.append("transactionSize", size),
-          );
-        }
-        if (
-          searchFilters.transactionType &&
-          searchFilters.transactionType.length > 0
-        ) {
-          searchFilters.transactionType.forEach((type) =>
-            params.append("transactionType", type),
-          );
-        }
-        if (
-          searchFilters.considerationType &&
-          searchFilters.considerationType.length > 0
-        ) {
-          searchFilters.considerationType.forEach((type) =>
-            params.append("considerationType", type),
-          );
-        }
-        if (searchFilters.targetType && searchFilters.targetType.length > 0) {
-          searchFilters.targetType.forEach((type) =>
-            params.append("targetType", type),
-          );
-        }
-
-        // Extract standard IDs from selected clause types
-        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-          // This would need the clauseTypesNested data - for now just use standardId filter if available
-          if (searchFilters.standardId && searchFilters.standardId.length > 0) {
-            searchFilters.standardId.forEach((standardId) =>
-              params.append("standardId", standardId),
+          // Build the same filter parameters as in performSearch
+          if (searchFilters.year && searchFilters.year.length > 0) {
+            searchFilters.year.forEach((year) => params.append("year", year));
+          }
+          if (searchFilters.target && searchFilters.target.length > 0) {
+            searchFilters.target.forEach((target) =>
+              params.append("target", target),
             );
           }
+          if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
+            searchFilters.acquirer.forEach((acquirer) =>
+              params.append("acquirer", acquirer),
+            );
+          }
+          if (
+            searchFilters.transactionSize &&
+            searchFilters.transactionSize.length > 0
+          ) {
+            searchFilters.transactionSize.forEach((size) =>
+              params.append("transactionSize", size),
+            );
+          }
+          if (
+            searchFilters.transactionType &&
+            searchFilters.transactionType.length > 0
+          ) {
+            searchFilters.transactionType.forEach((type) =>
+              params.append("transactionType", type),
+            );
+          }
+          if (
+            searchFilters.considerationType &&
+            searchFilters.considerationType.length > 0
+          ) {
+            searchFilters.considerationType.forEach((type) =>
+              params.append("considerationType", type),
+            );
+          }
+          if (searchFilters.targetType && searchFilters.targetType.length > 0) {
+            searchFilters.targetType.forEach((type) =>
+              params.append("targetType", type),
+            );
+          }
+
+          // Extract standard IDs from selected clause types
+          if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
+            // This would need the clauseTypesNested data - for now just use standardId filter if available
+            if (
+              searchFilters.standardId &&
+              searchFilters.standardId.length > 0
+            ) {
+              searchFilters.standardId.forEach((standardId) =>
+                params.append("standardId", standardId),
+              );
+            }
+          }
+
+          // Set a very large page size to get all results
+          params.append("pageSize", "10000");
+          params.append("page", "1");
+
+          const queryString = params.toString();
+          const res = await fetch(apiUrl(`api/search?${queryString}`));
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+
+          const searchResponse = (await res.json()) as SearchResponse;
+          resultsToDownload = searchResponse.results;
+        } catch (error) {
+          console.error("Failed to fetch all results for CSV:", error);
+          // Fallback to current page results
+          resultsToDownload = searchResults;
         }
-
-        // Set a very large page size to get all results
-        params.append("pageSize", "10000");
-        params.append("page", "1");
-
-        const queryString = params.toString();
-        const res = await fetch(apiUrl(`api/search?${queryString}`));
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-
-        const searchResponse = (await res.json()) as SearchResponse;
-        resultsToDownload = searchResponse.results;
-      } catch (error) {
-        console.error("Failed to fetch all results for CSV:", error);
-        // Fallback to current page results
-        resultsToDownload = searchResults;
       }
-    }
 
-    if (resultsToDownload.length === 0) return;
+      if (resultsToDownload.length === 0) return;
 
-    // Create CSV content
-    const headers = [
-      "Year",
-      "Target",
-      "Acquirer",
-      "Article Title",
-      "Section Title",
-      "Text",
-      "Section UUID",
-      "Agreement UUID",
-    ];
+      // Create CSV content
+      const headers = [
+        "Year",
+        "Target",
+        "Acquirer",
+        "Article Title",
+        "Section Title",
+        "Text",
+        "Section UUID",
+        "Agreement UUID",
+      ];
 
-    const csvContent = [
-      headers.join(","),
-      ...resultsToDownload.map((result) =>
-        [
-          result.year,
-          `"${result.target}"`,
-          `"${result.acquirer}"`,
-          `"${result.articleTitle}"`,
-          `"${result.sectionTitle}"`,
-          `"${result.xml.replace(/"/g, '""')}"`,
-          result.sectionUuid,
-          result.agreementUuid,
-        ].join(","),
-      ),
-    ].join("\n");
+      const csvContent = [
+        headers.join(","),
+        ...resultsToDownload.map((result) =>
+          [
+            result.year,
+            `"${result.target}"`,
+            `"${result.acquirer}"`,
+            `"${result.articleTitle}"`,
+            `"${result.sectionTitle}"`,
+            `"${result.xml.replace(/"/g, '""')}"`,
+            result.sectionUuid,
+            result.agreementUuid,
+          ].join(","),
+        ),
+      ].join("\n");
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    const selectedText = selectedResults.size > 0 ? "_selected" : "";
-    link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }, [filters, searchResults, selectedResults]);
+      // Create and download file
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const selectedText = selectedResults.size > 0 ? "_selected" : "";
+      link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    },
+    [filters, searchResults, selectedResults],
+  );
 
   const clearFilters = useCallback(() => {
     setFilters({
