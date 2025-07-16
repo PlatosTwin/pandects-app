@@ -170,14 +170,14 @@ export function XMLRenderer({
         return (
           <div
             key={tagId}
-            className={cn(
-              "my-4 transition-all duration-1000 scroll-mt-3",
-              isHighlighted &&
-                "bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow-lg",
-            )}
+            className={cn("my-4 scroll-mt-3 relative", isHighlighted && "z-10")}
             {...dataAttributes}
             {...additionalAttributes}
           >
+            {/* Highlight overlay that doesn't affect layout */}
+            {isHighlighted && (
+              <div className="absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none transition-all duration-1000 -z-10" />
+            )}
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (

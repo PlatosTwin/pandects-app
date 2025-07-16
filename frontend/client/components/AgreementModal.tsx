@@ -89,7 +89,7 @@ export function AgreementModal({
       function performScroll() {
         // Both articles and sections should scroll to show their headers at the top
         const scrollOptions: ScrollIntoViewOptions = {
-          behavior: "smooth",
+          behavior: "auto", // Changed from "smooth" to "auto" for instant jump
           block: "start", // Always scroll to start to show the header
         };
 
