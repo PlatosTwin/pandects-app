@@ -418,6 +418,7 @@ export default function Search() {
           isLoadingFilterOptions={isLoadingFilterOptions}
           onToggleFilterValue={actions.toggleFilterValue}
           onClearFilters={actions.clearFilters}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           isCollapsed={sidebarCollapsed}
         />
 
