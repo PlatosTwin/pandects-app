@@ -175,9 +175,12 @@ export function XMLRenderer({
             {...additionalAttributes}
           >
             {/* Highlight overlay that doesn't affect layout */}
-            {isHighlighted && (
-              <div className="absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none transition-all duration-1000 -z-10" />
-            )}
+            <div
+              className={cn(
+                "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-all duration-1000",
+                isHighlighted ? "opacity-100" : "opacity-0",
+              )}
+            />
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (

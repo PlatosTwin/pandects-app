@@ -89,7 +89,7 @@ export function AgreementModal({
       function performScroll() {
         // Both articles and sections should scroll to show their headers at the top
         const scrollOptions: ScrollIntoViewOptions = {
-          behavior: "auto", // Changed from "smooth" to "auto" for instant jump
+          behavior: "smooth", // Using smooth for fast but controlled scroll
           block: "start", // Always scroll to start to show the header
         };
 
@@ -109,10 +109,10 @@ export function AgreementModal({
 
   useEffect(() => {
     if (agreement && targetSectionUuid) {
-      // Delay scroll to allow content to render, and highlight the target section
+      // Very short delay to allow DOM to update, then immediate scroll
       const timer = setTimeout(() => {
         scrollToSection(targetSectionUuid, true);
-      }, 500);
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [agreement, targetSectionUuid]);
