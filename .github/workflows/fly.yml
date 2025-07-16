@@ -9,7 +9,6 @@ jobs:
   deploy:
     name: Deploy all Fly apps
     runs-on: ubuntu-latest
-    concurrency: deploy-group
     strategy:
       matrix:
         app: [db, backend, frontend]
