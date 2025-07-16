@@ -71,7 +71,6 @@ export function useSearch() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [allResults, setAllResults] = useState<SearchResult[]>([]);
   const [selectedResults, setSelectedResults] = useState<Set<string>>(
     new Set(),
   );
@@ -85,6 +84,11 @@ export function useSearch() {
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
   >("year");
+  // Pagination metadata from API
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrev, setHasPrev] = useState(false);
+  const [nextNum, setNextNum] = useState<number | null>(null);
+  const [prevNum, setPrevNum] = useState<number | null>(null);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
