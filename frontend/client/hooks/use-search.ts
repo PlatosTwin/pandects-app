@@ -128,10 +128,12 @@ export function useSearch() {
       }
 
       try {
-        const searchFilters = resetPage ? { ...filters, page: 1 } : filters;
-        if (resetPage) {
-          setFilters((prev) => ({ ...prev, page: 1 }));
-        }
+        // Use current filters state
+        setFilters((currentFilters) => {
+          const searchFilters = resetPage ? { ...currentFilters, page: 1 } : currentFilters;
+
+          // Execute the search with current filters
+          (async () => {
 
         const params = new URLSearchParams();
 
@@ -213,7 +215,7 @@ export function useSearch() {
         }
 
         // Parse as SearchResponse with pagination metadata
-        const searchResponse = (await res.json()) as SearchResponse;
+        const searchResponse = await res.json() as SearchResponse;
 
         // Apply client-side sorting to the current page results
         const sortedResults = sortResultsArray(
@@ -284,18 +286,12 @@ export function useSearch() {
 
     if (selectedResults.size > 0) {
       // If we have selected results, only download those from current page
-      resultsToDownload = searchResults.filter((result) =>
-        selectedResults.has(result.id),
-      );
+      resultsToDownload = searchResults.filter((result) => selectedResults.has(result.id));
     } else {
       // If no selected results, we need to fetch all results for the current filters
       // This requires making a new API call without pagination to get all results
       try {
-        const searchFilters = {
-          ...filters,
-          page: undefined,
-          pageSize: undefined,
-        };
+        const searchFilters = { ...filters, page: undefined, pageSize: undefined };
         const params = new URLSearchParams();
 
         // Build the same filter parameters as in performSearch
@@ -343,7 +339,10 @@ export function useSearch() {
         }
 
         // Extract standard IDs from selected clause types
-        if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
+        if (
+          searchFilters.clauseType &&
+          searchFilters.clauseType.length > 0
+        ) {
           // This would need the clauseTypesNested data - for now just use standardId filter if available
           if (searchFilters.standardId && searchFilters.standardId.length > 0) {
             searchFilters.standardId.forEach((standardId) =>
@@ -363,7 +362,7 @@ export function useSearch() {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
-        const searchResponse = (await res.json()) as SearchResponse;
+        const searchResponse = await res.json() as SearchResponse;
         resultsToDownload = searchResponse.results;
       } catch (error) {
         console.error("Failed to fetch all results for CSV:", error);
