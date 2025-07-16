@@ -221,9 +221,16 @@ export function SearchSidebar({
         </div>
       </div>
 
-      {/* Collapsed State Icon */}
+      {/* Collapsed State Content */}
       {isCollapsed && (
-        <div className="flex flex-col items-center justify-center h-full">
+        <div className="flex flex-col items-center h-full pt-4">
+          <button
+            onClick={onToggleCollapse}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-md hover:bg-gray-100 mb-4"
+            title="Expand sidebar"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
           <div className="writing-mode-vertical-rl text-sm text-gray-500 transform rotate-180">
             Filters
           </div>
