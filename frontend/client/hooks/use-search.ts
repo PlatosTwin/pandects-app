@@ -343,17 +343,19 @@ export function useSearch() {
             );
           }
 
-          // Extract standard IDs from selected clause types
-          if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-            // This would need the clauseTypesNested data - for now just use standardId filter if available
-            if (
-              searchFilters.standardId &&
-              searchFilters.standardId.length > 0
-            ) {
-              searchFilters.standardId.forEach((standardId) =>
-                params.append("standardId", standardId),
-              );
-            }
+          // Extract standard IDs from selected clause types and send them instead
+          if (
+            searchFilters.clauseType &&
+            searchFilters.clauseType.length > 0 &&
+            clauseTypesNested
+          ) {
+            const standardIds = extractStandardIds(
+              searchFilters.clauseType,
+              clauseTypesNested,
+            );
+            standardIds.forEach((standardId) =>
+              params.append("standardId", standardId),
+            );
           }
 
           // Set a very large page size to get all results
