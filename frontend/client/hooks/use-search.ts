@@ -435,32 +435,23 @@ export function useSearch() {
   }, []);
 
   const goToPage = useCallback(
-    (page: number) => {
+    async (page: number, clauseTypesNested?: any) => {
       setFilters((prev) => ({ ...prev, page }));
 
-      // Apply pagination on frontend if we have all results
-      if (allResults.length > 0) {
-        const startIndex = (page - 1) * (filters.pageSize || 25);
-        const endIndex = startIndex + (filters.pageSize || 25);
-        const paginatedResults = allResults.slice(startIndex, endIndex);
-        setSearchResults(paginatedResults);
-      }
+      // Trigger a new search with the new page number
+      await performSearch(false, clauseTypesNested);
     },
-    [allResults, filters.pageSize],
+    [performSearch],
   );
 
   const changePageSize = useCallback(
-    (pageSize: number) => {
+    async (pageSize: number, clauseTypesNested?: any) => {
       setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
 
-      // Apply new page size on frontend if we have all results
-      if (allResults.length > 0) {
-        setTotalPages(Math.ceil(allResults.length / pageSize));
-        const paginatedResults = allResults.slice(0, pageSize);
-        setSearchResults(paginatedResults);
-      }
+      // Trigger a new search with the new page size and reset to page 1
+      await performSearch(false, clauseTypesNested);
     },
-    [allResults],
+    [performSearch],
   );
 
   const closeErrorModal = useCallback(() => {
