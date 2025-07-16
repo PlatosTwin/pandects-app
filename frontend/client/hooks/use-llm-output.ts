@@ -23,6 +23,9 @@ export interface LLMOutputState {
 }
 
 export function useLLMOutput() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [state, setState] = useState<LLMOutputState>({
     pageUuid: "",
     promptId: "",
