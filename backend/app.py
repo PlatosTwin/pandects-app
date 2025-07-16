@@ -5,7 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, MetaData, Table, func, desc, Column, CHAR, TEXT, Table, text
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 
-# ── Flask setup ──────────────────────────────────────────────────────────
+# ── Flask setup ────────────────────────────��─────────────────────────────
 app = Flask(__name__)
 CORS(
     app,
@@ -204,6 +204,16 @@ def search_sections():
     consideration_types = request.args.getlist("considerationType")
     target_types       = request.args.getlist("targetType")
 
+    # pagination parameters
+    page = request.args.get("page", 1, type=int)
+    page_size = request.args.get("pageSize", 25, type=int)
+
+    # Validate pagination parameters
+    if page < 1:
+        page = 1
+    if page_size < 1 or page_size > 100:  # Cap max page size for performance
+        page_size = 25
+
     # build the base ORM query
     q = (
         db.session
@@ -305,9 +315,17 @@ def search_sections():
         if db_target_types:
             q = q.filter(Agreements.target_type.in_(db_target_types))
 
-    rows = q.all()
+    # Use SQLAlchemy's paginate() method
+    try:
+        paginated = q.paginate(
+            page=page,
+            per_page=page_size,
+            error_out=False
+        )
+    except Exception as e:
+        return jsonify({"error": f"Pagination error: {str(e)}"}), 400
 
-    # marshal into JSON
+    # marshal into JSON with pagination metadata
     results = [
         {
             "id":             r.section_uuid,
@@ -320,10 +338,21 @@ def search_sections():
             "target":         r.target,
             "year":           r.year,
         }
-        for r in rows
+        for r in paginated.items
     ]
 
-    return jsonify(results), 200
+    # Return results with pagination metadata
+    return jsonify({
+        "results": results,
+        "page": paginated.page,
+        "pageSize": paginated.per_page,
+        "totalCount": paginated.total,
+        "totalPages": paginated.pages,
+        "hasNext": paginated.has_next,
+        "hasPrev": paginated.has_prev,
+        "nextNum": paginated.next_num,
+        "prevNum": paginated.prev_num
+    }), 200
 
 
 if __name__ == "__main__":
