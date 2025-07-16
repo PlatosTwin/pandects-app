@@ -557,8 +557,12 @@ export default function Search() {
                         totalPages={totalPages}
                         pageSize={pageSize}
                         totalCount={totalCount}
-                        onPageChange={actions.goToPage}
-                        onPageSizeChange={actions.changePageSize}
+                        onPageChange={(page) =>
+                          actions.goToPage(page, clauseTypesNested)
+                        }
+                        onPageSizeChange={(pageSize) =>
+                          actions.changePageSize(pageSize, clauseTypesNested)
+                        }
                         isLoading={isSearching}
                       />
                     </>
