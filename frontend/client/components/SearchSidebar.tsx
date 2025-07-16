@@ -226,10 +226,10 @@ export function SearchSidebar({
         <div className="flex flex-col items-center h-full pt-4">
           <button
             onClick={onToggleCollapse}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-md hover:bg-gray-100 mb-4"
+            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors p-3 rounded-md border border-gray-200 bg-white shadow-sm mb-4"
             title="Expand sidebar"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
           <div className="writing-mode-vertical-rl text-sm text-gray-500 transform rotate-180">
             Filters
