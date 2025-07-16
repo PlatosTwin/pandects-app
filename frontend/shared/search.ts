@@ -32,6 +32,10 @@ export interface SearchResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  nextNum: number | null;
+  prevNum: number | null;
 }
 
 // Filter options response from API

@@ -71,7 +71,6 @@ export function useSearch() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [allResults, setAllResults] = useState<SearchResult[]>([]);
   const [selectedResults, setSelectedResults] = useState<Set<string>>(
     new Set(),
   );
@@ -85,6 +84,11 @@ export function useSearch() {
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
   >("year");
+  // Pagination metadata from API
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrev, setHasPrev] = useState(false);
+  const [nextNum, setNextNum] = useState<number | null>(null);
+  const [prevNum, setPrevNum] = useState<number | null>(null);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[]) => {
@@ -208,53 +212,30 @@ export function useSearch() {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
 
-        // Try to parse as SearchResponse first, fallback to SearchResult[] for backward compatibility
-        const responseData = await res.json();
+        // Parse as SearchResponse with pagination metadata
+        const searchResponse = (await res.json()) as SearchResponse;
 
-        if (Array.isArray(responseData)) {
-          // Backward compatibility: API returns SearchResult[]
-          const sortedResults = sortResultsArray(
-            responseData,
-            currentSort,
-            sortDirection,
-          );
-          setAllResults(sortedResults);
-          setTotalCount(sortedResults.length);
-          setTotalPages(
-            Math.ceil(sortedResults.length / searchFilters.pageSize!),
-          );
+        // Apply client-side sorting to the current page results
+        const sortedResults = sortResultsArray(
+          searchResponse.results,
+          currentSort,
+          sortDirection,
+        );
 
-          // Apply pagination on frontend
-          const startIndex =
-            (searchFilters.page! - 1) * searchFilters.pageSize!;
-          const endIndex = startIndex + searchFilters.pageSize!;
-          const paginatedResults = sortedResults.slice(startIndex, endIndex);
-          setSearchResults(paginatedResults);
+        setSearchResults(sortedResults);
+        setTotalCount(searchResponse.totalCount);
+        setTotalPages(searchResponse.totalPages);
+        setHasNext(searchResponse.hasNext);
+        setHasPrev(searchResponse.hasPrev);
+        setNextNum(searchResponse.nextNum);
+        setPrevNum(searchResponse.prevNum);
 
-          // Check if no results found with active filters
-          if (responseData.length === 0 && hasFiltersApplied(searchFilters)) {
-            setShowNoResultsModal(true);
-          }
-        } else {
-          // New format: API returns SearchResponse
-          const searchResponse = responseData as SearchResponse;
-          const sortedResults = sortResultsArray(
-            searchResponse.results,
-            currentSort,
-            sortDirection,
-          );
-          setAllResults(sortedResults);
-          setSearchResults(sortedResults);
-          setTotalCount(searchResponse.totalCount);
-          setTotalPages(searchResponse.totalPages);
-
-          // Check if no results found with active filters
-          if (
-            searchResponse.totalCount === 0 &&
-            hasFiltersApplied(searchFilters)
-          ) {
-            setShowNoResultsModal(true);
-          }
+        // Check if no results found with active filters
+        if (
+          searchResponse.totalCount === 0 &&
+          hasFiltersApplied(searchFilters)
+        ) {
+          setShowNoResultsModal(true);
         }
       } catch (error) {
         console.error("Search failed:", error);
@@ -278,7 +259,7 @@ export function useSearch() {
         setIsSearching(false);
       }
     },
-    [filters],
+    [filters, currentSort, sortDirection],
   );
 
   // Helper function to check if any filters are applied
@@ -298,52 +279,146 @@ export function useSearch() {
     );
   };
 
-  const downloadCSV = useCallback(() => {
-    // Filter results to only include selected ones, fallback to all results if none selected
-    const resultsToDownload =
-      selectedResults.size > 0
-        ? allResults.filter((result) => selectedResults.has(result.id))
-        : searchResults;
+  const downloadCSV = useCallback(
+    async (clauseTypesNested?: any) => {
+      let resultsToDownload: SearchResult[] = [];
 
-    if (resultsToDownload.length === 0) return;
+      if (selectedResults.size > 0) {
+        // If we have selected results, only download those from current page
+        resultsToDownload = searchResults.filter((result) =>
+          selectedResults.has(result.id),
+        );
+      } else {
+        // If no selected results, we need to fetch all results for the current filters
+        // This requires making a new API call without pagination to get all results
+        try {
+          const searchFilters = {
+            ...filters,
+            page: undefined,
+            pageSize: undefined,
+          };
+          const params = new URLSearchParams();
 
-    // Create CSV content
-    const headers = [
-      "Year",
-      "Target",
-      "Acquirer",
-      "Article Title",
-      "Section Title",
-      "Text",
-      "Section UUID",
-      "Agreement UUID",
-    ];
+          // Build the same filter parameters as in performSearch
+          if (searchFilters.year && searchFilters.year.length > 0) {
+            searchFilters.year.forEach((year) => params.append("year", year));
+          }
+          if (searchFilters.target && searchFilters.target.length > 0) {
+            searchFilters.target.forEach((target) =>
+              params.append("target", target),
+            );
+          }
+          if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
+            searchFilters.acquirer.forEach((acquirer) =>
+              params.append("acquirer", acquirer),
+            );
+          }
+          if (
+            searchFilters.transactionSize &&
+            searchFilters.transactionSize.length > 0
+          ) {
+            searchFilters.transactionSize.forEach((size) =>
+              params.append("transactionSize", size),
+            );
+          }
+          if (
+            searchFilters.transactionType &&
+            searchFilters.transactionType.length > 0
+          ) {
+            searchFilters.transactionType.forEach((type) =>
+              params.append("transactionType", type),
+            );
+          }
+          if (
+            searchFilters.considerationType &&
+            searchFilters.considerationType.length > 0
+          ) {
+            searchFilters.considerationType.forEach((type) =>
+              params.append("considerationType", type),
+            );
+          }
+          if (searchFilters.targetType && searchFilters.targetType.length > 0) {
+            searchFilters.targetType.forEach((type) =>
+              params.append("targetType", type),
+            );
+          }
 
-    const csvContent = [
-      headers.join(","),
-      ...resultsToDownload.map((result) =>
-        [
-          result.year,
-          `"${result.target}"`,
-          `"${result.acquirer}"`,
-          `"${result.articleTitle}"`,
-          `"${result.sectionTitle}"`,
-          `"${result.xml.replace(/"/g, '""')}"`,
-          result.sectionUuid,
-          result.agreementUuid,
-        ].join(","),
-      ),
-    ].join("\n");
+          // Extract standard IDs from selected clause types and send them instead
+          if (
+            searchFilters.clauseType &&
+            searchFilters.clauseType.length > 0 &&
+            clauseTypesNested
+          ) {
+            const standardIds = extractStandardIds(
+              searchFilters.clauseType,
+              clauseTypesNested,
+            );
+            standardIds.forEach((standardId) =>
+              params.append("standardId", standardId),
+            );
+          }
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    const selectedText = selectedResults.size > 0 ? "_selected" : "";
-    link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }, [allResults, searchResults, selectedResults]);
+          // Set a very large page size to get all results
+          params.append("pageSize", "10000");
+          params.append("page", "1");
+
+          const queryString = params.toString();
+          const res = await fetch(apiUrl(`api/search?${queryString}`));
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+
+          const searchResponse = (await res.json()) as SearchResponse;
+          resultsToDownload = searchResponse.results;
+        } catch (error) {
+          console.error("Failed to fetch all results for CSV:", error);
+          // Fallback to current page results
+          resultsToDownload = searchResults;
+        }
+      }
+
+      if (resultsToDownload.length === 0) return;
+
+      // Create CSV content
+      const headers = [
+        "Year",
+        "Target",
+        "Acquirer",
+        "Article Title",
+        "Section Title",
+        "Text",
+        "Section UUID",
+        "Agreement UUID",
+      ];
+
+      const csvContent = [
+        headers.join(","),
+        ...resultsToDownload.map((result) =>
+          [
+            result.year,
+            `"${result.target}"`,
+            `"${result.acquirer}"`,
+            `"${result.articleTitle}"`,
+            `"${result.sectionTitle}"`,
+            `"${result.xml.replace(/"/g, '""')}"`,
+            result.sectionUuid,
+            result.agreementUuid,
+          ].join(","),
+        ),
+      ].join("\n");
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const selectedText = selectedResults.size > 0 ? "_selected" : "";
+      link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    },
+    [filters, searchResults, selectedResults],
+  );
 
   const clearFilters = useCallback(() => {
     setFilters({
@@ -360,40 +435,34 @@ export function useSearch() {
       pageSize: 25,
     });
     setSearchResults([]);
-    setAllResults([]);
     setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
     setTotalPages(0);
+    setHasNext(false);
+    setHasPrev(false);
+    setNextNum(null);
+    setPrevNum(null);
   }, []);
 
   const goToPage = useCallback(
-    (page: number) => {
+    async (page: number, clauseTypesNested?: any) => {
       setFilters((prev) => ({ ...prev, page }));
 
-      // Apply pagination on frontend if we have all results
-      if (allResults.length > 0) {
-        const startIndex = (page - 1) * (filters.pageSize || 25);
-        const endIndex = startIndex + (filters.pageSize || 25);
-        const paginatedResults = allResults.slice(startIndex, endIndex);
-        setSearchResults(paginatedResults);
-      }
+      // Trigger a new search with the new page number
+      await performSearch(false, clauseTypesNested);
     },
-    [allResults, filters.pageSize],
+    [performSearch],
   );
 
   const changePageSize = useCallback(
-    (pageSize: number) => {
+    async (pageSize: number, clauseTypesNested?: any) => {
       setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
 
-      // Apply new page size on frontend if we have all results
-      if (allResults.length > 0) {
-        setTotalPages(Math.ceil(allResults.length / pageSize));
-        const paginatedResults = allResults.slice(0, pageSize);
-        setSearchResults(paginatedResults);
-      }
+      // Trigger a new search with the new page size and reset to page 1
+      await performSearch(false, clauseTypesNested);
     },
-    [allResults],
+    [performSearch],
   );
 
   const closeErrorModal = useCallback(() => {
@@ -451,14 +520,14 @@ export function useSearch() {
     }
   }, [searchResults, selectedResults]);
 
-  // Auto-refresh results when sort direction changes or when new results are loaded
+  // Auto-refresh results when sort direction changes
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
       setSearchResults((prev) =>
         sortResultsArray(prev, currentSort, sortDirection),
       );
     }
-  }, [sortDirection, currentSort, searchResults.length, sortResultsArray]);
+  }, [sortDirection, currentSort]);
 
   return {
     filters,

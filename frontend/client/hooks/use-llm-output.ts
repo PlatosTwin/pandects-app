@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl } from "@/lib/api-config";
 
 export interface LLMOutputState {
@@ -19,9 +20,13 @@ export interface LLMOutputState {
   errorMessage: string;
   showInfoModal: boolean;
   infoMessage: string;
+  showSaveSuccess: boolean;
 }
 
 export function useLLMOutput() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [state, setState] = useState<LLMOutputState>({
     pageUuid: "",
     promptId: "",
@@ -40,6 +45,7 @@ export function useLLMOutput() {
     errorMessage: "",
     showInfoModal: false,
     infoMessage: "",
+    showSaveSuccess: false,
   });
 
   // Load settings from localStorage on mount
@@ -60,36 +66,9 @@ export function useLLMOutput() {
     }
   }, []);
 
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    const settingsToSave = {
-      fontSize: state.fontSize,
-      pageUuid: state.pageUuid,
-      llmOutput: state.llmOutput,
-    };
-    localStorage.setItem("llm-output-settings", JSON.stringify(settingsToSave));
-  }, [state.fontSize, state.pageUuid, state.llmOutput]);
-
   const updateState = useCallback((updates: Partial<LLMOutputState>) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
-
-  const calculateStats = useCallback(() => {
-    const words = state.llmOutput.trim()
-      ? state.llmOutput.trim().split(/\s+/).length
-      : 0;
-    const chars = state.llmOutput.length;
-
-    updateState({
-      wordCount: words,
-      charCount: chars,
-    });
-  }, [state.llmOutput, updateState]);
-
-  // Calculate stats whenever content changes
-  useEffect(() => {
-    calculateStats();
-  }, [calculateStats]);
 
   const loadPage = useCallback(async () => {
     if (!state.pageUuid.trim()) return;
@@ -153,6 +132,79 @@ export function useLLMOutput() {
     }
   }, [state.pageUuid, updateState]);
 
+  // Handle PRG pattern - check for success state in URL parameters
+  useEffect(() => {
+    const saved = searchParams.get("saved");
+    const pageUuid = searchParams.get("pageUuid");
+    const timestamp = searchParams.get("timestamp");
+
+    if (saved === "true" && pageUuid && timestamp) {
+      // Show success state from redirect
+      setState((prev) => ({
+        ...prev,
+        pageUuid: pageUuid,
+        isSaved: true,
+        lastSaved: new Date(parseInt(timestamp)).toLocaleString(),
+        showSaveSuccess: true,
+      }));
+
+      // Hide success message after 4 seconds
+      setTimeout(() => {
+        setState((prev) => ({ ...prev, showSaveSuccess: false }));
+      }, 4000);
+
+      // Auto-load the page data after showing success state
+      // This ensures the editor shows the saved content
+      if (pageUuid) {
+        setTimeout(() => {
+          loadPage();
+        }, 100); // Small delay to let state update first
+      }
+
+      // Clean up URL by removing the success parameters (optional)
+      // This creates a clean URL for bookmarking and sharing
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("saved");
+      newParams.delete("pageUuid");
+      newParams.delete("timestamp");
+
+      // Replace current URL without the success parameters
+      navigate(
+        `/editor${newParams.toString() ? "?" + newParams.toString() : ""}`,
+        {
+          replace: true,
+        },
+      );
+    }
+  }, [searchParams, navigate, loadPage]);
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    const settingsToSave = {
+      fontSize: state.fontSize,
+      pageUuid: state.pageUuid,
+      llmOutput: state.llmOutput,
+    };
+    localStorage.setItem("llm-output-settings", JSON.stringify(settingsToSave));
+  }, [state.fontSize, state.pageUuid, state.llmOutput]);
+
+  const calculateStats = useCallback(() => {
+    const words = state.llmOutput.trim()
+      ? state.llmOutput.trim().split(/\s+/).length
+      : 0;
+    const chars = state.llmOutput.length;
+
+    updateState({
+      wordCount: words,
+      charCount: chars,
+    });
+  }, [state.llmOutput, updateState]);
+
+  // Calculate stats whenever content changes
+  useEffect(() => {
+    calculateStats();
+  }, [calculateStats]);
+
   const requestSave = useCallback(() => {
     if (!state.llmOutput.trim()) return;
 
@@ -181,10 +233,13 @@ export function useLLMOutput() {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
-      updateState({
-        isSaved: true,
-        lastSaved: new Date().toLocaleString(),
-      });
+      // POST/Redirect/GET pattern:
+      // After successful save, redirect to the same page with success parameters
+      // This prevents resubmission on browser refresh
+      const timestamp = Date.now();
+      const successUrl = `/editor?saved=true&pageUuid=${encodeURIComponent(state.pageUuid)}&timestamp=${timestamp}`;
+
+      navigate(successUrl);
     } catch (error) {
       console.error("Failed to save page:", error);
       // Check if it's a network error
@@ -202,7 +257,7 @@ export function useLLMOutput() {
         });
       }
     }
-  }, [state.llmOutput, state.pageUuid, state.promptId, updateState]);
+  }, [state.llmOutput, state.pageUuid, state.promptId, updateState, navigate]);
 
   const cancelSave = useCallback(() => {
     updateState({ showSaveConfirmation: false });
