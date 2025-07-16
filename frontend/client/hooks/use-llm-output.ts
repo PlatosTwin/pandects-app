@@ -64,6 +64,38 @@ export function useLLMOutput() {
     }
   }, []);
 
+  // Handle PRG pattern - check for success state in URL parameters
+  useEffect(() => {
+    const saved = searchParams.get("saved");
+    const pageUuid = searchParams.get("pageUuid");
+    const timestamp = searchParams.get("timestamp");
+
+    if (saved === "true" && pageUuid && timestamp) {
+      // Show success state from redirect
+      setState((prev) => ({
+        ...prev,
+        pageUuid: pageUuid,
+        isSaved: true,
+        lastSaved: new Date(parseInt(timestamp)).toLocaleString(),
+      }));
+
+      // Clean up URL by removing the success parameters (optional)
+      // This creates a clean URL for bookmarking and sharing
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("saved");
+      newParams.delete("pageUuid");
+      newParams.delete("timestamp");
+
+      // Replace current URL without the success parameters
+      navigate(
+        `/editor${newParams.toString() ? "?" + newParams.toString() : ""}`,
+        {
+          replace: true,
+        },
+      );
+    }
+  }, [searchParams, navigate]);
+
   // Save settings to localStorage whenever they change
   useEffect(() => {
     const settingsToSave = {
