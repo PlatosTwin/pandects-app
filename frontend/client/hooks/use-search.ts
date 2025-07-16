@@ -509,14 +509,14 @@ export function useSearch() {
     }
   }, [searchResults, selectedResults]);
 
-  // Auto-refresh results when sort direction changes or when new results are loaded
+  // Auto-refresh results when sort direction changes
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
       setSearchResults((prev) =>
         sortResultsArray(prev, currentSort, sortDirection),
       );
     }
-  }, [sortDirection, currentSort, searchResults.length, sortResultsArray]);
+  }, [sortDirection, currentSort]);
 
   return {
     filters,
