@@ -59,15 +59,9 @@ export function SearchSidebar({
       )}
     >
       {/* Sidebar Content */}
-      <div
-        className={cn(
-          "h-full flex flex-col",
-          isCollapsed || isTransitioning
-            ? "opacity-0 pointer-events-none"
-            : "opacity-100",
-          "transition-opacity duration-150",
-        )}
-      >
+      {!isCollapsed && (
+        <div className="h-full flex flex-col"
+        >
         {/* Header */}
         <div className="border-b border-gray-200 p-4">
           <div className="flex items-center justify-between mb-3">
