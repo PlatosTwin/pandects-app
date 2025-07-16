@@ -400,6 +400,28 @@ export default function Search() {
   };
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Detect when modal is open by checking for modal backdrop in DOM
+  React.useEffect(() => {
+    const checkForModal = () => {
+      const modalBackdrop = document.querySelector(".fixed.inset-0.z-50");
+      setIsModalOpen(!!modalBackdrop);
+    };
+
+    // Check immediately and set up observer
+    checkForModal();
+
+    const observer = new MutationObserver(checkForModal);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div
@@ -410,11 +432,14 @@ export default function Search() {
       {/* Toggle Button - Positioned independently */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out"
+        className={cn(
+          "fixed bg-white border border-gray-200 rounded-full p-1 h-6 w-6 shadow-md hover:shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out",
+          isModalOpen && "opacity-20 pointer-events-none",
+        )}
         style={{
           top: "72px",
           left: sidebarCollapsed ? "36px" : "308px",
-          zIndex: 10000,
+          zIndex: isModalOpen ? 40 : 10000, // Lower z-index when modal is open
         }}
       >
         {sidebarCollapsed ? (
