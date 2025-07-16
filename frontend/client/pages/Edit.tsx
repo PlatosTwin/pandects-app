@@ -205,6 +205,13 @@ export default function Index() {
         </div>
       )}
 
+      {/* Save Success Toast */}
+      {state.showSaveSuccess && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
+          Changes saved successfully!
+        </div>
+      )}
+
       {/* Save Confirmation Modal */}
       <SaveConfirmationModal
         isOpen={state.showSaveConfirmation}
