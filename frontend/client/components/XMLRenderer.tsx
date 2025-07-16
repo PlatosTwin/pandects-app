@@ -202,23 +202,19 @@ export function XMLRenderer({
         return (
           <div
             key={tagId}
-            className={cn("my-4 scroll-mt-3 relative", isHighlighted && "z-10")}
+            className={cn("my-4 scroll-mt-3 relative", showHighlight && "z-10")}
             {...dataAttributes}
             {...additionalAttributes}
           >
             {/* Highlight overlay that doesn't affect layout */}
-            <div
-              className={cn(
-                "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
-                isHighlighted ? "opacity-100" : "opacity-0",
-              )}
-              style={{
-                visibility:
-                  highlightedSection === sectionUuid || isHighlighted
-                    ? "visible"
-                    : "hidden",
-              }}
-            />
+            {showHighlight && (
+              <div
+                className={cn(
+                  "absolute inset-0 bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+                  isHighlighted ? "opacity-100" : "opacity-0",
+                )}
+              />
+            )}
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (
