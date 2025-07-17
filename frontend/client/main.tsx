@@ -23,7 +23,8 @@ const App = () => (
         <div className="min-h-screen bg-cream flex flex-col">
           <main className="flex-1">
             <Routes>
-              <Route path="/" element={<Search />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/editor" element={<Index />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
