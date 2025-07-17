@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Edit";
 import Search from "./pages/Search";
+import Landing from "./pages/Landing";
+import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 
@@ -22,7 +24,9 @@ const App = () => (
         <div className="min-h-screen bg-cream flex flex-col">
           <main className="flex-1">
             <Routes>
-              <Route path="/" element={<Search />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/docs" element={<Docs />} />
               <Route path="/editor" element={<Index />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
