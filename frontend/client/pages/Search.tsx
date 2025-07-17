@@ -400,37 +400,38 @@ export default function Search() {
     },
   };
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div
-      className="w-full font-roboto min-h-screen relative"
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
-      <Navigation sidebarCollapsed={sidebarCollapsed} />
-      <div className="flex min-h-screen">
-        {/* Collapsible Sidebar with Filters */}
-        <SearchSidebar
-          filters={filters}
-          years={years}
-          targets={targets}
-          acquirers={acquirers}
-          clauseTypesNested={clauseTypesNested}
-          isLoadingFilterOptions={isLoadingFilterOptions}
-          onToggleFilterValue={actions.toggleFilterValue}
-          onClearFilters={actions.clearFilters}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          isCollapsed={sidebarCollapsed}
-        />
+    <div className="min-h-screen bg-cream flex flex-col">
+      <Navigation />
+      <div
+        className="w-full font-roboto flex-1 relative"
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+      >
+        <div className="flex min-h-full">
+          {/* Collapsible Sidebar with Filters */}
+          <SearchSidebar
+            filters={filters}
+            years={years}
+            targets={targets}
+            acquirers={acquirers}
+            clauseTypesNested={clauseTypesNested}
+            isLoadingFilterOptions={isLoadingFilterOptions}
+            onToggleFilterValue={actions.toggleFilterValue}
+            onClearFilters={actions.clearFilters}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            isCollapsed={sidebarCollapsed}
+          />
 
-        {/* Main Content Area */}
-        <div
-          className="flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out"
-          style={{
-            marginLeft: sidebarCollapsed ? "48px" : "320px",
-          }}
-        >
+          {/* Main Content Area */}
+          <div
+            className="flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out"
+            style={{
+              marginLeft: sidebarCollapsed ? "48px" : "320px",
+            }}
+          >
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-gray-200 p-6">
             <FileText className="w-6 h-6 text-material-text-secondary" />
