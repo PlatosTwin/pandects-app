@@ -19,9 +19,9 @@ export default function Index() {
   const { state, actions } = useLLMOutput();
 
   return (
-    <div className="w-full font-roboto flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col">
       <Navigation />
-      <div className="flex flex-col gap-8 p-12">
+      <div className="w-full font-roboto flex-1 flex flex-col gap-8 p-12">
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">
           {/* Page UUID Input */}
