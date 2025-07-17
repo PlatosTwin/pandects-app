@@ -12,7 +12,7 @@ export default function Navigation() {
 
   return (
     <nav className="bg-gray-800 text-white">
-      <div className="max-w-20xl mx-auto px-10">
+      <div className="max-w-20xl mx-auto px-17">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
