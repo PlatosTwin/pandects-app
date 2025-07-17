@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Edit";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
+import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 
