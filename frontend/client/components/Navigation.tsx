@@ -3,7 +3,11 @@ import { cn } from "@/lib/utils";
 import { FileText, Search } from "lucide-react";
 import logo from "../../assets/logo.png";
 
-export default function Navigation() {
+interface NavigationProps {
+  sidebarCollapsed?: boolean;
+}
+
+export default function Navigation({ sidebarCollapsed }: NavigationProps) {
   const location = useLocation();
   const isSearchPage = location.pathname === "/";
 
@@ -22,12 +26,19 @@ export default function Navigation() {
     },
   ];
 
+  const getLeftPadding = () => {
+    if (isSearchPage) {
+      return sidebarCollapsed ? "80px" : "336px"; // 64px sidebar + 16px margin OR 320px sidebar + 16px margin
+    }
+    return "48px"; // Default padding for non-search pages
+  };
+
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div
-        className="py-4"
+        className="py-4 transition-all duration-300 ease-in-out"
         style={{
-          paddingLeft: isSearchPage ? "60px" : "48px",
+          paddingLeft: getLeftPadding(),
           paddingRight: "48px",
         }}
       >

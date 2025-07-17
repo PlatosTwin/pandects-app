@@ -9,7 +9,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Edit";
 import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
-import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 
 const queryClient = new QueryClient();
@@ -21,7 +20,6 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <div className="min-h-screen bg-cream flex flex-col">
-          <Navigation />
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Search />} />

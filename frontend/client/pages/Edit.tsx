@@ -13,12 +13,14 @@ import {
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
+import Navigation from "@/components/Navigation";
 
 export default function Index() {
   const { state, actions } = useLLMOutput();
 
   return (
     <div className="w-full font-roboto flex flex-col">
+      <Navigation />
       <div className="flex flex-col gap-8 p-12">
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">

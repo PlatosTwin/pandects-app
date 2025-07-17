@@ -17,6 +17,7 @@ import { AgreementModal } from "@/components/AgreementModal";
 import { SearchSidebar } from "@/components/SearchSidebar";
 import { SearchResultsTable } from "@/components/SearchResultsTable";
 import { Button } from "@/components/ui/button";
+import Navigation from "@/components/Navigation";
 
 export default function Search() {
   const {
@@ -407,6 +408,7 @@ export default function Search() {
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
+      <Navigation sidebarCollapsed={sidebarCollapsed} />
       <div className="flex min-h-screen">
         {/* Collapsible Sidebar with Filters */}
         <SearchSidebar
