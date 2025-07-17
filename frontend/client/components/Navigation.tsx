@@ -1,99 +1,88 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { FileText, Search } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 import logo from "../../assets/logo.png";
 
-interface NavigationProps {
-  sidebarCollapsed?: boolean;
-}
-
-export default function Navigation({ sidebarCollapsed }: NavigationProps) {
+export default function Navigation() {
   const location = useLocation();
-  const isSearchPage = location.pathname === "/";
+  const [isUtilsOpen, setIsUtilsOpen] = useState(false);
 
-  const navItems = [
-    {
-      path: "/",
-      label: "M&A Clause Search",
-      icon: Search,
-      description: "Search M&A agreement clauses",
-    },
-    {
-      path: "/editor",
-      label: "LLM Output Editor",
-      icon: FileText,
-      description: "Edit and manage LLM outputs",
-    },
-  ];
-
-  const getLeftPadding = () => {
-    if (isSearchPage) {
-      return sidebarCollapsed ? "80px" : "336px"; // 64px sidebar + 16px margin OR 320px sidebar + 16px margin
-    }
-    return "48px"; // Default padding for non-search pages
-  };
+  const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
-      <div
-        className="py-4 transition-all duration-300 ease-in-out"
-        style={{
-          paddingLeft: getLeftPadding(),
-          paddingRight: "48px",
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <nav className="bg-gray-800 text-white">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3">
             <img
               src={logo}
               alt="Pandects Logo"
-              className="w-10 h-10 rounded-lg object-cover border-2 border-stone-700"
+              className="w-8 h-8 rounded object-cover"
             />
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold text-material-text-primary">
-                Pandects
-              </span>
-              <span className="text-xs text-material-text-secondary">
-                M&A Research Platform
-              </span>
-            </div>
-          </div>
+            <span className="text-lg font-semibold">Pandects</span>
+          </Link>
 
-          {/* Navigation Items */}
+          {/* Navigation Links */}
           <div className="flex items-center space-x-8">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+            {/* Search */}
+            <Link
+              to="/search"
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/search")
+                  ? "text-white"
+                  : "text-gray-300 hover:text-white",
+              )}
+            >
+              Search
+            </Link>
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  tabIndex={item.path === "/" ? 7 : 8}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200",
-                    isActive
-                      ? "bg-material-blue text-white shadow-md focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2 focus:ring-offset-cream"
-                      : "text-material-text-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-material-blue focus:ring-offset-2",
-                  )}
+            {/* Docs */}
+            <Link
+              to="/docs"
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/docs")
+                  ? "text-white"
+                  : "text-gray-300 hover:text-white",
+              )}
+            >
+              Docs
+            </Link>
+
+            {/* Utils Dropdown */}
+            <div className="relative">
+              <button
+                onMouseEnter={() => setIsUtilsOpen(true)}
+                onMouseLeave={() => setIsUtilsOpen(false)}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
+                  isActive("/editor")
+                    ? "text-white"
+                    : "text-gray-300 hover:text-white",
+                )}
+              >
+                Utils
+                <ChevronDown className="w-4 h-4" />
+              </button>
+
+              {isUtilsOpen && (
+                <div
+                  className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                  onMouseEnter={() => setIsUtilsOpen(true)}
+                  onMouseLeave={() => setIsUtilsOpen(false)}
                 >
-                  <Icon className="w-5 h-5" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{item.label}</span>
-                    <span
-                      className={cn(
-                        "text-xs",
-                        isActive
-                          ? "text-blue-100"
-                          : "text-material-text-secondary",
-                      )}
-                    >
-                      {item.description}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+                  <Link
+                    to="/editor"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
+                  >
+                    LLM Output Editor
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
