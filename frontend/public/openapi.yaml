@@ -122,36 +122,6 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - dumps
-  /api/dumps/download/{filename}:
-    get:
-      responses:
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      summary: Download a dump file by proxying through R2
-      tags:
-      - dumps
-    parameters:
-    - in: path
-      name: filename
-      required: true
-      schema:
-        type: string
-        minLength: 1
-  /api/dumps/manifest/{filename}:
-    get:
-      responses:
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      summary: Download a manifest file by proxying through R2
-      tags:
-      - dumps
-    parameters:
-    - in: path
-      name: filename
-      required: true
-      schema:
-        type: string
-        minLength: 1
 info:
   title: Pandects API
   version: v1
