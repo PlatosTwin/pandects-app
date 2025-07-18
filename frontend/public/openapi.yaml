@@ -107,12 +107,29 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - search
+  /api/dumps:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DumpEntry'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - dumps
 info:
   title: Pandects API
   version: v1
 tags:
 - name: search
   description: Search merger agreement sections
+- name: dumps
+  description: Access bulk data stored on Cloudare
 openapi: 3.0.2
 components:
   schemas:
@@ -195,6 +212,25 @@ components:
         prevNum:
           type: integer
           nullable: true
+    DumpEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        sql:
+          type: string
+          format: url
+          nullable: true
+        sha256:
+          type: string
+          format: url
+          nullable: true
+        manifest:
+          type: string
+          format: url
+          nullable: true
+      required:
+      - timestamp
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity

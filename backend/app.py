@@ -6,6 +6,8 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_smorest import Api, Blueprint
 from flask.views import MethodView
+import boto3
+from collections import defaultdict
 from marshmallow import Schema, fields
 from sqlalchemy import (
     create_engine,
@@ -55,6 +57,18 @@ CORS(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# —— Bulk data setup ——————————————————————————————————————————————————————
+R2_BUCKET_NAME="pandects-bulk"
+R2_ENDPOINT="https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
+
+session = boto3.session.Session()
+client = session.client(
+    service_name='s3',
+    aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+    endpoint_url=R2_ENDPOINT,
+)
+
 # ── Database configuration ───────────────────────────────────────────────
 DB_USER = os.environ["MARIADB_USER"]
 DB_PASS = os.environ["MARIADB_PASSWORD"]
@@ -67,7 +81,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-
 
 # ── Reflect existing tables via standalone engine ─────────────────────────
 engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
@@ -141,6 +154,9 @@ search_blp = Blueprint(
     description="Search merger agreement sections"
 )
 
+dumps_blp = Blueprint("dumps", 'dumps', url_prefix="/api/dumps",
+    description="Access bulk data stored on Cloudare")
+
 class SearchArgsSchema(Schema):
     year = fields.List(fields.Int(), load_default=[])
     target = fields.List(fields.Str(), load_default=[])
@@ -174,6 +190,12 @@ class SearchResponseSchema(Schema):
     hasPrev = fields.Bool()
     nextNum = fields.Int(allow_none=True)
     prevNum = fields.Int(allow_none=True)
+    
+class DumpEntrySchema(Schema):
+    timestamp = fields.Str(required=True)
+    sql       = fields.Url(required=False, allow_none=True)
+    sha256    = fields.Url(required=False, allow_none=True)
+    manifest  = fields.Url(required=False, allow_none=True)
     
 # ── Route definitions ───────────────────────────────────────
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
@@ -476,8 +498,60 @@ class SearchResource(MethodView):
             "prevNum": paginated.prev_num
         }
         
-# Register blueprint
+# Register search blueprint
 api.register_blueprint(search_blp)
+
+@dumps_blp.route("")  # blueprint already has url_prefix="/api/dumps"
+class DumpListResource(MethodView):
+    @dumps_blp.response(200, DumpEntrySchema(many=True))
+    def get(self):
+        paginator = client.get_paginator("list_objects_v2")
+        pages     = paginator.paginate(
+            Bucket=R2_BUCKET_NAME,
+            Prefix="dumps/"
+        )
+
+        files_by_prefix = defaultdict(dict)
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key      = obj["Key"]
+                filename = key.rsplit("/", 1)[-1]
+                if not filename:
+                    continue
+
+                parts = filename.split(".")
+                if len(parts) < 2:
+                    continue
+
+                base = ".".join(parts[:2])
+                ext  = ".".join(parts[2:])
+                files_by_prefix[base][ext] = key
+
+        dump_list = []
+        for base, files in sorted(files_by_prefix.items(), reverse=True):
+            label = base.replace("db_dump_", "")
+            entry = {"timestamp": label}
+
+            if "gz" in files:
+                entry["sql"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['gz']}"
+            if "gz.sha256" in files:
+                entry["sha256"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['gz.sha256']}"
+            if "manifest.json" in files:
+                entry["manifest"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['manifest.json']}"
+                try:
+                    manifest_obj = client.get_object(Bucket=R2_BUCKET_NAME, Key=manifest_key)
+                    manifest_data = json.loads(manifest_obj["Body"].read())
+                    entry["size_bytes"] = manifest_data.get("size_bytes")
+                    entry["sha256"] = manifest_data.get("sha256")
+                except Exception as e:
+                    entry["error"] = f"manifest read failed: {str(e)}"
+
+            dump_list.append(entry)
+
+        return dump_list
+
+# Register dumps blueprint
+api.register_blueprint(dumps_blp)
 
 # ── CLI command for OpenAPI spec generation ──────────────────────────────
 @app.cli.command("gen-openapi")
