@@ -5,10 +5,7 @@ export default function Landing() {
   return (
     <div className="h-full flex flex-col">
       <Navigation />
-      <main
-        className="flex-1 flex items-center justify-center px-8"
-        style={{ paddingBottom: "8vh" }}
-      >
+      <main className="flex-1 flex items-center justify-center px-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="mb-8">
             <img
