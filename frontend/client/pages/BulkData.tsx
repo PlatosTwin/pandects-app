@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Copy, Check } from "lucide-react";
 import Navigation from "@/components/Navigation";
 
 interface DumpInfo {
@@ -12,6 +13,9 @@ export default function BulkData() {
   const [dumps, setDumps] = useState<DumpInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
+    {},
+  );
 
   useEffect(() => {
     // TODO: Replace with actual API call when dumps endpoint is available
@@ -56,6 +60,29 @@ export default function BulkData() {
     });
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      document.execCommand("copy");
+      setCopiedStates((prev) => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setCopiedStates((prev) => ({ ...prev, [id]: false }));
+      }, 2000);
+    } catch (err) {
+      // Silent fail
+    } finally {
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-cream">
       <Navigation />
@@ -79,12 +106,30 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono overflow-x-auto">
-              <div className="text-gray-600 mb-2">
-                # API call to get latest dump info
-              </div>
-              <div className="whitespace-nowrap">
-                curl https://pandects-api.fly.dev/api/dumps/latest
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+              <button
+                onClick={() =>
+                  copyToClipboard(
+                    "curl https://pandects-api.fly.dev/api/dumps/latest",
+                    "api-call",
+                  )
+                }
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                title="Copy to clipboard"
+              >
+                {copiedStates["api-call"] ? (
+                  <Check className="w-3 h-3 text-green-600" />
+                ) : (
+                  <Copy className="w-3 h-3 text-gray-600" />
+                )}
+              </button>
+              <div className="overflow-x-auto">
+                <div className="text-gray-600 mb-2">
+                  # API call to get latest dump info
+                </div>
+                <div className="whitespace-nowrap pr-10">
+                  curl https://pandects-api.fly.dev/api/dumps/latest
+                </div>
               </div>
             </div>
           </div>
@@ -94,11 +139,29 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono overflow-x-auto">
-              <div className="text-gray-600 mb-2"># Download latest dump</div>
-              <div className="whitespace-nowrap">
-                wget
-                https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+              <button
+                onClick={() =>
+                  copyToClipboard(
+                    "wget https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details",
+                    "wget-download",
+                  )
+                }
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                title="Copy to clipboard"
+              >
+                {copiedStates["wget-download"] ? (
+                  <Check className="w-3 h-3 text-green-600" />
+                ) : (
+                  <Copy className="w-3 h-3 text-gray-600" />
+                )}
+              </button>
+              <div className="overflow-x-auto">
+                <div className="text-gray-600 mb-2"># Download latest dump</div>
+                <div className="whitespace-nowrap pr-10">
+                  wget
+                  https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
+                </div>
               </div>
             </div>
           </div>
@@ -108,10 +171,30 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono overflow-x-auto">
-              <div className="text-gray-600 mb-2"># Verify file integrity</div>
-              <div className="whitespace-nowrap">
-                echo "sha256_hash filename.sql.gz" | sha256sum -c
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+              <button
+                onClick={() =>
+                  copyToClipboard(
+                    'echo "sha256_hash filename.sql.gz" | sha256sum -c',
+                    "checksum-verify",
+                  )
+                }
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                title="Copy to clipboard"
+              >
+                {copiedStates["checksum-verify"] ? (
+                  <Check className="w-3 h-3 text-green-600" />
+                ) : (
+                  <Copy className="w-3 h-3 text-gray-600" />
+                )}
+              </button>
+              <div className="overflow-x-auto">
+                <div className="text-gray-600 mb-2">
+                  # Verify file integrity
+                </div>
+                <div className="whitespace-nowrap pr-10">
+                  echo "sha256_hash filename.sql.gz" | sha256sum -c
+                </div>
               </div>
             </div>
           </div>
