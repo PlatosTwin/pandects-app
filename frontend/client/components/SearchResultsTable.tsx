@@ -127,10 +127,11 @@ export function SearchResultsTable({
       {/* Results Grid */}
       <TooltipProvider>
         <div className="grid gap-4">
-          {searchResults.map((result) => {
+          {searchResults.map((result, index) => {
             const targetText = truncateText(result.target, 75);
             const acquirerText = truncateText(result.acquirer, 75);
             const isSelected = selectedResults.has(result.id);
+            const resultNumber = (currentPage - 1) * pageSize + index + 1;
 
             return (
               <div
