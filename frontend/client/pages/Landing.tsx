@@ -22,7 +22,7 @@ export default function Landing() {
             <img
               src={logo}
               alt="Pandects Logo"
-              className="w-40 h-40 mx-auto rounded-xl object-cover shadow-md"
+              className="w-32 h-32 mx-auto rounded-xl object-cover shadow-md"
             />
           </div>
 
