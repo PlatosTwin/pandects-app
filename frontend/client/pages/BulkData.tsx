@@ -113,7 +113,7 @@ export default function BulkData() {
             Bulk Data Downloads
           </h1>
           <p className="text-material-text-secondary max-w-3xl">
-            Download complete database dumps of the Pandects merger agreement
+            Download complete database dumps of the Pandects
             dataset. All dumps are compressed MariaDB SQL files containing the
             full structured data.
           </p>
@@ -124,7 +124,7 @@ export default function BulkData() {
           {/* API Call Example */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Latest version via API
+              Pull latest version metadata via API
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
@@ -159,7 +159,7 @@ export default function BulkData() {
           {/* wget Download Example */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Latest version with wget
+              Download latest version with wget
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
