@@ -1,5 +1,6 @@
 import { Github } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
