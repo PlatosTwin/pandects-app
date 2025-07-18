@@ -45,8 +45,7 @@ export default function About() {
   return (
     <div className="min-h-screen bg-cream">
       <Navigation />
-      {/* Vertical separator line - spans from top to before footer */}
-      <div className="fixed left-64 top-0 h-[calc(100vh-4rem)] w-px bg-gray-300 z-10"></div>
+
       <div className="flex">
         {/* Fixed Navigation Pane */}
         <nav className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 overflow-y-auto z-10">
