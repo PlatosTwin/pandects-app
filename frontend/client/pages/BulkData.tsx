@@ -73,23 +73,23 @@ export default function BulkData() {
         </div>
 
         {/* Demo Code Blocks */}
-        <div className="flex flex-col lg:flex-row gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* API Call Example */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
+          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono">
+            <div className="bg-gray-50 rounded p-3 text-xs font-mono min-w-0 max-w-full">
               <div className="text-gray-600 mb-2">
                 # API call to get latest dump info
               </div>
               <div
+                className="break-words"
                 style={{
                   wordBreak: "break-all",
-                  overflowWrap: "break-word",
-                  wordWrap: "break-word",
-                  maxWidth: "100%",
-                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                  hyphens: "auto",
+                  width: "100%",
                 }}
               >
                 curl https://api.pandects.app/api/dumps/latest
@@ -98,19 +98,19 @@ export default function BulkData() {
           </div>
 
           {/* wget Download Example */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
+          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono">
+            <div className="bg-gray-50 rounded p-3 text-xs font-mono min-w-0 max-w-full">
               <div className="text-gray-600 mb-2"># Download latest dump</div>
               <div
+                className="break-words"
                 style={{
                   wordBreak: "break-all",
-                  overflowWrap: "break-word",
-                  wordWrap: "break-word",
-                  maxWidth: "100%",
-                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                  hyphens: "auto",
+                  width: "100%",
                 }}
               >
                 wget https://dumps.pandects.app/latest.sql.gz
@@ -119,19 +119,19 @@ export default function BulkData() {
           </div>
 
           {/* Checksum Verification */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
+          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-xs font-mono">
+            <div className="bg-gray-50 rounded p-3 text-xs font-mono min-w-0 max-w-full">
               <div className="text-gray-600 mb-2"># Verify file integrity</div>
               <div
+                className="break-words"
                 style={{
                   wordBreak: "break-all",
-                  overflowWrap: "break-word",
-                  wordWrap: "break-word",
-                  maxWidth: "100%",
-                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                  hyphens: "auto",
+                  width: "100%",
                 }}
               >
                 echo "sha256_hash filename.sql.gz" | sha256sum -c
