@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import Navigation from "@/components/Navigation";
+import { apiUrl } from "@/lib/api-config";
 
 interface DumpInfo {
+  manifest: string;
   sha256: string;
-  size: number;
-  date: string;
-  url: string;
+  sql: string;
+  timestamp: string;
 }
 
 export default function BulkData() {
@@ -18,46 +19,59 @@ export default function BulkData() {
   );
 
   useEffect(() => {
-    // TODO: Replace with actual API call when dumps endpoint is available
-    // For now, showing placeholder data
-    const mockData: DumpInfo[] = [
-      {
-        sha256:
-          "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
-        size: 1073741824, // 1GB in bytes
-        date: "2024-01-15",
-        url: "https://dumps.example.com/pandects-2024-01-15.sql.gz",
-      },
-      {
-        sha256:
-          "b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567",
-        size: 1048576000, // ~1GB in bytes
-        date: "2024-01-01",
-        url: "https://dumps.example.com/pandects-2024-01-01.sql.gz",
-      },
-    ];
+    const fetchDumps = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      setDumps(mockData);
-      setLoading(false);
-    }, 500);
+        const response = await fetch(apiUrl("api/dumps"));
+        if (!response.ok) {
+          throw new Error(`Failed to fetch dumps: ${response.status}`);
+        }
+
+        const data: DumpInfo[] = await response.json();
+
+        // Sort so 'latest' is always first, then sort others by timestamp
+        const sortedData = data.sort((a, b) => {
+          if (a.timestamp === "latest") return -1;
+          if (b.timestamp === "latest") return 1;
+          // For non-latest items, sort by timestamp descending (newest first)
+          return (
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+        });
+
+        setDumps(sortedData);
+      } catch (err) {
+        console.error("Error fetching dumps:", err);
+        setError(err instanceof Error ? err.message : "Failed to load dumps");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDumps();
   }, []);
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const formatDate = (dateStr: string): string => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const formatTimestamp = (timestamp: string): string => {
+    if (timestamp === "latest") {
+      return "Latest";
+    }
+    // Handle timestamp format like "2025-07-18_04-15"
+    const parts = timestamp.split("_");
+    if (parts.length === 2) {
+      const datePart = parts[0];
+      const timePart = parts[1].replace("-", ":");
+      const dateTime = new Date(`${datePart}T${timePart}:00`);
+      return dateTime.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    return timestamp;
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -248,13 +262,13 @@ export default function BulkData() {
                 <thead className="bg-material-surface">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      Date
+                      Version
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
                       SHA256 Hash
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      Size
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -262,24 +276,56 @@ export default function BulkData() {
                   {dumps.map((dump, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <a
-                          href={dump.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-material-blue hover:underline font-medium"
-                        >
-                          {formatDate(dump.date)}
-                        </a>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-material-text-primary">
+                            {formatTimestamp(dump.timestamp)}
+                          </span>
+                          {dump.timestamp === "latest" && (
+                            <span className="text-xs text-green-600 font-medium">
+                              Latest Version
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-material-text-secondary">
-                          {dump.sha256}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-sm text-material-text-secondary truncate max-w-xs">
+                            {dump.sha256}
+                          </span>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(dump.sha256, `sha-${index}`)
+                            }
+                            className="p-1 rounded hover:bg-gray-100 transition-colors"
+                            title="Copy SHA256"
+                          >
+                            {copiedStates[`sha-${index}`] ? (
+                              <Check className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-gray-600" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-material-text-primary">
-                          {formatBytes(dump.size)}
-                        </span>
+                        <div className="flex space-x-2">
+                          <a
+                            href={dump.sql}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1 border border-material-blue text-material-blue hover:bg-material-blue hover:text-white rounded text-sm font-medium transition-colors"
+                          >
+                            Download SQL
+                          </a>
+                          <a
+                            href={dump.manifest}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-sm font-medium transition-colors"
+                          >
+                            Manifest
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   ))}
