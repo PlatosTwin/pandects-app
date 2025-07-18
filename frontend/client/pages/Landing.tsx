@@ -14,10 +14,10 @@ export default function Landing() {
     <div className="flex flex-col h-full">
       <Navigation />
       <main
-        className="min-h-screen flex items-center justify-center px-4"
+        className="min-h-[80vh] flex items-center justify-center px-4 py-12"
         style={{ backgroundColor: "#F5F7FA" }}
       >
-        <div className="hero-card max-w-[650px] w-full bg-white rounded-3xl shadow-lg p-8 text-center flex flex-col items-center space-y-6 animate-fade-in-up">
+        <div className="hero-card max-w-[800px] w-full bg-white rounded-3xl shadow-lg p-10 text-center flex flex-col items-center space-y-6 animate-fade-in-up">
           <div className="logo-container">
             <img
               src={logo}
