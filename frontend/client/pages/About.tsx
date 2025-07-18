@@ -15,66 +15,53 @@ export default function About() {
         "contributing",
         "credits",
       ];
-      const scrollPosition = window.scrollY + 150;
+      const scrollY = window.scrollY + 150;
 
-      if (
-        window.innerHeight + window.scrollY >=
-        document.body.offsetHeight - 100
-      ) {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
         setActiveSection("credits");
         return;
       }
 
-      let currentSection = "overview";
+      let current = "overview";
       for (let i = sections.length - 1; i >= 0; i--) {
         const el = document.getElementById(sections[i]);
-        if (el && scrollPosition >= el.offsetTop) {
-          currentSection = sections[i];
+        if (el && scrollY >= el.offsetTop) {
+          current = sections[i];
           break;
         }
       }
-
-      setActiveSection(currentSection);
+      setActiveSection(current);
     };
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollToSection = (sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <div className="min-h-screen bg-cream">
-      {/* --- Header --- */}
+      {/* Header */}
       <Navigation />
 
       <div className="flex">
-        {/* --- Sidebar (only on md+) --- */}
-        <nav
-          className="
-            hidden md:block
-            fixed top-16 bottom-16 left-0
-            w-64
-            bg-white
-            border-r border-gray-200
-            overflow-y-auto
-            z-10
-          "
-        >
-          <div className="p-6">
+        {/* Sidebar */}
+        <nav className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 bg-white">
+          <div
+            className="sticky top-16 px-6 pt-6 pb-4"
+            style={{
+              maxHeight: "calc(100vh - 8rem)",    // subtract header (4rem) + footer (4rem)
+              overflowY: "auto",
+            }}
+          >
             <ul className="space-y-4">
               {[
                 { id: "overview", label: "Overview" },
                 { id: "data", label: "Data" },
                 { id: "sources", label: "Sources", indent: true },
-                {
-                  id: "processing-pipelines",
-                  label: "Processing pipelines",
-                  indent: true,
-                },
+                { id: "processing-pipelines", label: "Processing pipelines", indent: true },
                 { id: "contributing", label: "Contributing" },
                 { id: "credits", label: "Credits" },
               ].map(({ id, label, indent }) => (
@@ -96,15 +83,12 @@ export default function About() {
           </div>
         </nav>
 
-        {/* --- Main content --- */}
-        <main className="flex-1 ml-0 md:ml-64">
-          <div className="max-w-4xl mx-auto px-8 py-8 space-y-16">
+        {/* Main Content */}
+        <main className="flex-1 px-8 py-8">
+          <div className="max-w-4xl mx-auto space-y-16">
             <section id="overview" className="scroll-mt-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-6">
-                Overview
-              </h1>
-              {/* just empty space now—no box styling */}
-              <div className="min-h-[400px]"></div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-6">Overview</h1>
+              <div className="min-h-[400px]">{/* empty—no box */}</div>
             </section>
 
             <section id="data" className="scroll-mt-8">
@@ -112,9 +96,7 @@ export default function About() {
               <div className="min-h-[300px]"></div>
 
               <div id="sources" className="scroll-mt-8 mt-12">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  Sources
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Sources</h3>
                 <div className="min-h-[300px]"></div>
               </div>
 
@@ -127,16 +109,12 @@ export default function About() {
             </section>
 
             <section id="contributing" className="scroll-mt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Contributing
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Contributing</h2>
               <div className="min-h-[400px]"></div>
             </section>
 
             <section id="credits" className="scroll-mt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Credits
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Credits</h2>
               <div className="min-h-[400px]"></div>
             </section>
           </div>
