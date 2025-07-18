@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
 export default function Landing() {
+  const navigate = useNavigate();
+
+  const handleExploreClick = () => {
+    navigate("/search");
+  };
+
   return (
     <div className="flex flex-col h-full">
       <Navigation />
