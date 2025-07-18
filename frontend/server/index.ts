@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { handleDemo } from "./routes/demo";
 
 export function createServer() {
@@ -16,6 +17,17 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
+
+  // Serve static files in production
+  if (process.env.NODE_ENV === "production") {
+    const staticPath = path.join(__dirname, "../spa");
+    app.use(express.static(staticPath));
+
+    // SPA fallback - serve index.html for all non-API routes
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(staticPath, "index.html"));
+    });
+  }
 
   return app;
 }
