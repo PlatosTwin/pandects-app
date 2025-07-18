@@ -11,6 +11,7 @@ import Search from "./pages/Search";
 import Landing from "./pages/Landing";
 import Docs from "./pages/Docs";
 import BulkData from "./pages/BulkData";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 
