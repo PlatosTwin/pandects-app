@@ -42,7 +42,7 @@ app.config.update({
 
 api = Api(app)
 
-# ── CORS setup ──────────────────────────────────────────────────────────
+# ── CORS setup ��─────────────────────────────────────────────────────────
 CORS(
     app,
     resources={
@@ -198,7 +198,7 @@ class DumpEntrySchema(Schema):
     sha256    = fields.Url(required=False, allow_none=True)
     manifest  = fields.Url(required=False, allow_none=True)
     
-# ── Route definitions ───────────────────────────────────────
+# ── Route definitions ────────────────────────���──────────────
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
     # pick the most-recent prompt for this page (excluding SKIP outputs)
@@ -611,11 +611,18 @@ class DumpManifestResource(MethodView):
             # Handle both .json and .manifest.json extensions
             if filename.endswith('.json'):
                 key = f"dumps/{filename}"
+                download_filename = filename
             elif filename.endswith('.manifest.json'):
                 key = f"dumps/{filename}"
+                download_filename = filename
             else:
                 # Assume it's a base filename and add .manifest.json
                 key = f"dumps/{filename}.manifest.json"
+                download_filename = f"{filename}.manifest.json"
+
+            # Ensure download filename ends with .json
+            if not download_filename.endswith('.json'):
+                download_filename = f"{download_filename}.json"
 
             # Get object from R2
             response = client.get_object(
@@ -630,7 +637,7 @@ class DumpManifestResource(MethodView):
                 content,
                 mimetype='application/json',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Disposition': f'attachment; filename="{download_filename}"',
                     'Content-Type': 'application/json'
                 }
             )
