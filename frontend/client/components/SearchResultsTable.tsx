@@ -32,6 +32,8 @@ interface SearchResultsTableProps {
   onOpenAgreement: (result: SearchResult) => void;
   onSortResults: (sortBy: "year" | "target" | "acquirer") => void;
   onToggleSortDirection: () => void;
+  currentPage?: number;
+  pageSize?: number;
   className?: string;
 }
 
