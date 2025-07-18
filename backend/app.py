@@ -156,7 +156,7 @@ search_blp = Blueprint(
 )
 
 dumps_blp = Blueprint("dumps", 'dumps', url_prefix="/api/dumps",
-    description="Access bulk data stored on Cloudare")
+    description="Access bulk data on Cloudflare")
 
 class SearchArgsSchema(Schema):
     year = fields.List(fields.Int(), load_default=[])
