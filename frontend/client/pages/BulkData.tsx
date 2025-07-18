@@ -115,7 +115,7 @@ export default function BulkData() {
               <div className="text-gray-600 mb-2">
                 # API call to get latest dump info
               </div>
-              <div className="whitespace-nowrap pr-12">
+              <div className="whitespace-nowrap pr-10">
                 curl https://pandects-api.fly.dev/api/dumps/latest
               </div>
             </div>
