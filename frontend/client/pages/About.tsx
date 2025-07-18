@@ -47,11 +47,8 @@ export default function About() {
       <Navigation />
       <div className="flex">
         {/* Fixed Navigation Pane */}
-        <nav className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r border-gray-200 overflow-y-auto z-10">
+        <nav className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 border-r border-gray-200 overflow-y-auto z-10">
           <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Contents
-            </h2>
             <ul className="space-y-2">
               <li>
                 <button
