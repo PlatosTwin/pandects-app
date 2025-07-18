@@ -143,12 +143,14 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="overflow-x-auto pb-2">
-                <div className="text-gray-600 mb-2">
-                  # API call to get latest dump info
-                </div>
-                <div className="whitespace-nowrap pr-10">
-                  curl https://pandects-api.fly.dev/api/dumps/latest
+              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+                <div>
+                  <div className="text-gray-600 mb-2">
+                    # API call to get latest dump info
+                  </div>
+                  <div className="whitespace-nowrap pr-10">
+                    curl https://pandects-api.fly.dev/api/dumps/latest
+                  </div>
                 </div>
               </div>
             </div>
