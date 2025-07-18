@@ -72,21 +72,29 @@ export function SearchSidebar({
     }
   }, []);
 
-  return (
-    <div
-      className={cn(
-        "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out sticky top-0 h-screen",
-        // Desktop: normal sidebar behavior
-        "lg:relative lg:z-auto",
-        // Tablet/Mobile: overlay behavior when expanded
-        "lg:w-16 lg:data-[expanded]:w-80",
-        isCollapsed ? "w-16" : "w-80 lg:w-80",
-        // On tablet, make it overlay when expanded
-        !isCollapsed && "lg:absolute lg:z-50 lg:shadow-lg",
-        className,
+      return (
+    <>
+      {/* Backdrop for tablet overlay */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onToggleCollapse}
+        />
       )}
-      data-expanded={!isCollapsed}
-    >
+
+      <div
+        className={cn(
+          "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out h-screen",
+          // Desktop: normal sidebar behavior
+          "lg:flex-shrink-0 lg:sticky lg:top-0 lg:relative",
+          isCollapsed ? "lg:w-16" : "lg:w-80",
+          // Tablet/Mobile: overlay when expanded, collapsed when not
+          isCollapsed
+            ? "w-16 flex-shrink-0 sticky top-0"
+            : "w-80 fixed top-0 left-0 z-50 lg:static lg:z-auto",
+          className,
+        )}
+      >
       {/* Sidebar Content */}
       {showContent && (
         <div className="h-full flex flex-col">
