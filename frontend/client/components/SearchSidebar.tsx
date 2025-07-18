@@ -41,7 +41,7 @@ export function SearchSidebar({
   isCollapsed,
   className,
 }: SearchSidebarProps) {
-  const [showContent, setShowContent] = useState(!isCollapsed);
+  const [showContent, setShowContent] = useState(false);
 
   // Control content visibility with proper timing
   React.useEffect(() => {
@@ -50,10 +50,17 @@ export function SearchSidebar({
       setShowContent(false);
     } else {
       // Show content after expansion animation completes
-      const timer = setTimeout(() => setShowContent(true), 300);
+      const timer = setTimeout(() => setShowContent(true), 320);
       return () => clearTimeout(timer);
     }
   }, [isCollapsed]);
+
+  // Initialize content visibility on mount
+  React.useEffect(() => {
+    if (!isCollapsed) {
+      setShowContent(true);
+    }
+  }, []);
 
   return (
     <div
