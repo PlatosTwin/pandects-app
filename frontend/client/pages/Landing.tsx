@@ -1,6 +1,7 @@
 import logo from "../../assets/logo.png";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export default function Landing() {
   return (
