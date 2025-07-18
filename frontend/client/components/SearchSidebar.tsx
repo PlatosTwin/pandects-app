@@ -56,7 +56,7 @@ export function SearchSidebar({
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out fixed left-0 z-10",
         isCollapsed
           ? "w-16 top-16 h-[calc(100vh-4rem)]"
-          : "w-80 top-0 h-screen",
+          : "w-80 top-16 h-[calc(100vh-4rem)]",
         className,
       )}
     >
