@@ -13,6 +13,9 @@ export default function BulkData() {
   const [dumps, setDumps] = useState<DumpInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
+    {},
+  );
 
   useEffect(() => {
     // TODO: Replace with actual API call when dumps endpoint is available
