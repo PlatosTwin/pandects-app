@@ -106,7 +106,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono overflow-x-auto relative group">
+            <div className="bg-gray-50 rounded text-xs font-mono relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -114,7 +114,7 @@ export default function BulkData() {
                     "api-call",
                   )
                 }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50"
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
                 title="Copy to clipboard"
               >
                 {copiedStates["api-call"] ? (
@@ -123,11 +123,13 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="text-gray-600 mb-2">
-                # API call to get latest dump info
-              </div>
-              <div className="whitespace-nowrap pr-10">
-                curl https://pandects-api.fly.dev/api/dumps/latest
+              <div className="p-4 overflow-x-auto">
+                <div className="text-gray-600 mb-2">
+                  # API call to get latest dump info
+                </div>
+                <div className="whitespace-nowrap pr-10">
+                  curl https://pandects-api.fly.dev/api/dumps/latest
+                </div>
               </div>
             </div>
           </div>
