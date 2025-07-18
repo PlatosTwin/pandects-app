@@ -31,14 +31,16 @@ load_dotenv()
 app = Flask(__name__)
 
 # ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
-app.config.update({
-    "API_TITLE": "Pandects API",
-    "API_VERSION": "v1",
-    "OPENAPI_VERSION": "3.0.2",
-    "OPENAPI_URL_PREFIX": "/",
-    "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
-    "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
-})
+app.config.update(
+    {
+        "API_TITLE": "Pandects API",
+        "API_VERSION": "v1",
+        "OPENAPI_VERSION": "3.0.2",
+        "OPENAPI_URL_PREFIX": "/",
+        "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
+        "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+    }
+)
 
 api = Api(app)
 
@@ -59,13 +61,13 @@ CORS(
 )
 
 # —— Bulk data setup ——————————————————————————————————————————————————————
-R2_BUCKET_NAME="pandects-bulk"
-R2_ENDPOINT="https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
+R2_BUCKET_NAME = "pandects-bulk"
+R2_ENDPOINT = "https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
 PUBLIC_DEV_BASE = "https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
 
 session = boto3.session.Session()
 client = session.client(
-    service_name='s3',
+    service_name="s3",
     aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
     aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
     endpoint_url=R2_ENDPOINT,
@@ -126,6 +128,7 @@ taxonomy_table = Table(
     autoload_with=engine,
 )
 
+
 # ── SQLAlchemy models mapping ───────────────────────────────────────
 class LLMOut(db.Model):
     __table__ = llm_output_table
@@ -150,14 +153,22 @@ class XML(db.Model):
 class Taxonomy(db.Model):
     __table__ = taxonomy_table
 
+
 # ── Define search blueprint and schemas ──────────────────────────────────
 search_blp = Blueprint(
-    "search", "search", url_prefix="/api/search",
-    description="Search merger agreement sections"
+    "search",
+    "search",
+    url_prefix="/api/search",
+    description="Search merger agreement sections",
 )
 
-dumps_blp = Blueprint("dumps", 'dumps', url_prefix="/api/dumps",
-    description="Access metadata about bulk data on Cloudflare")
+dumps_blp = Blueprint(
+    "dumps",
+    "dumps",
+    url_prefix="/api/dumps",
+    description="Access metadata about bulk data on Cloudflare",
+)
+
 
 class SearchArgsSchema(Schema):
     year = fields.List(fields.Int(), load_default=[])
@@ -171,6 +182,7 @@ class SearchArgsSchema(Schema):
     page = fields.Int(load_default=1)
     pageSize = fields.Int(load_default=25)
 
+
 class SectionItemSchema(Schema):
     id = fields.Str()
     agreementUuid = fields.Str()
@@ -182,6 +194,7 @@ class SectionItemSchema(Schema):
     target = fields.Str()
     year = fields.Int()
 
+
 class SearchResponseSchema(Schema):
     results = fields.List(fields.Nested(SectionItemSchema))
     page = fields.Int()
@@ -192,13 +205,15 @@ class SearchResponseSchema(Schema):
     hasPrev = fields.Bool()
     nextNum = fields.Int(allow_none=True)
     prevNum = fields.Int(allow_none=True)
-    
+
+
 class DumpEntrySchema(Schema):
     timestamp = fields.Str(required=True)
-    sql       = fields.Url(required=False, allow_none=True)
-    sha256    = fields.Url(required=False, allow_none=True)
-    manifest  = fields.Url(required=False, allow_none=True)
-    
+    sql = fields.Url(required=False, allow_none=True)
+    sha256 = fields.Url(required=False, allow_none=True)
+    manifest = fields.Url(required=False, allow_none=True)
+
+
 # ── Route definitions ───────────────────────────────────────
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
@@ -303,8 +318,8 @@ class SearchResource(MethodView):
     @search_blp.arguments(SearchArgsSchema, location="query")
     @search_blp.response(200, SearchResponseSchema)
     def get(self, args):
-# @app.route("/api/search", methods=["GET"])
-# def search_sections():
+        # @app.route("/api/search", methods=["GET"])
+        # def search_sections():
         # pull in optional query params - now supporting multiple values
         years = request.args.getlist("year")
         targets = request.args.getlist("target")
@@ -463,11 +478,7 @@ class SearchResource(MethodView):
 
         # Use SQLAlchemy's paginate() method
         try:
-            paginated = q.paginate(
-                page=page,
-                per_page=page_size,
-                error_out=False
-            )
+            paginated = q.paginate(page=page, per_page=page_size, error_out=False)
         except Exception as e:
             return jsonify({"error": f"Pagination error: {str(e)}"}), 400
 
@@ -497,39 +508,41 @@ class SearchResource(MethodView):
             "hasNext": paginated.has_next,
             "hasPrev": paginated.has_prev,
             "nextNum": paginated.next_num,
-            "prevNum": paginated.prev_num
+            "prevNum": paginated.prev_num,
         }
-        
+
+
 # Register search blueprint
 api.register_blueprint(search_blp)
+
 
 @dumps_blp.route("")  # blueprint already has url_prefix="/api/dumps"
 class DumpListResource(MethodView):
     @dumps_blp.response(200, DumpEntrySchema(many=True))
     def get(self):
         paginator = client.get_paginator("list_objects_v2")
-        pages     = paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix="dumps/")
+        pages = paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix="dumps/")
 
         dumps_map = defaultdict(dict)
         for page in pages:
             for obj in page.get("Contents", []):
-                key      = obj["Key"]
+                key = obj["Key"]
                 filename = key.rsplit("/", 1)[-1]
 
                 if filename.endswith(".sql.gz.manifest.json"):
-                    prefix = filename[:-len(".sql.gz.manifest.json")]
+                    prefix = filename[: -len(".sql.gz.manifest.json")]
                     dumps_map[prefix]["manifest"] = key
 
                 elif filename.endswith(".sql.gz.sha256"):
-                    prefix = filename[:-len(".sql.gz.sha256")]
+                    prefix = filename[: -len(".sql.gz.sha256")]
                     dumps_map[prefix]["sha256"] = key
 
                 elif filename.endswith(".sql.gz"):
-                    prefix = filename[:-len(".sql.gz")]
+                    prefix = filename[: -len(".sql.gz")]
                     dumps_map[prefix]["sql"] = key
 
                 elif filename.endswith(".json"):
-                    prefix = filename[:-len(".json")]
+                    prefix = filename[: -len(".json")]
                     dumps_map[prefix]["manifest"] = key
 
         dump_list = []
@@ -547,8 +560,7 @@ class DumpListResource(MethodView):
                 entry["manifest"] = f"{PUBLIC_DEV_BASE}/{files['manifest']}"
                 try:
                     body = client.get_object(
-                        Bucket=R2_BUCKET_NAME,
-                        Key=files["manifest"]
+                        Bucket=R2_BUCKET_NAME, Key=files["manifest"]
                     )["Body"].read()
                     data = json.loads(body)
                     if "size_bytes" in data:
@@ -562,8 +574,10 @@ class DumpListResource(MethodView):
 
         return dump_list
 
+
 # Register dumps blueprint
 api.register_blueprint(dumps_blp)
+
 
 # ── CLI command for OpenAPI spec generation ──────────────────────────────
 @app.cli.command("gen-openapi")
@@ -573,6 +587,7 @@ def gen_openapi():
         yaml_spec = api.spec.to_yaml()
         Path("openapi.yaml").write_text(yaml_spec)
         click.echo("Wrote openapi.yaml")
-        
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
