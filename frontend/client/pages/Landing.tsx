@@ -7,7 +7,7 @@ export default function Landing() {
       <Navigation />
       <main
         className="flex-1 flex items-center justify-center px-8"
-        style={{ minHeight: "calc(100vh - 140px)" }}
+        style={{ paddingTop: "2rem", paddingBottom: "4rem" }}
       >
         <div className="max-w-2xl mx-auto text-center">
           <div className="mb-8">
