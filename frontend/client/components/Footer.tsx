@@ -18,9 +18,16 @@ export default function Footer() {
         <div className="flex items-center justify-between">
           {/* Copyright on the left */}
           <div className="text-xs text-gray-400">
-            © {currentYear} Nikita Bogdanov
-            <br />
-            Subject to GNU GPLv3 license
+            © {currentYear} Nikita Bogdanov • Subject to{" "}
+            <a
+              href="https://www.gnu.org/licenses/gpl-3.0.en.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-600 underline"
+            >
+              GNU GPLv3
+            </a>{" "}
+            license
           </div>
 
           {/* GitHub logo in the center - just icon */}
