@@ -213,70 +213,15 @@ export function useSearch() {
             page: undefined,
             pageSize: undefined,
           };
-          const params = new URLSearchParams();
-
-          // Build the same filter parameters as in performSearch
-          if (searchFilters.year && searchFilters.year.length > 0) {
-            searchFilters.year.forEach((year) => params.append("year", year));
-          }
-          if (searchFilters.target && searchFilters.target.length > 0) {
-            searchFilters.target.forEach((target) =>
-              params.append("target", target),
-            );
-          }
-          if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
-            searchFilters.acquirer.forEach((acquirer) =>
-              params.append("acquirer", acquirer),
-            );
-          }
-          if (
-            searchFilters.transactionSize &&
-            searchFilters.transactionSize.length > 0
-          ) {
-            searchFilters.transactionSize.forEach((size) =>
-              params.append("transactionSize", size),
-            );
-          }
-          if (
-            searchFilters.transactionType &&
-            searchFilters.transactionType.length > 0
-          ) {
-            searchFilters.transactionType.forEach((type) =>
-              params.append("transactionType", type),
-            );
-          }
-          if (
-            searchFilters.considerationType &&
-            searchFilters.considerationType.length > 0
-          ) {
-            searchFilters.considerationType.forEach((type) =>
-              params.append("considerationType", type),
-            );
-          }
-          if (searchFilters.targetType && searchFilters.targetType.length > 0) {
-            searchFilters.targetType.forEach((type) =>
-              params.append("targetType", type),
-            );
-          }
-
-          // Extract standard IDs from selected clause types and send them instead
-          if (
-            searchFilters.clauseType &&
-            searchFilters.clauseType.length > 0 &&
-            clauseTypesNested
-          ) {
-            const standardIds = extractStandardIds(
-              searchFilters.clauseType,
-              clauseTypesNested,
-            );
-            standardIds.forEach((standardId) =>
-              params.append("standardId", standardId),
-            );
-          }
+          const params = buildSearchParams(
+            searchFilters,
+            clauseTypesNested,
+            false,
+          );
 
           // Set a very large page size to get all results
-          params.append("pageSize", "10000");
-          params.append("page", "1");
+          params.append("pageSize", LARGE_PAGE_SIZE_FOR_CSV.toString());
+          params.append("page", DEFAULT_PAGE.toString());
 
           const queryString = params.toString();
           const res = await fetch(apiUrl(`api/search?${queryString}`));
