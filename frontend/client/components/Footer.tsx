@@ -19,6 +19,8 @@ export default function Footer() {
           {/* Copyright on the left */}
           <div className="text-xs text-gray-400">
             © {currentYear} Nikita Bogdanov
+            <br />
+            Subject to GNU GPLv3 license
           </div>
 
           {/* GitHub logo in the center - just icon */}
