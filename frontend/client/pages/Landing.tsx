@@ -1,35 +1,45 @@
 import logo from "../../assets/logo.png";
 import Navigation from "@/components/Navigation";
+import { Button } from "@/components/ui/button";
 
 export default function Landing() {
   return (
     <div className="flex flex-col h-full">
       <Navigation />
       <main
-        className="flex items-center justify-center px-8"
-        style={{ height: "calc(100vh - 160px)" }}
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ backgroundColor: "#F5F7FA" }}
       >
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="mb-8">
+        <div className="hero-card max-w-[650px] w-full bg-white rounded-3xl shadow-lg p-12 text-center flex flex-col items-center space-y-8 animate-fade-in-up">
+          <div className="logo-container">
             <img
               src={logo}
               alt="Pandects Logo"
-              className="w-24 h-24 mx-auto rounded-xl object-cover border-2 border-stone-700 shadow-lg"
+              className="w-40 h-40 mx-auto rounded-xl object-cover shadow-md"
             />
           </div>
 
-          <h1 className="text-4xl font-bold text-material-text-primary mb-6">
+          <h1 className="main-heading text-5xl font-extrabold text-black leading-tight">
             Pandects
           </h1>
 
-          <div className="text-lg text-material-text-secondary leading-relaxed space-y-4">
-            <p>Welcome to Pandects, the open-source M&A research platform.</p>
+          <p className="subheading text-xl font-medium text-gray-600">
+            Welcome to Pandects, the open-source M&A research platform.
+          </p>
+
+          <div className="decorative-divider w-24 h-1 bg-material-blue rounded-full"></div>
+
+          <div className="body-copy max-w-md text-base font-normal text-gray-500 leading-relaxed">
             <p>
               What's up with the name? We took a page from Emperor Justinian,
               whose 6th‑century compendium—The Pandects—distilled centuries of
               legal wisdom into a single, authoritative digest.
             </p>
           </div>
+
+          <Button className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200">
+            Explore Agreements
+          </Button>
         </div>
       </main>
     </div>
