@@ -126,7 +126,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[100px] flex flex-col justify-center">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -161,7 +161,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[100px] flex flex-col justify-center">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -197,7 +197,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[100px] flex flex-col justify-center">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
