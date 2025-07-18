@@ -174,7 +174,7 @@ export default function BulkData() {
                 )}
               </button>
               <div className="text-gray-600 mb-2"># Verify file integrity</div>
-              <div className="whitespace-nowrap pr-12">
+              <div className="whitespace-nowrap pr-10">
                 echo "sha256_hash filename.sql.gz" | sha256sum -c
               </div>
             </div>
