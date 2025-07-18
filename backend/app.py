@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import click
+import json
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -506,45 +507,60 @@ class DumpListResource(MethodView):
     @dumps_blp.response(200, DumpEntrySchema(many=True))
     def get(self):
         paginator = client.get_paginator("list_objects_v2")
-        pages     = paginator.paginate(
-            Bucket=R2_BUCKET_NAME,
-            Prefix="dumps/"
-        )
+        pages     = paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix="dumps/")
 
-        files_by_prefix = defaultdict(dict)
+        # map prefix → { sql, sha256, manifest }
+        dumps_map = defaultdict(dict)
+
         for page in pages:
             for obj in page.get("Contents", []):
                 key      = obj["Key"]
                 filename = key.rsplit("/", 1)[-1]
-                if not filename:
-                    continue
 
-                parts = filename.split(".")
-                if len(parts) < 2:
-                    continue
+                if filename.endswith(".sql.gz.manifest.json"):
+                    prefix = filename[:-len(".sql.gz.manifest.json")]
+                    dumps_map[prefix]["manifest"] = key
 
-                base = ".".join(parts[:2])
-                ext  = ".".join(parts[2:])
-                files_by_prefix[base][ext] = key
+                elif filename.endswith(".sql.gz.sha256"):
+                    prefix = filename[:-len(".sql.gz.sha256")]
+                    dumps_map[prefix]["sha256"] = key
 
+                elif filename.endswith(".sql.gz"):
+                    prefix = filename[:-len(".sql.gz")]
+                    dumps_map[prefix]["sql"] = key
+
+                # catch your “latest.json” (or any plain JSON) *after* the .manifest.json above
+                elif filename.endswith(".json"):
+                    prefix = filename[:-len(".json")]
+                    dumps_map[prefix]["manifest"] = key
+
+        # build the response
         dump_list = []
-        for base, files in sorted(files_by_prefix.items(), reverse=True):
-            label = base.replace("db_dump_", "")
+        for prefix, files in sorted(dumps_map.items(), reverse=True):
+            # strip off your “db_dump_” if you like
+            label = prefix.replace("db_dump_", "")
             entry = {"timestamp": label}
 
-            if "gz" in files:
-                entry["sql"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['gz']}"
-            if "gz.sha256" in files:
-                entry["sha256"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['gz.sha256']}"
-            if "manifest.json" in files:
-                entry["manifest"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['manifest.json']}"
+            if "sql" in files:
+                entry["sql"]    = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['sql']}"
+            if "sha256" in files:
+                entry["sha256"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['sha256']}"
+            if "manifest" in files:
+                entry["manifest"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['manifest']}"
+                # optionally read and unpack the manifest.json payload
                 try:
-                    manifest_obj = client.get_object(Bucket=R2_BUCKET_NAME, Key=manifest_key)
-                    manifest_data = json.loads(manifest_obj["Body"].read())
-                    entry["size_bytes"] = manifest_data.get("size_bytes")
-                    entry["sha256"] = manifest_data.get("sha256")
+                    body = client.get_object(
+                        Bucket=R2_BUCKET_NAME,
+                        Key=files["manifest"]
+                    )["Body"].read()
+                    data = json.loads(body)
+                    if "size_bytes" in data:
+                        entry["size_bytes"] = data["size_bytes"]
+                    if "sha256" in data:
+                        # override with the real sha if you prefer
+                        entry["sha256"] = data["sha256"]
                 except Exception as e:
-                    entry["error"] = f"manifest read failed: {str(e)}"
+                    entry["warning"] = f"couldn't read manifest: {e}"
 
             dump_list.append(entry)
 
