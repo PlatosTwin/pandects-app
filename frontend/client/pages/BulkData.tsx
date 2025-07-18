@@ -191,7 +191,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[80px]">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -208,7 +208,7 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto pb-2">
                 <div className="text-gray-600 mb-2">
                   # Verify file integrity
                 </div>
