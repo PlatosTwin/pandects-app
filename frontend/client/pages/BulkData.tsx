@@ -310,17 +310,17 @@ export default function BulkData() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
                           <a
-                            href={dump.sql}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={apiUrl(
+                              `api/dumps/download/${dump.sql.split("/").pop()}`,
+                            )}
                             className="inline-flex items-center px-3 py-1 border border-material-blue text-material-blue hover:bg-material-blue hover:text-white rounded text-sm font-medium transition-colors"
                           >
                             Download SQL
                           </a>
                           <a
-                            href={dump.manifest}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={apiUrl(
+                              `api/dumps/manifest/${dump.manifest.split("/").pop()}`,
+                            )}
                             className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-sm font-medium transition-colors"
                           >
                             Manifest
