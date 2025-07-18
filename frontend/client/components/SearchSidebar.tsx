@@ -67,8 +67,8 @@ export function SearchSidebar({
       className={cn(
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out fixed left-0 z-10",
         isCollapsed
-          ? "w-16 top-16 bottom-16 h-auto"
-          : "w-80 top-16 bottom-16 h-auto",
+          ? "w-16 top-16 bottom-10 h-auto"
+          : "w-80 top-16 bottom-10 h-auto",
         className,
       )}
     >
