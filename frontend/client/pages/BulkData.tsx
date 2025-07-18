@@ -17,6 +17,7 @@ export default function BulkData() {
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
     {},
   );
+  const [latestSha256, setLatestSha256] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDumps = async () => {
