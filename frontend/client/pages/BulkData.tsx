@@ -79,11 +79,11 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-sm font-mono overflow-x-auto">
-              <div className="text-gray-600 mb-2 whitespace-pre-wrap">
+            <div className="bg-gray-50 rounded p-3 text-sm font-mono">
+              <div className="text-gray-600 mb-2">
                 # API call to get latest dump info
               </div>
-              <div className="break-all">
+              <div className="break-all whitespace-pre-wrap">
                 curl https://api.pandects.app/api/dumps/latest
               </div>
             </div>
@@ -96,7 +96,9 @@ export default function BulkData() {
             </h3>
             <div className="bg-gray-50 rounded p-3 text-sm font-mono">
               <div className="text-gray-600 mb-2"># Download latest dump</div>
-              <div>wget https://dumps.pandects.app/latest.sql.gz</div>
+              <div className="break-all whitespace-pre-wrap">
+                wget https://dumps.pandects.app/latest.sql.gz
+              </div>
             </div>
           </div>
 
@@ -107,7 +109,9 @@ export default function BulkData() {
             </h3>
             <div className="bg-gray-50 rounded p-3 text-sm font-mono">
               <div className="text-gray-600 mb-2"># Verify file integrity</div>
-              <div>echo "sha256_hash filename.sql.gz" | sha256sum -c</div>
+              <div className="break-all whitespace-pre-wrap">
+                echo "sha256_hash filename.sql.gz" | sha256sum -c
+              </div>
             </div>
           </div>
         </div>
