@@ -11,7 +11,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F5F7FA]">
+    <div className="flex flex-col min-h-screen bg-cream">
       <Navigation />
       <main className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="hero-card max-w-[800px] w-full bg-white rounded-3xl shadow-lg p-10 text-center flex flex-col items-center space-y-6 animate-fade-in-up">
@@ -23,17 +23,17 @@ export default function Landing() {
             />
           </div>
 
-          <h1 className="main-heading text-5xl font-extrabold text-black leading-tight">
+          <h1 className="main-heading text-5xl font-extrabold text-material-text-primary leading-tight">
             Pandects
           </h1>
 
-          <p className="subheading text-xl font-medium text-gray-600">
+          <p className="subheading text-xl font-medium text-material-text-secondary">
             Welcome to Pandects, the open-source M&A research platform.
           </p>
 
           <div className="decorative-divider w-24 h-1 bg-material-blue rounded-full"></div>
 
-          <div className="body-copy max-w-md text-base font-normal text-gray-500 leading-relaxed">
+          <div className="body-copy max-w-md text-base font-normal text-material-text-secondary leading-relaxed">
             <p>
               What's up with the name? We took a page from Emperor Justinian,
               whose 6th‑century compendium—The Pandects—distilled centuries of
