@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  TEXT_TRUNCATION_LENGTH,
-  DROPDOWN_ANIMATION_DELAY,
-} from "@/lib/constants";
+import { DROPDOWN_ANIMATION_DELAY } from "@/lib/constants";
+import { truncateText } from "@/lib/text-utils";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -22,20 +20,6 @@ interface CheckboxFilterProps {
   hideSearch?: boolean;
   disabled?: boolean;
 }
-
-// Utility function to truncate text for display
-const truncateText = (
-  text: string,
-  maxLength: number = TEXT_TRUNCATION_LENGTH,
-) => {
-  if (text.length <= maxLength) {
-    return { truncated: text, needsTooltip: false };
-  }
-  return {
-    truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true,
-  };
-};
 
 export function CheckboxFilter({
   label,
