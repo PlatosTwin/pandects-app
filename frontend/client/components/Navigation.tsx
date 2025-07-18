@@ -1,14 +1,29 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import logo from "../../assets/logo.png";
 
 export default function Navigation() {
   const location = useLocation();
   const [isUtilsOpen, setIsUtilsOpen] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleUtilsMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsUtilsOpen(true);
+  };
+
+  const handleUtilsMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsUtilsOpen(false);
+    }, 150);
+  };
 
   return (
     <nav className="bg-gray-800 text-white">
@@ -25,7 +40,7 @@ export default function Navigation() {
           </Link>
 
           {/* Navigation Links */}
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-4 lg:space-x-8">
             {/* Search */}
             <Link
               to="/search"
@@ -81,8 +96,8 @@ export default function Navigation() {
             {/* Utils Dropdown */}
             <div className="relative">
               <button
-                onMouseEnter={() => setIsUtilsOpen(true)}
-                onMouseLeave={() => setIsUtilsOpen(false)}
+                onMouseEnter={handleUtilsMouseEnter}
+                onMouseLeave={handleUtilsMouseLeave}
                 className={cn(
                   "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
                   isActive("/editor")
@@ -97,8 +112,8 @@ export default function Navigation() {
               {isUtilsOpen && (
                 <div
                   className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
-                  onMouseEnter={() => setIsUtilsOpen(true)}
-                  onMouseLeave={() => setIsUtilsOpen(false)}
+                  onMouseEnter={handleUtilsMouseEnter}
+                  onMouseLeave={handleUtilsMouseLeave}
                 >
                   <Link
                     to="/editor"

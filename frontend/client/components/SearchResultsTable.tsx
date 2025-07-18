@@ -32,6 +32,8 @@ interface SearchResultsTableProps {
   onOpenAgreement: (result: SearchResult) => void;
   onSortResults: (sortBy: "year" | "target" | "acquirer") => void;
   onToggleSortDirection: () => void;
+  currentPage?: number;
+  pageSize?: number;
   className?: string;
 }
 
@@ -55,6 +57,8 @@ export function SearchResultsTable({
   onOpenAgreement,
   onSortResults,
   onToggleSortDirection,
+  currentPage = 1,
+  pageSize = 25,
   className,
 }: SearchResultsTableProps) {
   const allSelected =
@@ -123,10 +127,11 @@ export function SearchResultsTable({
       {/* Results Grid */}
       <TooltipProvider>
         <div className="grid gap-4">
-          {searchResults.map((result) => {
+          {searchResults.map((result, index) => {
             const targetText = truncateText(result.target, 75);
             const acquirerText = truncateText(result.acquirer, 75);
             const isSelected = selectedResults.has(result.id);
+            const resultNumber = (currentPage - 1) * pageSize + index + 1;
 
             return (
               <div
@@ -156,6 +161,9 @@ export function SearchResultsTable({
                         }
                         className="data-[state=checked]:bg-material-blue data-[state=checked]:border-material-blue"
                       />
+                      <span className="text-sm font-bold text-material-text-secondary min-w-[2rem]">
+                        {resultNumber}
+                      </span>
                       <div className="flex items-center gap-4 text-sm flex-1 min-w-0">
                         <span className="text-material-text-primary font-medium flex-shrink-0">
                           {result.year}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AVAILABLE_YEARS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
@@ -276,6 +276,21 @@ export default function Search() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Auto-collapse sidebar on tablet and mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const isTabletOrMobile = window.innerWidth < 1024; // lg breakpoint
+      setSidebarCollapsed(isTabletOrMobile);
+    };
+
+    // Set initial state
+    handleResize();
+
+    // Listen for window resize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div className="min-h-screen bg-cream flex flex-col">
       <Navigation />
@@ -410,6 +425,8 @@ export default function Search() {
                           onOpenAgreement={openAgreement}
                           onSortResults={actions.sortResults}
                           onToggleSortDirection={actions.toggleSortDirection}
+                          currentPage={currentPage}
+                          pageSize={pageSize}
                         />
 
                         {/* Bottom pagination controls */}

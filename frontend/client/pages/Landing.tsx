@@ -52,7 +52,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="button-group flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
+          <div className="button-group flex flex-col sm:grid sm:grid-cols-2 lg:flex lg:flex-row gap-4 justify-center items-center w-full">
             <Button
               onClick={handleExploreClick}
               className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
@@ -69,7 +69,7 @@ export default function Landing() {
 
             <Button
               onClick={handleLearnAboutDataClick}
-              className="data-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+              className="data-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200 sm:col-span-2 sm:justify-self-center lg:col-span-1"
             >
               Learn About the Data
             </Button>

@@ -12,7 +12,7 @@ export default function Footer() {
       <div className={cn("py-3 pr-12", isSearchPage ? "pl-[60px]" : "pl-12")}>
         <div className="relative flex items-center">
           {/* Copyright on the left */}
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-400 lg:block hidden">
             © {currentYear} Nikita Bogdanov • Use subject to{" "}
             <a
               href="https://www.gnu.org/licenses/gpl-3.0.en.html"
@@ -23,6 +23,11 @@ export default function Footer() {
               GNU GPLv3
             </a>{" "}
             license.
+          </div>
+
+          {/* Shorter copyright for tablet and mobile */}
+          <div className="text-xs text-gray-400 lg:hidden">
+            © {currentYear} Nikita Bogdanov • GNU GPLv3
           </div>
 
           {/* GitHub logo centered on the page */}
