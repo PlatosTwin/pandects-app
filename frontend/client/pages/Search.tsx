@@ -311,7 +311,7 @@ export default function Search() {
 
             {/* Filter Options Error */}
             {filterOptionsError && (
-              <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="mx-8 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
                 <p className="text-red-800 text-sm">
                   <strong>Filter Options Error:</strong> {filterOptionsError}
                 </p>
