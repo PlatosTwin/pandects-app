@@ -73,9 +73,9 @@ export default function BulkData() {
         </div>
 
         {/* Demo Code Blocks */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="flex flex-col lg:flex-row gap-6 mb-8">
           {/* API Call Example */}
-          <div className="bg-white rounded-lg border border-material-divider p-6">
+          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
@@ -98,7 +98,7 @@ export default function BulkData() {
           </div>
 
           {/* wget Download Example */}
-          <div className="bg-white rounded-lg border border-material-divider p-6">
+          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
@@ -119,7 +119,7 @@ export default function BulkData() {
           </div>
 
           {/* Checksum Verification */}
-          <div className="bg-white rounded-lg border border-material-divider p-6">
+          <div className="bg-white rounded-lg border border-material-divider p-6 flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
