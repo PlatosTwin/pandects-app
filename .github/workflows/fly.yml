@@ -17,6 +17,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ── generate OpenAPI spec ────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Generate OpenAPI spec
+        working-directory: backend
+        # adjust flags if your CLI writes elsewhere or needs an output flag
+        run: flask gen-openapi
+
+      - name: Copy spec to frontend
+        run: |
+          mkdir -p frontend/public
+          mv backend/openapi.yml frontend/public/openapi.yml
+
+      # ── now deploy each app to Fly ───────────────────────────────────────────
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
