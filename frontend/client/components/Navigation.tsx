@@ -65,6 +65,19 @@ export default function Navigation() {
               Bulk Data
             </Link>
 
+            {/* About */}
+            <Link
+              to="/about"
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/about")
+                  ? "text-white"
+                  : "text-gray-300 hover:text-white",
+              )}
+            >
+              About
+            </Link>
+
             {/* Utils Dropdown */}
             <div className="relative">
               <button
