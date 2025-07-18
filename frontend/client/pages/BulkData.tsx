@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Copy, Check } from "lucide-react";
 import Navigation from "@/components/Navigation";
 
 interface DumpInfo {
