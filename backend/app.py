@@ -607,7 +607,7 @@ class DumpDownloadResource(MethodView):
 class DumpManifestResource(MethodView):
     def get(self, filename):
         """Download a manifest file by proxying through R2"""
-                try:
+        try:
             # Handle different filename formats
             if filename.endswith('.manifest.json'):
                 # Full manifest filename like "db_dump_2025-07-18_04-15.sql.gz.manifest.json"
