@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import click
 import json
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_smorest import Api, Blueprint
@@ -42,7 +42,7 @@ app.config.update({
 
 api = Api(app)
 
-# ── CORS setup ──────────────────────────────────────────────────────────
+# ── CORS setup ───────���──────────────────────────────────────────────────
 CORS(
     app,
     resources={
@@ -565,6 +565,89 @@ class DumpListResource(MethodView):
             dump_list.append(entry)
 
         return dump_list
+
+@dumps_blp.route("/download/<string:filename>")
+class DumpDownloadResource(MethodView):
+    def get(self, filename):
+        """Download a dump file by proxying through R2"""
+        try:
+            # Ensure filename ends with .sql.gz for security
+            if not filename.endswith('.sql.gz'):
+                abort(400, description="Invalid file type")
+
+            # Get object from R2
+            response = client.get_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=f"dumps/{filename}"
+            )
+
+            # Stream the file content
+            def generate():
+                try:
+                    while True:
+                        chunk = response['Body'].read(8192)
+                        if not chunk:
+                            break
+                        yield chunk
+                finally:
+                    response['Body'].close()
+
+            return Response(
+                generate(),
+                mimetype='application/gzip',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Type': 'application/gzip'
+                }
+            )
+        except Exception as e:
+            abort(404, description=f"File not found: {str(e)}")
+
+@dumps_blp.route("/manifest/<string:filename>")
+class DumpManifestResource(MethodView):
+    def get(self, filename):
+        """Download a manifest file by proxying through R2"""
+        try:
+            # Handle different filename formats
+            if filename.endswith('.manifest.json'):
+                # Full manifest filename like "db_dump_2025-07-18_04-15.sql.gz.manifest.json"
+                key = f"dumps/{filename}"
+                # Extract base name and ensure proper .manifest.json extension
+                base_name = filename.replace('.sql.gz.manifest.json', '').replace('.manifest.json', '')
+                download_filename = f"{base_name}.manifest.json"
+            elif filename.endswith('.json'):
+                # Simple .json files like "latest.json"
+                key = f"dumps/{filename}"
+                # For files like "latest.json", keep as is, but ensure it's clearly a manifest
+                if not '.manifest.' in filename:
+                    base_name = filename.replace('.json', '')
+                    download_filename = f"{base_name}.manifest.json"
+                else:
+                    download_filename = filename
+            else:
+                # Base filename without extension
+                key = f"dumps/{filename}.manifest.json"
+                download_filename = f"{filename}.manifest.json"
+
+            # Get object from R2
+            response = client.get_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=key
+            )
+
+            # Read and return JSON content
+            content = response['Body'].read()
+
+            return Response(
+                content,
+                mimetype='application/json',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{download_filename}"',
+                    'Content-Type': 'application/json'
+                }
+            )
+        except Exception as e:
+            abort(404, description=f"Manifest not found: {str(e)}")
 
 # Register dumps blueprint
 api.register_blueprint(dumps_blp)
