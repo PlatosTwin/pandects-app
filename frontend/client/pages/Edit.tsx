@@ -21,7 +21,7 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-cream flex flex-col">
       <Navigation />
-      <div className="w-full font-roboto flex-1 flex flex-col gap-8 p-12">
+      <div className="w-full font-roboto flex-1 flex flex-col gap-8 max-w-4xl mx-auto px-8 py-8">
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">
           {/* Page UUID Input */}
