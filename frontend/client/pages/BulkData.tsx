@@ -62,13 +62,42 @@ export default function BulkData() {
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      console.log("Attempting to copy:", text);
+
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        console.log("Successfully copied with navigator.clipboard");
+      } else {
+        // Fallback for older browsers or non-HTTPS
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand("copy");
+          if (successful) {
+            console.log("Successfully copied with document.execCommand");
+          } else {
+            throw new Error("document.execCommand failed");
+          }
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
         setCopiedStates((prev) => ({ ...prev, [id]: false }));
       }, 2000);
     } catch (err) {
       console.error("Failed to copy text: ", err);
+      alert(`Failed to copy. Text: ${text}`);
     }
   };
 
