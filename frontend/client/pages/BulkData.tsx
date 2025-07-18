@@ -126,7 +126,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded px-4 py-3 text-xs font-mono overflow-x-auto relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono overflow-x-auto relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -134,7 +134,7 @@ export default function BulkData() {
                     "wget-download",
                   )
                 }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50"
+                className="absolute top-3 right-3 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10"
                 title="Copy to clipboard"
               >
                 {copiedStates["wget-download"] ? (
@@ -144,7 +144,7 @@ export default function BulkData() {
                 )}
               </button>
               <div className="text-gray-600 mb-2"># Download latest dump</div>
-              <div className="whitespace-nowrap pr-8">
+              <div className="whitespace-nowrap pr-12">
                 wget
                 https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
               </div>
@@ -156,7 +156,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded px-4 py-3 text-xs font-mono overflow-x-auto relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono overflow-x-auto relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -164,7 +164,7 @@ export default function BulkData() {
                     "checksum-verify",
                   )
                 }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50"
+                className="absolute top-3 right-3 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10"
                 title="Copy to clipboard"
               >
                 {copiedStates["checksum-verify"] ? (
@@ -174,7 +174,7 @@ export default function BulkData() {
                 )}
               </button>
               <div className="text-gray-600 mb-2"># Verify file integrity</div>
-              <div className="whitespace-nowrap pr-8">
+              <div className="whitespace-nowrap pr-12">
                 echo "sha256_hash filename.sql.gz" | sha256sum -c
               </div>
             </div>
