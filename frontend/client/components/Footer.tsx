@@ -7,7 +7,7 @@ export default function Footer() {
   const isSearchPage = location.pathname === "/";
 
   return (
-    <footer className="mt-auto border-t border-gray-100">
+    <footer className="mt-auto border-t border-gray-100 bg-white">
       <div
         className="py-3"
         style={{
