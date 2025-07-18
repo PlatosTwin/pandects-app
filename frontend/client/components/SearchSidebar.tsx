@@ -1,4 +1,11 @@
 import React, { useState } from "react";
+import {
+  TRANSACTION_SIZE_OPTIONS,
+  TRANSACTION_TYPE_OPTIONS,
+  CONSIDERATION_TYPE_OPTIONS,
+  TARGET_TYPE_OPTIONS,
+  SIDEBAR_ANIMATION_DELAY,
+} from "@/lib/constants";
 import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
@@ -50,7 +57,10 @@ export function SearchSidebar({
       setShowContent(false);
     } else {
       // Show content after expansion animation completes
-      const timer = setTimeout(() => setShowContent(true), 320);
+      const timer = setTimeout(
+        () => setShowContent(true),
+        SIDEBAR_ANIMATION_DELAY,
+      );
       return () => clearTimeout(timer);
     }
   }, [isCollapsed]);
@@ -160,16 +170,7 @@ export function SearchSidebar({
               <div>
                 <CheckboxFilter
                   label="Transaction Size"
-                  options={[
-                    "100M - 250M",
-                    "250M - 500M",
-                    "500M - 750M",
-                    "750M - 1B",
-                    "1B - 5B",
-                    "5B - 10B",
-                    "10B - 20B",
-                    "20B+",
-                  ]}
+                  options={TRANSACTION_SIZE_OPTIONS}
                   selectedValues={filters.transactionSize || []}
                   onToggle={(value) =>
                     onToggleFilterValue("transactionSize", value)
@@ -184,7 +185,7 @@ export function SearchSidebar({
               <div>
                 <CheckboxFilter
                   label="Transaction Type"
-                  options={["Strategic", "Financial"]}
+                  options={TRANSACTION_TYPE_OPTIONS}
                   selectedValues={filters.transactionType || []}
                   onToggle={(value) =>
                     onToggleFilterValue("transactionType", value)
@@ -199,7 +200,7 @@ export function SearchSidebar({
               <div>
                 <CheckboxFilter
                   label="Consideration Type"
-                  options={["All stock", "All cash", "Mixed"]}
+                  options={CONSIDERATION_TYPE_OPTIONS}
                   selectedValues={filters.considerationType || []}
                   onToggle={(value) =>
                     onToggleFilterValue("considerationType", value)
@@ -214,7 +215,7 @@ export function SearchSidebar({
               <div>
                 <CheckboxFilter
                   label="Target Type"
-                  options={["Public", "Private"]}
+                  options={TARGET_TYPE_OPTIONS}
                   selectedValues={filters.targetType || []}
                   onToggle={(value) => onToggleFilterValue("targetType", value)}
                   tabIndex={8}
