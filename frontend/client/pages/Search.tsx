@@ -60,15 +60,6 @@ export default function Search() {
         activeElement?.closest(".absolute") || // Dropdown containers
         activeElement?.closest('[role="dialog"]'); // Modal containers
 
-      console.log("Global search keydown:", {
-        isInputFocused,
-        isButtonFocused,
-        isInsideDropdown,
-        hasOpenDropdown,
-        activeElement: activeElement?.tagName,
-        className: activeElement?.className,
-      });
-
       if (
         !isInputFocused &&
         !isButtonFocused &&
