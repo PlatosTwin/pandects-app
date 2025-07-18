@@ -144,7 +144,7 @@ export default function BulkData() {
                 )}
               </button>
               <div className="text-gray-600 mb-2"># Download latest dump</div>
-              <div className="whitespace-nowrap pr-12">
+              <div className="whitespace-nowrap pr-10">
                 wget
                 https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
               </div>
