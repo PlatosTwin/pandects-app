@@ -76,9 +76,16 @@ export function SearchSidebar({
     <div
       className={cn(
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out sticky top-0 h-screen",
-        isCollapsed ? "w-16" : "w-80",
+        // Desktop: normal sidebar behavior
+        "lg:relative lg:z-auto",
+        // Tablet/Mobile: overlay behavior when expanded
+        "lg:w-16 lg:data-[expanded]:w-80",
+        isCollapsed ? "w-16" : "w-80 lg:w-80",
+        // On tablet, make it overlay when expanded
+        !isCollapsed && "lg:absolute lg:z-50 lg:shadow-lg",
         className,
       )}
+      data-expanded={!isCollapsed}
     >
       {/* Sidebar Content */}
       {showContent && (
