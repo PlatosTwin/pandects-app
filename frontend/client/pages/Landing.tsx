@@ -71,7 +71,7 @@ export default function Landing() {
               onClick={handleLearnAboutDataClick}
               className="data-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
             >
-              Learn About Data
+              Learn About the Data
             </Button>
           </div>
         </div>
