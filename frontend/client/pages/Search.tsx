@@ -410,6 +410,8 @@ export default function Search() {
                           onOpenAgreement={openAgreement}
                           onSortResults={actions.sortResults}
                           onToggleSortDirection={actions.toggleSortDirection}
+                          currentPage={currentPage}
+                          pageSize={pageSize}
                         />
 
                         {/* Bottom pagination controls */}
