@@ -72,7 +72,7 @@ export function useSearch() {
   const [prevNum, setPrevNum] = useState<number | null>(null);
 
   const updateFilter = useCallback(
-    (field: keyof SearchFilters, value: string | string[]) => {
+    (field: keyof SearchFilters, value: string | string[] | number) => {
       if (field === "page" || field === "pageSize") {
         setFilters((prev) => ({ ...prev, [field]: value as number }));
       } else {
