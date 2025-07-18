@@ -144,20 +144,20 @@ export default function About() {
                 <h1 className="text-3xl font-bold text-gray-900 mb-6">
                   Overview
                 </h1>
-                {/* Content placeholder */}
+                <div className="min-h-[400px]"></div>
               </section>
 
               {/* Data Section */}
               <section id="data" className="scroll-mt-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Data</h2>
-                {/* Content placeholder */}
+                <div className="min-h-[300px]"></div>
 
                 {/* Sources Subsection */}
                 <div id="sources" className="scroll-mt-8 mt-12">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">
                     Sources
                   </h3>
-                  {/* Content placeholder */}
+                  <div className="min-h-[300px]"></div>
                 </div>
 
                 {/* Processing Pipelines Subsection */}
@@ -165,7 +165,7 @@ export default function About() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">
                     Processing pipelines
                   </h3>
-                  {/* Content placeholder */}
+                  <div className="min-h-[300px]"></div>
                 </div>
               </section>
 
@@ -174,7 +174,7 @@ export default function About() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   Contributing
                 </h2>
-                {/* Content placeholder */}
+                <div className="min-h-[400px]"></div>
               </section>
 
               {/* Credits Section */}
@@ -182,7 +182,7 @@ export default function About() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   Credits
                 </h2>
-                {/* Content placeholder */}
+                <div className="min-h-[400px]"></div>
               </section>
             </div>
           </div>
