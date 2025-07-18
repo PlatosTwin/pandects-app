@@ -32,6 +32,11 @@ export default function BulkData() {
 
         const data: DumpInfo[] = await response.json();
 
+        // Find the latest version's SHA256
+        const latest = data.find((dump) => dump.timestamp === "latest");
+        const latestHash = latest?.sha256 || null;
+        setLatestSha256(latestHash);
+
         // Sort so 'latest' is always first, then sort others by timestamp
         const sortedData = data.sort((a, b) => {
           if (a.timestamp === "latest") return -1;
