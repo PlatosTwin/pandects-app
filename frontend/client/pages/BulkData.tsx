@@ -126,7 +126,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -143,12 +143,14 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="overflow-x-auto">
-                <div className="text-gray-600 mb-2">
-                  # API call to get latest dump info
-                </div>
-                <div className="whitespace-nowrap pr-10">
-                  curl https://pandects-api.fly.dev/api/dumps/latest
+              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+                <div>
+                  <div className="text-gray-600 mb-2">
+                    # API call to get latest dump info
+                  </div>
+                  <div className="whitespace-nowrap pr-10">
+                    curl https://pandects-api.fly.dev/api/dumps/latest
+                  </div>
                 </div>
               </div>
             </div>
@@ -159,7 +161,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -176,11 +178,15 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="overflow-x-auto">
-                <div className="text-gray-600 mb-2"># Download latest dump</div>
-                <div className="whitespace-nowrap pr-10">
-                  wget
-                  https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
+              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+                <div>
+                  <div className="text-gray-600 mb-2">
+                    # Download latest dump
+                  </div>
+                  <div className="whitespace-nowrap pr-10">
+                    wget
+                    https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
+                  </div>
                 </div>
               </div>
             </div>
@@ -191,7 +197,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -208,12 +214,14 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="overflow-x-auto">
-                <div className="text-gray-600 mb-2">
-                  # Verify file integrity
-                </div>
-                <div className="whitespace-nowrap pr-10">
-                  echo "sha256_hash filename.sql.gz" | sha256sum -c
+              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+                <div>
+                  <div className="text-gray-600 mb-2">
+                    # Verify file integrity
+                  </div>
+                  <div className="whitespace-nowrap pr-10">
+                    echo "sha256_hash filename.sql.gz" | sha256sum -c
+                  </div>
                 </div>
               </div>
             </div>

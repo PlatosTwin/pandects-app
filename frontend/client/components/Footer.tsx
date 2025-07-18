@@ -15,7 +15,7 @@ export default function Footer() {
           paddingRight: "48px",
         }}
       >
-        <div className="flex items-center justify-between">
+        <div className="relative flex items-center">
           {/* Copyright on the left */}
           <div className="text-xs text-gray-400">
             © {currentYear} Nikita Bogdanov • Use subject to{" "}
@@ -30,8 +30,8 @@ export default function Footer() {
             license.
           </div>
 
-          {/* GitHub logo in the center - just icon */}
-          <div className="flex-1 flex justify-center">
+          {/* GitHub logo centered on the page */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
             <a
               href="https://github.com/PlatosTwin/pandects-app"
               target="_blank"
@@ -42,9 +42,6 @@ export default function Footer() {
               <Github className="w-4 h-4" />
             </a>
           </div>
-
-          {/* Empty div for balance */}
-          <div className="w-24" />
         </div>
       </div>
     </footer>
