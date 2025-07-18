@@ -3,9 +3,12 @@ import Navigation from "@/components/Navigation";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="h-full flex flex-col">
       <Navigation />
-      <main className="flex-1 flex items-center justify-center px-8">
+      <main
+        className="flex-1 flex items-center justify-center px-8"
+        style={{ paddingBottom: "8vh" }}
+      >
         <div className="max-w-2xl mx-auto text-center">
           <div className="mb-8">
             <img
