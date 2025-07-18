@@ -129,7 +129,7 @@ tags:
 - name: search
   description: Search merger agreement sections
 - name: dumps
-  description: Access bulk data on Cloudflare
+  description: Access metadata about bulk data on Cloudflare
 openapi: 3.0.2
 components:
   schemas:

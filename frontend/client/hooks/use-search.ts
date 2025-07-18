@@ -1,31 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
-
-// Function to extract standard IDs from nested clause type structure
-const extractStandardIds = (
-  clauseTypeTexts: string[],
-  clauseTypesNested: any,
-): string[] => {
-  const standardIds: string[] = [];
-
-  const searchInNested = (obj: any): void => {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string") {
-        // This is a leaf node - check if the key matches any selected clause type
-        if (clauseTypeTexts.includes(key)) {
-          standardIds.push(value as string);
-        }
-      } else if (typeof value === "object") {
-        // Recurse into nested object
-        searchInNested(value);
-      }
-    }
-  };
-
-  searchInNested(clauseTypesNested);
-  return standardIds;
-};
+import { buildSearchParams, extractStandardIds } from "@/lib/url-params";
+import {
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_PAGE,
+  LARGE_PAGE_SIZE_FOR_CSV,
+} from "@/lib/constants";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
@@ -38,8 +19,8 @@ export function useSearch() {
     transactionType: [],
     considerationType: [],
     targetType: [],
-    page: 1,
-    pageSize: 25,
+    page: DEFAULT_PAGE,
+    pageSize: DEFAULT_PAGE_SIZE,
   });
 
   // Helper function to sort results
@@ -91,7 +72,7 @@ export function useSearch() {
   const [prevNum, setPrevNum] = useState<number | null>(null);
 
   const updateFilter = useCallback(
-    (field: keyof SearchFilters, value: string | string[]) => {
+    (field: keyof SearchFilters, value: string | string[] | number) => {
       if (field === "page" || field === "pageSize") {
         setFilters((prev) => ({ ...prev, [field]: value as number }));
       } else {
@@ -133,72 +114,7 @@ export function useSearch() {
           setFilters((prev) => ({ ...prev, page: 1 }));
         }
 
-        const params = new URLSearchParams();
-
-        // Handle array filters - append each value separately
-        if (searchFilters.year && searchFilters.year.length > 0) {
-          searchFilters.year.forEach((year) => params.append("year", year));
-        }
-        if (searchFilters.target && searchFilters.target.length > 0) {
-          searchFilters.target.forEach((target) =>
-            params.append("target", target),
-          );
-        }
-        if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
-          searchFilters.acquirer.forEach((acquirer) =>
-            params.append("acquirer", acquirer),
-          );
-        }
-        if (
-          searchFilters.transactionSize &&
-          searchFilters.transactionSize.length > 0
-        ) {
-          searchFilters.transactionSize.forEach((size) =>
-            params.append("transactionSize", size),
-          );
-        }
-        if (
-          searchFilters.transactionType &&
-          searchFilters.transactionType.length > 0
-        ) {
-          searchFilters.transactionType.forEach((type) =>
-            params.append("transactionType", type),
-          );
-        }
-        if (
-          searchFilters.considerationType &&
-          searchFilters.considerationType.length > 0
-        ) {
-          searchFilters.considerationType.forEach((type) =>
-            params.append("considerationType", type),
-          );
-        }
-        if (searchFilters.targetType && searchFilters.targetType.length > 0) {
-          searchFilters.targetType.forEach((type) =>
-            params.append("targetType", type),
-          );
-        }
-
-        // Extract standard IDs from selected clause types and send them instead
-        if (
-          searchFilters.clauseType &&
-          searchFilters.clauseType.length > 0 &&
-          clauseTypesNested
-        ) {
-          const standardIds = extractStandardIds(
-            searchFilters.clauseType,
-            clauseTypesNested,
-          );
-          standardIds.forEach((standardId) =>
-            params.append("standardId", standardId),
-          );
-        }
-
-        // Handle pagination
-        if (searchFilters.page)
-          params.append("page", searchFilters.page.toString());
-        if (searchFilters.pageSize)
-          params.append("pageSize", searchFilters.pageSize.toString());
+        const params = buildSearchParams(searchFilters, clauseTypesNested);
 
         const queryString = params.toString();
         const res = await fetch(apiUrl(`api/search?${queryString}`));
@@ -297,70 +213,15 @@ export function useSearch() {
             page: undefined,
             pageSize: undefined,
           };
-          const params = new URLSearchParams();
-
-          // Build the same filter parameters as in performSearch
-          if (searchFilters.year && searchFilters.year.length > 0) {
-            searchFilters.year.forEach((year) => params.append("year", year));
-          }
-          if (searchFilters.target && searchFilters.target.length > 0) {
-            searchFilters.target.forEach((target) =>
-              params.append("target", target),
-            );
-          }
-          if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
-            searchFilters.acquirer.forEach((acquirer) =>
-              params.append("acquirer", acquirer),
-            );
-          }
-          if (
-            searchFilters.transactionSize &&
-            searchFilters.transactionSize.length > 0
-          ) {
-            searchFilters.transactionSize.forEach((size) =>
-              params.append("transactionSize", size),
-            );
-          }
-          if (
-            searchFilters.transactionType &&
-            searchFilters.transactionType.length > 0
-          ) {
-            searchFilters.transactionType.forEach((type) =>
-              params.append("transactionType", type),
-            );
-          }
-          if (
-            searchFilters.considerationType &&
-            searchFilters.considerationType.length > 0
-          ) {
-            searchFilters.considerationType.forEach((type) =>
-              params.append("considerationType", type),
-            );
-          }
-          if (searchFilters.targetType && searchFilters.targetType.length > 0) {
-            searchFilters.targetType.forEach((type) =>
-              params.append("targetType", type),
-            );
-          }
-
-          // Extract standard IDs from selected clause types and send them instead
-          if (
-            searchFilters.clauseType &&
-            searchFilters.clauseType.length > 0 &&
-            clauseTypesNested
-          ) {
-            const standardIds = extractStandardIds(
-              searchFilters.clauseType,
-              clauseTypesNested,
-            );
-            standardIds.forEach((standardId) =>
-              params.append("standardId", standardId),
-            );
-          }
+          const params = buildSearchParams(
+            searchFilters,
+            clauseTypesNested,
+            false,
+          );
 
           // Set a very large page size to get all results
-          params.append("pageSize", "10000");
-          params.append("page", "1");
+          params.append("pageSize", LARGE_PAGE_SIZE_FOR_CSV.toString());
+          params.append("page", DEFAULT_PAGE.toString());
 
           const queryString = params.toString();
           const res = await fetch(apiUrl(`api/search?${queryString}`));
@@ -431,8 +292,8 @@ export function useSearch() {
       transactionType: [],
       considerationType: [],
       targetType: [],
-      page: 1,
-      pageSize: 25,
+      page: DEFAULT_PAGE,
+      pageSize: DEFAULT_PAGE_SIZE,
     });
     setSearchResults([]);
     setSelectedResults(new Set());
@@ -538,7 +399,7 @@ export function useSearch() {
     totalCount,
     totalPages,
     currentPage: filters.page || 1,
-    pageSize: filters.pageSize || 25,
+    pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
     showErrorModal,
     errorMessage,
     showNoResultsModal,

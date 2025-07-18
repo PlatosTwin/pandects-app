@@ -1,5 +1,6 @@
 import { Github } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -8,13 +9,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-auto border-t border-gray-100 bg-white">
-      <div
-        className="py-3"
-        style={{
-          paddingLeft: isSearchPage ? "60px" : "48px",
-          paddingRight: "48px",
-        }}
-      >
+      <div className={cn("py-3 pr-12", isSearchPage ? "pl-[60px]" : "pl-12")}>
         <div className="relative flex items-center">
           {/* Copyright on the left */}
           <div className="text-xs text-gray-400">

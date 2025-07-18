@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AVAILABLE_YEARS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
   Search as SearchIcon,
@@ -60,15 +61,6 @@ export default function Search() {
         activeElement?.closest(".absolute") || // Dropdown containers
         activeElement?.closest('[role="dialog"]'); // Modal containers
 
-      console.log("Global search keydown:", {
-        isInputFocused,
-        isButtonFocused,
-        isInsideDropdown,
-        hasOpenDropdown,
-        activeElement: activeElement?.tagName,
-        className: activeElement?.className,
-      });
-
       if (
         !isInputFocused &&
         !isButtonFocused &&
@@ -116,29 +108,7 @@ export default function Search() {
   };
 
   // Static years data (not dynamic for now)
-  const years = [
-    "2020",
-    "2019",
-    "2018",
-    "2017",
-    "2016",
-    "2015",
-    "2014",
-    "2013",
-    "2012",
-    "2011",
-    "2010",
-    "2009",
-    "2008",
-    "2007",
-    "2006",
-    "2005",
-    "2004",
-    "2003",
-    "2002",
-    "2001",
-    "2000",
-  ];
+  const years = AVAILABLE_YEARS;
 
   const clauseTypesNested = {
     "Conditions, Termination & Closing": {

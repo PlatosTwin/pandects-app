@@ -11,10 +11,7 @@ export default function Landing() {
   };
 
   return (
-    <div
-      className="flex flex-col min-h-screen"
-      style={{ backgroundColor: "#F5F7FA" }}
-    >
+    <div className="flex flex-col min-h-screen bg-[#F5F7FA]">
       <Navigation />
       <main className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="hero-card max-w-[800px] w-full bg-white rounded-3xl shadow-lg p-10 text-center flex flex-col items-center space-y-6 animate-fade-in-up">

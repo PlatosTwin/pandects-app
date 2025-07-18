@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { DROPDOWN_ANIMATION_DELAY } from "@/lib/constants";
+import { truncateText } from "@/lib/text-utils";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -18,17 +20,6 @@ interface CheckboxFilterProps {
   hideSearch?: boolean;
   disabled?: boolean;
 }
-
-// Utility function to truncate text for display
-const truncateText = (text: string, maxLength: number = 40) => {
-  if (text.length <= maxLength) {
-    return { truncated: text, needsTooltip: false };
-  }
-  return {
-    truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true,
-  };
-};
 
 export function CheckboxFilter({
   label,
@@ -156,13 +147,12 @@ export function CheckboxFilter({
       setTimeout(() => {
         if (componentRef.current) {
           componentRef.current.focus();
-          console.log("Focused component container");
         }
         if (searchInputRef.current) {
           searchInputRef.current.focus();
         }
         setHighlightedIndex(-1); // Don't auto-highlight any option
-      }, 100);
+      }, DROPDOWN_ANIMATION_DELAY);
     }
   }, [isExpanded]);
 
@@ -171,23 +161,8 @@ export function CheckboxFilter({
     if (!isExpanded) return;
 
     const handleDocumentKeyDown = (e: KeyboardEvent) => {
-      console.log(
-        "Document keydown for CheckboxFilter:",
-        e.key,
-        "isExpanded:",
-        isExpanded,
-      );
-
       if (e.key === "Enter" || e.key === "Escape") {
         const target = e.target as HTMLElement;
-        console.log(
-          "Target:",
-          target.tagName,
-          "searchTerm:",
-          searchTerm,
-          "highlighted:",
-          highlightedIndex,
-        );
 
         // Check if this event should close our dropdown
         const isInOurDropdown =
@@ -196,11 +171,8 @@ export function CheckboxFilter({
 
         // Close dropdown if event is in our dropdown OR if target is BODY (no specific focus)
         if (isInOurDropdown || isBodyTarget) {
-          console.log("Event is in our dropdown or body target");
-
           // Always close on Escape
           if (e.key === "Escape") {
-            console.log("Closing on Escape");
             e.preventDefault();
             e.stopPropagation();
             setIsExpanded(false);
@@ -214,7 +186,6 @@ export function CheckboxFilter({
             (!searchTerm.trim() && highlightedIndex === -1) ||
             isBodyTarget
           ) {
-            console.log("Closing on Enter");
             e.preventDefault();
             e.stopPropagation();
             setIsExpanded(false);
