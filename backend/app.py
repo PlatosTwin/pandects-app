@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import click
 import json
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_smorest import Api, Blueprint
@@ -83,7 +83,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# ── Reflect existing tables via standalone engine ─────────────────────────
+# ── Reflect existing tables via standalone engine ���────────────────────────
 engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
 metadata = MetaData()
 
