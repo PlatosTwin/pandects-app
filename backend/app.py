@@ -562,7 +562,7 @@ class DumpListResource(MethodView):
                 except Exception as e:
                     entry["warning"] = f"couldn't read manifest: {e}"
 
-                    dump_list.append(entry)
+            dump_list.append(entry)
 
         return dump_list
 
