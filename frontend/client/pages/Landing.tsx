@@ -10,6 +10,17 @@ export default function Landing() {
     navigate("/search");
   };
 
+  const handleLearnAboutDataClick = () => {
+    navigate("/about#data");
+  };
+
+  const handleSeeExamplesClick = () => {
+    window.open(
+      "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
+      "_blank",
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-cream">
       <Navigation />
@@ -41,12 +52,28 @@ export default function Landing() {
             </p>
           </div>
 
-          <Button
-            onClick={handleExploreClick}
-            className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
-          >
-            Explore Agreements
-          </Button>
+          <div className="button-group flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
+            <Button
+              onClick={handleExploreClick}
+              className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+            >
+              Explore Agreements
+            </Button>
+
+            <Button
+              onClick={handleSeeExamplesClick}
+              className="examples-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+            >
+              See Examples
+            </Button>
+
+            <Button
+              onClick={handleLearnAboutDataClick}
+              className="data-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+            >
+              Learn About the Data
+            </Button>
+          </div>
         </div>
       </main>
     </div>
