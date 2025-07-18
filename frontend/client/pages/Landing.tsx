@@ -10,6 +10,17 @@ export default function Landing() {
     navigate("/search");
   };
 
+  const handleLearnAboutDataClick = () => {
+    navigate("/about#data");
+  };
+
+  const handleSeeExamplesClick = () => {
+    window.open(
+      "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
+      "_blank",
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-cream">
       <Navigation />
