@@ -11,7 +11,10 @@ export default function Landing() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col min-h-screen"
+      style={{ backgroundColor: "#F5F7FA" }}
+    >
       <Navigation />
       <main
         className="min-h-[80vh] flex items-center justify-center px-4 py-12"
