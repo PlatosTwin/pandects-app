@@ -51,7 +51,7 @@ export default function About() {
 
       <div className="flex">
         {/* Sidebar */}
-        <nav className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200">
+        <nav className="hidden md:block w-64 flex-shrink-0 border-r border-material-divider">
           <div
             className="sticky top-16 px-6 pt-6 pb-4"
             style={{
