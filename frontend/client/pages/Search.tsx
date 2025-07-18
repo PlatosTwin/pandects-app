@@ -363,7 +363,7 @@ export default function Search() {
 
             {/* Main Content - Scrollable */}
             <div className="flex-1 overflow-auto">
-              <div className="p-6">
+              <div className="px-8 py-8">
                 {/* Search Results */}
                 {hasSearched && (
                   <div className="flex flex-col gap-6">
