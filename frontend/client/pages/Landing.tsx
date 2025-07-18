@@ -44,7 +44,10 @@ export default function Landing() {
             </p>
           </div>
 
-          <Button className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200">
+          <Button
+            onClick={handleExploreClick}
+            className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+          >
             Explore Agreements
           </Button>
         </div>
