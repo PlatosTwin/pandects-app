@@ -48,7 +48,7 @@ export default function About() {
       <div className="flex">
         {/* Fixed Navigation Pane */}
         <nav className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 overflow-y-auto z-10">
-          <div className="fixed left-64 top-16 bottom-0 w-px bg-gray-300 z-10"></div>
+          <div className="fixed left-64 top-0 bottom-0 w-px bg-gray-300 z-10"></div>
           <div className="p-6">
             <ul className="space-y-2">
               <li>
