@@ -7,7 +7,7 @@ export default function Landing() {
       <Navigation />
       <main
         className="flex items-center justify-center px-8"
-        style={{ height: "calc(100vh - 120px)" }}
+        style={{ height: "calc(100vh - 160px)" }}
       >
         <div className="max-w-2xl mx-auto text-center">
           <div className="mb-8">
@@ -26,7 +26,7 @@ export default function Landing() {
             <p>Welcome to Pandects, the open-source M&A research platform.</p>
             <p>
               What's up with the name? We took a page from Emperor Justinian,
-              whose 6th‑century compendium—The Pandects���distilled centuries of
+              whose 6th‑century compendium—The Pandects—distilled centuries of
               legal wisdom into a single, authoritative digest.
             </p>
           </div>
