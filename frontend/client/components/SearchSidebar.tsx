@@ -61,7 +61,7 @@ export function SearchSidebar({
       )}
     >
       {/* Sidebar Content */}
-      {!isCollapsed && (
+      {!isCollapsed && !isTransitioning && (
         <div className="h-full flex flex-col">
           {/* Header */}
           <div className="border-b border-gray-200 p-4">
