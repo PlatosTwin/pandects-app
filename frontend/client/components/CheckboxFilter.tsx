@@ -156,7 +156,6 @@ export function CheckboxFilter({
       setTimeout(() => {
         if (componentRef.current) {
           componentRef.current.focus();
-          console.log("Focused component container");
         }
         if (searchInputRef.current) {
           searchInputRef.current.focus();
@@ -171,23 +170,8 @@ export function CheckboxFilter({
     if (!isExpanded) return;
 
     const handleDocumentKeyDown = (e: KeyboardEvent) => {
-      console.log(
-        "Document keydown for CheckboxFilter:",
-        e.key,
-        "isExpanded:",
-        isExpanded,
-      );
-
       if (e.key === "Enter" || e.key === "Escape") {
         const target = e.target as HTMLElement;
-        console.log(
-          "Target:",
-          target.tagName,
-          "searchTerm:",
-          searchTerm,
-          "highlighted:",
-          highlightedIndex,
-        );
 
         // Check if this event should close our dropdown
         const isInOurDropdown =
@@ -196,11 +180,8 @@ export function CheckboxFilter({
 
         // Close dropdown if event is in our dropdown OR if target is BODY (no specific focus)
         if (isInOurDropdown || isBodyTarget) {
-          console.log("Event is in our dropdown or body target");
-
           // Always close on Escape
           if (e.key === "Escape") {
-            console.log("Closing on Escape");
             e.preventDefault();
             e.stopPropagation();
             setIsExpanded(false);
@@ -214,7 +195,6 @@ export function CheckboxFilter({
             (!searchTerm.trim() && highlightedIndex === -1) ||
             isBodyTarget
           ) {
-            console.log("Closing on Enter");
             e.preventDefault();
             e.stopPropagation();
             setIsExpanded(false);
