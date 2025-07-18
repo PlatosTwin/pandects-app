@@ -79,11 +79,17 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-sm font-mono">
+            <div className="bg-gray-50 rounded p-3 text-sm font-mono overflow-x-auto">
               <div className="text-gray-600 mb-2">
                 # API call to get latest dump info
               </div>
-              <div style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
+              <div
+                style={{
+                  wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "break-word",
+                }}
+              >
                 curl https://api.pandects.app/api/dumps/latest
               </div>
             </div>
@@ -94,9 +100,15 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-sm font-mono">
+            <div className="bg-gray-50 rounded p-3 text-sm font-mono overflow-x-auto">
               <div className="text-gray-600 mb-2"># Download latest dump</div>
-              <div style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
+              <div
+                style={{
+                  wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "break-word",
+                }}
+              >
                 wget https://dumps.pandects.app/latest.sql.gz
               </div>
             </div>
@@ -107,9 +119,15 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-sm font-mono">
+            <div className="bg-gray-50 rounded p-3 text-sm font-mono overflow-x-auto">
               <div className="text-gray-600 mb-2"># Verify file integrity</div>
-              <div style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
+              <div
+                style={{
+                  wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "break-word",
+                }}
+              >
                 echo "sha256_hash filename.sql.gz" | sha256sum -c
               </div>
             </div>
