@@ -399,7 +399,7 @@ export function useSearch() {
     totalCount,
     totalPages,
     currentPage: filters.page || 1,
-    pageSize: filters.pageSize || 25,
+    pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
     showErrorModal,
     errorMessage,
     showNoResultsModal,
