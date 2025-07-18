@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import {
+  TEXT_TRUNCATION_LENGTH,
+  DROPDOWN_ANIMATION_DELAY,
+} from "@/lib/constants";
 import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -27,7 +31,10 @@ interface ExpandState {
 }
 
 // Utility function to truncate text for display
-const truncateText = (text: string, maxLength: number = 40) => {
+const truncateText = (
+  text: string,
+  maxLength: number = TEXT_TRUNCATION_LENGTH,
+) => {
   if (text.length <= maxLength) {
     return { truncated: text, needsTooltip: false };
   }
@@ -218,7 +225,7 @@ export function NestedCheckboxFilter({
         if (searchInputRef.current) {
           searchInputRef.current.focus();
         }
-      }, 100);
+      }, DROPDOWN_ANIMATION_DELAY);
     }
   }, [isExpanded, useModal]);
 
