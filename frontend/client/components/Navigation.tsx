@@ -11,6 +11,20 @@ export default function Navigation() {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleUtilsMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsUtilsOpen(true);
+  };
+
+  const handleUtilsMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsUtilsOpen(false);
+    }, 150);
+  };
+
   return (
     <nav className="bg-gray-800 text-white">
       <div className="max-w-9xl mx-auto px-7">
