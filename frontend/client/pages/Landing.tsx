@@ -17,7 +17,7 @@ export default function Landing() {
         className="min-h-screen flex items-center justify-center px-4"
         style={{ backgroundColor: "#F5F7FA" }}
       >
-        <div className="hero-card max-w-[650px] w-full bg-white rounded-3xl shadow-lg p-12 text-center flex flex-col items-center space-y-8 animate-fade-in-up">
+        <div className="hero-card max-w-[650px] w-full bg-white rounded-3xl shadow-lg p-8 text-center flex flex-col items-center space-y-6 animate-fade-in-up">
           <div className="logo-container">
             <img
               src={logo}
