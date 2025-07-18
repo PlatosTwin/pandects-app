@@ -302,7 +302,7 @@ export default function Search() {
           {/* Main Content Area */}
           <div className="flex flex-col flex-1 min-w-0">
             {/* Header */}
-            <div className="flex items-center gap-3 border-b border-gray-200 p-6">
+            <div className="flex items-center gap-3 border-b border-material-divider px-8 py-6">
               <FileText className="w-6 h-6 text-material-text-secondary" />
               <h1 className="text-xl font-normal text-material-text-primary">
                 M&A Clause Search
@@ -311,7 +311,7 @@ export default function Search() {
 
             {/* Filter Options Error */}
             {filterOptionsError && (
-              <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="mx-8 mt-6 bg-red-50 border border-red-200 rounded-md p-4">
                 <p className="text-red-800 text-sm">
                   <strong>Filter Options Error:</strong> {filterOptionsError}
                 </p>
@@ -323,7 +323,7 @@ export default function Search() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-4 p-6 border-b border-gray-200">
+            <div className="flex items-center gap-4 px-8 py-6 border-b border-material-divider">
               <Button
                 onClick={() => actions.performSearch(true, clauseTypesNested)}
                 disabled={isSearching}
@@ -363,7 +363,7 @@ export default function Search() {
 
             {/* Main Content - Scrollable */}
             <div className="flex-1 overflow-auto">
-              <div className="p-6">
+              <div className="px-8 py-8">
                 {/* Search Results */}
                 {hasSearched && (
                   <div className="flex flex-col gap-6">

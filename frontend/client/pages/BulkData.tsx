@@ -122,20 +122,19 @@ export default function BulkData() {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-cream">
       <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-material-text-primary mb-4">
             Bulk Data Downloads
           </h1>
           <p className="text-material-text-secondary max-w-3xl">
-            Download complete database dumps of the Pandects
-            dataset. All dumps are compressed MariaDB SQL files containing the
-            full structured data.
+            Download complete database dumps of the Pandects dataset. All dumps
+            are compressed MariaDB SQL files containing the full structured
+            data.
           </p>
         </div>
 
@@ -218,7 +217,7 @@ export default function BulkData() {
                   latestSha256 &&
                   copyToClipboard(
                     `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
-                    "checksum-verify"
+                    "checksum-verify",
                   )
                 }
                 className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 hover:bg-gray-50 z-10"
@@ -231,7 +230,9 @@ export default function BulkData() {
                 )}
               </button>
               <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-gray-600 mb-2"># Verify file integrity</div>
+                <div className="text-gray-600 mb-2">
+                  # Verify file integrity
+                </div>
                 <div className="whitespace-nowrap pr-10">
                   {latestSha256
                     ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`

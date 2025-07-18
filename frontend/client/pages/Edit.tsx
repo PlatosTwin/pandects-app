@@ -21,7 +21,18 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-cream flex flex-col">
       <Navigation />
-      <div className="w-full font-roboto flex-1 flex flex-col gap-8 p-12">
+      <div className="w-full font-roboto flex-1 flex flex-col gap-8 max-w-4xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-4">
+          <h1 className="text-3xl font-bold text-material-text-primary mb-4">
+            LLM Output Editor
+          </h1>
+          <p className="text-material-text-secondary">
+            Load and edit LLM-generated content with live preview and save
+            functionality.
+          </p>
+        </div>
+
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">
           {/* Page UUID Input */}
