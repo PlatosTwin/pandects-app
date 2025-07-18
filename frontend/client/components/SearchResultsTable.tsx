@@ -57,6 +57,8 @@ export function SearchResultsTable({
   onOpenAgreement,
   onSortResults,
   onToggleSortDirection,
+  currentPage = 1,
+  pageSize = 25,
   className,
 }: SearchResultsTableProps) {
   const allSelected =
