@@ -323,7 +323,7 @@ export default function Search() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-4 p-6 border-b border-gray-200">
+            <div className="flex items-center gap-4 px-8 py-6 border-b border-material-divider">
               <Button
                 onClick={() => actions.performSearch(true, clauseTypesNested)}
                 disabled={isSearching}
