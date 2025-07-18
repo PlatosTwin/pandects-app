@@ -36,6 +36,15 @@ export default function About() {
       setActiveSection(current);
     };
 
+    // Handle hash fragment on page load
+    const hash = window.location.hash.slice(1); // Remove the '#'
+    if (hash) {
+      // Small delay to ensure the page has rendered
+      setTimeout(() => {
+        scrollToSection(hash);
+      }, 100);
+    }
+
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
