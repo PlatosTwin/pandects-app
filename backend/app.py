@@ -42,7 +42,7 @@ app.config.update({
 
 api = Api(app)
 
-# ── CORS setup ��─────────────────────────────────────────────────────────
+# ── CORS setup ──────────────────────────────────────────────────────────
 CORS(
     app,
     resources={
@@ -198,7 +198,7 @@ class DumpEntrySchema(Schema):
     sha256    = fields.Url(required=False, allow_none=True)
     manifest  = fields.Url(required=False, allow_none=True)
     
-# ── Route definitions ────────────────────────���──────────────
+# ── Route definitions ───────────────────────────────────────
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
     # pick the most-recent prompt for this page (excluding SKIP outputs)
@@ -607,22 +607,27 @@ class DumpDownloadResource(MethodView):
 class DumpManifestResource(MethodView):
     def get(self, filename):
         """Download a manifest file by proxying through R2"""
-        try:
-            # Handle both .json and .manifest.json extensions
-            if filename.endswith('.json'):
+                try:
+            # Handle different filename formats
+            if filename.endswith('.manifest.json'):
+                # Full manifest filename like "db_dump_2025-07-18_04-15.sql.gz.manifest.json"
                 key = f"dumps/{filename}"
-                download_filename = filename
-            elif filename.endswith('.manifest.json'):
+                # Extract base name and ensure proper .manifest.json extension
+                base_name = filename.replace('.sql.gz.manifest.json', '').replace('.manifest.json', '')
+                download_filename = f"{base_name}.manifest.json"
+            elif filename.endswith('.json'):
+                # Simple .json files like "latest.json"
                 key = f"dumps/{filename}"
-                download_filename = filename
+                # For files like "latest.json", keep as is, but ensure it's clearly a manifest
+                if not '.manifest.' in filename:
+                    base_name = filename.replace('.json', '')
+                    download_filename = f"{base_name}.manifest.json"
+                else:
+                    download_filename = filename
             else:
-                # Assume it's a base filename and add .manifest.json
+                # Base filename without extension
                 key = f"dumps/{filename}.manifest.json"
                 download_filename = f"{filename}.manifest.json"
-
-            # Ensure download filename ends with .json
-            if not download_filename.endswith('.json'):
-                download_filename = f"{download_filename}.json"
 
             # Get object from R2
             response = client.get_object(
