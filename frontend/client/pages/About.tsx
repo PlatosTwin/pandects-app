@@ -78,8 +78,8 @@ export default function About() {
                     className={cn(
                       "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
                       activeSection === id
-                        ? "bg-blue-50 text-blue-700 font-medium"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        ? "bg-material-blue-light text-material-blue font-medium"
+                        : "text-material-text-secondary hover:text-material-text-primary hover:bg-material-surface",
                     )}
                   >
                     {label}
