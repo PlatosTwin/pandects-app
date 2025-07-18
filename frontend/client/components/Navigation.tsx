@@ -52,6 +52,19 @@ export default function Navigation() {
               Docs
             </Link>
 
+            {/* Bulk Data */}
+            <Link
+              to="/bulk-data"
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/bulk-data")
+                  ? "text-white"
+                  : "text-gray-300 hover:text-white",
+              )}
+            >
+              Bulk Data
+            </Link>
+
             {/* Utils Dropdown */}
             <div className="relative">
               <button
