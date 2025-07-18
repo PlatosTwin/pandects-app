@@ -52,20 +52,22 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="button-group flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
-            <Button
-              onClick={handleExploreClick}
-              className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
-            >
-              Explore Agreements
-            </Button>
+          <div className="button-group flex flex-col items-center gap-4 w-full">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button
+                onClick={handleExploreClick}
+                className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+              >
+                Explore Agreements
+              </Button>
 
-            <Button
-              onClick={handleSeeExamplesClick}
-              className="examples-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
-            >
-              See Examples
-            </Button>
+              <Button
+                onClick={handleSeeExamplesClick}
+                className="examples-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+              >
+                See Examples
+              </Button>
+            </div>
 
             <Button
               onClick={handleLearnAboutDataClick}
