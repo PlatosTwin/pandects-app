@@ -17,6 +17,7 @@ export default function BulkData() {
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
     {},
   );
+  const [latestSha256, setLatestSha256] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDumps = async () => {
@@ -30,6 +31,11 @@ export default function BulkData() {
         }
 
         const data: DumpInfo[] = await response.json();
+
+        // Find the latest version's SHA256
+        const latest = data.find((dump) => dump.timestamp === "latest");
+        const latestHash = latest?.sha256 || null;
+        setLatestSha256(latestHash);
 
         // Sort so 'latest' is always first, then sort others by timestamp
         const sortedData = data.sort((a, b) => {
@@ -285,6 +291,13 @@ export default function BulkData() {
                               Latest Version
                             </span>
                           )}
+                          {dump.timestamp !== "latest" &&
+                            latestSha256 &&
+                            dump.sha256 === latestSha256 && (
+                              <span className="text-xs text-green-600 font-medium">
+                                Same as Latest
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
