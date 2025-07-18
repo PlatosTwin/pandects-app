@@ -15,20 +15,34 @@ export default function About() {
         "contributing",
         "credits",
       ];
-      const scrollPosition = window.scrollY + 100;
+      const scrollPosition = window.scrollY + 150; // Adjust offset for better detection
 
-      for (const sectionId of sections) {
+      // Check if we're at the bottom of the page
+      if (
+        window.innerHeight + window.scrollY >=
+        document.body.offsetHeight - 100
+      ) {
+        setActiveSection("credits");
+        return;
+      }
+
+      // Find the current section
+      let currentSection = "overview"; // Default fallback
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const sectionId = sections[i];
         const element = document.getElementById(sectionId);
         if (element) {
           const offsetTop = element.offsetTop;
-          const offsetBottom = offsetTop + element.offsetHeight;
 
-          if (scrollPosition >= offsetTop && scrollPosition < offsetBottom) {
-            setActiveSection(sectionId);
+          if (scrollPosition >= offsetTop) {
+            currentSection = sectionId;
             break;
           }
         }
       }
+
+      setActiveSection(currentSection);
     };
 
     window.addEventListener("scroll", handleScroll);
