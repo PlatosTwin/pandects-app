@@ -124,7 +124,7 @@ export default function BulkData() {
           {/* API Call Example */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Get Latest Version
+              Latest version via API
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
@@ -159,7 +159,7 @@ export default function BulkData() {
           {/* wget Download Example */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Download with wget
+              Latest version with wget
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
@@ -195,13 +195,13 @@ export default function BulkData() {
           {/* Checksum Verification */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Verify Checksum
+              Verify the checksum
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
-                    'echo "sha256_hash filename.sql.gz" | sha256sum -c',
+                    'echo "<sha256_hash> latest.sql.gz" | sha256sum -c',
                     "checksum-verify",
                   )
                 }
@@ -220,7 +220,7 @@ export default function BulkData() {
                     # Verify file integrity
                   </div>
                   <div className="whitespace-nowrap pr-10">
-                    echo "sha256_hash filename.sql.gz" | sha256sum -c
+                    echo "&lt;sha256_hash&gt; latest.sql.gz" | sha256sum -c
                   </div>
                 </div>
               </div>
