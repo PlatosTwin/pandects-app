@@ -276,6 +276,21 @@ export default function Search() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Auto-collapse sidebar on tablet and mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const isTabletOrMobile = window.innerWidth < 1024; // lg breakpoint
+      setSidebarCollapsed(isTabletOrMobile);
+    };
+
+    // Set initial state
+    handleResize();
+
+    // Listen for window resize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div className="min-h-screen bg-cream flex flex-col">
       <Navigation />
