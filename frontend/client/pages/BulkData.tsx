@@ -103,7 +103,7 @@ export default function BulkData() {
                     "api-call",
                   )
                 }
-                className="absolute top-3 right-3 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                className="sticky top-3 right-3 float-right p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10 ml-2"
                 title="Copy to clipboard"
               >
                 {copiedStates["api-call"] ? (
@@ -134,7 +134,7 @@ export default function BulkData() {
                     "wget-download",
                   )
                 }
-                className="absolute top-3 right-3 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                className="sticky top-3 right-3 float-right p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10 ml-2"
                 title="Copy to clipboard"
               >
                 {copiedStates["wget-download"] ? (
@@ -164,7 +164,7 @@ export default function BulkData() {
                     "checksum-verify",
                   )
                 }
-                className="absolute top-3 right-3 p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                className="sticky top-3 right-3 float-right p-1.5 rounded bg-white shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-gray-50 z-10 ml-2"
                 title="Copy to clipboard"
               >
                 {copiedStates["checksum-verify"] ? (
