@@ -41,14 +41,26 @@ export function SearchSidebar({
   isCollapsed,
   className,
 }: SearchSidebarProps) {
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showContent, setShowContent] = useState(false);
 
-  // Track transitions when isCollapsed changes
+  // Control content visibility with proper timing
   React.useEffect(() => {
-    setIsTransitioning(true);
-    const timer = setTimeout(() => setIsTransitioning(false), 300);
-    return () => clearTimeout(timer);
+    if (isCollapsed) {
+      // Hide content immediately when collapsing
+      setShowContent(false);
+    } else {
+      // Show content after expansion animation completes
+      const timer = setTimeout(() => setShowContent(true), 320);
+      return () => clearTimeout(timer);
+    }
   }, [isCollapsed]);
+
+  // Initialize content visibility on mount
+  React.useEffect(() => {
+    if (!isCollapsed) {
+      setShowContent(true);
+    }
+  }, []);
 
   return (
     <div
@@ -56,12 +68,12 @@ export function SearchSidebar({
         "flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out fixed left-0 z-10",
         isCollapsed
           ? "w-16 top-16 h-[calc(100vh-4rem)]"
-          : "w-80 top-0 h-screen",
+          : "w-80 top-16 h-[calc(100vh-4rem)]",
         className,
       )}
     >
       {/* Sidebar Content */}
-      {!isCollapsed && (
+      {showContent && (
         <div className="h-full flex flex-col">
           {/* Header */}
           <div className="border-b border-gray-200 p-4">
