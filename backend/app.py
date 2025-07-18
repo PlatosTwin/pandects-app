@@ -83,7 +83,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# ── Reflect existing tables via standalone engine ���────────────────────────
+# ── Reflect existing tables via standalone engine ─────────────────────────
 engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
 metadata = MetaData()
 
@@ -564,7 +564,78 @@ class DumpListResource(MethodView):
 
             dump_list.append(entry)
 
-        return dump_list
+                return dump_list
+
+@dumps_blp.route("/download/<string:filename>")
+class DumpDownloadResource(MethodView):
+    def get(self, filename):
+        """Download a dump file by proxying through R2"""
+        try:
+            # Ensure filename ends with .sql.gz for security
+            if not filename.endswith('.sql.gz'):
+                abort(400, description="Invalid file type")
+
+            # Get object from R2
+            response = client.get_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=f"dumps/{filename}"
+            )
+
+            # Stream the file content
+            def generate():
+                try:
+                    while True:
+                        chunk = response['Body'].read(8192)
+                        if not chunk:
+                            break
+                        yield chunk
+                finally:
+                    response['Body'].close()
+
+            return Response(
+                generate(),
+                mimetype='application/gzip',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Type': 'application/gzip'
+                }
+            )
+        except Exception as e:
+            abort(404, description=f"File not found: {str(e)}")
+
+@dumps_blp.route("/manifest/<string:filename>")
+class DumpManifestResource(MethodView):
+    def get(self, filename):
+        """Download a manifest file by proxying through R2"""
+        try:
+            # Handle both .json and .manifest.json extensions
+            if filename.endswith('.json'):
+                key = f"dumps/{filename}"
+            elif filename.endswith('.manifest.json'):
+                key = f"dumps/{filename}"
+            else:
+                # Assume it's a base filename and add .manifest.json
+                key = f"dumps/{filename}.manifest.json"
+
+            # Get object from R2
+            response = client.get_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=key
+            )
+
+            # Read and return JSON content
+            content = response['Body'].read()
+
+            return Response(
+                content,
+                mimetype='application/json',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Type': 'application/json'
+                }
+            )
+        except Exception as e:
+            abort(404, description=f"Manifest not found: {str(e)}")
 
 # Register dumps blueprint
 api.register_blueprint(dumps_blp)
