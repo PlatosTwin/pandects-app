@@ -96,8 +96,8 @@ export default function Navigation() {
             {/* Utils Dropdown */}
             <div className="relative">
               <button
-                onMouseEnter={() => setIsUtilsOpen(true)}
-                onMouseLeave={() => setIsUtilsOpen(false)}
+                onMouseEnter={handleUtilsMouseEnter}
+                onMouseLeave={handleUtilsMouseLeave}
                 className={cn(
                   "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
                   isActive("/editor")
@@ -112,8 +112,8 @@ export default function Navigation() {
               {isUtilsOpen && (
                 <div
                   className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
-                  onMouseEnter={() => setIsUtilsOpen(true)}
-                  onMouseLeave={() => setIsUtilsOpen(false)}
+                  onMouseEnter={handleUtilsMouseEnter}
+                  onMouseLeave={handleUtilsMouseLeave}
                 >
                   <Link
                     to="/editor"
