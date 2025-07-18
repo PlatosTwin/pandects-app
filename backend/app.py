@@ -42,7 +42,7 @@ app.config.update({
 
 api = Api(app)
 
-# ── CORS setup ──────────────────────────────────────────────────────────
+# ── CORS setup ───────���──────────────────────────────────────────────────
 CORS(
     app,
     resources={
@@ -562,9 +562,9 @@ class DumpListResource(MethodView):
                 except Exception as e:
                     entry["warning"] = f"couldn't read manifest: {e}"
 
-            dump_list.append(entry)
+                        dump_list.append(entry)
 
-            return dump_list
+        return dump_list
 
 @dumps_blp.route("/download/<string:filename>")
 class DumpDownloadResource(MethodView):
