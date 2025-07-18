@@ -5,12 +5,10 @@ set -euo pipefail
 MARIADB_HOST="pandects-db.internal"
 MARIADB_USER="panda"
 MARIADB_DATABASE="mna"
-# secrets must be set in Fly:
-#   fly secrets set MARIADB_PASSWORD=… \
-#                   R2_ACCESS_KEY_ID=… \
-#                   R2_SECRET_ACCESS_KEY=…
+
 R2_BUCKET_NAME="pandects-bulk"
 R2_ENDPOINT="https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
+PUBLIC_DEV_BASE="https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
 
 # ── Dump DB ─────────────────────────────────────────────────────
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M")
@@ -39,9 +37,9 @@ python3 - <<EOF
 import boto3, hashlib, json, time
 from pathlib import Path
 
-# Use shell‑expanded values as Python constants
-endpoint = "${R2_ENDPOINT}"
-bucket   = "${R2_BUCKET_NAME}"
+endpoint           = "${R2_ENDPOINT}"
+public_dev_base    = "${PUBLIC_DEV_BASE}"
+bucket             = "${R2_BUCKET_NAME}"
 
 session = boto3.session.Session()
 client  = session.client(
@@ -63,18 +61,23 @@ client.upload_file(str(dump_path), bucket, dump_key, ExtraArgs={"ACL":"public-re
 print(f"📤 Uploading checksum: {checksum_key}")
 client.upload_file(str(checksum_path), bucket, checksum_key, ExtraArgs={"ACL":"public-read"})
 
-# Generate manifest
+# Build URLs
 sha256_digest = hashlib.sha256(dump_path.read_bytes()).hexdigest()
-dump_url      = f"{endpoint}/{bucket}/{dump_key}"
-checksum_url  = f"{endpoint}/{bucket}/{checksum_key}"
+dump_url       = f"{endpoint}/{bucket}/{dump_key}"
+checksum_url   = f"{endpoint}/{bucket}/{checksum_key}"
+dump_url_dev   = f"{public_dev_base}/{dump_key}"
+checksum_url_dev = f"{public_dev_base}/{checksum_key}"
 
+# Generate manifest
 manifest = {
-    "filename":     dump_path.name,
-    "timestamp":    time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    "size_bytes":   dump_path.stat().st_size,
-    "sha256":       sha256_digest,
-    "download_url": dump_url,
-    "checksum_url": checksum_url,
+    "filename":          dump_path.name,
+    "timestamp":         time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "size_bytes":        dump_path.stat().st_size,
+    "sha256":            sha256_digest,
+    "download_url":      dump_url,
+    "checksum_url":      checksum_url,
+    "download_url_dev":  dump_url_dev,
+    "checksum_url_dev":  checksum_url_dev,
 }
 
 manifest_path = dump_path.with_name(dump_path.name + ".manifest.json")
@@ -88,13 +91,13 @@ client.upload_file(str(manifest_path), bucket, manifest_key, ExtraArgs={"ACL":"p
 # Update latest.* pointers
 print("🔁 Updating latest.* symlinks…")
 for src_key, dst_key in [
-    (dump_key,    "dumps/latest.sql.gz"),
-    (checksum_key,"dumps/latest.sql.gz.sha256"),
-    (manifest_key,"dumps/latest.json"),
+    (dump_key,      "dumps/latest.sql.gz"),
+    (checksum_key,  "dumps/latest.sql.gz.sha256"),
+    (manifest_key,  "dumps/latest.json"),
 ]:
     client.copy_object(
         Bucket=bucket,
-        CopySource={"Bucket":bucket, "Key":src_key},
+        CopySource={"Bucket": bucket, "Key": src_key},
         Key=dst_key,
         ACL="public-read"
     )

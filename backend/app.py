@@ -61,6 +61,7 @@ CORS(
 # —— Bulk data setup ——————————————————————————————————————————————————————
 R2_BUCKET_NAME="pandects-bulk"
 R2_ENDPOINT="https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
+PUBLIC_DEV_BASE = "https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
 
 session = boto3.session.Session()
 client = session.client(
@@ -509,9 +510,7 @@ class DumpListResource(MethodView):
         paginator = client.get_paginator("list_objects_v2")
         pages     = paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix="dumps/")
 
-        # map prefix → { sql, sha256, manifest }
         dumps_map = defaultdict(dict)
-
         for page in pages:
             for obj in page.get("Contents", []):
                 key      = obj["Key"]
@@ -529,25 +528,23 @@ class DumpListResource(MethodView):
                     prefix = filename[:-len(".sql.gz")]
                     dumps_map[prefix]["sql"] = key
 
-                # catch your “latest.json” (or any plain JSON) *after* the .manifest.json above
                 elif filename.endswith(".json"):
                     prefix = filename[:-len(".json")]
                     dumps_map[prefix]["manifest"] = key
 
-        # build the response
         dump_list = []
         for prefix, files in sorted(dumps_map.items(), reverse=True):
-            # strip off your “db_dump_” if you like
             label = prefix.replace("db_dump_", "")
             entry = {"timestamp": label}
 
             if "sql" in files:
-                entry["sql"]    = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['sql']}"
+                entry["sql"] = f"{PUBLIC_DEV_BASE}/{files['sql']}"
+
             if "sha256" in files:
-                entry["sha256"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['sha256']}"
+                entry["sha256"] = f"{PUBLIC_DEV_BASE}/{files['sha256']}"
+
             if "manifest" in files:
-                entry["manifest"] = f"{R2_ENDPOINT}/{R2_BUCKET_NAME}/{files['manifest']}"
-                # optionally read and unpack the manifest.json payload
+                entry["manifest"] = f"{PUBLIC_DEV_BASE}/{files['manifest']}"
                 try:
                     body = client.get_object(
                         Bucket=R2_BUCKET_NAME,
@@ -557,7 +554,6 @@ class DumpListResource(MethodView):
                     if "size_bytes" in data:
                         entry["size_bytes"] = data["size_bytes"]
                     if "sha256" in data:
-                        # override with the real sha if you prefer
                         entry["sha256"] = data["sha256"]
                 except Exception as e:
                     entry["warning"] = f"couldn't read manifest: {e}"
@@ -565,89 +561,6 @@ class DumpListResource(MethodView):
             dump_list.append(entry)
 
         return dump_list
-
-@dumps_blp.route("/download/<string:filename>")
-class DumpDownloadResource(MethodView):
-    def get(self, filename):
-        """Download a dump file by proxying through R2"""
-        try:
-            # Ensure filename ends with .sql.gz for security
-            if not filename.endswith('.sql.gz'):
-                abort(400, description="Invalid file type")
-
-            # Get object from R2
-            response = client.get_object(
-                Bucket=R2_BUCKET_NAME,
-                Key=f"dumps/{filename}"
-            )
-
-            # Stream the file content
-            def generate():
-                try:
-                    while True:
-                        chunk = response['Body'].read(8192)
-                        if not chunk:
-                            break
-                        yield chunk
-                finally:
-                    response['Body'].close()
-
-            return Response(
-                generate(),
-                mimetype='application/gzip',
-                headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
-                    'Content-Type': 'application/gzip'
-                }
-            )
-        except Exception as e:
-            abort(404, description=f"File not found: {str(e)}")
-
-@dumps_blp.route("/manifest/<string:filename>")
-class DumpManifestResource(MethodView):
-    def get(self, filename):
-        """Download a manifest file by proxying through R2"""
-        try:
-            # Handle different filename formats
-            if filename.endswith('.manifest.json'):
-                # Full manifest filename like "db_dump_2025-07-18_04-15.sql.gz.manifest.json"
-                key = f"dumps/{filename}"
-                # Extract base name and ensure proper .manifest.json extension
-                base_name = filename.replace('.sql.gz.manifest.json', '').replace('.manifest.json', '')
-                download_filename = f"{base_name}.manifest.json"
-            elif filename.endswith('.json'):
-                # Simple .json files like "latest.json"
-                key = f"dumps/{filename}"
-                # For files like "latest.json", keep as is, but ensure it's clearly a manifest
-                if not '.manifest.' in filename:
-                    base_name = filename.replace('.json', '')
-                    download_filename = f"{base_name}.manifest.json"
-                else:
-                    download_filename = filename
-            else:
-                # Base filename without extension
-                key = f"dumps/{filename}.manifest.json"
-                download_filename = f"{filename}.manifest.json"
-
-            # Get object from R2
-            response = client.get_object(
-                Bucket=R2_BUCKET_NAME,
-                Key=key
-            )
-
-            # Read and return JSON content
-            content = response['Body'].read()
-
-            return Response(
-                content,
-                mimetype='application/json',
-                headers={
-                    'Content-Disposition': f'attachment; filename="{download_filename}"',
-                    'Content-Type': 'application/json'
-                }
-            )
-        except Exception as e:
-            abort(404, description=f"Manifest not found: {str(e)}")
 
 # Register dumps blueprint
 api.register_blueprint(dumps_blp)

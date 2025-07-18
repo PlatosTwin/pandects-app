@@ -18,6 +18,7 @@ export default function BulkData() {
     {},
   );
   const [latestSha256, setLatestSha256] = useState<string | null>(null);
+  const [latestSqlUrl, setLatestSqlUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDumps = async () => {
@@ -36,6 +37,7 @@ export default function BulkData() {
         const latest = data.find((dump) => dump.timestamp === "latest");
         const latestHash = latest?.sha256 || null;
         setLatestSha256(latestHash);
+        setLatestSqlUrl(latest?.sql || null);
 
         // Sort so 'latest' is always first, then sort others by timestamp
         const sortedData = data.sort((a, b) => {
@@ -103,6 +105,24 @@ export default function BulkData() {
     }
   };
 
+  const downloadManifest = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const filename = url.split("/").pop()!;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      console.error("Failed to download manifest", e);
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-cream">
       <Navigation />
@@ -124,13 +144,13 @@ export default function BulkData() {
           {/* API Call Example */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Pull latest version metadata via API
+              Pull metadata for all dumps via API
             </h3>
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
                   copyToClipboard(
-                    "curl https://pandects-api.fly.dev/api/dumps/latest",
+                    "curl https://pandects-api.fly.dev/api/dumps",
                     "api-call",
                   )
                 }
@@ -146,17 +166,17 @@ export default function BulkData() {
               <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
                 <div>
                   <div className="text-gray-600 mb-2">
-                    # API call to get latest dump info
+                    # API call to get dumps info
                   </div>
                   <div className="whitespace-nowrap pr-10">
-                    curl https://pandects-api.fly.dev/api/dumps/latest
+                    curl https://pandects-api.fly.dev/api/dumps
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* wget Download Example */}
+          {/* Download with wget */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download latest version with wget
@@ -164,12 +184,10 @@ export default function BulkData() {
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
-                  copyToClipboard(
-                    "wget https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details",
-                    "wget-download",
-                  )
+                  latestSqlUrl &&
+                  copyToClipboard(`wget ${latestSqlUrl}`, "wget-download")
                 }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 hover:bg-gray-50 z-10"
                 title="Copy to clipboard"
               >
                 {copiedStates["wget-download"] ? (
@@ -179,20 +197,17 @@ export default function BulkData() {
                 )}
               </button>
               <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div>
-                  <div className="text-gray-600 mb-2">
-                    # Download latest dump
-                  </div>
-                  <div className="whitespace-nowrap pr-10">
-                    wget
-                    https://dash.cloudflare.com/34730161d8a80dadcd289d6774ffff3d/r2/default/buckets/pandects-bulk/objects/dumps%2Flatest.sql.gz/details
-                  </div>
+                <div className="text-gray-600 mb-2"># Download latest dump</div>
+                <div className="whitespace-nowrap pr-10">
+                  {latestSqlUrl
+                    ? `wget ${latestSqlUrl}`
+                    : "Loading latest URL..."}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Checksum Verification */}
+          {/* Verify the checksum */}
           <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify the checksum
@@ -200,12 +215,13 @@ export default function BulkData() {
             <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
               <button
                 onClick={() =>
+                  latestSha256 &&
                   copyToClipboard(
-                    'echo "<sha256_hash> latest.sql.gz" | sha256sum -c',
-                    "checksum-verify",
+                    `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
+                    "checksum-verify"
                   )
                 }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
+                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 hover:bg-gray-50 z-10"
                 title="Copy to clipboard"
               >
                 {copiedStates["checksum-verify"] ? (
@@ -215,13 +231,11 @@ export default function BulkData() {
                 )}
               </button>
               <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div>
-                  <div className="text-gray-600 mb-2">
-                    # Verify file integrity
-                  </div>
-                  <div className="whitespace-nowrap pr-10">
-                    echo "&lt;sha256_hash&gt; latest.sql.gz" | sha256sum -c
-                  </div>
+                <div className="text-gray-600 mb-2"># Verify file integrity</div>
+                <div className="whitespace-nowrap pr-10">
+                  {latestSha256
+                    ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
+                    : "Loading latest SHA256..."}
                 </div>
               </div>
             </div>
@@ -330,22 +344,23 @@ export default function BulkData() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
+                          {/* direct SQL download (R2.dev supports cross‑origin downloads) */}
                           <a
-                            href={apiUrl(
-                              `api/dumps/download/${dump.sql.split("/").pop()}`,
-                            )}
+                            href={dump.sql}
                             className="inline-flex items-center px-3 py-1 border border-material-blue text-material-blue hover:bg-material-blue hover:text-white rounded text-sm font-medium transition-colors"
+                            target="_blank"
+                            rel="noopener noreferrer"
                           >
                             Download SQL
                           </a>
-                          <a
-                            href={apiUrl(
-                              `api/dumps/manifest/${dump.manifest.split("/").pop()}`,
-                            )}
+
+                          {/* manifest: fetch+trigger download */}
+                          <button
+                            onClick={() => downloadManifest(dump.manifest)}
                             className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-sm font-medium transition-colors"
                           >
                             Manifest
-                          </a>
+                          </button>
                         </div>
                       </td>
                     </tr>
