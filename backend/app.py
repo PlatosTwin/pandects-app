@@ -564,7 +564,7 @@ class DumpListResource(MethodView):
 
             dump_list.append(entry)
 
-                return dump_list
+            return dump_list
 
 @dumps_blp.route("/download/<string:filename>")
 class DumpDownloadResource(MethodView):
