@@ -106,7 +106,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -123,7 +123,7 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="p-4 overflow-x-auto">
+              <div className="overflow-x-auto">
                 <div className="text-gray-600 mb-2">
                   # API call to get latest dump info
                 </div>
@@ -139,7 +139,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Download with wget
             </h3>
-            <div className="bg-gray-50 rounded text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -156,7 +156,7 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="p-4 overflow-x-auto">
+              <div className="overflow-x-auto">
                 <div className="text-gray-600 mb-2"># Download latest dump</div>
                 <div className="whitespace-nowrap pr-10">
                   wget
@@ -171,7 +171,7 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Verify Checksum
             </h3>
-            <div className="bg-gray-50 rounded text-xs font-mono relative group">
+            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group">
               <button
                 onClick={() =>
                   copyToClipboard(
@@ -188,7 +188,7 @@ export default function BulkData() {
                   <Copy className="w-3 h-3 text-gray-600" />
                 )}
               </button>
-              <div className="p-4 overflow-x-auto">
+              <div className="overflow-x-auto">
                 <div className="text-gray-600 mb-2">
                   # Verify file integrity
                 </div>
