@@ -291,6 +291,13 @@ export default function BulkData() {
                               Latest Version
                             </span>
                           )}
+                          {dump.timestamp !== "latest" &&
+                            latestSha256 &&
+                            dump.sha256 === latestSha256 && (
+                              <span className="text-xs text-green-600 font-medium">
+                                Same as Latest
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
