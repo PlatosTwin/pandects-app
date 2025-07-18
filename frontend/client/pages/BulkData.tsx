@@ -79,11 +79,13 @@ export default function BulkData() {
             <h3 className="text-lg font-semibold text-material-text-primary mb-3">
               Get Latest Version
             </h3>
-            <div className="bg-gray-50 rounded p-3 text-sm font-mono">
-              <div className="text-gray-600 mb-2">
+            <div className="bg-gray-50 rounded p-3 text-sm font-mono overflow-x-auto">
+              <div className="text-gray-600 mb-2 whitespace-pre-wrap">
                 # API call to get latest dump info
               </div>
-              <div>curl https://api.pandects.app/api/dumps/latest</div>
+              <div className="break-all">
+                curl https://api.pandects.app/api/dumps/latest
+              </div>
             </div>
           </div>
 
