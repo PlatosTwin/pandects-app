@@ -1,0 +1,210 @@
+paths:
+  /api/search:
+    get:
+      parameters:
+      - in: query
+        name: year
+        schema:
+          type: array
+          default: []
+          items:
+            type: integer
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: standardId
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transactionSize
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transactionType
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: considerationType
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: targetType
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        required: false
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          default: 25
+        required: false
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - search
+info:
+  title: Pandects API
+  version: v1
+tags:
+- name: search
+  description: Search merger agreement sections
+openapi: 3.0.2
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Error code
+        status:
+          type: string
+          description: Error name
+        message:
+          type: string
+          description: Error message
+        errors:
+          type: object
+          description: Errors
+          additionalProperties: {}
+    PaginationMetadata:
+      type: object
+      properties:
+        total:
+          type: integer
+        total_pages:
+          type: integer
+        first_page:
+          type: integer
+        last_page:
+          type: integer
+        page:
+          type: integer
+        previous_page:
+          type: integer
+        next_page:
+          type: integer
+    SectionItem:
+      type: object
+      properties:
+        id:
+          type: string
+        agreementUuid:
+          type: string
+        sectionUuid:
+          type: string
+        xml:
+          type: string
+        articleTitle:
+          type: string
+        sectionTitle:
+          type: string
+        acquirer:
+          type: string
+        target:
+          type: string
+        year:
+          type: integer
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionItem'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+        nextNum:
+          type: integer
+          nullable: true
+        prevNum:
+          type: integer
+          nullable: true
+  responses:
+    UNPROCESSABLE_ENTITY:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    DEFAULT_ERROR:
+      description: Default error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

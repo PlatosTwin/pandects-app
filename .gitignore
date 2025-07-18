@@ -11,3 +11,4 @@ backend/build/
 TODO.md
 README.md
 *.sql
+*.pyc

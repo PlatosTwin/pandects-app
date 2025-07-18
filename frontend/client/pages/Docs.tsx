@@ -1,4 +1,7 @@
 import Navigation from "@/components/Navigation";
+import SwaggerUI from 'swagger-ui-react';
+import 'swagger-ui-react/swagger-ui.css';
+import { API_BASE_URL } from "@/lib/api-config";
 
 export default function Docs() {
   return (
@@ -6,16 +9,15 @@ export default function Docs() {
       <Navigation />
       <main className="flex-1 p-12">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-material-text-primary mb-8">
-            API Documentation
-          </h1>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-            <p className="text-material-text-secondary text-lg">
-              API documentation is coming soon. This page will contain
-              comprehensive guides and references for using the Pandects API.
-            </p>
-          </div>
+          <SwaggerUI url="/openapi.yaml" 
+          requestInterceptor={(req) => {
+        const u = new URL(req.url, window.location.origin);
+        if (u.pathname.startsWith("/api/")) {
+          req.url = `${API_BASE_URL}${u.pathname}${u.search}`;
+        }
+        return req;
+      }}
+          />
         </div>
       </main>
     </div>

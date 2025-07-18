@@ -1,7 +1,12 @@
 import os
+from pathlib import Path
+import click
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_smorest import Api, Blueprint
+from flask.views import MethodView
+from marshmallow import Schema, fields
 from sqlalchemy import (
     create_engine,
     MetaData,
@@ -21,6 +26,20 @@ load_dotenv()
 
 # ── Flask setup ────────────────────────────��─────────────────────────────
 app = Flask(__name__)
+
+# ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
+app.config.update({
+    "API_TITLE": "Pandects API",
+    "API_VERSION": "v1",
+    "OPENAPI_VERSION": "3.0.2",
+    "OPENAPI_URL_PREFIX": "/",
+    "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
+    "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+})
+
+api = Api(app)
+
+# ── CORS setup ──────────────────────────────────────────────────────────
 CORS(
     app,
     resources={
@@ -36,6 +55,7 @@ CORS(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# ── Database configuration ───────────────────────────────────────────────
 DB_USER = os.environ["MARIADB_USER"]
 DB_PASS = os.environ["MARIADB_PASSWORD"]
 DB_HOST = os.environ["MARIADB_HOST"]
@@ -49,7 +69,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
-# ── Reflect your existing llm_output table with a standalone engine ────
+# ── Reflect existing tables via standalone engine ─────────────────────────
 engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
 metadata = MetaData()
 
@@ -91,7 +111,7 @@ taxonomy_table = Table(
     autoload_with=engine,
 )
 
-
+# ── SQLAlchemy models mapping ───────────────────────────────────────
 class LLMOut(db.Model):
     __table__ = llm_output_table
 
@@ -115,7 +135,47 @@ class XML(db.Model):
 class Taxonomy(db.Model):
     __table__ = taxonomy_table
 
+# ── Define search blueprint and schemas ──────────────────────────────────
+search_blp = Blueprint(
+    "search", "search", url_prefix="/api/search",
+    description="Search merger agreement sections"
+)
 
+class SearchArgsSchema(Schema):
+    year = fields.List(fields.Int(), load_default=[])
+    target = fields.List(fields.Str(), load_default=[])
+    acquirer = fields.List(fields.Str(), load_default=[])
+    standardId = fields.List(fields.Str(), load_default=[])
+    transactionSize = fields.List(fields.Str(), load_default=[])
+    transactionType = fields.List(fields.Str(), load_default=[])
+    considerationType = fields.List(fields.Str(), load_default=[])
+    targetType = fields.List(fields.Str(), load_default=[])
+    page = fields.Int(load_default=1)
+    pageSize = fields.Int(load_default=25)
+
+class SectionItemSchema(Schema):
+    id = fields.Str()
+    agreementUuid = fields.Str()
+    sectionUuid = fields.Str()
+    xml = fields.Str()
+    articleTitle = fields.Str()
+    sectionTitle = fields.Str()
+    acquirer = fields.Str()
+    target = fields.Str()
+    year = fields.Int()
+
+class SearchResponseSchema(Schema):
+    results = fields.List(fields.Nested(SectionItemSchema))
+    page = fields.Int()
+    pageSize = fields.Int()
+    totalCount = fields.Int()
+    totalPages = fields.Int()
+    hasNext = fields.Bool()
+    hasPrev = fields.Bool()
+    nextNum = fields.Int(allow_none=True)
+    prevNum = fields.Int(allow_none=True)
+    
+# ── Route definitions ───────────────────────────────────────
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
     # pick the most-recent prompt for this page (excluding SKIP outputs)
@@ -214,204 +274,219 @@ def get_filter_options():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/search", methods=["GET"])
-def search_sections():
-    # pull in optional query params - now supporting multiple values
-    years = request.args.getlist("year")
-    targets = request.args.getlist("target")
-    acquirers = request.args.getlist("acquirer")
-    clause_types = request.args.getlist("clauseType")
-    standard_ids = request.args.getlist("standardId")
-    transaction_sizes = request.args.getlist("transactionSize")
-    transaction_types = request.args.getlist("transactionType")
-    consideration_types = request.args.getlist("considerationType")
-    target_types = request.args.getlist("targetType")
+@search_blp.route("")
+class SearchResource(MethodView):
+    @search_blp.arguments(SearchArgsSchema, location="query")
+    @search_blp.response(200, SearchResponseSchema)
+    def get(self, args):
+# @app.route("/api/search", methods=["GET"])
+# def search_sections():
+        # pull in optional query params - now supporting multiple values
+        years = request.args.getlist("year")
+        targets = request.args.getlist("target")
+        acquirers = request.args.getlist("acquirer")
+        standard_ids = request.args.getlist("standardId")
+        transaction_sizes = request.args.getlist("transactionSize")
+        transaction_types = request.args.getlist("transactionType")
+        consideration_types = request.args.getlist("considerationType")
+        target_types = request.args.getlist("targetType")
 
-    # pagination parameters
-    page = request.args.get("page", 1, type=int)
-    page_size = request.args.get("pageSize", 25, type=int)
+        # pagination parameters
+        page = request.args.get("page", 1, type=int)
+        page_size = request.args.get("pageSize", 25, type=int)
 
-    # Validate pagination parameters
-    if page < 1:
-        page = 1
-    if page_size < 1 or page_size > 100:  # Cap max page size for performance
-        page_size = 25
+        # Validate pagination parameters
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:  # Cap max page size for performance
+            page_size = 25
 
-    # build the base ORM query
-    q = db.session.query(
-        Sections.section_uuid,
-        Sections.agreement_uuid,
-        Sections.xml_content,
-        Sections.article_title,
-        Sections.section_title,
-        Agreements.acquirer,
-        Agreements.target,
-        Agreements.year,
-    ).join(Agreements, Sections.agreement_uuid == Agreements.uuid)
+        # build the base ORM query
+        q = db.session.query(
+            Sections.section_uuid,
+            Sections.agreement_uuid,
+            Sections.xml_content,
+            Sections.article_title,
+            Sections.section_title,
+            Agreements.acquirer,
+            Agreements.target,
+            Agreements.year,
+        ).join(Agreements, Sections.agreement_uuid == Agreements.uuid)
 
-    # apply filters only when provided - now handling multiple values
-    if years:
-        # Convert years to integers for filtering
-        year_ints = [int(year) for year in years if year.isdigit()]
-        if year_ints:
-            q = q.filter(Agreements.year.in_(year_ints))
+        # apply filters only when provided - now handling multiple values
+        if years:
+            # Convert years to integers for filtering
+            year_ints = [int(year) for year in years if year.isdigit()]
+            if year_ints:
+                q = q.filter(Agreements.year.in_(year_ints))
 
-    if targets:
-        # Use OR conditions for multiple targets with ILIKE
-        target_conditions = [
-            Agreements.target.ilike(f"%{target}%") for target in targets
+        if targets:
+            # Use OR conditions for multiple targets with ILIKE
+            target_conditions = [
+                Agreements.target.ilike(f"%{target}%") for target in targets
+            ]
+            q = q.filter(db.or_(*target_conditions))
+
+        if acquirers:
+            # Use OR conditions for multiple acquirers with ILIKE
+            acquirer_conditions = [
+                Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers
+            ]
+            q = q.filter(db.or_(*acquirer_conditions))
+
+        if standard_ids:
+            q = (
+                q.join(Taxonomy, Sections.section_standard_id == Taxonomy.standard_id)
+                .filter(Taxonomy.type == "section")
+                .filter(Taxonomy.standard_id.in_(standard_ids))
+            )
+
+        # Transaction Size filter - convert ranges to DB values
+        if transaction_sizes:
+            size_conditions = []
+            for size_range in transaction_sizes:
+                if size_range == "100M - 250M":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 100000000,
+                            Agreements.transaction_size < 250000000,
+                        )
+                    )
+                elif size_range == "250M - 500M":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 250000000,
+                            Agreements.transaction_size < 500000000,
+                        )
+                    )
+                elif size_range == "500M - 750M":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 500000000,
+                            Agreements.transaction_size < 750000000,
+                        )
+                    )
+                elif size_range == "750M - 1B":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 750000000,
+                            Agreements.transaction_size < 1000000000,
+                        )
+                    )
+                elif size_range == "1B - 5B":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 1000000000,
+                            Agreements.transaction_size < 5000000000,
+                        )
+                    )
+                elif size_range == "5B - 10B":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 5000000000,
+                            Agreements.transaction_size < 10000000000,
+                        )
+                    )
+                elif size_range == "10B - 20B":
+                    size_conditions.append(
+                        db.and_(
+                            Agreements.transaction_size >= 10000000000,
+                            Agreements.transaction_size < 20000000000,
+                        )
+                    )
+                elif size_range == "20B+":
+                    size_conditions.append(Agreements.transaction_size >= 20000000000)
+            if size_conditions:
+                q = q.filter(db.or_(*size_conditions))
+
+        # Transaction Type filter
+        if transaction_types:
+            # Convert frontend values to DB enum values
+            db_transaction_types = []
+            for t_type in transaction_types:
+                if t_type == "Strategic":
+                    db_transaction_types.append("strategic")
+                elif t_type == "Financial":
+                    db_transaction_types.append("financial")
+            if db_transaction_types:
+                q = q.filter(Agreements.transaction_type.in_(db_transaction_types))
+
+        # Consideration Type filter
+        if consideration_types:
+            # Convert frontend values to DB enum values
+            db_consideration_types = []
+            for c_type in consideration_types:
+                if c_type == "All stock":
+                    db_consideration_types.append("stock")
+                elif c_type == "All cash":
+                    db_consideration_types.append("cash")
+                elif c_type == "Mixed":
+                    db_consideration_types.append("mixed")
+            if db_consideration_types:
+                q = q.filter(Agreements.consideration_type.in_(db_consideration_types))
+
+        # Target Type filter
+        if target_types:
+            # Convert frontend values to DB enum values
+            db_target_types = []
+            for t_type in target_types:
+                if t_type == "Public":
+                    db_target_types.append("public")
+                elif t_type == "Private":
+                    db_target_types.append("private")
+            if db_target_types:
+                q = q.filter(Agreements.target_type.in_(db_target_types))
+
+        # Use SQLAlchemy's paginate() method
+        try:
+            paginated = q.paginate(
+                page=page,
+                per_page=page_size,
+                error_out=False
+            )
+        except Exception as e:
+            return jsonify({"error": f"Pagination error: {str(e)}"}), 400
+
+        # marshal into JSON with pagination metadata
+        results = [
+            {
+                "id": r.section_uuid,
+                "agreementUuid": r.agreement_uuid,
+                "sectionUuid": r.section_uuid,
+                "xml": r.xml_content,
+                "articleTitle": r.article_title,
+                "sectionTitle": r.section_title,
+                "acquirer": r.acquirer,
+                "target": r.target,
+                "year": r.year,
+            }
+            for r in paginated.items
         ]
-        q = q.filter(db.or_(*target_conditions))
 
-    if acquirers:
-        # Use OR conditions for multiple acquirers with ILIKE
-        acquirer_conditions = [
-            Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers
-        ]
-        q = q.filter(db.or_(*acquirer_conditions))
-
-    if standard_ids:
-        q = (
-            q.join(Taxonomy, Sections.section_standard_id == Taxonomy.standard_id)
-            .filter(Taxonomy.type == "section")
-            .filter(Taxonomy.standard_id.in_(standard_ids))
-        )
-
-    # Transaction Size filter - convert ranges to DB values
-    if transaction_sizes:
-        size_conditions = []
-        for size_range in transaction_sizes:
-            if size_range == "100M - 250M":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 100000000,
-                        Agreements.transaction_size < 250000000,
-                    )
-                )
-            elif size_range == "250M - 500M":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 250000000,
-                        Agreements.transaction_size < 500000000,
-                    )
-                )
-            elif size_range == "500M - 750M":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 500000000,
-                        Agreements.transaction_size < 750000000,
-                    )
-                )
-            elif size_range == "750M - 1B":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 750000000,
-                        Agreements.transaction_size < 1000000000,
-                    )
-                )
-            elif size_range == "1B - 5B":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 1000000000,
-                        Agreements.transaction_size < 5000000000,
-                    )
-                )
-            elif size_range == "5B - 10B":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 5000000000,
-                        Agreements.transaction_size < 10000000000,
-                    )
-                )
-            elif size_range == "10B - 20B":
-                size_conditions.append(
-                    db.and_(
-                        Agreements.transaction_size >= 10000000000,
-                        Agreements.transaction_size < 20000000000,
-                    )
-                )
-            elif size_range == "20B+":
-                size_conditions.append(Agreements.transaction_size >= 20000000000)
-        if size_conditions:
-            q = q.filter(db.or_(*size_conditions))
-
-    # Transaction Type filter
-    if transaction_types:
-        # Convert frontend values to DB enum values
-        db_transaction_types = []
-        for t_type in transaction_types:
-            if t_type == "Strategic":
-                db_transaction_types.append("strategic")
-            elif t_type == "Financial":
-                db_transaction_types.append("financial")
-        if db_transaction_types:
-            q = q.filter(Agreements.transaction_type.in_(db_transaction_types))
-
-    # Consideration Type filter
-    if consideration_types:
-        # Convert frontend values to DB enum values
-        db_consideration_types = []
-        for c_type in consideration_types:
-            if c_type == "All stock":
-                db_consideration_types.append("stock")
-            elif c_type == "All cash":
-                db_consideration_types.append("cash")
-            elif c_type == "Mixed":
-                db_consideration_types.append("mixed")
-        if db_consideration_types:
-            q = q.filter(Agreements.consideration_type.in_(db_consideration_types))
-
-    # Target Type filter
-    if target_types:
-        # Convert frontend values to DB enum values
-        db_target_types = []
-        for t_type in target_types:
-            if t_type == "Public":
-                db_target_types.append("public")
-            elif t_type == "Private":
-                db_target_types.append("private")
-        if db_target_types:
-            q = q.filter(Agreements.target_type.in_(db_target_types))
-
-    # Use SQLAlchemy's paginate() method
-    try:
-        paginated = q.paginate(
-            page=page,
-            per_page=page_size,
-            error_out=False
-        )
-    except Exception as e:
-        return jsonify({"error": f"Pagination error: {str(e)}"}), 400
-
-    # marshal into JSON with pagination metadata
-    results = [
-        {
-            "id": r.section_uuid,
-            "agreementUuid": r.agreement_uuid,
-            "sectionUuid": r.section_uuid,
-            "xml": r.xml_content,
-            "articleTitle": r.article_title,
-            "sectionTitle": r.section_title,
-            "acquirer": r.acquirer,
-            "target": r.target,
-            "year": r.year,
+        # Return results with pagination metadata
+        return {
+            "results": results,
+            "page": paginated.page,
+            "pageSize": paginated.per_page,
+            "totalCount": paginated.total,
+            "totalPages": paginated.pages,
+            "hasNext": paginated.has_next,
+            "hasPrev": paginated.has_prev,
+            "nextNum": paginated.next_num,
+            "prevNum": paginated.prev_num
         }
-        for r in paginated.items
-    ]
+        
+# Register blueprint
+api.register_blueprint(search_blp)
 
-    # Return results with pagination metadata
-    return jsonify({
-        "results": results,
-        "page": paginated.page,
-        "pageSize": paginated.per_page,
-        "totalCount": paginated.total,
-        "totalPages": paginated.pages,
-        "hasNext": paginated.has_next,
-        "hasPrev": paginated.has_prev,
-        "nextNum": paginated.next_num,
-        "prevNum": paginated.prev_num
-    }), 200
-
-
+# ── CLI command for OpenAPI spec generation ──────────────────────────────
+@app.cli.command("gen-openapi")
+def gen_openapi():
+    """Generate an OpenAPI3 YAML spec for your Flask-Smorest API."""
+    with app.test_request_context():
+        yaml_spec = api.spec.to_yaml()
+        Path("openapi.yaml").write_text(yaml_spec)
+        click.echo("Wrote openapi.yaml")
+        
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
