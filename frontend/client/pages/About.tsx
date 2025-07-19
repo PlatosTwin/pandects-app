@@ -64,7 +64,7 @@ export default function About() {
 
         {/* Main Content */}
         <main className="flex-1 px-8 py-8">
-          <div className="max-w-4xl mx-auto space-y-10">
+          <div className="max-w-4xl mx-auto space-y-6">
             <section id="overview" className="scroll-mt-8">
               <h1 className="text-3xl font-bold text-material-text-primary mb-6">
                 Overview
