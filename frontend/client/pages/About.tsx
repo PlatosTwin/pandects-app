@@ -3,54 +3,23 @@ import { cn } from "@/lib/utils";
 import Navigation from "@/components/Navigation";
 
 export default function About() {
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
-    const handleScroll = () => {
-      const sections = [
-        "overview",
-        "data",
-        "sources",
-        "processing-pipelines",
-        "contributing",
-        "credits",
-      ];
-      const scrollY = window.scrollY + 150;
-
-      if (
-        window.innerHeight + window.scrollY >=
-        document.body.offsetHeight - 100
-      ) {
-        setActiveSection("credits");
-        return;
-      }
-
-      let current = "overview";
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const el = document.getElementById(sections[i]);
-        if (el && scrollY >= el.offsetTop) {
-          current = sections[i];
-          break;
-        }
-      }
-      setActiveSection(current);
-    };
-
     // Handle hash fragment on page load
     const hash = window.location.hash.slice(1); // Remove the '#'
     if (hash) {
       // Small delay to ensure the page has rendered
       setTimeout(() => {
         scrollToSection(hash);
+        setActiveSection(hash);
       }, 100);
     }
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setActiveSection(id);
   };
 
   return (
@@ -88,7 +57,7 @@ export default function About() {
                       "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
                       activeSection === id
                         ? "bg-material-blue-light text-material-blue font-medium"
-                        : "text-material-text-secondary hover:text-material-text-primary hover:bg-material-surface"
+                        : "text-material-text-secondary hover:text-material-text-primary hover:bg-material-surface",
                     )}
                   >
                     {label}
@@ -173,9 +142,9 @@ export default function About() {
                   early on, and helped brainstorm.
                 </p>
                 <p>
-                  This project would not have gotten off the ground without
-                  the prior work of Peter Adelson, Matthew Jennejohn, Julian
-                  Nyarko, and Eric Talley, whose{" "}
+                  This project would not have gotten off the ground without the
+                  prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
+                  and Eric Talley, whose{" "}
                   <a
                     href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
                     target="_blank"
