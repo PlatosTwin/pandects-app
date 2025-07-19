@@ -38,7 +38,7 @@ export default function SiteBanner() {
               variant="ghost"
               size="sm"
               onClick={handleDismiss}
-              className="text-amber-800 hover:text-amber-900 hover:bg-amber-100 p-1 h-auto"
+              className="text-blue-900 hover:text-blue-950 hover:bg-blue-100 p-1 h-auto"
             >
               <X className="w-4 h-4" />
               <span className="sr-only">Dismiss banner</span>
