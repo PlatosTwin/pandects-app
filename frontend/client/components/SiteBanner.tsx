@@ -22,11 +22,11 @@ export default function SiteBanner() {
   }
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200">
+    <div className="bg-blue-50 border-b border-blue-200">
       <div className="max-w-9xl mx-auto px-7 py-3">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-amber-800">
+            <p className="text-sm text-blue-900">
               <span className="font-semibold">Notice</span>: This project is in
               the very early stages of its development. Site layout, API schema,
               data organization, and other features may change. Currently, we
