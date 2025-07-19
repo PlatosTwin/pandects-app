@@ -14,6 +14,7 @@ import BulkData from "./pages/BulkData";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
+import SiteBanner from "./components/SiteBanner";
 
 const queryClient = new QueryClient();
 
