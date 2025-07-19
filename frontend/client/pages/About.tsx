@@ -31,7 +31,7 @@ export default function About() {
         {/* Sidebar */}
         <nav className="hidden md:block w-64 flex-shrink-0 border-r border-material-divider">
           <div className="px-6 pt-6 pb-4">
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {[
                 { id: "overview", label: "Overview" },
                 { id: "data", label: "Data" },
