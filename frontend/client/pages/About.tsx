@@ -30,13 +30,7 @@ export default function About() {
       <div className="flex">
         {/* Sidebar */}
         <nav className="hidden md:block w-64 flex-shrink-0 border-r border-material-divider">
-          <div
-            className="sticky top-16 px-6 pt-6 pb-4"
-            style={{
-              maxHeight: "calc(100vh - 8rem)", // subtract header (4rem) + footer (4rem)
-              overflowY: "auto",
-            }}
-          >
+          <div className="px-6 pt-6 pb-4">
             <ul className="space-y-4">
               {[
                 { id: "overview", label: "Overview" },
