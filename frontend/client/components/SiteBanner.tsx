@@ -32,11 +32,11 @@ export default function SiteBanner() {
   }
 
   return (
-    <div className="bg-blue-50 border-b border-blue-200">
+    <div className="bg-amber-100 border-b border-amber-300">
       <div className="max-w-9xl mx-auto px-7 py-3">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-blue-900">
+            <p className="text-sm text-amber-900">
               <span className="font-semibold">Notice</span>: This project is in
               the very early stages of its development. Site layout, API schema,
               data organization, and other features may change. Currently, we
@@ -48,7 +48,7 @@ export default function SiteBanner() {
               variant="ghost"
               size="sm"
               onClick={handleDismiss}
-              className="text-blue-900 hover:text-blue-950 hover:bg-blue-100 p-1 h-auto"
+              className="text-amber-900 hover:text-amber-950 hover:bg-amber-200 p-1 h-auto"
             >
               <X className="w-4 h-4" />
               <span className="sr-only">Dismiss banner</span>
