@@ -162,7 +162,12 @@ export default function BulkData() {
           <p className="text-material-text-secondary max-w-3xl">
             Download complete database dumps of the Pandects dataset. All dumps
             are compressed MariaDB SQL files containing the full structured
-            data.
+            data. For added conveniance, we've put together some simple database documentation, which you can find in <a
+              href="https://dbdocs.io/nmbogdan/Pandects"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-material-blue hover:underline"
+            >dbdocs</a>.
           </p>
         </div>
 
