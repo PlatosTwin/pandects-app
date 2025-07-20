@@ -41,6 +41,16 @@ export default function About() {
                   label: "Processing pipelines",
                   indent: true,
                 },
+                {
+                  id: "schema",
+                  label: "XML schema",
+                  indent: true,
+                },
+                {
+                  id: "taxonomy",
+                  label: "Taxonomy",
+                  indent: true,
+                },
                 { id: "contributing", label: "Contributing" },
                 { id: "credits", label: "Credits" },
               ].map(({ id, label, indent }) => (
@@ -88,6 +98,20 @@ export default function About() {
               <div id="processing-pipelines" className="scroll-mt-8 mt-12">
                 <h3 className="text-xl font-semibold text-material-text-primary mb-4">
                   Processing pipelines
+                </h3>
+                <div></div>
+              </div>
+
+              <div id="schema" className="scroll-mt-8 mt-12">
+                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                  XML schema
+                </h3>
+                <div></div>
+              </div>
+
+              <div id="taxonomy" className="scroll-mt-8 mt-12">
+                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                  Taxonomy
                 </h3>
                 <div></div>
               </div>
