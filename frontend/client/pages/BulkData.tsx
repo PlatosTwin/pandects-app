@@ -104,6 +104,12 @@ export default function BulkData() {
     return timestamp;
   };
 
+  const formatSize = (bytes?: number): string => {
+    if (!bytes) return "—";
+    const megabytes = bytes / (1024 * 1024);
+    return `${megabytes.toFixed(1)} MB`;
+  };
+
   const copyToClipboard = (text: string, id: string) => {
     const textArea = document.createElement("textarea");
     textArea.value = text;
