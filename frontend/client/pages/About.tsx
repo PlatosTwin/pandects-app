@@ -34,6 +34,11 @@ export default function About() {
             <ul className="space-y-1">
               {[
                 { id: "overview", label: "Overview" },
+                {
+                  id: "timeline",
+                  label: "Timeline",
+                  indent: true,
+                },
                 { id: "data", label: "Data" },
                 { id: "sources", label: "Sources", indent: true },
                 {
@@ -61,7 +66,7 @@ export default function About() {
                       "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
                       activeSection === id
                         ? "bg-material-blue-light text-material-blue font-medium"
-                        : "text-material-text-secondary hover:text-material-text-primary hover:bg-material-surface",
+                        : "text-material-text-secondary hover:text-material-text-primary hover:bg-material-surface"
                     )}
                   >
                     {label}
@@ -79,48 +84,107 @@ export default function About() {
               <h1 className="text-3xl font-bold text-material-text-primary mb-6">
                 Overview
               </h1>
-              <div>{/* empty—no box */}</div>
+              <div></div>
+
+              <div id="timeline" className="scroll-mt-8 mt-12">
+                <h2 className="text-xl font-semibold text-material-text-primary mb-4">
+                  Timeline
+                </h2>
+                <div>
+                  <dl className="space-y-4 ml-8">
+                    {/* May–Jul ’25 */}
+                    <div className="grid grid-cols-[160px_1fr] gap-x-6">
+                      <dt className="font-bold text-material-text-primary">
+                        May – Jul ’25
+                      </dt>
+                      <dd>Preliminary testing; proof of concept</dd>
+                    </div>
+
+                    {/* Jul ’25 */}
+                    <div className="grid grid-cols-[160px_1fr] gap-x-6">
+                      <dt className="font-bold text-material-text-primary">
+                        Jul ’25
+                      </dt>
+                      <dd>Basic UI development</dd>
+                    </div>
+
+                    {/* Aug–Nov ’25 */}
+                    <div className="grid grid-cols-[160px_1fr] gap-x-6">
+                      <dt className="font-bold text-material-text-primary">
+                        Aug – Nov ’25
+                      </dt>
+                      <dd>
+                        <a
+                          href="/feedback"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-material-blue hover:underline"
+                        >
+                          End‑user surveys
+                        </a>{" "}
+                        and pipeline development
+                      </dd>
+                    </div>
+
+                    {/* Nov ’25–Jan ’26 */}
+                    <div className="grid grid-cols-[160px_1fr] gap-x-6">
+                      <dt className="font-bold text-material-text-primary">
+                        Nov ’25 – Jan ’26
+                      </dt>
+                      <dd>Pipeline refinement; testing</dd>
+                    </div>
+
+                    {/* Feb ’26 (highlight span only) */}
+                    <div className="grid grid-cols-[160px_1fr] gap-x-6">
+                      <dt className="font-bold text-material-text-primary">
+                        Feb ’26
+                      </dt>
+                      <dd>Soft launch</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
             </section>
 
             <section id="data" className="scroll-mt-8">
-              <h2 className="text-2xl font-bold text-material-text-primary mb-4">
+              <h1 className="text-3xl font-bold text-material-text-primary mb-6">
                 Data
-              </h2>
+              </h1>
               <div></div>
 
               <div id="sources" className="scroll-mt-8 mt-12">
-                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                <h2 className="text-xl font-semibold text-material-text-primary mb-4">
                   Sources
-                </h3>
+                </h2>
                 <div></div>
               </div>
 
               <div id="processing-pipelines" className="scroll-mt-8 mt-12">
-                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                <h2 className="text-xl font-semibold text-material-text-primary mb-4">
                   Processing pipelines
-                </h3>
+                </h2>
                 <div></div>
               </div>
 
               <div id="schema" className="scroll-mt-8 mt-12">
-                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                <h2 className="text-xl font-semibold text-material-text-primary mb-4">
                   XML schema
-                </h3>
+                </h2>
                 <div></div>
               </div>
 
               <div id="taxonomy" className="scroll-mt-8 mt-12">
-                <h3 className="text-xl font-semibold text-material-text-primary mb-4">
+                <h2 className="text-xl font-semibold text-material-text-primary mb-4">
                   Taxonomy
-                </h3>
+                </h2>
                 <div></div>
               </div>
             </section>
 
             <section id="contributing" className="scroll-mt-8">
-              <h2 className="text-2xl font-bold text-material-text-primary mb-4">
+              <h1 className="text-3xl font-bold text-material-text-primary mb-6">
                 Contributing
-              </h2>
+              </h1>
               <div>
                 This is an open-source project, and we welcome contributions.
                 Please see the{" "}
@@ -137,9 +201,9 @@ export default function About() {
             </section>
 
             <section id="credits" className="scroll-mt-8">
-              <h2 className="text-2xl font-bold text-material-text-primary mb-4">
+              <h1 className="text-3xl font-bold text-material-text-primary mb-6">
                 Credits
-              </h2>
+              </h1>
               <div className="flex flex-col space-y-6">
                 <p>
                   Professor Emiliano Catan at NYU Law has been an active advisor
