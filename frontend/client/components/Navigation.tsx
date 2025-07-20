@@ -36,7 +36,9 @@ export default function Navigation() {
               alt="Pandects Logo"
               className="w-8 h-8 rounded object-cover"
             />
-            <span className="text-lg font-semibold">Pandects</span>
+            <span className="text-lg font-semibold hidden lg:block">
+              Pandects
+            </span>
           </Link>
 
           {/* Navigation Links */}
@@ -91,6 +93,19 @@ export default function Navigation() {
               )}
             >
               About
+            </Link>
+
+            {/* Feedback */}
+            <Link
+              to="/feedback"
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/feedback")
+                  ? "text-white"
+                  : "text-gray-300 hover:text-white",
+              )}
+            >
+              Feedback
             </Link>
 
             {/* Utils Dropdown */}

@@ -12,6 +12,7 @@ import Landing from "./pages/Landing";
 import Docs from "./pages/Docs";
 import BulkData from "./pages/BulkData";
 import About from "./pages/About";
+import Feedback from "./pages/Feedback";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 import SiteBanner from "./components/SiteBanner";
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/docs" element={<Docs />} />
               <Route path="/bulk-data" element={<BulkData />} />
               <Route path="/about" element={<About />} />
+              <Route path="/feedback" element={<Feedback />} />
               <Route path="/editor" element={<Edit />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
