@@ -325,6 +325,9 @@ export default function BulkData() {
                       SHA256 Hash
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+                      Download Size
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
