@@ -357,7 +357,8 @@ export default function BulkData() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <span className="font-mono text-sm text-material-text-secondary truncate max-w-xs">
-                            {dump.sha256}
+                            {dump.sha256.substring(0, dump.sha256.length - 20)}
+                            ...
                           </span>
                           <button
                             onClick={() =>
@@ -373,6 +374,11 @@ export default function BulkData() {
                             )}
                           </button>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-material-text-secondary">
+                          {formatSize(dump.size_bytes)}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
