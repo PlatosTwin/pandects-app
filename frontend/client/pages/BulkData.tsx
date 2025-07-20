@@ -8,6 +8,7 @@ interface DumpInfo {
   sha256: string;
   sql: string;
   timestamp: string;
+  size_bytes?: number;
 }
 
 export default function BulkData() {
@@ -33,14 +34,35 @@ export default function BulkData() {
 
         const data: DumpInfo[] = await response.json();
 
+        // Fetch size information from manifest files
+        const dumpsWithSize = await Promise.all(
+          data.map(async (dump) => {
+            try {
+              const manifestResponse = await fetch(dump.manifest);
+              if (manifestResponse.ok) {
+                const manifestData = await manifestResponse.json();
+                return { ...dump, size_bytes: manifestData.size_bytes };
+              }
+            } catch (error) {
+              console.warn(
+                `Failed to fetch manifest for ${dump.timestamp}:`,
+                error,
+              );
+            }
+            return dump;
+          }),
+        );
+
         // Find the latest version's SHA256
-        const latest = data.find((dump) => dump.timestamp === "latest");
+        const latest = dumpsWithSize.find(
+          (dump) => dump.timestamp === "latest",
+        );
         const latestHash = latest?.sha256 || null;
         setLatestSha256(latestHash);
         setLatestSqlUrl(latest?.sql || null);
 
         // Sort so 'latest' is always first, then sort others by timestamp
-        const sortedData = data.sort((a, b) => {
+        const sortedData = dumpsWithSize.sort((a, b) => {
           if (a.timestamp === "latest") return -1;
           if (b.timestamp === "latest") return 1;
           // For non-latest items, sort by timestamp descending (newest first)
@@ -80,6 +102,12 @@ export default function BulkData() {
       });
     }
     return timestamp;
+  };
+
+  const formatSize = (bytes?: number): string => {
+    if (!bytes) return "—";
+    const megabytes = bytes / (1024 * 1024);
+    return `${megabytes.toFixed(1)} MB`;
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -297,6 +325,9 @@ export default function BulkData() {
                       SHA256 Hash
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+                      Download Size
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -326,7 +357,8 @@ export default function BulkData() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <span className="font-mono text-sm text-material-text-secondary truncate max-w-xs">
-                            {dump.sha256}
+                            {dump.sha256.substring(0, dump.sha256.length - 20)}
+                            ...
                           </span>
                           <button
                             onClick={() =>
@@ -342,6 +374,11 @@ export default function BulkData() {
                             )}
                           </button>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-material-text-secondary">
+                          {formatSize(dump.size_bytes)}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
