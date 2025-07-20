@@ -8,6 +8,7 @@ interface DumpInfo {
   sha256: string;
   sql: string;
   timestamp: string;
+  size_bytes?: number;
 }
 
 export default function BulkData() {
