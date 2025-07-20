@@ -34,14 +34,35 @@ export default function BulkData() {
 
         const data: DumpInfo[] = await response.json();
 
+        // Fetch size information from manifest files
+        const dumpsWithSize = await Promise.all(
+          data.map(async (dump) => {
+            try {
+              const manifestResponse = await fetch(dump.manifest);
+              if (manifestResponse.ok) {
+                const manifestData = await manifestResponse.json();
+                return { ...dump, size_bytes: manifestData.size_bytes };
+              }
+            } catch (error) {
+              console.warn(
+                `Failed to fetch manifest for ${dump.timestamp}:`,
+                error,
+              );
+            }
+            return dump;
+          }),
+        );
+
         // Find the latest version's SHA256
-        const latest = data.find((dump) => dump.timestamp === "latest");
+        const latest = dumpsWithSize.find(
+          (dump) => dump.timestamp === "latest",
+        );
         const latestHash = latest?.sha256 || null;
         setLatestSha256(latestHash);
         setLatestSqlUrl(latest?.sql || null);
 
         // Sort so 'latest' is always first, then sort others by timestamp
-        const sortedData = data.sort((a, b) => {
+        const sortedData = dumpsWithSize.sort((a, b) => {
           if (a.timestamp === "latest") return -1;
           if (b.timestamp === "latest") return 1;
           // For non-latest items, sort by timestamp descending (newest first)
