@@ -1,17 +1,14 @@
-name: Fly Deploy Monorepo
+name: Deploy Frontend
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
 
 jobs:
   deploy:
-    name: Deploy all Fly apps
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [db, backend, frontend]
 
     steps:
       - name: Checkout code
@@ -20,8 +17,8 @@ jobs:
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy ${{ matrix.app }}
-        working-directory: ${{ matrix.app }}
+      - name: Deploy Frontend
+        working-directory: frontend
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
