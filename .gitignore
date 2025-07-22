@@ -3,6 +3,7 @@ backend/venv/
 
 # Env / secrets
 **/*.env
+**/pipeline.yaml
 
 # Build outputs
 frontend/dist/
@@ -11,3 +12,5 @@ backend/build/
 TODO.md
 *.sql
 *.pyc
+
+**/*.tmp_dagster*
