@@ -207,9 +207,19 @@ export default function About() {
               <div className="flex flex-col space-y-6">
                 <p>
                   Professor Emiliano Catan at NYU Law has been an active advisor
-                  to this project from the beginning. We are also thankful to
-                  NYU Law professor Chris Sprigman. The concept and design for
-                  this site borrows heavily from the wonderful{" "}
+                  to this project from the beginning. The{" "}
+                  <a
+                    href="https://www.law.nyu.edu/leadershipprogram"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-material-blue hover:underline"
+                  >
+                    Jacobson Leadership Program in Law and Business
+                  </a>{" "}
+                  at NYU has also provided support, including a commitment to
+                  substantially all of the funding. We are also thankful to NYU
+                  Law professor Chris Sprigman. The concept and design for this
+                  site borrows heavily from the wonderful{" "}
                   <a
                     href="https://case.law"
                     target="_blank"
@@ -218,10 +228,18 @@ export default function About() {
                   >
                     Caselaw Access Project
                   </a>
-                  , a product of the Library Innovation Lab (LIL) at Harvard
-                  Law; Jack Cushman at LIL provided guidance and advice early on
-                  in this project. Josh Carty provided technical assistance
-                  early on, and helped brainstorm.
+                  , a product of the{" "}
+                  <a
+                    href="https://lil.law.harvard.edu/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-material-blue hover:underline"
+                  >
+                    Library Innovation Lab
+                  </a>{" "}
+                  (LIL) at Harvard Law; Jack Cushman at LIL provided guidance
+                  and advice early on in this project. Josh Carty provided
+                  technical assistance early on, and helped brainstorm.
                 </p>
                 <p>
                   This project would not have gotten off the ground without the
