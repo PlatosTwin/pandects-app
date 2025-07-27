@@ -32,7 +32,7 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
     4. Aggregate into FilingMetadata object
 
     Currently:
-    1. Pull the 10 oldest non-staged agreements from the DMA corpus
+    1. Pull the 10 oldest non-staged agreements from the DMA corpus (simulate daily filings)
     2. Use DMA metadata where available, and nulls everywhere else
     """
     usecols = ["target", "acquirer", "date_announcement", "url", "filename"]

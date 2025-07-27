@@ -1,4 +1,4 @@
-## Stage—Stage agreements
+## Stage 1—Stage agreements
 
 **Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file.
 
@@ -51,7 +51,8 @@
     * source_page_type
     * page_type_prob_front_matter
     * page_type_prob_toc
-    * page_type_prob_body 
+    * page_type_prob_body
+    * page_type_prob_sig 
 
 ## Stage 3—Tag pre-processed agreements via LLM
 
