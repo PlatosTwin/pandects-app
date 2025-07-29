@@ -56,14 +56,21 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
     # 5) Build our results list via a memory‑light iterator
     results: List[FilingMetadata] = []
     for row in df.itertuples(index=False):
+        # Ensure all fields are strings, handle date formatting safely
+        date_ann = row.date_announcement
+        try:
+            date_obj = pd.to_datetime(str(date_ann))
+            transaction_date = date_obj.strftime("%Y-%m-%d")
+        except Exception:
+            transaction_date = str(date_ann)
         results.append(
             FilingMetadata(
-                agreement_uuid=get_uuid(row.filename),
-                url=row.url,
-                target=row.target,
-                acquirer=row.acquirer,
+                agreement_uuid=str(get_uuid(row.filename)),
+                url=str(row.url),
+                target=str(row.target),
+                acquirer=str(row.acquirer),
                 filing_date="",
-                transaction_date=row.date_announcement.strftime("%Y-%m-%d"),
+                transaction_date=transaction_date,
                 transaction_price=0,
                 transaction_type="",
                 transaction_consideration="",
@@ -72,4 +79,5 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
             )
         )
 
-    return results, df["date_announcement"].tolist()[-1]
+    # Only return the list of FilingMetadata
+    return results

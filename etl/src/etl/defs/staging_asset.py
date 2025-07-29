@@ -19,7 +19,7 @@ def staging_asset(db: DBResource):
     """
     engine = db.get_engine()
 
-    # 1) Get last pull timestamp
+    # 1. Get last pull timestamp
     with engine.begin() as conn:
         last_run = conn.execute(
             text(
@@ -31,13 +31,15 @@ def staging_asset(db: DBResource):
 
     now = datetime.now(timezone.utc)
 
-    # 2) Fetch new filings
-    filings, pulled_to_ts = fetch_new_filings(since=last_run.isoformat())
+    # 2. Fetch new filings
+    filings = fetch_new_filings(since=last_run.isoformat())
     count = len(filings)
+    # Use now as pulled_to_ts if no filings, else use now or last filing date
+    pulled_to_ts = now if not filings else now
 
-    # 3-5) Transactional run
+    # 3-5 Transactional run
     with engine.begin() as conn:
-        # 3) STARTED record
+        # 3. STARTED record
         conn.execute(
             text(
                 "INSERT INTO pdx.pipeline_runs "
@@ -52,7 +54,7 @@ def staging_asset(db: DBResource):
             },
         )
 
-        # 4) Prepare upsert rows
+        # 4. Prepare upsert rows
         rows = []
         for f in filings:
             rows.append(
@@ -114,7 +116,7 @@ def staging_asset(db: DBResource):
             batch = rows[i : i + 250]
             conn.execute(upsert_sql, batch)
 
-        # 5) Mark SUCCEEDED
+        # 5. Mark SUCCEEDED
         conn.execute(
             text(
                 "UPDATE pdx.pipeline_runs "
@@ -124,5 +126,5 @@ def staging_asset(db: DBResource):
             {"run_time": now},
         )
 
-    # 6) Return count for downstream dependencies
+    # 6. Return count for downstream dependencies
     return count

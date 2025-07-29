@@ -4,10 +4,11 @@ import uuid
 import os
 import re
 from bs4 import BeautifulSoup
-import torch
+from bs4.element import NavigableString
 import requests
 from urllib.parse import urlparse
 import os
+
 
 def get_uuid(x):
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
@@ -162,9 +163,7 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
         requests.HTTPError: on bad HTTP status codes.
         requests.RequestException: on connection issues, timeouts, etc.
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; pull_agreement_content/1.0)"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; pull_agreement_content/1.0)"}
     resp = requests.get(url, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.text
@@ -188,7 +187,11 @@ def split_to_pages(content, is_txt, is_html):
         for div in soup.find_all(
             lambda tag: tag.name == "div"
             and tag.has_attr("style")
-            and "page-break-before" in tag["style"].lower()
+            and any(
+                isinstance(s, str) and "page-break-before" in s.lower()
+                for s in tag["style"]
+                if isinstance(tag["style"], (list, str))
+            )
         ):
             # Replace the entire DIV (and its contents) with a simple <hr>
             div.replace_with(soup.new_tag("hr"))
@@ -224,10 +227,9 @@ def format_content(content, is_txt, is_html):
 
 
 def classify(classifier_model, content, formatted_content):
-    with torch.no_grad():
-        logits = classifier_model(content)  # TODO: pass in appropriate vector
-        probs = torch.softmax(logits, dim=1)  # probabilities
-        pred_class = torch.argmax(probs, dim=1).item()
+    model_output = classifier_model.classify(content, formatted_content)
+
+    pred_class = model_output["predicted_class"]
 
     # 0 = front matter
     # 1 = main body
@@ -247,10 +249,10 @@ def classify(classifier_model, content, formatted_content):
 
     class_dict = {
         "class": page_type,
-        "prob_front_matter": probs[0, 0].item(),
-        "prob_toc": probs[0, 2].item(),
-        "prob_body": probs[0, 1].item(),
-        "prob_sig": probs[0, 3].item(),
+        "prob_front_matter": model_output["all_preds"]["class_0"],
+        "prob_toc": model_output["all_preds"]["class_2"],
+        "prob_body": model_output["all_preds"]["class_1"],
+        "prob_sig": model_output["all_preds"]["class_3"],
     }
 
     return class_dict
@@ -269,7 +271,7 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
             raw_url = raw_url.split(":", 1)[1]
         path = urlparse(raw_url).path
         filename = os.path.basename(path)
-        base_name, ext = os.path.splitext(filename)
+        _, ext = os.path.splitext(filename)
 
         if ext.lower() in [".html", ".htm"]:
             is_html = True
@@ -288,12 +290,13 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
 
         # step 3: loop through pages to classify and format
         for page in pages:
-            page_formatted_content = format_content(
-                page["content"], is_txt, is_html
-            )  # format
+            # format
+            page_formatted_content = format_content(page["content"], is_txt, is_html)
+
+            # classify
             page_class = classify(
                 classifier_model, page["content"], page_formatted_content
-            )  # classify
+            )
 
             staged_pages.append(
                 PageMetadata(
