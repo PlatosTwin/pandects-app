@@ -1,52 +1,50 @@
-# Standard Library
+# Standard library
 import os
 import re
-from typing import Dict, List, Tuple, Any, cast
+from typing import Any, Dict, List, Tuple, cast
+from torch.optim import Optimizer
+from lightning.pytorch.utilities.types import LRSchedulerConfig
 
 # Environment config
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# PyTorch & Lightning
-import torch
-from torch.utils.data import Dataset, DataLoader
+# ML frameworks & utilities
 import lightning.pytorch as pl
+import torch
+from torch.utils.data import DataLoader, Dataset
 from torchmetrics import F1Score as F1, Precision, Recall
 
 torch.set_float32_matmul_precision("high")
 
 # Transformers
-from transformers import (
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-)
-from transformers.optimization import get_linear_schedule_with_warmup
+from transformers import AutoModelForTokenClassification, AutoTokenizer
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollatorForTokenClassification
+from transformers.optimization import get_linear_schedule_with_warmup
 
 
 class TrainDataset(Dataset):
     def __init__(
         self,
         data: List[str],
-        tokenizer: AutoTokenizer,
+        tokenizer: PreTrainedTokenizerBase,
         label2id: Dict[str, int],
         subsample_window: int,
-        do_subsampling: bool,
     ):
         self.tokenizer = tokenizer
         self.label2id = label2id
         self.subsample_window = subsample_window
-        self.do_subsampling = do_subsampling
         self.examples = []
         tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
 
         for raw in data:
-            # 1) extract raw spans
+            # 1. extract raw spans
             spans: List[Tuple[int, int, str]] = []
             for m in tag_pattern.finditer(raw):
                 spans.append((m.start(2), m.end(2), m.group(1)))
 
-            # 2) strip out tags, build cleaned_text & orig2clean map
+            # 2. strip out tags, build cleaned_text & orig2clean map
             cleaned_chars, orig2clean = [], {}
             i_clean = i = 0
             while i < len(raw):
@@ -70,7 +68,7 @@ class TrainDataset(Dataset):
 
             cleaned_text = "".join(cleaned_chars)
 
-            # 3) map spans into cleaned-text coords
+            # 3. map spans into cleaned-text coords
             mapped_spans: List[Tuple[int, int, str]] = []
             for start, end, tag in spans:
                 c_start = orig2clean.get(start)
@@ -78,15 +76,25 @@ class TrainDataset(Dataset):
                 if c_start is not None and c_end is not None:
                     mapped_spans.append((c_start, c_end + 1, tag))
 
-            # 4) build per-char labels
+            # 4. build per-char labels
             char_labels = ["O"] * len(cleaned_text)
             for c_start, c_end, tag in mapped_spans:
                 char_labels[c_start] = f"B-{tag.upper()}"
                 for pos in range(c_start + 1, c_end):
                     char_labels[pos] = f"I-{tag.upper()}"
 
-            # 5) subsample
-            if self.do_subsampling and mapped_spans:
+            # 5.a. sub-samples of negative samples
+            if not mapped_spans:
+                L = self.subsample_window
+                T = len(cleaned_text)
+                for ws in range(0, T, L):
+                    we = min(ws + L, T)
+                    chunk_text = cleaned_text[ws:we]
+                    chunk_labels = char_labels[ws:we]
+                    self._tokenize_and_store(chunk_text, chunk_labels)
+
+            # 5.b. entity-centered sub-sampling (positive samples)
+            else:
                 L = self.subsample_window
                 T = len(cleaned_text)
                 for c_start, c_end, _ in mapped_spans:
@@ -102,21 +110,18 @@ class TrainDataset(Dataset):
                     sub_text = cleaned_text[ws:we]
                     sub_char_labels = char_labels[ws:we]
                     self._tokenize_and_store(sub_text, sub_char_labels)
-            else:
-                # full‑text (will still be truncated to max_length by the tokenizer)
-                self._tokenize_and_store(cleaned_text, char_labels)
 
     def _tokenize_and_store(self, text: str, char_labels: List[str]):
-        # 1) run the tokenizer
+        # 1. run the tokenizer
         encoding = self.tokenizer(
             text,
             return_offsets_mapping=True,
             truncation=True,
-            max_length=self.subsample_window,
+            max_length=self.subsample_window + 2,  # accounts for [CLS] + [SEP]
         )
         offsets = encoding.pop("offset_mapping")
 
-        # 2) pull out the word_ids
+        # 2. pull out the word_ids
         word_ids = encoding.word_ids()  # gives you a list of ints or None
 
         labels: List[int] = []
@@ -139,7 +144,7 @@ class TrainDataset(Dataset):
 
             last_wid = wid
 
-        # 3) stash the example
+        # 3. stash the example
         self.examples.append(
             {
                 "input_ids": encoding["input_ids"],
@@ -159,7 +164,7 @@ class ValWindowedDataset(Dataset):
     def __init__(
         self,
         data: List[str],
-        tokenizer: AutoTokenizer,
+        tokenizer: PreTrainedTokenizerBase,
         label2id: Dict[str, int],
         window: int = 512,
         stride: int = 256,
@@ -213,7 +218,7 @@ class ValWindowedDataset(Dataset):
             T = len(cleaned)
             L = window
             S = stride
-            
+
             start = 0
             while start < T:
                 end = min(start + L, T)
@@ -224,7 +229,7 @@ class ValWindowedDataset(Dataset):
                     sub_text,
                     return_offsets_mapping=True,
                     truncation=True,
-                    max_length=L,
+                    max_length=L + 2,  # accounts for [CLS] + [SEP]
                 )
                 offsets = encoding["offset_mapping"]
                 word_ids = encoding.word_ids()
@@ -244,11 +249,13 @@ class ValWindowedDataset(Dataset):
                         labels.append(label2id[ent] if ent else label2id["O"])
                     last_wid = wid
 
-                self.examples.append({
-                    "input_ids": encoding["input_ids"],
-                    "attention_mask": encoding["attention_mask"],
-                    "labels": labels,
-                })
+                self.examples.append(
+                    {
+                        "input_ids": encoding["input_ids"],
+                        "attention_mask": encoding["attention_mask"],
+                        "labels": labels,
+                    }
+                )
 
                 if end == T:
                     break
@@ -305,7 +312,6 @@ class NERDataModule(pl.LightningDataModule):
             self.tokenizer,
             self.label2id,
             subsample_window=self.train_subsample_window,
-            do_subsampling=True,
         )
         self.val_dataset = ValWindowedDataset(
             data=self.val_data,
@@ -396,17 +402,16 @@ class NERTagger(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model_name = model_name
         self.num_labels = num_labels
         self.id2label = id2label
         self.model = AutoModelForTokenClassification.from_pretrained(
-            self.model_name,
+            model_name,
             num_labels=self.num_labels,
             id2label=self.id2label,
             label2id={v: k for k, v in self.id2label.items()},
         )
         self.model.train()
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.loss_fn = FocalLoss()
 
         # Metrics (micro-average to avoid O-class dominance)
@@ -562,7 +567,7 @@ class NERTagger(pl.LightningModule):
 
         return preds
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Tuple[List[Optimizer], List[LRSchedulerConfig]]:
         """
         Configure AdamW optimizer and linear warmup scheduler.
         Returns tuple for Lightning compatibility.
@@ -586,7 +591,9 @@ class NERTagger(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = torch.optim.AdamW(params, lr=getattr(self, "learning_rate", 3e-5))
+        optimizer: Optimizer = torch.optim.AdamW(
+            params, lr=getattr(self, "learning_rate", 3e-5)
+        )
         total_steps = self.trainer.estimated_stepping_batches
         warmup_steps = int(getattr(self, "warmup_steps_pct", 0.1) * total_steps)
         scheduler = get_linear_schedule_with_warmup(
@@ -594,8 +601,12 @@ class NERTagger(pl.LightningModule):
             num_warmup_steps=warmup_steps,
             num_training_steps=total_steps,
         )
-        scheduler_dict = {
-            "scheduler": scheduler,
-            "interval": "step",
-        }
+        scheduler_dict = cast(
+            LRSchedulerConfig,
+            {
+                "scheduler": scheduler,
+                "interval": "step",
+            },
+        )
+        
         return [optimizer], [scheduler_dict]
