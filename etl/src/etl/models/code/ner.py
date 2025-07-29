@@ -1,39 +1,40 @@
-# Standard Library
+# Standard library
 import os
 import time
-
-# Data classes
-from etl.models.code.ner_classes import NERTagger, NERDataModule
-from etl.models.code.constants import NER_LABEL_LIST, NER_CKPT_PATH
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Third-Party Libraries
+# Data manipulation
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-# PyTorch & Lightning
+# ML frameworks and utilities
 import torch
-from transformers import AutoTokenizer
 
 torch.set_float32_matmul_precision("high")
 
 import lightning.pytorch as pl
+from lightning.pytorch import seed_everything
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
+    TQDMProgressBar,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch import seed_everything
 
-seed_everything(42, workers=True, verbose=False)
+from transformers import AutoTokenizer
 
 from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
-from transformers import AutoTokenizer
+# Local modules
+from constants import NER_LABEL_LIST, NER_CKPT_PATH
+from ner_classes import NERTagger, NERDataModule
+
+# Reproducibility
+seed_everything(42, workers=True, verbose=False)
 
 
 class NERTrainer:
@@ -72,11 +73,11 @@ class NERTrainer:
         )
 
         print(f"Loaded data shape: {df.shape}")
-        print(df.head())
+        print(df.head(2))
         print(f"Tagged value counts:\n{df['tagged'].value_counts()}")
 
         # for now, remove untagged pages
-        df = df[df["tagged"] == 1]
+        # df = df[df["tagged"] == 1]
 
         train_data, val_data = train_test_split(
             df, test_size=0.2, stratify=df["tagged"], random_state=42
@@ -102,7 +103,9 @@ class NERTrainer:
             if trial is not None
             else []
         )
-        return checkpoint_cb, early_stop_cb, lr_monitor, pruning_cb
+        progress_bar_cb = TQDMProgressBar(refresh_rate=15)
+
+        return checkpoint_cb, early_stop_cb, lr_monitor, progress_bar_cb, pruning_cb
 
     def _build(self, params):
         """Instantiate DataModule and Model from a dict of hyperparams."""
@@ -137,17 +140,23 @@ class NERTrainer:
         }
 
         dm, model = self._build(params)
-        checkpoint_cb, early_stop_cb, lr_monitor, pruning_cb = self._get_callbacks(
-            trial
+        checkpoint_cb, early_stop_cb, lr_monitor, progress_bar_cb, pruning_cb = (
+            self._get_callbacks(trial)
         )
 
         trainer = pl.Trainer(
             max_epochs=self.MAX_EPOCHS,
             accelerator=self.DEVICE,
-            precision="bf16",
+            precision="bf16-mixed",
             devices=1,
             logger=TensorBoardLogger("tb_logs", name="optuna"),
-            callbacks=[checkpoint_cb, early_stop_cb, lr_monitor, *pruning_cb],
+            callbacks=[
+                checkpoint_cb,
+                early_stop_cb,
+                lr_monitor,
+                progress_bar_cb,
+                *pruning_cb,
+            ],
             log_every_n_steps=10,
             deterministic=True,
         )
@@ -176,14 +185,16 @@ class NERTrainer:
         # Retrain best model to get its checkpoint on disk
         best_params = study.best_trial.params
         dm, model = self._build(best_params)
-        checkpoint_cb, early_stop_cb, lr_monitor, _ = self._get_callbacks(trial=None)
+        checkpoint_cb, early_stop_cb, lr_monitor, progress_bar_cb, _ = (
+            self._get_callbacks()
+        )
 
         trainer = pl.Trainer(
             max_epochs=self.MAX_EPOCHS,
             accelerator=self.DEVICE,
             devices=1,
             logger=TensorBoardLogger("tb_logs", name="final"),
-            callbacks=[checkpoint_cb, early_stop_cb, lr_monitor],
+            callbacks=[checkpoint_cb, early_stop_cb, lr_monitor, progress_bar_cb],
             log_every_n_steps=10,
         )
         trainer.fit(model, datamodule=dm)
@@ -425,34 +436,34 @@ class NERInference:
 
 def main():
 
-    # ner_trainer = NERTrainer(
-    #     data_csv="../data/ner-data.csv",
-    #     model_name="answerdotai/ModernBERT-base",
-    #     label_list=NER_LABEL_LIST,
-    #     num_trials=10,
-    #     max_epochs=10,
-    # )
-    # ner_trainer.run()
+    ner_trainer = NERTrainer(
+        data_csv="../data/ner-data.csv",
+        model_name="answerdotai/ModernBERT-base",
+        label_list=NER_LABEL_LIST,
+        num_trials=10,
+        max_epochs=10,
+    )
+    ner_trainer.run()
 
     # quick test
-    text = """
-Section 5.9 Securityholder Litigation. Each of ETP and ETE shall give the other the opportunity to participate in the defense or settlement of any securityholder litigation against such party and/or its officers and directors relating to the transactions contemplated hereby; provided that the party subject to the litigation shall in any event control such defense and/or settlement (subject to Section 5.2(a)(xii) and Section 5.2(b)(viii)) and shall not be required to provide information if doing so would be reasonably expected to threaten the loss of any attorney-client privilege or other applicable legal privilege. 
+#     text = """
+# Section 5.9 Securityholder Litigation. Each of ETP and ETE shall give the other the opportunity to participate in the defense or settlement of any securityholder litigation against such party and/or its officers and directors relating to the transactions contemplated hereby; provided that the party subject to the litigation shall in any event control such defense and/or settlement (subject to Section 5.2(a)(xii) and Section 5.2(b)(viii)) and shall not be required to provide information if doing so would be reasonably expected to threaten the loss of any attorney-client privilege or other applicable legal privilege. 
 
-Section 5.10 Financing Matters. ETP hereby consents to ETE’s use of and reliance on any audited or unaudited financial statements relating to ETP and its consolidated Subsidiaries, any ETP Joint Ventures or entities or businesses acquired by ETP reasonably requested by ETE to be used in any financing or other activities of ETE, including any filings that ETE desires to make with the SEC. In addition, ETP will use commercially reasonable efforts, at ETE’s sole cost and expense, to obtain the consents of any auditor to the inclusion of the financial statements referenced above in appropriate filings with the SEC. Prior to the Closing, ETP will provide such assistance (and will cause its Subsidiaries and its and their respective personnel and advisors to provide such assistance), as ETE may reasonably request in order to assist ETE in connection with financing activities, including any public offerings to be registered under the Securities Act or private offerings. Such assistance shall include, but not be limited to, the following: (i) providing such information, and making available such personnel as ETE may reasonably request; (ii) participation in, and assistance with, any marketing activities related to such financing; (iii) participation by senior management of ETP in, and their assistance with, the preparation of rating agency presentations and meetings with rating agencies; (iv) taking such actions as are reasonably requested by ETE or its financing sources to facilitate the satisfaction of all conditions precedent to obtaining such financing; and (v) taking such actions as may be required to permit any cash and marketable securities of ETP or ETE to be made available to finance the transactions contemplated hereby at the Effective Time. 
+# Section 5.10 Financing Matters. ETP hereby consents to ETE’s use of and reliance on any audited or unaudited financial statements relating to ETP and its consolidated Subsidiaries, any ETP Joint Ventures or entities or businesses acquired by ETP reasonably requested by ETE to be used in any financing or other activities of ETE, including any filings that ETE desires to make with the SEC. In addition, ETP will use commercially reasonable efforts, at ETE’s sole cost and expense, to obtain the consents of any auditor to the inclusion of the financial statements referenced above in appropriate filings with the SEC. Prior to the Closing, ETP will provide such assistance (and will cause its Subsidiaries and its and their respective personnel and advisors to provide such assistance), as ETE may reasonably request in order to assist ETE in connection with financing activities, including any public offerings to be registered under the Securities Act or private offerings. Such assistance shall include, but not be limited to, the following: (i) providing such information, and making available such personnel as ETE may reasonably request; (ii) participation in, and assistance with, any marketing activities related to such financing; (iii) participation by senior management of ETP in, and their assistance with, the preparation of rating agency presentations and meetings with rating agencies; (iv) taking such actions as are reasonably requested by ETE or its financing sources to facilitate the satisfaction of all conditions precedent to obtaining such financing; and (v) taking such actions as may be required to permit any cash and marketable securities of ETP or ETE to be made available to finance the transactions contemplated hereby at the Effective Time. 
 
-Section 5.11 Fees and Expenses. All fees and expenses incurred in connection with the transactions contemplated hereby including all legal, accounting, financial advisory, consulting and all other fees and expenses of third parties incurred by a party in connection with the negotiation and effectuation of the terms and conditions of this Agreement and the transactions contemplated hereby, shall be the obligation of the respective party incurring such fees and expenses (other than the filing fee payable to the SEC in connection with the Registration Statement and the filing fee payable in connection with the filing of a Notification and Report Form pursuant to the HSR Act, which shall each be borne one half by ETP and one half by ETE). 
+# Section 5.11 Fees and Expenses. All fees and expenses incurred in connection with the transactions contemplated hereby including all legal, accounting, financial advisory, consulting and all other fees and expenses of third parties incurred by a party in connection with the negotiation and effectuation of the terms and conditions of this Agreement and the transactions contemplated hereby, shall be the obligation of the respective party incurring such fees and expenses (other than the filing fee payable to the SEC in connection with the Registration Statement and the filing fee payable in connection with the filing of a Notification and Report Form pursuant to the HSR Act, which shall each be borne one half by ETP and one half by ETE). 
 
-Section 5.12 Section 16 Matters. Prior to the Effective Time, ETE and ETP shall take all such steps as may be required (to the extent permitted under applicable Law) to cause any dispositions of Common Units (including derivative securities with respect to Common Units) or acquisitions of ETE Common Units (including derivative securities with respect to ETE Common Units) resulting from the transactions contemplated by this Agreement by each individual who is subject to the reporting requirements of Section 16(a) of the Exchange Act with respect to ETP, or will become subject to such reporting requirements with respect to ETE, to be exempt under Rule 16b-3 promulgated under the Exchange Act. 
+# Section 5.12 Section 16 Matters. Prior to the Effective Time, ETE and ETP shall take all such steps as may be required (to the extent permitted under applicable Law) to cause any dispositions of Common Units (including derivative securities with respect to Common Units) or acquisitions of ETE Common Units (including derivative securities with respect to ETE Common Units) resulting from the transactions contemplated by this Agreement by each individual who is subject to the reporting requirements of Section 16(a) of the Exchange Act with respect to ETP, or will become subject to such reporting requirements with respect to ETE, to be exempt under Rule 16b-3 promulgated under the Exchange Act. 
 
-52"""
+# 52"""
 
-    inference_model = NERInference(
-        ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
-    )
+#     inference_model = NERInference(
+#         ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
+#     )
 
-    start = time.time()
-    inference_model.label(text, verbose=True)
-    print(time.time() - start)
+#     start = time.time()
+#     inference_model.label(text, verbose=True)
+#     print(time.time() - start)
 
 
 if __name__ == "__main__":
