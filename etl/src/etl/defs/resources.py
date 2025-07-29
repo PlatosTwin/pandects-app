@@ -1,15 +1,23 @@
 import dagster as dg
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-import torch
-from etl.src.etl.domain.classifier_model import PageClassifier
+from etl.models.code.classifier import ClassifierInference
+from etl.models.code.ner import NERInference
 from pathlib import Path
-
-ckpt = ""
-ckpt_path = (
-    Path("/Users/nikitabogdanov/PycharmProjects/merger_agreements/scripts/models")
-    / ckpt
+from etl.models.code.constants import (
+    NER_LABEL_LIST,
+    NER_CKPT_PATH,
+    CLASSIFIER_LABEL2IDX_PATH,
+    CLASSIFIER_VOCAB_PATH,
+    CLASSIFIER_CKPT_PATH,
 )
+import pickle
+
+
+with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
+    vocab = pickle.load(f)
+with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
+    label2idx = pickle.load(f)
 
 
 class DBResource(dg.ConfigurableResource):
@@ -20,6 +28,7 @@ class DBResource(dg.ConfigurableResource):
     database: str
 
     def get_engine(self) -> Engine:
+        """Create a SQLAlchemy engine for the configured database."""
         url = (
             f"mariadb+mysqldb://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
@@ -29,46 +38,27 @@ class DBResource(dg.ConfigurableResource):
 
 class ClassifierModel(dg.ConfigurableResource):
 
-    def __init__(self):
-        if torch.backends.mps.is_available():
-            self.DEVICE = "mps"
-        elif torch.cuda.is_available():
-            self.DEVICE = "cuda"
-        else:
-            self.DEVICE = "cpu"
-
-    def model(self) -> PageClassifier:
-        model = PageClassifier.load_from_checkpoint(
-            ckpt_path,
+    def model(self) -> ClassifierInference:
+        """Load and return the PageClassifier model on the selected device."""
+        model = ClassifierInference(
+            ckpt_path=CLASSIFIER_CKPT_PATH, vocab=vocab, label2idx=label2idx
         )
-        model.eval()
-        model.to(self.DEVICE)
-
         return model
-    
-    
+
+
 class TaggingModel(dg.ConfigurableResource):
 
-    def __init__(self):
-        if torch.backends.mps.is_available():
-            self.DEVICE = "mps"
-        elif torch.cuda.is_available():
-            self.DEVICE = "cuda"
-        else:
-            self.DEVICE = "cpu"
-
-    def model(self) -> PageClassifier:
-        model = PageClassifier.load_from_checkpoint(
-            ckpt_path,
-        )
-        model.eval()
-        model.to(self.DEVICE)
-
+    def model(self) -> NERInference:
+        """Load and return the PageClassifier model on the selected device."""
+        model = NERInference(ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST)
         return model
 
 
 @dg.definitions
 def resources() -> dg.Definitions:
+    """
+    Return Dagster Definitions for resources.
+    """
     return dg.Definitions(
         resources={
             "db": DBResource(
@@ -78,6 +68,7 @@ def resources() -> dg.Definitions:
                 port=dg.EnvVar("MARIADB_PORT"),
                 database=dg.EnvVar("MARIADB_DATABASE"),
             ),
-            "classified_model": ClassifierModel(),
+            "classifier_model": ClassifierModel(),
+            "tagging_model": TaggingModel(),
         }
     )
