@@ -18,3 +18,5 @@ NOTES.md
 *.csv
 
 **/*.tmp_dagster*
+
+**/tb_logs
