@@ -16,10 +16,16 @@ export default function Feedback() {
 
           <div className="prose text-gray-700 space-y-4 mb-8">
             <p>
-              We're currently solicting input from our end users on all things data. How are you planning to access Pandects data? Do you have comments on the proposed XML schema or the taxonomy? Are there other things we should be taking into consideration? Let us know by submitting the survey form below!
+              We're currently solicting input from our end users on all things
+              data. How are you planning to access Pandects data? Do you have
+              comments on the proposed XML schema or the taxonomy? Are there
+              other things we should be taking into consideration? Let us know
+              by submitting the survey form below!
             </p>
             <p>
-              We also have a form for general feedback, where you can flag issues, submit questions, or propose improvements. Alternatively, you can{" "}
+              We also have a form for general feedback, where you can flag
+              issues, submit questions, or propose improvements. Alternatively,
+              you can{" "}
               <a
                 href="https://github.com/PlatosTwin/pandects-app/issues"
                 target="_blank"
@@ -28,18 +34,19 @@ export default function Feedback() {
               >
                 open an issue
               </a>{" "}
-              on Github or be the change you want to see and submit a pull request. For more on contributing, see the <a
+              on Github or be the change you want to see and submit a pull
+              request. For more on contributing, see the{" "}
+              <a
                 href="https://github.com/PlatosTwin/pandects-app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-material-blue hover:underline"
               >
                 main Github repository.
-              </a>.
+              </a>
+              .
             </p>
-            <p>
-              
-            </p>
+            <p></p>
             <p className="font-medium text-gray-800">
               Thanks for helping to make Pandects better!
             </p>
@@ -57,6 +64,7 @@ export default function Feedback() {
             <AccordionContent className="px-6 pb-6">
               <div className="bg-white rounded-lg">
                 <iframe
+                  loading="lazy"
                   className="airtable-embed w-full rounded-lg"
                   src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagNFOMrP8gZLyEl3/form"
                   width="100%"
@@ -80,6 +88,7 @@ export default function Feedback() {
             <AccordionContent className="px-6 pb-6">
               <div className="bg-white rounded-lg">
                 <iframe
+                  loading="lazy"
                   className="airtable-embed w-full rounded-lg"
                   src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form"
                   width="100%"
