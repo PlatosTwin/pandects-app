@@ -1,5 +1,6 @@
 frontend/node_modules/
 backend/venv/
+etl/.venv/
 
 # Env / secrets
 **/*.env
@@ -10,7 +11,10 @@ frontend/dist/
 backend/build/
 
 TODO.md
+NOTES.md
 *.sql
 *.pyc
+
+*.csv
 
 **/*.tmp_dagster*
