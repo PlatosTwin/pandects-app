@@ -163,47 +163,58 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
         requests.HTTPError: on bad HTTP status codes.
         requests.RequestException: on connection issues, timeouts, etc.
     """
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; pull_agreement_content/1.0)"}
+    headers = {
+        "User-Agent": "New York University School of Law nmb9729@nyu.edu",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate",
+        "Host": "www.sec.gov",
+        "Connection": "keep-alive",
+    }
     resp = requests.get(url, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.text
 
 
 def split_to_pages(content, is_txt, is_html):
-
     split_pages = []
+
     if is_txt:
-
         fragments = re.split(r"<PAGE>", content)
-
         split_pages = [
             {"content": page, "order": i} for i, page in enumerate(fragments)
         ]
 
     elif is_html:
-
         soup = BeautifulSoup(content, "html.parser")
 
-        for div in soup.find_all(
-            lambda tag: tag.name == "div"
-            and tag.has_attr("style")
-            and any(
-                isinstance(s, str) and "page-break-before" in s.lower()
-                for s in tag["style"]
-                if isinstance(tag["style"], (list, str))
+        # 1. Turn your explicit page‑break DIVs into <hr data-page-break="true">
+        def is_page_break_div(tag):
+            if tag.name != "div":
+                return False
+            style = tag.get("style", "")
+            return isinstance(style, str) and (
+                "page-break-before" in style.lower()
+                or "page-break-after" in style.lower()
             )
-        ):
-            # Replace the entire DIV (and its contents) with a simple <hr>
-            div.replace_with(soup.new_tag("hr"))
 
-        # 2. Serialize back to string
-        normalized_html = str(soup)
+        for div in soup.find_all(is_page_break_div):
+            hr = soup.new_tag("hr")
+            hr["data-page-break"] = "true"
+            div.replace_with(hr)
 
-        # Split on any <hr> tag (case‐insensitive, with optional attributes)
-        fragments = re.split(r"(?i)<hr\b[^>]*>", normalized_html)
+        # 2. ALSO mark *original* <hr> tags that are NOT inside any <table>
+        for hr in soup.find_all("hr"):
+            if hr.get("data-page-break") != "true" and hr.find_parent("table") is None:
+                hr["data-page-break"] = "true"
+
+        # 3. Serialize and split ONLY on <hr data-page-break="true">
+        normalized = str(soup)
+        fragments = re.split(
+            r'(?i)<hr\b[^>]*\bdata-page-break\s*=\s*"true"[^>]*>', normalized
+        )
 
         split_pages = [
-            {"content": page, "order": i} for i, page in enumerate(fragments)
+            {"content": frag, "order": i} for i, frag in enumerate(fragments)
         ]
 
     return split_pages
@@ -282,13 +293,13 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
         else:
             raise RuntimeError(f"Unknown filing extension: {ext}")
 
-        # step 1: pull down content from EDGAR
+        # 1. pull down content from EDGAR
         content = pull_agreement_content(agreement["url"])
 
-        # step 2: split into individual pages
+        # 2. split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
 
-        # step 3: loop through pages to classify and format
+        # 3. loop through pages to classify and format
         for page in pages:
             # format
             page_formatted_content = format_content(page["content"], is_txt, is_html)
