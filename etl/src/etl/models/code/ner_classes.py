@@ -232,45 +232,52 @@ class ValWindowedDataset(Dataset):
             T = len(cleaned_text)
             start = 0
             while start < T:
-                end = min(start + L, T)
-                sub_text = cleaned[start:end]
-                sub_labels = chars_lbl[start:end]
+                end = min(start + self.window, T)
+                sub_text = cleaned_text[start:end]
+                sub_labels = char_labels[start:end]
 
-                encoding = tokenizer(
+                enc = self.tokenizer(
                     sub_text,
                     return_offsets_mapping=True,
                     truncation=True,
-                    max_length=L + 2,  # accounts for [CLS] + [SEP]
+                    max_length=self.window + 2,
                 )
-                offsets = encoding["offset_mapping"]
-                word_ids = encoding.word_ids()
+                offsets = enc.pop("offset_mapping")
+                word_ids = enc.word_ids()
 
+                # Token-to-label mapping
                 labels: List[int] = []
                 last_wid = None
-                for (off_start, off_end), wid in zip(offsets, word_ids):
+                for (o0, o1), wid in zip(offsets, word_ids):
                     if wid is None:
                         labels.append(-100)
                         last_wid = None
-                        continue
-                    if wid == last_wid:
+                    elif wid == last_wid:
                         labels.append(-100)
                     else:
-                        span = sub_labels[off_start:off_end]
-                        ent = next((l for l in span if l != "O"), None)
-                        labels.append(label2id[ent] if ent else label2id["O"])
-                    last_wid = wid
+                        span_ent = next(
+                            (l for l in sub_labels[o0:o1] if l != "O"), None
+                        )
+                        labels.append(
+                            self.label2id[span_ent] if span_ent else self.label2id["O"]
+                        )
+                        last_wid = wid
 
+                # Store example with metadata
                 self.examples.append(
                     {
-                        "input_ids": encoding["input_ids"],
-                        "attention_mask": encoding["attention_mask"],
+                        "doc_id": doc_id,
+                        "window_start": start,
+                        "input_ids": enc["input_ids"],
+                        "attention_mask": enc["attention_mask"],
                         "labels": labels,
+                        "offset_mapping": offsets,
                     }
                 )
 
                 if end == T:
                     break
-                start += S
+                start += self.stride
 
     def __len__(self):
         return len(self.examples)
