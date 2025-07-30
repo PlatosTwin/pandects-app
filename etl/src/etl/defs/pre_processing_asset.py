@@ -17,7 +17,7 @@ def pre_processing_asset(db: DBResource, classifier_model: ClassifierModel) -> N
     Returns:
         None
     """
-    batch_size: int = 15
+    batch_size: int = 15  # batch_size agreements at a time
     last_uuid: str = ""
     engine = db.get_engine()
 
@@ -38,16 +38,19 @@ def pre_processing_asset(db: DBResource, classifier_model: ClassifierModel) -> N
                 {"last_uuid": last_uuid, "batch_size": batch_size},
             )
             rows = result.fetchall()
+
             if not rows:
                 break
 
-            # rows is a list of tuples (agreement_uuid, url)
+            # split agreements into pages, and process the pages
             agreements = [{"agreement_uuid": r[0], "url": r[1]} for r in rows]
             staged_pages = pre_process(agreements, classifier_model)
-            try:
-                upsert_pages(staged_pages, conn)
-            except Exception as e:
-                print(f"Error upserting pages: {e}")
-                break
+            
+            if staged_pages:
+                try:
+                    upsert_pages(staged_pages, conn)
+                except Exception as e:
+                    print(f"Error upserting pages: {e}")
+                    raise RuntimeError(e)
 
             last_uuid = rows[-1][0]

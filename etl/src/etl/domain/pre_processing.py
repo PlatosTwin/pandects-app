@@ -1,4 +1,4 @@
-from typing import List, Iterable
+from typing import List, Iterable, Optional
 from dataclasses import dataclass
 import uuid
 import os
@@ -22,11 +22,11 @@ class PageMetadata:
     processed_page_content: str
     source_is_txt: bool
     source_is_html: bool
-    source_page_type: str
-    page_type_prob_front_matter: float
-    page_type_prob_toc: float
-    page_type_prob_body: float
-    page_type_prob_sig: float
+    source_page_type: Optional[str] = None
+    page_type_prob_front_matter: Optional[float] = None
+    page_type_prob_toc: Optional[float] = None
+    page_type_prob_body: Optional[float] = None
+    page_type_prob_sig: Optional[float] = None
 
 
 def normalize_text(text: str) -> str:
@@ -269,7 +269,7 @@ def classify(classifier_model, content, formatted_content):
     return class_dict
 
 
-def pre_process(rows, classifier_model) -> List[PageMetadata]:
+def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
     """
     Splits agreements into pages, classifies page type,
     and processes HTML into formatted text.
@@ -298,6 +298,10 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
 
         # 2. split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
+        
+        if len(pages) <= 10:
+            print('Agreement likely is not paginated. Skipping page upload.')
+            continue
 
         # 3. loop through pages to classify and format
         for page in pages:
@@ -305,9 +309,9 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
             page_formatted_content = format_content(page["content"], is_txt, is_html)
 
             # classify
-            page_class = classify(
-                classifier_model, page["content"], page_formatted_content
-            )
+            # page_class = classify(
+            #     classifier_model, page["content"], page_formatted_content
+            # )
 
             staged_pages.append(
                 PageMetadata(
@@ -317,11 +321,11 @@ def pre_process(rows, classifier_model) -> List[PageMetadata]:
                     processed_page_content=page_formatted_content,
                     source_is_txt=is_txt,
                     source_is_html=is_html,
-                    source_page_type=page_class["class"],
-                    page_type_prob_front_matter=page_class["prob_front_matter"],
-                    page_type_prob_toc=page_class["prob_toc"],
-                    page_type_prob_body=page_class["prob_body"],
-                    page_type_prob_sig=page_class["prob_sig"],
+                    # source_page_type=page_class["class"],
+                    # page_type_prob_front_matter=page_class["prob_front_matter"],
+                    # page_type_prob_toc=page_class["prob_toc"],
+                    # page_type_prob_body=page_class["prob_body"],
+                    # page_type_prob_sig=page_class["prob_sig"],
                 )
             )
 
