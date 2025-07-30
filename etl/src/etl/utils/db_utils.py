@@ -179,8 +179,6 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
                 "chars": json.dumps(tag.chars),
             }
         )
-
-    print(rows[0])
     
     # execute in batches of 250
     for i in range(0, len(rows), 250):

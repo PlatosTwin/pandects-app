@@ -13,11 +13,13 @@ from etl.models.code.constants import (
 )
 import pickle
 
-
-with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
-    vocab = pickle.load(f)
-with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
-    label2idx = pickle.load(f)
+try:
+    with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
+        vocab = pickle.load(f)
+    with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
+        label2idx = pickle.load(f)
+except FileNotFoundError:
+    print("Warning: a .pkl file was not found.")
 
 
 class DBResource(dg.ConfigurableResource):
