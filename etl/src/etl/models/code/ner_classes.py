@@ -117,6 +117,11 @@ class TrainDataset(Dataset):
                 # snip out the two halves around its midpoint
                 for c_start, c_end, _ in mapped_spans:
                     if c_start >= half_L and c_end <= len(cleaned_text) - half_L:
+
+                        # we don't want as many broken-span sub-samples as full sub-samples
+                        if np.random.rand() >= 0.15:
+                            continue
+
                         mid = (c_start + c_end) // 2
 
                         # left half: [mid-half_L, mid)
