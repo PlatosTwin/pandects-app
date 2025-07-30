@@ -93,8 +93,8 @@ class TrainDataset(Dataset):
                     chunk_labels = char_labels[ws:we]
                     self._tokenize_and_store(chunk_text, chunk_labels)
 
-            # 5.b. entity-centered sub-sampling (positive samples)
             else:
+                # 5.b. entity-centered sub-sampling (positive samples)
                 L = self.subsample_window
                 T = len(cleaned_text)
                 for c_start, c_end, _ in mapped_spans:
@@ -110,6 +110,29 @@ class TrainDataset(Dataset):
                     sub_text = cleaned_text[ws:we]
                     sub_char_labels = char_labels[ws:we]
                     self._tokenize_and_store(sub_text, sub_char_labels)
+                    
+                # 5.c. broken‑span sliding windows (to teach boundary cases)
+                half_L = self.subsample_window // 2
+                # for each span, if it’s safely away from the edges,
+                # snip out the two halves around its midpoint
+                for c_start, c_end, _ in mapped_spans:
+                    if c_start >= half_L and c_end <= len(cleaned_text) - half_L:
+                        mid = (c_start + c_end) // 2
+
+                        # left half: [mid-half_L, mid)
+                        ws1, we1 = mid - half_L, mid
+                        self._tokenize_and_store(
+                            cleaned_text[ws1:we1],
+                            char_labels[ws1:we1],
+                        )
+
+                        # right half: [mid, mid+half_L)
+                        ws2, we2 = mid, mid + half_L
+                        self._tokenize_and_store(
+                            cleaned_text[ws2:we2],
+                            char_labels[ws2:we2],
+                        )
+
 
     def _tokenize_and_store(self, text: str, char_labels: List[str]):
         # 1. run the tokenizer
