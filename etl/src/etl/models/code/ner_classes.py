@@ -4,6 +4,7 @@ import re
 from typing import Any, Dict, List, Tuple, cast
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
+import numpy as np
 
 # Environment config
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -24,6 +25,56 @@ from transformers.data.data_collator import DataCollatorForTokenClassification
 from transformers.optimization import get_linear_schedule_with_warmup
 
 
+def prep_data(raw):
+    tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
+
+    # 1. extract raw spans
+    spans: List[Tuple[int, int, str]] = []
+    for m in tag_pattern.finditer(raw):
+        spans.append((m.start(2), m.end(2), m.group(1)))
+
+    # 2. strip out tags, build cleaned_text & orig2clean map
+    cleaned_chars, orig2clean = [], {}
+    i_clean = i = 0
+    while i < len(raw):
+        if raw.startswith("<section>", i):
+            i += len("<section>")
+        elif raw.startswith("</section>", i):
+            i += len("</section>")
+        elif raw.startswith("<article>", i):
+            i += len("<article>")
+        elif raw.startswith("</article>", i):
+            i += len("</article>")
+        elif raw.startswith("<page>", i):
+            i += len("<page>")
+        elif raw.startswith("</page>", i):
+            i += len("</page>")
+        else:
+            cleaned_chars.append(raw[i])
+            orig2clean[i] = i_clean
+            i_clean += 1
+            i += 1
+
+    cleaned_text = "".join(cleaned_chars)
+
+    # 3. map spans into cleaned-text coords
+    mapped_spans: List[Tuple[int, int, str]] = []
+    for start, end, tag in spans:
+        c_start = orig2clean.get(start)
+        c_end = orig2clean.get(end - 1)
+        if c_start is not None and c_end is not None:
+            mapped_spans.append((c_start, c_end + 1, tag))
+
+    # 4. build per-char labels
+    char_labels = ["O"] * len(cleaned_text)
+    for c_start, c_end, tag in mapped_spans:
+        char_labels[c_start] = f"B-{tag.upper()}"
+        for pos in range(c_start + 1, c_end):
+            char_labels[pos] = f"I-{tag.upper()}"
+
+    return mapped_spans, cleaned_text, char_labels
+
+
 class TrainDataset(Dataset):
     def __init__(
         self,
@@ -36,54 +87,12 @@ class TrainDataset(Dataset):
         self.label2id = label2id
         self.subsample_window = subsample_window
         self.examples = []
-        tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
 
         for raw in data:
-            # 1. extract raw spans
-            spans: List[Tuple[int, int, str]] = []
-            for m in tag_pattern.finditer(raw):
-                spans.append((m.start(2), m.end(2), m.group(1)))
 
-            # 2. strip out tags, build cleaned_text & orig2clean map
-            cleaned_chars, orig2clean = [], {}
-            i_clean = i = 0
-            while i < len(raw):
-                if raw.startswith("<section>", i):
-                    i += len("<section>")
-                elif raw.startswith("</section>", i):
-                    i += len("</section>")
-                elif raw.startswith("<article>", i):
-                    i += len("<article>")
-                elif raw.startswith("</article>", i):
-                    i += len("</article>")
-                elif raw.startswith("<page>", i):
-                    i += len("<page>")
-                elif raw.startswith("</page>", i):
-                    i += len("</page>")
-                else:
-                    cleaned_chars.append(raw[i])
-                    orig2clean[i] = i_clean
-                    i_clean += 1
-                    i += 1
+            mapped_spans, cleaned_text, char_labels = prep_data(raw)
 
-            cleaned_text = "".join(cleaned_chars)
-
-            # 3. map spans into cleaned-text coords
-            mapped_spans: List[Tuple[int, int, str]] = []
-            for start, end, tag in spans:
-                c_start = orig2clean.get(start)
-                c_end = orig2clean.get(end - 1)
-                if c_start is not None and c_end is not None:
-                    mapped_spans.append((c_start, c_end + 1, tag))
-
-            # 4. build per-char labels
-            char_labels = ["O"] * len(cleaned_text)
-            for c_start, c_end, tag in mapped_spans:
-                char_labels[c_start] = f"B-{tag.upper()}"
-                for pos in range(c_start + 1, c_end):
-                    char_labels[pos] = f"I-{tag.upper()}"
-
-            # 5.a. sub-samples of negative samples
+            # Subsample 1 -- sub-samples of negative samples
             if not mapped_spans:
                 L = self.subsample_window
                 T = len(cleaned_text)
@@ -94,7 +103,7 @@ class TrainDataset(Dataset):
                     self._tokenize_and_store(chunk_text, chunk_labels)
 
             else:
-                # 5.b. entity-centered sub-sampling (positive samples)
+                # Subsample 2 -- entity-centered sub-sampling (positive samples)
                 L = self.subsample_window
                 T = len(cleaned_text)
                 for c_start, c_end, _ in mapped_spans:
@@ -110,8 +119,8 @@ class TrainDataset(Dataset):
                     sub_text = cleaned_text[ws:we]
                     sub_char_labels = char_labels[ws:we]
                     self._tokenize_and_store(sub_text, sub_char_labels)
-                    
-                # 5.c. broken‑span sliding windows (to teach boundary cases)
+
+                # Subsample 3 -- broken‑span sliding windows (to teach boundary cases)
                 half_L = self.subsample_window // 2
                 # for each span, if it’s safely away from the edges,
                 # snip out the two halves around its midpoint
@@ -137,7 +146,6 @@ class TrainDataset(Dataset):
                             cleaned_text[ws2:we2],
                             char_labels[ws2:we2],
                         )
-
 
     def _tokenize_and_store(self, text: str, char_labels: List[str]):
         # 1. run the tokenizer
@@ -197,56 +205,31 @@ class ValWindowedDataset(Dataset):
         window: int = 512,
         stride: int = 256,
     ):
-        self.examples = []
-        tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
+        """
+        Sliding-window NER dataset that retains per-window metadata
+        and delegates batching to an external DataCollator.
 
-        for raw in data:
-            # 1) find + map spans
-            spans = []
-            for m in tag_pattern.finditer(raw):
-                spans.append((m.start(2), m.end(2), m.group(1)))
+        Args:
+            data: List of raw tagged strings.
+            tokenizer: Fast HuggingFace tokenizer.
+            label2id: BIO tag-to-id map.
+            data_collator: Collator for padding/batching token features.
+            window: Window size in characters.
+            stride: Stride size in characters.
+        """
+        self.data = data
+        self.tokenizer = tokenizer
+        self.label2id = label2id
+        self.collator = data_collator
+        self.window = window
+        self.stride = stride
+        self.examples: List[Dict[str, Any]] = []
 
-            cleaned_chars, orig2clean = [], {}
-            i_clean = i = 0
-            while i < len(raw):
-                if raw.startswith("<section>", i):
-                    i += len("<section>")
-                elif raw.startswith("</section>", i):
-                    i += len("</section>")
-                elif raw.startswith("<article>", i):
-                    i += len("<article>")
-                elif raw.startswith("</article>", i):
-                    i += len("</article>")
-                elif raw.startswith("<page>", i):
-                    i += len("<page>")
-                elif raw.startswith("</page>", i):
-                    i += len("</page>")
-                else:
-                    cleaned_chars.append(raw[i])
-                    orig2clean[i] = i_clean
-                    i_clean += 1
-                    i += 1
-            cleaned = "".join(cleaned_chars)
+        for doc_id, raw in enumerate(self.data):
+            _, cleaned_text, char_labels = prep_data(raw)
 
-            mapped: List[Tuple[int, int, str]] = []
-            for start, end, tag in spans:
-                c0 = orig2clean.get(start)
-                c1 = orig2clean.get(end - 1)
-                if c0 is not None and c1 is not None:
-                    mapped.append((c0, c1 + 1, tag))
-
-            # 2) build char-level BIO labels
-            chars_lbl = ["O"] * len(cleaned)
-            for c0, c1, tag in mapped:
-                chars_lbl[c0] = f"B-{tag.upper()}"
-                for p in range(c0 + 1, c1):
-                    chars_lbl[p] = f"I-{tag.upper()}"
-
-            # 3) Sliding windows
-            T = len(cleaned)
-            L = window
-            S = stride
-
+            # Sliding windows
+            T = len(cleaned_text)
             start = 0
             while start < T:
                 end = min(start + L, T)
