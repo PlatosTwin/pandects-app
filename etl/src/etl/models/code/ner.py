@@ -1,6 +1,7 @@
 # Standard library
 import os
 import time
+from typing import Union
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -30,8 +31,8 @@ from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-from constants import NER_LABEL_LIST, NER_CKPT_PATH
-from ner_classes import NERTagger, NERDataModule
+from .constants import NER_LABEL_LIST, NER_CKPT_PATH
+from .ner_classes import NERTagger, NERDataModule
 
 # Reproducibility
 seed_everything(42, workers=True, verbose=False)
@@ -207,6 +208,7 @@ class NERInference:
         label_list: list[str],
         device: str = "cpu",
         review_threshold: float = 0.5,
+        window_batch_size: int = 32,
     ) -> None:
         # 1) Load & prep model
         self.model: NERTagger = NERTagger.load_from_checkpoint(ckpt_path)
@@ -222,89 +224,109 @@ class NERInference:
         self.label2id = {l: i for i, l in self.id2label.items()}
 
         self.review_threshold = review_threshold
+        self.window_batch_size = window_batch_size
 
-    def _predict_full_text(
+    def _batch_predict_full_texts(
         self,
-        text: str,
+        texts: list[str],
         window: int = 512,
         stride: int = 256,
-    ) -> tuple[str, list[int], list[float]]:
+    ) -> tuple[list[str], list[list[int]], list[list[float]]]:
         """
-        1) Break text into overlapping char-windows,
-        2) Tokenize & run them through the model,
-        3) Aggregate token-probs down to chars,
-        4) Argmax → raw char-level B/I/O labels,
-        5) Post-process BIO so only the *first* char of a span is B-,
-           the rest become I-.
+        Batch-window NER on multiple texts:
+        - flatten windows across all texts,
+        - tokenize in sub-batches of size self.window_batch_size,
+        - aggregate token probs to chars,
+        - average, argmax, BIO-fix.
+        Returns (texts, raw_preds_list, confidences_list).
         """
-        T = len(text)
-        # build (start,end) windows in char-space
-        windows: list[tuple[int, int]] = []
-        slices: list[str] = []
-        start = 0
-        while start < T:
-            end = min(start + window, T)
-            windows.append((start, end))
-            slices.append(text[start:end])
-            if end == T:
-                break
-            start += stride
+        # 1) Flatten windows
+        all_recs: list[tuple[int, int, int]] = []
+        all_slices: list[str] = []
+        for tidx, text in enumerate(texts):
+            T = len(text)
+            start = 0
+            while start < T:
+                end = min(start + window, T)
+                all_recs.append((tidx, start, end))
+                all_slices.append(text[start:end])
+                if end == T:
+                    break
+                start += stride
 
-        # tokenize batch
-        enc = self.tokenizer(
-            slices,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=window,
-            return_attention_mask=True,
-            return_offsets_mapping=True,
-        )
-        # move inputs to device
-        for k in ("input_ids", "attention_mask", "offset_mapping"):
-            enc[k] = enc[k].to(self.device)
+        # 2) Pre-allocate buffers per text
+        num_labels = len(self.label_list)
+        sum_p = [
+            torch.zeros((len(texts[i]), num_labels), device=self.device)
+            for i in range(len(texts))
+        ]
+        counts = [
+            torch.zeros(len(texts[i]), device=self.device) for i in range(len(texts))
+        ]
 
-        # forward
-        with torch.no_grad():
-            out = self.model(
-                input_ids=enc["input_ids"],
-                attention_mask=enc["attention_mask"],
+        # 3) Process windows in chunks
+        for i in range(0, len(all_slices), self.window_batch_size):
+            batch_slices = all_slices[i : i + self.window_batch_size]
+            batch_recs = all_recs[i : i + self.window_batch_size]
+
+            enc = self.tokenizer(
+                batch_slices,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=window,
+                return_attention_mask=True,
+                return_offsets_mapping=True,
             )
-            probs = torch.softmax(out.logits, dim=-1)  # (batch, seq, labels)
+            for k in ("input_ids", "attention_mask", "offset_mapping"):
+                enc[k] = enc[k].to(self.device)
 
-        # aggregate down to char-level
-        sum_p = torch.zeros((T, probs.size(-1)), device=self.device)
-        counts = torch.zeros(T, device=self.device)
-        for (w0, w1), p, offsets, attn in zip(
-            windows, probs, enc["offset_mapping"], enc["attention_mask"]
-        ):
-            valid = attn.sum().item()  # skip padding
-            for tok_i in range(valid):
-                off_start, off_end = offsets[tok_i].tolist()
-                if off_end == 0:
-                    continue
-                # add this token's prob to each char in its span
-                for char_pos in range(off_start, off_end):
-                    idx = w0 + char_pos
-                    if idx < T:
-                        sum_p[idx] += p[tok_i]
-                        counts[idx] += 1
+            with torch.no_grad():
+                out = self.model(
+                    input_ids=enc["input_ids"],
+                    attention_mask=enc["attention_mask"],
+                )
+                probs = torch.softmax(out.logits, dim=-1)
 
-        # average & argmax
-        avg_p = sum_p / counts.unsqueeze(-1).clamp(min=1)
-        confidences = avg_p.max(dim=-1)[0].cpu().tolist()
-        raw_preds = avg_p.argmax(dim=-1).cpu().tolist()
+            for (tidx, w0, _), p, offsets, attn in zip(
+                batch_recs,
+                probs,
+                enc["offset_mapping"],
+                enc["attention_mask"],
+            ):
+                valid = attn.sum().item()
+                for tok_i in range(valid):
+                    off_start, off_end = offsets[tok_i].tolist()
+                    if off_end == 0:
+                        continue
+                    for c in range(off_start, off_end):
+                        idx_char = w0 + c
+                        if idx_char < sum_p[tidx].size(0):
+                            sum_p[tidx][idx_char] += p[tok_i]
+                            counts[tidx][idx_char] += 1
 
-        # BIO fix: convert B-X→I-X if the *previous* char was the same X
-        for i in range(1, len(raw_preds)):
-            prev_lbl = self.id2label[raw_preds[i - 1]]
-            curr_lbl = self.id2label[raw_preds[i]]
-            if curr_lbl.startswith("B-"):
-                ent = curr_lbl.split("-", 1)[1]
-                if prev_lbl == f"I-{ent}" or prev_lbl == f"B-{ent}":
-                    raw_preds[i] = self.label2id[f"I-{ent}"]
+        # 4) Finalize predictions
+        raw_preds_list: list[list[int]] = []
+        confidences_list: list[list[float]] = []
 
-        return text, raw_preds, confidences
+        for tidx, text in enumerate(texts):
+            avg_p = sum_p[tidx] / counts[tidx].unsqueeze(-1).clamp(min=1)
+            confidences = avg_p.max(dim=-1)[0].cpu().tolist()
+            raw_preds = avg_p.argmax(dim=-1).cpu().tolist()
+
+            # BIO fix
+            for j in range(1, len(raw_preds)):
+                prev_lbl = self.id2label[raw_preds[j - 1]]
+                curr_lbl = self.id2label[raw_preds[j]]
+                if curr_lbl.startswith("B-"):
+                    ent = curr_lbl.split("-", 1)[1]
+                    if prev_lbl in (f"I-{ent}", f"B-{ent}"):
+                        raw_preds[j] = self.label2id[f"I-{ent}"]
+
+            raw_preds_list.append(raw_preds)
+            confidences_list.append(confidences)
+
+        return texts, raw_preds_list, confidences_list
 
     def _pretty_print_ner_text(
         self,
@@ -313,8 +335,7 @@ class NERInference:
     ) -> str:
         """
         Same as before — but now your pred_labels will only
-        have a single B- at the start of each span, so you
-        won't see per-character tagging noise.
+        have a single B- at the start of each span.
         """
         assert len(cleaned_text) == len(pred_labels)
         result: list[str] = []
@@ -341,7 +362,9 @@ class NERInference:
         return "".join(result)
 
     def _get_uncertain_spans(
-        self, preds: list[int], confs: list[float]
+        self,
+        preds: list[int],
+        confs: list[float],
     ) -> tuple[int, list[dict]]:
         """Group low‑confidence chars into spans, emitting entity names."""
         low_positions = [i for i, c in enumerate(confs) if c < self.review_threshold]
@@ -360,7 +383,7 @@ class NERInference:
             lbl = self.id2label[lbl_id]
             if "-" in lbl:
                 return lbl.split("-", 1)[1].lower()
-            return lbl.lower()  # for "O" → "o" (or call it "outside")
+            return lbl.lower()
 
         for pos in low_positions[1:]:
             if pos == prev + 1 and preds[pos] == span_label_id:
@@ -380,7 +403,6 @@ class NERInference:
                 conf_list = [confs[pos]]
                 prev = pos
 
-        # flush last
         spans.append(
             {
                 "entity": _ent_name(span_label_id),
@@ -392,46 +414,68 @@ class NERInference:
         return low_count, spans
 
     def label(
-        self, text: str, verbose: bool = False
-    ) -> tuple[str, int, list[dict], list[dict]]:
-        cleaned, preds, confs = self._predict_full_text(text)
-        tagged = self._pretty_print_ner_text(cleaned, preds)
-        low_count, spans = self._get_uncertain_spans(preds, confs)
+        self,
+        texts: list[str],
+        verbose: bool = False,
+    ) -> list[dict[str, Union[str, int, list[dict], list[dict]]]]:
+        """
+        Batch-label a list of texts.
+        Returns a list of (tagged, low_count, spans, chars) tuples.
+        """
+        cleaned_texts, preds_list, confs_list = self._batch_predict_full_texts(texts)
+        results: list[dict[str, Union[str, int, list[dict], list[dict]]]] = []
 
-        # we still build chars if you need them programmatically
-        chars = [
-            {
-                "pos": i,
-                "char": ch,
-                "entity": (
-                    self.id2label[pid].split("-", 1)[1].lower()
-                    if "-" in self.id2label[pid]
-                    else self.id2label[pid].lower()
-                ),
-                "confidence": conf,
-            }
-            for i, (ch, conf, pid) in enumerate(zip(cleaned, confs, preds))
-            if conf < self.review_threshold
-        ]
+        for idx, (cleaned, preds, confs) in enumerate(
+            zip(cleaned_texts, preds_list, confs_list)
+        ):
+            tagged = self._pretty_print_ner_text(cleaned, preds)
+            low_count, spans = self._get_uncertain_spans(preds, confs)
 
-        if verbose:
-            print(tagged)
-            print(f"\n[low‑confidence chars < {self.review_threshold}]: {low_count}")
+            chars = [
+                {
+                    "pos": i,
+                    "char": ch,
+                    "entity": (
+                        self.id2label[pid].split("-", 1)[1].lower()
+                        if "-" in self.id2label[pid]
+                        else self.id2label[pid].lower()
+                    ),
+                    "confidence": conf,
+                }
+                for i, (ch, conf, pid) in enumerate(zip(cleaned, confs, preds))
+                if conf < self.review_threshold
+            ]
 
-            if spans:
-                print("\nUncertain spans:")
-                for s in spans:
-                    # grab the actual substring, escape newlines for readability
-                    snippet = cleaned[s["start"] : s["end"] + 1].replace("\n", "\\n")
-                    print(
-                        f" - chars {s['start']}-{s['end']} "
-                        f"({snippet}) as {s['entity']} "
-                        f"(avg_conf={s['avg_confidence']:.2f})"
-                    )
-            else:
-                print("No spans below threshold.")
+            if verbose:
+                print(f"\n=== Text #{idx} ===")
+                print(tagged)
+                print(
+                    f"\n[low‑confidence chars < {self.review_threshold}]: {low_count}"
+                )
+                if spans:
+                    print("\nUncertain spans:")
+                    for s in spans:
+                        snippet = cleaned[s["start"] : s["end"] + 1].replace(
+                            "\n", "\\n"
+                        )
+                        print(
+                            f" - chars {s['start']}-{s['end']} "
+                            f"({snippet}) as {s['entity']} "
+                            f"(avg_conf={s['avg_confidence']:.2f})"
+                        )
+                else:
+                    print("No spans below threshold.")
 
-        return tagged, low_count, spans, chars
+            results.append(
+                {
+                    "tagged": tagged,
+                    "low_count": low_count,
+                    "spans": spans,
+                    "chars": chars,
+                }
+            )
+
+        return results
 
 
 def main(mode="test"):
@@ -447,14 +491,29 @@ def main(mode="test"):
         ner_trainer.run()
 
     elif mode == "test":
-        text = """\n\n(g) references herein to articles, sections, exhibits and schedules mean the articles and sections of, and the exhibits and schedules attached to, this Agreement; and\n\n(h) the words "hereof," "hereby," "herein," "hereunder" and similar terms in this Agreement refer to this Agreement as a whole and not only to a particular section in which such words appear.\n\nARTICLE II PURCHASE AND SALE\n\nSection 2.1 Purchase and Sale of Assets.\n\n(a) Generally. On the terms and subject to the conditions of this Agreement, Seller agrees to, and to cause the Companies to, assign, sell, transfer, convey and deliver to Buyer, and Buyer agrees to purchase from Seller and the Companies, all of Seller\'s and the Companies\' right, title and interest as of the Effective Time in the following property and assets (collectively, the "Assets"):\n\n(i) the real property listed on Exhibit E, together with all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively, "Owned Real Estate");\n\n(ii) the leasehold and subleasehold interests of Seller and the Companies in all real property listed on Exhibit F (collectively, "Leased Real Estate" and, together with the Owned Real Estate, the "Real Estate"), together with all interests of Seller and the Companies in the leases, subleases, licenses, occupancy agreements, and other documents or agreements related thereto and any and all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively with the Leased Real Estate, the "Leasehold Interests");\n\n(iii) the machinery, equipment, furniture, tools, computer hardware and network infrastructure and spare parts located on the Real Estate as of the Effective Time (exclusive of Inventory (which is defined in, and subject to, Section 2.1(a)(v)) (collectively, "Equipment") and all motor vehicles exclusively for use by Business Employees (excluding, for the avoidance of doubt, trucks, tractor-trailers and similar motor vehicles);\n\n(iv) all warranties or guarantees by any manufacturer, supplier or other vendor to the extent solely related to any of the Assets ("Warranties");\n\n(v) the inventory, packaging materials and supplies, in each case to the extent solely related to the Business and wherever located as of the Effective Time, and inventory, packaging materials and supplies on order or in transit as of the Effective\n\n11"""
+        text = [
+            """\n\n(g) references herein to articles, sections, exhibits and schedules mean the articles and sections of, and the exhibits and schedules attached to, this Agreement; and\n\n(h) the words "hereof," "hereby," "herein," "hereunder" and similar terms in this Agreement refer to this Agreement as a whole and not only to a particular section in which such words appear.\n\nARTICLE II PURCHASE AND SALE\n\nSection 2.1 Purchase and Sale of Assets.\n\n(a) Generally. On the terms and subject to the conditions of this Agreement, Seller agrees to, and to cause the Companies to, assign, sell, transfer, convey and deliver to Buyer, and Buyer agrees to purchase from Seller and the Companies, all of Seller\'s and the Companies\' right, title and interest as of the Effective Time in the following property and assets (collectively, the "Assets"):\n\n(i) the real property listed on Exhibit E, together with all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively, "Owned Real Estate");\n\n(ii) the leasehold and subleasehold interests of Seller and the Companies in all real property listed on Exhibit F (collectively, "Leased Real Estate" and, together with the Owned Real Estate, the "Real Estate"), together with all interests of Seller and the Companies in the leases, subleases, licenses, occupancy agreements, and other documents or agreements related thereto and any and all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively with the Leased Real Estate, the "Leasehold Interests");\n\n(iii) the machinery, equipment, furniture, tools, computer hardware and network infrastructure and spare parts located on the Real Estate as of the Effective Time (exclusive of Inventory (which is defined in, and subject to, Section 2.1(a)(v)) (collectively, "Equipment") and all motor vehicles exclusively for use by Business Employees (excluding, for the avoidance of doubt, trucks, tractor-trailers and similar motor vehicles);\n\n(iv) all warranties or guarantees by any manufacturer, supplier or other vendor to the extent solely related to any of the Assets ("Warranties");\n\n(v) the inventory, packaging materials and supplies, in each case to the extent solely related to the Business and wherever located as of the Effective Time, and inventory, packaging materials and supplies on order or in transit as of the Effective\n\n11""",
+            """but for the exception for contracts entered into in the ordinary course of business or (b) any non-competition agreement or any other agreement or obligation that materially limits or will materially limit Del Monte or any of its Subsidiaries from engaging in the business of Del Monte. Each of the "material contracts" (as defined above) of Del Monte and the Del Monte Subsidiaries is valid and in full force and effect and neither Del Monte nor any of its Subsidiaries has violated any provisions of, or committed or failed to perform any act that, with or without prejudice, lapse of time, or both, would constitute a default under the provisions of any such "material contract".
+
+5.16 Brokers or Finders. No agent, broker, investment banker, financial advisor or other similar Person is or will be entitled, by reason of any agreement, act or statement by Del Monte or any of its Subsidiaries, directors, officers or employees, to any financial advisory, broker's, finder's or similar fee or commission from, to reimbursement of expenses by or to indemnification or contribution by, in each case, Del Monte or its Subsidiaries in connection with any of the transactions contemplated by this Agreement.
+
+5.17 Board Approval. (a) The Boards of Directors of each of Del Monte and Merger Sub, in each case, at a meeting duly called and held, have unanimously approved this Agreement and declared it advisable and (b) the Board of Directors of Del Monte, at a meeting duly called and held, (i) has determined that this Agreement and the transactions contemplated hereby, including the Merger, taken together, are fair to, and in the best interests of, the Del Monte Stockholders, (ii) has resolved to recommend that the Del Monte Stockholders entitled to vote thereon adopt the Amended and Restated Certificate of Incorporation and approve the issuance of the Del Monte Common Stock in the Merger (the "Share Issuance"), subject to Section 6.4(c) (collectively, the "Del Monte Board Recommendation") and (iii) has determined that the Amended and Restated Certificate of Incorporation is advisable and fair to, and in the best interests of, the Del Monte Stockholders. The Special Committee has recommended that the Boards of Directors of Del Monte and Merger Sub approve this Agreement and the transactions contemplated hereby.
+
+5.18 Vote Required. (a) The only vote of the Del Monte Stockholders required for (i) adoption of the Amended and Restated Certificate of Incorporation is the affirmative vote of a majority of the voting power of all outstanding shares of Del Monte Common Stock and (ii) the Share Issuance is, to the extent required by the applicable regulations of the NYSE, the affirmative vote of a majority of the voting power of the shares of Del Monte Common Stock present in person and voting on the issue or represented by proxy and voting on the issue at the Del Monte Stockholders Meeting (the "Share Issuance Approval") (together, sometimes referred to herein as the "Requisite Approval").
+
+(b) The affirmative vote of Del Monte, as the sole stockholder of Merger Sub, is the only vote of the holders of the capital stock of Merger Sub necessary to adopt this Agreement.
+
+5.19 Certain Payments. No Del Monte Benefit Plan and no other contractual arrangements between Del Monte and any third party exist that will, as a result of the transactions contemplated hereby and by the other Transaction Agreements, (a) result in the payment (or increase of any payment) by Del Monte or any of its Subsidiaries to any current,
+
+44""",
+        ]
 
         inference_model = NERInference(
             ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
         )
 
         start = time.time()
-        tagged, low_count, spans, chars = inference_model.label(text, verbose=True)
+        tagged_result = inference_model.label(text, verbose=True)
         print(time.time() - start)
 
     else:
