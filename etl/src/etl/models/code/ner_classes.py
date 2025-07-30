@@ -326,9 +326,9 @@ class NERDataModule(pl.LightningDataModule):
         Setup datasets for training and validation.
         """
         self.train_dataset = TrainDataset(
-            self.train_data,
-            self.tokenizer,
-            self.label2id,
+            data=self.train_data,
+            tokenizer=self.tokenizer,
+            label2id=self.label2id,
             subsample_window=self.train_subsample_window,
         )
         self.val_dataset = ValWindowedDataset(
