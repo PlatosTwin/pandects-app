@@ -3,6 +3,7 @@ from sqlalchemy import text
 from etl.domain.staging import fetch_new_filings
 from datetime import datetime, timezone
 import dagster as dg
+from etl.utils.db_utils import upsert_agreements
 
 
 @dg.asset
@@ -34,8 +35,9 @@ def staging_asset(db: DBResource):
     # 2. Fetch new filings
     filings = fetch_new_filings(since=last_run.isoformat())
     count = len(filings)
+
     # Use now as pulled_to_ts if no filings, else use now or last filing date
-    pulled_to_ts = now if not filings else now
+    pulled_to_ts = max([f.transaction_date for f in filings])
 
     # 3-5 Transactional run
     with engine.begin() as conn:
@@ -55,68 +57,13 @@ def staging_asset(db: DBResource):
         )
 
         # 4. Prepare upsert rows
-        rows = []
-        for f in filings:
-            rows.append(
-                {
-                    "agreement_uuid": f.agreement_uuid,
-                    "url": f.url,
-                    "target": f.target,
-                    "acquirer": f.acquirer,
-                    "filing_date": f.filing_date,
-                    "transaction_date": f.transaction_date,
-                    "transaction_price": f.transaction_price,
-                    "transaction_type": f.transaction_type,
-                    "transaction_consideration": f.transaction_consideration,
-                    "consideration_type": f.consideration_type,
-                    "target_type": f.target_type,
-                }
-            )
-
-        upsert_sql = text(
-            """
-            INSERT INTO pdx.agreements (
-              agreement_uuid,
-              url,
-              target,
-              acquirer,
-              transaction_date,
-              transaction_price,
-              transaction_type,
-              transaction_consideration,
-              consideration_type,
-              target_type
-            ) VALUES (
-              :agreement_uuid,
-              :url,
-              :target,
-              :acquirer,
-              :transaction_date,
-              :transaction_price,
-              :transaction_type,
-              :transaction_consideration,
-              :consideration_type,
-              :target_type
-            )
-            ON DUPLICATE KEY UPDATE
-              url                      = VALUES(url),
-              target                   = VALUES(target),
-              acquirer                 = VALUES(acquirer),
-              transaction_date         = VALUES(transaction_date),
-              transaction_price        = VALUES(transaction_price),
-              transaction_type         = VALUES(transaction_type),
-              transaction_consideration = VALUES(transaction_consideration),
-              consideration_type       = VALUES(consideration_type),
-              target_type              = VALUES(target_type)
-        """
-        )
-
-        # execute in batches of 250
-        for i in range(0, count, 250):
-            batch = rows[i : i + 250]
-            conn.execute(upsert_sql, batch)
-
-        # 5. Mark SUCCEEDED
+        try:
+            upsert_agreements(filings, conn)
+        except Exception as e:
+            print(f"Error upserting pages: {e}")
+            raise RuntimeError(e)
+        
+        # 5. Mark (if) SUCCEEDED
         conn.execute(
             text(
                 "UPDATE pdx.pipeline_runs "
