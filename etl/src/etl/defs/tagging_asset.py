@@ -32,6 +32,7 @@ def tagging_asset(db: DBResource, tagging_model: TaggingModel):
                     FROM pdx.pages
                     WHERE page_uuid > :last_uuid
                     AND processed = 0
+                    AND source_page_type = 'body'
                     ORDER BY page_uuid ASC
                     LIMIT :batch_size
                 """
