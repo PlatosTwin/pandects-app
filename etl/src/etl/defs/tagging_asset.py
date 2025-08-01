@@ -16,7 +16,7 @@ def tagging_asset(db: DBResource, tagging_model: TaggingModel):
     Returns:
         None
     """
-    tagging_model = tagging_model.model()
+    inference_model = tagging_model.model()
     
     batch_size: int = 250
     last_uuid: str = ""
@@ -45,7 +45,7 @@ def tagging_asset(db: DBResource, tagging_model: TaggingModel):
                 break
 
             # tag pages
-            tagged_pages = tag(rows, tagging_model)
+            tagged_pages = tag(rows, inference_model)
 
             try:
                 upsert_tags(tagged_pages, conn)
