@@ -83,6 +83,7 @@ class TrainDataset(Dataset):
         label2id: Dict[str, int],
         subsample_window: int,
     ):
+        self.data = data
         self.tokenizer = tokenizer
         self.label2id = label2id
         self.subsample_window = subsample_window
@@ -92,7 +93,7 @@ class TrainDataset(Dataset):
 
             mapped_spans, cleaned_text, char_labels = prep_data(raw)
 
-            # Subsample 1 -- sub-samples of negative samples
+            # Subsample 1 -- sub-samples of negative samples, max three windows
             if not mapped_spans:
                 L = self.subsample_window
                 T = len(cleaned_text)
@@ -131,7 +132,7 @@ class TrainDataset(Dataset):
                     if c_start >= half_L and c_end <= len(cleaned_text) - half_L:
 
                         # we don't want as many broken-span sub-samples as full sub-samples
-                        if np.random.rand() >= 0.15:
+                        if np.random.rand() > 0.05:
                             continue
 
                         mid = (c_start + c_end) // 2
@@ -205,6 +206,7 @@ class ValWindowedDataset(Dataset):
         data: List[str],
         tokenizer: PreTrainedTokenizerBase,
         label2id: Dict[str, int],
+        data_collator: DataCollatorForTokenClassification,
         window: int = 512,
         stride: int = 256,
     ):
@@ -275,6 +277,7 @@ class ValWindowedDataset(Dataset):
                         "attention_mask": enc["attention_mask"],
                         "labels": labels,
                         "offset_mapping": offsets,
+                        "raw": cleaned_text
                     }
                 )
 
@@ -287,6 +290,30 @@ class ValWindowedDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.examples[idx]
+
+    def collate_fn(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Collate a batch of windowed examples:
+        1) Pop metadata fields
+        2) Batch remaining token features via self.collator
+        3) Re-attach metadata tensors
+        """
+        # Extract metadata
+        doc_ids = [f.pop("doc_id") for f in features]
+        starts = [f.pop("window_start") for f in features]
+        offsets = [f.pop("offset_mapping") for f in features]
+        raw = [f.pop("raw") for f in features]
+
+        # Batch token inputs
+        batch = self.collator(features)
+
+        # Attach metadata
+        batch["doc_id"] = torch.tensor(doc_ids, dtype=torch.long)
+        batch["window_start"] = torch.tensor(starts, dtype=torch.long)
+        batch["offset_mapping"] = offsets
+        batch["raw"] = raw
+
+        return batch
 
 
 class NERDataModule(pl.LightningDataModule):
@@ -338,6 +365,7 @@ class NERDataModule(pl.LightningDataModule):
             data=self.val_data,
             tokenizer=self.tokenizer,
             label2id=self.label2id,
+            data_collator=self.data_collator,
             window=self.val_window,
             stride=self.val_stride,
         )
@@ -364,16 +392,8 @@ class NERDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=self.data_collator,
-        )
-
-    def predict_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            collate_fn=self.data_collator,
+            collate_fn=self.val_dataset.collate_fn,
+            # persistent_workers=True,
         )
 
 
@@ -425,15 +445,22 @@ class NERTagger(pl.LightningModule):
         self.save_hyperparameters()
         self.num_labels = num_labels
         self.id2label = id2label
+        self.label2id = {v: k for k, v in self.id2label.items()}
         self.model = AutoModelForTokenClassification.from_pretrained(
             model_name,
             num_labels=self.num_labels,
             id2label=self.id2label,
-            label2id={v: k for k, v in self.id2label.items()},
+            label2id=self.label2id,
         )
         self.model.train()
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.loss_fn = FocalLoss()
+
+        self._val_sum = {}
+        self._val_count = {}
+        self._val_raw_texts = {}
+
+        self.ignore_index = -100
 
         # Metrics (micro-average to avoid O-class dominance)
         self.train_f1 = F1(task="multiclass", num_classes=num_labels, average="micro")
@@ -452,25 +479,34 @@ class NERTagger(pl.LightningModule):
             task="multiclass", num_classes=num_labels, average="micro"
         )
 
-    def forward(self, input_ids, attention_mask, labels=None):
+        self.val_f1_doc = F1(task="multiclass", num_classes=num_labels, average="micro")
+        self.val_precision_doc = Precision(
+            task="multiclass", num_classes=num_labels, average="micro"
+        )
+        self.val_recall_doc = Recall(
+            task="multiclass", num_classes=num_labels, average="micro"
+        )
+
+    def forward(self, input_ids, attention_mask):
         """
         Forward pass for NER model.
         """
-        return self.model(
-            input_ids=input_ids, attention_mask=attention_mask, labels=labels
-        )
+        return self.model(input_ids=input_ids, attention_mask=attention_mask)
 
     def training_step(self, batch, batch_idx):
         """
         Training step for NER model.
         """
-        outputs = self(**batch)
-        logits = outputs.logits  # (B, T, C)
-        labels = batch["labels"]  # (B, T)
-        loss = self.loss_fn(
-            logits.reshape(-1, self.num_labels),
-            labels.view(-1),
+        outputs = self(
+            batch["input_ids"],
+            batch["attention_mask"],
         )
+        logits = outputs.logits
+        loss = self.loss_fn(
+            logits.view(-1, self.num_labels),
+            batch["labels"].view(-1),
+        )
+        labels = batch["labels"]
         preds = torch.argmax(logits, dim=-1)
         mask = labels != -100
         valid_preds = preds[mask]
@@ -495,98 +531,138 @@ class NERTagger(pl.LightningModule):
         self.train_precision.reset()
         self.train_recall.reset()
 
-    def _get_window_labels(
-        self,
-        full_labels: torch.Tensor,
-        windows: List[Tuple[int, int]],
-        encoding,
-    ) -> torch.Tensor:
-        """
-        Build token-level labels for each sliding window.
-        Args:
-            full_labels: 1D Tensor of labels for the full text (length T)
-            windows: list of (w0, w1) char offsets
-            encoding: BatchEncoding with offset_mapping (n_win, L, 2)
-        Returns:
-            Tensor of shape (n_win, L) with label_ids or -100.
-        """
-        offset_maps = encoding["offset_mapping"]  # (n_win, L, 2)
-        n_win, L = offset_maps.shape[:2]
-        win_labels = []
-        for (w0, w1), offsets in zip(windows, offset_maps.tolist()):
-            labels = []
-            for off_start, off_end in offsets:
-                if off_end == 0:
-                    labels.append(-100)
-                else:
-                    span = full_labels[w0 + off_start : w0 + off_end]
-                    non_ign = span[span != -100]
-                    labels.append(int(non_ign[0]) if non_ign.numel() else -100)
-            if len(labels) < L:
-                labels += [-100] * (L - len(labels))
-            else:
-                labels = labels[:L]
-            win_labels.append(labels)
-        return torch.tensor(win_labels, dtype=torch.long, device=self.device)
-
+    def on_validation_epoch_start(self):
+        self._val_sum.clear()
+        self._val_count.clear()
+        self._val_raw_texts.clear()
+        
     def validation_step(self, batch, batch_idx):
         """
-        Validation step: just run model and aggregate metrics, since windowing and tokenization are precomputed.
+        Compute window‐level loss & metrics as before.
         """
-        outputs = self(**batch)
+        outputs = self(
+            batch["input_ids"],
+            batch["attention_mask"],
+        )
         logits = outputs.logits
-        labels = batch["labels"]
-        # Avoid torch.tensor(labels) if labels is already a tensor
-        if not torch.is_tensor(labels):
-            labels_tensor = torch.tensor(labels)
-        else:
-            labels_tensor = labels
-        labels_tensor = labels_tensor.clone().detach()
         loss = self.loss_fn(
             logits.view(-1, self.num_labels),
-            labels_tensor.view(-1),
+            batch["labels"].view(-1),
         )
-        preds = torch.argmax(logits, dim=-1)
-        mask = labels_tensor != -100
-        valid_preds = preds[mask]
-        valid_labels = labels_tensor[mask]
+        labels = batch["labels"]
 
-        self.val_f1(valid_preds, valid_labels)
-        self.val_precision(valid_preds, valid_labels)
-        self.val_recall(valid_preds, valid_labels)
-        self.log("val_loss", loss, prog_bar=True, batch_size=logits.size(0))
+        # window‐level metrics
+        preds = torch.argmax(logits, dim=-1)
+        mask = labels != -100
+        self.val_f1(preds[mask], labels[mask])
+        self.val_precision(preds[mask], labels[mask])
+        self.val_recall(preds[mask], labels[mask])
+        self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+
+        # 2) buffer for doc‐level stitching
+        for i in range(logits.size(0)):
+            doc_id = int(batch["doc_id"][i])
+            w0 = int(batch["window_start"][i])
+            offs = batch["offset_mapping"][i] # list of (o0, o1)
+            m = batch["attention_mask"][i]
+            lg = logits[i]
+
+            # store raw text once
+            if doc_id not in self._val_raw_texts:
+                self._val_raw_texts[doc_id] = batch["raw"][i]
+
+            # figure how big we need the buffers
+            max_off = max(o1 for o0, o1 in offs)
+            req_len = w0 + max_off
+
+            # lazy‐init or pad _val_sum, _val_count
+            if doc_id not in self._val_sum:
+                device = lg.device
+                self._val_sum[doc_id] = torch.zeros(
+                    (req_len, self.num_labels), device=device
+                )
+                self._val_count[doc_id] = torch.zeros(req_len, device=device)
+            elif req_len > self._val_sum[doc_id].size(0):
+                old = self._val_sum[doc_id].size(0)
+                pad = req_len - old
+                device = lg.device
+                self._val_sum[doc_id] = torch.cat(
+                    [
+                        self._val_sum[doc_id],
+                        torch.zeros((pad, self.num_labels), device=device),
+                    ],
+                    dim=0,
+                )
+                self._val_count[doc_id] = torch.cat(
+                    [self._val_count[doc_id], torch.zeros(pad, device=device)], dim=0
+                )
+
+            # accumulate token logits into per‐char buckets
+            for ti, (o0, o1) in enumerate(offs):
+                if m[ti] == 0:
+                    continue
+                self._val_sum[doc_id][w0 + o0 : w0 + o1] += lg[ti]
+                self._val_count[doc_id][w0 + o0 : w0 + o1] += 1
 
         return loss
 
+    def _clean_and_label(self, raw: str) -> tuple[str, list[int]]:
+        """
+        Replicate your windowing‐clean logic to get cleaned_text and a
+        char‐level list of label‐ids.
+        """
+        _, cleaned_text, char_labels = prep_data(raw)
+
+        # map to ids
+        return cleaned_text, [
+            (self.label2id.get(l, -100) if l != "O" else self.label2id["O"])
+            for l in char_labels
+        ]
+
     def on_validation_epoch_end(self):
-        """
-        Log and reset validation metrics at epoch end.
-        """
+        # 1) token-level window metrics
         self.log("val_f1", self.val_f1.compute(), prog_bar=True)
         self.log("val_precision", self.val_precision.compute())
         self.log("val_recall", self.val_recall.compute())
-
         self.val_f1.reset()
         self.val_precision.reset()
         self.val_recall.reset()
 
-    def predict_step(self, batch, batch_idx, dataloader_idx=None):
-        """
-        Prediction step for inference.
-        """
-        outputs = self(**batch)
-        logits = outputs.logits
-        labels = batch["labels"]
+        all_preds, all_gold = [], []
+        device = next(self.model.parameters()).device
 
-        if not torch.is_tensor(labels):
-            labels_tensor = torch.tensor(labels)
-        else:
-            labels_tensor = labels
-        labels_tensor = labels_tensor.clone().detach()
+        # 2) for each doc, average logits→char preds, load gold, mask & collect
+        for doc_id, sum_logits in self._val_sum.items():
+            counts = self._val_count[doc_id].clamp(min=1.0).unsqueeze(-1)
+            avg_logits = sum_logits / counts  # (T, C)
+            char_preds = avg_logits.argmax(dim=-1).tolist()
 
-        preds = torch.argmax(logits, dim=-1)
+            raw = self._val_raw_texts[doc_id]
+            _, gold_ids = self._clean_and_label(raw)  # list[int], len T
 
-        return preds
+            for p, g in zip(char_preds, gold_ids):
+                if g != self.ignore_index:
+                    all_preds.append(p)
+                    all_gold.append(g)
+
+        # 2) mask and tensorize
+        mask = [g != self.ignore_index for g in all_gold]
+        fp = [p for p, m in zip(all_preds, mask) if m]
+        fg = [g for g, m in zip(all_gold, mask) if m]
+        fp_t = torch.tensor(fp, dtype=torch.long, device=device)
+        fg_t = torch.tensor(fg, dtype=torch.long, device=device)
+
+        # 3) doc-level metrics
+        self.val_f1_doc(fp_t, fg_t)
+        self.val_precision_doc(fp_t, fg_t)
+        self.val_recall_doc(fp_t, fg_t)
+
+        self.log("val_f1_doc", self.val_f1_doc.compute(), prog_bar=True)
+        self.log("val_precision_doc", self.val_precision_doc.compute())
+        self.log("val_recall_doc", self.val_recall_doc.compute())
+        self.val_f1_doc.reset()
+        self.val_precision_doc.reset()
+        self.val_recall_doc.reset()
 
     def configure_optimizers(self) -> Tuple[List[Optimizer], List[LRSchedulerConfig]]:
         """
@@ -629,5 +705,5 @@ class NERTagger(pl.LightningModule):
                 "interval": "step",
             },
         )
-        
+
         return [optimizer], [scheduler_dict]
