@@ -97,10 +97,10 @@ class NERTrainer:
             save_top_k=1,
             filename="best-{epoch:02d}-{val_loss:.4f}",
         )
-        early_stop_cb = EarlyStopping(monitor="val_loss", patience=3, mode="min")
+        early_stop_cb = EarlyStopping(monitor="val_f1_doc", patience=3, mode="max")
         lr_monitor = LearningRateMonitor(logging_interval="step")
         pruning_cb = (
-            [PyTorchLightningPruningCallback(trial, monitor="val_loss")]
+            [PyTorchLightningPruningCallback(trial, monitor="val_f1_doc")]
             if trial is not None
             else []
         )
