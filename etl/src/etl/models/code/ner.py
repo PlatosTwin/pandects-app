@@ -2,6 +2,7 @@
 import os
 import time
 from typing import Union
+import yaml
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -31,8 +32,8 @@ from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-from .constants import NER_LABEL_LIST, NER_CKPT_PATH
-from .ner_classes import NERTagger, NERDataModule
+from constants import NER_LABEL_LIST, NER_CKPT_PATH
+from ner_classes import NERTagger, NERDataModule
 
 # Reproducibility
 seed_everything(42, workers=True, verbose=False)
@@ -491,29 +492,17 @@ def main(mode="test"):
         ner_trainer.run()
 
     elif mode == "test":
-        text = [
-            """\n\n(g) references herein to articles, sections, exhibits and schedules mean the articles and sections of, and the exhibits and schedules attached to, this Agreement; and\n\n(h) the words "hereof," "hereby," "herein," "hereunder" and similar terms in this Agreement refer to this Agreement as a whole and not only to a particular section in which such words appear.\n\nARTICLE II PURCHASE AND SALE\n\nSection 2.1 Purchase and Sale of Assets.\n\n(a) Generally. On the terms and subject to the conditions of this Agreement, Seller agrees to, and to cause the Companies to, assign, sell, transfer, convey and deliver to Buyer, and Buyer agrees to purchase from Seller and the Companies, all of Seller\'s and the Companies\' right, title and interest as of the Effective Time in the following property and assets (collectively, the "Assets"):\n\n(i) the real property listed on Exhibit E, together with all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively, "Owned Real Estate");\n\n(ii) the leasehold and subleasehold interests of Seller and the Companies in all real property listed on Exhibit F (collectively, "Leased Real Estate" and, together with the Owned Real Estate, the "Real Estate"), together with all interests of Seller and the Companies in the leases, subleases, licenses, occupancy agreements, and other documents or agreements related thereto and any and all interests of Seller and the Companies in the buildings, structures, installations, fixtures, trade fixtures and other improvements situated thereon and all easements, rights of way and other rights, interests and appurtenances of Seller and the Companies therein or thereunto pertaining (collectively with the Leased Real Estate, the "Leasehold Interests");\n\n(iii) the machinery, equipment, furniture, tools, computer hardware and network infrastructure and spare parts located on the Real Estate as of the Effective Time (exclusive of Inventory (which is defined in, and subject to, Section 2.1(a)(v)) (collectively, "Equipment") and all motor vehicles exclusively for use by Business Employees (excluding, for the avoidance of doubt, trucks, tractor-trailers and similar motor vehicles);\n\n(iv) all warranties or guarantees by any manufacturer, supplier or other vendor to the extent solely related to any of the Assets ("Warranties");\n\n(v) the inventory, packaging materials and supplies, in each case to the extent solely related to the Business and wherever located as of the Effective Time, and inventory, packaging materials and supplies on order or in transit as of the Effective\n\n11""",
-            """but for the exception for contracts entered into in the ordinary course of business or (b) any non-competition agreement or any other agreement or obligation that materially limits or will materially limit Del Monte or any of its Subsidiaries from engaging in the business of Del Monte. Each of the "material contracts" (as defined above) of Del Monte and the Del Monte Subsidiaries is valid and in full force and effect and neither Del Monte nor any of its Subsidiaries has violated any provisions of, or committed or failed to perform any act that, with or without prejudice, lapse of time, or both, would constitute a default under the provisions of any such "material contract".
-
-5.16 Brokers or Finders. No agent, broker, investment banker, financial advisor or other similar Person is or will be entitled, by reason of any agreement, act or statement by Del Monte or any of its Subsidiaries, directors, officers or employees, to any financial advisory, broker's, finder's or similar fee or commission from, to reimbursement of expenses by or to indemnification or contribution by, in each case, Del Monte or its Subsidiaries in connection with any of the transactions contemplated by this Agreement.
-
-5.17 Board Approval. (a) The Boards of Directors of each of Del Monte and Merger Sub, in each case, at a meeting duly called and held, have unanimously approved this Agreement and declared it advisable and (b) the Board of Directors of Del Monte, at a meeting duly called and held, (i) has determined that this Agreement and the transactions contemplated hereby, including the Merger, taken together, are fair to, and in the best interests of, the Del Monte Stockholders, (ii) has resolved to recommend that the Del Monte Stockholders entitled to vote thereon adopt the Amended and Restated Certificate of Incorporation and approve the issuance of the Del Monte Common Stock in the Merger (the "Share Issuance"), subject to Section 6.4(c) (collectively, the "Del Monte Board Recommendation") and (iii) has determined that the Amended and Restated Certificate of Incorporation is advisable and fair to, and in the best interests of, the Del Monte Stockholders. The Special Committee has recommended that the Boards of Directors of Del Monte and Merger Sub approve this Agreement and the transactions contemplated hereby.
-
-5.18 Vote Required. (a) The only vote of the Del Monte Stockholders required for (i) adoption of the Amended and Restated Certificate of Incorporation is the affirmative vote of a majority of the voting power of all outstanding shares of Del Monte Common Stock and (ii) the Share Issuance is, to the extent required by the applicable regulations of the NYSE, the affirmative vote of a majority of the voting power of the shares of Del Monte Common Stock present in person and voting on the issue or represented by proxy and voting on the issue at the Del Monte Stockholders Meeting (the "Share Issuance Approval") (together, sometimes referred to herein as the "Requisite Approval").
-
-(b) The affirmative vote of Del Monte, as the sole stockholder of Merger Sub, is the only vote of the holders of the capital stock of Merger Sub necessary to adopt this Agreement.
-
-5.19 Certain Payments. No Del Monte Benefit Plan and no other contractual arrangements between Del Monte and any third party exist that will, as a result of the transactions contemplated hereby and by the other Transaction Agreements, (a) result in the payment (or increase of any payment) by Del Monte or any of its Subsidiaries to any current,
-
-44""",
-        ]
+        with open("ner_samples.yaml", "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        
+        samples = data['samples']
 
         inference_model = NERInference(
-            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
+            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.975
         )
 
         start = time.time()
-        tagged_result = inference_model.label(text, verbose=True)
+        tagged_result = inference_model.label(samples, verbose=True)
         print(time.time() - start)
 
     else:
