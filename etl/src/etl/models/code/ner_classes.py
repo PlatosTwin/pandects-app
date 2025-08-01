@@ -96,7 +96,10 @@ class TrainDataset(Dataset):
             if not mapped_spans:
                 L = self.subsample_window
                 T = len(cleaned_text)
-                for ws in range(0, T, L):
+                for i, ws in enumerate(range(0, T, L)):
+                    if i > 2:
+                        break
+                    
                     we = min(ws + L, T)
                     chunk_text = cleaned_text[ws:we]
                     chunk_labels = char_labels[ws:we]
