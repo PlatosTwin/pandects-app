@@ -343,7 +343,7 @@ class NERInference:
 
         for ch, lbl_id in zip(cleaned_text, pred_labels):
             tag = self.id2label[lbl_id]
-            if tag.startswith("B-"):
+            if tag.startswith("B-") or (tag.startswith("I-") and open_tag is None):
                 if open_tag:
                     result.append(f"</{open_tag}>")
                 ent = tag.split("-", 1)[1].lower()
