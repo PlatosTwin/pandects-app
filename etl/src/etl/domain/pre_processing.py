@@ -9,6 +9,15 @@ import requests
 from urllib.parse import urlparse
 import os
 
+import time
+import threading
+from collections import deque
+
+_request_times = deque()
+_request_lock = threading.Lock()
+_RATE_LIMIT = 10  # requests
+_RATE_PERIOD = 1.025  # seconds
+
 
 def get_uuid(x):
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
@@ -47,6 +56,9 @@ def normalize_text(text: str) -> str:
     text = text.replace(placeholder, "\n\n")
     # Collapse multiple spaces to one
     text = re.sub(r" {2,}", " ", text)
+
+    text = text.strip()
+
     return text
 
 
@@ -150,7 +162,8 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
 
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     """
-    Fetch the HTML content at the given URL and return it as a string.
+    Fetch the HTML content at the given URL and return it as a string,
+    but send no more than 10 requests per 1 second.
 
     Args:
         url: The URL to pull.
@@ -163,6 +176,19 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
         requests.HTTPError: on bad HTTP status codes.
         requests.RequestException: on connection issues, timeouts, etc.
     """
+    with _request_lock:
+        now = time.time()
+        # drop timestamps older than RATE_PERIOD
+        while _request_times and now - _request_times[0] >= _RATE_PERIOD:
+            _request_times.popleft()
+
+        if len(_request_times) >= _RATE_LIMIT:
+            # wait until the oldest request moves outside the window
+            sleep_for = _RATE_PERIOD - (now - _request_times[0])
+            time.sleep(sleep_for)
+
+        _request_times.append(time.time())
+
     headers = {
         "User-Agent": "New York University School of Law nmb9729@nyu.edu",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -298,9 +324,9 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
 
         # 2. split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
-        
+
         if len(pages) <= 10:
-            print('Agreement likely is not paginated. Skipping page upload.')
+            print("Agreement likely is not paginated. Skipping page upload.")
             continue
 
         # 3. loop through pages to classify and format
