@@ -37,7 +37,7 @@ def staging_asset(db: DBResource):
     count = len(filings)
 
     # Use now as pulled_to_ts if no filings, else use now or last filing date
-    pulled_to_ts = max([f.transaction_date for f in filings])
+    pulled_to_ts = max([f.filing_date for f in filings])
 
     # 3-5 Transactional run
     with engine.begin() as conn:

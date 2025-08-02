@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass
 import uuid
 import pandas as pd
@@ -11,12 +11,10 @@ class FilingMetadata:
     target: str
     acquirer: str
     filing_date: str
-    transaction_date: str
-    transaction_price: int
-    transaction_type: str
-    transaction_consideration: str
-    consideration_type: str
-    target_type: str
+    transaction_price: Optional[int] = None
+    transaction_type: Optional[str] = None
+    transaction_consideration: Optional[str] = None
+    target_type: Optional[str] = None
 
 
 def get_uuid(x):
@@ -51,7 +49,7 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
 
     # 4) Sort oldest first and take only the 10 oldest new filings
     df.sort_values("date_announcement", ascending=True, inplace=True)
-    df = df.head(10)
+    # df = df.head(10)
 
     # 5) Build our results list via a memory‑light iterator
     results: List[FilingMetadata] = []
@@ -60,22 +58,20 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
         date_ann = row.date_announcement
         try:
             date_obj = pd.to_datetime(str(date_ann))
-            transaction_date = date_obj.strftime("%Y-%m-%d")
+            filing_date = date_obj.strftime("%Y-%m-%d")
         except Exception:
-            transaction_date = str(date_ann)
+            filing_date = str(date_ann)
         results.append(
             FilingMetadata(
                 agreement_uuid=str(get_uuid(row.filename)),
                 url=str(row.url),
                 target=str(row.target),
                 acquirer=str(row.acquirer),
-                filing_date="",
-                transaction_date=transaction_date,
-                transaction_price=0,
-                transaction_type="",
-                transaction_consideration="",
-                consideration_type="",
-                target_type="",
+                filing_date=filing_date,
+                # transaction_price=None,
+                # transaction_type=None,
+                # transaction_consideration=None,
+                # target_type=None,
             )
         )
 
