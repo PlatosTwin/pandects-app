@@ -1,134 +1,221 @@
+from typing import Dict, List, Optional, Tuple
+from collections import Counter
 import re
+
 import pandas as pd
+from sklearn.model_selection import train_test_split
+
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset
+
+import lightning.pytorch as pl
 import torch.nn as nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
-from sklearn.model_selection import train_test_split
-from torchmetrics import Accuracy
-from collections import Counter
+from torchmetrics import F1Score, Precision, Recall
+
+from transformers import AutoTokenizer, AutoModel
+from transformers.optimization import get_linear_schedule_with_warmup
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from torch.optim import AdamW
 
 
-def build_vocab(texts: list[str], max_vocab_size: int = 20_000) -> dict:
-    """Build vocabulary from a list of texts."""
-    counter = Counter()
-    for text in texts:
-        counter.update(text.split())
-    most_common = counter.most_common(max_vocab_size)
-    vocab = {"<PAD>": 0, "<UNK>": 1}
-    for i, (tok, _) in enumerate(most_common, start=2):
-        vocab[tok] = i
-    return vocab
+def extract_tag_features(html: str, top_k: int = 5) -> Tuple[List[int], List[int]]:
+    """
+    Extract fixed-length counts of HTML tag types and tag-ngrams from the input HTML.
 
+    Args:
+        html: Raw HTML string.
+        top_k: Number of top tag-types and tag-bigrams to return.
 
-def prepare_sample(html: str, text: str, vocab: dict, max_seq_len: int):
-    """Prepare token indices, sequence length, and extra features for a single example."""
-    half = max_seq_len // 2
-    part1 = html[:half]
-    part2 = text[: max_seq_len - half]
-    combined = f"{part1} {part2}"
-    toks = combined.split()
-    idxs = [vocab.get(tok, vocab.get("<UNK>", 1)) for tok in toks]
-    length = len(idxs)
-    if length < max_seq_len:
-        idxs += [vocab.get("<PAD>", 0)] * (max_seq_len - length)
-    else:
-        idxs = idxs[:max_seq_len]
-        length = max_seq_len
-
-    total = length or 1
-    num_caps = sum(1 for t in toks if t.isupper())
-    num_nums = sum(1 for t in toks if t.isdigit())
-    avg_len = sum(len(t) for t in toks) / total
-    tags = re.findall(r"<[^>]+>", html)
-    html_tag_ratio = len(tags) / total
-    feats = [total, num_caps / total, num_nums / total, avg_len, html_tag_ratio]
-    return idxs, length, feats
+    Returns:
+        A tuple of two lists (type_counts, ngram_counts), each of length top_k.
+    """
+    tags = re.findall(r"<([^>\s/]+)", html)
+    type_counts = [count for _, count in Counter(tags).most_common(top_k)]
+    type_counts += [0] * max(0, top_k - len(type_counts))
+    bigrams = [f"{tags[i]}_{tags[i+1]}" for i in range(len(tags) - 1)]
+    ngram_counts = [count for _, count in Counter(bigrams).most_common(top_k)]
+    ngram_counts += [0] * max(0, top_k - len(ngram_counts))
+    return type_counts, ngram_counts
 
 
 class PageDataset(Dataset):
-    def __init__(
-        self, df: pd.DataFrame, vocab: dict, label2idx: dict, max_seq_len: int = 300
-    ):
-        """Create a dataset for page classification."""
-        self.vocab = vocab
-        self.label2idx = label2idx
-        self.max_seq_len = max_seq_len
-        htmls = df["html"].fillna("").tolist()
-        texts = df["text"].fillna("").tolist()
-        self.samples = []
-        for html, text, label in zip(htmls, texts, df["label"]):
-            idxs, length, feats = prepare_sample(html, text, self.vocab, self.max_seq_len)
-            self.samples.append(
-                (
-                    torch.tensor(idxs, dtype=torch.long),
-                    torch.tensor(length, dtype=torch.long),
-                    torch.tensor(feats, dtype=torch.float),
-                    torch.tensor(label2idx[label], dtype=torch.long),
-                )
-            )
+    """
+    PyTorch Dataset for page classification.
+    Tokenizes combined HTML/text and computes features for each example.
+    """
 
-    def __len__(self) -> int:
-        """Return the number of samples."""
-        return len(self.samples)
-
-    def __getitem__(self, i: int):
-        """Return the i-th sample."""
-        return self.samples[i]
-
-
-class PageDataModule(pl.LightningDataModule):
     def __init__(
         self,
         df: pd.DataFrame,
+        label2idx: Dict[str, int],
+        tokenizer: PreTrainedTokenizerBase,
+        top_k: int = 5,
+    ) -> None:
+        df_filled = df.fillna({"html": "", "text": "", "order": 0})
+        self.htmls = df_filled["html"].astype(str).tolist()
+        self.texts = df_filled["text"].astype(str).tolist()
+        self.orders = df_filled["order"].astype(float).tolist()
+        self.labels = torch.tensor(
+            df_filled["label"].map(label2idx).tolist(), dtype=torch.long
+        )
+
+        self.tokenizer = tokenizer
+        self.top_k = top_k
+
+        # #2: tokenize combined HTML + text
+        combined_inputs = [
+            "[HTML] " + h[:1024] + " [TEXT] " + t
+            for h, t in zip(self.htmls, self.texts)
+        ]
+        encoding = tokenizer(
+            combined_inputs,
+            truncation=True,
+            padding="max_length",
+            max_length=512,
+            return_tensors="pt",
+        )
+        self.input_ids = encoding["input_ids"]
+        self.attention_mask = encoding["attention_mask"]
+
+        # Base statistics
+        totals = self.attention_mask.sum(dim=1).clamp(min=1).float()
+        html_lengths = torch.tensor([len(h) for h in self.htmls], dtype=torch.float)
+        tag_counts = torch.tensor(
+            [len(re.findall(r"<[^>]+>", h)) for h in self.htmls], dtype=torch.float
+        )
+        link_counts = torch.tensor(
+            [h.lower().count("<a ") for h in self.htmls], dtype=torch.float
+        )
+        img_counts = torch.tensor(
+            [h.lower().count("<img ") for h in self.htmls], dtype=torch.float
+        )
+        heading_counts = torch.tensor(
+            [sum(h.lower().count(f"<h{i}") for i in range(1, 7)) for h in self.htmls],
+            dtype=torch.float,
+        )
+
+        type_counts_list, ngram_counts_list = zip(
+            *[extract_tag_features(h[:5000], top_k) for h in self.htmls]
+        )
+        type_counts = torch.tensor(type_counts_list, dtype=torch.float)
+        ngram_counts = torch.tensor(ngram_counts_list, dtype=torch.float)
+
+        token_lists = [
+            tokenizer.convert_ids_to_tokens(ids.tolist()) for ids in self.input_ids
+        ]
+        num_caps = torch.tensor(
+            [
+                sum(1 for tok in toks if tok.isalpha() and tok.isupper())
+                for toks in token_lists
+            ],
+            dtype=torch.float,
+        )
+        num_nums = torch.tensor(
+            [
+                sum(any(c.isdigit() for c in tok) for tok in toks)
+                for toks in token_lists
+            ],
+            dtype=torch.float,
+        )
+        avg_token_lengths = torch.tensor(
+            [
+                sum(len(tok) for tok in toks) / tot
+                for toks, tot in zip(token_lists, totals)
+            ],
+            dtype=torch.float,
+        )
+        orders_tensor = torch.tensor(self.orders, dtype=torch.float)
+
+        # Combine all features
+        self.features = torch.cat(
+            [
+                html_lengths.unsqueeze(1),
+                tag_counts.unsqueeze(1),
+                link_counts.unsqueeze(1),
+                img_counts.unsqueeze(1),
+                heading_counts.unsqueeze(1),
+                totals.unsqueeze(1),
+                (num_caps / totals).unsqueeze(1),
+                (num_nums / totals).unsqueeze(1),
+                avg_token_lengths.unsqueeze(1),
+                orders_tensor.unsqueeze(1),
+                type_counts,
+                ngram_counts,
+            ],
+            dim=1,
+        )
+
+    def __len__(self) -> int:
+        return self.labels.size(0)
+
+    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        return (
+            self.input_ids[idx],
+            self.attention_mask[idx],
+            self.features[idx],
+            self.labels[idx],
+        )
+
+
+class PageDataModule(pl.LightningDataModule):
+    """
+    LightningDataModule for loading PageDataset with train/validation splits.
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        model_name: str = "distilbert/distilbert-base-uncased",
         batch_size: int = 32,
         val_split: float = 0.2,
         num_workers: int = 0,
-        max_vocab_size: int = 20000,
-        max_seq_len: int = 300,
-    ):
-        """Initialize the data module for page classification."""
+        top_k: int = 5,
+    ) -> None:
+        """
+        Args:
+            df: Full dataset DataFrame.
+            model_name: HuggingFace model name for tokenizer.
+            batch_size: Mini-batch size.
+            val_split: Fraction of data for validation.
+            num_workers: Number of DataLoader workers.
+            top_k: Number of tag-based features.
+        """
         super().__init__()
         self.df = df
+        self.model_name = model_name
         self.batch_size = batch_size
         self.val_split = val_split
         self.num_workers = num_workers
-        self.max_vocab_size = max_vocab_size
-        self.max_seq_len = max_seq_len
+        self.top_k = top_k
 
-    def setup(self, stage=None) -> None:
-        """Setup datasets and vocabulary."""
+    def setup(self, stage: Optional[str] = None) -> None:
+        """Prepares train/validation splits and datasets."""
+        df_filled = self.df.fillna({"html": "", "text": "", "order": -1})
         train_df, val_df = train_test_split(
-            self.df,
+            df_filled,
             test_size=self.val_split,
-            stratify=self.df["label"],
+            stratify=df_filled["label"],
             random_state=42,
         )
 
-        # build vocab on training texts
-        texts = (
-            train_df["html"].fillna("") + " " + train_df["text"].fillna("")
-        ).tolist()
-        self.vocab = build_vocab(texts, self.max_vocab_size)
-
-        # label mapping
         labels = sorted(train_df["label"].unique())
-        self.label2idx = {lab: i for i, lab in enumerate(labels)}
-        self.num_classes = len(self.label2idx)
+        self.label2idx: Dict[str, int] = {lab: i for i, lab in enumerate(labels)}
+        self.num_classes: int = len(self.label2idx)
 
-        # datasets
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
         self.train_ds = PageDataset(
-            train_df, self.vocab, self.label2idx, self.max_seq_len
+            train_df, self.label2idx, self.tokenizer, self.top_k
         )
-        self.val_ds = PageDataset(val_df, self.vocab, self.label2idx, self.max_seq_len)
+        self.val_ds = PageDataset(val_df, self.label2idx, self.tokenizer, self.top_k)
 
-        # number of extra features per sample
-        self.num_features = len(self.train_ds[0][2])
-        self.vocab_size = len(self.vocab)
+        # Determine number of HTML/text features
+        _, _, sample_feats, _ = self.train_ds[0]
+        self.num_features: int = sample_feats.numel()
 
     def train_dataloader(self) -> DataLoader:
-        """Return the training dataloader."""
+        """Returns training DataLoader."""
         return DataLoader(
             self.train_ds,
             batch_size=self.batch_size,
@@ -137,7 +224,7 @@ class PageDataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
-        """Return the validation dataloader."""
+        """Returns validation DataLoader."""
         return DataLoader(
             self.val_ds,
             batch_size=self.batch_size,
@@ -146,66 +233,143 @@ class PageDataModule(pl.LightningDataModule):
         )
 
 
+class FocalLoss(torch.nn.Module):
+    def __init__(self, gamma=2.0, ignore_index=-100):
+        """
+        Focal loss for class imbalance in NER.
+        """
+        super().__init__()
+        self.gamma = gamma
+        self.ignore = ignore_index
+        self.ce = torch.nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
+
+    def forward(self, logits, labels):
+        """
+        Compute focal loss.
+        Args:
+            logits: (B, T, C) or (N, C)
+            labels: (B, T) or (N,)
+        Returns:
+            Scalar loss.
+        """
+        if logits.ndim == 3:
+            logits = logits.view(-1, logits.shape[-1])
+            labels = labels.view(-1)
+        loss = self.ce(logits, labels)
+        pt = torch.exp(-loss)
+        focal = (1 - pt) ** self.gamma * loss
+        return focal.mean()
+
+
 class PageClassifier(pl.LightningModule):
+    """
+    LightningModule for page classification.
+    Implements: #3 feature projection, #4 AdamW+warmup, #5 focal loss, #6 stronger regularization.
+    """
+
     def __init__(
         self,
-        vocab_size: int,
-        embed_dim: int,
-        num_features: int,
         hidden_dim: int,
+        num_features: int,
         num_classes: int,
-        learning_rate: float = 1e-3,
-    ):
-        """Initialize the page classifier model."""
+        learning_rate: float = 2e-5,
+        model_name: str = "distilbert/distilbert-base-uncased",
+        freeze_epochs: int = 1,
+        unfreeze_last_n: int = 2,
+    ) -> None:
         super().__init__()
         self.save_hyperparameters()
-        self.embedding = nn.Embedding(
-            self.hparams.vocab_size, self.hparams.embed_dim, padding_idx=0
+
+        # Backbone
+        self.bert = AutoModel.from_pretrained(model_name)
+        # Freeze backbone initially
+        for p in self.bert.parameters():
+            p.requires_grad = False
+
+        # Feature projection
+        self.feat_proj = nn.Sequential(
+            nn.Linear(num_features, num_features),
+            nn.LayerNorm(num_features),
+            nn.ReLU(),
         )
-        self.fc1 = nn.Linear(
-            self.hparams.embed_dim + self.hparams.num_features, self.hparams.hidden_dim
-        )
-        self.dropout = nn.Dropout(0.2)
-        self.fc2 = nn.Linear(self.hparams.hidden_dim, self.hparams.num_classes)
-        self.loss_fn = nn.CrossEntropyLoss()
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
+
+        bert_dim = self.bert.config.hidden_size
+        # MLP head
+        self.fc1 = nn.Linear(bert_dim + num_features, hidden_dim)
+        self.dropout = nn.Dropout(0.4)
+        self.fc2 = nn.Linear(hidden_dim, num_classes)
+
+        # Focal loss for class imbalance
+        self.loss_fn = FocalLoss(gamma=2.0)
+
+        # Metrics
+        self.train_precision = Precision(task="multiclass", num_classes=num_classes)
+        self.train_recall = Recall(task="multiclass", num_classes=num_classes)
+        self.train_f1 = F1Score(task="multiclass", num_classes=num_classes)
+        self.val_precision = Precision(task="multiclass", num_classes=num_classes)
+        self.val_recall = Recall(task="multiclass", num_classes=num_classes)
+        self.val_f1 = F1Score(task="multiclass", num_classes=num_classes)
 
     def forward(
-        self, indices: torch.Tensor, lengths: torch.Tensor, features: torch.Tensor
-    ) -> torch.Tensor:
-        """Forward pass for page classification."""
-        emb = self.embedding(indices)  # (B, L, D)
-        mask = (indices != 0).unsqueeze(-1).float()  # (B, L, 1)
-        summed = (emb * mask).sum(dim=1)  # (B, D)
-        lengths = lengths.unsqueeze(1).float()  # (B, 1)
-        avg_emb = summed / lengths  # (B, D)
-        x = torch.cat([avg_emb, features], dim=1)  # (B, D+F)
+        self, input_ids: Tensor, attention_mask: Tensor, features: Tensor
+    ) -> Tensor:
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        pooled = outputs.last_hidden_state[:, 0, :]
+        feat_emb = self.feat_proj(features)
+        x = torch.cat([pooled, feat_emb], dim=1)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        return self.fc2(x)  # (B, C)
+        return self.fc2(x)
 
-    def training_step(self, batch, batch_idx) -> torch.Tensor:
-        """Training step for one batch."""
-        idxs, lengths, feats, labels = batch
-        logits = self(idxs, lengths, feats)
+    def training_step(self, batch, batch_idx: int):
+        ids, mask, feats, labels = batch
+        logits = self(ids, mask, feats)
         loss = self.loss_fn(logits, labels)
         preds = torch.argmax(logits, dim=1)
-        self.train_acc(preds, labels)
+        self.train_precision(preds, labels)
+        self.train_recall(preds, labels)
+        self.train_f1(preds, labels)
         self.log("train_loss", loss, prog_bar=True)
-        self.log("train_acc", self.train_acc, prog_bar=True)
         return loss
 
-    def validation_step(self, batch, batch_idx) -> None:
-        """Validation step for one batch."""
-        idxs, lengths, feats, labels = batch
-        logits = self(idxs, lengths, feats)
+    def on_train_epoch_end(self) -> None:
+        self.log("train_f1", self.train_f1.compute(), prog_bar=True)
+        self.log("train_precision", self.train_precision.compute())
+        self.log("train_recall", self.train_recall.compute())
+        self.train_f1.reset()
+        self.train_precision.reset()
+        self.train_recall.reset()
+
+    def validation_step(self, batch, batch_idx: int):
+        ids, mask, feats, labels = batch
+        logits = self(ids, mask, feats)
         loss = self.loss_fn(logits, labels)
         preds = torch.argmax(logits, dim=1)
-        self.val_acc(preds, labels)
+        self.val_precision(preds, labels)
+        self.val_recall(preds, labels)
+        self.val_f1(preds, labels)
         self.log("val_loss", loss, prog_bar=True)
-        self.log("val_acc", self.val_acc, prog_bar=True)
+        return loss
+
+    def on_validation_epoch_end(self) -> None:
+        self.log("val_f1", self.val_f1.compute(), prog_bar=True)
+        self.log("val_precision", self.val_precision.compute())
+        self.log("val_recall", self.val_recall.compute())
+        self.val_f1.reset()
+        self.val_precision.reset()
+        self.val_recall.reset()
 
     def configure_optimizers(self):
-        """Configure optimizers for training."""
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        optimizer = AdamW(
+            self.parameters(), lr=self.hparams.learning_rate, weight_decay=0.01
+        )
+        total_steps = self.trainer.estimated_stepping_batches
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=int(0.1 * total_steps),
+            num_training_steps=total_steps,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "interval": "step"},
+        }

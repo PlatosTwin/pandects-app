@@ -1,32 +1,37 @@
-# Standard Library
+# Standard library
 import os
 import pickle
 
-# ensure deterministic behavior
-import torch
-import pandas as pd
+# Environment config
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Third‑party libraries
 import lightning.pytorch as pl
+import pandas as pd
+import torch
 
 # Training utilities
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
+    TQDMProgressBar,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
 from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
-# Custom
-from etl.models.code.classifier_classes import (
-    PageDataModule,
+# Local modules
+from classifier_classes import (
     PageClassifier,
-    prepare_sample,
+    PageDataModule,
+    # prepare_sample,
 )
-from etl.models.code.constants import CLASSIFIER_LABEL2IDX_PATH, CLASSIFIER_VOCAB_PATH, CLASSIFIER_CKPT_PATH
-
-# Prevent tokenizers parallelism warning
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+from constants import (
+    CLASSIFIER_CKPT_PATH,
+    CLASSIFIER_LABEL2IDX_PATH,
+    CLASSIFIER_VOCAB_PATH,
+)
 
 # Reproducibility
 pl.seed_everything(42, workers=True, verbose=False)
@@ -41,6 +46,7 @@ class ClassifierTrainer:
         batch_size: int = 32,
         val_split: float = 0.2,
         num_workers: int = 0,
+        model_name: str = "distilbert/distilbert-base-uncased",
     ):
         """
         Orchestrates data loading, hyperparameter search, and training
@@ -52,6 +58,7 @@ class ClassifierTrainer:
         self.DEFAULT_BATCH = batch_size
         self.VAL_SPLIT = val_split
         self.NUM_WORKERS = num_workers
+        self.MODEL_NAME = model_name
 
         if torch.backends.mps.is_available():
             self.DEVICE = "mps"
@@ -68,14 +75,23 @@ class ClassifierTrainer:
         print(f"[data] loaded {df.shape[0]} rows from {self.data_csv}")
         self.df = df
 
-    def _get_callbacks(self, trial=None):
+    def _get_callbacks(self, trial=None, ckpt=None):
         """Instantiate checkpointing, early stopping, LR monitor, (and Optuna pruning)."""
+        if ckpt:
+            dirpath = os.path.dirname(ckpt)
+            filename = os.path.splitext(os.path.basename(ckpt))[0]
+        else:
+            dirpath = None
+            filename = "best-{epoch:02d}-{val_loss:.4f}"
+
         ckpt = ModelCheckpoint(
             monitor="val_loss",
             mode="min",
             save_top_k=1,
-            filename="best-{epoch:02d}-{val_loss:.4f}",
+            filename=filename,
+            dirpath=dirpath,
         )
+
         early_stop = EarlyStopping(monitor="val_loss", patience=3, mode="min")
         lr_mon = LearningRateMonitor(logging_interval="step")
         prune_cb = (
@@ -83,7 +99,9 @@ class ClassifierTrainer:
             if trial is not None
             else []
         )
-        return ckpt, early_stop, lr_mon, prune_cb
+        progress_bar_cb = TQDMProgressBar(refresh_rate=15)
+
+        return ckpt, early_stop, lr_mon, progress_bar_cb, prune_cb
 
     def _build(self, params: dict):
         """
@@ -95,19 +113,21 @@ class ClassifierTrainer:
             batch_size=params.get("batch_size", self.DEFAULT_BATCH),
             val_split=self.VAL_SPLIT,
             num_workers=self.NUM_WORKERS,
-            max_vocab_size=params.get("max_vocab_size", 20_000),
-            max_seq_len=params.get("max_seq_len", 300),
+            model_name=self.MODEL_NAME,
+            # max_vocab_size=params.get("max_vocab_size", 20_000),
+            # max_seq_len=params.get("max_seq_len", 300),
         )
 
         dm.setup()  # usually not necessary, but we use vars from dm below
 
         model = PageClassifier(
-            vocab_size=dm.vocab_size,
-            embed_dim=params["embed_dim"],
+            # vocab_size=dm.vocab_size,
+            # embed_dim=params["embed_dim"],
             num_features=dm.num_features,
             hidden_dim=params["hidden_dim"],
             num_classes=dm.num_classes,
             learning_rate=params["lr"],
+            model_name=self.MODEL_NAME,
         )
         return dm, model
 
@@ -117,24 +137,24 @@ class ClassifierTrainer:
         params = {
             "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
             "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64]),
-            "max_vocab_size": trial.suggest_categorical(
-                "max_vocab_size", [5_000, 10_000, 20_000]
-            ),
-            "max_seq_len": trial.suggest_categorical("max_seq_len", [100, 200, 300]),
-            "embed_dim": trial.suggest_categorical("embed_dim", [50, 100, 200]),
+            # "max_vocab_size": trial.suggest_categorical(
+            #     "max_vocab_size", [5_000, 10_000, 20_000]
+            # ),
+            # "max_seq_len": trial.suggest_categorical("max_seq_len", [100, 200, 300]),
+            # "embed_dim": trial.suggest_categorical("embed_dim", [50, 100, 200]),
             "hidden_dim": trial.suggest_categorical("hidden_dim", [64, 128, 256]),
         }
 
         dm, model = self._build(params)
-        ckpt, early_stop, lr_mon, prune_cb = self._get_callbacks(trial)
+        ckpt, early_stop, lr_mon, progress_bar_cb, prune_cb = self._get_callbacks(trial)
 
         trainer = pl.Trainer(
             max_epochs=self.MAX_EPOCHS,
             accelerator=self.DEVICE,
             devices=1,
-            precision="bf16" if self.DEVICE in ("cuda", "mps") else 32,
+            precision="bf16-mixed",
             logger=TensorBoardLogger("tb_logs", name="optuna"),
-            callbacks=[ckpt, early_stop, lr_mon, *prune_cb],
+            callbacks=[ckpt, early_stop, lr_mon, progress_bar_cb, *prune_cb],
             log_every_n_steps=10,
             deterministic=True,
         )
@@ -168,14 +188,16 @@ class ClassifierTrainer:
             pickle.dump(dm.label2idx, f)
         print(f"Saved {CLASSIFIER_VOCAB_PATH} and {CLASSIFIER_LABEL2IDX_PATH}")
 
-        ckpt, early_stop, lr_mon, _ = self._get_callbacks(trial=None)
+        ckpt, early_stop, lr_mon, progress_bar_cb, _ = self._get_callbacks(
+            ckpt=CLASSIFIER_CKPT_PATH
+        )
 
         trainer = pl.Trainer(
             max_epochs=self.MAX_EPOCHS,
             accelerator=self.DEVICE,
             devices=1,
             logger=TensorBoardLogger("tb_logs", name="final"),
-            callbacks=[ckpt, early_stop, lr_mon],
+            callbacks=[ckpt, early_stop, lr_mon, progress_bar_cb],
             log_every_n_steps=10,
         )
         trainer.fit(model, datamodule=dm)
@@ -251,31 +273,32 @@ class ClassifierInference:
 
 
 def main():
-    classifier = ClassifierTrainer(
+    classifier_trainer = ClassifierTrainer(
         data_csv="../data/page-data.csv",
         num_trials=10,
         max_epochs=10,
+        model_name="answerdotai/ModernBERT-base",  #'distilbert/distilbert-base-uncased'
     )
-    classifier.run()
+    classifier_trainer.run()
 
     #####
 
-    with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
-        vocab = pickle.load(f)
-    with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
-        label2idx = pickle.load(f)
+    # with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
+    #     vocab = pickle.load(f)
+    # with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
+    #     label2idx = pickle.load(f)
 
-    infer = ClassifierInference(
-        ckpt_path=CLASSIFIER_CKPT_PATH,
-        vocab=vocab,
-        label2idx=label2idx,
-        max_seq_len=300,
-    )
+    # infer = ClassifierInference(
+    #     ckpt_path=CLASSIFIER_CKPT_PATH,
+    #     vocab=vocab,
+    #     label2idx=label2idx,
+    #     max_seq_len=300,
+    # )
 
-    html = "<html><body><h1>Example</h1></body></html>"
-    text = "This is the page text that you want to classify."
-    out = infer.classify(html, text)
-    print(out)
+    # html = "<html><body><h1>Example</h1></body></html>"
+    # text = "This is the page text that you want to classify."
+    # out = infer.classify(html, text)
+    # print(out)
 
 
 if __name__ == "__main__":
