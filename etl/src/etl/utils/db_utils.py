@@ -12,33 +12,30 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
               url,
               target,
               acquirer,
-              transaction_date,
+              filing_date,
               transaction_price,
               transaction_type,
               transaction_consideration,
-              consideration_type,
               target_type
             ) VALUES (
               :agreement_uuid,
               :url,
               :target,
               :acquirer,
-              :transaction_date,
+              :filing_date,
               :transaction_price,
               :transaction_type,
               :transaction_consideration,
-              :consideration_type,
               :target_type
             )
             ON DUPLICATE KEY UPDATE
               url                      = VALUES(url),
               target                   = VALUES(target),
               acquirer                 = VALUES(acquirer),
-              transaction_date         = VALUES(transaction_date),
+              filing_date              = VALUES(filing_date),
               transaction_price        = VALUES(transaction_price),
               transaction_type         = VALUES(transaction_type),
               transaction_consideration = VALUES(transaction_consideration),
-              consideration_type       = VALUES(consideration_type),
               target_type              = VALUES(target_type)
         """
     )
@@ -53,11 +50,9 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
                 "target": f.target,
                 "acquirer": f.acquirer,
                 "filing_date": f.filing_date,
-                "transaction_date": f.transaction_date,
-                "transaction_price": f.transaction_price,
                 "transaction_type": f.transaction_type,
+                "transaction_price": f.transaction_price,
                 "transaction_consideration": f.transaction_consideration,
-                "consideration_type": f.consideration_type,
                 "target_type": f.target_type,
             }
         )
@@ -66,6 +61,8 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
     for i in range(0, count, 250):
         batch = rows[i : i + 250]
         conn.execute(upsert_sql, batch)
+
+    conn.commit()
 
 
 def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
@@ -136,6 +133,8 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
         batch = rows[i : i + 250]
         conn.execute(upsert_sql, batch)
 
+    conn.commit()
+
 
 def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     """
@@ -145,7 +144,7 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
             page_uuid, tagged_text, low_count, spans, chars.
         conn (Connection): SQLAlchemy connection.
     """
-    upsert_sql = text(
+    upsert_sql_tags = text(
         """
         INSERT INTO pdx.tagged_outputs (
             page_uuid,
@@ -167,10 +166,18 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
             chars       = VALUES(chars)
         """
     )
+    update_sql_pages = text(
+        """
+    UPDATE pdx.pages
+       SET processed = 1
+     WHERE page_uuid  = :page_uuid
+    """
+    )
 
-    rows = []
+    rows_tags = []
+    rows_pages = []
     for tag in staged_tags:
-        rows.append(
+        rows_tags.append(
             {
                 "page_uuid": tag.page_uuid,
                 "tagged_text": tag.tagged_text,
@@ -179,8 +186,67 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
                 "chars": json.dumps(tag.chars),
             }
         )
-    
+
+        rows_pages.append({"page_uuid": tag.page_uuid})
+
     # execute in batches of 250
-    for i in range(0, len(rows), 250):
-        batch = rows[i : i + 250]
-        conn.execute(upsert_sql, batch)
+    for i in range(0, len(rows_tags), 250):
+        batch_tags = rows_tags[i : i + 250]
+        conn.execute(upsert_sql_tags, batch_tags)
+
+        # set pages as processed
+        batch_pages = rows_pages[i : i + 250]
+        conn.execute(update_sql_pages, batch_pages)
+
+    conn.commit()
+
+
+def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
+    """
+    Upserts a batch of XML objects into the pdx.xml table.
+    Args:
+        staged_xml (Sequence): List of XML or dicts with keys
+            agreement_uuid, xml
+        conn (Connection): SQLAlchemy connection.
+    """
+    upsert_sql_xml = text(
+        """
+        INSERT INTO pdx.xml (
+            agreement_uuid,
+            xml
+        ) VALUES (
+            :agreement_uuid,
+            :xml
+        )
+        """
+    )
+    update_sql_agreements = text(
+        """
+    UPDATE pdx.agreements
+       SET processed = 1
+     WHERE agreement_uuid  = :agreement_uuid
+    """
+    )
+
+    rows_xmls = []
+    rows_agreements = []
+    for xml in staged_xml:
+        rows_xmls.append(
+            {
+                "agreement_uuid": xml.agreement_uuid,
+                "xml": xml.xml,
+            }
+        )
+
+        rows_agreements.append({"agreement_uuid": xml.agreement_uuid})
+
+    # execute in batches of 250
+    for i in range(0, len(rows_xmls), 250):
+        batch_tags = rows_xmls[i : i + 250]
+        conn.execute(upsert_sql_xml, batch_tags)
+
+        # set pages as processed
+        batch_pages = rows_agreements[i : i + 250]
+        conn.execute(update_sql_agreements, batch_pages)
+
+    conn.commit()
