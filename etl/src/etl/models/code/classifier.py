@@ -1,6 +1,5 @@
 # Standard library
 import os
-import pickle
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -29,8 +28,6 @@ from classifier_classes import (
 )
 from constants import (
     CLASSIFIER_CKPT_PATH,
-    CLASSIFIER_LABEL2IDX_PATH,
-    CLASSIFIER_VOCAB_PATH,
 )
 
 # Reproducibility
@@ -114,15 +111,11 @@ class ClassifierTrainer:
             val_split=self.VAL_SPLIT,
             num_workers=self.NUM_WORKERS,
             model_name=self.MODEL_NAME,
-            # max_vocab_size=params.get("max_vocab_size", 20_000),
-            # max_seq_len=params.get("max_seq_len", 300),
         )
 
         dm.setup()  # usually not necessary, but we use vars from dm below
 
         model = PageClassifier(
-            # vocab_size=dm.vocab_size,
-            # embed_dim=params["embed_dim"],
             num_features=dm.num_features,
             hidden_dim=params["hidden_dim"],
             num_classes=dm.num_classes,
@@ -136,12 +129,7 @@ class ClassifierTrainer:
         # define hyperparameter search space
         params = {
             "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
-            "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64]),
-            # "max_vocab_size": trial.suggest_categorical(
-            #     "max_vocab_size", [5_000, 10_000, 20_000]
-            # ),
-            # "max_seq_len": trial.suggest_categorical("max_seq_len", [100, 200, 300]),
-            # "embed_dim": trial.suggest_categorical("embed_dim", [50, 100, 200]),
+            "batch_size": trial.suggest_categorical("batch_size", [16, 32]),
             "hidden_dim": trial.suggest_categorical("hidden_dim", [64, 128, 256]),
         }
 
@@ -181,12 +169,6 @@ class ClassifierTrainer:
         # final training with best hyperparameters
         best_params = study.best_trial.params
         dm, model = self._build(best_params)
-
-        with open(CLASSIFIER_VOCAB_PATH, "wb") as f:
-            pickle.dump(dm.vocab, f)
-        with open(CLASSIFIER_LABEL2IDX_PATH, "wb") as f:
-            pickle.dump(dm.label2idx, f)
-        print(f"Saved {CLASSIFIER_VOCAB_PATH} and {CLASSIFIER_LABEL2IDX_PATH}")
 
         ckpt, early_stop, lr_mon, progress_bar_cb, _ = self._get_callbacks(
             ckpt=CLASSIFIER_CKPT_PATH
