@@ -62,8 +62,6 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
         batch = rows[i : i + 250]
         conn.execute(upsert_sql, batch)
 
-    conn.commit()
-
 
 def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
     """
@@ -133,8 +131,6 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
         batch = rows[i : i + 250]
         conn.execute(upsert_sql, batch)
 
-    conn.commit()
-
 
 def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     """
@@ -198,8 +194,6 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
         batch_pages = rows_pages[i : i + 250]
         conn.execute(update_sql_pages, batch_pages)
 
-    conn.commit()
-
 
 def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
     """
@@ -248,5 +242,3 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
         # set pages as processed
         batch_pages = rows_agreements[i : i + 250]
         conn.execute(update_sql_agreements, batch_pages)
-
-    conn.commit()
