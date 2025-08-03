@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { isLocalEnvironment } from "@/lib/environment";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef } from "react";
 import logo from "../../assets/logo.png";
