@@ -44,7 +44,10 @@ const App = () => {
                 <Route path="/bulk-data" element={<BulkData />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/feedback" element={<Feedback />} />
-                <Route path="/editor" element={<Edit />} />
+                {/* Editor route - Only available in local development */}
+                {isLocalEnvironment() && (
+                  <Route path="/editor" element={<Edit />} />
+                )}
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
