@@ -20,3 +20,5 @@ NOTES.md
 **/*.tmp_dagster*
 
 **/tb_logs
+
+.vscode
