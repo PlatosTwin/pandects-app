@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
+import { isLocalEnvironment } from "./lib/environment";
 import Edit from "./pages/Edit";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
