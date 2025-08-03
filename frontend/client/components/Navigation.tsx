@@ -109,37 +109,39 @@ export default function Navigation() {
               Feedback
             </Link>
 
-            {/* Utils Dropdown */}
-            <div className="relative">
-              <button
-                onMouseEnter={handleUtilsMouseEnter}
-                onMouseLeave={handleUtilsMouseLeave}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
-                  isActive("/editor")
-                    ? "text-white"
-                    : "text-gray-300 hover:text-white",
-                )}
-              >
-                Utils
-                <ChevronDown className="w-4 h-4" />
-              </button>
-
-              {isUtilsOpen && (
-                <div
-                  className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+            {/* Utils Dropdown - Only show in local development */}
+            {isLocalEnvironment() && (
+              <div className="relative">
+                <button
                   onMouseEnter={handleUtilsMouseEnter}
                   onMouseLeave={handleUtilsMouseLeave}
+                  className={cn(
+                    "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
+                    isActive("/editor")
+                      ? "text-white"
+                      : "text-gray-300 hover:text-white",
+                  )}
                 >
-                  <Link
-                    to="/editor"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
+                  Utils
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {isUtilsOpen && (
+                  <div
+                    className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                    onMouseEnter={handleUtilsMouseEnter}
+                    onMouseLeave={handleUtilsMouseLeave}
                   >
-                    LLM Output Editor
-                  </Link>
-                </div>
-              )}
-            </div>
+                    <Link
+                      to="/editor"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
+                    >
+                      LLM Output Editor
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
