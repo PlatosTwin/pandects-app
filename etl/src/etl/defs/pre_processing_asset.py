@@ -21,8 +21,8 @@ def pre_processing_asset(db: DBResource, classifier_model: ClassifierModel) -> N
     last_uuid: str = ""
     engine = db.get_engine()
 
-    with engine.begin() as conn:
-        while True:
+    while True:
+        with engine.begin() as conn:
             # fetch batch of staged (not processed) agreements
             result = conn.execute(
                 text(
