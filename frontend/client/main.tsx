@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
+import { isLocalEnvironment } from "./lib/environment";
 import Edit from "./pages/Edit";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
@@ -43,7 +44,10 @@ const App = () => {
                 <Route path="/bulk-data" element={<BulkData />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/feedback" element={<Feedback />} />
-                <Route path="/editor" element={<Edit />} />
+                {/* Editor route - Only available in local development */}
+                {isLocalEnvironment() && (
+                  <Route path="/editor" element={<Edit />} />
+                )}
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
