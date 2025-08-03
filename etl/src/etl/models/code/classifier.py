@@ -259,7 +259,7 @@ def main():
         data_csv="../data/page-data.csv",
         num_trials=10,
         max_epochs=10,
-        model_name="answerdotai/ModernBERT-base",  #'distilbert/distilbert-base-uncased'
+        model_name="distilbert/distilbert-base-uncased",  # 'answerdotai/ModernBERT-base'
     )
     classifier_trainer.run()
 

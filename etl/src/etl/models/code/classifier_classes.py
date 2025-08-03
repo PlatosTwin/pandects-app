@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Tuple
-from collections import Counter
+from collections import Counter, defaultdict
 import re
 
 import pandas as pd
@@ -54,6 +54,7 @@ class PageDataset(Dataset):
         top_k: int = 5,
     ) -> None:
         df_filled = df.fillna({"html": "", "text": "", "order": 0})
+        self.agreement_ids = df_filled["agreement_uuid"].tolist()  # new
         self.htmls = df_filled["html"].astype(str).tolist()
         self.texts = df_filled["text"].astype(str).tolist()
         self.orders = df_filled["order"].astype(float).tolist()
@@ -148,7 +149,7 @@ class PageDataset(Dataset):
         )
 
     def __len__(self) -> int:
-        return self.labels.size(0)
+        return len(self.labels)
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         return (
@@ -159,29 +160,70 @@ class PageDataset(Dataset):
         )
 
 
-class PageDataModule(pl.LightningDataModule):
-    """
-    LightningDataModule for loading PageDataset with train/validation splits.
-    """
+class DocumentDataset(Dataset):
+    def __init__(self, page_ds: PageDataset):
+        self.page_ds = page_ds
+        # group indices by agreement
+        groups = defaultdict(list)
+        for idx, aid in enumerate(page_ds.agreement_ids):
+            groups[aid].append(idx)
+        # sort pages within each group by original order tensor
+        self.batches: List[List[int]] = []
+        for idx_list in groups.values():
+            idx_list.sort(key=lambda i: page_ds.orders[i])
+            self.batches.append(idx_list)
 
+    def __len__(self) -> int:
+        return len(self.batches)
+
+    def __getitem__(self, idx: int):
+        ids = self.batches[idx]
+        input_ids = self.page_ds.input_ids[ids]
+        attention_mask = self.page_ds.attention_mask[ids]
+        features = self.page_ds.features[ids]
+        labels = self.page_ds.labels[ids]
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "features": features,
+            "labels": labels,
+        }
+
+
+def collate_pages(batch: List[Dict[str, Tensor]], pad_label: int = -100):
+    B = len(batch)
+    # find max sequence length
+    max_S = max(item["labels"].shape[0] for item in batch)
+
+    def pad_list(tensors, pad_value=0, dim=0):
+        padded = []
+        for t in tensors:
+            pad_shape = list(t.shape)
+            pad_shape[dim] = max_S - t.shape[dim]
+            pad_tensor = torch.full(
+                pad_shape, pad_value, dtype=t.dtype, device=t.device
+            )
+            padded.append(torch.cat([t, pad_tensor], dim=dim))
+        return torch.stack(padded, dim=0)
+
+    input_ids = pad_list([item["input_ids"] for item in batch], pad_value=0)
+    attention_mask = pad_list([item["attention_mask"] for item in batch], pad_value=0)
+    features = pad_list([item["features"] for item in batch], pad_value=0.0)
+    labels = pad_list([item["labels"] for item in batch], pad_value=pad_label)
+
+    return input_ids, attention_mask, features, labels
+
+
+class PageDataModule(pl.LightningDataModule):
     def __init__(
         self,
         df: pd.DataFrame,
         model_name: str = "distilbert/distilbert-base-uncased",
-        batch_size: int = 32,
+        batch_size: int = 8,
         val_split: float = 0.2,
         num_workers: int = 0,
         top_k: int = 5,
     ) -> None:
-        """
-        Args:
-            df: Full dataset DataFrame.
-            model_name: HuggingFace model name for tokenizer.
-            batch_size: Mini-batch size.
-            val_split: Fraction of data for validation.
-            num_workers: Number of DataLoader workers.
-            top_k: Number of tag-based features.
-        """
         super().__init__()
         self.df = df
         self.model_name = model_name
@@ -191,74 +233,49 @@ class PageDataModule(pl.LightningDataModule):
         self.top_k = top_k
 
     def setup(self, stage: Optional[str] = None) -> None:
-        """Prepares train/validation splits and datasets."""
-        df_filled = self.df.fillna({"html": "", "text": "", "order": -1})
-        train_df, val_df = train_test_split(
-            df_filled,
-            test_size=self.val_split,
-            stratify=df_filled["label"],
-            random_state=42,
+        # split by agreement_uuid
+        unique_ids = self.df["agreement_uuid"].unique().tolist()
+        train_ids, val_ids = train_test_split(
+            unique_ids, test_size=self.val_split, random_state=42
         )
+        train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
+        val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
 
         labels = sorted(train_df["label"].unique())
-        self.label2idx: Dict[str, int] = {lab: i for i, lab in enumerate(labels)}
-        self.num_classes: int = len(self.label2idx)
+        self.label2idx = {lab: i for i, lab in enumerate(labels)}
+        self.num_classes = len(labels)
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
-        self.train_ds = PageDataset(
+        # page-level datasets
+        train_page_ds = PageDataset(
             train_df, self.label2idx, self.tokenizer, self.top_k
         )
-        self.val_ds = PageDataset(val_df, self.label2idx, self.tokenizer, self.top_k)
+        val_page_ds = PageDataset(val_df, self.label2idx, self.tokenizer, self.top_k)
+        # document-level datasets
+        self.train_ds = DocumentDataset(train_page_ds)
+        self.val_ds = DocumentDataset(val_page_ds)
 
-        # Determine number of HTML/text features
-        _, _, sample_feats, _ = self.train_ds[0]
+        # feature dim (unchanged)
+        _, _, sample_feats, _ = train_page_ds[0]
         self.num_features: int = sample_feats.numel()
 
     def train_dataloader(self) -> DataLoader:
-        """Returns training DataLoader."""
         return DataLoader(
             self.train_ds,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
+            collate_fn=collate_pages,
         )
 
     def val_dataloader(self) -> DataLoader:
-        """Returns validation DataLoader."""
         return DataLoader(
             self.val_ds,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            collate_fn=collate_pages,
         )
-
-
-class FocalLoss(torch.nn.Module):
-    def __init__(self, gamma=2.0, ignore_index=-100):
-        """
-        Focal loss for class imbalance in NER.
-        """
-        super().__init__()
-        self.gamma = gamma
-        self.ignore = ignore_index
-        self.ce = torch.nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
-
-    def forward(self, logits, labels):
-        """
-        Compute focal loss.
-        Args:
-            logits: (B, T, C) or (N, C)
-            labels: (B, T) or (N,)
-        Returns:
-            Scalar loss.
-        """
-        if logits.ndim == 3:
-            logits = logits.view(-1, logits.shape[-1])
-            labels = labels.view(-1)
-        loss = self.ce(logits, labels)
-        pt = torch.exp(-loss)
-        focal = (1 - pt) ** self.gamma * loss
-        return focal.mean()
 
 
 class PageClassifier(pl.LightningModule):
@@ -274,8 +291,6 @@ class PageClassifier(pl.LightningModule):
         num_classes: int,
         learning_rate: float = 2e-5,
         model_name: str = "distilbert/distilbert-base-uncased",
-        freeze_epochs: int = 1,
-        unfreeze_last_n: int = 2,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -299,8 +314,15 @@ class PageClassifier(pl.LightningModule):
         self.dropout = nn.Dropout(0.4)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
 
-        # Focal loss for class imbalance
-        self.loss_fn = FocalLoss(gamma=2.0)
+        # ─── CRF layer parameters ─────────────────────────────────────────
+        # transition scores from tag_i → tag_j
+        self.transitions = nn.Parameter(torch.empty(num_classes, num_classes))
+        nn.init.xavier_uniform_(self.transitions)
+        # start / end transition scores
+        self.start_transitions = nn.Parameter(torch.empty(num_classes))
+        nn.init.normal_(self.start_transitions, mean=0.0, std=0.1)
+        self.end_transitions = nn.Parameter(torch.empty(num_classes))
+        nn.init.normal_(self.end_transitions, mean=0.0, std=0.1)
 
         # Metrics
         self.train_precision = Precision(task="multiclass", num_classes=num_classes)
@@ -310,25 +332,130 @@ class PageClassifier(pl.LightningModule):
         self.val_recall = Recall(task="multiclass", num_classes=num_classes)
         self.val_f1 = F1Score(task="multiclass", num_classes=num_classes)
 
+    def _compute_log_likelihood(
+        self, emissions: Tensor, tags: Tensor, mask: Tensor
+    ) -> Tensor:
+        """
+        emissions: (B, S, C), tags: (B, S), mask: (B, S)  (bool tensor)
+        returns mean log‐likelihood over batch
+        """
+        B, S, C = emissions.size()
+
+        # 1) sanitize tags so that ignored positions never index out of bounds
+        tags_s = tags.clone()
+        # wherever mask is False (i.e. label == ignore_index), replace with class 0
+        tags_s[~mask] = 0
+
+        # 2) score of the provided path
+        score = self.start_transitions[tags_s[:, 0]] + emissions[:, 0].gather(
+            1, tags_s[:, 0:1]
+        ).squeeze(1)
+
+        for t in range(1, S):
+            emit_score = emissions[:, t].gather(1, tags_s[:, t : t + 1]).squeeze(1)
+            trans_score = self.transitions[tags_s[:, t - 1], tags_s[:, t]]
+            # only add when mask[:,t] == True
+            score = score + (emit_score + trans_score) * mask[:, t].float()
+
+        # 3) add end transition for the last real tag in each sequence
+        seq_lens = mask.sum(dim=1).long() - 1
+        last_tags = tags_s.gather(1, seq_lens.unsqueeze(1)).squeeze(1)
+        score = score + self.end_transitions[last_tags]
+
+        # 4) compute partition function with forward algorithm
+        alphas = self.start_transitions.unsqueeze(0) + emissions[:, 0]
+        for t in range(1, S):
+            emit = emissions[:, t].unsqueeze(2)  # (B, C, 1)
+            trans = self.transitions.unsqueeze(0)  # (1, C, C)
+            scores = alphas.unsqueeze(2) + trans + emit  # (B, C, C)
+            new_alphas = torch.logsumexp(scores, dim=1)  # (B, C)
+            mask_t = mask[:, t].unsqueeze(1).float()
+            alphas = new_alphas * mask_t + alphas * (1.0 - mask_t)
+
+        alphas = alphas + self.end_transitions.unsqueeze(0)
+        partition = torch.logsumexp(alphas, dim=1)  # (B,)
+
+        # 5) return mean log‐likelihood
+        return (score - partition).mean()
+
+    def _viterbi_decode(self, emissions: Tensor, mask: Tensor) -> Tensor:
+        """
+        returns best tag path, shape (B, S)
+        """
+        B, S, C = emissions.size()
+        seq_lens = mask.sum(dim=1).long()
+
+        # init
+        viterbi_score = self.start_transitions.unsqueeze(0) + emissions[:, 0]  # (B, C)
+        backpointers = []
+
+        for t in range(1, S):
+            b_score = viterbi_score.unsqueeze(2)  # (B, C, 1)
+            trans = self.transitions.unsqueeze(0)  # (1, C, C)
+            scores = b_score + trans  # (B, C, C)
+            max_score, idxs = scores.max(dim=1)  # (B, C)
+            viterbi_score = max_score + emissions[:, t]
+            backpointers.append(idxs)
+
+        # add end transitions
+        viterbi_score = viterbi_score + self.end_transitions.unsqueeze(0)
+        best_last = viterbi_score.argmax(dim=1)  # (B,)
+
+        # backtrack
+        paths = []
+        for b in range(B):
+            length = seq_lens[b].item()
+            best_tag = best_last[b].item()
+            seq = [best_tag]
+            for ptrs in reversed(backpointers[: length - 1]):
+                best_tag = ptrs[b, best_tag].item()
+                seq.append(best_tag)
+            seq.reverse()
+            # pad if needed
+            if length < S:
+                seq = seq + [0] * (S - length)
+            paths.append(seq)
+
+        return torch.tensor(paths, device=emissions.device)
+
     def forward(
         self, input_ids: Tensor, attention_mask: Tensor, features: Tensor
     ) -> Tensor:
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        pooled = outputs.last_hidden_state[:, 0, :]
-        feat_emb = self.feat_proj(features)
-        x = torch.cat([pooled, feat_emb], dim=1)
+        # input_ids: (B, S, T), features: (B, S, F)
+        B, S, T = input_ids.size()
+        flat_ids = input_ids.view(B * S, T)
+        flat_mask = attention_mask.view(B * S, T)
+        flat_feats = features.view(B * S, -1)
+
+        outputs = self.bert(input_ids=flat_ids, attention_mask=flat_mask)
+        pooled = outputs.last_hidden_state[:, 0, :]  # (B·S, H)
+        feat_emb = self.feat_proj(flat_feats)  # (B·S, F)
+
+        x = torch.cat([pooled, feat_emb], dim=1)  # (B·S, H+F)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        return self.fc2(x)
+        logits = self.fc2(x)  # (B·S, C)
+
+        # reshape into a page‐sequence
+        emissions = logits.view(B, S, -1)  # (B, S, C)
+        return emissions
 
     def training_step(self, batch, batch_idx: int):
-        ids, mask, feats, labels = batch
-        logits = self(ids, mask, feats)
-        loss = self.loss_fn(logits, labels)
-        preds = torch.argmax(logits, dim=1)
-        self.train_precision(preds, labels)
-        self.train_recall(preds, labels)
-        self.train_f1(preds, labels)
+        ids, mask, feats, labels = batch  # labels: (B, S) with some ignore‐index
+        emissions = self(ids, mask, feats)  # (B, S, C)
+
+        seq_mask = labels != -100  # mask out padding if you used -100
+        ll = self._compute_log_likelihood(emissions, labels, seq_mask)
+        loss = -ll
+
+        preds = self._viterbi_decode(emissions, seq_mask)  # (B, S)
+        # flatten masked positions
+        flat_preds = preds[seq_mask]
+        flat_labels = labels[seq_mask]
+
+        self.train_precision(flat_preds, flat_labels)
+        self.train_recall(flat_preds, flat_labels)
+        self.train_f1(flat_preds, flat_labels)
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
@@ -342,12 +469,19 @@ class PageClassifier(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx: int):
         ids, mask, feats, labels = batch
-        logits = self(ids, mask, feats)
-        loss = self.loss_fn(logits, labels)
-        preds = torch.argmax(logits, dim=1)
-        self.val_precision(preds, labels)
-        self.val_recall(preds, labels)
-        self.val_f1(preds, labels)
+        emissions = self(ids, mask, feats)
+
+        seq_mask = labels != -100
+        ll = self._compute_log_likelihood(emissions, labels, seq_mask)
+        loss = -ll
+
+        preds = self._viterbi_decode(emissions, seq_mask)
+        flat_preds = preds[seq_mask]
+        flat_labels = labels[seq_mask]
+
+        self.val_precision(flat_preds, flat_labels)
+        self.val_recall(flat_preds, flat_labels)
+        self.val_f1(flat_preds, flat_labels)
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
