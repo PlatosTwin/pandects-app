@@ -4,7 +4,7 @@ import uuid
 import os
 import re
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString
+from bs4.element import NavigableString, Comment
 import requests
 from urllib.parse import urlparse
 import os
@@ -36,6 +36,79 @@ class PageMetadata:
     page_type_prob_toc: Optional[float] = None
     page_type_prob_body: Optional[float] = None
     page_type_prob_sig: Optional[float] = None
+
+
+def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
+    """
+    Fetch the HTML content at the given URL and return it as a string,
+    but send no more than 10 requests per 1 second.
+
+    Args:
+        url: The URL to pull.
+        timeout: Seconds to wait before timing out.
+
+    Returns:
+        The page’s HTML.
+
+    Raises:
+        requests.HTTPError: on bad HTTP status codes.
+        requests.RequestException: on connection issues, timeouts, etc.
+    """
+    with _request_lock:
+        now = time.time()
+        # drop timestamps older than RATE_PERIOD
+        while _request_times and now - _request_times[0] >= _RATE_PERIOD:
+            _request_times.popleft()
+
+        if len(_request_times) >= _RATE_LIMIT:
+            # wait until the oldest request moves outside the window
+            sleep_for = _RATE_PERIOD - (now - _request_times[0])
+            time.sleep(sleep_for)
+
+        _request_times.append(time.time())
+
+    headers = {
+        "User-Agent": "New York University School of Law nmb9729@nyu.edu",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate",
+        "Host": "www.sec.gov",
+        "Connection": "keep-alive",
+    }
+    resp = requests.get(url, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    return resp.text
+
+
+def classify(classifier_model, content, formatted_content):
+    model_output = classifier_model.classify(content, formatted_content)
+
+    pred_class = model_output["predicted_class"]
+
+    # 0 = front matter
+    # 1 = main body
+    # 2 = TOC
+    # 3 = sig page
+
+    if pred_class == 0:
+        page_type = "front_matter"
+    elif pred_class == 3:
+        page_type = "sig"
+    elif pred_class == 2:
+        page_type = "toc"
+    elif pred_class == 1:
+        page_type = "body"
+    else:
+        raise RuntimeError("Unknown prediction class.")
+
+    class_dict = {
+        "class": page_type,
+        "prob_front_matter": model_output["all_preds"]["class_0"],
+        "prob_toc": model_output["all_preds"]["class_2"],
+        "prob_body": model_output["all_preds"]["class_1"],
+        "prob_sig": model_output["all_preds"]["class_3"],
+    }
+
+    return class_dict
 
 
 def normalize_text(text: str) -> str:
@@ -70,6 +143,9 @@ def strip_formatting_tags(soup: BeautifulSoup, remove_tags=None) -> BeautifulSou
       3) normalizing NBSPs to spaces,
       4) (leaving newlines alone).
     """
+    for c in soup.find_all(string=lambda text: isinstance(text, Comment)):
+        c.extract()
+
     if remove_tags is None:
         remove_tags = [
             "font",
@@ -88,6 +164,7 @@ def strip_formatting_tags(soup: BeautifulSoup, remove_tags=None) -> BeautifulSou
             "strike",
             "ins",
             "del",
+            "a",
         ]
 
     # 1) Remove all style attributes
@@ -110,7 +187,19 @@ def strip_formatting_tags(soup: BeautifulSoup, remove_tags=None) -> BeautifulSou
 
 def block_level_soup(
     soup: BeautifulSoup,
-    block_tags: Iterable[str] = ("p", "div", "li", "section", "article"),
+    block_tags: Iterable[str] = (
+        "p",
+        "div",
+        "li",
+        "section",
+        "article",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+    ),
 ) -> BeautifulSoup:
     """
     Returns a new BeautifulSoup containing only the top-level block_tags
@@ -160,92 +249,6 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
-def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
-    """
-    Fetch the HTML content at the given URL and return it as a string,
-    but send no more than 10 requests per 1 second.
-
-    Args:
-        url: The URL to pull.
-        timeout: Seconds to wait before timing out.
-
-    Returns:
-        The page’s HTML.
-
-    Raises:
-        requests.HTTPError: on bad HTTP status codes.
-        requests.RequestException: on connection issues, timeouts, etc.
-    """
-    with _request_lock:
-        now = time.time()
-        # drop timestamps older than RATE_PERIOD
-        while _request_times and now - _request_times[0] >= _RATE_PERIOD:
-            _request_times.popleft()
-
-        if len(_request_times) >= _RATE_LIMIT:
-            # wait until the oldest request moves outside the window
-            sleep_for = _RATE_PERIOD - (now - _request_times[0])
-            time.sleep(sleep_for)
-
-        _request_times.append(time.time())
-
-    headers = {
-        "User-Agent": "New York University School of Law nmb9729@nyu.edu",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Encoding": "gzip, deflate",
-        "Host": "www.sec.gov",
-        "Connection": "keep-alive",
-    }
-    resp = requests.get(url, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    return resp.text
-
-
-def split_to_pages(content, is_txt, is_html):
-    split_pages = []
-
-    if is_txt:
-        fragments = re.split(r"<PAGE>", content)
-        split_pages = [
-            {"content": page, "order": i} for i, page in enumerate(fragments)
-        ]
-
-    elif is_html:
-        soup = BeautifulSoup(content, "html.parser")
-
-        # 1. Turn your explicit page‑break DIVs into <hr data-page-break="true">
-        def is_page_break_div(tag):
-            if tag.name != "div":
-                return False
-            style = tag.get("style", "")
-            return isinstance(style, str) and (
-                "page-break-before" in style.lower()
-                or "page-break-after" in style.lower()
-            )
-
-        for div in soup.find_all(is_page_break_div):
-            hr = soup.new_tag("hr")
-            hr["data-page-break"] = "true"
-            div.replace_with(hr)
-
-        # 2. ALSO mark *original* <hr> tags that are NOT inside any <table>
-        for hr in soup.find_all("hr"):
-            if hr.get("data-page-break") != "true" and hr.find_parent("table") is None:
-                hr["data-page-break"] = "true"
-
-        # 3. Serialize and split ONLY on <hr data-page-break="true">
-        normalized = str(soup)
-        fragments = re.split(
-            r'(?i)<hr\b[^>]*\bdata-page-break\s*=\s*"true"[^>]*>', normalized
-        )
-
-        split_pages = [
-            {"content": frag, "order": i} for i, frag in enumerate(fragments)
-        ]
-
-    return split_pages
-
-
 def format_content(content, is_txt, is_html):
     if is_txt:
         return normalize_text(content)
@@ -263,36 +266,53 @@ def format_content(content, is_txt, is_html):
         raise RuntimeError("Unknown page source type.")
 
 
-def classify(classifier_model, content, formatted_content):
-    model_output = classifier_model.classify(content, formatted_content)
+def split_to_pages(content, is_txt, is_html):
+    if is_txt:
+        fragments = re.split(r"<PAGE>", content)
+        return [{"content": page, "order": i} for i, page in enumerate(fragments)]
 
-    pred_class = model_output["predicted_class"]
+    elif is_html:
+        soup = BeautifulSoup(content, "html.parser")
 
-    # 0 = front matter
-    # 1 = main body
-    # 2 = TOC
-    # 3 = sig page
+        # 1) strip out HTML comments
+        for c in soup.find_all(string=lambda t: isinstance(t, Comment)):
+            c.extract()
 
-    if pred_class == 0:
-        page_type = "front_matter"
-    elif pred_class == 3:
-        page_type = "sig"
-    elif pred_class == 2:
-        page_type = "toc"
-    elif pred_class == 1:
-        page_type = "body"
+        # 2) convert div-based page-breaks to <hr data-page-break>
+        def is_page_break_div(tag):
+            if tag.name != "div":
+                return False
+            style = tag.get("style", "")
+            return (
+                "page-break-before" in style.lower()
+                or "page-break-after" in style.lower()
+            )
+
+        for div in soup.find_all(is_page_break_div):
+            hr = soup.new_tag("hr")
+            hr["data-page-break"] = "true"
+            div.replace_with(hr)
+
+        # 3) mark every other <hr> outside of tables
+        for hr in soup.find_all("hr"):
+            if hr.get("data-page-break") != "true" and hr.find_parent("table") is None:
+                hr["data-page-break"] = "true"
+
+        # 4) regex-split on those data-page-break HRs (catches nested ones)
+        normalized = str(soup)
+        fragments = re.split(
+            r'(?i)<hr\b[^>]*\bdata-page-break\s*=\s*"true"[^>]*>', normalized
+        )
+
+        return [
+            {
+                "content": frag,
+            }
+            for frag in fragments
+        ]
+
     else:
-        raise RuntimeError("Unknown prediction class.")
-
-    class_dict = {
-        "class": page_type,
-        "prob_front_matter": model_output["all_preds"]["class_0"],
-        "prob_toc": model_output["all_preds"]["class_2"],
-        "prob_body": model_output["all_preds"]["class_1"],
-        "prob_sig": model_output["all_preds"]["class_3"],
-    }
-
-    return class_dict
+        raise RuntimeError(f"Unknown page source type.")
 
 
 def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
@@ -330,9 +350,13 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
             continue
 
         # 3. loop through pages to classify and format
+        page_order = 0
         for page in pages:
             # format
             page_formatted_content = format_content(page["content"], is_txt, is_html)
+
+            if not page_formatted_content:
+                continue
 
             # classify
             # page_class = classify(
@@ -342,7 +366,7 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
             staged_pages.append(
                 PageMetadata(
                     agreement_uuid=agreement["agreement_uuid"],
-                    page_order=page["order"],
+                    page_order=page_order,
                     raw_page_content=page["content"],
                     processed_page_content=page_formatted_content,
                     source_is_txt=is_txt,
@@ -355,4 +379,18 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
                 )
             )
 
+            page_order += 1
+
     return staged_pages
+
+
+if __name__ == "__main__":
+    pre_process(
+        [
+            {
+                "url": "https://www.sec.gov/Archives/edgar/data/1035884/000110465907050454/a07-17577_1ex2d1.htm",
+                "agreement_uuid": "foo",
+            }
+        ],
+        None,
+    )
