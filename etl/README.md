@@ -53,10 +53,11 @@
     * page_type_prob_toc
     * page_type_prob_body
     * page_type_prob_sig 
+    * processed
 
-## Stage 3—Tag pre-processed agreements via LLM
+## Stage 3—Tag pre-processed agreements via NER and LLM
 
-**Description**: Feeds pre-processed page batches to LLM for tagging.
+**Description**: Feeds pre-processed page batches to the NER model and then uncertain spans to an LLM.
 
 **Output**:
 * Agreement UUID
@@ -64,6 +65,12 @@
 * LLM output
 
 **Tables**:
+* pdx.tagged_output
+    * page_uuid
+    * tagged_output
+    * uncertain_spans
+
+**Tables (TBD)**:
 * pdx.llm_output
     * page_uuid
     * prompt_id
@@ -76,13 +83,13 @@
     * prompt_description
     * prompt_text
 
-## Stage 4—Assemble XML from LLM output
+## Stage 4—Assemble XML from LLM output, including taxonimizing
 
-**Description**: Compiles LLM-tagged outputs into agreement XML
+**Description**: Compiles LLM-tagged outputs into agreement XML, including adding taxonomy labels
 
 **Output**:
 * Agreement UUID
-* XML
+* XML (with taxonomy labels)
 
 **Tables**:
 * pdx.xml
@@ -90,10 +97,14 @@
     * xml
     * version
     * updated_at
+* pdx.taxonomy
+    * type
+    * standard_id
+    * description
 
-## Stage 5—Assign sections to taxonomy
+## Stage 5—Splits XML into sections in the database
 
-**Description**: Assigns sections to taxonomy, and republishes updated XML
+**Description**: Splits XML into sections in the database
 
 **Output**:
 * Agreement UUID
@@ -113,7 +124,3 @@
     * article_title_embedding
     * section_title_embedding
     * xml_content_embedding
-* pdx.taxonomy
-    * type
-    * standard_id
-    * description
