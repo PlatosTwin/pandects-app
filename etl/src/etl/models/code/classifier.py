@@ -110,7 +110,6 @@ class ClassifierTrainer:
             batch_size=params.get("batch_size", self.DEFAULT_BATCH),
             val_split=self.VAL_SPLIT,
             num_workers=self.NUM_WORKERS,
-            model_name=self.MODEL_NAME,
         )
 
         dm.setup()  # usually not necessary, but we use vars from dm below
@@ -120,7 +119,6 @@ class ClassifierTrainer:
             hidden_dim=params["hidden_dim"],
             num_classes=dm.num_classes,
             learning_rate=params["lr"],
-            model_name=self.MODEL_NAME,
         )
         return dm, model
 
@@ -129,7 +127,7 @@ class ClassifierTrainer:
         # define hyperparameter search space
         params = {
             "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
-            "batch_size": trial.suggest_categorical("batch_size", [16, 32]),
+            "batch_size": trial.suggest_categorical("batch_size", [8, 16, 32]),
             "hidden_dim": trial.suggest_categorical("hidden_dim", [64, 128, 256]),
         }
 
@@ -257,8 +255,8 @@ class ClassifierInference:
 def main():
     classifier_trainer = ClassifierTrainer(
         data_csv="../data/page-data.csv",
-        num_trials=10,
-        max_epochs=10,
+        num_trials=20,
+        max_epochs=20,
         model_name="distilbert/distilbert-base-uncased",  # 'answerdotai/ModernBERT-base'
     )
     classifier_trainer.run()

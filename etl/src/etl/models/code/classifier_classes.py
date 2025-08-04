@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Tuple
-from collections import Counter, defaultdict
+from collections import defaultdict, Counter
 import re
+import string
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -11,232 +12,246 @@ from torch.utils.data import DataLoader, Dataset
 
 import lightning.pytorch as pl
 import torch.nn as nn
-import torch.nn.functional as F
 from torchmetrics import F1Score, Precision, Recall
 
-from transformers import AutoTokenizer, AutoModel
 from transformers.optimization import get_linear_schedule_with_warmup
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from torch.optim import AdamW
 
 
-def extract_tag_features(html: str, top_k: int = 5) -> Tuple[List[int], List[int]]:
+def extract_features(text: str, html: str, order: float) -> Tensor:
     """
-    Extract fixed-length counts of HTML tag types and tag-ngrams from the input HTML.
-
-    Args:
-        html: Raw HTML string.
-        top_k: Number of top tag-types and tag-bigrams to return.
-
-    Returns:
-        A tuple of two lists (type_counts, ngram_counts), each of length top_k.
+    Compute engineered features for a single page.
     """
-    tags = re.findall(r"<([^>\s/]+)", html)
-    type_counts = [count for _, count in Counter(tags).most_common(top_k)]
-    type_counts += [0] * max(0, top_k - len(type_counts))
-    bigrams = [f"{tags[i]}_{tags[i+1]}" for i in range(len(tags) - 1)]
-    ngram_counts = [count for _, count in Counter(bigrams).most_common(top_k)]
-    ngram_counts += [0] * max(0, top_k - len(ngram_counts))
-    return type_counts, ngram_counts
+
+    # take last chars after the last newline; binary for if all digits, binary for if less than order
+
+    # Text-based features
+    num_chars = len(text)
+    words = text.split()
+    num_words = len(words)
+    avg_chars_per_word = num_chars / num_words if num_words > 0 else 0.0
+    prop_spaces = text.count(" ") / num_chars if num_chars > 0 else 0.0
+    prop_digits = sum(c.isdigit() for c in text) / num_chars if num_chars > 0 else 0.0
+    prop_newlines = text.count("\n") / num_chars if num_chars > 0 else 0.0
+    prop_punct = (
+        sum(c in string.punctuation for c in text) / num_chars if num_chars > 0 else 0.0
+    )
+
+    flag_is_all_digits = int(text.rsplit("\\n", 1)[-1].isdigit())
+    s = text.rsplit("\\n", 1)[-1]
+    flag_is_less_than_order = int(s.isdigit() and int(s) < order)
+    
+    flag_is_all_digits = int(text.rsplit("\n", 1)[-1].isdigit())
+    flag_is_less_than_order = int(
+        (s := text.rsplit("\n", 1)[-1]).isdigit() and int(s) < order
+    )
+
+    count_section = text.lower().count("section")
+    count_article = text.lower().count("article")
+    num_all_caps = sum(1 for w in words if w.isalpha() and w.isupper())
+    prop_word_cap = (
+        sum(1 for w in words if w[:1].isupper()) / num_words if num_words > 0 else 0.0
+    )
+
+    bigrams = [" ".join(bg) for bg in zip(words, words[1:])]
+    num_bigrams = len(bigrams)
+    unique_bigrams = len(set(bigrams))
+    prop_unique_bigrams = unique_bigrams / num_bigrams if num_bigrams > 0 else 0.0
+    # Trigrams
+    trigrams = [" ".join(tg) for tg in zip(words, words[1:], words[2:])]
+    num_trigrams = len(trigrams)
+    unique_trigrams = len(set(trigrams))
+    prop_unique_trigrams = unique_trigrams / num_trigrams if num_trigrams > 0 else 0.0
+
+    # --- New HTML tag-based features ---
+    num_tags = html.count("<")  # total HTML tags
+    tag_to_text_ratio = num_tags / num_chars if num_chars > 0 else 0.0
+    link_count = html.lower().count("<a ")
+    img_count = html.lower().count("<img ")
+    heading_tags = sum(html.lower().count(f"<h{i}") for i in range(1, 7))
+    list_count = html.lower().count("<li")
+
+    # --- Bullet/list detection ---
+    bullet_count = sum(1 for line in text.split("\n") if line.strip().startswith("-"))
+
+    # --- Legal boilerplate term counts ---
+    terms = ["hereto", "herein", "hereby", "thereof", "wherein"]
+    boilerplate_counts = [text.lower().count(term) for term in terms]
+
+    # Keyword presence flags
+    keywords = [
+        "table of contents",
+        "execution version",
+        "in witness whereof",
+        "exhibit",
+        "signature",
+        "list of exhibits",
+        "schedule",
+        "list of schedules",
+        "index of",
+        "recitals",
+        "whereas",
+        "now, therefore",
+        "signed",
+        "execution date",
+        "effective",
+        "dated as of"
+        "entered into by and among"
+        "[signature"
+        "w i t n e s e t h"
+        "/s/",
+    ]
+    flag_feats = [1.0 if kw in text.lower() else 0.0 for kw in keywords]
+
+    # Punctuation breakdown
+    num_colon = text.count(":")
+    num_period = text.count(".")
+    num_comma = text.count(",")
+    total_punct = sum(c in string.punctuation for c in text)
+    prop_colon = num_colon / total_punct if total_punct > 0 else 0.0
+    prop_period = num_period / total_punct if total_punct > 0 else 0.0
+    prop_comma = num_comma / total_punct if total_punct > 0 else 0.0
+
+    # HTML tag features
+    html_l = html.lower()
+    has_table = 1.0 if re.search(r"</?(table|tr|td)", html_l) else 0.0
+    count_p = html_l.count("<p")
+    count_div = html_l.count("<div")
+
+    # Aggregate feature vector
+    feat_list = [
+        num_words,
+        num_chars,
+        avg_chars_per_word,
+        prop_spaces,
+        prop_digits,
+        prop_newlines,
+        prop_punct,
+        flag_is_all_digits,
+        flag_is_less_than_order,
+        count_section,
+        count_article,
+        num_all_caps,
+        prop_word_cap,
+        # n-gram stats
+        num_bigrams,
+        unique_bigrams,
+        prop_unique_bigrams,
+        num_trigrams,
+        unique_trigrams,
+        prop_unique_trigrams,
+        # HTML tag-based
+        num_tags,
+        tag_to_text_ratio,
+        link_count,
+        img_count,
+        heading_tags,
+        list_count,
+        bullet_count,
+        # boilerplate term counts
+        *boilerplate_counts,
+        *flag_feats,
+        prop_colon,
+        prop_period,
+        prop_comma,
+        has_table,
+        count_p,
+        count_div,
+        order,
+    ]
+
+    return torch.tensor(feat_list, dtype=torch.float)
 
 
 class PageDataset(Dataset):
-    """
-    PyTorch Dataset for page classification.
-    Tokenizes combined HTML/text and computes features for each example.
-    """
+    """Dataset yielding (features, label) per page."""
 
-    def __init__(
-        self,
-        df: pd.DataFrame,
-        label2idx: Dict[str, int],
-        tokenizer: PreTrainedTokenizerBase,
-        top_k: int = 5,
-    ) -> None:
-        df_filled = df.fillna({"html": "", "text": "", "order": 0})
-        self.agreement_ids = df_filled["agreement_uuid"].tolist()  # new
-        self.htmls = df_filled["html"].astype(str).tolist()
-        self.texts = df_filled["text"].astype(str).tolist()
-        self.orders = df_filled["order"].astype(float).tolist()
+    def __init__(self, df: pd.DataFrame, label2idx: Dict[str, int]) -> None:
+        df = df.fillna({"text": "", "html": "", "order": 0})
+        self.texts = df["text"].astype(str).tolist()
+        self.htmls = df["html"].astype(str).tolist()
+        self.orders = df["order"].astype(float).tolist()
         self.labels = torch.tensor(
-            df_filled["label"].map(label2idx).tolist(), dtype=torch.long
-        )
-
-        self.tokenizer = tokenizer
-        self.top_k = top_k
-
-        # #2: tokenize combined HTML + text
-        combined_inputs = [
-            "[HTML] " + h[:1024] + " [TEXT] " + t
-            for h, t in zip(self.htmls, self.texts)
-        ]
-        encoding = tokenizer(
-            combined_inputs,
-            truncation=True,
-            padding="max_length",
-            max_length=512,
-            return_tensors="pt",
-        )
-        self.input_ids = encoding["input_ids"]
-        self.attention_mask = encoding["attention_mask"]
-
-        # Base statistics
-        totals = self.attention_mask.sum(dim=1).clamp(min=1).float()
-        html_lengths = torch.tensor([len(h) for h in self.htmls], dtype=torch.float)
-        tag_counts = torch.tensor(
-            [len(re.findall(r"<[^>]+>", h)) for h in self.htmls], dtype=torch.float
-        )
-        link_counts = torch.tensor(
-            [h.lower().count("<a ") for h in self.htmls], dtype=torch.float
-        )
-        img_counts = torch.tensor(
-            [h.lower().count("<img ") for h in self.htmls], dtype=torch.float
-        )
-        heading_counts = torch.tensor(
-            [sum(h.lower().count(f"<h{i}") for i in range(1, 7)) for h in self.htmls],
-            dtype=torch.float,
-        )
-
-        type_counts_list, ngram_counts_list = zip(
-            *[extract_tag_features(h[:5000], top_k) for h in self.htmls]
-        )
-        type_counts = torch.tensor(type_counts_list, dtype=torch.float)
-        ngram_counts = torch.tensor(ngram_counts_list, dtype=torch.float)
-
-        token_lists = [
-            tokenizer.convert_ids_to_tokens(ids.tolist()) for ids in self.input_ids
-        ]
-        num_caps = torch.tensor(
-            [
-                sum(1 for tok in toks if tok.isalpha() and tok.isupper())
-                for toks in token_lists
-            ],
-            dtype=torch.float,
-        )
-        num_nums = torch.tensor(
-            [
-                sum(any(c.isdigit() for c in tok) for tok in toks)
-                for toks in token_lists
-            ],
-            dtype=torch.float,
-        )
-        avg_token_lengths = torch.tensor(
-            [
-                sum(len(tok) for tok in toks) / tot
-                for toks, tot in zip(token_lists, totals)
-            ],
-            dtype=torch.float,
-        )
-        orders_tensor = torch.tensor(self.orders, dtype=torch.float)
-
-        # Combine all features
-        self.features = torch.cat(
-            [
-                html_lengths.unsqueeze(1),
-                tag_counts.unsqueeze(1),
-                link_counts.unsqueeze(1),
-                img_counts.unsqueeze(1),
-                heading_counts.unsqueeze(1),
-                totals.unsqueeze(1),
-                (num_caps / totals).unsqueeze(1),
-                (num_nums / totals).unsqueeze(1),
-                avg_token_lengths.unsqueeze(1),
-                orders_tensor.unsqueeze(1),
-                type_counts,
-                ngram_counts,
-            ],
-            dim=1,
+            df["label"].map(label2idx).tolist(), dtype=torch.long
         )
 
     def __len__(self) -> int:
         return len(self.labels)
 
-    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        return (
-            self.input_ids[idx],
-            self.attention_mask[idx],
-            self.features[idx],
-            self.labels[idx],
-        )
+    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
+        feats = extract_features(self.texts[idx], self.htmls[idx], self.orders[idx])
+        return feats, self.labels[idx]
 
 
 class DocumentDataset(Dataset):
-    def __init__(self, page_ds: PageDataset):
-        self.page_ds = page_ds
-        # group indices by agreement
+    """Groups pages by agreement and sorts by order."""
+
+    def __init__(self, df: pd.DataFrame, label2idx: Dict[str, int]):
+        self.page_ds = PageDataset(df, label2idx)
         groups = defaultdict(list)
-        for idx, aid in enumerate(page_ds.agreement_ids):
-            groups[aid].append(idx)
-        # sort pages within each group by original order tensor
-        self.batches: List[List[int]] = []
-        for idx_list in groups.values():
-            idx_list.sort(key=lambda i: page_ds.orders[i])
-            self.batches.append(idx_list)
+        for i, aid in enumerate(df["agreement_uuid"]):
+            groups[aid].append(i)
+        self.batches = []
+        for idxs in groups.values():
+            idxs.sort(key=lambda i: self.page_ds.orders[i])
+            self.batches.append(idxs)
 
     def __len__(self) -> int:
         return len(self.batches)
 
-    def __getitem__(self, idx: int):
-        ids = self.batches[idx]
-        input_ids = self.page_ds.input_ids[ids]
-        attention_mask = self.page_ds.attention_mask[ids]
-        features = self.page_ds.features[ids]
-        labels = self.page_ds.labels[ids]
+    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+        idxs = self.batches[idx]
+        feats = []
+        labels = []
+        for i in idxs:
+            f, l = self.page_ds[i]
+            feats.append(f)
+            labels.append(l)
         return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "features": features,
-            "labels": labels,
+            "features": torch.stack(feats),  # (S, F)
+            "labels": torch.tensor(labels, dtype=torch.long),  # (S,)
         }
 
 
 def collate_pages(batch: List[Dict[str, Tensor]], pad_label: int = -100):
     B = len(batch)
-    # find max sequence length
-    max_S = max(item["labels"].shape[0] for item in batch)
+    max_S = max(item["labels"].size(0) for item in batch)
+    F = batch[0]["features"].size(1)
 
-    def pad_list(tensors, pad_value=0, dim=0):
-        padded = []
-        for t in tensors:
-            pad_shape = list(t.shape)
-            pad_shape[dim] = max_S - t.shape[dim]
-            pad_tensor = torch.full(
-                pad_shape, pad_value, dtype=t.dtype, device=t.device
-            )
-            padded.append(torch.cat([t, pad_tensor], dim=dim))
-        return torch.stack(padded, dim=0)
+    feats_padded = []
+    labels_padded = []
+    for item in batch:
+        S = item["labels"].size(0)
+        pad_feats = torch.cat([item["features"], torch.zeros((max_S - S, F))], dim=0)
+        pad_labels = torch.cat(
+            [item["labels"], torch.full((max_S - S,), pad_label, dtype=torch.long)]
+        )
+        feats_padded.append(pad_feats)
+        labels_padded.append(pad_labels)
 
-    input_ids = pad_list([item["input_ids"] for item in batch], pad_value=0)
-    attention_mask = pad_list([item["attention_mask"] for item in batch], pad_value=0)
-    features = pad_list([item["features"] for item in batch], pad_value=0.0)
-    labels = pad_list([item["labels"] for item in batch], pad_value=pad_label)
-
-    return input_ids, attention_mask, features, labels
+    features = torch.stack(feats_padded)  # (B, max_S, F)
+    labels = torch.stack(labels_padded)  # (B, max_S)
+    return features, labels
 
 
 class PageDataModule(pl.LightningDataModule):
     def __init__(
         self,
         df: pd.DataFrame,
-        model_name: str = "distilbert/distilbert-base-uncased",
         batch_size: int = 8,
         val_split: float = 0.2,
         num_workers: int = 0,
-        top_k: int = 5,
     ) -> None:
         super().__init__()
         self.df = df
-        self.model_name = model_name
         self.batch_size = batch_size
         self.val_split = val_split
         self.num_workers = num_workers
-        self.top_k = top_k
 
     def setup(self, stage: Optional[str] = None) -> None:
-        # split by agreement_uuid
-        unique_ids = self.df["agreement_uuid"].unique().tolist()
+        unique = self.df["agreement_uuid"].unique().tolist()
         train_ids, val_ids = train_test_split(
-            unique_ids, test_size=self.val_split, random_state=42
+            unique, test_size=self.val_split, random_state=42
         )
         train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
         val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
@@ -245,21 +260,14 @@ class PageDataModule(pl.LightningDataModule):
         self.label2idx = {lab: i for i, lab in enumerate(labels)}
         self.num_classes = len(labels)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
-        # page-level datasets
-        train_page_ds = PageDataset(
-            train_df, self.label2idx, self.tokenizer, self.top_k
-        )
-        val_page_ds = PageDataset(val_df, self.label2idx, self.tokenizer, self.top_k)
-        # document-level datasets
-        self.train_ds = DocumentDataset(train_page_ds)
-        self.val_ds = DocumentDataset(val_page_ds)
+        self.train_ds = DocumentDataset(train_df, self.label2idx)
+        self.val_ds = DocumentDataset(val_df, self.label2idx)
 
-        # feature dim (unchanged)
-        _, _, sample_feats, _ = train_page_ds[0]
-        self.num_features: int = sample_feats.numel()
+        # number of features from a single page
+        sample_feats, _ = PageDataset(train_df, self.label2idx)[0]
+        self.num_features = sample_feats.numel()
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self):
         return DataLoader(
             self.train_ds,
             batch_size=self.batch_size,
@@ -268,7 +276,7 @@ class PageDataModule(pl.LightningDataModule):
             collate_fn=collate_pages,
         )
 
-    def val_dataloader(self) -> DataLoader:
+    def val_dataloader(self):
         return DataLoader(
             self.val_ds,
             batch_size=self.batch_size,
@@ -279,50 +287,28 @@ class PageDataModule(pl.LightningDataModule):
 
 
 class PageClassifier(pl.LightningModule):
-    """
-    LightningModule for page classification.
-    Implements: #3 feature projection, #4 AdamW+warmup, #5 focal loss, #6 stronger regularization.
-    """
-
     def __init__(
         self,
-        hidden_dim: int,
         num_features: int,
         num_classes: int,
-        learning_rate: float = 2e-5,
-        model_name: str = "distilbert/distilbert-base-uncased",
+        hidden_dim: int = 128,
+        learning_rate: float = 1e-3,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
 
-        # Backbone
-        self.bert = AutoModel.from_pretrained(model_name)
-        # Freeze backbone initially
-        for p in self.bert.parameters():
-            p.requires_grad = False
-
-        # Feature projection
-        self.feat_proj = nn.Sequential(
-            nn.Linear(num_features, num_features),
-            nn.LayerNorm(num_features),
-            nn.ReLU(),
-        )
-
-        bert_dim = self.bert.config.hidden_size
-        # MLP head
-        self.fc1 = nn.Linear(bert_dim + num_features, hidden_dim)
+        # MLP head on engineered features
+        self.fc1 = nn.Linear(num_features, hidden_dim)
         self.dropout = nn.Dropout(0.4)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
 
-        # ─── CRF layer parameters ─────────────────────────────────────────
-        # transition scores from tag_i → tag_j
+        # CRF parameters
         self.transitions = nn.Parameter(torch.empty(num_classes, num_classes))
         nn.init.xavier_uniform_(self.transitions)
-        # start / end transition scores
         self.start_transitions = nn.Parameter(torch.empty(num_classes))
-        nn.init.normal_(self.start_transitions, mean=0.0, std=0.1)
+        nn.init.normal_(self.start_transitions, 0.0, 0.1)
         self.end_transitions = nn.Parameter(torch.empty(num_classes))
-        nn.init.normal_(self.end_transitions, mean=0.0, std=0.1)
+        nn.init.normal_(self.end_transitions, 0.0, 0.1)
 
         # Metrics
         self.train_precision = Precision(task="multiclass", num_classes=num_classes)
@@ -331,6 +317,15 @@ class PageClassifier(pl.LightningModule):
         self.val_precision = Precision(task="multiclass", num_classes=num_classes)
         self.val_recall = Recall(task="multiclass", num_classes=num_classes)
         self.val_f1 = F1Score(task="multiclass", num_classes=num_classes)
+
+    def forward(self, features: Tensor) -> Tensor:
+        # features: (B, S, F)
+        B, S, F = features.size()
+        flat = features.view(B * S, F)
+        x = torch.relu(self.fc1(flat))
+        x = self.dropout(x)
+        logits = self.fc2(x)  # (B·S, C)
+        return logits.view(B, S, -1)
 
     def _compute_log_likelihood(
         self, emissions: Tensor, tags: Tensor, mask: Tensor
@@ -418,38 +413,15 @@ class PageClassifier(pl.LightningModule):
 
         return torch.tensor(paths, device=emissions.device)
 
-    def forward(
-        self, input_ids: Tensor, attention_mask: Tensor, features: Tensor
-    ) -> Tensor:
-        # input_ids: (B, S, T), features: (B, S, F)
-        B, S, T = input_ids.size()
-        flat_ids = input_ids.view(B * S, T)
-        flat_mask = attention_mask.view(B * S, T)
-        flat_feats = features.view(B * S, -1)
-
-        outputs = self.bert(input_ids=flat_ids, attention_mask=flat_mask)
-        pooled = outputs.last_hidden_state[:, 0, :]  # (B·S, H)
-        feat_emb = self.feat_proj(flat_feats)  # (B·S, F)
-
-        x = torch.cat([pooled, feat_emb], dim=1)  # (B·S, H+F)
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-        logits = self.fc2(x)  # (B·S, C)
-
-        # reshape into a page‐sequence
-        emissions = logits.view(B, S, -1)  # (B, S, C)
-        return emissions
-
     def training_step(self, batch, batch_idx: int):
-        ids, mask, feats, labels = batch  # labels: (B, S) with some ignore‐index
-        emissions = self(ids, mask, feats)  # (B, S, C)
+        feats, labels = batch  # now only two items
+        emissions = self(feats)  # forward takes only features
 
-        seq_mask = labels != -100  # mask out padding if you used -100
+        seq_mask = labels != -100
         ll = self._compute_log_likelihood(emissions, labels, seq_mask)
         loss = -ll
 
-        preds = self._viterbi_decode(emissions, seq_mask)  # (B, S)
-        # flatten masked positions
+        preds = self._viterbi_decode(emissions, seq_mask)
         flat_preds = preds[seq_mask]
         flat_labels = labels[seq_mask]
 
@@ -468,8 +440,8 @@ class PageClassifier(pl.LightningModule):
         self.train_recall.reset()
 
     def validation_step(self, batch, batch_idx: int):
-        ids, mask, feats, labels = batch
-        emissions = self(ids, mask, feats)
+        feats, labels = batch
+        emissions = self(feats)
 
         seq_mask = labels != -100
         ll = self._compute_log_likelihood(emissions, labels, seq_mask)
