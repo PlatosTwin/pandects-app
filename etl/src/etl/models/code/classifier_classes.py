@@ -1,271 +1,178 @@
-from typing import Dict, List, Optional, Tuple
-from collections import defaultdict, Counter
-import re
-import string
-
-import pandas as pd
-from sklearn.model_selection import train_test_split
-
-import torch
-from torch import Tensor
-from torch.utils.data import DataLoader, Dataset
+from collections import defaultdict
+from typing import Dict
 
 import lightning.pytorch as pl
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import torch
+from torch import Tensor
 import torch.nn as nn
-from torchmetrics import F1Score, Precision, Recall
-
-from transformers.optimization import get_linear_schedule_with_warmup
+import torch.nn.functional as F
 from torch.optim import AdamW
+from torch.utils.data import DataLoader, Dataset
+from torchmetrics import F1Score, Precision, Recall
+import xgboost as xgb
 
-
-def extract_features(text: str, html: str, order: float) -> Tensor:
-    """
-    Compute engineered features for a single page.
-    """
-
-    # take last chars after the last newline; binary for if all digits, binary for if less than order
-
-    # Text-based features
-    num_chars = len(text)
-    words = text.split()
-    num_words = len(words)
-    avg_chars_per_word = num_chars / num_words if num_words > 0 else 0.0
-    prop_spaces = text.count(" ") / num_chars if num_chars > 0 else 0.0
-    prop_digits = sum(c.isdigit() for c in text) / num_chars if num_chars > 0 else 0.0
-    prop_newlines = text.count("\n") / num_chars if num_chars > 0 else 0.0
-    prop_punct = (
-        sum(c in string.punctuation for c in text) / num_chars if num_chars > 0 else 0.0
-    )
-
-    flag_is_all_digits = int(text.rsplit("\\n", 1)[-1].isdigit())
-    s = text.rsplit("\\n", 1)[-1]
-    flag_is_less_than_order = int(s.isdigit() and int(s) < order)
-    
-    flag_is_all_digits = int(text.rsplit("\n", 1)[-1].isdigit())
-    flag_is_less_than_order = int(
-        (s := text.rsplit("\n", 1)[-1]).isdigit() and int(s) < order
-    )
-
-    count_section = text.lower().count("section")
-    count_article = text.lower().count("article")
-    num_all_caps = sum(1 for w in words if w.isalpha() and w.isupper())
-    prop_word_cap = (
-        sum(1 for w in words if w[:1].isupper()) / num_words if num_words > 0 else 0.0
-    )
-
-    bigrams = [" ".join(bg) for bg in zip(words, words[1:])]
-    num_bigrams = len(bigrams)
-    unique_bigrams = len(set(bigrams))
-    prop_unique_bigrams = unique_bigrams / num_bigrams if num_bigrams > 0 else 0.0
-    # Trigrams
-    trigrams = [" ".join(tg) for tg in zip(words, words[1:], words[2:])]
-    num_trigrams = len(trigrams)
-    unique_trigrams = len(set(trigrams))
-    prop_unique_trigrams = unique_trigrams / num_trigrams if num_trigrams > 0 else 0.0
-
-    # --- New HTML tag-based features ---
-    num_tags = html.count("<")  # total HTML tags
-    tag_to_text_ratio = num_tags / num_chars if num_chars > 0 else 0.0
-    link_count = html.lower().count("<a ")
-    img_count = html.lower().count("<img ")
-    heading_tags = sum(html.lower().count(f"<h{i}") for i in range(1, 7))
-    list_count = html.lower().count("<li")
-
-    # --- Bullet/list detection ---
-    bullet_count = sum(1 for line in text.split("\n") if line.strip().startswith("-"))
-
-    # --- Legal boilerplate term counts ---
-    terms = ["hereto", "herein", "hereby", "thereof", "wherein"]
-    boilerplate_counts = [text.lower().count(term) for term in terms]
-
-    # Keyword presence flags
-    keywords = [
-        "table of contents",
-        "execution version",
-        "in witness whereof",
-        "exhibit",
-        "signature",
-        "list of exhibits",
-        "schedule",
-        "list of schedules",
-        "index of",
-        "recitals",
-        "whereas",
-        "now, therefore",
-        "signed",
-        "execution date",
-        "effective",
-        "dated as of"
-        "entered into by and among"
-        "[signature"
-        "w i t n e s e t h"
-        "/s/",
-    ]
-    flag_feats = [1.0 if kw in text.lower() else 0.0 for kw in keywords]
-
-    # Punctuation breakdown
-    num_colon = text.count(":")
-    num_period = text.count(".")
-    num_comma = text.count(",")
-    total_punct = sum(c in string.punctuation for c in text)
-    prop_colon = num_colon / total_punct if total_punct > 0 else 0.0
-    prop_period = num_period / total_punct if total_punct > 0 else 0.0
-    prop_comma = num_comma / total_punct if total_punct > 0 else 0.0
-
-    # HTML tag features
-    html_l = html.lower()
-    has_table = 1.0 if re.search(r"</?(table|tr|td)", html_l) else 0.0
-    count_p = html_l.count("<p")
-    count_div = html_l.count("<div")
-
-    # Aggregate feature vector
-    feat_list = [
-        num_words,
-        num_chars,
-        avg_chars_per_word,
-        prop_spaces,
-        prop_digits,
-        prop_newlines,
-        prop_punct,
-        flag_is_all_digits,
-        flag_is_less_than_order,
-        count_section,
-        count_article,
-        num_all_caps,
-        prop_word_cap,
-        # n-gram stats
-        num_bigrams,
-        unique_bigrams,
-        prop_unique_bigrams,
-        num_trigrams,
-        unique_trigrams,
-        prop_unique_trigrams,
-        # HTML tag-based
-        num_tags,
-        tag_to_text_ratio,
-        link_count,
-        img_count,
-        heading_tags,
-        list_count,
-        bullet_count,
-        # boilerplate term counts
-        *boilerplate_counts,
-        *flag_feats,
-        prop_colon,
-        prop_period,
-        prop_comma,
-        has_table,
-        count_p,
-        count_div,
-        order,
-    ]
-
-    return torch.tensor(feat_list, dtype=torch.float)
+from classifier_utils import extract_features
+from constants import CLASSIFIER_LABEL_LIST
 
 
 class PageDataset(Dataset):
-    """Dataset yielding (features, label) per page."""
-
-    def __init__(self, df: pd.DataFrame, label2idx: Dict[str, int]) -> None:
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        label2idx: Dict[str, int],
+        model: xgb.Booster,
+        inference: bool = False,
+    ):
         df = df.fillna({"text": "", "html": "", "order": 0})
-        self.texts = df["text"].astype(str).tolist()
-        self.htmls = df["html"].astype(str).tolist()
-        self.orders = df["order"].astype(float).tolist()
-        self.labels = torch.tensor(
-            df["label"].map(label2idx).tolist(), dtype=torch.long
+        feats = np.vstack(
+            [
+                extract_features(t, h, o)
+                for t, h, o in zip(df["text"], df["html"], df["order"])
+            ]
         )
+        dmat = xgb.DMatrix(feats)
+        probs = model.predict(dmat)  # (N, C)
+        # avoid log(0) → -inf
+        probs_tensor = torch.tensor(probs, dtype=torch.float)
+        probs_tensor = probs_tensor.clamp(min=1e-8)
+        self.emissions = torch.log(probs_tensor)
 
-    def __len__(self) -> int:
-        return len(self.labels)
+        if not inference:
+            self.labels = torch.tensor(
+                df["label"].map(label2idx).values, dtype=torch.long
+            )
+        else:
+            self.labels = None
 
-    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
-        feats = extract_features(self.texts[idx], self.htmls[idx], self.orders[idx])
-        return feats, self.labels[idx]
+    def __len__(self):
+        return self.emissions.size(0)
+
+    def __getitem__(self, i):
+        if self.labels is None:
+            return {"emissions": self.emissions[i]}
+        return {"emissions": self.emissions[i], "labels": self.labels[i]}
 
 
 class DocumentDataset(Dataset):
-    """Groups pages by agreement and sorts by order."""
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        label2idx: Dict[str, int],
+        model: xgb.Booster,
+        inference: bool = False,
+    ):
+        self.page_ds = PageDataset(df, label2idx, model, inference=inference)
+        self.ids = []
+        grp = defaultdict(list)
+        for i, a in enumerate(df["agreement_uuid"]):
+            grp[a].append(i)
+        for idxs in grp.values():
+            # order is preserved by df
+            self.ids.append(sorted(idxs))
 
-    def __init__(self, df: pd.DataFrame, label2idx: Dict[str, int]):
-        self.page_ds = PageDataset(df, label2idx)
-        groups = defaultdict(list)
-        for i, aid in enumerate(df["agreement_uuid"]):
-            groups[aid].append(i)
-        self.batches = []
-        for idxs in groups.values():
-            idxs.sort(key=lambda i: self.page_ds.orders[i])
-            self.batches.append(idxs)
+        self.inference = inference
 
-    def __len__(self) -> int:
-        return len(self.batches)
+    def __len__(self):
+        return len(self.ids)
 
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
-        idxs = self.batches[idx]
-        feats = []
-        labels = []
-        for i in idxs:
-            f, l = self.page_ds[i]
-            feats.append(f)
-            labels.append(l)
-        return {
-            "features": torch.stack(feats),  # (S, F)
-            "labels": torch.tensor(labels, dtype=torch.long),  # (S,)
-        }
+    def __getitem__(self, idx):
+        idxs = self.ids[idx]
+        emis = torch.stack([self.page_ds[i]["emissions"] for i in idxs])
+
+        if self.inference:
+            return {"emissions": emis}
+
+        labs = torch.tensor([self.page_ds[i]["labels"] for i in idxs], dtype=torch.long)
+        return {"emissions": emis, "labels": labs}
 
 
-def collate_pages(batch: List[Dict[str, Tensor]], pad_label: int = -100):
+# pad emissions & labels to (B, S, C)/(B, S)
+def collate_pages(batch, pad_label=-100):
     B = len(batch)
-    max_S = max(item["labels"].size(0) for item in batch)
-    F = batch[0]["features"].size(1)
-
-    feats_padded = []
-    labels_padded = []
-    for item in batch:
-        S = item["labels"].size(0)
-        pad_feats = torch.cat([item["features"], torch.zeros((max_S - S, F))], dim=0)
-        pad_labels = torch.cat(
-            [item["labels"], torch.full((max_S - S,), pad_label, dtype=torch.long)]
+    maxS = max(b["labels"].size(0) for b in batch)
+    C = batch[0]["emissions"].size(-1)
+    Es, Ls = [], []
+    NEG_INF = -1e4
+    for b in batch:
+        S = b["labels"].size(0)
+        padE = torch.cat([b["emissions"], torch.full((maxS - S, C), NEG_INF)], dim=0)
+        padL = torch.cat(
+            [b["labels"], torch.full((maxS - S,), pad_label, dtype=torch.long)]
         )
-        feats_padded.append(pad_feats)
-        labels_padded.append(pad_labels)
-
-    features = torch.stack(feats_padded)  # (B, max_S, F)
-    labels = torch.stack(labels_padded)  # (B, max_S)
-    return features, labels
+        Es.append(padE)
+        Ls.append(padL)
+    return torch.stack(Es), torch.stack(Ls)
 
 
+def collate_pages_predict(batch):
+    # only pad emissions
+    maxS = max(b["emissions"].size(0) for b in batch)
+    C = batch[0]["emissions"].size(-1)
+    NEG_INF = -1e4
+
+    Es = []
+    for b in batch:
+        S = b["emissions"].size(0)
+        padE = torch.cat([b["emissions"], torch.full((maxS - S, C), NEG_INF)], dim=0)
+        Es.append(padE)
+    return torch.stack(Es)
+
+
+# --- DataModule loads XGB and emits emissions ---
 class PageDataModule(pl.LightningDataModule):
     def __init__(
         self,
         df: pd.DataFrame,
-        batch_size: int = 8,
-        val_split: float = 0.2,
-        num_workers: int = 0,
-    ) -> None:
+        xgb_path,
+        batch_size=8,
+        val_split=0.2,
+        num_workers=0,
+    ):
         super().__init__()
-        self.df = df
-        self.batch_size = batch_size
-        self.val_split = val_split
-        self.num_workers = num_workers
-
-    def setup(self, stage: Optional[str] = None) -> None:
-        unique = self.df["agreement_uuid"].unique().tolist()
-        train_ids, val_ids = train_test_split(
-            unique, test_size=self.val_split, random_state=42
+        self.df, self.xgb_path = df, xgb_path
+        self.batch_size, self.val_split, self.num_workers = (
+            batch_size,
+            val_split,
+            num_workers,
         )
-        train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
-        val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
 
-        labels = sorted(train_df["label"].unique())
-        self.label2idx = {lab: i for i, lab in enumerate(labels)}
-        self.num_classes = len(labels)
+    def setup(self, stage=None):
+        ids = self.df["agreement_uuid"].unique().tolist()
+        if stage in ("fit", "validate", None) and self.val_split and self.val_split > 0:
+            tr, vl = train_test_split(ids, test_size=self.val_split, random_state=42)
+            df_tr = self.df[self.df["agreement_uuid"].isin(tr)]
+            df_vl = self.df[self.df["agreement_uuid"].isin(vl)]
 
-        self.train_ds = DocumentDataset(train_df, self.label2idx)
-        self.val_ds = DocumentDataset(val_df, self.label2idx)
+            labs = sorted(df_tr["label"].unique())
+        else:
+            # inference mode (or val_split==0): everything goes into “predict_ds”
+            df_tr = self.df
+            df_vl = self.df.iloc[0:0]
 
-        # number of features from a single page
-        sample_feats, _ = PageDataset(train_df, self.label2idx)[0]
-        self.num_features = sample_feats.numel()
+            labs = CLASSIFIER_LABEL_LIST
+
+        self.label2idx = {l: i for i, l in enumerate(labs)}
+
+        # load xgb
+        self.xgb = xgb.Booster()
+        self.xgb.load_model(self.xgb_path)
+
+        if stage in ("fit", "validate", None) and self.val_split and self.val_split > 0:
+            self.train_ds = DocumentDataset(
+                df_tr, self.label2idx, self.xgb, inference=False
+            )
+            self.val_ds = DocumentDataset(
+                df_vl, self.label2idx, self.xgb, inference=False
+            )
+
+        self.predict_ds = DocumentDataset(
+            self.df, self.label2idx, self.xgb, inference=True
+        )
+
+        self.num_classes = len(labs)
 
     def train_dataloader(self):
         return DataLoader(
@@ -285,197 +192,218 @@ class PageDataModule(pl.LightningDataModule):
             collate_fn=collate_pages,
         )
 
+    def predict_dataloader(self):
+        return DataLoader(
+            self.predict_ds,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            collate_fn=collate_pages_predict,
+        )
 
+
+# --- Classifier uses CRF on emissions ---
 class PageClassifier(pl.LightningModule):
     def __init__(
         self,
-        num_features: int,
         num_classes: int,
-        hidden_dim: int = 128,
-        learning_rate: float = 1e-3,
-    ) -> None:
+        lr: float = 1e-3,
+        weight_decay: float = 1e-2,
+        hidden_dim: int = 64,
+        dropout: float = 0.1,
+        lstm_hidden: int = 64,
+        lstm_num_layers: int = 1,
+        lstm_dropout: int = 0,
+    ):
         super().__init__()
         self.save_hyperparameters()
+        C = num_classes
+        hd = hidden_dim
+        dp = dropout
 
-        # MLP head on engineered features
-        self.fc1 = nn.Linear(num_features, hidden_dim)
-        self.dropout = nn.Dropout(0.4)
-        self.fc2 = nn.Linear(hidden_dim, num_classes)
-
-        # CRF parameters
-        self.transitions = nn.Parameter(torch.empty(num_classes, num_classes))
+        # transition params
+        self.transitions = nn.Parameter(torch.empty(C, C))
         nn.init.xavier_uniform_(self.transitions)
-        self.start_transitions = nn.Parameter(torch.empty(num_classes))
+        self.start_transitions = nn.Parameter(torch.empty(C))
         nn.init.normal_(self.start_transitions, 0.0, 0.1)
-        self.end_transitions = nn.Parameter(torch.empty(num_classes))
+        self.end_transitions = nn.Parameter(torch.empty(C))
         nn.init.normal_(self.end_transitions, 0.0, 0.1)
 
-        # Metrics
-        self.train_precision = Precision(task="multiclass", num_classes=num_classes)
-        self.train_recall = Recall(task="multiclass", num_classes=num_classes)
-        self.train_f1 = F1Score(task="multiclass", num_classes=num_classes)
-        self.val_precision = Precision(task="multiclass", num_classes=num_classes)
-        self.val_recall = Recall(task="multiclass", num_classes=num_classes)
-        self.val_f1 = F1Score(task="multiclass", num_classes=num_classes)
+        self.mlp = nn.Sequential(
+            nn.Linear(C, hd),
+            nn.ReLU(),
+            nn.Dropout(dp),
+            nn.Linear(hd, C),
+        )
 
-    def forward(self, features: Tensor) -> Tensor:
-        # features: (B, S, F)
-        B, S, F = features.size()
-        flat = features.view(B * S, F)
-        x = torch.relu(self.fc1(flat))
-        x = self.dropout(x)
-        logits = self.fc2(x)  # (B·S, C)
-        return logits.view(B, S, -1)
+        self.lstm = nn.LSTM(
+            input_size=C,
+            hidden_size=lstm_hidden,
+            num_layers=lstm_num_layers,
+            dropout=lstm_dropout if lstm_num_layers > 1 else 0.0,
+            batch_first=True,
+            bidirectional=True,
+        )
+        self.lstm2proj = nn.Linear(2 * lstm_hidden, C)
 
-    def _compute_log_likelihood(
-        self, emissions: Tensor, tags: Tensor, mask: Tensor
-    ) -> Tensor:
-        """
-        emissions: (B, S, C), tags: (B, S), mask: (B, S)  (bool tensor)
-        returns mean log‐likelihood over batch
-        """
+        self.idx2label = {
+            idx: label for idx, label in enumerate(sorted(CLASSIFIER_LABEL_LIST))
+        }
+
+        # metrics
+        self.train_p = Precision(task="multiclass", num_classes=C)
+        self.train_r = Recall(task="multiclass", num_classes=C)
+        self.train_f = F1Score(task="multiclass", num_classes=C)
+        self.val_p = Precision(task="multiclass", num_classes=C)
+        self.val_r = Recall(task="multiclass", num_classes=C)
+        self.val_f = F1Score(task="multiclass", num_classes=C)
+
+    def forward(self, emissions: Tensor) -> Tensor:
+        # # emissions: (B, S, C) coming from PageDataset
+        # B, S, C = emissions.size()
+        # # flatten to (B*S, C), run through MLP, then reshape
+        # flat = emissions.view(-1, C)
+        # trans = self.mlp(flat)  # (B*S, C)
+        # return trans.view(B, S, C)
+
+        # emissions: (B, S, C)
         B, S, C = emissions.size()
+        x = self.mlp(emissions.view(-1, C)).view(B, S, C)  # your MLP
+        lstm_out, _ = self.lstm(x)  # (B, S, 2*H)
+        emissions = self.lstm2proj(lstm_out)  # back to (B, S, C)
+        return emissions
 
-        # 1) sanitize tags so that ignored positions never index out of bounds
+    def _compute_log_likelihood(self, em: Tensor, tags: Tensor, mask: Tensor) -> Tensor:
+        B, S, C = em.size()
         tags_s = tags.clone()
-        # wherever mask is False (i.e. label == ignore_index), replace with class 0
         tags_s[~mask] = 0
-
-        # 2) score of the provided path
-        score = self.start_transitions[tags_s[:, 0]] + emissions[:, 0].gather(
+        # score of true path
+        score = self.start_transitions[tags_s[:, 0]] + em[:, 0].gather(
             1, tags_s[:, 0:1]
         ).squeeze(1)
-
         for t in range(1, S):
-            emit_score = emissions[:, t].gather(1, tags_s[:, t : t + 1]).squeeze(1)
-            trans_score = self.transitions[tags_s[:, t - 1], tags_s[:, t]]
-            # only add when mask[:,t] == True
-            score = score + (emit_score + trans_score) * mask[:, t].float()
-
-        # 3) add end transition for the last real tag in each sequence
-        seq_lens = mask.sum(dim=1).long() - 1
+            emit_sc = em[:, t].gather(1, tags_s[:, t : t + 1]).squeeze(1)
+            trans_sc = self.transitions[tags_s[:, t - 1], tags_s[:, t]]
+            score += (emit_sc + trans_sc) * mask[:, t].float()
+        seq_lens = mask.sum(1).long() - 1
         last_tags = tags_s.gather(1, seq_lens.unsqueeze(1)).squeeze(1)
-        score = score + self.end_transitions[last_tags]
-
-        # 4) compute partition function with forward algorithm
-        alphas = self.start_transitions.unsqueeze(0) + emissions[:, 0]
+        score += self.end_transitions[last_tags]
+        # partition via forward algorithm
+        alphas = self.start_transitions.unsqueeze(0) + em[:, 0]
         for t in range(1, S):
-            emit = emissions[:, t].unsqueeze(2)  # (B, C, 1)
-            trans = self.transitions.unsqueeze(0)  # (1, C, C)
-            scores = alphas.unsqueeze(2) + trans + emit  # (B, C, C)
-            new_alphas = torch.logsumexp(scores, dim=1)  # (B, C)
-            mask_t = mask[:, t].unsqueeze(1).float()
-            alphas = new_alphas * mask_t + alphas * (1.0 - mask_t)
-
-        alphas = alphas + self.end_transitions.unsqueeze(0)
-        partition = torch.logsumexp(alphas, dim=1)  # (B,)
-
-        # 5) return mean log‐likelihood
+            emit = em[:, t].unsqueeze(2)
+            trans = self.transitions.unsqueeze(0)
+            scores = alphas.unsqueeze(2) + trans + emit
+            new_al = torch.logsumexp(scores, dim=1)
+            m_t = mask[:, t].unsqueeze(1).float()
+            alphas = new_al * m_t + alphas * (1 - m_t)
+        alphas += self.end_transitions.unsqueeze(0)
+        partition = torch.logsumexp(alphas, dim=1)
         return (score - partition).mean()
 
-    def _viterbi_decode(self, emissions: Tensor, mask: Tensor) -> Tensor:
-        """
-        returns best tag path, shape (B, S)
-        """
-        B, S, C = emissions.size()
-        seq_lens = mask.sum(dim=1).long()
-
-        # init
-        viterbi_score = self.start_transitions.unsqueeze(0) + emissions[:, 0]  # (B, C)
-        backpointers = []
-
+    def _viterbi_decode(self, em: Tensor, mask: Tensor) -> Tensor:
+        B, S, C = em.size()
+        seq_lens = mask.sum(1).long()
+        v_score = self.start_transitions.unsqueeze(0) + em[:, 0]
+        backptrs = []
         for t in range(1, S):
-            b_score = viterbi_score.unsqueeze(2)  # (B, C, 1)
-            trans = self.transitions.unsqueeze(0)  # (1, C, C)
-            scores = b_score + trans  # (B, C, C)
-            max_score, idxs = scores.max(dim=1)  # (B, C)
-            viterbi_score = max_score + emissions[:, t]
-            backpointers.append(idxs)
-
-        # add end transitions
-        viterbi_score = viterbi_score + self.end_transitions.unsqueeze(0)
-        best_last = viterbi_score.argmax(dim=1)  # (B,)
-
-        # backtrack
+            b_sc = v_score.unsqueeze(2) + self.transitions.unsqueeze(0)
+            max_sc, idxs = b_sc.max(dim=1)
+            v_score = max_sc + em[:, t]
+            backptrs.append(idxs)
+        v_score += self.end_transitions.unsqueeze(0)
+        last_tag = v_score.argmax(dim=1)
         paths = []
         for b in range(B):
-            length = seq_lens[b].item()
-            best_tag = best_last[b].item()
-            seq = [best_tag]
-            for ptrs in reversed(backpointers[: length - 1]):
-                best_tag = ptrs[b, best_tag].item()
-                seq.append(best_tag)
+            L = seq_lens[b].item()
+            tag = last_tag[b].item()
+            seq = [tag]
+            for ptr in reversed(backptrs[: L - 1]):
+                tag = ptr[b, tag].item()
+                seq.append(tag)
             seq.reverse()
-            # pad if needed
-            if length < S:
-                seq = seq + [0] * (S - length)
+            if L < S:
+                seq += [0] * (S - L)
             paths.append(seq)
+        return torch.tensor(paths, device=em.device)
 
-        return torch.tensor(paths, device=emissions.device)
-
-    def training_step(self, batch, batch_idx: int):
-        feats, labels = batch  # now only two items
-        emissions = self(feats)  # forward takes only features
-
-        seq_mask = labels != -100
-        ll = self._compute_log_likelihood(emissions, labels, seq_mask)
+    def shared_step(self, batch, prefix: str):
+        emissions, labels = batch
+        mask = labels != -100
+        ll = self._compute_log_likelihood(emissions, labels, mask)
         loss = -ll
-
-        preds = self._viterbi_decode(emissions, seq_mask)
-        flat_preds = preds[seq_mask]
-        flat_labels = labels[seq_mask]
-
-        self.train_precision(flat_preds, flat_labels)
-        self.train_recall(flat_preds, flat_labels)
-        self.train_f1(flat_preds, flat_labels)
-        self.log("train_loss", loss, prog_bar=True)
+        preds = self._viterbi_decode(emissions, mask)[mask]
+        labs = labels[mask]
+        if prefix == "train":
+            self.train_p(preds, labs)
+            self.train_r(preds, labs)
+            self.train_f(preds, labs)
+        else:
+            self.val_p(preds, labs)
+            self.val_r(preds, labs)
+            self.val_f(preds, labs)
+        self.log(f"{prefix}_loss", loss, prog_bar=True)
         return loss
 
-    def on_train_epoch_end(self) -> None:
-        self.log("train_f1", self.train_f1.compute(), prog_bar=True)
-        self.log("train_precision", self.train_precision.compute())
-        self.log("train_recall", self.train_recall.compute())
-        self.train_f1.reset()
-        self.train_precision.reset()
-        self.train_recall.reset()
+    def training_step(self, batch, batch_idx):
+        return self.shared_step(batch, "train")
 
-    def validation_step(self, batch, batch_idx: int):
-        feats, labels = batch
-        emissions = self(feats)
+    def validation_step(self, batch, batch_idx):
+        return self.shared_step(batch, "val")
 
-        seq_mask = labels != -100
-        ll = self._compute_log_likelihood(emissions, labels, seq_mask)
-        loss = -ll
+    def predict_step(self, batch, batch_idx):
+        # batch is just the emissions tensor when you're in predict()
+        # shape = (B, S, C)
+        emissions = batch
 
-        preds = self._viterbi_decode(emissions, seq_mask)
-        flat_preds = preds[seq_mask]
-        flat_labels = labels[seq_mask]
+        # rebuild the mask of “real” tokens/pages by spotting the padding value
+        NEG_INF = -1e4
+        # mask: (B, S) = True where at least one class prob ≠ NEG_INF
+        mask = (emissions != NEG_INF).any(dim=-1)
 
-        self.val_precision(flat_preds, flat_labels)
-        self.val_recall(flat_preds, flat_labels)
-        self.val_f1(flat_preds, flat_labels)
-        self.log("val_loss", loss, prog_bar=True)
-        return loss
+        # 1) compute per‐class probs
+        probs = F.softmax(emissions, dim=-1)
+        # 2) flatten to (N, C) over all real positions
+        probs_flat = probs[mask]
 
-    def on_validation_epoch_end(self) -> None:
-        self.log("val_f1", self.val_f1.compute(), prog_bar=True)
-        self.log("val_precision", self.val_precision.compute())
-        self.log("val_recall", self.val_recall.compute())
-        self.val_f1.reset()
-        self.val_precision.reset()
-        self.val_recall.reset()
+        # 3) viterbi decode → (B, S, C) to (B, S) → flatten to (N,)
+        preds = self._viterbi_decode(emissions, mask)[mask]
+
+        # 4) get label names
+        n_classes = emissions.size(-1)
+        if hasattr(self, "idx2label"):
+            label_names = [self.idx2label[i] for i in range(n_classes)]
+        else:
+            label_names = list(range(n_classes))
+
+        # 5) assemble list of dicts
+        out = []
+        for p_vec, p_idx in zip(probs_flat.tolist(), preds.tolist()):
+            entry = {label_names[i]: p_vec[i] for i in range(n_classes)}
+            entry["pred_class"] = label_names[p_idx]
+            out.append(entry)
+
+        return out
+
+    def on_train_epoch_end(self):
+        self.log("train_f1", self.train_f.compute(), prog_bar=True)
+        self.log("train_precision", self.train_p.compute())
+        self.log("train_recall", self.train_r.compute())
+        self.train_f.reset()
+        self.train_p.reset()
+        self.train_r.reset()
+
+    def on_validation_epoch_end(self):
+        self.log("val_f1", self.val_f.compute(), prog_bar=True)
+        self.log("val_precision", self.val_p.compute())
+        self.log("val_recall", self.val_r.compute())
+        self.val_f.reset()
+        self.val_p.reset()
+        self.val_r.reset()
 
     def configure_optimizers(self):
-        optimizer = AdamW(
-            self.parameters(), lr=self.hparams.learning_rate, weight_decay=0.01
+        return AdamW(
+            self.parameters(),
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
         )
-        total_steps = self.trainer.estimated_stepping_batches
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=int(0.1 * total_steps),
-            num_training_steps=total_steps,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {"scheduler": scheduler, "interval": "step"},
-        }

@@ -1,15 +1,14 @@
-# Standard library
 import os
+import time
+from typing import Optional
+import pprint
 
-# Environment config
+# Disable Tokenizers parallelism before loading any HF/Lightning modules
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Third‑party libraries
-import lightning.pytorch as pl
 import pandas as pd
 import torch
-
-# Training utilities
+import lightning.pytorch as pl
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
@@ -19,16 +18,11 @@ from lightning.pytorch.callbacks import (
 from lightning.pytorch.loggers import TensorBoardLogger
 from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
+import torch
+import torch.nn.functional as F
 
-# Local modules
-from classifier_classes import (
-    PageClassifier,
-    PageDataModule,
-    # prepare_sample,
-)
-from constants import (
-    CLASSIFIER_CKPT_PATH,
-)
+from classifier_classes import PageClassifier, PageDataModule
+from constants import CLASSIFIER_CKPT_PATH, CLASSIFIER_XGB_PATH
 
 # Reproducibility
 pl.seed_everything(42, workers=True, verbose=False)
@@ -43,19 +37,17 @@ class ClassifierTrainer:
         batch_size: int = 32,
         val_split: float = 0.2,
         num_workers: int = 0,
-        model_name: str = "distilbert/distilbert-base-uncased",
     ):
         """
         Orchestrates data loading, hyperparameter search, and training
         of PageClassifier via PageDataModule.
         """
-        self.data_csv = data_csv
+        self.data_file = data_csv
         self.NUM_TRIALS = num_trials
         self.MAX_EPOCHS = max_epochs
         self.DEFAULT_BATCH = batch_size
         self.VAL_SPLIT = val_split
         self.NUM_WORKERS = num_workers
-        self.MODEL_NAME = model_name
 
         if torch.backends.mps.is_available():
             self.DEVICE = "mps"
@@ -66,10 +58,10 @@ class ClassifierTrainer:
 
     def _load_data(self):
         """Load the classification DataFrame from CSV."""
-        df = pd.read_csv(self.data_csv)
+        df = pd.read_parquet(self.data_file)
         if not {"html", "text", "label"}.issubset(df.columns):
             raise ValueError("CSV must contain 'html', 'text', and 'label' columns")
-        print(f"[data] loaded {df.shape[0]} rows from {self.data_csv}")
+        print(f"[data] loaded {df.shape[0]} rows from {self.data_file}")
         self.df = df
 
     def _get_callbacks(self, trial=None, ckpt=None):
@@ -79,20 +71,20 @@ class ClassifierTrainer:
             filename = os.path.splitext(os.path.basename(ckpt))[0]
         else:
             dirpath = None
-            filename = "best-{epoch:02d}-{val_loss:.4f}"
+            filename = "best-{epoch:02d}-{val_f1:.4f}"
 
         ckpt = ModelCheckpoint(
-            monitor="val_loss",
-            mode="min",
+            monitor="val_f1",
+            mode="max",
             save_top_k=1,
             filename=filename,
             dirpath=dirpath,
         )
 
-        early_stop = EarlyStopping(monitor="val_loss", patience=3, mode="min")
+        early_stop = EarlyStopping(monitor="val_f1", patience=3, mode="max")
         lr_mon = LearningRateMonitor(logging_interval="step")
         prune_cb = (
-            [PyTorchLightningPruningCallback(trial, monitor="val_loss")]
+            [PyTorchLightningPruningCallback(trial, monitor="val_f1")]
             if trial is not None
             else []
         )
@@ -110,15 +102,20 @@ class ClassifierTrainer:
             batch_size=params.get("batch_size", self.DEFAULT_BATCH),
             val_split=self.VAL_SPLIT,
             num_workers=self.NUM_WORKERS,
+            xgb_path=CLASSIFIER_XGB_PATH,
         )
 
         dm.setup()  # usually not necessary, but we use vars from dm below
 
         model = PageClassifier(
-            num_features=dm.num_features,
-            hidden_dim=params["hidden_dim"],
             num_classes=dm.num_classes,
-            learning_rate=params["lr"],
+            lr=params["lr"],
+            weight_decay=params["weight_decay"],
+            hidden_dim=params["hidden_dim"],
+            dropout=params["dropout"],
+            lstm_dropout=params["lstm_dropout"],
+            lstm_hidden=params["lstm_hidden"],
+            lstm_num_layers=params["lstm_num_layers"],
         )
         return dm, model
 
@@ -126,9 +123,14 @@ class ClassifierTrainer:
         """Optuna objective: builds, trains, and returns validation loss."""
         # define hyperparameter search space
         params = {
-            "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
-            "batch_size": trial.suggest_categorical("batch_size", [8, 16, 32]),
+            "lr": trial.suggest_float("lr", 1e-6, 1e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
+            "batch_size": trial.suggest_categorical("batch_size", [4, 8, 16, 32]),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.5),
             "hidden_dim": trial.suggest_categorical("hidden_dim", [64, 128, 256]),
+            "lstm_dropout": trial.suggest_float("lstm_dropout", 0.0, 0.5),
+            "lstm_hidden": trial.suggest_categorical("lstm_hidden", [32, 64, 128]),
+            "lstm_num_layers": trial.suggest_categorical("lstm_num_layers", [1, 2]),
         }
 
         dm, model = self._build(params)
@@ -145,21 +147,23 @@ class ClassifierTrainer:
             deterministic=True,
         )
         trainer.fit(model, datamodule=dm)
-        val_loss = trainer.callback_metrics["val_loss"].item()
+        # val_loss = trainer.callback_metrics["val_loss"].item()
+        val_f1 = trainer.callback_metrics["val_f1"].item()
 
         # clean up to avoid memory leaks
         del trainer, model, dm, ckpt, early_stop, lr_mon, prune_cb
-        return val_loss
+
+        return val_f1
 
     def run(self):
         """Execute HPO, then retrain final model with best hyperparameters."""
         self._load_data()
 
-        study = create_study(direction="minimize")
+        study = create_study(direction="maximize")
         study.optimize(self._objective, n_trials=self.NUM_TRIALS, gc_after_trial=True)
 
         print(">> HPO complete")
-        print(f"   Best val_loss: {study.best_value:.4f}")
+        print(f"   Best val_f1: {study.best_value:.4f}")
         print("   Best params:")
         for k, v in study.best_trial.params.items():
             print(f"     • {k}: {v}")
@@ -185,101 +189,94 @@ class ClassifierTrainer:
 
 class ClassifierInference:
     """
-    Load a trained PageClassifier from checkpoint and run single-example or batch inference
-    on raw HTML/text pairs.
+    Wraps a trained PageClassifier LightningModule for easy batch inference.
+
+    Usage:
+        inf = ClassifierInference(
+            ckpt_path="path/to/best.ckpt",
+            batch_size=32,
+            num_workers=4
+        )
+        df = pd.read_csv("new_pages.csv")  # must have 'html', 'text', and optional 'order'
+        out = inf.classify(df)
+        print(out[['pred_label','pred_proba']])
     """
 
     def __init__(
         self,
-        ckpt_path: str,
-        vocab: dict,
-        label2idx: dict,
-        max_seq_len: int = 300,
-        device: str | None = None,
+        ckpt_path: str = CLASSIFIER_CKPT_PATH,
+        xgb_path: str = CLASSIFIER_XGB_PATH,
+        batch_size: int = 32,
+        num_workers: int = 0,
+        device: Optional[str] = None,
     ):
-        # load model
-        self.model: PageClassifier = PageClassifier.load_from_checkpoint(ckpt_path)
-        # mappings and padding/unk indices
-        self.vocab = vocab
-        self.label2idx = label2idx
-        self.idx2label = {i: l for l, i in label2idx.items()}
-        self.pad_idx = vocab.get("<PAD>", 0)
-        self.unk_idx = vocab.get("<UNK>", 1)
-        self.max_seq_len = max_seq_len
-
-        # device
-        if device:
-            self.device = torch.device(device)
+        # device selection
+        if device is not None:
+            self.device = device
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        elif torch.cuda.is_available():
+            self.device = "cuda"
         else:
-            self.device = (
-                torch.device("cuda")
-                if torch.cuda.is_available()
-                else (
-                    torch.device("mps")
-                    if torch.backends.mps.is_available()
-                    else torch.device("cpu")
-                )
-            )
-        self.model.to(self.device).eval()
+            self.device = "cpu"
 
-    def _prepare(self, html: str, text: str):
-        idxs, length, feats = prepare_sample(html, text, self.vocab, self.max_seq_len)
-        idxs_t = torch.tensor([idxs], dtype=torch.long, device=self.device)
-        lengths_t = torch.tensor([length], dtype=torch.long, device=self.device)
-        feats_t = torch.tensor([feats], dtype=torch.float, device=self.device)
-        return idxs_t, lengths_t, feats_t
+        # load model (assumes you called self.save_hyperparameters() in __init__)
+        self.model = PageClassifier.load_from_checkpoint(ckpt_path)
+        self.model.to(self.device)
+        self.model.eval()
 
-    def classify(self, html: str, text: str) -> dict:
+        self.xgb_path = xgb_path
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def classify(self, df: pd.DataFrame):
         """
-        Returns a dict with:
-          - predicted_class: the class label with highest probability
-          - all_preds: mapping of each class to its probability
+        Run inference on a DataFrame of pages and return a DataFrame with:
+        - 'probabilities': dict[label → proba]
+        - 'pred_class'   : most likely label
         """
-        idxs_t, lengths_t, feats_t = self._prepare(html, text)
-        with torch.no_grad():
-            logits = self.model(idxs_t, lengths_t, feats_t)
-            probs = torch.softmax(logits, dim=1)
-            # turn into a flat list of floats
-            probs_list = probs.squeeze(0).cpu().tolist()
-            # build the per-class dict
-            all_preds = {
-                f"class_{self.idx2label[i]}": float(probs_list[i])
-                for i in range(len(probs_list))
-            }
-            # pick the top class
-            pred_idx = int(torch.argmax(probs, dim=1)[0])
-            predicted_class = self.idx2label[pred_idx]
-        return {"predicted_class": predicted_class, "all_preds": all_preds}
+        # set up DataModule
+        dm = PageDataModule(
+            df=df,
+            batch_size=self.batch_size,
+            val_split=0.0,
+            num_workers=self.num_workers,
+            xgb_path=self.xgb_path,
+        )
+        dm.setup(stage="predict")
+
+        # predict: expect a list of tensors [batch_size, num_classes]
+        trainer = pl.Trainer()
+        outputs = trainer.predict(self.model, dataloaders=dm.predict_dataloader())
+
+        return outputs
 
 
-def main():
-    classifier_trainer = ClassifierTrainer(
-        data_csv="../data/page-data.csv",
-        num_trials=20,
-        max_epochs=20,
-        model_name="distilbert/distilbert-base-uncased",  # 'answerdotai/ModernBERT-base'
-    )
-    classifier_trainer.run()
+def main(mode):
+    if mode == "train":
+        classifier_trainer = ClassifierTrainer(
+            data_csv="etl/src/etl/models/data/page-data.parquet",
+            num_trials=30,
+            max_epochs=25,
+            num_workers=7,
+        )
+        classifier_trainer.run()
 
-    #####
+    elif mode == "test":
+        df = pd.read_parquet("etl/src/etl/models/data/page-data.parquet")
+        agreement = df["agreement_uuid"].unique().tolist()[-1]
+        df = df[df["agreement_uuid"] == agreement]
 
-    # with open(CLASSIFIER_VOCAB_PATH, "rb") as f:
-    #     vocab = pickle.load(f)
-    # with open(CLASSIFIER_LABEL2IDX_PATH, "rb") as f:
-    #     label2idx = pickle.load(f)
+        inference_model = ClassifierInference(num_workers=7)
 
-    # infer = ClassifierInference(
-    #     ckpt_path=CLASSIFIER_CKPT_PATH,
-    #     vocab=vocab,
-    #     label2idx=label2idx,
-    #     max_seq_len=300,
-    # )
+        start = time.time()
+        classified_result = inference_model.classify(df)
+        print(time.time() - start)
+        pprint.pprint(classified_result)
 
-    # html = "<html><body><h1>Example</h1></body></html>"
-    # text = "This is the page text that you want to classify."
-    # out = infer.classify(html, text)
-    # print(out)
+    else:
+        raise RuntimeError(f"Invalid value for mode: {mode}")
 
 
 if __name__ == "__main__":
-    main()
+    main(mode="train")
