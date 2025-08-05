@@ -1,17 +1,20 @@
-from typing import List, Iterable, Optional
-from dataclasses import dataclass
-import uuid
+# Standard library
 import os
 import re
-from bs4 import BeautifulSoup
-from bs4.element import NavigableString, Comment
-import requests
-from urllib.parse import urlparse
-import os
-
-import time
 import threading
+import time
+import uuid
 from collections import deque
+from dataclasses import asdict, dataclass
+from typing import Iterable, List, Optional
+from urllib.parse import urlparse
+import pprint
+
+# Third-party libraries
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+from bs4.element import Comment, NavigableString
 
 _request_times = deque()
 _request_lock = threading.Lock()
@@ -36,6 +39,7 @@ class PageMetadata:
     page_type_prob_toc: Optional[float] = None
     page_type_prob_body: Optional[float] = None
     page_type_prob_sig: Optional[float] = None
+    page_type_prob_back_matter: Optional[float] = None
 
 
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
@@ -79,36 +83,19 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     return resp.text
 
 
-def classify(classifier_model, content, formatted_content):
-    model_output = classifier_model.classify(content, formatted_content)
+def classify(classifier_model, data):
+    df = pd.DataFrame([asdict(pm) for pm in data])
 
-    pred_class = model_output["predicted_class"]
+    df["html"] = df[["raw_page_content", "source_is_txt"]].apply(
+        lambda x: pd.NA if x["source_is_txt"] else x["raw_page_content"], axis=1
+    )
+    df.rename(
+        {"processed_page_content": "text", "page_order": "order"}, axis=1, inplace=True
+    )
 
-    # 0 = front matter
-    # 1 = main body
-    # 2 = TOC
-    # 3 = sig page
+    model_output = classifier_model.classify(df)[0]
 
-    if pred_class == 0:
-        page_type = "front_matter"
-    elif pred_class == 3:
-        page_type = "sig"
-    elif pred_class == 2:
-        page_type = "toc"
-    elif pred_class == 1:
-        page_type = "body"
-    else:
-        raise RuntimeError("Unknown prediction class.")
-
-    class_dict = {
-        "class": page_type,
-        "prob_front_matter": model_output["all_preds"]["class_0"],
-        "prob_toc": model_output["all_preds"]["class_2"],
-        "prob_body": model_output["all_preds"]["class_1"],
-        "prob_sig": model_output["all_preds"]["class_3"],
-    }
-
-    return class_dict
+    return model_output
 
 
 def normalize_text(text: str) -> str:
@@ -349,21 +336,17 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
             print("Agreement likely is not paginated. Skipping page upload.")
             continue
 
-        # 3. loop through pages to classify and format
+        # 3. loop through pages to format
+        temp_pages = []
         page_order = 0
         for page in pages:
-            # format
+
             page_formatted_content = format_content(page["content"], is_txt, is_html)
 
             if not page_formatted_content:
                 continue
 
-            # classify
-            # page_class = classify(
-            #     classifier_model, page["content"], page_formatted_content
-            # )
-
-            staged_pages.append(
+            temp_pages.append(
                 PageMetadata(
                     agreement_uuid=agreement["agreement_uuid"],
                     page_order=page_order,
@@ -371,20 +354,33 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
                     processed_page_content=page_formatted_content,
                     source_is_txt=is_txt,
                     source_is_html=is_html,
-                    # source_page_type=page_class["class"],
-                    # page_type_prob_front_matter=page_class["prob_front_matter"],
-                    # page_type_prob_toc=page_class["prob_toc"],
-                    # page_type_prob_body=page_class["prob_body"],
-                    # page_type_prob_sig=page_class["prob_sig"],
                 )
             )
 
             page_order += 1
 
+        # 4. classify pages
+        page_classes = classify(classifier_model, temp_pages)
+
+        for page_object, page_class in zip(temp_pages, page_classes):
+            page_object.source_page_type = page_class["pred_class"]
+            page_object.page_type_prob_front_matter = page_class["front_matter"]
+            page_object.page_type_prob_toc = page_class["toc"]
+            page_object.page_type_prob_body = page_class["body"]
+            page_object.page_type_prob_sig = page_class["sig"]
+            page_object.page_type_prob_back_matter = page_class["back_matter"]
+
+        staged_pages.extend(temp_pages)
+
     return staged_pages
 
 
 if __name__ == "__main__":
+    from etl.models.code.classifier import ClassifierInference
+    from etl.models.code.constants import CLASSIFIER_CKPT_PATH
+
+    classifier_model = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
+
     pre_process(
         [
             {
@@ -392,5 +388,5 @@ if __name__ == "__main__":
                 "agreement_uuid": "foo",
             }
         ],
-        None,
+        classifier_model,
     )
