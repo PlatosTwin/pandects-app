@@ -249,6 +249,14 @@ class PageClassifier(pl.LightningModule):
 
         self.idx2label = {idx: label for idx, label in enumerate(CLASSIFIER_LABEL_LIST)}
 
+        idx = {lab: i for i, lab in enumerate(CLASSIFIER_LABEL_LIST)}
+        mask = torch.zeros(C, C, dtype=torch.bool)
+        for _, i in idx.items():
+            for _, j in idx.items():
+                if j < i:
+                    mask[i, j] = True
+        self.register_buffer("illegal_transitions", mask)
+
         # metrics
         self.train_p = Precision(task="multiclass", num_classes=C)
         self.train_r = Recall(task="multiclass", num_classes=C)
@@ -258,14 +266,6 @@ class PageClassifier(pl.LightningModule):
         self.val_f = F1Score(task="multiclass", num_classes=C)
 
     def forward(self, emissions: Tensor) -> Tensor:
-        # # emissions: (B, S, C) coming from PageDataset
-        # B, S, C = emissions.size()
-        # # flatten to (B*S, C), run through MLP, then reshape
-        # flat = emissions.view(-1, C)
-        # trans = self.mlp(flat)  # (B*S, C)
-        # return trans.view(B, S, C)
-
-        # emissions: (B, S, C)
         B, S, C = emissions.size()
         x = self.mlp(emissions.view(-1, C)).view(B, S, C)  # your MLP
         lstm_out, _ = self.lstm(x)  # (B, S, 2*H)
@@ -274,56 +274,90 @@ class PageClassifier(pl.LightningModule):
 
     def _compute_log_likelihood(self, em: Tensor, tags: Tensor, mask: Tensor) -> Tensor:
         B, S, C = em.size()
+
+        # 1) score the gold path (unchanged)…
+        base_trans = self.transitions.masked_fill(
+            self.illegal_transitions, -1e4
+        )  # [C,C]
         tags_s = tags.clone()
         tags_s[~mask] = 0
-        # score of true path
         score = self.start_transitions[tags_s[:, 0]] + em[:, 0].gather(
             1, tags_s[:, 0:1]
         ).squeeze(1)
         for t in range(1, S):
             emit_sc = em[:, t].gather(1, tags_s[:, t : t + 1]).squeeze(1)
-            trans_sc = self.transitions[tags_s[:, t - 1], tags_s[:, t]]
+            trans_sc = base_trans[tags_s[:, t - 1], tags_s[:, t]]
             score += (emit_sc + trans_sc) * mask[:, t].float()
-        seq_lens = mask.sum(1).long() - 1
-        last_tags = tags_s.gather(1, seq_lens.unsqueeze(1)).squeeze(1)
+        last_idxs = (mask.sum(1).long() - 1).unsqueeze(1)
+        last_tags = tags_s.gather(1, last_idxs).squeeze(1)
         score += self.end_transitions[last_tags]
-        # partition via forward algorithm
+
+        # 2) partition via forward algorithm
+        # initialize alpha: [B,C]
         alphas = self.start_transitions.unsqueeze(0) + em[:, 0]
+
+        # make one broadcastable transition tensor: [1,C,C]
+        trans_b = base_trans.unsqueeze(0)
+
         for t in range(1, S):
-            emit = em[:, t].unsqueeze(2)
-            trans = self.transitions.unsqueeze(0)
-            scores = alphas.unsqueeze(2) + trans + emit
-            new_al = torch.logsumexp(scores, dim=1)
-            m_t = mask[:, t].unsqueeze(1).float()
-            alphas = new_al * m_t + alphas * (1 - m_t)
-        alphas += self.end_transitions.unsqueeze(0)
-        partition = torch.logsumexp(alphas, dim=1)
+            emit = em[:, t].unsqueeze(2)  # [B,C,1]
+            # scores: [B,C,C] = alphas.unsqueeze(2) + trans_b + emit
+            scores = alphas.unsqueeze(2) + trans_b + emit
+            new_al = torch.logsumexp(scores, dim=1)  # [B,C]
+
+            # build a [B,1] mask so it will broadcast to [B,C]
+            mask_t = mask[:, t].unsqueeze(1)  # [B,1]
+            alphas = torch.where(mask_t, new_al, alphas)
+
+        # finish up
+        alphas += self.end_transitions.unsqueeze(0)  # [B,C]
+        partition = torch.logsumexp(alphas, dim=1)  # [B]
+
         return (score - partition).mean()
 
     def _viterbi_decode(self, em: Tensor, mask: Tensor) -> Tensor:
+        # transitions (mask is off or on; masked_fill is a no-op if you zeroed it)
+        base_trans = self.transitions.masked_fill(self.illegal_transitions, -1e4)
+        trans_b = base_trans.unsqueeze(0)  # [1, C, C]
+
         B, S, C = em.size()
-        seq_lens = mask.sum(1).long()
-        v_score = self.start_transitions.unsqueeze(0) + em[:, 0]
+        seq_lens = mask.sum(1).long()  # [B]
+
+        # 1) initial scores
+        v_scores = [self.start_transitions.unsqueeze(0) + em[:, 0]]  # list of [B, C]
         backptrs = []
+
+        # 2) forward‐pass Viterbi DP (with mask)
         for t in range(1, S):
-            b_sc = v_score.unsqueeze(2) + self.transitions.unsqueeze(0)
-            max_sc, idxs = b_sc.max(dim=1)
-            v_score = max_sc + em[:, t]
-            backptrs.append(idxs)
-        v_score += self.end_transitions.unsqueeze(0)
-        last_tag = v_score.argmax(dim=1)
+            prev = v_scores[-1]  # [B, C]
+            # compute the “jump‐scores”
+            jump = prev.unsqueeze(2) + trans_b  # [B, C, C]
+            max_sc, idxs = jump.max(dim=1)  # both [B, C]
+            # candidate new scores at this timestep
+            cand = max_sc + em[:, t]  # [B, C]
+            # only update where mask==True
+            m_t = mask[:, t].unsqueeze(1)  # [B, 1]
+            v_t = torch.where(m_t, cand, prev)  # [B, C]
+            backptrs.append(idxs)  # for backtracking
+            v_scores.append(v_t)
+
+        # 3) backtrack per‐sample, picking the correct “last” score
         paths = []
         for b in range(B):
-            L = seq_lens[b].item()
-            tag = last_tag[b].item()
-            seq = [tag]
+            L = seq_lens[b].item()  # true length
+            # pick the state with highest score *at* t=L-1
+            last_state = v_scores[L - 1][b].argmax().item()
+            seq = [last_state]
+            # walk backwards through the first L−1 backptrs
             for ptr in reversed(backptrs[: L - 1]):
-                tag = ptr[b, tag].item()
-                seq.append(tag)
+                last_state = ptr[b, last_state].item()
+                seq.append(last_state)
             seq.reverse()
+            # pad out to length S
             if L < S:
                 seq += [0] * (S - L)
             paths.append(seq)
+
         return torch.tensor(paths, device=em.device)
 
     def shared_step(self, batch, prefix: str):
