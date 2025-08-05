@@ -160,7 +160,14 @@ class ClassifierTrainer:
         self._load_data()
 
         study = create_study(direction="maximize")
-        study.optimize(self._objective, n_trials=self.NUM_TRIALS, gc_after_trial=True)
+        study.optimize(
+            self._objective,
+            n_trials=self.NUM_TRIALS,
+            gc_after_trial=True,
+            callbacks=[
+                lambda study, trial: study.stop() if study.best_value >= 1.0 else None
+            ],
+        )
 
         print(">> HPO complete")
         print(f"   Best val_f1: {study.best_value:.4f}")
