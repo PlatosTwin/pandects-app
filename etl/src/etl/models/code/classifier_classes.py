@@ -146,7 +146,8 @@ class PageDataModule(pl.LightningDataModule):
             df_tr = self.df[self.df["agreement_uuid"].isin(tr)]
             df_vl = self.df[self.df["agreement_uuid"].isin(vl)]
 
-            labs = sorted(df_tr["label"].unique())
+            present = set(df_tr["label"])
+            labs = [l for l in CLASSIFIER_LABEL_LIST if l in present]
         else:
             # inference mode (or val_split==0): everything goes into “predict_ds”
             df_tr = self.df
@@ -246,9 +247,7 @@ class PageClassifier(pl.LightningModule):
         )
         self.lstm2proj = nn.Linear(2 * lstm_hidden, C)
 
-        self.idx2label = {
-            idx: label for idx, label in enumerate(sorted(CLASSIFIER_LABEL_LIST))
-        }
+        self.idx2label = {idx: label for idx, label in enumerate(CLASSIFIER_LABEL_LIST)}
 
         # metrics
         self.train_p = Precision(task="multiclass", num_classes=C)

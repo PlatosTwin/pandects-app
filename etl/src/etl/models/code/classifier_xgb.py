@@ -5,17 +5,18 @@ import xgboost as xgb
 from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
 
-from .classifier_utils import extract_features
-from .constants import CLASSIFIER_XGB_PATH
+from classifier_utils import extract_features
+from constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
 
 
-df = pd.read_parquet("../data/page-data.parquet")
+df = pd.read_parquet("etl/src/etl/models/data/page-data.parquet")
 if not {"html", "text", "label"}.issubset(df.columns):
     raise ValueError("CSV must contain 'html', 'text', and 'label' columns")
 print(f"[data] loaded {df.shape[0]} rows.")
 
 # Map labels to integers
-labels = sorted(df["label"].unique())
+# labels = sorted(df["label"].unique())
+labels = CLASSIFIER_LABEL_LIST
 label2idx = {l: i for i, l in enumerate(labels)}
 y = df["label"].map(label2idx).values
 
