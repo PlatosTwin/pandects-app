@@ -9,6 +9,6 @@ NER_LABEL_LIST = [
     "I-PAGE",  # inside a PAGE span
 ]
 
+CLASSIFIER_LABEL_LIST = ["front_matter", "toc", "body", "sig", "back_matter"]
+CLASSIFIER_XGB_PATH = "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/etl/src/etl/models/code/xgb_multi_class.json"
 CLASSIFIER_CKPT_PATH = "/Users/nikitabogdanov/Downloads/dev-classifier-model.ckpt"
-CLASSIFIER_VOCAB_PATH = "classifier_vocab.pkl"
-CLASSIFIER_LABEL2IDX_PATH = "classifier_label2idx.pkl"
