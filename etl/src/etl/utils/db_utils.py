@@ -82,7 +82,9 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
             source_page_type,
             page_type_prob_front_matter,
             page_type_prob_toc,
-            page_type_prob_body
+            page_type_prob_body,
+            page_type_prob_sig,
+            page_type_prob_back_matter
         ) VALUES (
             :agreement_uuid,
             :page_order,
@@ -94,6 +96,8 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
             :page_type_prob_front_matter,
             :page_type_prob_toc,
             :page_type_prob_body
+            :page_type_prob_sig
+            :page_type_prob_back_matter
         )
         ON DUPLICATE KEY UPDATE
             agreement_uuid              = VALUES(agreement_uuid),
@@ -106,6 +110,8 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
             page_type_prob_front_matter = VALUES(page_type_prob_front_matter),
             page_type_prob_toc          = VALUES(page_type_prob_toc),
             page_type_prob_body         = VALUES(page_type_prob_body)
+            page_type_prob_sig          = VALUES(page_type_prob_sig)
+            page_type_prob_back_matter  = VALUES(page_type_prob_back_matter)
     """
     )
 
@@ -123,6 +129,8 @@ def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
                 "page_type_prob_front_matter": page.page_type_prob_front_matter,
                 "page_type_prob_toc": page.page_type_prob_toc,
                 "page_type_prob_body": page.page_type_prob_body,
+                "page_type_prob_sig": page.page_type_prob_sig,
+                "page_type_prob_back_matter": page.page_type_prob_back_matter,
             }
         )
 
