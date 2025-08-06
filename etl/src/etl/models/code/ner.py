@@ -32,7 +32,7 @@ from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-from constants import NER_LABEL_LIST, NER_CKPT_PATH
+from shared_constants import NER_LABEL_LIST, NER_CKPT_PATH
 from ner_classes import NERTagger, NERDataModule
 
 # Reproducibility
@@ -492,10 +492,10 @@ def main(mode="test"):
         ner_trainer.run()
 
     elif mode == "test":
-        with open("ner_samples.yaml", "r", encoding="utf-8") as f:
+        with open("etl/src/elt/models/data/ner_samples.yaml", "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        
-        samples = data['samples']
+
+        samples = data["samples"]
 
         inference_model = NERInference(
             ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.975
@@ -510,4 +510,4 @@ def main(mode="test"):
 
 
 if __name__ == "__main__":
-    main()
+    main(mode="test")
