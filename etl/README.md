@@ -1,6 +1,6 @@
 ## Stage 1—Stage agreements
 
-**Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file.
+**Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file. Set `processed = 0` until XML is generated in Step 4.
 
 **Output**:
 * EDGAR link
@@ -12,6 +12,9 @@
     * Transaction type
     * Consideration type
     * Target type
+
+**ETL processes**:
+* `insert into pdx.agreements` + `on duplicate key update`
 
 **Tables**:
 * pdx.staging
@@ -31,13 +34,19 @@
 
 ## Stage 2—Pre-process staged agreements
 
-**Description**: Pulls staged agreements, splits agreements into pages, classifies page type, and processes HTML into formatted text, in preparation for LLM tagging in next stage.
+**Description**: Pulls staged agreements, splits agreements into pages, classifies page type, and processes HTML into formatted text, in preparation for LLM tagging in next stage. Set `processed = 0` until XML is generated in Step 4.
 
 **Output**:
 * Main body pages only.
     * Agreement UUID
     * Page UUID
     * Formatted text
+
+**ETL processes**:
+* Select all _unprocessed_ agreements (`processed = 0`)
+* Split into pages, and format and classify pages
+* `insert into pdx.pages` + `on duplicate key update`
+* Note: MariaDB generates page UUIDs automatically
 
 **Tables**:
 * pdx.pages
@@ -64,8 +73,14 @@
 * Page UUID
 * LLM output
 
+**ETL processes**:
+* Select all _unprocessed_ pages (`processed = 0`)
+* Run through tagging model
+* `insert into pdx.tagged_outputs` + `on duplicate key update`
+* Set `processed = 1` for all pages successfully tagged
+
 **Tables**:
-* pdx.tagged_output
+* pdx.tagged_outputs
     * page_uuid
     * tagged_output
     * uncertain_spans
@@ -91,6 +106,12 @@
 * Agreement UUID
 * XML (with taxonomy labels)
 
+**ETL processes**:
+* Select all tagged output for _unprocessed_ agreements (`processed = 0`)
+* Run through XML generation functions
+* `insert into pdx.xml`
+* Set `processed = 1` for all agreements successfully XML'd
+
 **Tables**:
 * pdx.xml
     * agreement_uuid
@@ -109,6 +130,12 @@
 **Output**:
 * Agreement UUID
 * XML
+
+**ETL processes**:
+* Select all _unprocessed_ XML (`processed = 0`)
+* Run through taxonomy functions
+* Update pdx.xml
+* Set `processed = 1` for all XML successfully taxonomized
 
 **Tables**:
 * pdx.sections
