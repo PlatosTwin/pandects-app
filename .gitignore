@@ -14,11 +14,14 @@ TODO.md
 NOTES.md
 *.sql
 *.pyc
+*.parquet
 
 *.csv
 
 **/*.tmp_dagster*
 
 **/tb_logs
+**/lightning_logs
+**/model_files
 
 .vscode
