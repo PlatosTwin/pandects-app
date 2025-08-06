@@ -1,4 +1,4 @@
-from etl.defs.resources import DBResource
+from etl.defs.resources import DBResource, PipelineConfig
 from sqlalchemy import text
 from etl.domain.xml import generate_xml
 import dagster as dg
@@ -8,16 +8,32 @@ import pandas as pd
 
 
 @dg.asset(deps=[tagging_asset])
-def xml_asset(db: DBResource):
+def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
     """
     Pulls tagged sections and assembles them into XML.
+
+    In cleanup mode, processes only existing unprocessed agreements.
+
     Args:
+        context (dg.AssetExecutionContext): Dagster context.
         db (DBResource): Database resource for connection.
+        pipeline_config (PipelineConfig): Pipeline configuration for mode.
     Returns:
         None
     """
     agreement_batch_size: int = 10
     engine = db.get_engine()
+    is_cleanup = pipeline_config.is_cleanup_mode()
+
+    # Check if we're in a job context and get the mode from there
+    if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
+        job_config = context.job_def.config
+        if hasattr(job_config, "mode"):
+            is_cleanup = job_config.mode.value == "cleanup"
+
+    context.log.info(
+        f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
+    )
 
     with engine.begin() as conn:
         while True:
@@ -53,7 +69,7 @@ def xml_asset(db: DBResource):
                 .all()
             )
 
-            # if none left, we’re done
+            # if none left, we're done
             if not agreement_uuids:
                 break
 
@@ -85,6 +101,9 @@ def xml_asset(db: DBResource):
 
             try:
                 upsert_xml(xml, conn)
+                context.log.info(
+                    f"Successfully generated XML for {len(agreement_uuids)} agreements"
+                )
             except Exception as e:
-                print(f"Error upserting tags: {e}")
+                context.log.error(f"Error upserting XML: {e}")
                 raise RuntimeError(e)

@@ -27,18 +27,19 @@ def get_uuid(x):
 
 @dataclass
 class PageMetadata:
-    agreement_uuid: str
-    page_order: int
-    raw_page_content: str
-    processed_page_content: str
-    source_is_txt: bool
-    source_is_html: bool
+    agreement_uuid: Optional[str] = None
+    page_order: Optional[int] = None
+    raw_page_content: Optional[str] = None
+    processed_page_content: Optional[str] = None
+    source_is_txt: Optional[bool] = None
+    source_is_html: Optional[bool] = None
     source_page_type: Optional[str] = None
     page_type_prob_front_matter: Optional[float] = None
     page_type_prob_toc: Optional[float] = None
     page_type_prob_body: Optional[float] = None
     page_type_prob_sig: Optional[float] = None
     page_type_prob_back_matter: Optional[float] = None
+    page_uuid: Optional[str] = None
 
 
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
@@ -301,6 +302,49 @@ def split_to_pages(content, is_txt, is_html):
         raise RuntimeError(f"Unknown page source type.")
 
 
+def core_process(agreement_uuid, pages, is_txt, is_html, classifier_model):
+    staged_pages: List[PageMetadata] = []
+
+    # Loop through pages to format
+    temp_pages = []
+    page_order = 0
+    for page in pages:
+
+        page_formatted_content = format_content(page["content"], is_txt, is_html)
+
+        if not page_formatted_content:
+            continue
+
+        temp_pages.append(
+            PageMetadata(
+                agreement_uuid=agreement_uuid,
+                page_order=page_order,
+                raw_page_content=page["content"],
+                processed_page_content=page_formatted_content,
+                source_is_txt=is_txt,
+                source_is_html=is_html,
+                page_uuid=None if "page_uuid" not in page.keys() else page["page_uuid"],
+            )
+        )
+
+        page_order += 1
+
+    # Classify pages
+    page_classes = classify(classifier_model, temp_pages)
+
+    for page_object, page_class in zip(temp_pages, page_classes):
+        page_object.source_page_type = page_class["pred_class"]
+        page_object.page_type_prob_front_matter = page_class["front_matter"]
+        page_object.page_type_prob_toc = page_class["toc"]
+        page_object.page_type_prob_body = page_class["body"]
+        page_object.page_type_prob_sig = page_class["sig"]
+        page_object.page_type_prob_back_matter = page_class["back_matter"]
+
+    staged_pages.extend(temp_pages)
+
+    return staged_pages
+
+
 def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
     """
     Splits agreements into pages, classifies page type,
@@ -328,48 +372,35 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
         # 1. pull down content from EDGAR
         content = pull_agreement_content(agreement["url"])
 
-        # 2. split into individual pages
+        # 2. split into individual pages,
         pages = split_to_pages(content, is_txt, is_html)
 
         if len(pages) <= 10:
             print("Agreement likely is not paginated. Skipping page upload.")
-            continue
+            return staged_pages
 
-        # 3. loop through pages to format
-        temp_pages = []
-        page_order = 0
-        for page in pages:
-
-            page_formatted_content = format_content(page["content"], is_txt, is_html)
-
-            if not page_formatted_content:
-                continue
-
-            temp_pages.append(
-                PageMetadata(
-                    agreement_uuid=agreement["agreement_uuid"],
-                    page_order=page_order,
-                    raw_page_content=page["content"],
-                    processed_page_content=page_formatted_content,
-                    source_is_txt=is_txt,
-                    source_is_html=is_html,
-                )
+        # 3. format and classify
+        staged_pages.extend(
+            core_process(
+                agreement["agreement_uuid"], pages, is_txt, is_html, classifier_model
             )
+        )
 
-            page_order += 1
+    return staged_pages
 
-        # 4. classify pages
-        page_classes = classify(classifier_model, temp_pages)
 
-        for page_object, page_class in zip(temp_pages, page_classes):
-            page_object.source_page_type = page_class["pred_class"]
-            page_object.page_type_prob_front_matter = page_class["front_matter"]
-            page_object.page_type_prob_toc = page_class["toc"]
-            page_object.page_type_prob_body = page_class["body"]
-            page_object.page_type_prob_sig = page_class["sig"]
-            page_object.page_type_prob_back_matter = page_class["back_matter"]
+def cleanup(rows, classifier_model) -> List[PageMetadata] | None:
+    agreements = set([row["agreement_uuid"] for row in rows])
 
-        staged_pages.extend(temp_pages)
+    staged_pages: List[PageMetadata] = []
+    for agreement in agreements:
+        temp_pages = [row for row in rows if row["agreement_uuid"] == agreement]
+        is_txt = temp_pages[0]["is_txt"]
+        is_html = temp_pages[0]["is_html"]
+
+        staged_pages.extend(
+            core_process(agreement, temp_pages, is_txt, is_html, classifier_model)
+        )
 
     return staged_pages
 
@@ -378,7 +409,7 @@ if __name__ == "__main__":
     from etl.models.code.classifier import ClassifierInference
     from etl.models.code.shared_constants import CLASSIFIER_CKPT_PATH
 
-    classifier_model = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
+    clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 
     pre_process(
         [
@@ -387,5 +418,7 @@ if __name__ == "__main__":
                 "agreement_uuid": "foo",
             }
         ],
-        classifier_model,
+        clf_mdl,
     )
+
+    print()

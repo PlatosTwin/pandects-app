@@ -9,6 +9,20 @@ from etl.models.code.shared_constants import (
     NER_CKPT_PATH,
     CLASSIFIER_CKPT_PATH,
 )
+from enum import Enum
+
+
+class PipelineMode(Enum):
+    FROM_SCRATCH = "from_scratch"
+    CLEANUP = "cleanup"
+
+
+class PipelineConfig(dg.ConfigurableResource):
+    mode: PipelineMode = PipelineMode.FROM_SCRATCH
+
+    def is_cleanup_mode(self) -> bool:
+        """Check if the pipeline is running in cleanup mode."""
+        return self.mode == PipelineMode.CLEANUP
 
 
 class DBResource(dg.ConfigurableResource):
@@ -31,7 +45,7 @@ class ClassifierModel(dg.ConfigurableResource):
 
     def model(self) -> ClassifierInference:
         """Load and return the PageClassifier model on the selected device."""
-        model = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
+        model = ClassifierInference(num_workers=7)
         return model
 
 
@@ -43,21 +57,16 @@ class TaggingModel(dg.ConfigurableResource):
         return model
 
 
-@dg.definitions
-def resources() -> dg.Definitions:
-    """
-    Return Dagster Definitions for resources.
-    """
-    return dg.Definitions(
-        resources={
-            "db": DBResource(
-                user=dg.EnvVar("MARIADB_USER"),
-                password=dg.EnvVar("MARIADB_PASSWORD"),
-                host=dg.EnvVar("MARIADB_HOST"),
-                port=dg.EnvVar("MARIADB_PORT"),
-                database=dg.EnvVar("MARIADB_DATABASE"),
-            ),
-            "classifier_model": ClassifierModel(),
-            "tagging_model": TaggingModel(),
-        }
-    )
+def get_resources():
+    return {
+        "db": DBResource(
+            user=dg.EnvVar("MARIADB_USER"),
+            password=dg.EnvVar("MARIADB_PASSWORD"),
+            host=dg.EnvVar("MARIADB_HOST"),
+            port=dg.EnvVar("MARIADB_PORT"),
+            database=dg.EnvVar("MARIADB_DATABASE"),
+        ),
+        "classifier_model": ClassifierModel(),
+        "tagging_model": TaggingModel(),
+        "pipeline_config": PipelineConfig(),
+    }

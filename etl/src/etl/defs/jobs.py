@@ -3,18 +3,21 @@ from etl.defs.staging_asset import staging_asset
 from etl.defs.pre_processing_asset import pre_processing_asset
 from etl.defs.tagging_asset import tagging_asset
 from etl.defs.xml_asset import xml_asset
+from etl.defs.resources import PipelineMode, PipelineConfig, get_resources
 
+# Get the base resources dict
+base_resources = get_resources()
 
-@job
+@job(resource_defs={**base_resources, "pipeline_config": PipelineConfig(mode=PipelineMode.FROM_SCRATCH)})
 def etl_pipeline():
-    # 1) run staging
     staged = staging_asset()
-
-    # 2) feed that into pre-processing
     pre_processed = pre_processing_asset(staged)
-
-    # 3) tag with NER model
     tagged = tagging_asset(pre_processed)
+    xml_asset(tagged)
 
-    # 4) compile XML
+@job(resource_defs={**base_resources, "pipeline_config": PipelineConfig(mode=PipelineMode.CLEANUP)})
+def cleanup_pipeline():
+    staged = staging_asset()
+    pre_processed = pre_processing_asset(staged)
+    tagged = tagging_asset(pre_processed)
     xml_asset(tagged)
