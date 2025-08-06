@@ -113,11 +113,11 @@ def convert_to_xml(
                 t = ET.SubElement(parent, "text")
                 t.text = stripped
 
-    # 1) Leading text → <recitals>
+    # 1) Leading text → <frontMatter>
     first_pos = matches[0].start() if matches else len(tagged_text)
     leading = tagged_text[:first_pos].strip()
     if leading:
-        rec = ET.SubElement(root, "recitals")
+        rec = ET.SubElement(root, "frontMatter")
         add_text_nodes(rec, leading)
 
     # 2) Create <body> wrapper and then process articles/sections into it
@@ -167,6 +167,18 @@ def convert_to_xml(
             if content:
                 add_text_nodes(sec, content)
 
+    # 3) Trailing text → <backMatter>
+    if matches:
+        # pick out only the <article> matches so we stop after the last article
+        article_matches = [m for m in matches if m.group(1) == "article"]
+        last_end = (article_matches[-1].end()
+                    if article_matches
+                    else matches[-1].end())
+        trailing = tagged_text[last_end:].strip()
+        if trailing:
+            bm = ET.SubElement(root, "backMatter")
+            add_text_nodes(bm, trailing)
+            
     # Pretty-print with encoding in header
     rough = ET.tostring(root, "utf-8")
     return rough
