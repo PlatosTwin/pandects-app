@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Flask setup ────────────────────────────��─────────────────────────────
+# ���─ Flask setup ────────────────────────────��─────────────────────────────
 app = Flask(__name__)
 
 # ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
@@ -60,7 +60,7 @@ CORS(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# —— Bulk data setup ——————————————————————————————————————————————————————
+# —— Bulk data setup ——————��———————————————————————————————————————————————
 R2_BUCKET_NAME = "pandects-bulk"
 R2_ENDPOINT = "https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
 PUBLIC_DEV_BASE = "https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
@@ -215,8 +215,14 @@ class DumpEntrySchema(Schema):
 
 
 # ── Route definitions ───────────────────────────────────────
+
+# LLM routes - Only available in local development (debug mode)
 @app.route("/api/llm/<string:page_uuid>", methods=["GET"])
 def get_llm(page_uuid):
+    # Check if running in debug mode (local development)
+    if not app.debug:
+        abort(404)  # Return 404 in production to hide the endpoint
+
     # pick the most-recent prompt for this page (excluding SKIP outputs)
     latest_prompt_id = (
         db.session.query(Prompts.prompt_id)
@@ -245,6 +251,10 @@ def get_llm(page_uuid):
 
 @app.route("/api/llm/<string:page_uuid>/<string:prompt_id>", methods=["PUT"])
 def update_llm(page_uuid, prompt_id):
+    # Check if running in debug mode (local development)
+    if not app.debug:
+        abort(404)  # Return 404 in production to hide the endpoint
+
     data = request.get_json()
     corrected = data.get("llmOutputCorrected")
     if corrected is None:
