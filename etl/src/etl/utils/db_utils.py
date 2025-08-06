@@ -63,76 +63,86 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
         conn.execute(upsert_sql, batch)
 
 
-def upsert_pages(staged_pages: Sequence, conn: Connection) -> None:
+def upsert_pages(staged_pages: Sequence, operation_type: str, conn: Connection) -> None:
     """
     Upserts a batch of PageMetadata objects into the pdx.pages table.
     Args:
         staged_pages (Sequence): List of PageMetadata or dicts.
         conn (Connection): SQLAlchemy connection.
     """
-    upsert_sql = text(
-        """
+    insert_cols = [
+        "agreement_uuid",
+        "page_order",
+        "raw_page_content",
+        "processed_page_content",
+        "source_is_txt",
+        "source_is_html",
+        "source_page_type",
+        "page_type_prob_front_matter",
+        "page_type_prob_toc",
+        "page_type_prob_body",
+        "page_type_prob_sig",
+        "page_type_prob_back_matter",
+    ]
+
+    update_cols = [
+        "page_uuid",
+        "processed_page_content",
+        "source_page_type",
+        "page_type_prob_front_matter",
+        "page_type_prob_toc",
+        "page_type_prob_body",
+        "page_type_prob_sig",
+        "page_type_prob_back_matter",
+    ]
+
+    if operation_type == "insert":
+        operation_cols = insert_cols
+
+        cols = ",\n    ".join(insert_cols)
+        value_placeholders = ",\n    ".join(f":{c}" for c in insert_cols)
+        update_clause = ",\n    ".join(
+            f"{c}=VALUES({c})" for c in insert_cols if c != "page_uuid"
+        )
+
+        upsert_sql = text(
+            f"""
         INSERT INTO pdx.pages (
-            agreement_uuid,
-            page_order,
-            raw_page_content,
-            processed_page_content,
-            source_is_txt,
-            source_is_html,
-            source_page_type,
-            page_type_prob_front_matter,
-            page_type_prob_toc,
-            page_type_prob_body,
-            page_type_prob_sig,
-            page_type_prob_back_matter
+            {cols}
         ) VALUES (
-            :agreement_uuid,
-            :page_order,
-            :raw_page_content,
-            :processed_page_content,
-            :source_is_txt,
-            :source_is_html,
-            :source_page_type,
-            :page_type_prob_front_matter,
-            :page_type_prob_toc,
-            :page_type_prob_body
-            :page_type_prob_sig
-            :page_type_prob_back_matter
+            {value_placeholders}
         )
         ON DUPLICATE KEY UPDATE
-            agreement_uuid              = VALUES(agreement_uuid),
-            page_order                  = VALUES(page_order),
-            raw_page_content            = VALUES(raw_page_content),
-            processed_page_content      = VALUES(processed_page_content),
-            source_is_txt               = VALUES(source_is_txt),
-            source_is_html              = VALUES(source_is_html),
-            source_page_type            = VALUES(source_page_type),
-            page_type_prob_front_matter = VALUES(page_type_prob_front_matter),
-            page_type_prob_toc          = VALUES(page_type_prob_toc),
-            page_type_prob_body         = VALUES(page_type_prob_body)
-            page_type_prob_sig          = VALUES(page_type_prob_sig)
-            page_type_prob_back_matter  = VALUES(page_type_prob_back_matter)
-    """
-    )
-
-    rows = []
-    for page in staged_pages:
-        rows.append(
-            {
-                "agreement_uuid": page.agreement_uuid,
-                "page_order": page.page_order,
-                "raw_page_content": page.raw_page_content,
-                "processed_page_content": page.processed_page_content,
-                "source_is_txt": page.source_is_txt,
-                "source_is_html": page.source_is_html,
-                "source_page_type": page.source_page_type,
-                "page_type_prob_front_matter": page.page_type_prob_front_matter,
-                "page_type_prob_toc": page.page_type_prob_toc,
-                "page_type_prob_body": page.page_type_prob_body,
-                "page_type_prob_sig": page.page_type_prob_sig,
-                "page_type_prob_back_matter": page.page_type_prob_back_matter,
-            }
+            {update_clause}
+        """
         )
+
+    elif operation_type == "update":
+        operation_cols = update_cols
+
+        # build a SET clause for all cols except the pk
+        cols = ",\n    ".join(update_cols)
+        set_clause = ",\n    ".join(
+            f"{c} = :{c}" for c in update_cols if c != "page_uuid"
+        )
+
+        upsert_sql = text(
+            f"""
+        UPDATE pdx.pages
+        SET
+            {set_clause}
+        WHERE page_uuid = :page_uuid
+        """
+        )
+
+    else:
+        raise RuntimeError(
+            f"Unknown value provided for 'operation_type': {operation_type}"
+        )
+
+    rows = [
+        {col: getattr(page, col) for col in operation_cols} for page in staged_pages
+    ]
 
     # execute in batches of 250
     for i in range(0, len(rows), 250):
@@ -220,6 +230,8 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             :agreement_uuid,
             :xml
         )
+        ON DUPLICATE KEY UPDATE
+            xml = VALUES(xml)
         """
     )
     update_sql_agreements = text(
