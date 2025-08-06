@@ -15,7 +15,7 @@ from torchmetrics import F1Score, Precision, Recall
 import xgboost as xgb
 
 from classifier_utils import extract_features
-from constants import CLASSIFIER_LABEL_LIST
+from shared_constants import CLASSIFIER_LABEL_LIST
 
 
 class PageDataset(Dataset):

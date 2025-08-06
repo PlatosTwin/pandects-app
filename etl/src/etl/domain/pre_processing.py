@@ -8,7 +8,6 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from typing import Iterable, List, Optional
 from urllib.parse import urlparse
-import pprint
 
 # Third-party libraries
 import pandas as pd
@@ -377,7 +376,7 @@ def pre_process(rows, classifier_model) -> List[PageMetadata] | None:
 
 if __name__ == "__main__":
     from etl.models.code.classifier import ClassifierInference
-    from etl.models.code.constants import CLASSIFIER_CKPT_PATH
+    from etl.models.code.shared_constants import CLASSIFIER_CKPT_PATH
 
     classifier_model = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 

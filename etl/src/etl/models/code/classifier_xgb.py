@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_su
 from sklearn.model_selection import train_test_split
 
 from classifier_utils import extract_features
-from constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
+from shared_constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
 
 
 df = pd.read_parquet("etl/src/etl/models/data/page-data.parquet")

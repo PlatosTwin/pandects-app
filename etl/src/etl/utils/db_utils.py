@@ -247,6 +247,6 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
         batch_tags = rows_xmls[i : i + 250]
         conn.execute(upsert_sql_xml, batch_tags)
 
-        # set pages as processed
+        # set agreements as processed
         batch_pages = rows_agreements[i : i + 250]
         conn.execute(update_sql_agreements, batch_pages)

@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 
 from classifier_classes import PageClassifier, PageDataModule
-from constants import CLASSIFIER_CKPT_PATH, CLASSIFIER_XGB_PATH
+from shared_constants import CLASSIFIER_CKPT_PATH, CLASSIFIER_XGB_PATH
 
 # Reproducibility
 pl.seed_everything(42, workers=True, verbose=False)
@@ -286,4 +286,4 @@ def main(mode):
 
 
 if __name__ == "__main__":
-    main(mode="train")
+    main(mode="test")

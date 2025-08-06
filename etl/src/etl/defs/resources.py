@@ -4,7 +4,7 @@ from sqlalchemy.engine import Engine
 from etl.models.code.classifier import ClassifierInference
 from etl.models.code.ner import NERInference
 from pathlib import Path
-from etl.models.code.constants import (
+from etl.models.code.shared_constants import (
     NER_LABEL_LIST,
     NER_CKPT_PATH,
     CLASSIFIER_CKPT_PATH,

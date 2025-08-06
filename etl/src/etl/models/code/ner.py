@@ -492,7 +492,7 @@ def main(mode="test"):
         ner_trainer.run()
 
     elif mode == "test":
-        with open("etl/src/elt/models/data/ner_samples.yaml", "r", encoding="utf-8") as f:
+        with open("etl/src/etl/models/data/ner_samples.yaml", "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         samples = data["samples"]
