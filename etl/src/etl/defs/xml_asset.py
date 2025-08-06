@@ -22,15 +22,29 @@ def xml_asset(db: DBResource):
     with engine.begin() as conn:
         while True:
             # fetch batch of staged (not tagged) pages
+            # provided that all pages in the agreement have been tagged
+            # TODO: alerting if there are partially tagged agreements
             agreement_uuids = (
                 conn.execute(
                     text(
                         """
-                    SELECT agreement_uuid
-                    FROM pdx.agreements
-                    WHERE processed = 0
-                    ORDER BY agreement_uuid
-                    LIMIT :limit
+                    SELECT
+                        a.agreement_uuid
+                    FROM
+                        pdx.agreements a
+                    JOIN
+                        pdx.pages p
+                        ON a.agreement_uuid = p.agreement_uuid
+                    WHERE
+                        a.processed = 0
+                    GROUP BY
+                        a.agreement_uuid
+                    HAVING
+                        MIN(p.processed) = 1
+                    ORDER BY
+                        a.agreement_uuid
+                    LIMIT
+                        :limit;
                 """
                     ),
                     {"limit": agreement_batch_size},
