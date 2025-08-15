@@ -207,7 +207,7 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     for i in range(0, len(rows_tags), 250):
         batch_tags = rows_tags[i : i + 250]
         conn.execute(upsert_sql_tags, batch_tags)
-
+        
         # set pages as processed
         batch_pages = rows_pages[i : i + 250]
         conn.execute(update_sql_pages, batch_pages)
@@ -230,8 +230,6 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             :agreement_uuid,
             :xml
         )
-        ON DUPLICATE KEY UPDATE
-            xml = VALUES(xml)
         """
     )
     update_sql_agreements = text(
@@ -254,11 +252,36 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
 
         rows_agreements.append({"agreement_uuid": xml.agreement_uuid})
 
-    # execute in batches of 250
+    upsert_sql_xml = text("CALL pdx.upsert_xml(:uuid, :xml)")
+    update_sql_agreements = text("""
+        UPDATE pdx.agreements
+        SET processed = 1
+        WHERE agreement_uuid = :uuid
+    """)
+
+    # rows_xmls: either list[dict] with keys {"agreement_uuid","xml"} or list[tuple]
+    # rows_agreements: either list[dict] with key {"agreement_uuid"} or list[str]/list[tuple]
+
     for i in range(0, len(rows_xmls), 250):
         batch_tags = rows_xmls[i : i + 250]
-        conn.execute(upsert_sql_xml, batch_tags)
+        batch_agreements = rows_agreements[i : i + 250]
 
-        # set agreements as processed
-        batch_pages = rows_agreements[i : i + 250]
-        conn.execute(update_sql_agreements, batch_pages)
+        # normalize
+        tag_params = (
+            [{"uuid": r["agreement_uuid"], "xml": r["xml"]} for r in batch_tags]
+            if isinstance(batch_tags[0], dict)
+            else [{"uuid": u, "xml": x} for (u, x) in batch_tags]
+        )
+        agr_params = (
+            [{"uuid": r["agreement_uuid"]} for r in batch_agreements]
+            if isinstance(batch_agreements[0], dict)
+            else [{"uuid": (r if isinstance(r, str) else r[0])} for r in batch_agreements]
+        )
+
+        # one transaction per outer context; no begin_nested()
+        for p in tag_params:
+            # CALL per row; no result sets are produced by the proc, so just close
+            res = conn.execute(upsert_sql_xml, p)
+            res.close()
+
+        conn.execute(update_sql_agreements, agr_params)
