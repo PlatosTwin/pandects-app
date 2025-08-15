@@ -1,9 +1,12 @@
+"""Pre-processing asset for splitting agreements into pages and classifying content."""
+
 from etl.defs.resources import DBResource, ClassifierModel, PipelineConfig
 from sqlalchemy import text
 from etl.domain.pre_processing import pre_process, cleanup
 import dagster as dg
 from etl.defs.staging_asset import staging_asset
 from etl.utils.db_utils import upsert_pages
+from typing import List, Dict, Any
 
 
 @dg.asset(deps=[staging_asset])
@@ -13,38 +16,34 @@ def pre_processing_asset(
     classifier_model: ClassifierModel,
     pipeline_config: PipelineConfig,
 ) -> None:
-    """
-    Pulls staged agreements, splits agreements into pages, classifies page type,
-    and processes HTML into formatted text, in preparation for LLM tagging in next stage.
-
+    """Split agreements into pages, classify page types, and process HTML into formatted text.
+    
     In cleanup mode, processes only existing unprocessed agreements.
-
+    
     Args:
-        context (dg.AssetExecutionContext): Dagster context.
-        db (DBResource): Database resource for connection.
-        classifier_model (ClassifierModel): Model for page classification.
-        pipeline_config (PipelineConfig): Pipeline configuration for mode.
-    Returns:
-        None
+        context: Dagster execution context.
+        db: Database resource for connection.
+        classifier_model: Model for page classification.
+        pipeline_config: Pipeline configuration for mode.
     """
     last_uuid: str = ""
     engine = db.get_engine()
     is_cleanup = pipeline_config.is_cleanup_mode()
 
-    # Check if we're in a job context and get the mode from there
+    # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
         job_config = context.job_def.config
         if hasattr(job_config, "mode"):
             is_cleanup = job_config.mode.value == "cleanup"
 
     if not is_cleanup:
-        context.log.info(f"Running pre-processing in 'FROM_SCRATCH' mode")
+        context.log.info("Running pre-processing in FROM_SCRATCH mode")
         
-        batch_size: int = 15  # batch_size agreements at a time
+        batch_size: int = 15  # Process batch_size agreements at a time
 
         while True:
             with engine.begin() as conn:
-                # fetch batch of staged (not processed) AGREEMENTS
+                # Fetch batch of staged (not processed) agreements
                 result = conn.execute(
                     text(
                         """
@@ -63,8 +62,10 @@ def pre_processing_asset(
                 if not rows:
                     break
 
-                # split agreements into pages, and process the pages
-                agreements = [{"agreement_uuid": r[0], "url": r[1]} for r in rows]
+                # Split agreements into pages and process them
+                agreements: List[Dict[str, str]] = [
+                    {"agreement_uuid": r[0], "url": r[1]} for r in rows
+                ]
                 inference_model = classifier_model.model()
                 staged_pages = pre_process(agreements, inference_model)
 
@@ -72,7 +73,7 @@ def pre_processing_asset(
                     try:
                         upsert_pages(staged_pages, operation_type="insert", conn=conn)
                         context.log.info(
-                            f"Successfully PROCESSED ANEW {len(staged_pages)} pages from {len(agreements)} agreements"
+                            f"Successfully processed {len(staged_pages)} pages from {len(agreements)} agreements"
                         )
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")
@@ -80,12 +81,12 @@ def pre_processing_asset(
 
                 last_uuid = rows[-1][0]
     else:
-        context.log.info(f"Running pre-processing in 'CLEANUP' mode")
-        batch_size: int = 5  # pages from batch_size agreements at a time
+        context.log.info("Running pre-processing in CLEANUP mode")
+        batch_size: int = 5  # Process pages from batch_size agreements at a time
 
         while True:
             with engine.begin() as conn:
-                # fetch batch of staged (not processed) PAGES
+                # Fetch batch of staged (not processed) pages
                 result = conn.execute(
                     text(
                         """
@@ -96,6 +97,7 @@ def pre_processing_asset(
                             pdx.pages
                         WHERE
                             agreement_uuid > :last_uuid
+                            AND processed = 0
                         LIMIT :batch_size
                     )
                     SELECT
@@ -107,8 +109,7 @@ def pre_processing_asset(
                     FROM
                         pdx.pages AS p
                     WHERE
-                        p.processed = 0
-                        AND p.agreement_uuid in (SELECT agreement_uuid FROM agreement_batch)
+                        p.agreement_uuid in (SELECT agreement_uuid FROM agreement_batch)
                     ORDER BY
                         p.page_order,
                         p.page_uuid;
@@ -121,8 +122,8 @@ def pre_processing_asset(
                 if not rows:
                     break
 
-                # split agreements into pages, and process the pages
-                pages = [
+                # Process existing pages
+                pages: List[Dict[str, Any]] = [
                     {
                         "agreement_uuid": r[0],
                         "page_uuid": r[1],
@@ -139,7 +140,7 @@ def pre_processing_asset(
                     try:
                         upsert_pages(staged_pages, operation_type="update", conn=conn)
                         context.log.info(
-                            f"Successfully UPDATED {len(staged_pages)} pages from {len(set(p['agreement_uuid'] for p in pages))} agreements"
+                            f"Successfully updated {len(staged_pages)} pages from {len(set(p['agreement_uuid'] for p in pages))} agreements"
                         )
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")

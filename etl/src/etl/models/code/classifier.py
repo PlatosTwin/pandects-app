@@ -1,3 +1,10 @@
+"""
+Main classifier training and inference module.
+
+This module provides the main entry points for training and testing the page classifier
+using PyTorch Lightning with hyperparameter optimization via Optuna.
+"""
+
 import os
 import time
 from typing import Optional
@@ -18,17 +25,21 @@ from lightning.pytorch.callbacks import (
 from lightning.pytorch.loggers import TensorBoardLogger
 from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
-import torch
-import torch.nn.functional as F
 
-from classifier_classes import PageClassifier, PageDataModule
-from shared_constants import CLASSIFIER_CKPT_PATH, CLASSIFIER_XGB_PATH
+from .classifier_classes import PageClassifier, PageDataModule
+from .shared_constants import CLASSIFIER_CKPT_PATH, CLASSIFIER_XGB_PATH
 
 # Reproducibility
 pl.seed_everything(42, workers=True, verbose=False)
 
 
 class ClassifierTrainer:
+    """
+    Orchestrates hyperparameter optimization and training of PageClassifier.
+    
+    Uses Optuna for hyperparameter search and PyTorch Lightning for training.
+    """
+    
     def __init__(
         self,
         data_csv: str,
@@ -39,33 +50,49 @@ class ClassifierTrainer:
         num_workers: int = 0,
     ):
         """
-        Orchestrates data loading, hyperparameter search, and training
-        of PageClassifier via PageDataModule.
+        Initialize the classifier trainer.
+        
+        Args:
+            data_csv: Path to the data file
+            num_trials: Number of Optuna trials for hyperparameter optimization
+            max_epochs: Maximum training epochs per trial
+            batch_size: Default batch size
+            val_split: Fraction of data to use for validation
+            num_workers: Number of data loading workers
         """
         self.data_file = data_csv
-        self.NUM_TRIALS = num_trials
-        self.MAX_EPOCHS = max_epochs
-        self.DEFAULT_BATCH = batch_size
-        self.VAL_SPLIT = val_split
-        self.NUM_WORKERS = num_workers
+        self.num_trials = num_trials
+        self.max_epochs = max_epochs
+        self.default_batch_size = batch_size
+        self.val_split = val_split
+        self.num_workers = num_workers
 
+        # Device selection
         if torch.backends.mps.is_available():
-            self.DEVICE = "mps"
+            self.device = "mps"
         elif torch.cuda.is_available():
-            self.DEVICE = "cuda"
+            self.device = "cuda"
         else:
-            self.DEVICE = "cpu"
+            self.device = "cpu"
 
-    def _load_data(self):
-        """Load the classification DataFrame from CSV."""
-        df = pd.read_parquet(self.data_file)
-        if not {"html", "text", "label"}.issubset(df.columns):
-            raise ValueError("CSV must contain 'html', 'text', and 'label' columns")
-        print(f"[data] loaded {df.shape[0]} rows from {self.data_file}")
-        self.df = df
+    def _load_data(self) -> None:
+        """Load the classification DataFrame from parquet file."""
+        self.df = pd.read_parquet(self.data_file)
+        if not {"html", "text", "label"}.issubset(self.df.columns):
+            raise ValueError("Data must contain 'html', 'text', and 'label' columns")
+        print(f"[data] loaded {self.df.shape[0]} rows from {self.data_file}")
 
-    def _get_callbacks(self, trial=None, ckpt=None):
-        """Instantiate checkpointing, early stopping, LR monitor, (and Optuna pruning)."""
+    def _get_callbacks(self, trial: Optional[object] = None, ckpt: Optional[str] = None) -> tuple:
+        """
+        Instantiate Lightning callbacks.
+        
+        Args:
+            trial: Optuna trial for pruning callback
+            ckpt: Checkpoint path for resuming training
+            
+        Returns:
+            Tuple of (checkpoint, early_stop, lr_monitor, progress_bar, prune_callback)
+        """
         if ckpt:
             dirpath = os.path.dirname(ckpt)
             filename = os.path.splitext(os.path.basename(ckpt))[0]
@@ -73,7 +100,7 @@ class ClassifierTrainer:
             dirpath = None
             filename = "best-{epoch:02d}-{val_f1:.4f}"
 
-        ckpt = ModelCheckpoint(
+        checkpoint = ModelCheckpoint(
             monitor="val_f1",
             mode="max",
             save_top_k=1,
@@ -82,33 +109,38 @@ class ClassifierTrainer:
         )
 
         early_stop = EarlyStopping(monitor="val_f1", patience=3, mode="max")
-        lr_mon = LearningRateMonitor(logging_interval="step")
-        prune_cb = (
+        lr_monitor = LearningRateMonitor(logging_interval="step")
+        prune_callback = (
             [PyTorchLightningPruningCallback(trial, monitor="val_f1")]
             if trial is not None
             else []
         )
-        progress_bar_cb = TQDMProgressBar(refresh_rate=15)
+        progress_bar = TQDMProgressBar(refresh_rate=15)
 
-        return ckpt, early_stop, lr_mon, progress_bar_cb, prune_cb
+        return checkpoint, early_stop, lr_monitor, progress_bar, prune_callback
 
-    def _build(self, params: dict):
+    def _build(self, params: dict) -> tuple[PageDataModule, PageClassifier]:
         """
-        Instantiate DataModule and Model with a given hyperparameter set.
-        Must call setup() to populate num_features, vocab_size, etc.
+        Instantiate DataModule and Model with given hyperparameters.
+        
+        Args:
+            params: Dictionary of hyperparameters
+            
+        Returns:
+            Tuple of (data_module, model)
         """
-        dm = PageDataModule(
+        data_module = PageDataModule(
             df=self.df,
-            batch_size=params.get("batch_size", self.DEFAULT_BATCH),
-            val_split=self.VAL_SPLIT,
-            num_workers=self.NUM_WORKERS,
+            batch_size=params.get("batch_size", self.default_batch_size),
+            val_split=self.val_split,
+            num_workers=self.num_workers,
             xgb_path=CLASSIFIER_XGB_PATH,
         )
 
-        dm.setup()  # usually not necessary, but we use vars from dm below
+        data_module.setup()  # Populate num_classes and other attributes
 
         model = PageClassifier(
-            num_classes=dm.num_classes,
+            num_classes=data_module.num_classes,
             lr=params["lr"],
             weight_decay=params["weight_decay"],
             hidden_dim=params["hidden_dim"],
@@ -117,11 +149,19 @@ class ClassifierTrainer:
             lstm_hidden=params["lstm_hidden"],
             lstm_num_layers=params["lstm_num_layers"],
         )
-        return dm, model
+        return data_module, model
 
-    def _objective(self, trial):
-        """Optuna objective: builds, trains, and returns validation loss."""
-        # define hyperparameter search space
+    def _objective(self, trial: object) -> float:
+        """
+        Optuna objective function for hyperparameter optimization.
+        
+        Args:
+            trial: Optuna trial object
+            
+        Returns:
+            Validation F1 score
+        """
+        # Define hyperparameter search space
         params = {
             "lr": trial.suggest_float("lr", 1e-6, 1e-3, log=True),
             "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
@@ -133,71 +173,74 @@ class ClassifierTrainer:
             "lstm_num_layers": trial.suggest_categorical("lstm_num_layers", [1, 2]),
         }
 
-        dm, model = self._build(params)
-        ckpt, early_stop, lr_mon, progress_bar_cb, prune_cb = self._get_callbacks(trial)
+        data_module, model = self._build(params)
+        checkpoint, early_stop, lr_monitor, progress_bar, prune_callback = (
+            self._get_callbacks(trial)
+        )
 
         trainer = pl.Trainer(
-            max_epochs=self.MAX_EPOCHS,
-            accelerator=self.DEVICE,
+            max_epochs=self.max_epochs,
+            accelerator=self.device,
             devices=1,
             precision="bf16-mixed",
             logger=TensorBoardLogger("tb_logs", name="optuna"),
-            callbacks=[ckpt, early_stop, lr_mon, progress_bar_cb, *prune_cb],
+            callbacks=[checkpoint, early_stop, lr_monitor, progress_bar, *prune_callback],
             log_every_n_steps=10,
             deterministic=True,
         )
-        trainer.fit(model, datamodule=dm)
-        # val_loss = trainer.callback_metrics["val_loss"].item()
+        trainer.fit(model, datamodule=data_module)
+        
         val_f1 = trainer.callback_metrics["val_f1"].item()
 
-        # clean up to avoid memory leaks
-        del trainer, model, dm, ckpt, early_stop, lr_mon, prune_cb
+        # Clean up to avoid memory leaks
+        del trainer, model, data_module, checkpoint, early_stop, lr_monitor, prune_callback
 
         return val_f1
 
-    def run(self):
-        """Execute HPO, then retrain final model with best hyperparameters."""
+    def run(self) -> None:
+        """Execute hyperparameter optimization and final training."""
         self._load_data()
 
+        # Hyperparameter optimization
         study = create_study(direction="maximize")
         study.optimize(
             self._objective,
-            n_trials=self.NUM_TRIALS,
+            n_trials=self.num_trials,
             gc_after_trial=True,
             callbacks=[
                 lambda study, trial: study.stop() if study.best_value >= 1.0 else None
             ],
         )
 
-        print(">> HPO complete")
+        print(">> Hyperparameter optimization complete")
         print(f"   Best val_f1: {study.best_value:.4f}")
-        print("   Best params:")
-        for k, v in study.best_trial.params.items():
-            print(f"     • {k}: {v}")
+        print("   Best hyperparameters:")
+        for key, value in study.best_trial.params.items():
+            print(f"     • {key}: {value}")
 
-        # final training with best hyperparameters
+        # Final training with best hyperparameters
         best_params = study.best_trial.params
-        dm, model = self._build(best_params)
+        data_module, model = self._build(best_params)
 
-        ckpt, early_stop, lr_mon, progress_bar_cb, _ = self._get_callbacks(
+        checkpoint, early_stop, lr_monitor, progress_bar, _ = self._get_callbacks(
             ckpt=CLASSIFIER_CKPT_PATH
         )
 
         trainer = pl.Trainer(
-            max_epochs=self.MAX_EPOCHS,
-            accelerator=self.DEVICE,
+            max_epochs=self.max_epochs,
+            accelerator=self.device,
             devices=1,
             logger=TensorBoardLogger("tb_logs", name="final"),
-            callbacks=[ckpt, early_stop, lr_mon, progress_bar_cb],
+            callbacks=[checkpoint, early_stop, lr_monitor, progress_bar],
             log_every_n_steps=10,
         )
-        trainer.fit(model, datamodule=dm)
+        trainer.fit(model, datamodule=data_module)
 
 
 class ClassifierInference:
     """
-    Wraps a trained PageClassifier LightningModule for easy batch inference.
-
+    Wrapper for trained PageClassifier for easy batch inference.
+    
     Usage:
         inf = ClassifierInference(
             ckpt_path="path/to/best.ckpt",
@@ -217,7 +260,17 @@ class ClassifierInference:
         num_workers: int = 0,
         device: Optional[str] = None,
     ):
-        # device selection
+        """
+        Initialize the inference wrapper.
+        
+        Args:
+            ckpt_path: Path to trained model checkpoint
+            xgb_path: Path to XGBoost model
+            batch_size: Batch size for inference
+            num_workers: Number of data loading workers
+            device: Device to use for inference
+        """
+        # Device selection
         if device is not None:
             self.device = device
         elif torch.backends.mps.is_available():
@@ -227,7 +280,7 @@ class ClassifierInference:
         else:
             self.device = "cpu"
 
-        # load model (assumes you called self.save_hyperparameters() in __init__)
+        # Load model
         self.model = PageClassifier.load_from_checkpoint(ckpt_path)
         self.model.to(self.device)
         self.model.eval()
@@ -236,30 +289,40 @@ class ClassifierInference:
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-    def classify(self, df: pd.DataFrame):
+    def classify(self, df: pd.DataFrame) -> list:
         """
-        Run inference on a DataFrame of pages and return a DataFrame with:
-        - 'probabilities': dict[label → proba]
-        - 'pred_class'   : most likely label
+        Run inference on a DataFrame of pages.
+        
+        Args:
+            df: DataFrame with 'html', 'text', and optional 'order' columns
+            
+        Returns:
+            List of prediction dictionaries with probabilities and predicted class
         """
-        # set up DataModule
-        dm = PageDataModule(
+        # Set up DataModule
+        data_module = PageDataModule(
             df=df,
             batch_size=self.batch_size,
-            val_split=0.0,
+            val_split=0.0,  # No validation split for inference
             num_workers=self.num_workers,
             xgb_path=self.xgb_path,
         )
-        dm.setup(stage="predict")
+        data_module.setup(stage="predict")
 
-        # predict: expect a list of tensors [batch_size, num_classes]
+        # Run predictions
         trainer = pl.Trainer()
-        outputs = trainer.predict(self.model, dataloaders=dm.predict_dataloader())
+        outputs = trainer.predict(self.model, dataloaders=data_module.predict_dataloader())
 
         return outputs
 
 
-def main(mode):
+def main(mode: str) -> None:
+    """
+    Main entry point for classifier training and testing.
+    
+    Args:
+        mode: Either 'train' or 'test'
+    """
     if mode == "train":
         classifier_trainer = ClassifierTrainer(
             data_csv="etl/src/etl/models/data/page-data.parquet",
@@ -270,19 +333,24 @@ def main(mode):
         classifier_trainer.run()
 
     elif mode == "test":
+        # Load test data
         df = pd.read_parquet("etl/src/etl/models/data/page-data.parquet")
         agreement = df["agreement_uuid"].unique().tolist()[-1]
         df = df[df["agreement_uuid"] == agreement]
 
+        # Initialize inference model
         inference_model = ClassifierInference(num_workers=7)
 
+        # Run inference
         start = time.time()
         classified_result = inference_model.classify(df)
-        print(time.time() - start)
+        inference_time = time.time() - start
+        
+        print(f"Inference time: {inference_time:.2f} seconds")
         pprint.pprint(classified_result)
 
     else:
-        raise RuntimeError(f"Invalid value for mode: {mode}")
+        raise RuntimeError(f"Invalid mode: {mode}. Use 'train' or 'test'")
 
 
 if __name__ == "__main__":

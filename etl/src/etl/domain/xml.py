@@ -3,15 +3,20 @@ import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import uuid
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+from datetime import date
 
 
 @dataclass
 class XMLData:
+    """Data structure for XML output."""
+
     agreement_uuid: str
     xml: str
 
 
-def get_uuid(x):
+def get_uuid(x: str) -> str:
+    """Generate a UUID5 hash from the input string."""
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
 
 
@@ -20,32 +25,55 @@ def convert_to_xml(
     agreement_uuid: str,
     acquirer: str,
     target: str,
-    announcement_date: str,
+    filing_date: date,
     url: str,
     source_format: str,
 ) -> str:
     """
     Convert text with <article>...</article> and <section>...</section> headings
-    into a proper XML hierarchy, wrapping any leading text (before the first <article>)
-    in <recitals>/<text>/<definition>/<page> blocks, and wrapping all <article>…</article>
-    elements inside a top-level <body> element. Standalone <page>…</page> lines become <page> elements.
+    into a proper XML hierarchy.
+
+    Process:
+    - Wraps any leading text (before the first <article>) in <recitals>/<text>/<definition>/<page> blocks
+    - Wraps all <article>…</article> elements inside a top-level <body> element
+    - Standalone <page>…</page> lines become <page> elements
+
+    Args:
+        tagged_text: Text containing article and section tags.
+        agreement_uuid: UUID of the agreement.
+        acquirer: Name of the acquiring company.
+        target: Name of the target company.
+        announcement_date: Date of the announcement.
+        url: URL of the source document.
+        source_format: Format of the source document.
+
+    Returns:
+        XML string representation of the document.
     """
-    # find all <article> or <section> headings and their positions
+    # Find all <article> or <section> headings and their positions
     pattern = re.compile(r"<(article|section)>(.*?)</\1>", re.DOTALL)
     matches = list(pattern.finditer(tagged_text))
 
     root = ET.Element("document", uuid=agreement_uuid)
 
+    # Add metadata
     metadata = ET.SubElement(root, "metadata")
     ET.SubElement(metadata, "acquirer").text = acquirer
     ET.SubElement(metadata, "target").text = target
-    ET.SubElement(metadata, "announcementDate").text = announcement_date
+    ET.SubElement(metadata, "filingDate").text = filing_date.strftime("%Y-%m-%d")
     ET.SubElement(metadata, "url").text = url
     ET.SubElement(metadata, "sourceFormat").text = source_format
 
     # Helper to add <text>, <definition>, <pageUUID> or <page> children
-    def add_text_nodes(parent, text_block):
-        # definition: starts with "…some text…" means …
+    def add_text_nodes(parent: ET.Element, text_block: str) -> None:
+        """
+        Add text nodes to the parent element based on content patterns.
+
+        Args:
+            parent: Parent XML element.
+            text_block: Text content to process.
+        """
+        # Definition: starts with "…some text…" means …
         definition_re_a = re.compile(
             r'^[\u201C\u201D"]'  # opening curly or straight quote
             r'[^"\u201C\u201D]+'  # the term itself
@@ -98,17 +126,17 @@ def convert_to_xml(
 
             # 3) <definition> if it starts with "…" means …
             elif definition_re_a.match(stripped) or definition_re_b.match(stripped):
-                # extract the first quoted term, lowercase it
+                # Extract the first quoted term, lowercase it
                 m_term = term_re.match(stripped)
                 term_val = m_term.group(1).lower() if m_term else ""
 
-                # now include it as an attribute
+                # Now include it as an attribute
                 d = ET.SubElement(
                     parent, "definition", standardID="<placeholder>", term=term_val
                 )
                 d.text = stripped
 
-            # 4) otherwise normal <text>
+            # 4) Otherwise normal <text>
             else:
                 t = ET.SubElement(parent, "text")
                 t.text = stripped
@@ -124,6 +152,7 @@ def convert_to_xml(
     body = ET.SubElement(root, "body")
     current_article = None
     section_count = 0
+    article_count = 0
 
     for i, m in enumerate(matches):
         tag = m.group(1)
@@ -137,13 +166,17 @@ def convert_to_xml(
         content = tagged_text[end:next_start].strip()
 
         if tag == "article":
+            article_count += 1
+
             current_article = ET.SubElement(
                 body,
                 "article",
                 title=title,
                 uuid=get_uuid(agreement_uuid + title),
+                order=str(article_count),
                 standardId="<placeholder>",
             )
+
             section_count = 0
             if content:
                 add_text_nodes(current_article, content)
@@ -169,16 +202,14 @@ def convert_to_xml(
 
     # 3) Trailing text → <backMatter>
     if matches:
-        # pick out only the <article> matches so we stop after the last article
+        # Pick out only the <article> matches so we stop after the last article
         article_matches = [m for m in matches if m.group(1) == "article"]
-        last_end = (article_matches[-1].end()
-                    if article_matches
-                    else matches[-1].end())
+        last_end = article_matches[-1].end() if article_matches else matches[-1].end()
         trailing = tagged_text[last_end:].strip()
         if trailing:
             bm = ET.SubElement(root, "backMatter")
             add_text_nodes(bm, trailing)
-            
+
     # Pretty-print with encoding in header
     rough = ET.tostring(root, "utf-8")
     return rough
@@ -186,20 +217,30 @@ def convert_to_xml(
 
 def collapse_text_into_definitions(xml_str: str) -> str:
     """
+    Move <text> elements into preceding <definition> elements and ensure proper structure.
+
+    Process:
     1. Moves <text> (and the relevant <page>/<pageUUID>) into the preceding <definition>.
     2. Ensures that any free text directly inside a <definition> is wrapped in its own <text> tag,
        so <definition> contains only <text>, <page>, and <pageUUID> children.
+
+    Args:
+        xml_str: XML string to process.
+
+    Returns:
+        Processed XML string.
     """
     root = ET.fromstring(xml_str)
 
-    def process_container(parent):
+    def process_container(parent: ET.Element) -> None:
+        """Process a container element to move text into definitions."""
         children = list(parent)
         for idx, child in enumerate(children):
             if child.tag != "definition":
                 continue
 
             def_elem = child
-            # locate next <definition> or end
+            # Locate next <definition> or end
             next_def_idx = next(
                 (
                     k
@@ -210,13 +251,13 @@ def collapse_text_into_definitions(xml_str: str) -> str:
             )
             segment = children[idx + 1 : next_def_idx]
 
-            # find any <text> in the segment
+            # Find any <text> in the segment
             text_indices = [i for i, el in enumerate(segment) if el.tag == "text"]
             if not text_indices:
                 continue
 
             last_text_idx = max(text_indices)
-            # choose elements to move: all <text>, plus any <page>/<pageUUID> at or before last text
+            # Choose elements to move: all <text>, plus any <page>/<pageUUID> at or before last text
             to_move = [
                 el
                 for i, el in enumerate(segment)
@@ -224,7 +265,7 @@ def collapse_text_into_definitions(xml_str: str) -> str:
                 or (el.tag in ("page", "pageUUID") and i <= last_text_idx)
             ]
 
-            # move them under the definition
+            # Move them under the definition
             for el in to_move:
                 parent.remove(el)
                 def_elem.append(el)
@@ -235,7 +276,7 @@ def collapse_text_into_definitions(xml_str: str) -> str:
 
     # Second pass: wrap any free-floating text inside <definition> into its own <text> tag
     for def_elem in root.iter("definition"):
-        # wrap leading text
+        # Wrap leading text
         if def_elem.text and def_elem.text.strip():
             txt = def_elem.text
             new = ET.Element("text")
@@ -243,7 +284,7 @@ def collapse_text_into_definitions(xml_str: str) -> str:
             def_elem.insert(0, new)
         def_elem.text = None
 
-        # wrap tails after children
+        # Wrap tails after children
         for child in list(def_elem):
             if child.tail and child.tail.strip():
                 txt = child.tail
@@ -256,7 +297,16 @@ def collapse_text_into_definitions(xml_str: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
-def generate_xml(df):
+def generate_xml(df: Any) -> List[XMLData]:
+    """
+    Generate XML data from a DataFrame.
+
+    Args:
+        df: DataFrame containing agreement data.
+
+    Returns:
+        List of XMLData objects.
+    """
     staged_xml = []
 
     agreement_uuids = df["agreement_uuid"].unique().tolist()
@@ -266,17 +316,15 @@ def generate_xml(df):
         url = temp["url"].to_list()[0]
         acquirer = temp["acquirer"].to_list()[0]
         target = temp["target"].to_list()[0]
-        announcement_date = temp["date_announcement"].to_list()[0]
-        if temp["is_html"].to_list()[0]:
-            source_format = "html"
-        else:
-            source_format = "txt"
+        announcement_date = temp["filing_date"].to_list()[0]
+        source_format = "html" if temp["source_is_html"].to_list()[0] else "txt"
 
-        temp["llm_output"] = temp[["llm_output", "page_uuid"]].apply(
-            lambda x: x["llm_output"] + f"<pageUUID>{x['page_uuid']}</pageUUID>", axis=1
+        temp["tagged_output"] = temp[["tagged_output", "page_uuid"]].apply(
+            lambda x: x["tagged_output"] + f"<pageUUID>{x['page_uuid']}</pageUUID>",
+            axis=1,
         )
 
-        agreement_text = "\n".join(temp["llm_output"].values)
+        agreement_text = "\n".join(temp["tagged_output"].values)
 
         xml_out = convert_to_xml(
             agreement_text,
@@ -291,5 +339,5 @@ def generate_xml(df):
         xml_out = xml.dom.minidom.parseString(xml_out).toprettyxml(indent="  ")
 
         staged_xml.append(XMLData(agreement_uuid=agreement_uuid, xml=xml_out))
-        
+
     return staged_xml

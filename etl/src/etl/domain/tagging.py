@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Any, Dict, List
 
 
 @dataclass
 class TagData:
+    """Data structure for tagged text output."""
     page_uuid: str
     tagged_text: str
     low_count: int
@@ -11,8 +12,17 @@ class TagData:
     chars: dict
 
 
-def tag(rows, tagging_model) -> List[TagData]:
+def tag(rows: List[Dict[str, Any]], tagging_model: Any) -> List[TagData]:
+    """
+    Tag text content using the provided tagging model.
 
+    Args:
+        rows: List of dictionaries containing page data.
+        tagging_model: Model to use for tagging.
+
+    Returns:
+        List of TagData objects containing tagged text and metadata.
+    """
     texts = [r["processed_page_content"] for r in rows]
     page_uuids = [r["page_uuid"] for r in rows]
 

@@ -1,3 +1,9 @@
+"""Dagster resource definitions for the ETL pipeline.
+
+This module defines the configurable resources used throughout the ETL pipeline,
+including database connections, ML models, and pipeline configuration.
+"""
+
 import dagster as dg
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -10,14 +16,18 @@ from etl.models.code.shared_constants import (
     CLASSIFIER_CKPT_PATH,
 )
 from enum import Enum
+from typing import Dict, Any
 
 
 class PipelineMode(Enum):
+    """Pipeline execution modes."""
     FROM_SCRATCH = "from_scratch"
     CLEANUP = "cleanup"
 
 
 class PipelineConfig(dg.ConfigurableResource):
+    """Configuration for pipeline execution mode."""
+    
     mode: PipelineMode = PipelineMode.FROM_SCRATCH
 
     def is_cleanup_mode(self) -> bool:
@@ -26,6 +36,8 @@ class PipelineConfig(dg.ConfigurableResource):
 
 
 class DBResource(dg.ConfigurableResource):
+    """Database connection resource."""
+    
     host: str
     port: str
     user: str
@@ -42,22 +54,29 @@ class DBResource(dg.ConfigurableResource):
 
 
 class ClassifierModel(dg.ConfigurableResource):
+    """Resource for the page classification model."""
 
     def model(self) -> ClassifierInference:
-        """Load and return the PageClassifier model on the selected device."""
+        """Load and return the PageClassifier model."""
         model = ClassifierInference(num_workers=7)
         return model
 
 
 class TaggingModel(dg.ConfigurableResource):
+    """Resource for the NER tagging model."""
 
     def model(self) -> NERInference:
-        """Load and return the PageClassifier model on the selected device."""
+        """Load and return the NER tagging model."""
         model = NERInference(ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST)
         return model
 
 
-def get_resources():
+def get_resources() -> Dict[str, Any]:
+    """Get the base resource configuration for the pipeline.
+    
+    Returns:
+        Dictionary containing all resource definitions.
+    """
     return {
         "db": DBResource(
             user=dg.EnvVar("MARIADB_USER"),

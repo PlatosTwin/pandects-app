@@ -1,3 +1,5 @@
+"""XML generation asset for assembling tagged sections into XML documents."""
+
 from etl.defs.resources import DBResource, PipelineConfig
 from sqlalchemy import text
 from etl.domain.xml import generate_xml
@@ -5,27 +7,26 @@ import dagster as dg
 from etl.defs.tagging_asset import tagging_asset
 from etl.utils.db_utils import upsert_xml
 import pandas as pd
+from typing import List
 
 
 @dg.asset(deps=[tagging_asset])
-def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
+def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
     """
-    Pulls tagged sections and assembles them into XML.
+    Assemble tagged sections into XML documents.
 
     In cleanup mode, processes only existing unprocessed agreements.
-
+    
     Args:
-        context (dg.AssetExecutionContext): Dagster context.
-        db (DBResource): Database resource for connection.
-        pipeline_config (PipelineConfig): Pipeline configuration for mode.
-    Returns:
-        None
+        context: Dagster execution context.
+        db: Database resource for connection.
+        pipeline_config: Pipeline configuration for mode.
     """
     agreement_batch_size: int = 10
     engine = db.get_engine()
     is_cleanup = pipeline_config.is_cleanup_mode()
 
-    # Check if we're in a job context and get the mode from there
+    # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
         job_config = context.job_def.config
         if hasattr(job_config, "mode"):
@@ -35,12 +36,12 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
         f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
-    with engine.begin() as conn:
-        while True:
-            # fetch batch of staged (not tagged) pages
-            # provided that all pages in the agreement have been tagged
-            # TODO: alerting if there are partially tagged agreements
-            agreement_uuids = (
+    while True:
+        with engine.begin() as conn:
+            last_uuid = ''
+            
+            # Fetch batch of agreements where all pages have been tagged
+            agreement_uuids: List[str] = (
                 conn.execute(
                     text(
                         """
@@ -53,27 +54,28 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
                         ON a.agreement_uuid = p.agreement_uuid
                     WHERE
                         a.processed = 0
+                        AND a.agreement_uuid > :last_uuid
                     GROUP BY
                         a.agreement_uuid
                     HAVING
-                        MIN(p.processed) = 1
+                        MIN(case when p.source_page_type = 'body' then p.processed end) = 1
                     ORDER BY
                         a.agreement_uuid
                     LIMIT
                         :limit;
                 """
                     ),
-                    {"limit": agreement_batch_size},
+                    {"limit": agreement_batch_size, "last_uuid": last_uuid},
                 )
                 .scalars()
                 .all()
             )
 
-            # if none left, we're done
+            # If none left, we're done
             if not agreement_uuids:
                 break
 
-            # 2) fetch every page (and its tagged_output) for those agreements
+            # Fetch every page and its tagged output for those agreements
             rows = (
                 conn.execute(
                     text(
@@ -81,9 +83,16 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
                     SELECT
                     p.agreement_uuid,
                     p.page_uuid,
-                    tgo.tagged_output
+                    coalesce(tgo.tagged_text, p.processed_page_content) as tagged_output,
+                    url,
+                    acquirer,
+                    target,
+                    filing_date,
+                    source_is_txt,
+                    source_is_html
                     FROM pdx.pages p
-                    LEFT JOIN pdx.tagged_output tgo
+                    JOIN pdx.agreements a on p.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN pdx.tagged_outputs tgo
                     ON p.page_uuid = tgo.page_uuid
                     WHERE p.agreement_uuid IN :uuids
                     ORDER BY p.agreement_uuid, p.page_uuid
@@ -96,7 +105,7 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
             )
 
             df = pd.DataFrame(rows)
-            # tag pages
+            # Generate XML from tagged pages
             xml = generate_xml(df)
 
             try:
@@ -107,3 +116,5 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig):
             except Exception as e:
                 context.log.error(f"Error upserting XML: {e}")
                 raise RuntimeError(e)
+            
+            last_uuid = agreement_uuids[-1]

@@ -1,43 +1,51 @@
+"""Staging asset for fetching and upserting new filings."""
+
 from etl.defs.resources import DBResource, PipelineConfig
 from sqlalchemy import text
 from etl.domain.staging import fetch_new_filings
 from datetime import datetime, timezone
 import dagster as dg
 from etl.utils.db_utils import upsert_agreements
+from typing import Optional
 
 
 @dg.asset
-def staging_asset(context, db: DBResource, pipeline_config: PipelineConfig):
-    """
-    Tracks pipeline runs and upserts full agreements in batches of 250.
-
-    In cleanup mode, skips fetching new filings and only processes existing unprocessed agreements.
-
-    1. Reads last pull timestamp.
-    2. Fetches new filings (only in from_scratch mode).
-    3. Inserts a STARTED record.
-    4. Upserts into pdx.agreements (all columns) in batches of 250.
-    5. Marks the run SUCCEEDED.
-    6. Returns the number of new filings.
+def staging_asset(
+    context: dg.AssetExecutionContext, 
+    db: DBResource, 
+    pipeline_config: PipelineConfig
+) -> int:
+    """Track pipeline runs and upsert full agreements in batches of 250.
+    
+    In cleanup mode, skips fetching new filings and only processes existing 
+    unprocessed agreements.
+    
+    Args:
+        context: Dagster execution context.
+        db: Database resource for connection.
+        pipeline_config: Pipeline configuration for mode.
+        
+    Returns:
+        Number of new filings processed.
     """
     engine = db.get_engine()
     is_cleanup = pipeline_config.is_cleanup_mode()
 
-    # Check if we're in a job context and get the mode from there
+    # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
         job_config = context.job_def.config
         if hasattr(job_config, "mode"):
             is_cleanup = job_config.mode.value == "cleanup"
 
     if is_cleanup:
-        context.log.info(f"'CLEANUP' mode. Skipping run of staging step.")
+        context.log.info("CLEANUP mode. Skipping staging step.")
         return 0
 
-    context.log.info(f"Running staging in 'FROM_SCRATCH' mode")
+    context.log.info("Running staging in FROM_SCRATCH mode")
 
-    # 1. Get last pull timestamp
+    # Get last pull timestamp
     with engine.begin() as conn:
-        last_run = conn.execute(
+        last_run: Optional[datetime] = conn.execute(
             text(
                 "SELECT last_pulled_to "
                 "FROM pdx.pipeline_runs "
@@ -47,17 +55,17 @@ def staging_asset(context, db: DBResource, pipeline_config: PipelineConfig):
 
     now = datetime.now(timezone.utc)
 
-    # 2. Fetch new filings
+    # Fetch new filings
     filings = fetch_new_filings(since=last_run.isoformat())
     count = len(filings)
 
-    # Use now as pulled_to_ts if no filings, else use now or last filing date
+    # Use now as pulled_to_ts if no filings, else use max filing date
     pulled_to_ts = max([f.filing_date for f in filings]) if filings else now
-    context.log.info(f"From scratch mode: Fetched {count} new filings")
+    context.log.info(f"FROM_SCRATCH mode: Fetched {count} new filings")
 
-    # 3-5 Transactional run
+    # Transactional run
     with engine.begin() as conn:
-        # 3. STARTED record
+        # Insert STARTED record
         conn.execute(
             text(
                 "INSERT INTO pdx.pipeline_runs "
@@ -72,7 +80,7 @@ def staging_asset(context, db: DBResource, pipeline_config: PipelineConfig):
             },
         )
 
-        # 4. Prepare upsert rows
+        # Upsert agreements
         try:
             upsert_agreements(filings, conn)
             context.log.info(f"Successfully upserted {len(filings)} agreements")
@@ -80,7 +88,7 @@ def staging_asset(context, db: DBResource, pipeline_config: PipelineConfig):
             context.log.error(f"Error upserting agreements: {e}")
             raise RuntimeError(e)
 
-        # 5. Mark (if) SUCCEEDED
+        # Mark as SUCCEEDED
         conn.execute(
             text(
                 "UPDATE pdx.pipeline_runs "
@@ -90,5 +98,4 @@ def staging_asset(context, db: DBResource, pipeline_config: PipelineConfig):
             {"run_time": now},
         )
 
-    # 6. Return count for downstream dependencies
     return count

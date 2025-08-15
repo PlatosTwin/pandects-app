@@ -1,9 +1,12 @@
+"""Tagging asset for applying NER models to processed pages."""
+
 from etl.defs.resources import DBResource, TaggingModel, PipelineConfig
 from sqlalchemy import text
 from etl.domain.tagging import tag
 import dagster as dg
 from etl.defs.staging_asset import staging_asset
 from etl.utils.db_utils import upsert_tags
+from typing import List, Dict, Any
 
 
 @dg.asset(deps=[staging_asset])
@@ -12,19 +15,16 @@ def tagging_asset(
     db: DBResource,
     tagging_model: TaggingModel,
     pipeline_config: PipelineConfig,
-):
-    """
-    Pulls staged pages and runs them through the tagging model.
-
+) -> None:
+    """Apply NER tagging to processed pages.
+    
     In cleanup mode, processes only existing unprocessed pages.
-
+    
     Args:
-        context (dg.AssetExecutionContext): Dagster context.
-        db (DBResource): Database resource for connection.
-        tagging_model (TaggingModel): Model for page tagging.
-        pipeline_config (PipelineConfig): Pipeline configuration for mode.
-    Returns:
-        None
+        context: Dagster execution context.
+        db: Database resource for connection.
+        tagging_model: Model for page tagging.
+        pipeline_config: Pipeline configuration for mode.
     """
     inference_model = tagging_model.model()
 
@@ -33,7 +33,7 @@ def tagging_asset(
     engine = db.get_engine()
     is_cleanup = pipeline_config.is_cleanup_mode()
 
-    # Check if we're in a job context and get the mode from there
+    # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
         job_config = context.job_def.config
         if hasattr(job_config, "mode"):
@@ -43,9 +43,9 @@ def tagging_asset(
         f"Running tagging in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
-    with engine.begin() as conn:
-        while True:
-            # fetch batch of staged (not tagged) pages
+    while True:
+        with engine.begin() as conn:
+            # Fetch batch of staged (not tagged) pages
             result = conn.execute(
                 text(
                     """
@@ -65,8 +65,10 @@ def tagging_asset(
             if not rows:
                 break
 
-            # tag pages
+            # Apply tagging to pages
             tagged_pages = tag(rows, inference_model)
+            
+            context.log.info(tagged_pages[0])
 
             try:
                 upsert_tags(tagged_pages, conn)

@@ -1,12 +1,34 @@
-import numpy as np
-import string
+"""
+Feature extraction utilities for page classification.
+
+This module provides functions to extract features from text and HTML content
+for use in page classification models.
+"""
+
 import re
+import string
+from typing import List
+
+import numpy as np
 
 
 def extract_features(text: str, html: str, order: float) -> np.ndarray:
+    """
+    Extract features from text and HTML content for page classification.
+    
+    Args:
+        text: Raw text content of the page
+        html: HTML content of the page
+        order: Page order/sequence number
+        
+    Returns:
+        numpy.ndarray: Feature vector for classification
+    """
+    # Handle NaN values
     text = str(text) if text == text else ""
     html = str(html) if html == html else ""
 
+    # Basic text statistics
     num_chars = len(text)
     words = text.split()
     num_words = len(words)
@@ -18,6 +40,7 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         sum(c in string.punctuation for c in text) / num_chars if num_chars > 0 else 0.0
     )
 
+    # Page number detection
     _DIGIT_RE = re.compile(r"^[\-\s—]*(\d+)[\-\s—]*$")
     s = text.rsplit("\\n", 1)[-1]
     m = _DIGIT_RE.match(s)
@@ -29,6 +52,7 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         flag_is_all_digits = 0
         flag_is_less_than_order = 0
 
+    # Legal document specific features
     count_section = text.lower().count("section")
     count_article = text.lower().count("article")
     num_all_caps = sum(1 for w in words if w.isalpha() and w.isupper())
@@ -36,7 +60,7 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         sum(1 for w in words if w[:1].isupper()) / num_words if num_words > 0 else 0.0
     )
 
-    # n-grams
+    # N-gram features
     bigrams = [" ".join(bg) for bg in zip(words, words[1:])]
     num_bigrams = len(bigrams)
     unique_bigrams = len(set(bigrams))
@@ -46,7 +70,7 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
     unique_trigrams = len(set(trigrams))
     prop_unique_trigrams = unique_trigrams / num_trigrams if num_trigrams > 0 else 0.0
 
-    # HTML tags
+    # HTML structure features
     num_tags = html.count("<")
     tag_to_text_ratio = num_tags / num_chars if num_chars > 0 else 0.0
     link_count = html.lower().count("<a ")
@@ -54,14 +78,15 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
     heading_tags = sum(html.lower().count(f"<h{i}") for i in range(1, 7))
     list_count = html.lower().count("<li")
 
-    # bullets
+    # Document structure features
     bullet_count = sum(1 for line in text.split("\\n") if line.strip().startswith("-"))
 
-    # boilerplate
-    terms = ["hereto", "herein", "hereby", "thereof", "wherein"]
-    boilerplate_counts = [text.lower().count(t) for t in terms]
+    # Legal boilerplate terms
+    boilerplate_terms = ["hereto", "herein", "hereby", "thereof", "wherein"]
+    boilerplate_counts = [text.lower().count(t) for t in boilerplate_terms]
 
-    keywords = [
+    # Legal document keywords
+    legal_keywords = [
         "table of contents",
         "execution version",
         "in witness whereof",
@@ -87,10 +112,12 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         "page follows.]",
         "by:",
     ]
-    flag_feats = [1.0 if kw in text.lower() else 0.0 for kw in keywords]
+    keyword_flags = [1.0 if kw in text.lower() else 0.0 for kw in legal_keywords]
 
+    # Signature indicators
     sig_indicators = "by" in text.lower() and "title" in text.lower()
 
+    # Punctuation analysis
     num_colon = text.count(":")
     num_period = text.count(".")
     num_consecutive_periods = max(
@@ -102,11 +129,13 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
     prop_period = num_period / total_punct if total_punct > 0 else 0.0
     prop_comma = num_comma / total_punct if total_punct > 0 else 0.0
 
+    # HTML structure analysis
     has_table = 1.0 if re.search(r"</?(table|tr|td)", html.lower()) else 0.0
     count_p = html.lower().count("<p")
     count_div = html.lower().count("<div")
 
-    feat = [
+    # Compile feature vector
+    features = [
         num_words,
         num_chars,
         avg_chars_per_word,
@@ -134,7 +163,7 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         list_count,
         bullet_count,
         *boilerplate_counts,
-        *flag_feats,
+        *keyword_flags,
         sig_indicators,
         prop_colon,
         prop_period,
@@ -145,4 +174,4 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         count_div,
         order,
     ]
-    return np.array(feat, dtype=float)
+    return np.array(features, dtype=float)
