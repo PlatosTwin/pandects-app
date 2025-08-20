@@ -8,8 +8,8 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 # Standard library
 import os
 import time
-from typing import Union
 import yaml
+import pprint
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -125,17 +125,17 @@ class NERTrainer:
         """
         # Single checkpoint callback for best val_loss
         checkpoint_callback = ModelCheckpoint(
-            monitor="val_loss",
-            mode="min",
+            monitor="val_ent_f1",
+            mode="max",
             save_top_k=1,
-            filename="best-{epoch:02d}-{val_loss:.4f}",
+            filename="best-{epoch:02d}-{val_ent_f1:.4f}",
         )
         early_stop_callback = EarlyStopping(
-            monitor="val_f1_doc", patience=3, mode="max"
+            monitor="val_ent_f1", patience=3, mode="max"
         )
         lr_monitor = LearningRateMonitor(logging_interval="step")
         pruning_callback = (
-            [PyTorchLightningPruningCallback(trial, monitor="val_f1_doc")]
+            [PyTorchLightningPruningCallback(trial, monitor="val_ent_f1")]
             if trial is not None
             else []
         )
@@ -225,7 +225,7 @@ class NERTrainer:
         )
         trainer.fit(model, datamodule=data_module)
 
-        val_f1_doc = trainer.callback_metrics["val_f1_doc"].item()
+        val_ent_f1 = trainer.callback_metrics["val_ent_f1"].item()
 
         # Clean up to avoid memory leaks
         del (
@@ -239,7 +239,7 @@ class NERTrainer:
         if pruning_callback:
             del pruning_callback
 
-        return val_f1_doc
+        return val_ent_f1
 
     def run(self) -> None:
         """Execute hyperparameter optimization and final training."""
@@ -249,7 +249,7 @@ class NERTrainer:
         study.optimize(self._objective, n_trials=self.num_trials, gc_after_trial=True)
 
         print("Finished hyperparameter optimization 👉")
-        print(f"  Best val_f1_doc: {study.best_value:.4f}")
+        print(f"  Best val_ent_f1: {study.best_value:.4f}")
         print("  Best hyperparameters:")
         for key, value in study.best_trial.params.items():
             print(f"    • {key}: {value}")
@@ -283,376 +283,341 @@ class NERTrainer:
 
 class NERInference:
     """
-    Wrapper for trained NERTagger for easy batch inference.
-
-    Provides convenient interface for running NER predictions on new text data.
+    Token-window NER inference that returns:
+      - tagged (str): XML-tagged text
+      - low_count (int): number of low-confidence tokens
+      - spans (list[dict]): contiguous low-confidence token spans
+      - tokens (list[dict]): token-level records below threshold
     """
 
     def __init__(
         self,
         ckpt_path: str,
-        label_list: list[str],
+        label_list: list[str] | None,
         device: str = "cpu",
         review_threshold: float = 0.5,
         window_batch_size: int = 32,
+        window: int = 510,
+        stride: int = 256,
     ) -> None:
-        """
-        Initialize the NER inference wrapper.
-
-        Args:
-            ckpt_path: Path to trained model checkpoint
-            label_list: List of label names (MUST be the new BIOES list)
-            device: Device to use for inference
-            review_threshold: Confidence threshold for review
-            window_batch_size: Batch size for window processing
-        """
-        # Load and prepare model
-        self.model: NERTagger = NERTagger.load_from_checkpoint(ckpt_path)
         self.device = torch.device(device)
+        self.model: NERTagger = NERTagger.load_from_checkpoint(
+            ckpt_path, map_location=self.device
+        )
         self.model.to(self.device)
         self.model.eval()
 
-        # Tokenizer & label maps
+        # tokenizer consistent with training (special tokens added, no resize needed at inference)
         model_name = self.model.hparams.model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.tokenizer.add_special_tokens(
             {"additional_special_tokens": SPECIAL_TOKENS_TO_ADD}
         )
-        self.label_list = label_list
-        self.id2label = {idx: label for idx, label in enumerate(label_list)}
-        self.label2id = {label: idx for idx, label in self.id2label.items()}
 
+        # Fallbacks for essential token IDs (safe-guards)
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token = (
+                self.tokenizer.eos_token or self.tokenizer.unk_token or "[PAD]"
+            )
+        if self.tokenizer.cls_token_id is None:
+            self.tokenizer.cls_token = (
+                self.tokenizer.bos_token or self.tokenizer.unk_token or "[CLS]"
+            )
+        if self.tokenizer.sep_token_id is None:
+            self.tokenizer.sep_token = (
+                self.tokenizer.eos_token or self.tokenizer.unk_token or "[SEP]"
+            )
+
+        # >>> Use id2label/label2id from checkpoint to avoid order drift
+        ckpt_id2label = dict(self.model.hparams.id2label)  # keys are ints in training
+        self.id2label = {int(k): v for k, v in ckpt_id2label.items()}
+        self.label2id = {v: k for k, v in self.id2label.items()}
+        self.label_list = [self.id2label[i] for i in range(len(self.id2label))]
+
+        # Optional: validate if user passes label_list
+        if label_list is not None:
+            if list(label_list) != self.label_list:
+                raise ValueError(
+                    "label_list provided to NERInference does not match the checkpoint label order.\n"
+                    f"Checkpoint: {self.label_list}\nProvided:   {list(label_list)}"
+                )
+
+        self.C = len(self.label_list)
         self.review_threshold = review_threshold
         self.window_batch_size = window_batch_size
+        self.window = window
+        self.stride = stride
 
-    def _batch_predict_full_texts(
-        self,
-        texts: list[str],
-        window: int = 512,
-        stride: int = 256,
-    ) -> tuple[list[str], list[list[int]], list[list[float]]]:
+    # ---------------- Token aggregation over sliding windows (logit stitching) ----------------
+    def _predict_tokens(
+        self, text: str
+    ) -> tuple[list[int], list[float], list[tuple[int, int]], list[str], torch.Tensor]:
         """
-        Batch-window NER on multiple texts.
-
-        Args:
-            texts: List of texts to process
-            window: Window size for sliding window
-            stride: Stride size for sliding window
+        Stitch per-token predictions across overlapping windows by averaging LOGITS
+        (to match validation), then compute confidences from softmax(avg_logits) and
+        apply a light BIOES repair on the predicted tag sequence.
 
         Returns:
-            Tuple of (cleaned_texts, raw_predictions_list, confidences_list)
+            preds        : List[int]            # predicted label ids per token
+            confidences  : List[float]          # max prob per token (from softmax(avg_logits))
+            offsets      : List[tuple[int,int]] # original char offsets per token
+            toks         : List[str]            # token strings
+            avg_logits   : torch.Tensor         # [T, C] averaged logits on CPU
         """
-        # Flatten windows
-        all_records: list[tuple[int, int, int]] = []
-        all_slices: list[str] = []
-        for text_idx, text in enumerate(texts):
-            text_length = len(text)
-            start = 0
-            while start < text_length:
-                end = min(start + window, text_length)
-                all_records.append((text_idx, start, end))
-                all_slices.append(text[start:end])
-                if end == text_length:
-                    break
-                start += stride
+        enc_full = self.tokenizer(
+            text,
+            return_tensors="pt",
+            return_offsets_mapping=True,
+            truncation=False,
+            add_special_tokens=False,
+        )
+        input_ids = enc_full["input_ids"][0]                 # [T]
+        offsets = enc_full["offset_mapping"][0].tolist()     # [(s,e)] * T
+        toks = self.tokenizer.convert_ids_to_tokens(input_ids.tolist())
+        T = len(input_ids)
 
-        # Pre-allocate buffers per text
-        num_labels = len(self.label_list)
-        sum_probabilities = [
-            torch.zeros((len(texts[i]), num_labels), device=self.device)
-            for i in range(len(texts))
-        ]
-        counts = [
-            torch.zeros(len(texts[i]), device=self.device) for i in range(len(texts))
-        ]
+        if T == 0:
+            empty_logits = torch.zeros((0, self.C), dtype=torch.float32)
+            return [], [], [], [], empty_logits
 
-        # Process windows in chunks
-        for i in range(0, len(all_slices), self.window_batch_size):
-            batch_slices = all_slices[i : i + self.window_batch_size]
-            batch_records = all_records[i : i + self.window_batch_size]
+        # --- Accumulate LOGITS (not probabilities) across overlapping windows ---
+        sum_logits = torch.zeros((T, self.C), device="cpu")
+        counts = torch.zeros(T, device="cpu")
 
-            encoding = self.tokenizer(
-                batch_slices,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=window,
-                return_attention_mask=True,
-                return_offsets_mapping=True,
+        # Build token windows; add CLS/SEP per chunk
+        windows: list[dict] = []
+        bounds: list[tuple[int, int]] = []  # (start_tok, end_tok)
+        i = 0
+        while i < T:
+            j = min(i + self.window, T)
+            chunk_ids = input_ids[i:j].tolist()
+            windows.append(
+                {
+                    "input_ids": [self.tokenizer.cls_token_id] + chunk_ids + [self.tokenizer.sep_token_id],
+                    "attention_mask": [1] * (len(chunk_ids) + 2),
+                }
             )
-            for key in ("input_ids", "attention_mask", "offset_mapping"):
-                encoding[key] = encoding[key].to(self.device)
+            bounds.append((i, j))
+            if j == T:
+                break
+            i += self.stride
 
+        # Batched inference -> return LOGITS with CLS/SEP removed
+        def _infer_logits(batch_items: list[dict]) -> list[torch.Tensor]:
+            max_len = max(len(x["input_ids"]) for x in batch_items)
+            pad_id = self.tokenizer.pad_token_id
+
+            ids = [x["input_ids"] + [pad_id] * (max_len - len(x["input_ids"])) for x in batch_items]
+            mask = [x["attention_mask"] + [0] * (max_len - len(x["attention_mask"])) for x in batch_items]
+
+            ids_t = torch.tensor(ids, device=self.device)
+            mask_t = torch.tensor(mask, device=self.device)
             with torch.no_grad():
-                outputs = self.model(
-                    input_ids=encoding["input_ids"],
-                    attention_mask=encoding["attention_mask"],
-                )
-                probabilities = torch.softmax(outputs.logits, dim=-1)
+                logits = self.model(input_ids=ids_t, attention_mask=mask_t).logits  # [B,L,C]
 
-            for (text_idx, window_start, _), probs, offsets, attention in zip(
-                batch_records,
-                probabilities,
-                encoding["offset_mapping"],
-                encoding["attention_mask"],
-            ):
-                valid_tokens = attention.sum().item()
-                for token_idx in range(valid_tokens):
-                    offset_start, offset_end = offsets[token_idx].tolist()
-                    if offset_end == 0:
-                        continue
-                    for char_idx in range(offset_start, offset_end):
-                        char_position = window_start + char_idx
-                        if char_position < sum_probabilities[text_idx].size(0):
-                            sum_probabilities[text_idx][char_position] += probs[
-                                token_idx
-                            ]
-                            counts[text_idx][char_position] += 1
+            outs: list[torch.Tensor] = []
+            for lg, m in zip(logits, mask_t):
+                true_len = int(m.sum().item())  # includes CLS/SEP; pads are 0
+                if true_len <= 2:
+                    outs.append(lg[0:0])  # empty
+                else:
+                    outs.append(lg[1 : true_len - 1])  # strip CLS/SEP
+            return outs
 
-        # Finalize predictions
-        raw_predictions_list: list[list[int]] = []
-        confidences_list: list[list[float]] = []
+        all_logits: list[torch.Tensor] = []
+        for k in range(0, len(windows), self.window_batch_size):
+            all_logits.extend(_infer_logits(windows[k : k + self.window_batch_size]))
 
-        for text_idx, text in enumerate(texts):
-            avg_probabilities = sum_probabilities[text_idx] / counts[
-                text_idx
-            ].unsqueeze(-1).clamp(min=1)
-            confidences = avg_probabilities.max(dim=-1)[0].cpu().tolist()
-            raw_predictions = avg_probabilities.argmax(dim=-1).cpu().tolist()
+        # Accumulate per-token LOGITS over window overlaps
+        for (s, e), lg_tok in zip(bounds, all_logits):
+            span = min(e - s, lg_tok.size(0))
+            if span <= 0:
+                continue
+            sum_logits[s : s + span] += lg_tok[:span].to("cpu")
+            counts[s : s + span] += 1
 
-            # BIOES fix: Correct invalid tag sequences.
-            for j in range(len(raw_predictions)):
-                curr_label = self.id2label[raw_predictions[j]]
-                if (
-                    curr_label.startswith("B-")
-                    or curr_label.startswith("S-")
-                    or curr_label == "O"
-                ):
+        # Average logits like validation; then derive probs/confidence/preds
+        avg_logits = sum_logits / counts.unsqueeze(-1).clamp(min=1.0)
+        probs = torch.softmax(avg_logits, dim=-1)
+        confidences = probs.max(dim=-1)[0].tolist()
+        preds = avg_logits.argmax(dim=-1).tolist()
+
+        # --- Light BIOES repair on the predicted sequence ---
+        def _repair_bioes(seq: list[int]) -> list[int]:
+            out = seq[:]
+            for t in range(len(out)):
+                lab = self.id2label[out[t]]
+                if lab == "O" or lab.startswith(("B-", "S-")):
                     continue
-
-                # An I- or E- tag is invalid at the start of a sequence, convert to B-
-                if j == 0:
-                    entity = curr_label.split("-", 1)[1]
-                    raw_predictions[j] = self.label2id.get(
-                        f"B-{entity}", raw_predictions[j]
-                    )
+                if t == 0:
+                    ent = lab.split("-", 1)[1]
+                    out[t] = self.label2id.get(f"B-{ent}", out[t])
                     continue
+                prev = self.id2label[out[t - 1]]
+                if prev == "O" or prev.startswith(("E-", "S-")):
+                    ent = lab.split("-", 1)[1]
+                    out[t] = self.label2id.get(f"B-{ent}", out[t])
+                elif prev.startswith(("B-", "I-")):
+                    prev_ent = prev.split("-", 1)[1]
+                    cur_ent = lab.split("-", 1)[1]
+                    if prev_ent != cur_ent:
+                        out[t] = self.label2id.get(f"B-{cur_ent}", out[t])
+            return out
 
-                # Check previous label
-                prev_label = self.id2label[raw_predictions[j - 1]]
+        preds = _repair_bioes(preds)
+        return preds, confidences, offsets, toks, avg_logits
 
-                # An I- or E- tag is invalid if the previous tag was O or a different entity
-                if (
-                    prev_label == "O"
-                    or prev_label.startswith("E-")
-                    or prev_label.startswith("S-")
-                ):
-                    entity = curr_label.split("-", 1)[1]
-                    raw_predictions[j] = self.label2id.get(
-                        f"B-{entity}", raw_predictions[j]
-                    )
-                elif prev_label.startswith("B-") or prev_label.startswith("I-"):
-                    prev_entity = prev_label.split("-", 1)[1]
-                    curr_entity = curr_label.split("-", 1)[1]
-                    if prev_entity != curr_entity:
-                        raw_predictions[j] = self.label2id.get(
-                            f"B-{curr_entity}", raw_predictions[j]
-                        )
-
-            raw_predictions_list.append(raw_predictions)
-            confidences_list.append(confidences)
-
-        return texts, raw_predictions_list, confidences_list
-
-    def _pretty_print_ner_text(
-        self,
-        cleaned_text: str,
-        pred_labels: list[int],
+    # ---------------- Pretty print from token labels via offsets ----------------
+    def _pretty_print_from_tokens(
+        self, text: str, preds: list[int], offsets: list[tuple[int, int]]
     ) -> str:
-        """
-        Convert predictions to tagged text format by grouping consecutive
-        characters with the same entity type. This is more robust to
-        models that might not produce perfect BIOES sequences.
+        def ent(lid: int) -> str:
+            tag = self.id2label.get(lid, "O")
+            return "O" if tag == "O" else tag.split("-", 1)[1].lower()
 
-        Args:
-            cleaned_text: The clean text without any tags.
-            pred_labels: The list of predicted label IDs for each character.
+        res = []
+        cur_ent = "O"
+        pos = 0  # last emitted char pos in source text
 
-        Returns:
-            The text with XML-style tags for entities.
-        """
-        assert len(cleaned_text) == len(
-            pred_labels
-        ), "Text and predictions must have the same length."
-        result: list[str] = []
+        for lid, (s, e) in zip(preds, offsets):
+            if e == 0 or s >= e:
+                continue
+            if pos < s:
+                res.append(text[pos:s])
+                pos = s
+            tok_ent = ent(lid)
+            if tok_ent != cur_ent:
+                if cur_ent != "O":
+                    res.append(f"</{cur_ent}>")
+                if tok_ent != "O":
+                    res.append(f"<{tok_ent}>")
+                cur_ent = tok_ent
+            res.append(text[s:e])
+            pos = e
 
-        # Helper to extract the core entity name (e.g., 'section' from 'B-section')
-        def get_entity_name(label_id: int) -> str:
-            tag = self.id2label.get(label_id, "O")
-            if tag == "O":
-                return "O"
-            return tag.split("-", 1)[1].lower()
+        if pos < len(text):
+            res.append(text[pos:])
+        if cur_ent != "O":
+            res.append(f"</{cur_ent}>")
+        return "".join(res)
 
-        # Pad with a dummy label to handle closing the tag for the last character
-        for i, (char, label_id) in enumerate(zip(cleaned_text, pred_labels)):
-            current_entity = get_entity_name(label_id)
-            prev_entity = get_entity_name(pred_labels[i - 1]) if i > 0 else "O"
-
-            # If the entity type has changed, we need to adjust the tags
-            if current_entity != prev_entity:
-                # Close the previous tag if it was a real entity
-                if prev_entity != "O":
-                    result.append(f"</{prev_entity}>")
-                # Open a new tag if the current one is a real entity
-                if current_entity != "O":
-                    result.append(f"<{current_entity}>")
-
-            # Always append the current character
-            result.append(char)
-
-        # After the loop, check if the very last character was part of an entity
-        if pred_labels:
-            last_entity = get_entity_name(pred_labels[-1])
-            if last_entity != "O":
-                result.append(f"</{last_entity}>")
-
-        return "".join(result)
-
-    def _get_uncertain_spans(
-        self,
-        predictions: list[int],
-        confidences: list[float],
+    # ---------------- Low-confidence spans over tokens ----------------
+    def _token_spans(
+        self, preds: list[int], confs: list[float]
     ) -> tuple[int, list[dict]]:
-        """
-        Group low-confidence characters into spans, emitting entity names.
-
-        Args:
-            predictions: Predicted label IDs
-            confidences: Confidence scores
-
-        Returns:
-            Tuple of (low_count, spans)
-        """
-        low_positions = [
-            i for i, conf in enumerate(confidences) if conf < self.review_threshold
-        ]
-        low_count = len(low_positions)
+        low_idxs = [i for i, c in enumerate(confs) if c < self.review_threshold]
+        low_count = len(low_idxs)
         spans: list[dict] = []
-
-        if not low_positions:
+        if not low_idxs:
             return low_count, spans
 
-        span_start = low_positions[0]
-        span_label_id = predictions[span_start]
-        confidence_list = [confidences[span_start]]
-        prev = span_start
+        def ent_name(lid: int) -> str:
+            lab = self.id2label[lid]
+            return lab.split("-", 1)[1].lower() if "-" in lab else lab.lower()
 
-        def _entity_name(label_id: int) -> str:
-            label = self.id2label[label_id]
-            if "-" in label:
-                return label.split("-", 1)[1].lower()
-            return label.lower()
+        start = low_idxs[0]
+        cur_lab = preds[start]
+        acc = [confs[start]]
+        prev = start
 
-        for pos in low_positions[1:]:
-            if pos == prev + 1 and predictions[pos] == span_label_id:
-                confidence_list.append(confidences[pos])
-                prev = pos
+        for i in low_idxs[1:]:
+            if i == prev + 1 and preds[i] == cur_lab:
+                acc.append(confs[i])
+                prev = i
             else:
                 spans.append(
                     {
-                        "entity": _entity_name(span_label_id),
-                        "start": span_start,
-                        "end": prev,
-                        "avg_confidence": sum(confidence_list) / len(confidence_list),
+                        "entity": ent_name(cur_lab),
+                        "start_token": start,
+                        "end_token": prev,
+                        "avg_confidence": sum(acc) / len(acc),
                     }
                 )
-                span_start = pos
-                span_label_id = predictions[pos]
-                confidence_list = [confidences[pos]]
-                prev = pos
+                start = i
+                cur_lab = preds[i]
+                acc = [confs[i]]
+                prev = i
 
         spans.append(
             {
-                "entity": _entity_name(span_label_id),
-                "start": span_start,
-                "end": prev,
-                "avg_confidence": sum(confidence_list) / len(confidence_list),
+                "entity": ent_name(cur_lab),
+                "start_token": start,
+                "end_token": prev,
+                "avg_confidence": sum(acc) / len(acc),
             }
         )
         return low_count, spans
 
+    # ---------------- Public API ----------------
+    # 2) label() gains a flag and optionally returns token_probs
     def label(
         self,
         texts: list[str],
         verbose: bool = False,
-    ) -> list[dict[str, Union[str, int, list[dict], list[dict]]]]:
-        """
-        Batch-label a list of texts.
+        return_token_probs: bool = False,   # <— new flag
+    ) -> list[dict]:
+        results = []
+        for idx, text in enumerate(texts):
+            preds, confs, offsets, _, avg_logits = self._predict_tokens(text)
+            tagged = self._pretty_print_from_tokens(text, preds, offsets)
+            low_count, spans = self._token_spans(preds, confs)
 
-        Args:
-            texts: List of texts to label
-            verbose: Whether to print detailed output
+            tokens_below = []
+            for i, ((s, e), conf, lid) in enumerate(zip(offsets, confs, preds)):
+                if e == 0 or s >= e:
+                    continue
+                if conf < self.review_threshold:
+                    lab = self.id2label[lid]
+                    tokens_below.append(
+                        {
+                            "i": i,
+                            "token": text[s:e],
+                            "start": s,
+                            "end": e,
+                            "entity": lab.split("-", 1)[1].lower() if "-" in lab else lab.lower(),
+                            "confidence": conf,
+                        }
+                    )
 
-        Returns:
-            List of result dictionaries with tagged text, low count, spans, and chars
-        """
-        cleaned_texts, predictions_list, confidences_list = (
-            self._batch_predict_full_texts(texts)
-        )
-        results: list[dict[str, Union[str, int, list[dict], list[dict]]]] = []
+            out = {
+                "tagged": tagged,
+                "low_count": low_count,
+                "spans": spans,
+                "tokens": tokens_below,
+            }
 
-        for idx, (cleaned, predictions, confidences) in enumerate(
-            zip(cleaned_texts, predictions_list, confidences_list)
-        ):
-            tagged = self._pretty_print_ner_text(cleaned, predictions)
-            low_count, spans = self._get_uncertain_spans(predictions, confidences)
-
-            chars = [
-                {
-                    "pos": i,
-                    "char": ch,
-                    "entity": (
-                        self.id2label[pid].split("-", 1)[1].lower()
-                        if "-" in self.id2label[pid]
-                        else self.id2label[pid].lower()
-                    ),
-                    "confidence": conf,
-                }
-                for i, (ch, conf, pid) in enumerate(
-                    zip(cleaned, confidences, predictions)
-                )
-                if conf < self.review_threshold
-            ]
+            if return_token_probs:
+                # Build full per-token probability vectors (from stitched avg_logits)
+                probs_full = torch.softmax(avg_logits, dim=-1).tolist()
+                token_probs = []
+                for i, ((s, e), lid, pv) in enumerate(zip(offsets, preds, probs_full)):
+                    if e == 0 or s >= e:
+                        continue
+                    token_probs.append(
+                        {
+                            "i": i,
+                            "token": text[s:e],
+                            "start": s,
+                            "end": e,
+                            "pred_class": self.id2label[lid],
+                            "confidence": max(pv),
+                            "probs": {self.id2label[c]: float(pv[c]) for c in range(self.C)},
+                        }
+                    )
+                out["token_probs"] = token_probs
 
             if verbose:
                 print(f"\n=== Text #{idx} ===")
                 print(tagged)
-                print(
-                    f"\n[low-confidence chars < {self.review_threshold}]: {low_count}"
-                )
+                print(f"\n[low-confidence tokens < {self.review_threshold}]: {low_count}")
                 if spans:
-                    print("\nUncertain spans:")
-                    for span in spans:
-                        snippet = cleaned[span["start"] : span["end"] + 1].replace(
-                            "\n", "\\n"
-                        )
-                        print(
-                            f" - chars {span['start']}-{span['end']} "
-                            f"({snippet}) as {span['entity']} "
-                            f"(avg_conf={span['avg_confidence']:.2f})"
-                        )
+                    print("\nUncertain spans (token-level):")
+                    for sp in spans:
+                        print(f" - {sp}")
                 else:
                     print("No spans below threshold.")
 
-            results.append(
-                {
-                    "tagged": tagged,
-                    "low_count": low_count,
-                    "spans": spans,
-                    "chars": chars,
-                }
-            )
-
+            results.append(out)
         return results
 
 
@@ -689,10 +654,9 @@ def main(mode: str = "test") -> None:
 
         # Run inference
         start = time.time()
-        tagged_result = inference_model.label(samples, verbose=False)
+        tagged_result = inference_model.label(samples, verbose=True)
         inference_time = time.time() - start
 
-        print(tagged_result)
         print(f"Inference time: {inference_time:.2f} seconds")
 
     else:
