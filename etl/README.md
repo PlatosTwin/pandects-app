@@ -43,7 +43,7 @@
     * Formatted text
 
 **ETL processes**:
-* Select all _unprocessed_ agreements (`processed = 0`)
+* Select all _unprocessed_ agreements (`pdx.agreements.processed = 0`)
 * Split into pages, and format and classify pages
 * `insert into pdx.pages` + `on duplicate key update`
 * Note: MariaDB generates page UUIDs automatically
@@ -62,6 +62,7 @@
     * page_type_prob_toc
     * page_type_prob_body
     * page_type_prob_sig 
+    * page_type_prob_back_matter
     * processed
 
 ## Stage 3—Tag pre-processed agreements via NER and LLM
@@ -74,10 +75,10 @@
 * LLM output
 
 **ETL processes**:
-* Select all _unprocessed_ pages (`processed = 0`)
+* Select all _unprocessed_ pages (`pdx.pages.processed = 0`)
 * Run through tagging model
 * `insert into pdx.tagged_outputs` + `on duplicate key update`
-* Set `processed = 1` for all pages successfully tagged
+* Set `pdx.pages.processed = 1` for all pages successfully tagged
 
 **Tables**:
 * pdx.tagged_outputs
@@ -107,10 +108,10 @@
 * XML (with taxonomy labels)
 
 **ETL processes**:
-* Select all tagged output for _unprocessed_ agreements (`processed = 0`)
+* Select all tagged output for _unprocessed_ agreements (`pdx.agreements.processed = 0`)
 * Run through XML generation functions
-* `insert into pdx.xml`
-* Set `processed = 1` for all agreements successfully XML'd
+* `insert into pdx.xml` + `on duplicate key update`
+* Set `pdx.agreements.processed = 1` for all agreements successfully XML'd
 
 **Tables**:
 * pdx.xml
