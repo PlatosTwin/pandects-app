@@ -25,3 +25,5 @@ NOTES.md
 **/model_files
 
 .vscode
+
+.DS_Store
