@@ -29,9 +29,23 @@ NER_LABEL_LIST = [
     "S-PAGE",  # single PAGE span
 ]
 
+SPECIAL_TOKENS_TO_ADD = ["SECTION", "ARTICLE"]
+
 # Classifier model configuration
 CLASSIFIER_LABEL_LIST = ["front_matter", "toc", "body", "sig", "back_matter"]
-CLASSIFIER_XGB_PATH = str(MODEL_FILES_DIR / "xgb_multi_class.json")
-CLASSIFIER_CKPT_PATH = str(MODEL_FILES_DIR / "dev-classifier-model.ckpt")
+CLASSIFIER_XGB_PATH = str(MODEL_FILES_DIR / "xgb_multi_class-revamp.json")
+CLASSIFIER_CKPT_PATH = str(MODEL_FILES_DIR / "dev-classifier-model-revamp.ckpt")
 
-SPECIAL_TOKENS_TO_ADD = ["SECTION", "ARTICLE"]
+# Taxonomy section classifier configuration
+# NOTE: Update TAXONOMY_LABEL_LIST to match your dataset. It must include a catch-all label like "other".
+TAXONOMY_CKPT_PATH = str(MODEL_FILES_DIR / "dev-taxonomy-model.ckpt")
+TAXONOMY_VECTORIZER_PATH = str(MODEL_FILES_DIR / "taxonomy-tfidf.pkl")
+TAXONOMY_LABEL_LIST = [
+    # Example defaults; replace with your full taxonomy
+    "other",
+    "definitions",
+    "representations_warranties",
+    "covenants",
+    "termination",
+    "purchase_price_adjustments",
+]

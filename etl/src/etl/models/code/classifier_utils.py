@@ -134,6 +134,22 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
     count_p = html.lower().count("<p")
     count_div = html.lower().count("<div")
 
+    # --- Extra cues for exhibits/back matter & signature blocks ---
+    lower = text.lower()
+    first_line = text.split("\n", 1)[0].strip()
+    first_lower = first_line.lower()
+
+    # Headings like "EXHIBIT A", "ANNEX I", "SCHEDULE 1.1(a)"
+    exhibit_heading = 1.0 if re.search(r"^\s*(exhibit|annex|schedule)\s+([a-z0-9][a-z0-9\.\-\(\)]*)", first_lower, re.I) else 0.0
+    # Common back-matter/exhibit phrases
+    has_counterparts = 1.0 if ("counterpart" in lower or "counterparts" in lower) else 0.0
+    has_form_of = 1.0 if ("form of" in lower and "agreement" in lower) else 0.0
+    signature_page_to = 1.0 if ("signature page to" in lower) else 0.0
+    # Signature field cues
+    sig_field_cues = sum(kw in lower for kw in ["name:", "title:", "its:", "date:"])
+    # Long underscore runs (signature lines)
+    underscore_runs = len(re.findall(r"_{5,}", text))
+    
     # Compile feature vector
     features = [
         num_words,
@@ -173,5 +189,11 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         count_p,
         count_div,
         order,
+        exhibit_heading,
+        has_counterparts,
+        has_form_of,
+        signature_page_to,
+        float(sig_field_cues),
+        float(underscore_runs),
     ]
     return np.array(features, dtype=float)
