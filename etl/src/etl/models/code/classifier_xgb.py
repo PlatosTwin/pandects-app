@@ -15,8 +15,8 @@ from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_su
 from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
-from classifier_utils import extract_features
-from shared_constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
+from .classifier_utils import extract_features
+from .shared_constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
 
 
 def load_and_prepare_data(data_path: str) -> tuple[np.ndarray, np.ndarray, dict]:

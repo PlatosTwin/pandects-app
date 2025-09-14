@@ -39,8 +39,8 @@ from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-from shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
-from ner_classes import NERTagger, NERDataModule
+from .shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
+from .ner_classes import NERTagger, NERDataModule
 
 # Reproducibility
 seed_everything(42, workers=True, verbose=False)
@@ -294,13 +294,19 @@ class NERInference:
         self,
         ckpt_path: str,
         label_list: list[str] | None,
-        device: str = "cpu",
         review_threshold: float = 0.5,
         window_batch_size: int = 32,
         window: int = 510,
         stride: int = 256,
     ) -> None:
-        self.device = torch.device(device)
+    
+        if torch.backends.mps.is_available():
+            self.device = "mps"
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+        else:
+            self.device = "cpu"
+            
         self.model: NERTagger = NERTagger.load_from_checkpoint(
             ckpt_path, map_location=self.device
         )
@@ -654,10 +660,11 @@ def main(mode: str = "test") -> None:
 
         # Run inference
         start = time.time()
-        tagged_result = inference_model.label(samples, verbose=True)
+        tagged_result = inference_model.label(samples, verbose=False)
         inference_time = time.time() - start
 
         print(f"Inference time: {inference_time:.2f} seconds")
+        print(tagged_result)
 
     else:
         raise RuntimeError(f"Invalid mode: {mode}. Use 'train' or 'test'")

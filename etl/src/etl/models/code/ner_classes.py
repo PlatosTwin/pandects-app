@@ -32,7 +32,7 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollatorForTokenClassification
 from transformers.optimization import get_linear_schedule_with_warmup
 
-from shared_constants import SPECIAL_TOKENS_TO_ADD
+from .shared_constants import SPECIAL_TOKENS_TO_ADD
 
 
 def _upgrade_token_head(

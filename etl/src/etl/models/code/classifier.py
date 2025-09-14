@@ -32,8 +32,8 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from optuna import create_study
 from optuna.integration import PyTorchLightningPruningCallback
 
-from classifier_classes import PageClassifier, PageDataModule, load_xgb_model
-from shared_constants import (
+from .classifier_classes import PageClassifier, PageDataModule
+from .shared_constants import (
     CLASSIFIER_CKPT_PATH,
     CLASSIFIER_XGB_PATH,
     CLASSIFIER_LABEL_LIST,
@@ -96,7 +96,10 @@ class ClassifierTrainer:
         print(f"[data] loaded {self.df.shape[0]} rows from {self.data_file}")
 
     def _get_callbacks(
-        self, trial: Optional[object] = None, ckpt: Optional[str] = None, overwrite: bool = False
+        self,
+        trial: Optional[object] = None,
+        ckpt: Optional[str] = None,
+        overwrite: bool = False,
     ) -> tuple:
         """
         Instantiate Lightning callbacks.
@@ -122,7 +125,9 @@ class ClassifierTrainer:
             save_top_k=1,
             filename=filename,
             dirpath=dirpath,
-            enable_version_counter=(not overwrite),  # Disable versioning when overwrite=True
+            enable_version_counter=(
+                not overwrite
+            ),  # Disable versioning when overwrite=True
         )
 
         early_stop = EarlyStopping(monitor="val_f1", patience=3, mode="max")
@@ -291,7 +296,6 @@ class ClassifierInference:
         xgb_path: str = CLASSIFIER_XGB_PATH,
         batch_size: int = 32,
         num_workers: int = 0,
-        device: Optional[str] = None,
         enable_first_sig_postprocessing: bool = True,
         first_sig_threshold: float = 0.3,
     ):
@@ -303,14 +307,11 @@ class ClassifierInference:
             xgb_path: Path to XGBoost model
             batch_size: Batch size for inference
             num_workers: Number of data loading workers
-            device: Device to use for inference
             enable_first_sig_postprocessing: Whether to apply decode-time first signature block fix
             first_sig_threshold: Probability threshold for signature block detection in postprocessing
         """
         # Device selection
-        if device is not None:
-            self.device = device
-        elif torch.backends.mps.is_available():
+        if torch.backends.mps.is_available():
             self.device = "mps"
         elif torch.cuda.is_available():
             self.device = "cuda"
@@ -319,11 +320,11 @@ class ClassifierInference:
 
         # Load model
         self.model = PageClassifier.load_from_checkpoint(
-            ckpt_path, 
-            label_names=CLASSIFIER_LABEL_LIST, 
+            ckpt_path,
+            label_names=CLASSIFIER_LABEL_LIST,
             enable_first_sig_postprocessing=enable_first_sig_postprocessing,
             first_sig_threshold=first_sig_threshold,
-            strict=False
+            strict=False,
         )
         self.model.to(self.device)
         self.model.eval()
@@ -331,6 +332,14 @@ class ClassifierInference:
         self.xgb_path = xgb_path
         self.batch_size = batch_size
         self.num_workers = num_workers
+
+        self.trainer = pl.Trainer(
+            accelerator=self.device,
+            logger=False,
+            enable_progress_bar=False,
+            enable_model_summary=False,
+            enable_checkpointing=False,
+        )
 
     def classify(
         self, df: pd.DataFrame
@@ -355,13 +364,7 @@ class ClassifierInference:
         data_module.setup(stage="predict")
 
         # Run predictions with minimal logging
-        trainer = pl.Trainer(
-            logger=False,  # Disable logging
-            enable_progress_bar=False,  # Disable progress bars
-            enable_model_summary=False,  # Disable model summary
-            enable_checkpointing=False,  # Disable checkpointing for inference
-        )
-        outputs = trainer.predict(
+        outputs = self.trainer.predict(
             self.model, dataloaders=data_module.predict_dataloader()
         )
 
@@ -396,8 +399,10 @@ def main(mode: str, file: str = "version") -> None:
     elif mode == "test":
         # Load test data
         df = pd.read_parquet("etl/src/etl/models/data/page-data-test.parquet")
-        agreement = df["agreement_uuid"].unique().tolist()[-1]
-        df = df[df["agreement_uuid"] == agreement]
+        print(df.shape)
+        print(df['agreement_uuid'].nunique())
+        # agreement = df["agreement_uuid"].unique().tolist()[-1]
+        # df = df[df["agreement_uuid"] == agreement]
 
         # Initialize inference model
         inference_model = ClassifierInference(num_workers=7)
@@ -407,20 +412,8 @@ def main(mode: str, file: str = "version") -> None:
         classified_result = inference_model.classify(df)
         inference_time = time.time() - start
 
+        pprint.pprint(classified_result)
         print(f"Inference time: {inference_time:.2f} seconds")
-        # pprint.pprint(
-        #     [
-        #         {
-        #             "postprocess_modified": c["postprocess_modified"],
-        #             "class": c["pred_class"],
-        #             "body": c["pred_probs"]["body"],
-        #             "sig": c["pred_probs"]["sig"],
-        #             "order": i,
-        #         }
-        #         for i, c in enumerate(classified_result[0])
-        #     ]
-        # )
-        # pprint.pprint(classified_result)
 
     else:
         raise RuntimeError(f"Invalid mode: {mode}. Use 'train' or 'test'")

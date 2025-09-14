@@ -22,8 +22,8 @@ from torchmetrics import F1Score, Precision, Recall
 import xgboost as xgb
 from joblib import Parallel, delayed
 
-from classifier_utils import extract_features
-from shared_constants import CLASSIFIER_LABEL_LIST
+from .classifier_utils import extract_features
+from .shared_constants import CLASSIFIER_LABEL_LIST
 
 
 @lru_cache(maxsize=2)
