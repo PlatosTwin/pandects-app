@@ -83,6 +83,7 @@ def upsert_pages(staged_pages: Sequence, operation_type: str, conn: Connection) 
         "page_type_prob_body",
         "page_type_prob_sig",
         "page_type_prob_back_matter",
+        "postprocess_modified",
     ]
 
     update_cols = [
@@ -94,6 +95,7 @@ def upsert_pages(staged_pages: Sequence, operation_type: str, conn: Connection) 
         "page_type_prob_body",
         "page_type_prob_sig",
         "page_type_prob_back_matter",
+        "postprocess_modified",
     ]
 
     if operation_type == "insert":
@@ -155,7 +157,7 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     Upserts a batch of TagData objects into the pdx.tagged_outputs table.
     Args:
         staged_tags (Sequence): List of TagData or dicts with keys
-            page_uuid, tagged_text, low_count, spans, chars.
+            page_uuid, tagged_text, low_count, spans, tokens.
         conn (Connection): SQLAlchemy connection.
     """
     upsert_sql_tags = text(
@@ -165,19 +167,19 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
             tagged_text,
             low_count,
             spans,
-            chars
+            tokens
         ) VALUES (
             :page_uuid,
             :tagged_text,
             :low_count,
             :spans,
-            :chars
+            :tokens
         )
         ON DUPLICATE KEY UPDATE
             tagged_text = VALUES(tagged_text),
             low_count   = VALUES(low_count),
             spans       = VALUES(spans),
-            chars       = VALUES(chars)
+            tokens       = VALUES(tokens)
         """
     )
     update_sql_pages = text(
@@ -197,7 +199,7 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
                 "tagged_text": tag.tagged_text,
                 "low_count": tag.low_count,
                 "spans": json.dumps(tag.spans),
-                "chars": json.dumps(tag.chars),
+                "tokens": json.dumps(tag.tokens),
             }
         )
 
