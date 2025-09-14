@@ -1,6 +1,23 @@
+## Overview
+1. Stage 1: stage agreements ([defs/staging](src/etl/defs/staging_asset.py))
+    * Current: pull agreements from DMA corpus
+    * Future: pull new agreements from EDGAR
+2. Stage 2: pre-process staged agreements ([defs/pre_process](src/etl/defs/pre_processing_asset.py))
+    * Split to pages
+    * Classify pages
+    * Format text
+3. Stage 3: tagging via NER model ([defs/tagging](src/etl/defs/tagging_asset.py))
+    * Feed `body` pages to NER model
+4. Stage 4: validate uncertain spans ([defs/ai_repair](src/etl/defs/ai_repair_asset.py))
+    * Feed uncertain spans to LLM to validate
+5. Stage 5: XML ([defs/xml.py](src/etl/defs/xml_asset.py))
+    * Assemble XML from tagged pages
+6. Stage 6: taxonomize ()
+7. Stage 7: split to sections ()
+
 ## Stage 1—Stage agreements
 
-**Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file. Set `processed = 0` until XML is generated in Step 4.
+**Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file. Set `pdx.agreements.processed = 0` until XML is generated in Step 4.
 
 **Output**:
 * EDGAR link
@@ -34,7 +51,7 @@
 
 ## Stage 2—Pre-process staged agreements
 
-**Description**: Pulls staged agreements, splits agreements into pages, classifies page type, and processes HTML into formatted text, in preparation for LLM tagging in next stage. Set `processed = 0` until XML is generated in Step 4.
+**Description**: Pulls staged agreements, splits agreements into pages, classifies page type, and processes HTML into formatted text, in preparation for LLM tagging in next stage. Set `pdx.pages.processed = 0` until XML is generated in Step 4.
 
 **Output**:
 * Main body pages only.
