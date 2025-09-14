@@ -29,7 +29,13 @@ def staging_asset(
         Number of new filings processed.
     """
     engine = db.get_engine()
-    is_cleanup = pipeline_config.is_cleanup_mode()
+    # is_cleanup = pipeline_config.is_cleanup_mode()
+    mode_tag = context.run.tags.get("pipeline_mode")
+    is_cleanup = (
+        (mode_tag == "cleanup")
+        if mode_tag is not None
+        else pipeline_config.is_cleanup_mode()
+    )
 
     # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):

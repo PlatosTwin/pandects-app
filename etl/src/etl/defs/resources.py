@@ -14,9 +14,11 @@ from etl.models.code.shared_constants import (
     NER_LABEL_LIST,
     NER_CKPT_PATH,
     CLASSIFIER_CKPT_PATH,
+    CLASSIFIER_XGB_PATH,
 )
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import PrivateAttr
 
 
 class PipelineMode(Enum):
@@ -28,7 +30,7 @@ class PipelineMode(Enum):
 class PipelineConfig(dg.ConfigurableResource):
     """Configuration for pipeline execution mode."""
     
-    mode: PipelineMode = PipelineMode.FROM_SCRATCH
+    mode: PipelineMode = PipelineMode.CLEANUP
 
     def is_cleanup_mode(self) -> bool:
         """Check if the pipeline is running in cleanup mode."""
@@ -56,10 +58,16 @@ class DBResource(dg.ConfigurableResource):
 class ClassifierModel(dg.ConfigurableResource):
     """Resource for the page classification model."""
 
-    def model(self) -> ClassifierInference:
-        """Load and return the PageClassifier model."""
-        model = ClassifierInference(num_workers=7)
-        return model
+    _inf: Optional[ClassifierInference] = PrivateAttr(default=None)
+
+    def model(self):
+        if self._inf is None:
+            self._inf = ClassifierInference(
+                ckpt_path=CLASSIFIER_CKPT_PATH,
+                xgb_path=CLASSIFIER_XGB_PATH,
+                num_workers=7
+            )
+        return self._inf
 
 
 class TaggingModel(dg.ConfigurableResource):

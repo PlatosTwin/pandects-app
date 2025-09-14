@@ -30,6 +30,7 @@ def get_uuid(x: str) -> str:
 @dataclass
 class PageMetadata:
     """Metadata for a single page of an agreement."""
+
     agreement_uuid: Optional[str] = None
     page_order: Optional[int] = None
     raw_page_content: Optional[str] = None
@@ -40,14 +41,16 @@ class PageMetadata:
     page_type_prob_front_matter: Optional[float] = None
     page_type_prob_toc: Optional[float] = None
     page_type_prob_body: Optional[float] = None
-    page_type_prob_sig: Optional[float] = None
+    page_type_prob_sig: Optional[float] = -1
     page_type_prob_back_matter: Optional[float] = None
     page_uuid: Optional[str] = None
+    postprocess_modified: Optional[bool] = None
 
 
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     """
     Fetch the HTML content at the given URL with rate limiting.
+    Used in FROM_SCRATCH mode only.
 
     Args:
         url: The URL to pull.
@@ -96,18 +99,20 @@ def classify(classifier_model: Any, data: List[PageMetadata]) -> List[Dict[str, 
     Returns:
         List of classification results for each page.
     """
-    df = pd.DataFrame([asdict(pm) for pm in data])
+    agreement_uuids = [pm.agreement_uuid for pm in data]
+    texts = [pm.processed_page_content for pm in data]
+    orders = [pm.page_order for pm in data]
+    htmls = [
+        pm.raw_page_content if (pm.source_is_html and not pm.source_is_txt) else None
+        for pm in data
+    ]
 
-    df["html"] = df[["raw_page_content", "source_is_txt"]].apply(
-        lambda x: pd.NA if x["source_is_txt"] else x["raw_page_content"], axis=1
+    df = pd.DataFrame(
+        {"agreement_uuid": agreement_uuids, "text": texts, "html": htmls, "order": orders},
+        copy=False,
     )
-    df.rename(
-        {"processed_page_content": "text", "page_order": "order"}, axis=1, inplace=True
-    )
 
-    model_output = classifier_model.classify(df)[0]
-
-    return model_output
+    return classifier_model.classify(df)
 
 
 def normalize_text(text: str) -> str:
@@ -141,7 +146,9 @@ def normalize_text(text: str) -> str:
     return text.strip()
 
 
-def strip_formatting_tags(soup: BeautifulSoup, remove_tags: Optional[List[str]] = None) -> BeautifulSoup:
+def strip_formatting_tags(
+    soup: BeautifulSoup, remove_tags: Optional[List[str]] = None
+) -> BeautifulSoup:
     """
     Remove font-like tags and clean up formatting.
 
@@ -164,8 +171,23 @@ def strip_formatting_tags(soup: BeautifulSoup, remove_tags: Optional[List[str]] 
 
     if remove_tags is None:
         remove_tags = [
-            "font", "span", "b", "strong", "i", "em", "u", "small", "big",
-            "sup", "sub", "tt", "s", "strike", "ins", "del", "a",
+            "font",
+            "span",
+            "b",
+            "strong",
+            "i",
+            "em",
+            "u",
+            "small",
+            "big",
+            "sup",
+            "sub",
+            "tt",
+            "s",
+            "strike",
+            "ins",
+            "del",
+            "a",
         ]
 
     # Remove all style attributes
@@ -189,8 +211,17 @@ def strip_formatting_tags(soup: BeautifulSoup, remove_tags: Optional[List[str]] 
 def block_level_soup(
     soup: BeautifulSoup,
     block_tags: Iterable[str] = (
-        "p", "div", "li", "section", "article",
-        "h1", "h2", "h3", "h4", "h5", "h6",
+        "p",
+        "div",
+        "li",
+        "section",
+        "article",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
     ),
 ) -> BeautifulSoup:
     """
@@ -280,7 +311,9 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         raise RuntimeError("Unknown page source type.")
 
 
-def split_to_pages(content: str, is_txt: bool, is_html: bool) -> List[Dict[str, Union[str, int]]]:
+def split_to_pages(
+    content: str, is_txt: bool, is_html: bool
+) -> List[Dict[str, Union[str, int]]]:
     """
     Split content into individual pages.
 
@@ -336,68 +369,29 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> List[Dict[str, 
         raise RuntimeError("Unknown page source type.")
 
 
-def core_process(
-    agreement_uuid: str,
-    pages: List[Dict[str, Union[str, int]]],
-    is_txt: bool,
-    is_html: bool,
-    classifier_model: Any,
-) -> List[PageMetadata]:
-    """
-    Process pages through formatting and classification.
-
-    Args:
-        agreement_uuid: UUID of the agreement.
-        pages: List of page dictionaries.
-        is_txt: Whether pages are from text files.
-        is_html: Whether pages are from HTML files.
-        classifier_model: Model to use for page classification.
-
-    Returns:
-        List of processed PageMetadata objects.
-    """
-    staged_pages: List[PageMetadata] = []
-
-    # Loop through pages to format
-    temp_pages = []
-    page_order = 0
-    for page in pages:
-        page_formatted_content = format_content(page["content"], is_txt, is_html)
-
-        if not page_formatted_content:
-            continue
-
-        temp_pages.append(
-            PageMetadata(
-                agreement_uuid=agreement_uuid,
-                page_order=page_order,
-                raw_page_content=page["content"],
-                processed_page_content=page_formatted_content,
-                source_is_txt=is_txt,
-                source_is_html=is_html,
-                page_uuid=page.get("page_uuid"),
-            )
-        )
-
-        page_order += 1
-
-    # Classify pages
-    page_classes = classify(classifier_model, temp_pages)
-
-    for page_object, page_class in zip(temp_pages, page_classes):
-        page_object.source_page_type = page_class["pred_class"]
-        page_object.page_type_prob_front_matter = page_class["front_matter"]
-        page_object.page_type_prob_toc = page_class["toc"]
-        page_object.page_type_prob_body = page_class["body"]
-        page_object.page_type_prob_sig = page_class["sig"]
-        page_object.page_type_prob_back_matter = page_class["back_matter"]
-
-    staged_pages.extend(temp_pages)
-
-    return staged_pages
+def _format_page(page, is_txt, is_html):
+    return format_content(page["content"], is_txt, is_html)
 
 
-def pre_process(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[List[PageMetadata]]:
+def _attach_preds_to_pages(
+    page_objs: List[PageMetadata], preds: List[List[Dict[str, Any]]]
+) -> None:
+    # Flatten preds (list of lists) into a single list
+    flat_preds = [item for sublist in preds for item in sublist]
+    for po, pc in zip(page_objs, flat_preds):
+        po.source_page_type = pc["pred_class"]
+        pp = pc["pred_probs"]
+        po.page_type_prob_front_matter = pp["front_matter"]
+        po.page_type_prob_toc = pp["toc"]
+        po.page_type_prob_body = pp["body"]
+        po.page_type_prob_sig = pp["sig"]
+        po.page_type_prob_back_matter = pp["back_matter"]
+        po.postprocess_modified = pc["postprocess_modified"]
+
+
+def pre_process(
+    rows: List[Dict[str, Any]], classifier_model: Any
+) -> Optional[List[PageMetadata]]:
     """
     Split agreements into pages, classify page type, and process HTML into formatted text.
 
@@ -409,6 +403,8 @@ def pre_process(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[L
         List of processed PageMetadata objects, or None if processing should be skipped.
     """
     staged_pages: List[PageMetadata] = []
+    all_page_objs: List[PageMetadata] = []
+
     for agreement in rows:
         raw_url = agreement["url"]
         if raw_url.startswith("view-source:"):
@@ -427,7 +423,7 @@ def pre_process(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[L
             raise RuntimeError(f"Unknown filing extension: {ext}")
 
         # Pull down content from EDGAR
-        content = pull_agreement_content(agreement["url"])
+        content = pull_agreement_content(raw_url)
 
         # Split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
@@ -437,16 +433,36 @@ def pre_process(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[L
             return staged_pages
 
         # Format and classify
-        staged_pages.extend(
-            core_process(
-                agreement["agreement_uuid"], pages, is_txt, is_html, classifier_model
+        page_order = 0
+        for page in pages:
+            formatted = _format_page(page, is_txt, is_html)
+            if not formatted:
+                continue
+            all_page_objs.append(
+                PageMetadata(
+                    agreement_uuid=agreement["agreement_uuid"],
+                    page_order=page_order,
+                    raw_page_content=page["content"],
+                    processed_page_content=formatted,
+                    source_is_txt=is_txt,
+                    source_is_html=is_html,
+                    page_uuid=page.get("page_uuid"),
+                )
             )
-        )
+            page_order += 1
 
+    if not all_page_objs:
+        return staged_pages
+
+    preds = classify(classifier_model, all_page_objs)
+    _attach_preds_to_pages(all_page_objs, preds)
+    staged_pages.extend(all_page_objs)
     return staged_pages
 
 
-def cleanup(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[List[PageMetadata]]:
+def cleanup(
+    rows: List[Dict[str, Any]], classifier_model: Any, context: Any
+) -> Optional[List[PageMetadata]]:
     """
     Clean up and reprocess existing page data.
 
@@ -457,19 +473,41 @@ def cleanup(rows: List[Dict[str, Any]], classifier_model: Any) -> Optional[List[
     Returns:
         List of reprocessed PageMetadata objects.
     """
-    agreements = set([row["agreement_uuid"] for row in rows])
+    if not rows:
+        return []
 
-    staged_pages: List[PageMetadata] = []
-    for agreement in agreements:
-        temp_pages = [row for row in rows if row["agreement_uuid"] == agreement]
-        is_txt = temp_pages[0]["is_txt"]
-        is_html = temp_pages[0]["is_html"]
+    all_page_objs: List[PageMetadata] = []
+    for agreement in set(r["agreement_uuid"] for r in rows):
+        pages = [r for r in rows if r["agreement_uuid"] == agreement]
+        is_txt = pages[0]["is_txt"]
+        is_html = pages[0]["is_html"]
+        page_order = 0
+        for p in sorted(pages, key=lambda x: x["page_uuid"]):
+            formatted = format_content(p["content"], is_txt, is_html)
+            if not formatted:
+                continue
 
-        staged_pages.extend(
-            core_process(agreement, temp_pages, is_txt, is_html, classifier_model)
-        )
+            all_page_objs.append(
+                PageMetadata(
+                    agreement_uuid=agreement,
+                    page_order=page_order,
+                    raw_page_content=p["content"],
+                    processed_page_content=formatted,
+                    source_is_txt=is_txt,
+                    source_is_html=is_html,
+                    page_uuid=p["page_uuid"],
+                )
+            )
+            page_order += 1
 
-    return staged_pages
+    if not all_page_objs:
+        return []
+
+    # context.pdb.set_trace()
+    preds = classify(classifier_model, all_page_objs)
+    _attach_preds_to_pages(all_page_objs, preds)
+    
+    return all_page_objs
 
 
 if __name__ == "__main__":
