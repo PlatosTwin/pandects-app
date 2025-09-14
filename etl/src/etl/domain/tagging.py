@@ -9,10 +9,10 @@ class TagData:
     tagged_text: str
     low_count: int
     spans: list
-    chars: dict
+    tokens: dict
 
 
-def tag(rows: List[Dict[str, Any]], tagging_model: Any) -> List[TagData]:
+def tag(rows: List[Dict[str, Any]], tagging_model: Any, context: Any) -> List[TagData]:
     """
     Tag text content using the provided tagging model.
 
@@ -23,8 +23,15 @@ def tag(rows: List[Dict[str, Any]], tagging_model: Any) -> List[TagData]:
     Returns:
         List of TagData objects containing tagged text and metadata.
     """
-    texts = [r["processed_page_content"] for r in rows]
-    page_uuids = [r["page_uuid"] for r in rows]
+    texts = []
+    page_uuids = []
+    for r in rows:
+        if len(r["processed_page_content"].split()) > 4096:
+            context.log.info(f"Skipping page {r['page_uuid']} because it is too long")
+            continue
+
+        texts.append(r["processed_page_content"])
+        page_uuids.append(r["page_uuid"])
 
     tagged_texts = tagging_model.label(texts)
 
@@ -36,7 +43,7 @@ def tag(rows: List[Dict[str, Any]], tagging_model: Any) -> List[TagData]:
                 tagged_text=tagged["tagged"],
                 low_count=tagged["low_count"],
                 spans=tagged["spans"],
-                chars=tagged["chars"],
+                tokens=tagged["tokens"],
             )
         )
     

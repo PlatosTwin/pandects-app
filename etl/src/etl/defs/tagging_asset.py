@@ -4,12 +4,12 @@ from etl.defs.resources import DBResource, TaggingModel, PipelineConfig
 from sqlalchemy import text
 from etl.domain.tagging import tag
 import dagster as dg
-from etl.defs.staging_asset import staging_asset
+from etl.defs.pre_processing_asset import pre_processing_asset
 from etl.utils.db_utils import upsert_tags
 from typing import List, Dict, Any
 
 
-@dg.asset(deps=[staging_asset])
+@dg.asset(deps=[pre_processing_asset])
 def tagging_asset(
     context,
     db: DBResource,
@@ -31,7 +31,13 @@ def tagging_asset(
     batch_size: int = 250
     last_uuid: str = ""
     engine = db.get_engine()
-    is_cleanup = pipeline_config.is_cleanup_mode()
+    # is_cleanup = pipeline_config.is_cleanup_mode()
+    mode_tag = context.run.tags.get("pipeline_mode")
+    is_cleanup = (
+        (mode_tag == "cleanup")
+        if mode_tag is not None
+        else pipeline_config.is_cleanup_mode()
+    )
 
     # Override mode from job context if available
     if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
@@ -49,13 +55,19 @@ def tagging_asset(
             result = conn.execute(
                 text(
                     """
-                    SELECT page_uuid, processed_page_content
-                    FROM pdx.pages
-                    WHERE page_uuid > :last_uuid
-                    AND processed = 0
-                    AND source_page_type = 'body'
-                    ORDER BY page_uuid ASC
-                    LIMIT :batch_size
+                    SELECT
+                        page_uuid,
+                        processed_page_content
+                    FROM
+                        pdx.pages
+                    WHERE
+                        page_uuid > :last_uuid
+                        AND processed = 0
+                        AND source_page_type = 'body'
+                    ORDER BY
+                        page_uuid ASC
+                    LIMIT
+                        :batch_size
                 """
                 ),
                 {"last_uuid": last_uuid, "batch_size": batch_size},
@@ -66,9 +78,9 @@ def tagging_asset(
                 break
 
             # Apply tagging to pages
-            tagged_pages = tag(rows, inference_model)
+            tagged_pages = tag(rows, inference_model, context)
             
-            context.log.info(tagged_pages[0])
+            # context.log.info(tagged_pages[0])
 
             try:
                 upsert_tags(tagged_pages, conn)
