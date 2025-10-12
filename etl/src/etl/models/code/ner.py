@@ -9,7 +9,6 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 import os
 import time
 import yaml
-import pprint
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
