@@ -160,9 +160,7 @@ def convert_to_xml(
         title = " ".join(raw_title.split())
 
         start, end = m.span()
-        next_start = (
-            matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
-        )
+        next_start = matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
         content = tagged_text[end:next_start].strip()
 
         if tag == "article":
@@ -182,15 +180,12 @@ def convert_to_xml(
                 add_text_nodes(current_article, content)
 
         else:  # section
-            if current_article is None:
-                current_article = ET.SubElement(
-                    body, "article", title="", uuid="", standardId=""
-                )
-                section_count = 0
+            # If no current article, attach section directly under body.
+            container = current_article if current_article is not None else body
 
             section_count += 1
             sec = ET.SubElement(
-                current_article,
+                container,
                 "section",
                 title=title,
                 uuid=get_uuid(agreement_uuid + title + str(section_count)),
@@ -200,15 +195,7 @@ def convert_to_xml(
             if content:
                 add_text_nodes(sec, content)
 
-    # 3) Trailing text → <backMatter>
-    if matches:
-        # Pick out only the <article> matches so we stop after the last article
-        article_matches = [m for m in matches if m.group(1) == "article"]
-        last_end = article_matches[-1].end() if article_matches else matches[-1].end()
-        trailing = tagged_text[last_end:].strip()
-        if trailing:
-            bm = ET.SubElement(root, "backMatter")
-            add_text_nodes(bm, trailing)
+    # Note: trailing text after the final heading remains within the last article/section's content.
 
     # Pretty-print with encoding in header
     rough = ET.tostring(root, "utf-8")
@@ -309,9 +296,53 @@ def generate_xml(df: Any) -> List[XMLData]:
     """
     staged_xml = []
 
+    # Helper: add simple nodes (text/definition/page/pageUUID) to container
+    def add_text_nodes_simple(parent: ET.Element, text_block: str) -> None:
+        definition_re_a = re.compile(
+            r'^[\u201C\u201D\"][^"\u201C\u201D]+[\u201C\u201D\"]\s+(?:mean|means|shall have the meaning|shall mean)\b',
+            re.IGNORECASE,
+        )
+        term_re = re.compile(r'^[\u201C\u201D\"]([^"\u201C\u201D]+)[\u201C\u201D\"]')
+        definition_re_b = re.compile(
+            r"""(?xi)
+            (?:
+              [\u201C\u201D\"][^"\u201C\u201D]+[\u201C\u201D\"]\s+or\s+[\u201C\u201D\"][^"\u201C\u201D]+[\u201C\u201D\"]\s+(?:mean|means|shall\ mean|shall\ have\ the\ meaning)
+            |
+              [\u201C\u201D\"][^"\u201C\u201D]+[\u201C\u201D\"](?:\s+\S+){0,5}\s+(?:mean|means|shall\ mean|shall\ have\ the\ meaning)
+            )\b
+            """,
+            re.IGNORECASE | re.VERBOSE,
+        )
+
+        for line in text_block.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if "<pageUUID>" in stripped and "</pageUUID>" in stripped:
+                m_uuid = re.search(r"<pageUUID>(.*?)</pageUUID>", stripped)
+                pu = ET.SubElement(parent, "pageUUID")
+                pu.text = m_uuid.group(1).strip() if m_uuid else stripped
+            elif "<page>" in stripped and "</page>" in stripped:
+                m_page = re.search(r"<page>(.*?)</page>", stripped)
+                p = ET.SubElement(parent, "page")
+                p.text = m_page.group(1).strip() if m_page else stripped
+            elif definition_re_a.match(stripped) or definition_re_b.match(stripped):
+                m_term = term_re.match(stripped)
+                term_val = m_term.group(1).lower() if m_term else ""
+                d = ET.SubElement(parent, "definition", standardID="<placeholder>", term=term_val)
+                d.text = stripped
+            else:
+                t = ET.SubElement(parent, "text")
+                t.text = stripped
+
     agreement_uuids = df["agreement_uuid"].unique().tolist()
     for agreement_uuid in agreement_uuids:
         temp = df[df["agreement_uuid"] == agreement_uuid].copy()
+        # Preserve order
+        if "page_order" in temp.columns:
+            temp = temp.sort_values(by=["page_order", "page_uuid"], kind="stable")
+        else:
+            temp = temp.sort_values(by=["page_uuid"], kind="stable")
 
         url = temp["url"].to_list()[0]
         acquirer = temp["acquirer"].to_list()[0]
@@ -319,25 +350,82 @@ def generate_xml(df: Any) -> List[XMLData]:
         announcement_date = temp["filing_date"].to_list()[0]
         source_format = "html" if temp["source_is_html"].to_list()[0] else "txt"
 
-        temp["tagged_output"] = temp[["tagged_output", "page_uuid"]].apply(
-            lambda x: x["tagged_output"] + f"<pageUUID>{x['page_uuid']}</pageUUID>",
-            axis=1,
-        )
+        root = ET.Element("document", uuid=agreement_uuid)
+        metadata = ET.SubElement(root, "metadata")
+        ET.SubElement(metadata, "acquirer").text = acquirer
+        ET.SubElement(metadata, "target").text = target
+        ET.SubElement(metadata, "filingDate").text = announcement_date.strftime("%Y-%m-%d")
+        ET.SubElement(metadata, "url").text = url
+        ET.SubElement(metadata, "sourceFormat").text = source_format
 
-        agreement_text = "\n".join(temp["tagged_output"].values)
+        # Containers by page type
+        # frontMatter
+        fm_rows = temp[temp.get("source_page_type") == "front_matter"]
+        if not fm_rows.empty:
+            fm_el = ET.SubElement(root, "frontMatter")
+            text_block = "\n".join(
+                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
+            )
+            add_text_nodes_simple(fm_el, text_block)
 
-        xml_out = convert_to_xml(
-            agreement_text,
-            agreement_uuid,
-            acquirer,
-            target,
-            announcement_date,
-            url,
-            source_format,
-        )
-        xml_out = collapse_text_into_definitions(xml_out)
-        xml_out = xml.dom.minidom.parseString(xml_out).toprettyxml(indent="  ")
+        # tableOfContents
+        toc_rows = temp[temp.get("source_page_type") == "toc"]
+        if not toc_rows.empty:
+            toc_el = ET.SubElement(root, "tableOfContents")
+            text_block = "\n".join(
+                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
+            )
+            add_text_nodes_simple(toc_el, text_block)
 
-        staged_xml.append(XMLData(agreement_uuid=agreement_uuid, xml=xml_out))
+        # body (preserve page order; parse headings across all body pages)
+        body_rows = temp[temp.get("source_page_type") == "body"]
+        if not body_rows.empty:
+            body_el = ET.SubElement(root, "body")
+            body_text = "\n".join(
+                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+            )
+            tmp_xml = convert_to_xml(
+                body_text,
+                agreement_uuid,
+                acquirer,
+                target,
+                announcement_date,
+                url,
+                source_format,
+            )
+            tmp_root = ET.fromstring(tmp_xml)
+            # Include any leading content that appeared before the first heading within body pages
+            fm_tmp = tmp_root.find("frontMatter")
+            if fm_tmp is not None:
+                for child in list(fm_tmp):
+                    body_el.append(child)
+            # Merge parsed body (articles/sections spanning pages)
+            body_tmp = tmp_root.find("body")
+            if body_tmp is not None:
+                for child in list(body_tmp):
+                    body_el.append(child)
+
+        # sigPages
+        sig_rows = temp[temp.get("source_page_type") == "sig"]
+        if not sig_rows.empty:
+            sig_el = ET.SubElement(root, "sigPages")
+            text_block = "\n".join(
+                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
+            )
+            add_text_nodes_simple(sig_el, text_block)
+
+        # backMatter
+        bm_rows = temp[temp.get("source_page_type") == "back_matter"]
+        if not bm_rows.empty:
+            bm_el = ET.SubElement(root, "backMatter")
+            text_block = "\n".join(
+                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
+            )
+            add_text_nodes_simple(bm_el, text_block)
+
+        xml_str = ET.tostring(root, encoding="unicode")
+        xml_str = collapse_text_into_definitions(xml_str)
+        xml_str = xml.dom.minidom.parseString(xml_str).toprettyxml(indent="  ")
+        staged_xml.append(XMLData(agreement_uuid=agreement_uuid, xml=xml_str))
 
     return staged_xml
