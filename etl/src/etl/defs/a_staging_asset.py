@@ -1,15 +1,20 @@
-"""Staging asset for fetching and upserting new filings."""
+"""Stage new filings and record pipeline run metadata.
+
+Respects CLEANUP vs FROM_SCRATCH modes via context tags or `PipelineConfig`.
+Returns the number of new filings processed.
+"""
+
+from datetime import datetime, timezone
+
+import dagster as dg
+from sqlalchemy import text
 
 from etl.defs.resources import DBResource, PipelineConfig
-from sqlalchemy import text
 from etl.domain.staging import fetch_new_filings
-from datetime import datetime, timezone
-import dagster as dg
 from etl.utils.db_utils import upsert_agreements
-from typing import Optional
 
 
-@dg.asset
+@dg.asset(name="1_staging_asset")
 def staging_asset(
     context: dg.AssetExecutionContext, 
     db: DBResource, 
@@ -29,7 +34,6 @@ def staging_asset(
         Number of new filings processed.
     """
     engine = db.get_engine()
-    # is_cleanup = pipeline_config.is_cleanup_mode()
     mode_tag = context.run.tags.get("pipeline_mode")
     is_cleanup = (
         (mode_tag == "cleanup")
@@ -38,10 +42,11 @@ def staging_asset(
     )
 
     # Override mode from job context if available
-    if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
-        job_config = context.job_def.config
-        if hasattr(job_config, "mode"):
-            is_cleanup = job_config.mode.value == "cleanup"
+    job_def = getattr(context, "job_def", None)
+    job_config = getattr(job_def, "config", None)
+    job_mode = getattr(job_config, "mode", None)
+    if job_mode is not None:
+        is_cleanup = getattr(job_mode, "value", None) == "cleanup"
 
     if is_cleanup:
         context.log.info("CLEANUP mode. Skipping staging step.")
@@ -51,7 +56,7 @@ def staging_asset(
 
     # Get last pull timestamp
     with engine.begin() as conn:
-        last_run: Optional[datetime] = conn.execute(
+        last_run: datetime = conn.execute(
             text(
                 "SELECT last_pulled_to "
                 "FROM pdx.pipeline_runs "

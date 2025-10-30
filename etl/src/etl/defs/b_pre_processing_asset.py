@@ -1,15 +1,21 @@
-"""Pre-processing asset for splitting agreements into pages and classifying content."""
+"""Split agreements into pages, classify page types, and format text.
 
-from etl.defs.resources import DBResource, ClassifierModel, PipelineConfig
-from sqlalchemy import text
-from etl.domain.pre_processing import pre_process, cleanup
+Respects CLEANUP vs FROM_SCRATCH modes via context tags or `PipelineConfig`.
+Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
+"""
+
+from typing import Any, Dict, List
+
 import dagster as dg
-from etl.defs.staging_asset import staging_asset
+from sqlalchemy import text
+
+from etl.defs.a_staging_asset import staging_asset
+from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
+from etl.domain.pre_processing import cleanup, pre_process
 from etl.utils.db_utils import upsert_pages
-from typing import List, Dict, Any
 
 
-@dg.asset(deps=[staging_asset])
+@dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
 def pre_processing_asset(
     context,
     db: DBResource,
@@ -30,7 +36,6 @@ def pre_processing_asset(
     engine = db.get_engine()
     inference_model = classifier_model.model()
 
-    # is_cleanup = pipeline_config.is_cleanup_mode()
     mode_tag = context.run.tags.get("pipeline_mode")
     is_cleanup = (
         (mode_tag == "cleanup")
@@ -47,13 +52,14 @@ def pre_processing_asset(
     batch_size: int = 5  # Process pages from batch_size agreements at a time
     
     # FROM_SCRATCH mode
-    # Just like CLEANUP mode, but we split the agreement into pages
+    # Just like CLEANUP mode, but we split the agreement into pages first
+    # If we're in CLEANUP mode, that means we've already split the agreement into pages
     if not is_cleanup:
         context.log.info("Running pre-processing in FROM_SCRATCH mode")
 
         while True:
             with engine.begin() as conn:
-                # Fetch batch of staged (not processed) agreements
+                # Fetch agreements that do not yet have any pages (idempotent)
                 result = conn.execute(
                     text(
                         """
@@ -64,7 +70,10 @@ def pre_processing_asset(
                         pdx.agreements
                     WHERE
                         agreement_uuid > :last_uuid
-                        AND processed = 0
+                        AND NOT EXISTS (
+                            SELECT 1 FROM pdx.pages p
+                            WHERE p.agreement_uuid = pdx.agreements.agreement_uuid
+                        )
                     ORDER BY
                         agreement_uuid ASC
                     LIMIT
@@ -108,7 +117,7 @@ def pre_processing_asset(
         # Since we've already split the agreements into pages, we can just fetch the pages
         while True:
             with engine.begin() as conn:
-                # Fetch batch of staged (not processed) pages
+                # Fetch pages that are missing derived outputs (processed text or page type)
                 result = conn.execute(
                     text(
                         """
@@ -119,7 +128,7 @@ def pre_processing_asset(
                             pdx.pages
                         WHERE
                             agreement_uuid > :last_uuid
-                            AND processed = 0
+                            AND (processed_page_content IS NULL OR source_page_type IS NULL)
                         ORDER BY
                             agreement_uuid ASC
                         LIMIT :batch_size
@@ -134,6 +143,7 @@ def pre_processing_asset(
                         pdx.pages AS p
                     WHERE
                         p.agreement_uuid in (SELECT agreement_uuid FROM agreement_batch)
+                        AND (p.processed_page_content IS NULL OR p.source_page_type IS NULL)
                     ORDER BY
                         p.page_order,
                         p.page_uuid;

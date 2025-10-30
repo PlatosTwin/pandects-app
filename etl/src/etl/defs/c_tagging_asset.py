@@ -1,15 +1,17 @@
-"""Tagging asset for applying NER models to processed pages."""
+"""Apply NER tagging to processed pages and persist outputs."""
 
-from etl.defs.resources import DBResource, TaggingModel, PipelineConfig
-from sqlalchemy import text
-from etl.domain.tagging import tag
+from typing import Any, Dict, List
+
 import dagster as dg
-from etl.defs.pre_processing_asset import pre_processing_asset
+from sqlalchemy import text
+
+from etl.defs.b_pre_processing_asset import pre_processing_asset
+from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
+from etl.domain.tagging import tag
 from etl.utils.db_utils import upsert_tags
-from typing import List, Dict, Any
 
 
-@dg.asset(deps=[pre_processing_asset])
+@dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
 def tagging_asset(
     context,
     db: DBResource,
@@ -17,9 +19,9 @@ def tagging_asset(
     pipeline_config: PipelineConfig,
 ) -> None:
     """Apply NER tagging to processed pages.
-    
+
     In cleanup mode, processes only existing unprocessed pages.
-    
+
     Args:
         context: Dagster execution context.
         db: Database resource for connection.
@@ -28,10 +30,20 @@ def tagging_asset(
     """
     inference_model = tagging_model.model()
 
-    batch_size: int = 250
+    # batching controls
+    page_bs_tag = context.run.tags.get("page_batch_size")
+    run_scope_tag = context.run.tags.get("run_scope")
+    batch_size: int = (
+        int(page_bs_tag) if page_bs_tag else pipeline_config.page_batch_size
+    )
+    is_batched: bool = (
+        run_scope_tag == "batched"
+        if run_scope_tag is not None
+        else pipeline_config.is_batched()
+    )
+
     last_uuid: str = ""
     engine = db.get_engine()
-    # is_cleanup = pipeline_config.is_cleanup_mode()
     mode_tag = context.run.tags.get("pipeline_mode")
     is_cleanup = (
         (mode_tag == "cleanup")
@@ -49,38 +61,41 @@ def tagging_asset(
         f"Running tagging in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
+    ran_batches = 0
     while True:
         with engine.begin() as conn:
-            # Fetch batch of staged (not tagged) pages
+            # Fetch batch of body pages that are missing tags
             result = conn.execute(
                 text(
                     """
                     SELECT
-                        page_uuid,
-                        processed_page_content
+                        p.page_uuid,
+                        p.processed_page_content
                     FROM
-                        pdx.pages
+                        pdx.pages p
+                    LEFT JOIN pdx.tagged_outputs t
+                        ON t.page_uuid = p.page_uuid
                     WHERE
-                        page_uuid > :last_uuid
-                        AND processed = 0
-                        AND source_page_type = 'body'
+                        p.page_uuid > :last_uuid
+                        AND p.source_page_type = 'body'
+                        AND p.processed_page_content IS NOT NULL
+                        AND t.page_uuid IS NULL
                     ORDER BY
-                        page_uuid ASC
+                        p.page_uuid ASC
                     LIMIT
                         :batch_size
                 """
                 ),
                 {"last_uuid": last_uuid, "batch_size": batch_size},
             )
-            rows = result.mappings().fetchall()
+            rows_mapping = result.mappings().fetchall()
 
-            if not rows:
+            if not rows_mapping:
                 break
 
             # Apply tagging to pages
+            rows: List[Dict[str, Any]] = [dict(r) for r in rows_mapping]
             tagged_pages = tag(rows, inference_model, context)
-            
-            # context.log.info(tagged_pages[0])
 
             try:
                 upsert_tags(tagged_pages, conn)
@@ -90,3 +105,7 @@ def tagging_asset(
                 raise RuntimeError(e)
 
             last_uuid = rows[-1]["page_uuid"]
+
+        ran_batches += 1
+        if is_batched:
+            break

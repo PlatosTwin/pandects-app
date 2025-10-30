@@ -1,16 +1,18 @@
-"""XML generation asset for assembling tagged sections into XML documents."""
+"""Assemble tagged sections into XML documents for each agreement."""
 
-from etl.defs.resources import DBResource, PipelineConfig
-from sqlalchemy import text
-from etl.domain.xml import generate_xml
-import dagster as dg
-from etl.defs.tagging_asset import tagging_asset
-from etl.utils.db_utils import upsert_xml
 import pandas as pd
-from typing import List
+
+import dagster as dg
+from sqlalchemy import text
+
+from etl.defs.c_tagging_asset import tagging_asset
+from etl.defs.e_reconcile_tags import reconcile_tags
+from etl.defs.resources import DBResource, PipelineConfig
+from etl.domain.xml import generate_xml
+from etl.utils.db_utils import upsert_xml
 
 
-@dg.asset(deps=[tagging_asset])
+@dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
 def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
     """
     Assemble tagged sections into XML documents.
@@ -22,7 +24,16 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
         db: Database resource for connection.
         pipeline_config: Pipeline configuration for mode.
     """
-    agreement_batch_size: int = 10
+    # batching controls
+    ag_bs_tag = context.run.tags.get("agreement_batch_size")
+    run_scope_tag = context.run.tags.get("run_scope")
+    agreement_batch_size: int = int(ag_bs_tag) if ag_bs_tag else pipeline_config.agreement_batch_size
+    is_batched: bool = (
+        run_scope_tag == "batched"
+        if run_scope_tag is not None
+        else pipeline_config.is_batched()
+    )
+
     engine = db.get_engine()
     is_cleanup = pipeline_config.is_cleanup_mode()
 
@@ -36,12 +47,13 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
         f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
+    ran_batches = 0
     while True:
         with engine.begin() as conn:
             last_uuid = ''
             
-            # Fetch batch of agreements where all pages have been tagged
-            agreement_uuids: List[str] = (
+            # Fetch batch of agreements where all body pages have been tagged and XML not yet created
+            agreement_uuids = (
                 conn.execute(
                     text(
                         """
@@ -49,20 +61,24 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
                         a.agreement_uuid
                     FROM
                         pdx.agreements a
-                    JOIN
-                        pdx.pages p
-                        ON a.agreement_uuid = p.agreement_uuid
-                    WHERE
-                        a.processed = 0
-                        AND a.agreement_uuid > :last_uuid
-                    GROUP BY
-                        a.agreement_uuid
+                    JOIN pdx.pages p
+                        ON p.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN pdx.tagged_outputs t
+                        ON t.page_uuid = p.page_uuid
+                    WHERE a.agreement_uuid > :last_uuid
+                      AND NOT EXISTS (
+                        SELECT 1 FROM pdx.xml x WHERE x.agreement_uuid = a.agreement_uuid
+                      )
+                    GROUP BY a.agreement_uuid
                     HAVING
-                        MIN(case when p.source_page_type = 'body' then p.processed end) = 1
-                    ORDER BY
-                        a.agreement_uuid
-                    LIMIT
-                        :limit;
+                      SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END) > 0
+                      AND SUM(
+                        CASE WHEN p.source_page_type = 'body'
+                               AND COALESCE(t.tagged_text_corrected, t.tagged_text) IS NOT NULL
+                             THEN 1 ELSE 0 END
+                      ) = SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END)
+                    ORDER BY a.agreement_uuid
+                    LIMIT :limit;
                 """
                     ),
                     {"limit": agreement_batch_size, "last_uuid": last_uuid},
@@ -83,7 +99,9 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
                     SELECT
                     p.agreement_uuid,
                     p.page_uuid,
-                    coalesce(tgo.tagged_text, p.processed_page_content) as tagged_output,
+                    p.page_order,
+                    p.source_page_type,
+                    coalesce(tgo.tagged_text_corrected, tgo.tagged_text, p.processed_page_content) as tagged_output,
                     url,
                     acquirer,
                     target,
@@ -95,7 +113,7 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
                     LEFT JOIN pdx.tagged_outputs tgo
                     ON p.page_uuid = tgo.page_uuid
                     WHERE p.agreement_uuid IN :uuids
-                    ORDER BY p.agreement_uuid, p.page_uuid
+                    ORDER BY p.agreement_uuid, p.page_order
                 """
                     ),
                     {"uuids": tuple(agreement_uuids)},
@@ -118,3 +136,6 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
                 raise RuntimeError(e)
             
             last_uuid = agreement_uuids[-1]
+        ran_batches += 1
+        if is_batched:
+            break
