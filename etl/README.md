@@ -1,19 +1,22 @@
 ## Overview
-1. Stage 1: stage agreements ([defs/staging](src/etl/defs/staging_asset.py))
+1. Stage 1: stage agreements ([defs/staging](src/etl/defs/a_staging_asset.py))
     * Current: pull agreements from DMA corpus
     * Future: pull new agreements from EDGAR
-2. Stage 2: pre-process staged agreements ([defs/pre_process](src/etl/defs/pre_processing_asset.py))
+2. Stage 2: pre-process staged agreements ([defs/pre_process](src/etl/defs/b_pre_processing_asset.py))
     * Split to pages
     * Classify pages
     * Format text
-3. Stage 3: tagging via NER model ([defs/tagging](src/etl/defs/tagging_asset.py))
+3. Stage 3: tagging via NER model ([defs/tagging](src/etl/defs/c_tagging_asset.py))
     * Feed `body` pages to NER model
-4. Stage 4: validate uncertain spans ([defs/ai_repair](src/etl/defs/ai_repair_asset.py))
+4. Stage 4: validate uncertain spans ([defs/ai_repair](src/etl/defs/d_ai_repair_asset.py))
     * Feed uncertain spans to LLM to validate
-5. Stage 5: XML ([defs/xml.py](src/etl/defs/xml_asset.py))
+5. Stage 5: Reoncile tags ([defs/reconcile_tags](src/etl/defs/e_reconcile_tages_asset.py))
+6. Stage 6: XML ([defs/xml](src/etl/defs/xml_asset.py))
     * Assemble XML from tagged pages
-6. Stage 6: taxonomize ()
 7. Stage 7: split to sections ()
+    * Splits XML into sections and upsert to DB
+8. Stage 8: taxonomize ()
+    * Assign each section to a taxonomy and update table + XML accordingly
 
 ## Stage 1—Stage agreements
 
