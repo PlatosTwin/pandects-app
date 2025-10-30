@@ -34,6 +34,12 @@ from transformers.optimization import get_linear_schedule_with_warmup
 
 from .shared_constants import SPECIAL_TOKENS_TO_ADD
 
+# ASCII-only, length-preserving lowercase (A-Z -> a-z)
+_ASCII_LOWER_TBL = str.maketrans({chr(i): chr(i + 32) for i in range(65, 91)})
+
+def ascii_lower(s: str) -> str:
+    return s.translate(_ASCII_LOWER_TBL)
+
 
 def _upgrade_token_head(
     model, num_labels: int, p_drop: float = 0.1, hidden_mult: float = 1.0
@@ -85,9 +91,10 @@ def _process_document(
     parts.append(raw[src_pos:])
     cleaned_text = "".join(parts)
 
-    # 2) Tokenize without specials; get offsets & word_ids
+    # 2) Tokenize without specials using ASCII-only lowercase mirror; get offsets & word_ids
+    norm = ascii_lower(cleaned_text)
     encoding = tokenizer(
-        cleaned_text,
+        norm,
         return_offsets_mapping=True,
         truncation=False,
         add_special_tokens=False,

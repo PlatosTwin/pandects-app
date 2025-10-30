@@ -9,6 +9,7 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 import os
 import time
 import yaml
+from typing import Optional, Dict, Any, List, Tuple, cast
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -34,12 +35,12 @@ from lightning.pytorch.loggers import TensorBoardLogger
 
 from transformers import AutoTokenizer
 
-from optuna import create_study
+from optuna import create_study, Trial
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
 from .shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
-from .ner_classes import NERTagger, NERDataModule
+from .ner_classes import NERTagger, NERDataModule, ascii_lower
 
 # Reproducibility
 seed_everything(42, workers=True, verbose=False)
@@ -91,7 +92,7 @@ class NERTrainer:
         """
         Load and split data, stratified by presence of tags.
         """
-        df = pd.read_csv(self.data_csv)
+        df: pd.DataFrame = pd.read_csv(self.data_csv)
         df["tagged"] = df["llm_output"].apply(
             lambda x: 1 if "<section>" in x or "<article>" in x else 0
         )
@@ -103,16 +104,18 @@ class NERTrainer:
         # For now, remove untagged pages
         # df = df[df["tagged"] == 1]
 
-        train_data, val_data = train_test_split(
+        train_df_raw, val_df_raw = train_test_split(
             df, test_size=0.2, stratify=df["tagged"], random_state=42
         )
+        train_df = cast(pd.DataFrame, train_df_raw)
+        val_df = cast(pd.DataFrame, val_df_raw)
 
-        print(f"Train shape: {train_data.shape}, Validation shape: {val_data.shape}")
+        print(f"Train shape: {train_df.shape}, Validation shape: {val_df.shape}")
 
-        self.train_data = train_data["llm_output"].to_list()
-        self.val_data = val_data["llm_output"].to_list()
+        self.train_data = train_df["llm_output"].to_list()
+        self.val_data = val_df["llm_output"].to_list()
 
-    def _get_callbacks(self, trial: object = None) -> tuple:
+    def _get_callbacks(self, trial: Optional[Trial] = None) -> tuple:
         """
         Instantiate Lightning callbacks.
 
@@ -134,7 +137,7 @@ class NERTrainer:
         )
         lr_monitor = LearningRateMonitor(logging_interval="step")
         pruning_callback = (
-            [PyTorchLightningPruningCallback(trial, monitor="val_ent_f1")]
+            [PyTorchLightningPruningCallback(cast(Trial, trial), monitor="val_ent_f1")]
             if trial is not None
             else []
         )
@@ -148,7 +151,7 @@ class NERTrainer:
             pruning_callback,
         )
 
-    def _build(self, params: dict) -> tuple[NERDataModule, NERTagger]:
+    def _build(self, params: dict) -> tuple["NERDataModule", "NERTagger"]:
         """
         Instantiate DataModule and Model from hyperparameters.
 
@@ -177,7 +180,7 @@ class NERTrainer:
         )
         return data_module, model
 
-    def _objective(self, trial: object) -> float:
+    def _objective(self, trial: Trial) -> float:
         """
         Optuna objective function for hyperparameter optimization.
 
@@ -298,14 +301,14 @@ class NERInference:
         window: int = 510,
         stride: int = 256,
     ) -> None:
-    
+
         if torch.backends.mps.is_available():
             self.device = "mps"
         elif torch.cuda.is_available():
             self.device = "cuda"
         else:
             self.device = "cpu"
-            
+
         self.model: NERTagger = NERTagger.load_from_checkpoint(
             ckpt_path, map_location=self.device
         )
@@ -313,7 +316,7 @@ class NERInference:
         self.model.eval()
 
         # tokenizer consistent with training (special tokens added, no resize needed at inference)
-        model_name = self.model.hparams.model_name
+        model_name = cast(str, getattr(self.model.hparams, "model_name"))
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.tokenizer.add_special_tokens(
             {"additional_special_tokens": SPECIAL_TOKENS_TO_ADD}
@@ -334,8 +337,8 @@ class NERInference:
             )
 
         # >>> Use id2label/label2id from checkpoint to avoid order drift
-        ckpt_id2label = dict(self.model.hparams.id2label)  # keys are ints in training
-        self.id2label = {int(k): v for k, v in ckpt_id2label.items()}
+        ckpt_id2label = dict(getattr(self.model.hparams, "id2label"))  # keys are ints in training
+        self.id2label = {int(k): cast(str, v) for k, v in ckpt_id2label.items()}
         self.label2id = {v: k for k, v in self.id2label.items()}
         self.label_list = [self.id2label[i] for i in range(len(self.id2label))]
 
@@ -369,15 +372,16 @@ class NERInference:
             toks         : List[str]            # token strings
             avg_logits   : torch.Tensor         # [T, C] averaged logits on CPU
         """
+        norm = ascii_lower(text)
         enc_full = self.tokenizer(
-            text,
+            norm,
             return_tensors="pt",
             return_offsets_mapping=True,
             truncation=False,
             add_special_tokens=False,
         )
-        input_ids = enc_full["input_ids"][0]                 # [T]
-        offsets = enc_full["offset_mapping"][0].tolist()     # [(s,e)] * T
+        input_ids = enc_full["input_ids"][0]  # [T]
+        offsets = enc_full["offset_mapping"][0].tolist()  # [(s,e)] * T
         toks = self.tokenizer.convert_ids_to_tokens(input_ids.tolist())
         T = len(input_ids)
 
@@ -398,7 +402,9 @@ class NERInference:
             chunk_ids = input_ids[i:j].tolist()
             windows.append(
                 {
-                    "input_ids": [self.tokenizer.cls_token_id] + chunk_ids + [self.tokenizer.sep_token_id],
+                    "input_ids": [self.tokenizer.cls_token_id]
+                    + chunk_ids
+                    + [self.tokenizer.sep_token_id],
                     "attention_mask": [1] * (len(chunk_ids) + 2),
                 }
             )
@@ -412,13 +418,21 @@ class NERInference:
             max_len = max(len(x["input_ids"]) for x in batch_items)
             pad_id = self.tokenizer.pad_token_id
 
-            ids = [x["input_ids"] + [pad_id] * (max_len - len(x["input_ids"])) for x in batch_items]
-            mask = [x["attention_mask"] + [0] * (max_len - len(x["attention_mask"])) for x in batch_items]
+            ids = [
+                x["input_ids"] + [pad_id] * (max_len - len(x["input_ids"]))
+                for x in batch_items
+            ]
+            mask = [
+                x["attention_mask"] + [0] * (max_len - len(x["attention_mask"]))
+                for x in batch_items
+            ]
 
             ids_t = torch.tensor(ids, device=self.device)
             mask_t = torch.tensor(mask, device=self.device)
             with torch.no_grad():
-                logits = self.model(input_ids=ids_t, attention_mask=mask_t).logits  # [B,L,C]
+                logits = self.model(
+                    input_ids=ids_t, attention_mask=mask_t
+                ).logits  # [B,L,C]
 
             outs: list[torch.Tensor] = []
             for lg, m in zip(logits, mask_t):
@@ -508,7 +522,7 @@ class NERInference:
 
     # ---------------- Low-confidence spans over tokens ----------------
     def _token_spans(
-        self, preds: list[int], confs: list[float]
+        self, preds: list[int], confs: list[float], offsets: list[tuple[int, int]]
     ) -> tuple[int, list[dict]]:
         low_idxs = [i for i, c in enumerate(confs) if c < self.review_threshold]
         low_count = len(low_idxs)
@@ -533,9 +547,10 @@ class NERInference:
                 spans.append(
                     {
                         "entity": ent_name(cur_lab),
-                        "start_token": start,
-                        "end_token": prev,
                         "avg_confidence": sum(acc) / len(acc),
+                        # character offsets relative to ORIGINAL untagged text
+                        "start_char": int(offsets[start][0]) if offsets[start][1] > 0 else int(offsets[start][0]),
+                        "end_char": int(offsets[prev][1]) if offsets[prev][1] > 0 else int(offsets[prev][0]),
                     }
                 )
                 start = i
@@ -546,9 +561,9 @@ class NERInference:
         spans.append(
             {
                 "entity": ent_name(cur_lab),
-                "start_token": start,
-                "end_token": prev,
                 "avg_confidence": sum(acc) / len(acc),
+                "start_char": int(offsets[start][0]) if offsets[start][1] > 0 else int(offsets[start][0]),
+                "end_char": int(offsets[prev][1]) if offsets[prev][1] > 0 else int(offsets[prev][0]),
             }
         )
         return low_count, spans
@@ -559,13 +574,13 @@ class NERInference:
         self,
         texts: list[str],
         verbose: bool = False,
-        return_token_probs: bool = False,   # <— new flag
+        return_token_probs: bool = False,  # <— new flag
     ) -> list[dict]:
         results = []
         for idx, text in enumerate(texts):
             preds, confs, offsets, _, avg_logits = self._predict_tokens(text)
             tagged = self._pretty_print_from_tokens(text, preds, offsets)
-            low_count, spans = self._token_spans(preds, confs)
+            low_count, spans = self._token_spans(preds, confs, offsets)
 
             tokens_below = []
             for i, ((s, e), conf, lid) in enumerate(zip(offsets, confs, preds)):
@@ -579,7 +594,11 @@ class NERInference:
                             "token": text[s:e],
                             "start": s,
                             "end": e,
-                            "entity": lab.split("-", 1)[1].lower() if "-" in lab else lab.lower(),
+                            "entity": (
+                                lab.split("-", 1)[1].lower()
+                                if "-" in lab
+                                else lab.lower()
+                            ),
                             "confidence": conf,
                         }
                     )
@@ -606,7 +625,9 @@ class NERInference:
                             "end": e,
                             "pred_class": self.id2label[lid],
                             "confidence": max(pv),
-                            "probs": {self.id2label[c]: float(pv[c]) for c in range(self.C)},
+                            "probs": {
+                                self.id2label[c]: float(pv[c]) for c in range(self.C)
+                            },
                         }
                     )
                 out["token_probs"] = token_probs
@@ -614,7 +635,9 @@ class NERInference:
             if verbose:
                 print(f"\n=== Text #{idx} ===")
                 print(tagged)
-                print(f"\n[low-confidence tokens < {self.review_threshold}]: {low_count}")
+                print(
+                    f"\n[low-confidence tokens < {self.review_threshold}]: {low_count}"
+                )
                 if spans:
                     print("\nUncertain spans (token-level):")
                     for sp in spans:
@@ -654,7 +677,7 @@ def main(mode: str = "test") -> None:
 
         # Initialize inference model
         inference_model = NERInference(
-            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.975
+            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
         )
 
         # Run inference

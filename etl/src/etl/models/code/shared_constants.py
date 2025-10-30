@@ -5,14 +5,13 @@ This module contains configuration constants used across the NER and Classifier
 model training and inference pipelines.
 """
 
-import os
 from pathlib import Path
 
 # Model file paths - using relative paths for better portability
 MODEL_FILES_DIR = Path(__file__).parent.parent / "model_files"
 
 # NER model configuration
-NER_CKPT_PATH = str(MODEL_FILES_DIR / "dev-ner-model.ckpt")
+NER_CKPT_PATH = str(MODEL_FILES_DIR / "dev-ner-model-revamp.ckpt")
 NER_LABEL_LIST = [
     "O",  # outside any entity
     "B-SECTION",  # begin a SECTION span
@@ -29,7 +28,7 @@ NER_LABEL_LIST = [
     "S-PAGE",  # single PAGE span
 ]
 
-SPECIAL_TOKENS_TO_ADD = ["SECTION", "ARTICLE"]
+SPECIAL_TOKENS_TO_ADD = []
 
 # Classifier model configuration
 CLASSIFIER_LABEL_LIST = ["front_matter", "toc", "body", "sig", "back_matter"]
@@ -37,11 +36,9 @@ CLASSIFIER_XGB_PATH = str(MODEL_FILES_DIR / "xgb_multi_class-revamp.json")
 CLASSIFIER_CKPT_PATH = str(MODEL_FILES_DIR / "dev-classifier-model-revamp.ckpt")
 
 # Taxonomy section classifier configuration
-# NOTE: Update TAXONOMY_LABEL_LIST to match your dataset. It must include a catch-all label like "other".
 TAXONOMY_CKPT_PATH = str(MODEL_FILES_DIR / "dev-taxonomy-model.ckpt")
 TAXONOMY_VECTORIZER_PATH = str(MODEL_FILES_DIR / "taxonomy-tfidf.pkl")
 TAXONOMY_LABEL_LIST = [
-    # Example defaults; replace with your full taxonomy
     "other",
     "definitions",
     "representations_warranties",
