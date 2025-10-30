@@ -182,13 +182,6 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
             tokens       = VALUES(tokens)
         """
     )
-    update_sql_pages = text(
-        """
-    UPDATE pdx.pages
-       SET processed = 1
-     WHERE page_uuid  = :page_uuid
-    """
-    )
 
     rows_tags = []
     rows_pages = []
@@ -209,10 +202,6 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     for i in range(0, len(rows_tags), 250):
         batch_tags = rows_tags[i : i + 250]
         conn.execute(upsert_sql_tags, batch_tags)
-        
-        # set pages as processed
-        batch_pages = rows_pages[i : i + 250]
-        conn.execute(update_sql_pages, batch_pages)
 
 
 def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
@@ -234,16 +223,8 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
         )
         """
     )
-    update_sql_agreements = text(
-        """
-    UPDATE pdx.agreements
-       SET processed = 1
-     WHERE agreement_uuid  = :agreement_uuid
-    """
-    )
 
     rows_xmls = []
-    rows_agreements = []
     for xml in staged_xml:
         rows_xmls.append(
             {
@@ -252,21 +233,17 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             }
         )
 
-        rows_agreements.append({"agreement_uuid": xml.agreement_uuid})
+        # agreements list no longer needed for processed flag updates
 
     upsert_sql_xml = text("CALL pdx.upsert_xml(:uuid, :xml)")
-    update_sql_agreements = text("""
-        UPDATE pdx.agreements
-        SET processed = 1
-        WHERE agreement_uuid = :uuid
-    """)
+    # No processed flag writes; idempotency achieved via existence checks downstream
 
     # rows_xmls: either list[dict] with keys {"agreement_uuid","xml"} or list[tuple]
     # rows_agreements: either list[dict] with key {"agreement_uuid"} or list[str]/list[tuple]
 
     for i in range(0, len(rows_xmls), 250):
         batch_tags = rows_xmls[i : i + 250]
-        batch_agreements = rows_agreements[i : i + 250]
+        # batch_agreements removed; we do not update agreements.processed
 
         # normalize
         tag_params = (
@@ -274,11 +251,7 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             if isinstance(batch_tags[0], dict)
             else [{"uuid": u, "xml": x} for (u, x) in batch_tags]
         )
-        agr_params = (
-            [{"uuid": r["agreement_uuid"]} for r in batch_agreements]
-            if isinstance(batch_agreements[0], dict)
-            else [{"uuid": (r if isinstance(r, str) else r[0])} for r in batch_agreements]
-        )
+        # agr_params removed
 
         # one transaction per outer context; no begin_nested()
         for p in tag_params:
@@ -286,4 +259,52 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             res = conn.execute(upsert_sql_xml, p)
             res.close()
 
-        conn.execute(update_sql_agreements, agr_params)
+        # no agreement processed flag updates
+
+
+def upsert_sections(staged_sections: Sequence, conn: Connection) -> None:
+    """
+    Upsert section rows into pdx.sections.
+
+    Each item in staged_sections must be a dict with keys:
+      agreement_uuid, section_uuid, article_title, article_title_normed,
+      section_title, section_title_normed, xml_content
+    """
+    upsert_sql = text(
+        """
+        INSERT INTO pdx.sections (
+            agreement_uuid,
+            section_uuid,
+            article_title,
+            article_title_normed,
+            article_order,
+            section_title,
+            section_title_normed,
+            section_order,
+            xml_content
+        ) VALUES (
+            :agreement_uuid,
+            :section_uuid,
+            :article_title,
+            :article_title_normed,
+            :article_order,
+            :section_title,
+            :section_title_normed,
+            :section_order,
+            :xml_content
+        )
+        ON DUPLICATE KEY UPDATE
+            article_title = VALUES(article_title),
+            article_title_normed = VALUES(article_title_normed),
+            article_order = VALUES(article_order),
+            section_title = VALUES(section_title),
+            section_title_normed = VALUES(section_title_normed),
+            section_order = VALUES(section_order),
+            xml_content = VALUES(xml_content)
+        """
+    )
+
+    rows = list(staged_sections)
+    for i in range(0, len(rows), 250):
+        batch = rows[i : i + 250]
+        conn.execute(upsert_sql, batch)
