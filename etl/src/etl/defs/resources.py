@@ -15,9 +15,10 @@ from etl.models.code.shared_constants import (
     NER_CKPT_PATH,
     CLASSIFIER_CKPT_PATH,
     CLASSIFIER_XGB_PATH,
+    TAXONOMY_LABEL_LIST,
 )
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import PrivateAttr
 
 
@@ -27,14 +28,27 @@ class PipelineMode(Enum):
     CLEANUP = "cleanup"
 
 
+class ProcessingScope(Enum):
+    """Scope of processing for a single run."""
+    BATCHED = "batched"
+    FULL = "full"
+
+
 class PipelineConfig(dg.ConfigurableResource):
-    """Configuration for pipeline execution mode."""
+    """Configuration for pipeline execution mode and batching behavior."""
     
     mode: PipelineMode = PipelineMode.CLEANUP
+    scope: ProcessingScope = ProcessingScope.BATCHED
+    page_batch_size: int = 500
+    agreement_batch_size: int = 10
 
     def is_cleanup_mode(self) -> bool:
         """Check if the pipeline is running in cleanup mode."""
         return self.mode == PipelineMode.CLEANUP
+
+    def is_batched(self) -> bool:
+        """Check if the pipeline should run a single batch per asset invocation."""
+        return self.scope == ProcessingScope.BATCHED
 
 
 class DBResource(dg.ConfigurableResource):
@@ -75,8 +89,35 @@ class TaggingModel(dg.ConfigurableResource):
 
     def model(self) -> NERInference:
         """Load and return the NER tagging model."""
-        model = NERInference(ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST)
+        model = NERInference(ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.75)
         return model
+
+
+class TaxonomyModel(dg.ConfigurableResource):
+    """Placeholder resource for section taxonomy classification.
+
+    The real model will return a primary label and probabilities for the next
+    three most likely labels. For now, we return a deterministic dummy label
+    ("other") with zeroed alternate probabilities.
+    """
+
+    def model(self):
+        class _DummyTaxonomyModel:
+            def __init__(self, label_list: List[str]):
+                self.label_list = label_list
+
+            def predict(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                # rows items may contain article_title, section_title, section_text
+                out: List[Dict[str, Any]] = []
+                primary = "other" if "other" in self.label_list else (self.label_list[0] if self.label_list else "other")
+                for _ in rows:
+                    out.append({
+                        "label": primary,
+                        "alt_probs": [0.0, 0.0, 0.0],
+                    })
+                return out
+
+        return _DummyTaxonomyModel(TAXONOMY_LABEL_LIST)
 
 
 def get_resources() -> Dict[str, Any]:
@@ -95,5 +136,6 @@ def get_resources() -> Dict[str, Any]:
         ),
         "classifier_model": ClassifierModel(),
         "tagging_model": TaggingModel(),
+        "taxonomy_model": TaxonomyModel(),
         "pipeline_config": PipelineConfig(),
     }
