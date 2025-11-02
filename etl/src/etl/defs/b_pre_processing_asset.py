@@ -152,10 +152,9 @@ def pre_processing_asset(
                     {"last_uuid": last_uuid, "batch_size": batch_size},
                 )
                 rows = result.fetchall()
-                last_uuid = max(r[0] for r in rows)
-
                 if not rows:
                     break
+                last_uuid = max(r[0] for r in rows)
 
                 # Process existing pages
                 pages: List[Dict[str, Any]] = [
@@ -168,7 +167,7 @@ def pre_processing_asset(
                     }
                     for r in rows
                 ]
-                staged_pages = cleanup(pages, inference_model, context)
+                staged_pages = cleanup(pages, inference_model)
 
                 if staged_pages:
                     try:
