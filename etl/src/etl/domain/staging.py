@@ -12,10 +12,6 @@ class FilingMetadata:
     target: str
     acquirer: str
     filing_date: str
-    transaction_price: Optional[int] = None
-    transaction_type: Optional[str] = None
-    transaction_consideration: Optional[str] = None
-    target_type: Optional[str] = None
 
 
 def get_uuid(x: str) -> str:
@@ -60,7 +56,7 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
     # Sort oldest first and take only the 10 oldest new filings
     df.sort_values("date_announcement", ascending=True, inplace=True)
     # df = df.head(10)
-    df = df.sample(frac=0.2)
+    df = df.sample(frac=0.25)
 
     # Build our results list via a memory‑light iterator
     results: List[FilingMetadata] = []
@@ -74,15 +70,11 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
             filing_date = str(date_ann)
         results.append(
             FilingMetadata(
-                agreement_uuid=str(get_uuid(row.filename)),
+                agreement_uuid=get_uuid(str(row.filename)),
                 url=str(row.url),
                 target=str(row.target),
                 acquirer=str(row.acquirer),
                 filing_date=filing_date,
-                # transaction_price=None,
-                # transaction_type=None,
-                # transaction_consideration=None,
-                # target_type=None,
             )
         )
 
