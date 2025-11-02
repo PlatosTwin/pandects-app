@@ -429,7 +429,10 @@ def pre_process(
         pages = split_to_pages(content, is_txt, is_html)
 
         if len(pages) <= 10:
-            print("Agreement likely is not paginated. Skipping page upload.")
+            if context:
+                context.log.info(f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload.")
+            else:
+                print(f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload.")
             return staged_pages
 
         # Format and classify

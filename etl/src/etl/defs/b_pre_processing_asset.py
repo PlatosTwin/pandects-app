@@ -93,7 +93,7 @@ def pre_processing_asset(
                 ]
 
                 # Process (tag and format) agreements
-                staged_pages = pre_process(agreements, inference_model)
+                staged_pages = pre_process(context, agreements, inference_model)
 
                 if staged_pages:
                     try:
