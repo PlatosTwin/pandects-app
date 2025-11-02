@@ -12,31 +12,19 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
               url,
               target,
               acquirer,
-              filing_date,
-              transaction_price,
-              transaction_type,
-              transaction_consideration,
-              target_type
+              filing_date
             ) VALUES (
               :agreement_uuid,
               :url,
               :target,
               :acquirer,
-              :filing_date,
-              :transaction_price,
-              :transaction_type,
-              :transaction_consideration,
-              :target_type
+              :filing_date
             )
             ON DUPLICATE KEY UPDATE
               url                      = VALUES(url),
               target                   = VALUES(target),
               acquirer                 = VALUES(acquirer),
-              filing_date              = VALUES(filing_date),
-              transaction_price        = VALUES(transaction_price),
-              transaction_type         = VALUES(transaction_type),
-              transaction_consideration = VALUES(transaction_consideration),
-              target_type              = VALUES(target_type)
+              filing_date              = VALUES(filing_date)
         """
     )
 
@@ -49,11 +37,7 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
                 "url": f.url,
                 "target": f.target,
                 "acquirer": f.acquirer,
-                "filing_date": f.filing_date,
-                "transaction_type": f.transaction_type,
-                "transaction_price": f.transaction_price,
-                "transaction_consideration": f.transaction_consideration,
-                "target_type": f.target_type,
+                "filing_date": f.filing_date
             }
         )
 
