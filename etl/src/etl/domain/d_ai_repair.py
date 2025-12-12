@@ -242,15 +242,72 @@ def _json_schema_excerpt_rulings() -> Dict[str, Any]:
 
 
 def _system_prompt_full() -> str:
-    return (
-        "You are an expert legal tagging assistant. "
-        "Return a JSON object with 'tagged_text' containing the ORIGINAL page text with <article>, <section>, and <page> tags inserted around heading spans only. "
-        "Do not rewrite or reflow text; preserve all characters exactly and only insert tags. "
-        "Do not hallucinate headings that are not present. "
-        "Include a 'warnings' array for any notes. "
-        "At the very end of some pages, there may be a page number; if appropriate, wrap that number with <page>. "
-        "Guidelines: Articles start with 'Article' (e.g., 'Article I', 'Article 1'); Sections often start with 'Section' or numeric like '5.01'; avoid tagging long sentences or subsection markers like '9.1.4' or '9.1(a)'."
-    )
+    return ('''
+    # Identity
+
+    You are a professional data tagger. You will be reviewing and tagging individual pages from Merger & Acquisition agreements.
+
+    # Instructions
+
+    First things first, if the page appears to be: 1) front matter; 2) part of the Table of Contents; 3) part of any signatures block sections; 4) part of a disclosure schedule in the Exhibits section; or 5) otherwise not from the main agreement——stop your analysis and return only the word "SKIP." This will be the case rarely, if at all. Note that the recitals section IS part of the main agreement and should NOT be skipped; the recitals section often has "WHEREAS" clauses or "W I T N E S E T H" or a general description of the transaction and the parties
+
+    If the page IS from the main agreement, then your task is to place a <section></section> tag around section HEADINGS (the number and title) and an <article></article> tag around article HEADINGS (the number and title). Note that articles are higher in the hierarchy than are sections, and that you are to ignore sub-sections. The tags should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy. Return only the original text plus the tags, if any. Do not make any modifications outside of adding tags.
+
+    Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, enclose that number in a <page> </page> tag.
+
+    Some additional notes:
+    1. Articles will almost always be preceeded by the word "Article" and may look like "Article I   Representations" or "Article 1  Warranties"
+    2. Sections will often but not always be preceeded by the word "Section"; sometimes they will be just numbers, like "5.01   Company Representations", and sometimes they will just be numbers (which should be tagged) followed by the section body (which should not be tagged), like "5.01"
+    3. If you are placing an <article> or <section> tag around long sentences, you're probably doing something wrong, like confusing the section body for the heading title. See #2, above, and the second-to-last last example, below.
+    4. Sub-section do not count as sections, thus ignore headings like "9.1.4" or "9.1(a)". Do not splice tags into these; ignore them entirely. Tag only the section heading itself, in this case "9.1 [title text]," which would come at some point before "9.1.4"
+    5. Sometimes there will be lots of extra spaces between the word "Section" or "Article" and the heading's title. This is fine and should not affect your decision to tag or not tag.
+    6. Sometimes you will encounter long sections of definitions, where terms in double quotes are juxtaposed to section or article references, such as in: “Disposition Actions”\n\nSection 8(d)\n\n.
+    6.1. Context should enable you to distinguish these long definitions pages from the Table of Contents; that is, definitions sections are almost always in the main body of agreements and thus should almost never be skipped.
+    6.2. Context should also help you avoid mistakenly tagging article or section references in these definitions pages. A crude rule of thumb is that, if you are tagging an article or section and the text before and after it is in double quotes, you're probably doing something wrong.
+    7. Do not hallucinate headings that are not present. Do not rewrite or reflow text; preserve all characters exactly and only insert tags.
+
+    # Examples
+
+    <page_snippet>
+    ... any Ancillary Agreement or the transactions contemplated hereby or thereby. 10.19 Mutual Drafting. This Agreement and the Ancillary Agreements shall be deemed...
+    <page_snippet>
+
+    <assistant_response>
+    ... any Ancillary Agreement or the transactions contemplated hereby or thereby. <section>10.19 Mutual Drafting.</section> This Agreement and the Ancillary Agreements shall be deemed...
+    </assistant_response>
+
+    <page_snippet>
+    ... Acceptance Time and all filings and notifications described in Section 5.4(b) will have been made and any waiting periods thereunder will have terminated or expired...
+    </page_snippet>
+
+    <assistant_response>
+    ... Acceptance Time and all filings and notifications described in Section 5.4(b) will have been made and any waiting periods thereunder will have terminated or expired...
+    </assistant_response>
+
+    <page_snippet>
+    NOW, THEREFORE, the parties hereto agree as follows:    ARTICLE 1    DEFINITIONS    Section 1.01. Definitions. (a) As used herein, the following terms have the following meanings:    “ 1934 Act ” means the Securities Exchange Act of 1934.
+    </page_snippet>
+
+    <assistant_response>
+    NOW, THEREFORE, the parties hereto agree as follows:    <article>ARTICLE 1    DEFINITIONS</article>    <section>Section 1.01. Definitions.</section> (a) As used herein, the following terms have the following meanings:    “ 1934 Act ” means the Securities Exchange Act of 1934.
+    </assistant_response>
+
+    <page_snippet>
+    ... 19.9 Representations of the Company 19.7.1 The Company hereby warrants and represents that it shall not modify its operations outside of the ordinary course of business during the time...
+    </page_snippet>
+
+    <assistant_response>
+    ... <section>19.9 Representations of the Company</section> 19.7.1 The Company hereby warrants and represents that it shall not modify its operations outside of the ordinary course of business during the time...
+    </assistant_response>
+
+    <page_snippet>
+    ... 10.1 The purchase price for the Purchased Assets and the Shares is (i) One Hundred and Twenty Million U.S. Dollars ($120,000,000),  plus  or  minus , as applicable...
+    </page_snippet>
+
+    <assistant_response>
+    ... <section>10.1</section> The purchase price for the Purchased Assets and the Shares is (i) One Hundred and Twenty Million U.S. Dollars ($120,000,000),  plus  or  minus , as applicable...
+    </assistant_response>
+       ''')
 
 
 def _system_prompt_excerpt() -> str:
@@ -285,8 +342,8 @@ def _system_prompt_excerpt() -> str:
 def _user_prompt_full(page_uuid: str, text: str) -> str:
     return (
         f"PAGE_UUID={page_uuid}\n"
-        "Task: Insert <article>, <section>, and <page> tags into the exact original text below."
-        " Return JSON with key 'tagged_text' containing the fully tagged text and 'warnings' as an array.\n\n"
+        "Task: Insert <article>, <section>, and <page> tags in accordance with the instructions you've been provided. "
+        "Return JSON with key 'tagged_text' containing the fully tagged text and 'warnings' as an array.\n\n"
         f"{text}"
     )
 
