@@ -12,6 +12,7 @@ backend/build/
 
 TODO.md
 NOTES.md
+AGENTS.md
 *.sql
 *.pyc
 *.parquet
@@ -27,3 +28,5 @@ NOTES.md
 .vscode
 
 .DS_Store
+
+.cursor
