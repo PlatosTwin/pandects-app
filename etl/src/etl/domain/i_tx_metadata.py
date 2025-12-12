@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 
@@ -40,6 +41,16 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
     }
 
 
+def _filing_date_to_str(filing_date: Any) -> str:
+    if filing_date is None:
+        return "unknown"
+    if isinstance(filing_date, (datetime, date)):
+        return filing_date.isoformat()
+    if isinstance(filing_date, str):
+        return filing_date
+    raise TypeError(f"Unexpected filing_date type: {type(filing_date).__name__}")
+
+
 def build_jsonl_lines_for_agreements(
     agreements: List[Dict[str, Any]], *, model: str
 ) -> List[Dict[str, Any]]:
@@ -49,19 +60,20 @@ def build_jsonl_lines_for_agreements(
         agreement_uuid: str = row["agreement_uuid"]
         target: str = row.get("target") or ""
         acquirer: str = row.get("acquirer") or ""
-        filing_date = row.get("filing_date")
-        filing_date_str = (
-            filing_date.isoformat() if hasattr(filing_date, "isoformat") else (filing_date or "unknown")
-        )
+        filing_date_str = _filing_date_to_str(row.get("filing_date"))
 
         body = {
             "model": model,
             "tools": [{"type": "web_search"}],
             "instructions": (
                 "You are an expert M&A research analyst. For the provided transaction details, "
-                "and using trusted sources only, find: 1) the type of consideration (all stock, all cash, mixed); "
-                "2) the purchase price (USD); 3) whether the target was public or private; 4) whether the acquirer was public or private; "
-                "5) whether the target was owned by a private equity shop; 5) whether the acquirer was a private equity shop. "
+                "and using trusted sources only (via the websearch tool), find: "
+                "1) the type of consideration (all stock, all cash, mixed); "
+                "2) the purchase price (USD), without accounting for debt; "
+                "3) whether the target was public or private; "
+                "4) whether the acquirer was public or private; "
+                "5) whether the target was owned by a private equity shop; "
+                "6) whether the acquirer was a private equity shop. "
                 "For booleans and integers where you don't know the answer, use null."
             ),
             "input": f"Transaction: {acquirer} acquired {target}, with an SEC filing date of {filing_date_str}.",
@@ -123,7 +135,6 @@ def parse_metadata_line(raw: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     if not required_keys.issubset(obj.keys()):
         raise ValueError("Missing required keys in response JSON.")
     return rid, obj
-
 
 
 
