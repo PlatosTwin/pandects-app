@@ -15,29 +15,30 @@ from __future__ import annotations
 import io
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple, Set
+from typing import Any, Dict, List, Tuple, Set, Optional
 
 import dagster as dg
 from sqlalchemy import text, bindparam
 from openai import OpenAI
-from dotenv import load_dotenv
 import os
 import time
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.ai_repair import (
+from etl.utils.run_config import get_int_tag, is_batched
+from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
     decide_repair_windows,
     build_jsonl_lines_for_page,
 )
 
-load_dotenv()
-
 
 # If you prefer, you can plumb this via resources; this is fine too:
 def _oai_client() -> OpenAI:
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is required for ai_repair assets.")
+    return OpenAI(api_key=api_key)
 
 
 DDL_CREATE = [
@@ -232,7 +233,19 @@ def ai_repair_enqueue_asset(
         _ensure_tables(conn)
 
         # 1) fetch candidate pages needing AI repair
-        candidates = _fetch_candidates(conn, batch_limit=50)
+        page_bs_tag = get_int_tag(context, "ai_repair_page_batch_size")
+        batch_size = (
+            page_bs_tag
+            if page_bs_tag is not None
+            else pipeline_config.ai_repair_page_batch_size
+        )
+        batched = is_batched(context, pipeline_config)
+
+        if not batched:
+            context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
+            return
+
+        candidates = _fetch_candidates(conn, batch_limit=batch_size)
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
             return

@@ -12,25 +12,17 @@ Default batch size is 50 agreements (overridable via run tag `agreement_batch_si
 
 from __future__ import annotations
 
-import io
 import json
 import os
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import dagster as dg
 from sqlalchemy import text
 from openai import OpenAI
-from dotenv import load_dotenv
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.i_tx_metadata import (
-    build_jsonl_lines_for_agreements,
-    parse_metadata_line,
-)
-
-
-load_dotenv()
+from etl.domain.i_tx_metadata import json_schema_transaction_metadata
+from etl.utils.run_config import is_batched
 
 
 def _oai_client() -> OpenAI:
@@ -70,22 +62,15 @@ def tx_metadata_asset(
     pipeline_config: PipelineConfig,
 ) -> None:
     # Enforce batched-only mode
-    run_scope_tag = context.run.tags.get("run_scope")
-    is_batched: bool = (
-        run_scope_tag == "batched"
-        if run_scope_tag is not None
-        else pipeline_config.is_batched()
-    )
-    if not is_batched:
+    if not is_batched(context, pipeline_config):
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
         return
 
-    # Batch size with default 50
-    bs_tag = context.run.tags.get("agreement_batch_size")
+    bs_tag = context.run.tags.get("tx_metadata_agreement_batch_size")
     try:
-        batch_size = int(bs_tag) if bs_tag else 50
+        batch_size = int(bs_tag) if bs_tag else pipeline_config.tx_metadata_agreement_batch_size
     except Exception:
-        batch_size = 50
+        batch_size = pipeline_config.tx_metadata_agreement_batch_size
 
     engine = db.get_engine()
 

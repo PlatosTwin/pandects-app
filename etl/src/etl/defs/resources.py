@@ -24,23 +24,27 @@ from pydantic import PrivateAttr
 
 class PipelineMode(Enum):
     """Pipeline execution modes."""
+
     FROM_SCRATCH = "from_scratch"
     CLEANUP = "cleanup"
 
 
 class ProcessingScope(Enum):
     """Scope of processing for a single run."""
+
     BATCHED = "batched"
     FULL = "full"
 
 
 class PipelineConfig(dg.ConfigurableResource):
     """Configuration for pipeline execution mode and batching behavior."""
-    
-    mode: PipelineMode = PipelineMode.CLEANUP
+
+    mode: PipelineMode = PipelineMode.FROM_SCRATCH
     scope: ProcessingScope = ProcessingScope.BATCHED
-    page_batch_size: int = 500
-    agreement_batch_size: int = 10
+    tagging_page_batch_size: int = 500  # used in tagging_asset
+    xml_agreement_batch_size: int = 10  # used in xml_asset
+    ai_repair_page_batch_size: int = 150  # used in ai_repair_enqueue_asset
+    tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
 
     def is_cleanup_mode(self) -> bool:
         """Check if the pipeline is running in cleanup mode."""
@@ -53,7 +57,7 @@ class PipelineConfig(dg.ConfigurableResource):
 
 class DBResource(dg.ConfigurableResource):
     """Database connection resource."""
-    
+
     host: str
     port: str
     user: str
@@ -79,7 +83,7 @@ class ClassifierModel(dg.ConfigurableResource):
             self._inf = ClassifierInference(
                 ckpt_path=CLASSIFIER_CKPT_PATH,
                 xgb_path=CLASSIFIER_XGB_PATH,
-                num_workers=7
+                num_workers=7,
             )
         return self._inf
 
@@ -89,7 +93,9 @@ class TaggingModel(dg.ConfigurableResource):
 
     def model(self) -> NERInference:
         """Load and return the NER tagging model."""
-        model = NERInference(ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.75)
+        model = NERInference(
+            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.80
+        )
         return model
 
 
@@ -109,12 +115,18 @@ class TaxonomyModel(dg.ConfigurableResource):
             def predict(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 # rows items may contain article_title, section_title, section_text
                 out: List[Dict[str, Any]] = []
-                primary = "other" if "other" in self.label_list else (self.label_list[0] if self.label_list else "other")
+                primary = (
+                    "other"
+                    if "other" in self.label_list
+                    else (self.label_list[0] if self.label_list else "other")
+                )
                 for _ in rows:
-                    out.append({
-                        "label": primary,
-                        "alt_probs": [0.0, 0.0, 0.0],
-                    })
+                    out.append(
+                        {
+                            "label": primary,
+                            "alt_probs": [0.0, 0.0, 0.0],
+                        }
+                    )
                 return out
 
         return _DummyTaxonomyModel(TAXONOMY_LABEL_LIST)
@@ -122,7 +134,7 @@ class TaxonomyModel(dg.ConfigurableResource):
 
 def get_resources() -> Dict[str, Any]:
     """Get the base resource configuration for the pipeline.
-    
+
     Returns:
         Dictionary containing all resource definitions.
     """

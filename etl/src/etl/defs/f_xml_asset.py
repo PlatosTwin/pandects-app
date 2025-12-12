@@ -10,6 +10,7 @@ from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.xml import generate_xml
 from etl.utils.db_utils import upsert_xml
+from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
@@ -25,23 +26,12 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
         pipeline_config: Pipeline configuration for mode.
     """
     # batching controls
-    ag_bs_tag = context.run.tags.get("agreement_batch_size")
-    run_scope_tag = context.run.tags.get("run_scope")
-    agreement_batch_size: int = int(ag_bs_tag) if ag_bs_tag else pipeline_config.agreement_batch_size
-    is_batched: bool = (
-        run_scope_tag == "batched"
-        if run_scope_tag is not None
-        else pipeline_config.is_batched()
-    )
+    ag_bs_tag = get_int_tag(context, "xml_agreement_batch_size")
+    agreement_batch_size = ag_bs_tag if ag_bs_tag is not None else pipeline_config.xml_agreement_batch_size
+    batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
-    is_cleanup = pipeline_config.is_cleanup_mode()
-
-    # Override mode from job context if available
-    if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
-        job_config = context.job_def.config
-        if hasattr(job_config, "mode"):
-            is_cleanup = job_config.mode.value == "cleanup"
+    is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     context.log.info(
         f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"

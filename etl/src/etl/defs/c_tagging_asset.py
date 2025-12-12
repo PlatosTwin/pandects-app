@@ -9,6 +9,7 @@ from etl.defs.b_pre_processing_asset import pre_processing_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
 from etl.domain.tagging import tag
 from etl.utils.db_utils import upsert_tags
+from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -31,31 +32,13 @@ def tagging_asset(
     inference_model = tagging_model.model()
 
     # batching controls
-    page_bs_tag = context.run.tags.get("page_batch_size")
-    run_scope_tag = context.run.tags.get("run_scope")
-    batch_size: int = (
-        int(page_bs_tag) if page_bs_tag else pipeline_config.page_batch_size
-    )
-    is_batched: bool = (
-        run_scope_tag == "batched"
-        if run_scope_tag is not None
-        else pipeline_config.is_batched()
-    )
+    page_bs_tag = get_int_tag(context, "tagging_page_batch_size")
+    batch_size = page_bs_tag if page_bs_tag is not None else pipeline_config.tagging_page_batch_size
+    batched = is_batched(context, pipeline_config)
 
     last_uuid: str = ""
     engine = db.get_engine()
-    mode_tag = context.run.tags.get("pipeline_mode")
-    is_cleanup = (
-        (mode_tag == "cleanup")
-        if mode_tag is not None
-        else pipeline_config.is_cleanup_mode()
-    )
-
-    # Override mode from job context if available
-    if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
-        job_config = context.job_def.config
-        if hasattr(job_config, "mode"):
-            is_cleanup = job_config.mode.value == "cleanup"
+    is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     context.log.info(
         f"Running tagging in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"

@@ -7,6 +7,7 @@ from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel
 from etl.domain.h_taxonomy import strip_xml_tags_to_text, apply_standard_ids_to_xml
 from etl.domain.xml import XMLData
 from etl.utils.db_utils import upsert_xml
+from etl.utils.run_config import get_int_tag, is_batched
 
 
 @dg.asset(deps=[sections_asset], name="8_taxonomy_asset")
@@ -17,14 +18,9 @@ def taxonomy_asset(
     pipeline_config: PipelineConfig,
 ) -> None:
     # batching controls
-    ag_bs_tag = context.run.tags.get("agreement_batch_size")
-    run_scope_tag = context.run.tags.get("run_scope")
-    agreement_batch_size: int = int(ag_bs_tag) if ag_bs_tag else pipeline_config.agreement_batch_size
-    is_batched: bool = (
-        run_scope_tag == "batched"
-        if run_scope_tag is not None
-        else pipeline_config.is_batched()
-    )
+    ag_bs_tag = get_int_tag(context, "agreement_batch_size")
+    agreement_batch_size = ag_bs_tag if ag_bs_tag is not None else pipeline_config.xml_agreement_batch_size
+    batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
     last_uuid = ""

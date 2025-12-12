@@ -12,6 +12,7 @@ from sqlalchemy import text
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.staging import fetch_new_filings
 from etl.utils.db_utils import upsert_agreements
+from etl.utils.run_config import is_cleanup_mode
 
 
 @dg.asset(name="1_staging_asset")
@@ -33,25 +34,13 @@ def staging_asset(
     Returns:
         Number of new filings processed.
     """
-    engine = db.get_engine()
-    mode_tag = context.run.tags.get("pipeline_mode")
-    is_cleanup = (
-        (mode_tag == "cleanup")
-        if mode_tag is not None
-        else pipeline_config.is_cleanup_mode()
-    )
-
-    # Override mode from job context if available
-    job_def = getattr(context, "job_def", None)
-    job_config = getattr(job_def, "config", None)
-    job_mode = getattr(job_config, "mode", None)
-    if job_mode is not None:
-        is_cleanup = getattr(job_mode, "value", None) == "cleanup"
+    is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     if is_cleanup:
         context.log.info("CLEANUP mode. Skipping staging step.")
         return 0
 
+    engine = db.get_engine()
     context.log.info("Running staging in FROM_SCRATCH mode")
 
     # Get last pull timestamp

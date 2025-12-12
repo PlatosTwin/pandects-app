@@ -246,7 +246,7 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
     # batching controls
     page_bs_tag = context.run.tags.get("page_batch_size")
     run_scope_tag = context.run.tags.get("run_scope")
-    batch_size = int(page_bs_tag) if page_bs_tag else pipeline_config.page_batch_size
+    batch_size = int(page_bs_tag) if page_bs_tag else pipeline_config.tagging_page_batch_size
     is_batched = (
         run_scope_tag == "batched"
         if run_scope_tag is not None

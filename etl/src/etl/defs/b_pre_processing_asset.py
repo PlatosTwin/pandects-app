@@ -13,6 +13,7 @@ from etl.defs.a_staging_asset import staging_asset
 from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
 from etl.domain.pre_processing import cleanup, pre_process
 from etl.utils.db_utils import upsert_pages
+from etl.utils.run_config import is_cleanup_mode
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -36,18 +37,7 @@ def pre_processing_asset(
     engine = db.get_engine()
     inference_model = classifier_model.model()
 
-    mode_tag = context.run.tags.get("pipeline_mode")
-    is_cleanup = (
-        (mode_tag == "cleanup")
-        if mode_tag is not None
-        else pipeline_config.is_cleanup_mode()
-    )
-
-    # Override mode from job context if available
-    if hasattr(context, "job_def") and hasattr(context.job_def, "config"):
-        job_config = context.job_def.config
-        if hasattr(job_config, "mode"):
-            is_cleanup = job_config.mode.value == "cleanup"
+    is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     batch_size: int = 5  # Process pages from batch_size agreements at a time
     
