@@ -13,6 +13,10 @@ import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  animateScrollTop,
+  getScrollTopForElementInContainer,
+} from "@/lib/scroll";
 
 interface AgreementModalProps {
   isOpen: boolean;
@@ -41,6 +45,7 @@ export function AgreementModal({
     null,
   );
   const contentRef = useRef<HTMLDivElement>(null);
+  const cancelScrollAnimationRef = useRef<null | (() => void)>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -92,13 +97,20 @@ export function AgreementModal({
       }
 
       function performScroll() {
-        // Both articles and sections should scroll to show their headers at the top
-        const scrollOptions: ScrollIntoViewOptions = {
-          behavior: "smooth", // Using smooth for fast but controlled scroll
-          block: "start", // Always scroll to start to show the header
-        };
+        const container = contentRef.current;
+        if (!container) return;
 
-        sectionElement.scrollIntoView(scrollOptions);
+        const targetScrollTop = getScrollTopForElementInContainer(
+          container,
+          sectionElement,
+          { offsetPx: 8 },
+        );
+
+        cancelScrollAnimationRef.current?.();
+        cancelScrollAnimationRef.current = animateScrollTop(
+          container,
+          targetScrollTop,
+        );
 
         // Add highlighting if requested
         if (shouldHighlight) {
