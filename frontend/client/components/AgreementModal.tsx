@@ -5,6 +5,7 @@ import {
   PanelLeftOpen,
   PanelLeftClose,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
@@ -47,6 +48,17 @@ export function AgreementModal({
   const contentRef = useRef<HTMLDivElement>(null);
   const cancelScrollAnimationRef = useRef<null | (() => void)>(null);
   const isMobile = useIsMobile();
+  const year = agreementMetadata?.year ?? agreement?.year;
+  const target = agreementMetadata?.target ?? agreement?.target;
+  const acquirer = agreementMetadata?.acquirer ?? agreement?.acquirer;
+  const mobileMetadataSummary = (() => {
+    const parts: string[] = [];
+    if (year) parts.push(year);
+    const counterparties =
+      target && acquirer ? `${target} → ${acquirer}` : target ?? acquirer;
+    if (counterparties) parts.push(counterparties);
+    return parts.join(" · ");
+  })();
 
   useEffect(() => {
     if (isOpen && agreementUuid) {
@@ -231,48 +243,97 @@ export function AgreementModal({
         {/* Agreement Metadata */}
         {(agreementMetadata || agreement) && (
           <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6 sm:py-4">
-            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-              <div>
-                <span className="font-medium text-muted-foreground">
-                  Year:
-                </span>
-                <div className="text-foreground">
-                  {agreementMetadata?.year || agreement?.year}
-                </div>
-              </div>
-              <div>
-                <span className="font-medium text-muted-foreground">
-                  Target:
-                </span>
-                <div className="text-foreground break-words">
-                  {agreementMetadata?.target || agreement?.target}
-                </div>
-              </div>
-              <div>
-                <span className="font-medium text-muted-foreground">
-                  Acquirer:
-                </span>
-                <div className="text-foreground break-words">
-                  {agreementMetadata?.acquirer || agreement?.acquirer}
-                </div>
-              </div>
+            {isMobile ? (
+              <details className="group">
+                <summary className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                  <div className="min-w-0 flex-1 text-sm font-medium text-foreground truncate">
+                    {mobileMetadataSummary}
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
 
-              {/* Original Filing Link */}
-              <div className="flex justify-start lg:justify-end">
-                {agreement?.url && (
-                  <a
-                    href={agreement.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group"
-                    title="View original SEC filing"
-                  >
-                    <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                    <span>Original Filing</span>
-                  </a>
-                )}
+                <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                  {year && (
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="font-medium text-muted-foreground">
+                        Year:
+                      </span>
+                      <span className="text-foreground">{year}</span>
+                    </div>
+                  )}
+                  {target && (
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="font-medium text-muted-foreground">
+                        Target:
+                      </span>
+                      <span className="text-foreground break-words">
+                        {target}
+                      </span>
+                    </div>
+                  )}
+                  {acquirer && (
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="font-medium text-muted-foreground">
+                        Acquirer:
+                      </span>
+                      <span className="text-foreground break-words">
+                        {acquirer}
+                      </span>
+                    </div>
+                  )}
+
+                  {agreement?.url && (
+                    <a
+                      href={agreement.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit"
+                      title="View original SEC filing"
+                    >
+                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      <span>Original Filing</span>
+                    </a>
+                  )}
+                </div>
+              </details>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+                <div>
+                  <span className="font-medium text-muted-foreground">
+                    Year:
+                  </span>
+                  <div className="text-foreground">{year}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">
+                    Target:
+                  </span>
+                  <div className="text-foreground break-words">{target}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">
+                    Acquirer:
+                  </span>
+                  <div className="text-foreground break-words">{acquirer}</div>
+                </div>
+
+                {/* Original Filing Link */}
+                <div className="flex justify-start lg:justify-end">
+                  {agreement?.url && (
+                    <a
+                      href={agreement.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group"
+                      title="View original SEC filing"
+                    >
+                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      <span>Original Filing</span>
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
