@@ -1,23 +1,23 @@
 import { SearchFilters } from "@shared/search";
+import type { ClauseTypeTree } from "@/lib/clause-types";
 
 /**
  * Utility function to extract standard IDs from nested clause type structure
  */
 export const extractStandardIds = (
   clauseTypeTexts: string[],
-  clauseTypesNested: any,
+  clauseTypesNested: ClauseTypeTree,
 ): string[] => {
   const standardIds: string[] = [];
 
-  const searchInNested = (obj: any): void => {
+  const searchInNested = (obj: ClauseTypeTree): void => {
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === "string") {
         // This is a leaf node - check if the key matches any selected clause type
         if (clauseTypeTexts.includes(key)) {
-          standardIds.push(value as string);
+          standardIds.push(value);
         }
-      } else if (typeof value === "object") {
-        // Recurse into nested object
+      } else if (typeof value === "object" && value) {
         searchInNested(value);
       }
     }
@@ -32,7 +32,7 @@ export const extractStandardIds = (
  */
 export const buildSearchParams = (
   searchFilters: SearchFilters,
-  clauseTypesNested?: any,
+  clauseTypesNested?: ClauseTypeTree,
   includePagination = true,
 ): URLSearchParams => {
   const params = new URLSearchParams();

@@ -1,150 +1,188 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { isLocalEnvironment } from "@/lib/environment";
-import { ChevronDown } from "lucide-react";
-import { useState, useRef } from "react";
+import { ChevronDown, Menu } from "lucide-react";
+import { useMemo, useState } from "react";
 import logo from "../../assets/logo.png";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Navigation() {
   const location = useLocation();
-  const [isUtilsOpen, setIsUtilsOpen] = useState(false);
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
+  const navLinkBase =
+    "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-  const handleUtilsMouseEnter = () => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-    setIsUtilsOpen(true);
-  };
-
-  const handleUtilsMouseLeave = () => {
-    closeTimeoutRef.current = setTimeout(() => {
-      setIsUtilsOpen(false);
-    }, 150);
-  };
+  const navLinks = useMemo(
+    () => [
+      { to: "/search", label: "Search" },
+      { to: "/docs", label: "Docs" },
+      { to: "/bulk-data", label: "Bulk Data" },
+      { to: "/about", label: "About" },
+      { to: "/feedback", label: "Feedback" },
+    ],
+    [],
+  );
 
   return (
-    <nav className="bg-gray-800 text-white">
-      <div className="max-w-9xl mx-auto px-7">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src={logo}
-              alt="Pandects Logo"
-              className="w-8 h-8 rounded object-cover"
-            />
-            <span className="text-lg font-semibold hidden lg:block">
-              Pandects
-            </span>
-          </Link>
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Brand */}
+        <Link
+          to="/"
+          className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <img
+            src={logo}
+            alt="Pandects Logo"
+            width={36}
+            height={36}
+            decoding="async"
+            className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+          />
+          <span className="hidden text-base font-semibold tracking-tight text-foreground sm:block">
+            Pandects
+          </span>
+        </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center space-x-4 lg:space-x-8">
-            {/* Search */}
+        {/* Desktop navigation */}
+        <div className="hidden items-center gap-1 md:flex">
+          {navLinks.map((link) => (
             <Link
-              to="/search"
+              key={link.to}
+              to={link.to}
+              aria-current={isActive(link.to) ? "page" : undefined}
               className={cn(
-                "px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/search")
-                  ? "text-white"
-                  : "text-gray-300 hover:text-white",
+                navLinkBase,
+                isActive(link.to)
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
-              Search
+              {link.label}
             </Link>
+          ))}
 
-            {/* Docs */}
-            <Link
-              to="/docs"
-              className={cn(
-                "px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/docs")
-                  ? "text-white"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              Docs
-            </Link>
-
-            {/* Bulk Data */}
-            <Link
-              to="/bulk-data"
-              className={cn(
-                "px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/bulk-data")
-                  ? "text-white"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              Bulk Data
-            </Link>
-
-            {/* About */}
-            <Link
-              to="/about"
-              className={cn(
-                "px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/about")
-                  ? "text-white"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              About
-            </Link>
-
-            {/* Feedback */}
-            <Link
-              to="/feedback"
-              className={cn(
-                "px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/feedback")
-                  ? "text-white"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              Feedback
-            </Link>
-
-            {/* Utils Dropdown - Only show in local development */}
-            {isLocalEnvironment() && (
-              <div className="relative">
-                <button
-                  onMouseEnter={handleUtilsMouseEnter}
-                  onMouseLeave={handleUtilsMouseLeave}
+          {isLocalEnvironment() && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
                   className={cn(
-                    "flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors",
-                    isActive("/editor")
-                      ? "text-white"
-                      : "text-gray-300 hover:text-white",
+                    "ml-1 h-9 gap-1 px-3 text-sm font-medium",
+                    isActive("/editor") && "bg-accent text-foreground",
                   )}
                 >
                   Utils
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {isUtilsOpen && (
-                  <div
-                    className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50"
-                    onMouseEnter={handleUtilsMouseEnter}
-                    onMouseLeave={handleUtilsMouseLeave}
-                  >
-                    <Link
-                      to="/editor"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
-                    >
-                      LLM Output Editor
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to="/editor">LLM Output Editor</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-      </div>
-    </nav>
+
+        {/* Mobile navigation */}
+        <div className="flex items-center md:hidden">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10"
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[320px] p-0">
+              <div className="flex h-full flex-col">
+                <SheetHeader className="border-b p-4 text-left">
+                  <SheetTitle className="flex items-center gap-3">
+                    <img
+                      src={logo}
+                      alt="Pandects Logo"
+                      width={36}
+                      height={36}
+                      decoding="async"
+                      className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+                    />
+                    <span className="text-base font-semibold tracking-tight">
+                      Pandects
+                    </span>
+                  </SheetTitle>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-auto p-2">
+                  <div className="grid gap-1">
+                    {navLinks.map((link) => (
+                      <SheetClose asChild key={link.to}>
+                        <Link
+                          to={link.to}
+                          aria-current={isActive(link.to) ? "page" : undefined}
+                          className={cn(
+                            navLinkBase,
+                            isActive(link.to)
+                              ? "bg-accent text-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          )}
+                        >
+                          {link.label}
+                        </Link>
+                      </SheetClose>
+                    ))}
+                  </div>
+
+                  {isLocalEnvironment() && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Utils
+                      </div>
+                      <div className="grid gap-1">
+                        <SheetClose asChild>
+                          <Link
+                            to="/editor"
+                            aria-current={
+                              isActive("/editor") ? "page" : undefined
+                            }
+                            className={cn(
+                              navLinkBase,
+                              isActive("/editor")
+                                ? "bg-accent text-foreground"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                            )}
+                          >
+                            LLM Output Editor
+                          </Link>
+                        </SheetClose>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </nav>
+    </header>
   );
 }

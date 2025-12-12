@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 interface SearchPaginationProps {
   currentPage: number;
@@ -27,6 +28,7 @@ export function SearchPagination({
   onPageSizeChange,
   isLoading = false,
 }: SearchPaginationProps) {
+  const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
   const pageSizeOptions = [10, 25, 50, 100];
 
   const getVisiblePages = () => {
@@ -70,14 +72,14 @@ export function SearchPagination({
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       {/* Results per page selector */}
-      <div className="flex items-center gap-2 text-sm text-material-text-secondary">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Results per page:</span>
         <Select
           value={pageSize.toString()}
-          onValueChange={(value) => onPageSizeChange(parseInt(value))}
+          onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
           disabled={isLoading}
         >
-          <SelectTrigger className="w-20 h-8 border-none border-b border-[rgba(0,0,0,0.42)] rounded-none bg-transparent focus:border-material-blue">
+          <SelectTrigger className="h-8 w-20 rounded-none border-none border-b border-input bg-transparent focus:border-ring">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -91,25 +93,24 @@ export function SearchPagination({
       </div>
 
       {/* Results info */}
-      <div className="text-sm text-material-text-secondary">
-        Showing {startResult} to {endResult} of {totalCount} results
+      <div className="text-sm text-muted-foreground">
+        Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
+        {formatNumber(totalCount)} results
       </div>
 
       {/* Pagination controls */}
       <div className="flex items-center gap-1">
         {/* Previous button */}
-        <button
+        <Button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || isLoading}
-          className={cn(
-            "flex items-center gap-1 px-3 py-1.5 text-sm font-medium transition-all duration-200 rounded",
-            "text-material-text-secondary hover:bg-material-surface",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-          )}
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Previous</span>
-        </button>
+        </Button>
 
         {/* Page numbers */}
         <div className="flex items-center gap-1">
@@ -118,7 +119,7 @@ export function SearchPagination({
               return (
                 <span
                   key={`ellipsis-${index}`}
-                  className="px-2 py-1 text-sm text-material-text-secondary"
+                  className="px-2 py-1 text-sm text-muted-foreground"
                 >
                   ...
                 </span>
@@ -129,37 +130,34 @@ export function SearchPagination({
             const isActive = pageNumber === currentPage;
 
             return (
-              <button
+              <Button
                 key={pageNumber}
                 onClick={() => onPageChange(pageNumber)}
                 disabled={isLoading}
+                variant={isActive ? "default" : "ghost"}
+                size="icon"
                 className={cn(
-                  "w-8 h-8 text-sm font-medium transition-all duration-200 rounded",
-                  isActive
-                    ? "bg-material-blue text-white shadow-[0px_1px_3px_0px_rgba(0,0,0,0.12),0px_1px_2px_0px_rgba(0,0,0,0.24)]"
-                    : "text-material-text-secondary hover:bg-material-surface",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                  "h-8 w-8",
+                  !isActive && "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {pageNumber}
-              </button>
+              </Button>
             );
           })}
         </div>
 
         {/* Next button */}
-        <button
+        <Button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || isLoading}
-          className={cn(
-            "flex items-center gap-1 px-3 py-1.5 text-sm font-medium transition-all duration-200 rounded",
-            "text-material-text-secondary hover:bg-material-surface",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",
-          )}
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
         >
           <span className="hidden sm:inline">Next</span>
           <ChevronRight className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );

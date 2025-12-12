@@ -61,7 +61,9 @@ export function useLLMOutput() {
           llmOutput: parsed.llmOutput ?? "",
         }));
       } catch (error) {
-        console.error("Failed to load settings:", error);
+        if (import.meta.env.DEV) {
+          console.error("Failed to load settings:", error);
+        }
       }
     }
   }, []);
@@ -112,7 +114,9 @@ export function useLLMOutput() {
         isSaved: true,
       });
     } catch (error) {
-      console.error("Failed to load page:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to load page:", error);
+      }
       // Check if it's a network error
       if (error instanceof TypeError && error.message.includes("fetch")) {
         updateState({
@@ -144,7 +148,7 @@ export function useLLMOutput() {
         ...prev,
         pageUuid: pageUuid,
         isSaved: true,
-        lastSaved: new Date(parseInt(timestamp)).toLocaleString(),
+        lastSaved: new Date(parseInt(timestamp, 10)).toLocaleString(),
         showSaveSuccess: true,
       }));
 
@@ -241,7 +245,9 @@ export function useLLMOutput() {
 
       navigate(successUrl);
     } catch (error) {
-      console.error("Failed to save page:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to save page:", error);
+      }
       // Check if it's a network error
       if (error instanceof TypeError && error.message.includes("fetch")) {
         updateState({
@@ -314,7 +320,9 @@ export function useLLMOutput() {
         updateState({ showCopySuccess: false });
       }, 3000);
     } catch (error) {
-      console.error("Failed to copy to clipboard:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to copy to clipboard:", error);
+      }
       // Show error message to user
       updateState({ copyError: true, showCopySuccess: false });
       setTimeout(() => {

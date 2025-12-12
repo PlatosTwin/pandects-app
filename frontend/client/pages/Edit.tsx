@@ -13,21 +13,19 @@ import {
 import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
-import Navigation from "@/components/Navigation";
 
 export default function Index() {
   const { state, actions } = useLLMOutput();
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      <Navigation />
-      <div className="w-full font-roboto flex-1 flex flex-col gap-8 max-w-4xl mx-auto px-8 py-8">
+    <div className="w-full flex flex-col">
+      <div className="flex flex-col gap-8 max-w-4xl mx-auto px-8 py-8">
         {/* Page Header */}
         <div className="mb-4">
-          <h1 className="text-3xl font-bold text-material-text-primary mb-4">
+          <h1 className="text-3xl font-bold text-foreground mb-4">
             LLM Output Editor
           </h1>
-          <p className="text-material-text-secondary">
+          <p className="text-muted-foreground">
             Load and edit LLM-generated content with live preview and save
             functionality.
           </p>
@@ -38,7 +36,7 @@ export default function Index() {
           {/* Page UUID Input */}
           <div className="flex flex-col gap-6 flex-1 min-w-[300px]">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-normal leading-5 tracking-[0.15px] text-material-text-secondary">
+              <label className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground">
                 Page UUID
               </label>
               <div className="relative flex items-center">
@@ -57,9 +55,9 @@ export default function Index() {
                     }
                   }}
                   tabIndex={1}
-                  className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-material-text-primary bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-blue-50 transition-colors"
+                  className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-foreground bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-accent transition-colors"
                 />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
               </div>
             </div>
           </div>
@@ -68,15 +66,16 @@ export default function Index() {
           <div className="flex items-center gap-4">
             {/* Load Page Button */}
             <button
+              type="button"
               disabled={state.isLoading || !state.pageUuid.trim()}
               onClick={actions.loadPage}
               tabIndex={2}
               style={{ opacity: state.isLoading ? 0.7 : 1 }}
               className={cn(
-                "flex items-center justify-center gap-2 px-6 py-2 rounded-md bg-material-blue text-white text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
+                "flex items-center justify-center gap-2 px-6 py-2 rounded-md bg-primary text-primary-foreground text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200",
                 "shadow-[0px_1px_5px_0px_rgba(0,0,0,0.12),0px_2px_2px_0px_rgba(0,0,0,0.14),0px_3px_1px_-2px_rgba(0,0,0,0.20)]",
                 "hover:shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15),0px_3px_4px_0px_rgba(0,0,0,0.18),0px_4px_2px_-2px_rgba(0,0,0,0.25)]",
-                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
@@ -91,10 +90,11 @@ export default function Index() {
 
             {/* Save Button */}
             <button
+              type="button"
               disabled={state.isLoading}
               onClick={actions.requestSave}
               tabIndex={3}
-              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-[rgba(25,118,210,0.5)] text-material-blue text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-[rgba(25,118,210,0.05)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="flex items-center justify-center gap-2 px-6 py-2 rounded-md border border-primary/40 text-primary text-[15px] font-medium leading-[26px] tracking-[0.46px] uppercase transition-all duration-200 hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <Check className="w-6 h-6 flex-shrink-0" />
               <span>Save</span>
@@ -102,8 +102,10 @@ export default function Index() {
 
             {/* Settings Button */}
             <button
+              type="button"
               onClick={actions.toggleSettings}
-              className="flex items-center justify-center p-2 rounded-md border border-[rgba(0,0,0,0.42)] text-material-text-secondary transition-all duration-200 hover:bg-material-surface"
+              className="flex items-center justify-center p-2 rounded-md border border-input text-muted-foreground transition-all duration-200 hover:bg-accent"
+              aria-label="Toggle settings"
             >
               <Settings className="w-6 h-6" />
             </button>
@@ -112,24 +114,26 @@ export default function Index() {
 
         {/* Settings Panel */}
         {state.showSettings && (
-          <div className="flex items-center gap-4 p-4 bg-material-surface rounded-md border-l-4 border-material-blue">
+          <div className="flex items-center gap-4 p-4 bg-muted rounded-md border-l-4 border-primary">
             {/* Font Size Controls */}
             <div className="flex items-center gap-2">
-              <label className="text-xs font-normal text-material-text-secondary">
+              <label className="text-xs font-normal text-muted-foreground">
                 Font size:
               </label>
               <button
+                type="button"
                 onClick={actions.decreaseFontSize}
-                className="w-8 h-8 flex items-center justify-center rounded border border-[rgba(0,0,0,0.42)] text-material-text-secondary hover:bg-material-surface transition-all duration-200"
+                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <span className="text-sm font-normal text-material-text-primary min-w-8 text-center">
+              <span className="text-sm font-normal text-foreground min-w-8 text-center">
                 {state.fontSize}px
               </span>
               <button
+                type="button"
                 onClick={actions.increaseFontSize}
-                className="w-8 h-8 flex items-center justify-center rounded border border-[rgba(0,0,0,0.42)] text-material-text-secondary hover:bg-material-surface transition-all duration-200"
+                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -138,18 +142,18 @@ export default function Index() {
         )}
 
         {/* Divider */}
-        <div className="w-full h-px bg-material-divider" />
+        <div className="w-full h-px bg-border" />
 
         {/* Content Section */}
         <div className="flex flex-col gap-4 flex-1">
           {/* Content Header */}
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <h2 className="text-base font-medium text-material-text-primary">
+              <h2 className="text-base font-medium text-foreground">
                 LLM Output
               </h2>
               {state.lastSaved && (
-                <div className="text-xs text-material-text-secondary flex items-center leading-none">
+                <div className="text-xs text-muted-foreground flex items-center leading-none">
                   <span>Last saved: </span>
                   <span>{state.lastSaved}</span>
                 </div>
@@ -158,15 +162,16 @@ export default function Index() {
 
             <div className="flex items-center gap-2">
               {/* Stats */}
-              <div className="flex items-center gap-4 text-xs text-material-text-secondary">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{state.wordCount} words</span>
                 <span>{state.charCount} characters</span>
               </div>
 
               {/* Copy Button */}
               <button
+                type="button"
                 onClick={actions.copyToClipboard}
-                className="flex items-center gap-1 px-3 py-1 rounded border border-[rgba(0,0,0,0.42)] text-xs text-material-text-secondary transition-all duration-200 hover:bg-material-surface"
+                className="flex items-center gap-1 px-3 py-1 rounded border border-input text-xs text-muted-foreground transition-all duration-200 hover:bg-accent"
               >
                 <Copy className="w-4 h-4" />
                 <span>Copy</span>
@@ -174,8 +179,9 @@ export default function Index() {
 
               {/* Clear Button */}
               <button
+                type="button"
                 onClick={actions.clearContent}
-                className="flex items-center gap-1 px-3 py-1 rounded border border-[rgba(0,0,0,0.42)] text-xs text-material-text-secondary transition-all duration-200 hover:bg-material-surface"
+                className="flex items-center gap-1 px-3 py-1 rounded border border-input text-xs text-muted-foreground transition-all duration-200 hover:bg-accent"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Clear</span>
@@ -185,13 +191,13 @@ export default function Index() {
 
           {/* Text Area Container */}
           <div className="relative flex-1 min-h-[400px]">
-            <div className="absolute inset-0 rounded-t-md bg-material-surface p-3">
+            <div className="absolute inset-0 rounded-t-md bg-muted p-3">
               <div className="flex flex-col gap-3 h-full">
-                <label className="text-xs font-normal leading-5 tracking-[0.15px] text-material-text-secondary">
+                <label className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground">
                   LLM Output
                 </label>
                 <textarea
-                  className="resize-none flex-1 w-full bg-transparent border-none text-material-text-primary font-normal leading-6 tracking-[0.15px] focus:outline-none"
+                  className="resize-none flex-1 w-full bg-transparent border-none text-foreground font-normal leading-6 tracking-[0.15px] focus:outline-none"
                   placeholder="Enter or load content here..."
                   value={state.llmOutput}
                   onChange={(e) => actions.updateLLMOutput(e.target.value)}
@@ -199,14 +205,14 @@ export default function Index() {
                 />
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
           </div>
         </div>
       </div>
 
       {/* Copy Success Toast */}
       {state.showCopySuccess && (
-        <div className="fixed bottom-6 right-6 bg-material-blue text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
+        <div className="fixed bottom-6 right-6 bg-primary text-primary-foreground px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
           Copied to clipboard!
         </div>
       )}

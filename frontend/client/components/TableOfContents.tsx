@@ -183,7 +183,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
         // Extract order attribute if present for better sorting
         const orderMatch = sectionAttributes.match(/order="([^"]*)"/);
         const order = orderMatch
-          ? parseInt(orderMatch[1])
+          ? parseInt(orderMatch[1], 10)
           : articleItem.children!.length + 1;
 
         articleItem.children!.push({
@@ -231,7 +231,9 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
       });
     }
   } catch (error) {
-    console.error("Error parsing XML for TOC:", error);
+    if (import.meta.env.DEV) {
+      console.error("Error parsing XML for TOC:", error);
+    }
     // Return a basic structure if parsing fails
     return [
       {
@@ -249,8 +251,8 @@ function extractOrderFromTitle(title: string): number {
   // Try to extract section numbers like "1.1", "2.3", etc.
   const match = title.match(/^(\d+)\.?(\d*)/);
   if (match) {
-    const major = parseInt(match[1]) || 0;
-    const minor = parseInt(match[2]) || 0;
+    const major = parseInt(match[1], 10) || 0;
+    const minor = parseInt(match[2], 10) || 0;
     return major * 1000 + minor; // This ensures proper sorting
   }
   return 9999; // Put items without numbers at the end

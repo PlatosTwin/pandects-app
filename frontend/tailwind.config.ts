@@ -13,9 +13,6 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        roboto: ["Roboto", "sans-serif"],
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -61,15 +58,6 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
         cream: "hsl(var(--cream))",
-        "material-blue": "#1976D2",
-        "material-blue-light": "rgba(25,118,210,0.1)",
-        "material-text": {
-          primary: "rgba(0,0,0,0.87)",
-          secondary: "rgba(0,0,0,0.6)",
-          disabled: "rgba(0,0,0,0.38)",
-        },
-        "material-divider": "rgba(0,0,0,0.12)",
-        "material-surface": "rgba(0,0,0,0.06)",
       },
       borderRadius: {
         lg: "var(--radius)",

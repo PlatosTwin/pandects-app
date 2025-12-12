@@ -1,30 +1,26 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import Navigation from "@/components/Navigation";
+import { Link } from "react-router-dom";
+import { PageShell } from "@/components/PageShell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      location.pathname,
-    );
-  }, [location.pathname]);
-
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      <Navigation />
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">404</h1>
-          <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-          <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-            Return to Home
-          </a>
+    <PageShell size="md" className="flex items-center justify-center py-16">
+      <Card className="w-full max-w-lg p-8 text-center">
+        <h1 className="text-4xl font-bold text-foreground">404</h1>
+        <p className="mt-3 text-base text-muted-foreground">
+          Page not found.
+        </p>
+        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+          <Button asChild>
+            <Link to="/">Return to Home</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/search">Go to Search</Link>
+          </Button>
         </div>
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 };
 

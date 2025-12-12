@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 import { Button } from "@/components/ui/button";
+import type { ClauseTypeTree } from "@/lib/clause-types";
 
 interface SearchSidebarProps {
   filters: {
@@ -26,12 +27,13 @@ interface SearchSidebarProps {
   years: string[];
   targets: string[];
   acquirers: string[];
-  clauseTypesNested: any;
+  clauseTypesNested: ClauseTypeTree;
   isLoadingFilterOptions: boolean;
   onToggleFilterValue: (field: string, value: string) => void;
   onClearFilters: () => void;
-  onToggleCollapse: () => void;
-  isCollapsed: boolean;
+  onToggleCollapse?: () => void;
+  isCollapsed?: boolean;
+  variant?: "sidebar" | "sheet";
   className?: string;
 }
 
@@ -45,13 +47,19 @@ export function SearchSidebar({
   onToggleFilterValue,
   onClearFilters,
   onToggleCollapse,
-  isCollapsed,
+  isCollapsed = false,
+  variant = "sidebar",
   className,
 }: SearchSidebarProps) {
   const [showContent, setShowContent] = useState(false);
+  const toggleCollapse = onToggleCollapse ?? (() => {});
 
   // Control content visibility with proper timing
   React.useEffect(() => {
+    if (variant === "sheet") {
+      setShowContent(true);
+      return;
+    }
     if (isCollapsed) {
       // Hide content immediately when collapsing
       setShowContent(false);
@@ -63,14 +71,148 @@ export function SearchSidebar({
       );
       return () => clearTimeout(timer);
     }
-  }, [isCollapsed]);
+  }, [isCollapsed, variant]);
 
   // Initialize content visibility on mount
   React.useEffect(() => {
-    if (!isCollapsed) {
+    if (variant === "sheet" || !isCollapsed) {
       setShowContent(true);
     }
-  }, []);
+  }, [isCollapsed, variant]);
+
+  const filtersContent = (
+    <div className="space-y-8">
+      {/* Year Filter */}
+      <div>
+        <CheckboxFilter
+          label="Year"
+          options={years}
+          selectedValues={filters.year || []}
+          onToggle={(value) => onToggleFilterValue("year", value)}
+          tabIndex={1}
+        />
+      </div>
+
+      {/* Target Filter */}
+      <div className="relative">
+        <CheckboxFilter
+          label="Target"
+          options={targets}
+          selectedValues={filters.target || []}
+          onToggle={(value) => onToggleFilterValue("target", value)}
+          tabIndex={2}
+        />
+        {isLoadingFilterOptions && (
+          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        )}
+      </div>
+
+      {/* Acquirer Filter */}
+      <div className="relative">
+        <CheckboxFilter
+          label="Acquirer"
+          options={acquirers}
+          selectedValues={filters.acquirer || []}
+          onToggle={(value) => onToggleFilterValue("acquirer", value)}
+          tabIndex={3}
+        />
+        {isLoadingFilterOptions && (
+          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        )}
+      </div>
+
+      {/* Clause Type Filter */}
+      <div>
+        <NestedCheckboxFilter
+          label="Clause Type"
+          data={clauseTypesNested}
+          selectedValues={filters.clauseType || []}
+          onToggle={(value) => onToggleFilterValue("clauseType", value)}
+          useModal={true}
+          tabIndex={4}
+        />
+      </div>
+
+      {/* Transaction Size Filter */}
+      <div>
+        <CheckboxFilter
+          label="Transaction Size"
+          options={TRANSACTION_SIZE_OPTIONS}
+          selectedValues={filters.transactionSize || []}
+          onToggle={(value) => onToggleFilterValue("transactionSize", value)}
+          tabIndex={5}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Transaction Type Filter */}
+      <div>
+        <CheckboxFilter
+          label="Transaction Type"
+          options={TRANSACTION_TYPE_OPTIONS}
+          selectedValues={filters.transactionType || []}
+          onToggle={(value) => onToggleFilterValue("transactionType", value)}
+          tabIndex={6}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Consideration Type Filter */}
+      <div>
+        <CheckboxFilter
+          label="Consideration Type"
+          options={CONSIDERATION_TYPE_OPTIONS}
+          selectedValues={filters.considerationType || []}
+          onToggle={(value) => onToggleFilterValue("considerationType", value)}
+          tabIndex={7}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Target Type Filter */}
+      <div>
+        <CheckboxFilter
+          label="Target Type"
+          options={TARGET_TYPE_OPTIONS}
+          selectedValues={filters.targetType || []}
+          onToggle={(value) => onToggleFilterValue("targetType", value)}
+          tabIndex={8}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+    </div>
+  );
+
+  if (variant === "sheet") {
+    return (
+      <div className={cn("flex h-full flex-col", className)}>
+        <div className="border-b border-border p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Filters</h2>
+          </div>
+          <Button
+            onClick={onClearFilters}
+            variant="outline"
+            size="sm"
+            className="w-full justify-center gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Clear Filters
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">{filtersContent}</div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -78,13 +220,13 @@ export function SearchSidebar({
       {!isCollapsed && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onToggleCollapse}
+          onClick={toggleCollapse}
         />
       )}
 
       <div
         className={cn(
-          "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out h-screen",
+          "bg-card border-r border-border transition-all duration-300 ease-in-out h-screen",
           // Desktop: normal sidebar behavior
           "lg:flex-shrink-0 lg:sticky lg:top-0 lg:relative",
           isCollapsed ? "lg:w-16" : "lg:w-80",
@@ -99,14 +241,15 @@ export function SearchSidebar({
         {showContent && (
           <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="border-b border-gray-200 p-4">
+            <div className="border-b border-border p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                   Search Filters
                 </h2>
                 <button
-                  onClick={onToggleCollapse}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                  type="button"
+                  onClick={toggleCollapse}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
                   title="Collapse sidebar"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -124,126 +267,7 @@ export function SearchSidebar({
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-8">
-                {/* Year Filter */}
-                <div>
-                  <CheckboxFilter
-                    label="Year"
-                    options={years}
-                    selectedValues={filters.year || []}
-                    onToggle={(value) => onToggleFilterValue("year", value)}
-                    tabIndex={1}
-                  />
-                </div>
-
-                {/* Target Filter */}
-                <div className="relative">
-                  <CheckboxFilter
-                    label="Target"
-                    options={targets}
-                    selectedValues={filters.target || []}
-                    onToggle={(value) => onToggleFilterValue("target", value)}
-                    tabIndex={2}
-                  />
-                  {isLoadingFilterOptions && (
-                    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
-                      <div className="w-4 h-4 animate-spin border-2 border-material-blue border-t-transparent rounded-full" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Acquirer Filter */}
-                <div className="relative">
-                  <CheckboxFilter
-                    label="Acquirer"
-                    options={acquirers}
-                    selectedValues={filters.acquirer || []}
-                    onToggle={(value) => onToggleFilterValue("acquirer", value)}
-                    tabIndex={3}
-                  />
-                  {isLoadingFilterOptions && (
-                    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded">
-                      <div className="w-4 h-4 animate-spin border-2 border-material-blue border-t-transparent rounded-full" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Clause Type Filter */}
-                <div>
-                  <NestedCheckboxFilter
-                    label="Clause Type"
-                    data={clauseTypesNested}
-                    selectedValues={filters.clauseType || []}
-                    onToggle={(value) =>
-                      onToggleFilterValue("clauseType", value)
-                    }
-                    useModal={true}
-                    tabIndex={4}
-                  />
-                </div>
-
-                {/* Transaction Size Filter */}
-                <div>
-                  <CheckboxFilter
-                    label="Transaction Size"
-                    options={TRANSACTION_SIZE_OPTIONS}
-                    selectedValues={filters.transactionSize || []}
-                    onToggle={(value) =>
-                      onToggleFilterValue("transactionSize", value)
-                    }
-                    tabIndex={5}
-                    hideSearch={true}
-                    disabled={true}
-                  />
-                </div>
-
-                {/* Transaction Type Filter */}
-                <div>
-                  <CheckboxFilter
-                    label="Transaction Type"
-                    options={TRANSACTION_TYPE_OPTIONS}
-                    selectedValues={filters.transactionType || []}
-                    onToggle={(value) =>
-                      onToggleFilterValue("transactionType", value)
-                    }
-                    tabIndex={6}
-                    hideSearch={true}
-                    disabled={true}
-                  />
-                </div>
-
-                {/* Consideration Type Filter */}
-                <div>
-                  <CheckboxFilter
-                    label="Consideration Type"
-                    options={CONSIDERATION_TYPE_OPTIONS}
-                    selectedValues={filters.considerationType || []}
-                    onToggle={(value) =>
-                      onToggleFilterValue("considerationType", value)
-                    }
-                    tabIndex={7}
-                    hideSearch={true}
-                    disabled={true}
-                  />
-                </div>
-
-                {/* Target Type Filter */}
-                <div>
-                  <CheckboxFilter
-                    label="Target Type"
-                    options={TARGET_TYPE_OPTIONS}
-                    selectedValues={filters.targetType || []}
-                    onToggle={(value) =>
-                      onToggleFilterValue("targetType", value)
-                    }
-                    tabIndex={8}
-                    hideSearch={true}
-                    disabled={true}
-                  />
-                </div>
-              </div>
-            </div>
+            <div className="flex-1 overflow-y-auto p-4">{filtersContent}</div>
           </div>
         )}
 
@@ -251,8 +275,9 @@ export function SearchSidebar({
         {isCollapsed && (
           <div className="h-full pt-4 flex justify-center">
             <button
-              onClick={onToggleCollapse}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              type="button"
+              onClick={toggleCollapse}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
               title="Expand sidebar"
             >
               <ChevronRight className="w-4 h-4" />

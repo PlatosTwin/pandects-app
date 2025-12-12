@@ -6,25 +6,38 @@ export default function SiteBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const dismissedTimestamp = localStorage.getItem("site-banner-dismissed");
-    if (!dismissedTimestamp) {
-      setIsVisible(true);
-    } else {
-      const dismissedTime = parseInt(dismissedTimestamp);
-      const now = Date.now();
-      const oneDayInMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    try {
+      const dismissedTimestamp = localStorage.getItem("site-banner-dismissed");
+      if (!dismissedTimestamp) {
+        setIsVisible(true);
+        return;
+      }
 
+      const dismissedTime = parseInt(dismissedTimestamp, 10);
+      if (!Number.isFinite(dismissedTime)) {
+        setIsVisible(true);
+        localStorage.removeItem("site-banner-dismissed");
+        return;
+      }
+
+      const now = Date.now();
+      const oneDayInMs = 24 * 60 * 60 * 1000;
       if (now - dismissedTime > oneDayInMs) {
-        // More than 24 hours have passed, show the banner again
         setIsVisible(true);
         localStorage.removeItem("site-banner-dismissed");
       }
+    } catch {
+      setIsVisible(true);
     }
   }, []);
 
   const handleDismiss = () => {
     setIsVisible(false);
-    localStorage.setItem("site-banner-dismissed", Date.now().toString());
+    try {
+      localStorage.setItem("site-banner-dismissed", Date.now().toString());
+    } catch {
+      // ignore
+    }
   };
 
   if (!isVisible) {
@@ -32,15 +45,15 @@ export default function SiteBanner() {
   }
 
   return (
-    <div className="bg-amber-100 border-b border-amber-300">
-      <div className="max-w-9xl mx-auto px-7 py-3">
-        <div className="flex items-center justify-between">
+    <div className="border-b border-border bg-muted/40">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-amber-900">
-              <span className="font-semibold">Notice</span>: This project is in
-              the very early stages of its development. Site layout, API schema,
-              data organization, and other features may change. Currently, we
-              expose only 45 sample agreements, as a proof-of-concept.
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Notice</span>:{" "}
+              Pandects is in early development. Layout, API schema, and data
+              organization may change. Currently, the public site exposes 45
+              sample agreements as a proof-of-concept.
             </p>
           </div>
           <div className="ml-4 flex-shrink-0">
@@ -48,7 +61,7 @@ export default function SiteBanner() {
               variant="ghost"
               size="sm"
               onClick={handleDismiss}
-              className="text-amber-900 hover:text-amber-950 hover:bg-amber-200 p-1 h-auto"
+              className="p-1 h-auto text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
               <span className="sr-only">Dismiss banner</span>

@@ -203,7 +203,7 @@ export function CheckboxFilter({
 
   return (
     <div ref={componentRef} className={cn("flex flex-col gap-2", className)}>
-      <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
+      <label className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
         {label}
       </label>
 
@@ -219,7 +219,7 @@ export function CheckboxFilter({
               "w-full text-left text-base font-normal bg-transparent border-none border-b py-2 flex items-center justify-between min-h-[44px] transition-colors",
               disabled
                 ? "text-gray-400 border-gray-300 cursor-not-allowed"
-                : "text-material-text-primary border-[rgba(0,0,0,0.42)] focus:outline-none focus:border-material-blue focus:bg-blue-50 cursor-pointer",
+                : "text-foreground border-input focus:outline-none focus:border-primary focus:bg-accent cursor-pointer",
             )}
           >
             {selectedValues.length === 0 ? (
@@ -246,15 +246,15 @@ export function CheckboxFilter({
               <span>{`${selectedValues.length} selected`}</span>
             )}
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             )}
           </button>
         </TooltipProvider>
 
         {/* Bottom border line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
 
         {/* Expanded dropdown with search and sticky selected items */}
         {isExpanded && !disabled && (
@@ -301,7 +301,7 @@ export function CheckboxFilter({
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={`Search ${label.toLowerCase()}s...`}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
+                    className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-sm leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
                 </div>
               </div>
@@ -309,23 +309,23 @@ export function CheckboxFilter({
 
             {/* Selected Items (Sticky at top) */}
             {selectedOptions.length > 0 && (
-              <div className="flex-shrink-0 bg-blue-50 border-b border-gray-200">
-                <div className="p-2 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+              <div className="flex-shrink-0 bg-primary/10 border-b border-gray-200">
+                <div className="p-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Selected ({selectedOptions.length})
                 </div>
                 <div className="p-2 pt-0">
                   {selectedOptions.map((option) => (
                     <label
                       key={`selected-${option}`}
-                      className="flex items-center gap-3 py-2 px-2 hover:bg-blue-100 cursor-pointer rounded text-sm"
+                      className="flex items-center gap-3 py-2 px-2 hover:bg-primary/10 cursor-pointer rounded text-sm"
                     >
                       <input
                         type="checkbox"
                         checked={true}
                         onChange={() => onToggle(option)}
-                        className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
                       />
-                      <span className="text-material-text-primary font-medium">
+                      <span className="text-foreground font-medium">
                         {option}
                       </span>
                       <button
@@ -353,7 +353,7 @@ export function CheckboxFilter({
                 <div className="p-2">
                   {filteredOptions.length > 0 ? (
                     <>
-                      <div className="p-2 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+                      <div className="p-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Search Results
                       </div>
                       {filteredOptions.map((option, index) => (
@@ -362,7 +362,7 @@ export function CheckboxFilter({
                           className={cn(
                             "flex items-center gap-3 py-2 px-2 cursor-pointer rounded text-sm",
                             highlightedIndex === index
-                              ? "bg-material-blue-light"
+                              ? "bg-primary/10"
                               : "hover:bg-gray-50",
                           )}
                         >
@@ -370,16 +370,16 @@ export function CheckboxFilter({
                             type="checkbox"
                             checked={selectedValues.includes(option)}
                             onChange={() => onToggle(option)}
-                            className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
+                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
                           />
-                          <span className="text-material-text-primary">
+                          <span className="text-foreground">
                             {option}
                           </span>
                         </label>
                       ))}
                     </>
                   ) : (
-                    <div className="p-4 text-center text-sm text-material-text-secondary">
+                    <div className="p-4 text-center text-sm text-muted-foreground">
                       No {label.toLowerCase()}s found matching "{searchTerm}"
                     </div>
                   )}
@@ -395,7 +395,7 @@ export function CheckboxFilter({
                           className={cn(
                             "flex items-center gap-3 py-2 px-2 cursor-pointer rounded text-sm",
                             !searchTerm.trim() && highlightedIndex === index
-                              ? "bg-material-blue-light"
+                              ? "bg-primary/10"
                               : "hover:bg-gray-50",
                           )}
                         >
@@ -403,9 +403,9 @@ export function CheckboxFilter({
                             type="checkbox"
                             checked={false}
                             onChange={() => onToggle(option)}
-                            className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
+                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
                           />
-                          <span className="text-material-text-primary">
+                          <span className="text-foreground">
                             {option}
                           </span>
                         </label>

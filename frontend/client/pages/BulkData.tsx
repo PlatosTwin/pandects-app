@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
-import Navigation from "@/components/Navigation";
 import { apiUrl } from "@/lib/api-config";
+import { PageShell } from "@/components/PageShell";
+import { toast } from "sonner";
 
 interface DumpInfo {
   manifest: string;
@@ -44,10 +45,12 @@ export default function BulkData() {
                 return { ...dump, size_bytes: manifestData.size_bytes };
               }
             } catch (error) {
-              console.warn(
-                `Failed to fetch manifest for ${dump.timestamp}:`,
-                error,
-              );
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `Failed to fetch manifest for ${dump.timestamp}:`,
+                  error,
+                );
+              }
             }
             return dump;
           }),
@@ -73,7 +76,9 @@ export default function BulkData() {
 
         setDumps(sortedData);
       } catch (err) {
-        console.error("Error fetching dumps:", err);
+        if (import.meta.env.DEV) {
+          console.error("Error fetching dumps:", err);
+        }
         setError(err instanceof Error ? err.message : "Failed to load dumps");
       } finally {
         setLoading(false);
@@ -110,26 +115,16 @@ export default function BulkData() {
     return `${megabytes.toFixed(1)} MB`;
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    textArea.style.top = "-9999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
+  const copyToClipboard = async (text: string, id: string) => {
     try {
-      document.execCommand("copy");
+      await navigator.clipboard.writeText(text);
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
         setCopiedStates((prev) => ({ ...prev, [id]: false }));
       }, 2000);
+      toast.success("Copied to clipboard");
     } catch (err) {
-      // Silent fail
-    } finally {
-      document.body.removeChild(textArea);
+      toast.error("Copy failed");
     }
   };
 
@@ -140,280 +135,292 @@ export default function BulkData() {
       const blob = await res.blob();
       const filename = url.split("/").pop()!;
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     } catch (e) {
-      console.error("Failed to download manifest", e);
+      if (import.meta.env.DEV) {
+        console.error("Failed to download manifest", e);
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-cream">
-      <Navigation />
-
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-material-text-primary mb-4">
-            Bulk Data Downloads
-          </h1>
-          <p className="text-material-text-secondary max-w-3xl">
-            Download complete database dumps of the Pandects dataset. All dumps
-            are compressed MariaDB SQL files containing the full structured
-            data. For added conveniance, we've put together some simple database documentation, which you can find in <a
-              href="https://dbdocs.io/nmbogdan/Pandects"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-material-blue hover:underline"
-            >dbdocs</a>.
-          </p>
-        </div>
-
-        {/* Demo Code Blocks */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* API Call Example */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
-            <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Pull metadata for all dumps via API
-            </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-              <button
-                onClick={() =>
-                  copyToClipboard(
-                    "curl https://pandects-api.fly.dev/api/dumps",
-                    "api-call",
-                  )
-                }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 transition-opacity duration-200 hover:bg-gray-50 z-10"
-                title="Copy to clipboard"
-              >
-                {copiedStates["api-call"] ? (
-                  <Check className="w-3 h-3 text-green-600" />
-                ) : (
-                  <Copy className="w-3 h-3 text-gray-600" />
-                )}
-              </button>
-              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div>
-                  <div className="text-gray-600 mb-2">
-                    # API call to get dumps info
-                  </div>
-                  <div className="whitespace-nowrap pr-10">
-                    curl https://pandects-api.fly.dev/api/dumps
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Download with wget */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
-            <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Download latest version with wget
-            </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-              <button
-                onClick={() =>
-                  latestSqlUrl &&
-                  copyToClipboard(`wget ${latestSqlUrl}`, "wget-download")
-                }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 hover:bg-gray-50 z-10"
-                title="Copy to clipboard"
-              >
-                {copiedStates["wget-download"] ? (
-                  <Check className="w-3 h-3 text-green-600" />
-                ) : (
-                  <Copy className="w-3 h-3 text-gray-600" />
-                )}
-              </button>
-              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-gray-600 mb-2"># Download latest dump</div>
-                <div className="whitespace-nowrap pr-10">
-                  {latestSqlUrl
-                    ? `wget ${latestSqlUrl}`
-                    : "Loading latest URL..."}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Verify the checksum */}
-          <div className="bg-white rounded-lg border border-material-divider p-6 min-w-0">
-            <h3 className="text-lg font-semibold text-material-text-primary mb-3">
-              Verify the checksum
-            </h3>
-            <div className="bg-gray-50 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-              <button
-                onClick={() =>
-                  latestSha256 &&
-                  copyToClipboard(
-                    `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
-                    "checksum-verify",
-                  )
-                }
-                className="absolute top-2 right-2 p-1.5 rounded bg-white shadow-sm border border-gray-200 hover:bg-gray-50 z-10"
-                title="Copy to clipboard"
-              >
-                {copiedStates["checksum-verify"] ? (
-                  <Check className="w-3 h-3 text-green-600" />
-                ) : (
-                  <Copy className="w-3 h-3 text-gray-600" />
-                )}
-              </button>
-              <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-gray-600 mb-2">
-                  # Verify file integrity
-                </div>
-                <div className="whitespace-nowrap pr-10">
-                  {latestSha256
-                    ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
-                    : "Loading latest SHA256..."}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Database Info */}
-        <div className="bg-material-blue-light border border-material-blue rounded-lg p-4 mb-8">
-          <h3 className="text-lg font-semibold text-material-blue mb-2">
-            About the SQL Dump
+    <PageShell
+      size="xl"
+      title="Bulk Data Downloads"
+      subtitle={
+        <>
+          Download complete database dumps of the Pandects dataset. All dumps
+          are compressed MariaDB SQL files containing the full structured data.
+          For database documentation, see{" "}
+          <a
+            href="https://dbdocs.io/nmbogdan/Pandects"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            dbdocs
+          </a>
+          .
+        </>
+      }
+    >
+      {/* Demo Code Blocks */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* API Call Example */}
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
+          <h3 className="text-lg font-semibold text-foreground mb-3">
+            Pull metadata for all dumps via API
           </h3>
-          <p className="text-material-text-secondary">
-            The database dumps are in MariaDB SQL format. For installation,
-            setup, and usage instructions, visit the{" "}
-            <a
-              href="https://mariadb.org/documentation/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-material-blue hover:underline"
+          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+            <button
+              type="button"
+              onClick={() =>
+                copyToClipboard(
+                  "curl https://pandects-api.fly.dev/api/dumps",
+                  "api-call",
+                )
+              }
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent z-10"
+              title="Copy to clipboard"
+              aria-label="Copy API curl command"
             >
-              MariaDB Documentation
-            </a>
-            .
-          </p>
+              {copiedStates["api-call"] ? (
+                <Check className="w-3 h-3 text-green-600" />
+              ) : (
+                <Copy className="w-3 h-3 text-muted-foreground" />
+              )}
+            </button>
+            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+              <div>
+                <div className="text-muted-foreground mb-2">
+                  # API call to get dumps info
+                </div>
+                <div className="whitespace-nowrap pr-10">
+                  curl https://pandects-api.fly.dev/api/dumps
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Data Table */}
-        <div className="bg-white rounded-lg border border-material-divider overflow-hidden">
-          <div className="px-6 py-4 border-b border-material-divider">
-            <h2 className="text-xl font-semibold text-material-text-primary">
-              Available Downloads
-            </h2>
-            <p className="text-material-text-secondary mt-1">
-              Database dumps hosted on Cloudflare, sorted by date (newest first)
-            </p>
+        {/* Download with wget */}
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
+          <h3 className="text-lg font-semibold text-foreground mb-3">
+            Download latest version with wget
+          </h3>
+          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+            <button
+              type="button"
+              onClick={() =>
+                latestSqlUrl &&
+                copyToClipboard(`wget ${latestSqlUrl}`, "wget-download")
+              }
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
+              title="Copy to clipboard"
+              aria-label="Copy wget command for latest SQL"
+            >
+              {copiedStates["wget-download"] ? (
+                <Check className="w-3 h-3 text-green-600" />
+              ) : (
+                <Copy className="w-3 h-3 text-muted-foreground" />
+              )}
+            </button>
+            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+              <div className="text-muted-foreground mb-2">
+                # Download latest dump
+              </div>
+              <div className="whitespace-nowrap pr-10">
+                {latestSqlUrl
+                  ? `wget ${latestSqlUrl}`
+                  : "Loading latest URL..."}
+              </div>
+            </div>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin inline-block w-6 h-6 border-2 border-material-blue border-t-transparent rounded-full"></div>
-              <p className="text-material-text-secondary mt-2">
-                Loading dumps...
-              </p>
+        {/* Verify the checksum */}
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
+          <h3 className="text-lg font-semibold text-foreground mb-3">
+            Verify the checksum
+          </h3>
+          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+            <button
+              type="button"
+              onClick={() =>
+                latestSha256 &&
+                copyToClipboard(
+                  `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
+                  "checksum-verify",
+                )
+              }
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
+              title="Copy to clipboard"
+              aria-label="Copy checksum verification command"
+            >
+              {copiedStates["checksum-verify"] ? (
+                <Check className="w-3 h-3 text-green-600" />
+              ) : (
+                <Copy className="w-3 h-3 text-muted-foreground" />
+              )}
+            </button>
+            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
+              <div className="text-muted-foreground mb-2">
+                # Verify file integrity
+              </div>
+              <div className="whitespace-nowrap pr-10">
+                {latestSha256
+                  ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
+                  : "Loading latest SHA256..."}
+              </div>
             </div>
-          ) : error ? (
-            <div className="p-8 text-center">
-              <p className="text-red-600">{error}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-material-surface">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      Version
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      SHA256 Hash
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      Download Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-material-text-secondary uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-material-divider">
-                  {dumps.map((dump, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-material-text-primary">
-                            {formatTimestamp(dump.timestamp)}
-                          </span>
-                          {dump.timestamp === "latest" && (
-                            <span className="text-xs text-green-600 font-medium">
-                              Latest Version
-                            </span>
-                          )}
-                          {dump.timestamp !== "latest" &&
-                            latestSha256 &&
-                            dump.sha256 === latestSha256 && (
-                              <span className="text-xs text-green-600 font-medium">
-                                Same as Latest
-                              </span>
-                            )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono text-sm text-material-text-secondary truncate max-w-xs">
-                            {dump.sha256.substring(0, dump.sha256.length - 20)}
-                            ...
-                          </span>
-                          <button
-                            onClick={() =>
-                              copyToClipboard(dump.sha256, `sha-${index}`)
-                            }
-                            className="p-1 rounded hover:bg-gray-100 transition-colors"
-                            title="Copy SHA256"
-                          >
-                            {copiedStates[`sha-${index}`] ? (
-                              <Check className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-gray-600" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-material-text-secondary">
-                          {formatSize(dump.size_bytes)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          {/* direct SQL download (R2.dev supports cross‑origin downloads) */}
-                          <a
-                            href={dump.sql}
-                            className="inline-flex items-center px-3 py-1 border border-material-blue text-material-blue hover:bg-material-blue hover:text-white rounded text-sm font-medium transition-colors"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Download SQL
-                          </a>
-
-                          {/* manifest: fetch+trigger download */}
-                          <button
-                            onClick={() => downloadManifest(dump.manifest)}
-                            className="inline-flex items-center px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-sm font-medium transition-colors"
-                          >
-                            Manifest
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Database Info */}
+      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-8">
+        <h3 className="text-lg font-semibold text-primary mb-2">
+          About the SQL Dump
+        </h3>
+        <p className="text-muted-foreground">
+          The database dumps are in MariaDB SQL format. For installation, setup,
+          and usage instructions, visit the{" "}
+          <a
+            href="https://mariadb.org/documentation/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            MariaDB Documentation
+          </a>
+          .
+        </p>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-xl font-semibold text-foreground">
+            Available Downloads
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Database dumps hosted on Cloudflare, sorted by date (newest first)
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
+            <p className="text-muted-foreground mt-2">Loading dumps...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center">
+            <p className="text-red-600">{error}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Version
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    SHA256 Hash
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Download Size
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {dumps.map((dump, index) => (
+                  <tr key={index} className="hover:bg-muted/40">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground">
+                          {formatTimestamp(dump.timestamp)}
+                        </span>
+                        {dump.timestamp === "latest" && (
+                          <span className="text-xs text-green-600 font-medium">
+                            Latest Version
+                          </span>
+                        )}
+                        {dump.timestamp !== "latest" &&
+                          latestSha256 &&
+                          dump.sha256 === latestSha256 && (
+                            <span className="text-xs text-green-600 font-medium">
+                              Same as Latest
+                            </span>
+                          )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
+                          {dump.sha256.substring(0, dump.sha256.length - 20)}
+                          ...
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(dump.sha256, `sha-${index}`)
+                          }
+                          className="p-1 rounded hover:bg-accent transition-colors"
+                          title="Copy SHA256"
+                          aria-label="Copy SHA256"
+                        >
+                          {copiedStates[`sha-${index}`] ? (
+                            <Check className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-muted-foreground">
+                        {formatSize(dump.size_bytes)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-2">
+                        {/* direct SQL download (R2.dev supports cross‑origin downloads) */}
+                        <a
+                          href={dump.sql}
+                          className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Download SQL
+                        </a>
+
+                        {/* manifest: fetch+trigger download */}
+                        <button
+                          type="button"
+                          onClick={() => downloadManifest(dump.manifest)}
+                          className="inline-flex items-center px-3 py-1 border border-border text-foreground hover:bg-accent rounded text-sm font-medium transition-colors"
+                        >
+                          Manifest
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </PageShell>
   );
 }

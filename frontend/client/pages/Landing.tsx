@@ -1,50 +1,40 @@
 import logo from "../../assets/logo.png";
-import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Landing() {
-  const navigate = useNavigate();
-
-  const handleExploreClick = () => {
-    navigate("/search");
-  };
-
-  const handleLearnAboutDataClick = () => {
-    navigate("/about#data");
-  };
-
-  const handleSeeExamplesClick = () => {
-    window.open(
-      "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
-      "_blank",
-    );
-  };
-
   return (
-    <div className="flex flex-col min-h-screen bg-cream">
-      <Navigation />
-      <main className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-        <div className="hero-card max-w-[800px] w-full bg-white rounded-3xl shadow-lg p-10 text-center flex flex-col items-center space-y-6 animate-fade-in-up">
-          <div className="logo-container">
-            <img
-              src={logo}
-              alt="Pandects Logo"
-              className="w-32 h-32 mx-auto rounded-xl object-cover shadow-md"
-            />
-          </div>
+    <div className="relative isolate min-h-[80vh] overflow-hidden px-4 py-10 sm:py-12">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10"
+      >
+        <div className="absolute left-1/2 top-[-14rem] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-foreground/5 blur-3xl" />
+      </div>
 
-          <h1 className="main-heading text-5xl font-extrabold text-material-text-primary leading-tight">
+      <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
+        <div className="w-full max-w-[860px] animate-fade-in-up rounded-2xl border border-border/70 bg-background/75 p-6 text-center shadow-sm backdrop-blur sm:rounded-3xl sm:p-10">
+          <img
+            src={logo}
+            alt="Pandects Logo"
+            width={128}
+            height={128}
+            decoding="async"
+            className="mx-auto h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
+          />
+
+          <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl">
             Pandects
           </h1>
 
-          <p className="subheading text-xl font-medium text-material-text-secondary">
+          <p className="mt-3 text-base font-medium text-muted-foreground sm:text-xl">
             Welcome to Pandects, the open-source M&A research platform.
           </p>
 
-          <div className="decorative-divider w-24 h-1 bg-material-blue rounded-full"></div>
+          <div className="mx-auto mt-6 h-1 w-24 rounded-full bg-primary" />
 
-          <div className="body-copy max-w-md text-base font-normal text-material-text-secondary leading-relaxed">
+          <div className="mx-auto mt-6 max-w-md text-sm font-normal leading-relaxed text-muted-foreground sm:text-base">
             <p>
               What's up with the name? We took a page from Emperor Justinian,
               whose 6th‑century compendium—The Pandects—distilled centuries of
@@ -52,30 +42,35 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="button-group flex flex-col sm:grid sm:grid-cols-2 lg:flex lg:flex-row gap-4 justify-center items-center w-full">
-            <Button
-              onClick={handleExploreClick}
-              className="cta-button bg-material-blue hover:bg-blue-700 text-white px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
-            >
-              Explore Agreements
+          <div className="mt-8 grid w-full gap-3 sm:grid-cols-2 sm:gap-4">
+            <Button asChild className="w-full rounded-full px-8 py-3 text-base">
+              <Link to="/search">Explore Agreements</Link>
             </Button>
 
             <Button
-              onClick={handleSeeExamplesClick}
-              className="examples-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200"
+              asChild
+              variant="outline"
+              className="w-full rounded-full border-primary/60 px-8 py-3 text-base text-primary hover:bg-primary/10"
             >
-              See Examples
+              <a
+                href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                See Examples
+              </a>
             </Button>
 
             <Button
-              onClick={handleLearnAboutDataClick}
-              className="data-button bg-white hover:bg-gray-50 text-material-blue border-2 border-material-blue px-8 py-3 rounded-full text-base font-medium transition-colors duration-200 sm:col-span-2 sm:justify-self-center lg:col-span-1"
+              asChild
+              variant="outline"
+              className="w-full rounded-full border-primary/60 px-8 py-3 text-base text-primary hover:bg-primary/10 sm:col-span-2"
             >
-              Learn About the Data
+              <Link to="/about#data">Learn About the Data</Link>
             </Button>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

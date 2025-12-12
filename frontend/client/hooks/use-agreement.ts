@@ -21,7 +21,9 @@ export function useAgreement() {
       const data: Agreement = await response.json();
       setAgreement(data);
     } catch (err) {
-      console.error("Failed to fetch agreement:", err);
+      if (import.meta.env.DEV) {
+        console.error("Failed to fetch agreement:", err);
+      }
       setError(err instanceof Error ? err.message : "Failed to load agreement");
     } finally {
       setIsLoading(false);

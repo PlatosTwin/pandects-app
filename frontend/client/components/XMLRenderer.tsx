@@ -103,7 +103,7 @@ export function XMLRenderer({
       const isCollapsible = collapsibleTags.has(node.tagName || "");
       const colorClass =
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
-        "text-gray-600";
+        "text-muted-foreground";
 
       // Extract UUID from attributes for sections/articles for scroll-to functionality
       let sectionUuid: string | undefined;
@@ -127,8 +127,14 @@ export function XMLRenderer({
               <div className="flex items-start">
                 <div className="w-4 flex-shrink-0">
                   <button
+                    type="button"
                     onClick={() => toggleCollapse(tagId)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                    data-collapse-toggle="true"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    aria-expanded={!isCollapsed}
+                    aria-label={
+                      isCollapsed ? "Expand section" : "Collapse section"
+                    }
                   >
                     {isCollapsed ? (
                       <ChevronRight className="w-3 h-3" />
@@ -210,7 +216,7 @@ export function XMLRenderer({
             {showHighlight && (
               <div
                 className={cn(
-                  "absolute bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+                  "absolute bg-primary/10 border-2 border-primary/30 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
                   isHighlighted ? "opacity-100" : "opacity-0",
                 )}
                 style={{
@@ -225,8 +231,14 @@ export function XMLRenderer({
               <div className="flex-shrink-0">
                 {isCollapsible && (
                   <button
+                    type="button"
                     onClick={() => toggleCollapse(tagId)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                    data-collapse-toggle="true"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    aria-expanded={!isCollapsed}
+                    aria-label={
+                      isCollapsed ? "Expand section" : "Collapse section"
+                    }
                   >
                     {isCollapsed ? (
                       <ChevronRight className="w-4 h-4" />
@@ -238,7 +250,7 @@ export function XMLRenderer({
               </div>
 
               <div className="flex-1">
-                <h3 className={cn(headerLevel, "text-gray-900 mb-2")}>
+                <h3 className={cn(headerLevel, "text-foreground mb-2")}>
                   {title}
                 </h3>
 
@@ -261,8 +273,14 @@ export function XMLRenderer({
             <div className="flex-shrink-0">
               {isCollapsible && (
                 <button
+                  type="button"
                   onClick={() => toggleCollapse(tagId)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                  data-collapse-toggle="true"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                  aria-expanded={!isCollapsed}
+                  aria-label={
+                    isCollapsed ? "Expand section" : "Collapse section"
+                  }
                 >
                   {isCollapsed ? (
                     <ChevronRight className="w-3 h-3" />

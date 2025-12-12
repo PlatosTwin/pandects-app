@@ -329,9 +329,9 @@ export function NestedCheckboxFilter({
               type="checkbox"
               checked={selectedValues.includes(key)}
               onChange={() => onToggle(key)}
-              className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
             />
-            <span className="text-material-text-primary">{key}</span>
+            <span className="text-foreground">{key}</span>
           </label>
         );
       } else {
@@ -349,9 +349,9 @@ export function NestedCheckboxFilter({
                 className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-3 h-3 text-material-text-secondary" />
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-3 h-3 text-material-text-secondary" />
+                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
                 )}
               </button>
 
@@ -365,11 +365,9 @@ export function NestedCheckboxFilter({
                     }
                   }}
                   onChange={() => handleCategoryToggle(currentPath)}
-                  className="w-4 h-4 text-material-blue border-gray-300 rounded focus:ring-material-blue focus:ring-2"
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
                 />
-                <span className="text-material-text-primary font-medium">
-                  {key}
-                </span>
+                <span className="text-foreground font-medium">{key}</span>
               </label>
             </div>
 
@@ -393,7 +391,7 @@ export function NestedCheckboxFilter({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label className="text-xs font-normal text-material-text-secondary tracking-[0.15px]">
+      <label className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
         {label}
       </label>
 
@@ -404,7 +402,7 @@ export function NestedCheckboxFilter({
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             tabIndex={tabIndex}
-            className="w-full text-left text-base font-normal text-material-text-primary bg-transparent border-none border-b border-[rgba(0,0,0,0.42)] py-2 focus:outline-none focus:border-material-blue focus:bg-blue-50 flex items-center justify-between min-h-[44px] transition-colors"
+            className="w-full text-left text-base font-normal text-foreground bg-transparent border-none border-b border-input py-2 focus:outline-none focus:border-primary focus:bg-accent flex items-center justify-between min-h-[44px] transition-colors"
           >
             {totalSelected === 0 ? (
               <span>{`All ${label}s`}</span>
@@ -432,15 +430,15 @@ export function NestedCheckboxFilter({
               <span>{`${totalSelected} selected`}</span>
             )}
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-material-text-secondary flex-shrink-0" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             )}
           </button>
         </TooltipProvider>
 
         {/* Bottom border line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-[rgba(0,0,0,0.42)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
 
         {/* Expanded nested checkbox list or Modal */}
         {isExpanded && !useModal && (
@@ -486,10 +484,11 @@ export function NestedCheckboxFilter({
             {/* Header */}
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-material-text-primary">
+                <h3 className="text-lg font-medium text-foreground">
                   Select {label}s
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setIsExpanded(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -519,7 +518,7 @@ export function NestedCheckboxFilter({
                     handleSearchKeyDown(e);
                   }}
                   placeholder="Search clause types..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-material-blue focus:border-material-blue text-sm"
+                  className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-sm leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                 />
 
                 {/* Search Results Dropdown */}
@@ -527,19 +526,20 @@ export function NestedCheckboxFilter({
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 max-h-60 overflow-y-auto">
                     {searchResults.map((result, index) => (
                       <button
+                        type="button"
                         key={`${result.path.join(".")}.${result.key}`}
                         onClick={() => handleSearchResultSelect(result)}
                         className={cn(
                           "w-full text-left px-3 py-2 focus:outline-none text-sm border-b border-gray-100 last:border-b-0",
                           highlightedSearchIndex === index
-                            ? "bg-material-blue-light"
+                            ? "bg-primary/10"
                             : "hover:bg-gray-50 focus:bg-gray-50",
                         )}
                       >
-                        <div className="text-material-text-primary font-medium">
+                        <div className="text-foreground font-medium">
                           {result.key}
                         </div>
-                        <div className="text-xs text-material-text-secondary mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {result.path.join(" → ")}
                         </div>
                       </button>
@@ -551,7 +551,7 @@ export function NestedCheckboxFilter({
                   searchResults.length === 0 &&
                   searchTerm.trim() && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 px-3 py-2">
-                      <div className="text-sm text-material-text-secondary">
+                      <div className="text-sm text-muted-foreground">
                         No clause types found matching "{searchTerm}"
                       </div>
                     </div>
@@ -563,8 +563,8 @@ export function NestedCheckboxFilter({
             <div className="overflow-y-auto flex-1 flex flex-col">
               {/* Selected Items (Sticky at top) */}
               {selectedValues.length > 0 && (
-                <div className="flex-shrink-0 bg-blue-50 border-b border-gray-200">
-                  <div className="p-4 text-xs font-medium text-material-text-secondary uppercase tracking-wider">
+                <div className="flex-shrink-0 bg-primary/10 border-b border-gray-200">
+                  <div className="p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Selected ({selectedValues.length})
                   </div>
                   <div className="px-4 pb-4">
@@ -574,7 +574,7 @@ export function NestedCheckboxFilter({
                           key={`selected-${value}`}
                           className="flex items-center justify-between bg-white p-3 rounded border border-blue-200"
                         >
-                          <span className="text-sm text-material-text-primary font-medium">
+                          <span className="text-sm text-foreground font-medium">
                             {value}
                           </span>
                           <button
@@ -594,7 +594,7 @@ export function NestedCheckboxFilter({
 
               {/* All Clause Types */}
               <div className="p-6 flex-1">
-                <div className="text-xs font-medium text-material-text-secondary uppercase tracking-wider mb-4">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
                   All Clause Types
                 </div>
                 {renderNestedItems(data)}
@@ -603,12 +603,13 @@ export function NestedCheckboxFilter({
 
             {/* Footer with selection summary */}
             <div className="flex items-center justify-between p-6 border-t border-gray-200 flex-shrink-0">
-              <span className="text-sm text-material-text-secondary">
+              <span className="text-sm text-muted-foreground">
                 {totalSelected} of {totalOptions} selected
               </span>
               <button
+                type="button"
                 onClick={() => setIsExpanded(false)}
-                className="px-4 py-2 bg-material-blue text-white rounded hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
               >
                 Done
               </button>

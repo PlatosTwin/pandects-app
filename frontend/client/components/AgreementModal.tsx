@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
 import { XMLRenderer } from "./XMLRenderer";
 import { TableOfContents } from "./TableOfContents";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface AgreementModalProps {
   isOpen: boolean;
@@ -33,10 +36,12 @@ export function AgreementModal({
   const { agreement, isLoading, error, fetchAgreement, clearAgreement } =
     useAgreement();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isTocOpen, setIsTocOpen] = useState(false);
   const [highlightedSection, setHighlightedSection] = useState<string | null>(
     null,
   );
   const contentRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isOpen && agreementUuid) {
@@ -60,7 +65,7 @@ export function AgreementModal({
     if (sectionElement) {
       // First, check if this section/article is collapsed and expand it if needed
       const collapseButton = sectionElement.querySelector(
-        'button[class*="text-gray-400"]',
+        'button[data-collapse-toggle="true"]',
       ) as HTMLButtonElement;
       if (collapseButton) {
         // Check if it's collapsed by looking for the content div that should be visible when expanded
@@ -120,79 +125,134 @@ export function AgreementModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-7xl max-h-[95vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className={cn(
+          "bg-card text-foreground shadow-xl w-full flex flex-col overflow-hidden",
+          // Mobile: full-screen modal for a native-app feel
+          "h-[100dvh] max-h-[100dvh] rounded-none",
+          // Desktop: centered, rounded
+          "sm:h-full sm:max-h-[95vh] sm:rounded-lg sm:max-w-7xl",
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm">Back to Search</span>
-            </button>
+        <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+          <div className="flex items-center justify-between gap-3 px-3 py-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back to Search</span>
+                <span className="sm:hidden">Back</span>
+              </Button>
 
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4" />
+              {/* Desktop: inline TOC toggle. Mobile: TOC lives in a sheet. */}
+              {!isMobile && (
+                <Button
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  {sidebarCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {sidebarCollapsed ? "Show" : "Hide"} Table of Contents
+                  </span>
+                  <span className="sm:hidden">Contents</span>
+                </Button>
               )}
-              <span className="text-sm">
-                {sidebarCollapsed ? "Show" : "Hide"} Table of Contents
-              </span>
-            </button>
-          </div>
 
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+              {isMobile && (
+                <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <PanelLeftOpen className="h-4 w-4" />
+                      Contents
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[340px] p-0">
+                    {agreement ? (
+                      <TableOfContents
+                        xmlContent={agreement.xml}
+                        targetSectionUuid={targetSectionUuid}
+                        onSectionClick={(uuid) => {
+                          setIsTocOpen(false);
+                          // Give the sheet a beat to start closing so scroll feels stable
+                          setTimeout(() => scrollToSection(uuid, false), 50);
+                        }}
+                        className="h-[100dvh]"
+                      />
+                    ) : (
+                      <div className="p-4 text-sm text-muted-foreground">
+                        {isLoading ? "Loading…" : "Contents unavailable."}
+                      </div>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              )}
+            </div>
+
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-muted-foreground hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Agreement Metadata */}
         {(agreementMetadata || agreement) && (
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="grid grid-cols-4 gap-6 text-sm">
+          <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6 sm:py-4">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
               <div>
-                <span className="font-medium text-material-text-secondary">
+                <span className="font-medium text-muted-foreground">
                   Year:
                 </span>
-                <div className="text-material-text-primary">
+                <div className="text-foreground">
                   {agreementMetadata?.year || agreement?.year}
                 </div>
               </div>
               <div>
-                <span className="font-medium text-material-text-secondary">
+                <span className="font-medium text-muted-foreground">
                   Target:
                 </span>
-                <div className="text-material-text-primary">
+                <div className="text-foreground break-words">
                   {agreementMetadata?.target || agreement?.target}
                 </div>
               </div>
               <div>
-                <span className="font-medium text-material-text-secondary">
+                <span className="font-medium text-muted-foreground">
                   Acquirer:
                 </span>
-                <div className="text-material-text-primary">
+                <div className="text-foreground break-words">
                   {agreementMetadata?.acquirer || agreement?.acquirer}
                 </div>
               </div>
 
               {/* Original Filing Link */}
-              <div className="flex justify-end">
+              <div className="flex justify-start lg:justify-end">
                 {agreement?.url && (
                   <a
                     href={agreement.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-material-blue hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors group"
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group"
                     title="View original SEC filing"
                   >
                     <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -205,10 +265,10 @@ export function AgreementModal({
         )}
 
         {/* Content */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Sidebar */}
-          {!sidebarCollapsed && (
-            <div className="w-80 border-r border-gray-200 bg-gray-50 flex-shrink-0">
+          {!isMobile && !sidebarCollapsed && (
+            <div className="w-80 border-r border-border bg-muted/30 flex-shrink-0">
               {agreement && (
                 <TableOfContents
                   xmlContent={agreement.xml}
@@ -221,12 +281,12 @@ export function AgreementModal({
           )}
 
           {/* Main Content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-hidden">
             {isLoading && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="w-8 h-8 border-4 border-material-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading agreement...</p>
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading agreement...</p>
                 </div>
               </div>
             )}
@@ -235,7 +295,7 @@ export function AgreementModal({
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-red-600">
                   <p className="mb-2">Failed to load agreement</p>
-                  <p className="text-sm text-gray-500">{error}</p>
+                  <p className="text-sm text-muted-foreground">{error}</p>
                 </div>
               </div>
             )}
@@ -243,10 +303,11 @@ export function AgreementModal({
             {agreement && (
               <div
                 ref={contentRef}
-                className="h-full overflow-y-auto p-6"
+                className="h-full overflow-y-auto px-4 py-4 sm:p-6"
                 style={{
                   scrollbarWidth: "thin",
-                  scrollbarColor: "#e5e7eb #f9fafb",
+                  scrollbarColor:
+                    "hsl(var(--border)) hsl(var(--background))",
                 }}
               >
                 <div className="max-w-4xl mx-auto">

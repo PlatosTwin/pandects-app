@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams, extractStandardIds } from "@/lib/url-params";
+import type { ClauseTypeTree } from "@/lib/clause-types";
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_PAGE,
@@ -35,7 +36,7 @@ export function useSearch() {
       let comparison = 0;
       switch (sortBy) {
         case "year":
-          comparison = parseInt(a.year) - parseInt(b.year);
+          comparison = parseInt(a.year, 10) - parseInt(b.year, 10);
           break;
         case "target":
           comparison = a.target.localeCompare(b.target);
@@ -60,7 +61,6 @@ export function useSearch() {
   const [totalPages, setTotalPages] = useState(0);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showNoResultsModal, setShowNoResultsModal] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
@@ -82,6 +82,15 @@ export function useSearch() {
     [],
   );
 
+  const hydrateFilters = useCallback((next: Partial<SearchFilters>) => {
+    setFilters((prev) => ({
+      ...prev,
+      ...next,
+      page: next.page ?? prev.page,
+      pageSize: next.pageSize ?? prev.pageSize,
+    }));
+  }, []);
+
   const toggleFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
       if (field === "page" || field === "pageSize") return;
@@ -97,20 +106,32 @@ export function useSearch() {
     [],
   );
 
+  const setSortDirectionDirect = useCallback((direction: "asc" | "desc") => {
+    setSortDirection(direction);
+  }, []);
+
   const performSearch = useCallback(
-    async (resetPage = false, clauseTypesNested?: any) => {
+    async (
+      resetPage = false,
+      clauseTypesNested?: ClauseTypeTree,
+      markAsSearched: boolean = resetPage,
+      filtersOverride?: SearchFilters,
+    ) => {
       setIsSearching(true);
       setShowErrorModal(false);
-      setShowNoResultsModal(false);
       setSelectedResults(new Set()); // Clear selected results when performing new search
 
-      if (resetPage) {
+      if (markAsSearched) {
         setHasSearched(true);
       }
 
       try {
-        const searchFilters = resetPage ? { ...filters, page: 1 } : filters;
-        if (resetPage) {
+        const baseFilters = filtersOverride ?? filters;
+        const searchFilters = resetPage
+          ? { ...baseFilters, page: 1 }
+          : baseFilters;
+
+        if (resetPage && !filtersOverride) {
           setFilters((prev) => ({ ...prev, page: 1 }));
         }
 
@@ -145,16 +166,10 @@ export function useSearch() {
         setHasPrev(searchResponse.hasPrev);
         setNextNum(searchResponse.nextNum);
         setPrevNum(searchResponse.prevNum);
-
-        // Check if no results found with active filters
-        if (
-          searchResponse.totalCount === 0 &&
-          hasFiltersApplied(searchFilters)
-        ) {
-          setShowNoResultsModal(true);
-        }
       } catch (error) {
-        console.error("Search failed:", error);
+        if (import.meta.env.DEV) {
+          console.error("Search failed:", error);
+        }
         setSearchResults([]);
         setTotalCount(0);
         setTotalPages(0);
@@ -196,7 +211,7 @@ export function useSearch() {
   };
 
   const downloadCSV = useCallback(
-    async (clauseTypesNested?: any) => {
+    async (clauseTypesNested?: ClauseTypeTree) => {
       let resultsToDownload: SearchResult[] = [];
 
       if (selectedResults.size > 0) {
@@ -233,7 +248,9 @@ export function useSearch() {
           const searchResponse = (await res.json()) as SearchResponse;
           resultsToDownload = searchResponse.results;
         } catch (error) {
-          console.error("Failed to fetch all results for CSV:", error);
+          if (import.meta.env.DEV) {
+            console.error("Failed to fetch all results for CSV:", error);
+          }
           // Fallback to current page results
           resultsToDownload = searchResults;
         }
@@ -272,11 +289,14 @@ export function useSearch() {
       // Create and download file
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
       const selectedText = selectedResults.size > 0 ? "_selected" : "";
       link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(link.href);
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     },
     [filters, searchResults, selectedResults],
   );
@@ -307,7 +327,7 @@ export function useSearch() {
   }, []);
 
   const goToPage = useCallback(
-    async (page: number, clauseTypesNested?: any) => {
+    async (page: number, clauseTypesNested?: ClauseTypeTree) => {
       setFilters((prev) => ({ ...prev, page }));
 
       // Trigger a new search with the new page number
@@ -317,7 +337,7 @@ export function useSearch() {
   );
 
   const changePageSize = useCallback(
-    async (pageSize: number, clauseTypesNested?: any) => {
+    async (pageSize: number, clauseTypesNested?: ClauseTypeTree) => {
       setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
 
       // Trigger a new search with the new page size and reset to page 1
@@ -329,10 +349,6 @@ export function useSearch() {
   const closeErrorModal = useCallback(() => {
     setShowErrorModal(false);
     setErrorMessage("");
-  }, []);
-
-  const closeNoResultsModal = useCallback(() => {
-    setShowNoResultsModal(false);
   }, []);
 
   const sortResults = useCallback(
@@ -381,6 +397,10 @@ export function useSearch() {
     }
   }, [searchResults, selectedResults]);
 
+  const clearSelection = useCallback(() => {
+    setSelectedResults(new Set());
+  }, []);
+
   // Auto-refresh results when sort direction changes
   useEffect(() => {
     if (currentSort && searchResults.length > 0) {
@@ -398,14 +418,15 @@ export function useSearch() {
     hasSearched,
     totalCount,
     totalPages,
+    currentSort,
     currentPage: filters.page || 1,
     pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
     showErrorModal,
     errorMessage,
-    showNoResultsModal,
     sortDirection,
     actions: {
       updateFilter,
+      hydrateFilters,
       toggleFilterValue,
       performSearch,
       downloadCSV,
@@ -413,11 +434,12 @@ export function useSearch() {
       goToPage,
       changePageSize,
       closeErrorModal,
-      closeNoResultsModal,
       sortResults,
       toggleSortDirection,
+      setSortDirection: setSortDirectionDirect,
       toggleResultSelection,
       toggleSelectAll,
+      clearSelection,
     },
   };
 }

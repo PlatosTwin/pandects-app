@@ -51,7 +51,9 @@ export function useFilterOptions(): UseFilterOptionsReturn {
 
         setError(null);
       } catch (err) {
-        console.error("Failed to fetch filter options:", err);
+        if (import.meta.env.DEV) {
+          console.error("Failed to fetch filter options:", err);
+        }
         setError(
           err instanceof Error ? err.message : "Failed to fetch filter options",
         );
