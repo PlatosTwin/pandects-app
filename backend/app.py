@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import time
+from threading import Lock
 import click
 import json
 from flask import Flask, jsonify, request, abort, Response
@@ -26,6 +28,11 @@ from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Simple in-process caching ─────────────────────────────────────────────
+_FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
+_filter_options_cache = {"ts": 0.0, "payload": None}
+_filter_options_lock = Lock()
 
 # ���─ Flask setup ────────────────────────────��─────────────────────────────
 app = Flask(__name__)
@@ -301,23 +308,67 @@ def get_agreement(agreement_uuid):
 def get_filter_options():
     """Fetch distinct targets and acquirers from the database"""
     try:
-        # Execute the SQL query to get distinct targets and acquirers
-        result = db.session.execute(
-            text(
-                """
-            SELECT DISTINCT target, acquirer
-            FROM mna.agreements a
-            JOIN mna.xml x ON a.uuid = x.agreement_uuid
-            ORDER BY target, acquirer
-            """
+        now = time.time()
+        with _filter_options_lock:
+            cached_payload = _filter_options_cache["payload"]
+            cached_ts = _filter_options_cache["ts"]
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < _FILTER_OPTIONS_TTL_SECONDS
             )
-        ).fetchall()
+        if cache_is_valid:
+            resp = jsonify(cached_payload)
+            resp.headers["Cache-Control"] = f"public, max-age={_FILTER_OPTIONS_TTL_SECONDS}"
+            return resp, 200
 
-        # Extract unique targets and acquirers
-        targets = sorted(set(row[0] for row in result if row[0]))
-        acquirers = sorted(set(row[1] for row in result if row[1]))
+        # Use EXISTS to avoid row explosion from joining into per-section tables.
+        # This keeps filter options aligned with the agreements that actually have searchable sections.
+        targets = [
+            row[0]
+            for row in db.session.execute(
+                text(
+                    """
+                    SELECT DISTINCT a.target
+                    FROM mna.agreements a
+                    WHERE a.target IS NOT NULL
+                      AND a.target <> ''
+                      AND EXISTS (
+                        SELECT 1
+                        FROM mna.sections s
+                        WHERE s.agreement_uuid = a.uuid
+                      )
+                    ORDER BY a.target
+                    """
+                )
+            ).fetchall()
+        ]
+        acquirers = [
+            row[0]
+            for row in db.session.execute(
+                text(
+                    """
+                    SELECT DISTINCT a.acquirer
+                    FROM mna.agreements a
+                    WHERE a.acquirer IS NOT NULL
+                      AND a.acquirer <> ''
+                      AND EXISTS (
+                        SELECT 1
+                        FROM mna.sections s
+                        WHERE s.agreement_uuid = a.uuid
+                      )
+                    ORDER BY a.acquirer
+                    """
+                )
+            ).fetchall()
+        ]
 
-        return jsonify({"targets": targets, "acquirers": acquirers}), 200
+        payload = {"targets": targets, "acquirers": acquirers}
+        with _filter_options_lock:
+            _filter_options_cache["payload"] = payload
+            _filter_options_cache["ts"] = now
+
+        resp = jsonify(payload)
+        resp.headers["Cache-Control"] = f"public, max-age={_FILTER_OPTIONS_TTL_SECONDS}"
+        return resp, 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -331,18 +382,18 @@ class SearchResource(MethodView):
         # @app.route("/api/search", methods=["GET"])
         # def search_sections():
         # pull in optional query params - now supporting multiple values
-        years = request.args.getlist("year")
-        targets = request.args.getlist("target")
-        acquirers = request.args.getlist("acquirer")
-        standard_ids = request.args.getlist("standardId")
-        transaction_sizes = request.args.getlist("transactionSize")
-        transaction_types = request.args.getlist("transactionType")
-        consideration_types = request.args.getlist("considerationType")
-        target_types = request.args.getlist("targetType")
+        years = args["year"]
+        targets = args["target"]
+        acquirers = args["acquirer"]
+        standard_ids = args["standardId"]
+        transaction_sizes = args["transactionSize"]
+        transaction_types = args["transactionType"]
+        consideration_types = args["considerationType"]
+        target_types = args["targetType"]
 
         # pagination parameters
-        page = request.args.get("page", 1, type=int)
-        page_size = request.args.get("pageSize", 25, type=int)
+        page = args["page"]
+        page_size = args["pageSize"]
 
         # Validate pagination parameters
         if page < 1:
@@ -364,24 +415,13 @@ class SearchResource(MethodView):
 
         # apply filters only when provided - now handling multiple values
         if years:
-            # Convert years to integers for filtering
-            year_ints = [int(year) for year in years if year.isdigit()]
-            if year_ints:
-                q = q.filter(Agreements.year.in_(year_ints))
+            q = q.filter(Agreements.year.in_(years))
 
         if targets:
-            # Use OR conditions for multiple targets with ILIKE
-            target_conditions = [
-                Agreements.target.ilike(f"%{target}%") for target in targets
-            ]
-            q = q.filter(db.or_(*target_conditions))
+            q = q.filter(Agreements.target.in_(targets))
 
         if acquirers:
-            # Use OR conditions for multiple acquirers with ILIKE
-            acquirer_conditions = [
-                Agreements.acquirer.ilike(f"%{acquirer}%") for acquirer in acquirers
-            ]
-            q = q.filter(db.or_(*acquirer_conditions))
+            q = q.filter(Agreements.acquirer.in_(acquirers))
 
         if standard_ids:
             q = (
