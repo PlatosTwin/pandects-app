@@ -175,6 +175,9 @@ components:
           type: string
         sectionUuid:
           type: string
+        standardId:
+          type: string
+          nullable: true
         xml:
           type: string
         articleTitle:
@@ -187,6 +190,8 @@ components:
           type: string
         year:
           type: integer
+        verified:
+          type: boolean
     SearchResponse:
       type: object
       properties:
