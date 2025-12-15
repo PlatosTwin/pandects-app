@@ -25,6 +25,7 @@ export interface SearchResult {
   xml: string;
   sectionUuid: string;
   agreementUuid: string;
+  verified: boolean;
 }
 
 export interface SearchResponse {

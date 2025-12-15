@@ -1,4 +1,4 @@
-import { ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
+import { ExternalLink, ArrowUp, ArrowDown, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -265,25 +265,43 @@ export function SearchResultsTable({
 	            const showDevFallbackPill =
 	              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 	
-	            return (
-	              <div
-	                key={result.id}
-                className={cn(
-                  "rounded-lg border bg-card shadow-sm overflow-hidden transition-colors",
-                  isSelected
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border",
-                )}
-              >
-                {/* Header with metadata and checkbox */}
-                <div
-                  className={cn(
-                    density === "compact" ? "px-3 py-2" : "px-4 py-3",
-                    "border-b",
-                    isSelected
-                      ? "bg-primary/10 border-primary/20"
-                      : "bg-muted/40 border-border",
-                  )}
+		            return (
+		              <div
+		                key={result.id}
+	                className={cn(
+	                  "relative rounded-lg border bg-card shadow-sm overflow-hidden transition-colors",
+	                  isSelected
+	                    ? "border-primary/40 bg-primary/5"
+	                    : "border-border",
+	                )}
+	              >
+                  {result.verified ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Verified agreement"
+                          className="absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-emerald-600 ring-1 ring-border backdrop-blur transition-colors hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-400"
+                        >
+                          <BadgeCheck className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>This agreement has been verified by hand.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : null}
+
+	                {/* Header with metadata and checkbox */}
+	                <div
+	                  className={cn(
+	                    density === "compact" ? "px-3 py-2" : "px-4 py-3",
+                      result.verified ? "pr-10" : null,
+	                    "border-b",
+	                    isSelected
+	                      ? "bg-primary/10 border-primary/20"
+	                      : "bg-muted/40 border-border",
+	                  )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3">

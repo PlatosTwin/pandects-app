@@ -201,6 +201,7 @@ class SectionItemSchema(Schema):
     acquirer = fields.Str()
     target = fields.Str()
     year = fields.Int()
+    verified = fields.Bool()
 
 
 class SearchResponseSchema(Schema):
@@ -413,6 +414,7 @@ class SearchResource(MethodView):
             Agreements.acquirer,
             Agreements.target,
             Agreements.year,
+            Agreements.verified,
         ).join(Agreements, Sections.agreement_uuid == Agreements.uuid)
 
         # apply filters only when provided - now handling multiple values
@@ -547,6 +549,7 @@ class SearchResource(MethodView):
                 "acquirer": r.acquirer,
                 "target": r.target,
                 "year": r.year,
+                "verified": r.verified,
             }
             for r in paginated.items
         ]
