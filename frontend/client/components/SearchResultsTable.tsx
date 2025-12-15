@@ -12,6 +12,89 @@ import {
 } from "@/components/ui/tooltip";
 import type { SearchResult } from "@shared/search";
 
+import { useCallback, useEffect, useRef, useState } from "react";
+
+function TruncatedText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLSpanElement | null>(null);
+  const measureRef = useRef<HTMLSpanElement | null>(null);
+  const [displayText, setDisplayText] = useState(text);
+
+  const measureText = useCallback((value: string) => {
+    const el = measureRef.current;
+    if (!el) return 0;
+    el.textContent = value;
+    return el.scrollWidth;
+  }, []);
+
+  const recompute = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const availableWidth = container.clientWidth;
+    if (!availableWidth) {
+      setDisplayText(text);
+      return;
+    }
+
+    if (measureText(text) <= availableWidth) {
+      setDisplayText(text);
+      return;
+    }
+
+    const suffix = "...";
+    let low = 0;
+    let high = text.length;
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      const candidate = text.slice(0, mid).trimEnd();
+      if (measureText(candidate + suffix) <= availableWidth) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    let truncated = text.slice(0, low).trimEnd();
+    truncated = truncated.replace(/[•·,:;|-]+$/u, "").trimEnd();
+    setDisplayText(truncated ? truncated + suffix : suffix);
+  }, [measureText, text]);
+
+  useEffect(() => {
+    recompute();
+  }, [recompute]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(recompute);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [recompute]);
+
+  return (
+    <span
+      ref={containerRef}
+      className={cn(
+        "relative block max-w-full min-w-0 overflow-hidden whitespace-nowrap",
+        className,
+      )}
+    >
+      <span
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 whitespace-nowrap opacity-0"
+      />
+      {displayText}
+    </span>
+  );
+}
+
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
   selectedResults: Set<string>;
@@ -176,7 +259,9 @@ export function SearchResultsTable({
 	            const clauseTypePath = standardId
 	              ? clauseTypePathByStandardId[standardId]
 	              : undefined;
-	            const clauseTypeLabel = clauseTypePath?.join(" \u2022 ");
+	            const clauseTypeLabel = clauseTypePath
+	              ?.map((part) => part.trim())
+	              .join("\u2022 ");
 	            const showDevFallbackPill =
 	              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 	
@@ -221,9 +306,7 @@ export function SearchResultsTable({
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
-                                  <span className="block max-w-full min-w-0 truncate">
-                                    {clauseTypeLabel}
-                                  </span>
+                                  <TruncatedText text={clauseTypeLabel} />
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm">
@@ -240,9 +323,7 @@ export function SearchResultsTable({
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
-                                  <span className="block max-w-full min-w-0 truncate">
-                                    Clause type unavailable
-                                  </span>
+                                  <TruncatedText text="Clause type unavailable" />
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm">
