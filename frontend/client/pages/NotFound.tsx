@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const NotFound = () => {
   return (
-    <PageShell size="md" className="flex items-center justify-center py-16">
+    <PageShell className="flex items-center justify-center py-16">
       <Card className="w-full max-w-lg p-8 text-center">
         <h1 className="text-4xl font-bold text-foreground">404</h1>
         <p className="mt-3 text-base text-muted-foreground">

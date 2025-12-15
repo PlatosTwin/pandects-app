@@ -1,5 +1,6 @@
 import { useLLMOutput } from "@/hooks/use-llm-output";
 import { cn } from "@/lib/utils";
+import { PageShell } from "@/components/PageShell";
 import {
   Search,
   Check,
@@ -14,22 +15,18 @@ import SaveConfirmationModal from "@/components/SaveConfirmationModal";
 import ErrorModal from "@/components/ErrorModal";
 import InfoModal from "@/components/InfoModal";
 
-export default function Index() {
+export default function Edit() {
   const { state, actions } = useLLMOutput();
 
   return (
     <div className="w-full flex flex-col">
-      <div className="flex flex-col gap-8 max-w-4xl mx-auto px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold text-foreground mb-4">
-            LLM Output Editor
-          </h1>
-          <p className="text-muted-foreground">
-            Load and edit LLM-generated content with live preview and save
-            functionality.
-          </p>
-        </div>
+      <PageShell
+        size="md"
+        title="LLM Output Editor"
+        subtitle="Load and edit LLM-generated content with live preview and save functionality."
+        className="max-w-4xl px-8"
+      >
+        <div className="flex flex-col gap-8">
 
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">
@@ -208,7 +205,8 @@ export default function Index() {
             <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
           </div>
         </div>
-      </div>
+        </div>
+      </PageShell>
 
       {/* Copy Success Toast */}
       {state.showCopySuccess && (

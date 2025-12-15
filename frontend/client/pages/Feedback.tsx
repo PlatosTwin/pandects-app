@@ -8,7 +8,7 @@ import { PageShell } from "@/components/PageShell";
 
 export default function Feedback() {
   return (
-    <PageShell size="md" title="Feedback">
+    <PageShell size="xl" title="Feedback">
       <div className="mb-8">
         <div className="prose text-muted-foreground space-y-4 mb-8">
           <p>

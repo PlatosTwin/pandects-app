@@ -257,12 +257,12 @@ export default function Search() {
         },
       },
     }),
-    [],
+    []
   );
 
   const clauseTypePathByStandardId = useMemo(
     () => indexClauseTypePaths(clauseTypesNested),
-    [clauseTypesNested],
+    [clauseTypesNested]
   );
 
   // Allow Enter to trigger search when focus isn't inside an input/control.
@@ -307,7 +307,7 @@ export default function Search() {
       } catch {
         return "comfy";
       }
-    },
+    }
   );
 
   const updateResultsDensity = (density: "comfy" | "compact") => {
@@ -411,7 +411,7 @@ export default function Search() {
                   <SearchIcon
                     className={cn(
                       "h-4 w-4",
-                      isSearching && "animate-spin-custom",
+                      isSearching && "animate-spin-custom"
                     )}
                   />
                   <span>{isSearching ? "Searching..." : "Search"}</span>
@@ -487,7 +487,7 @@ export default function Search() {
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
-                  )),
+                  ))
                 )}
 
                 <div className="ml-auto">
