@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { ClauseTypeTree } from "@/lib/clause-types";
+import { indexClauseTypePaths } from "@/lib/clause-type-index";
 
 export default function Search() {
   const {
@@ -257,6 +258,11 @@ export default function Search() {
       },
     }),
     [],
+  );
+
+  const clauseTypePathByStandardId = useMemo(
+    () => indexClauseTypePaths(clauseTypesNested),
+    [clauseTypesNested],
   );
 
   // Allow Enter to trigger search when focus isn't inside an input/control.
@@ -553,6 +559,7 @@ export default function Search() {
                       <SearchResultsTable
                         searchResults={searchResults}
                         selectedResults={selectedResults}
+                        clauseTypePathByStandardId={clauseTypePathByStandardId}
                         sortBy={currentSort ?? "year"}
                         sortDirection={sortDirection}
                         onToggleResultSelection={toggleResultSelection}

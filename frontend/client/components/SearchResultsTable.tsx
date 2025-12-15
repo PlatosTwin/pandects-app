@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,22 +10,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-interface SearchResult {
-  id: string;
-  year: string;
-  target: string;
-  acquirer: string;
-  articleTitle: string;
-  sectionTitle: string;
-  xml: string;
-  sectionUuid: string;
-  agreementUuid: string;
-}
+import type { SearchResult } from "@shared/search";
 
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
   selectedResults: Set<string>;
+  clauseTypePathByStandardId: Record<string, readonly string[]>;
   sortBy?: "year" | "target" | "acquirer";
   sortDirection: "asc" | "desc";
   onToggleResultSelection: (resultId: string) => void;
@@ -55,6 +44,7 @@ const truncateText = (text: string, maxLength: number = 75) => {
 export function SearchResultsTable({
   searchResults,
   selectedResults,
+  clauseTypePathByStandardId,
   sortBy = "year",
   sortDirection,
   onToggleResultSelection,
@@ -172,17 +162,27 @@ export function SearchResultsTable({
       </div>
 
       {/* Results Grid */}
-      <TooltipProvider>
-        <div className={cn("grid", density === "compact" ? "gap-2" : "gap-4")}>
-          {searchResults.map((result, index) => {
-            const targetText = truncateText(result.target, 75);
-            const acquirerText = truncateText(result.acquirer, 75);
-            const isSelected = selectedResults.has(result.id);
-            const resultNumber = (currentPage - 1) * pageSize + index + 1;
-
-            return (
-              <div
-                key={result.id}
+	      <TooltipProvider>
+	        <div className={cn("grid", density === "compact" ? "gap-2" : "gap-4")}>
+	          {searchResults.map((result, index) => {
+	            const targetText = truncateText(result.target, 75);
+	            const acquirerText = truncateText(result.acquirer, 75);
+	            const isSelected = selectedResults.has(result.id);
+	            const resultNumber = (currentPage - 1) * pageSize + index + 1;
+	            const standardId =
+	              typeof result.standardId === "string"
+	                ? result.standardId.trim()
+	                : null;
+	            const clauseTypePath = standardId
+	              ? clauseTypePathByStandardId[standardId]
+	              : undefined;
+	            const clauseTypeLabel = clauseTypePath?.join(" \u2022 ");
+	            const showDevFallbackPill =
+	              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
+	
+	            return (
+	              <div
+	                key={result.id}
                 className={cn(
                   "rounded-lg border bg-card shadow-sm overflow-hidden transition-colors",
                   isSelected
@@ -217,6 +217,56 @@ export function SearchResultsTable({
                           <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
                             {result.year}
                           </span>
+                          {clauseTypeLabel ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+                                  <span className="block max-w-full min-w-0 truncate">
+                                    {clauseTypeLabel}
+                                  </span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm">
+                                {clauseTypePath ? (
+                                  <div className="space-y-1">
+                                    {clauseTypePath.map((part, partIndex) => (
+                                      <p key={`${partIndex}-${part}`}>{part}</p>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : showDevFallbackPill ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+                                  <span className="block max-w-full min-w-0 truncate">
+                                    Clause type unavailable
+                                  </span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm">
+                                {standardId ? (
+                                  <>
+                                    <p>standardId: {standardId}</p>
+                                    <p>
+                                      Not found in the clause-type mapping used
+                                      by the frontend.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p>Missing standardId in search results.</p>
+                                    <p>
+                                      Restart the Flask API or deploy the latest
+                                      backend so `/api/search` returns
+                                      `standardId`.
+                                    </p>
+                                  </>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
                         </div>
 
                         <div

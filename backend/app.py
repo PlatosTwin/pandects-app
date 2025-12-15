@@ -194,6 +194,7 @@ class SectionItemSchema(Schema):
     id = fields.Str()
     agreementUuid = fields.Str()
     sectionUuid = fields.Str()
+    standardId = fields.Str(allow_none=True)
     xml = fields.Str()
     articleTitle = fields.Str()
     sectionTitle = fields.Str()
@@ -405,6 +406,7 @@ class SearchResource(MethodView):
         q = db.session.query(
             Sections.section_uuid,
             Sections.agreement_uuid,
+            Sections.section_standard_id,
             Sections.xml_content,
             Sections.article_title,
             Sections.section_title,
@@ -538,6 +540,7 @@ class SearchResource(MethodView):
                 "id": r.section_uuid,
                 "agreementUuid": r.agreement_uuid,
                 "sectionUuid": r.section_uuid,
+                "standardId": r.section_standard_id,
                 "xml": r.xml_content,
                 "articleTitle": r.article_title,
                 "sectionTitle": r.section_title,
