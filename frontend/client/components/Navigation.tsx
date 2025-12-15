@@ -2,9 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { isLocalEnvironment } from "@/lib/environment";
 import { ChevronDown, Menu } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
+import PandaEasterEgg from "@/components/PandaEasterEgg";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +24,7 @@ import {
 export default function Navigation() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
 
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
@@ -30,10 +32,10 @@ export default function Navigation() {
 
   const navLinks = useMemo(
     () => [
-      { to: "/search", label: "Search" },
-      { to: "/docs", label: "Docs" },
-      { to: "/bulk-data", label: "Bulk Data" },
-      { to: "/about", label: "About" },
+      { to: "/search", label: "Search", pandaTarget: "nav-search" },
+      { to: "/docs", label: "Docs", pandaTarget: "nav-docs" },
+      { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
+      { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
     ],
     [],
@@ -41,7 +43,10 @@ export default function Navigation() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <nav
+        ref={navRef}
+        className="relative z-0 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+      >
         {/* Brand */}
         <Link
           to="/"
@@ -50,12 +55,16 @@ export default function Navigation() {
           <img
             src={logo}
             alt="Pandects Logo"
+            data-panda-target="logo"
             width={36}
             height={36}
             decoding="async"
-            className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+            className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
           />
-          <span className="hidden text-base font-semibold tracking-tight text-foreground sm:block">
+          <span
+            data-panda-target="brand"
+            className="hidden text-base font-semibold tracking-tight text-foreground sm:block"
+          >
             Pandects
           </span>
         </Link>
@@ -66,6 +75,7 @@ export default function Navigation() {
             <Link
               key={link.to}
               to={link.to}
+              data-panda-target={link.pandaTarget}
               aria-current={isActive(link.to) ? "page" : undefined}
               className={cn(
                 navLinkBase,
@@ -182,6 +192,8 @@ export default function Navigation() {
             </SheetContent>
           </Sheet>
         </div>
+
+        <PandaEasterEgg containerRef={navRef} />
       </nav>
     </header>
   );

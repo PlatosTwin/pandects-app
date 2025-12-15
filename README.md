@@ -39,6 +39,18 @@ npm install
 npm run dev
 ```
 
+Navbar easter egg (purely cosmetic): type `panda` anywhere (when not focused in a text input) to toggle a little gravity-driven ball.
+
+```bash
+export VITE_DISABLE_PANDA_EASTER_EGG=1
+```
+
+Optional: switch the end effect back to a fade-out:
+
+```bash
+export VITE_PANDA_END_STYLE=fade
+```
+
 ## Contributing
 
 ### Reporting Bugs & Requesting Features
