@@ -228,20 +228,11 @@ components:
           nullable: true
         sha256:
           type: string
-          nullable: true
-        sha256_url:
-          type: string
           format: url
           nullable: true
         manifest:
           type: string
           format: url
-          nullable: true
-        size_bytes:
-          type: integer
-          nullable: true
-        warning:
-          type: string
           nullable: true
       required:
       - timestamp

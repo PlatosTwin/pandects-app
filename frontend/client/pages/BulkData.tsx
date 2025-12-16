@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
-import { API_BASE_URL, apiUrl } from "@/lib/api-config";
+import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { PageShell } from "@/components/PageShell";
 
@@ -14,18 +14,16 @@ async function showToast(kind: "success" | "error", message: string) {
 interface DumpInfo {
   manifest: string;
   sha256: string;
-  sha256_url?: string;
   sql: string;
   timestamp: string;
   size_bytes?: number;
-  warning?: string;
 }
 
 export default function BulkData() {
   const [dumps, setDumps] = useState<DumpInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>(
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
     {},
   );
   const [latestSha256, setLatestSha256] = useState<string | null>(null);
@@ -49,14 +47,37 @@ export default function BulkData() {
 
         const data: DumpInfo[] = await response.json();
 
+        // Fetch size information from manifest files
+        const dumpsWithSize = await Promise.all(
+          data.map(async (dump) => {
+            try {
+              const manifestResponse = await fetch(dump.manifest);
+              if (manifestResponse.ok) {
+                const manifestData = await manifestResponse.json();
+                return { ...dump, size_bytes: manifestData.size_bytes };
+              }
+            } catch (error) {
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `Failed to fetch manifest for ${dump.timestamp}:`,
+                  error,
+                );
+              }
+            }
+            return dump;
+          }),
+        );
+
         // Find the latest version's SHA256
-        const latest = data.find((dump) => dump.timestamp === "latest");
+        const latest = dumpsWithSize.find(
+          (dump) => dump.timestamp === "latest",
+        );
         const latestHash = latest?.sha256 || null;
         setLatestSha256(latestHash);
         setLatestSqlUrl(latest?.sql || null);
 
         // Sort so 'latest' is always first, then sort others by timestamp
-        const sortedData = data.sort((a, b) => {
+        const sortedData = dumpsWithSize.sort((a, b) => {
           if (a.timestamp === "latest") return -1;
           if (b.timestamp === "latest") return 1;
           // For non-latest items, sort by timestamp descending (newest first)
@@ -118,17 +139,12 @@ export default function BulkData() {
       await navigator.clipboard.writeText(text);
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
-        setCopiedStates((prev) => ({ ...prev, [id]: false }));
+      setCopiedStates((prev) => ({ ...prev, [id]: false }));
       }, 2000);
       void showToast("success", "Copied to clipboard");
     } catch (err) {
       void showToast("error", "Copy failed");
     }
-  };
-
-  const formatSha256 = (sha256: string) => {
-    if (sha256.length <= 24) return sha256;
-    return `${sha256.slice(0, 12)}…${sha256.slice(-12)}`;
   };
 
   const downloadManifest = async (url: string) => {
@@ -199,7 +215,7 @@ export default function BulkData() {
               onClick={() => {
                 trackEvent("bulk_copy_click", { copy_target: "api_call" });
                 void copyToClipboard(
-                  `curl ${API_BASE_URL}/api/dumps`,
+                  "curl https://pandects-api.fly.dev/api/dumps",
                   "api-call",
                 );
               }}
@@ -219,7 +235,7 @@ export default function BulkData() {
                   # API call to get dumps info
                 </div>
                 <div className="whitespace-nowrap pr-10">
-                  curl {API_BASE_URL}/api/dumps
+                  curl https://pandects-api.fly.dev/api/dumps
                 </div>
               </div>
             </div>
@@ -388,7 +404,8 @@ export default function BulkData() {
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
                         <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
-                          {formatSha256(dump.sha256)}
+                          {dump.sha256.substring(0, dump.sha256.length - 20)}
+                          ...
                         </span>
                         <button
                           type="button"

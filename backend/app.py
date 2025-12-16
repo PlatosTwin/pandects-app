@@ -220,11 +220,8 @@ class SearchResponseSchema(Schema):
 class DumpEntrySchema(Schema):
     timestamp = fields.Str(required=True)
     sql = fields.Url(required=False, allow_none=True)
-    sha256 = fields.Str(required=False, allow_none=True)
-    sha256_url = fields.Url(required=False, allow_none=True)
+    sha256 = fields.Url(required=False, allow_none=True)
     manifest = fields.Url(required=False, allow_none=True)
-    size_bytes = fields.Int(required=False, allow_none=True)
-    warning = fields.Str(required=False, allow_none=True)
 
 
 # ── Route definitions ───────────────────────────────────────
@@ -614,7 +611,7 @@ class DumpListResource(MethodView):
                 entry["sql"] = f"{PUBLIC_DEV_BASE}/{files['sql']}"
 
             if "sha256" in files:
-                entry["sha256_url"] = f"{PUBLIC_DEV_BASE}/{files['sha256']}"
+                entry["sha256"] = f"{PUBLIC_DEV_BASE}/{files['sha256']}"
 
             if "manifest" in files:
                 entry["manifest"] = f"{PUBLIC_DEV_BASE}/{files['manifest']}"
