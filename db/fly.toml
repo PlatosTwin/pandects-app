@@ -12,7 +12,6 @@ primary_region = 'iad'
 [env]
   MARIADB_DATABASE = 'mna'
   MARIADB_USER = 'panda'
-  MARIADB_HOST = 'https://pandects-db.fly.dev'
 
 [processes]
   app = '--datadir /data/mysql'
