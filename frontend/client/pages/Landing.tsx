@@ -1,6 +1,7 @@
 import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { trackEvent } from "@/lib/analytics";
 
 export default function Landing() {
   return (
@@ -44,7 +45,17 @@ export default function Landing() {
 
           <div className="mt-8 grid w-full gap-3 sm:grid-cols-2 sm:gap-4">
             <Button asChild className="w-full rounded-full px-8 py-3 text-base">
-              <Link to="/search">Explore Agreements</Link>
+              <Link
+                to="/search"
+                onClick={() =>
+                  trackEvent("landing_cta_click", {
+                    cta: "Explore Agreements",
+                    to_path: "/search",
+                  })
+                }
+              >
+                Explore Agreements
+              </Link>
             </Button>
 
             <Button
@@ -56,6 +67,13 @@ export default function Landing() {
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() =>
+                  trackEvent("landing_cta_click", {
+                    cta: "See Examples",
+                    href:
+                      "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
+                  })
+                }
               >
                 See Examples
               </a>
@@ -66,7 +84,17 @@ export default function Landing() {
               variant="outline"
               className="w-full rounded-full border-primary/60 px-8 py-3 text-base text-primary hover:bg-primary/10 sm:col-span-2"
             >
-              <Link to="/about#data">Learn About the Data</Link>
+              <Link
+                to="/about#data"
+                onClick={() =>
+                  trackEvent("landing_cta_click", {
+                    cta: "Learn About the Data",
+                    to_path: "/about#data",
+                  })
+                }
+              >
+                Learn About the Data
+              </Link>
             </Button>
           </div>
         </div>

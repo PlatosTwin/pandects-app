@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypePaths } from "@/lib/clause-type-index";
+import { trackEvent } from "@/lib/analytics";
 
 export default function Search() {
   const {
@@ -74,7 +75,12 @@ export default function Search() {
     };
   } | null>(null);
 
-  const openAgreement = (result: (typeof searchResults)[0]) => {
+  const openAgreement = (result: (typeof searchResults)[0], position: number) => {
+    trackEvent("search_result_click", {
+      position,
+      year: result.year,
+      verified: result.verified,
+    });
     setSelectedAgreement({
       agreementUuid: result.agreementUuid,
       sectionUuid: result.sectionUuid,

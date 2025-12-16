@@ -103,7 +103,7 @@ interface SearchResultsTableProps {
   sortDirection: "asc" | "desc";
   onToggleResultSelection: (resultId: string) => void;
   onToggleSelectAll: () => void;
-  onOpenAgreement: (result: SearchResult) => void;
+  onOpenAgreement: (result: SearchResult, position: number) => void;
   onSortResults: (sortBy: "year" | "target" | "acquirer") => void;
   onToggleSortDirection: () => void;
   density?: "comfy" | "compact";
@@ -427,7 +427,7 @@ export function SearchResultsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onOpenAgreement(result)}
+                        onClick={() => onOpenAgreement(result, resultNumber)}
                         className="flex items-center gap-2 text-primary hover:bg-primary/10"
                       >
                         <ExternalLink className="w-4 h-4" />

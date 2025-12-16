@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Coffee } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 export default function Donate() {
   return (
@@ -31,6 +32,11 @@ export default function Donate() {
             href="https://www.buymeacoffee.com/nmbogdan"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              trackEvent("buy_me_a_coffee_click", {
+                href: "https://www.buymeacoffee.com/nmbogdan",
+              })
+            }
           >
             <Coffee className="h-4 w-4" />
             Buy me a coffee

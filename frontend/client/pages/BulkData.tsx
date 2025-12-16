@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { apiUrl } from "@/lib/api-config";
+import { trackEvent } from "@/lib/analytics";
 import { PageShell } from "@/components/PageShell";
 import { toast } from "sonner";
 
@@ -30,6 +31,11 @@ export default function BulkData() {
 
         const response = await fetch(apiUrl("api/dumps"));
         if (!response.ok) {
+          trackEvent("api_error", {
+            endpoint: "api/dumps",
+            status: response.status,
+            status_text: response.statusText,
+          });
           throw new Error(`Failed to fetch dumps: ${response.status}`);
         }
 
@@ -79,6 +85,13 @@ export default function BulkData() {
         if (import.meta.env.DEV) {
           console.error("Error fetching dumps:", err);
         }
+        trackEvent("api_error", {
+          endpoint: "api/dumps",
+          kind:
+            err instanceof TypeError && err.message.includes("fetch")
+              ? "network"
+              : "unknown",
+        });
         setError(err instanceof Error ? err.message : "Failed to load dumps");
       } finally {
         setLoading(false);
@@ -131,7 +144,13 @@ export default function BulkData() {
   const downloadManifest = async (url: string) => {
     try {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        trackEvent("api_error", {
+          endpoint: "bulk/manifest",
+          status: res.status,
+        });
+        throw new Error(`HTTP ${res.status}`);
+      }
       const blob = await res.blob();
       const filename = url.split("/").pop()!;
       const link = document.createElement("a");
@@ -146,6 +165,13 @@ export default function BulkData() {
       if (import.meta.env.DEV) {
         console.error("Failed to download manifest", e);
       }
+      trackEvent("api_error", {
+        endpoint: "bulk/manifest",
+        kind:
+          e instanceof TypeError && e.message.includes("fetch")
+            ? "network"
+            : "unknown",
+      });
     }
   };
 
@@ -180,12 +206,13 @@ export default function BulkData() {
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
-              onClick={() =>
-                copyToClipboard(
+              onClick={() => {
+                trackEvent("bulk_copy_click", { copy_target: "api_call" });
+                void copyToClipboard(
                   "curl https://pandects-api.fly.dev/api/dumps",
                   "api-call",
-                )
-              }
+                );
+              }}
               className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent z-10"
               title="Copy to clipboard"
               aria-label="Copy API curl command"
@@ -217,10 +244,11 @@ export default function BulkData() {
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
-              onClick={() =>
-                latestSqlUrl &&
-                copyToClipboard(`wget ${latestSqlUrl}`, "wget-download")
-              }
+              onClick={() => {
+                if (!latestSqlUrl) return;
+                trackEvent("bulk_copy_click", { copy_target: "wget_latest" });
+                void copyToClipboard(`wget ${latestSqlUrl}`, "wget-download");
+              }}
               className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
               title="Copy to clipboard"
               aria-label="Copy wget command for latest SQL"
@@ -252,13 +280,16 @@ export default function BulkData() {
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
-              onClick={() =>
-                latestSha256 &&
-                copyToClipboard(
+              onClick={() => {
+                if (!latestSha256) return;
+                trackEvent("bulk_copy_click", {
+                  copy_target: "checksum_verify_latest",
+                });
+                void copyToClipboard(
                   `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
                   "checksum-verify",
-                )
-              }
+                );
+              }}
               className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
               title="Copy to clipboard"
               aria-label="Copy checksum verification command"
@@ -397,6 +428,21 @@ export default function BulkData() {
                         {/* direct SQL download (R2.dev supports cross‑origin downloads) */}
                         <a
                           href={dump.sql}
+                          onClick={() =>
+                            {
+                              trackEvent("bulk_download_click", {
+                                download_type: "sql",
+                                dump_version: dump.timestamp,
+                                is_latest: dump.timestamp === "latest",
+                              });
+                              if (dump.timestamp !== "latest") {
+                                trackEvent("bulk_dated_download_click", {
+                                  download_type: "sql",
+                                  dump_version: dump.timestamp,
+                                });
+                              }
+                            }
+                          }
                           className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -407,7 +453,20 @@ export default function BulkData() {
                         {/* manifest: fetch+trigger download */}
                         <button
                           type="button"
-                          onClick={() => downloadManifest(dump.manifest)}
+                          onClick={() => {
+                            trackEvent("bulk_download_click", {
+                              download_type: "manifest",
+                              dump_version: dump.timestamp,
+                              is_latest: dump.timestamp === "latest",
+                            });
+                            if (dump.timestamp !== "latest") {
+                              trackEvent("bulk_dated_download_click", {
+                                download_type: "manifest",
+                                dump_version: dump.timestamp,
+                              });
+                            }
+                            void downloadManifest(dump.manifest);
+                          }}
                           className="inline-flex items-center px-3 py-1 border border-border text-foreground hover:bg-accent rounded text-sm font-medium transition-colors"
                         >
                           Manifest

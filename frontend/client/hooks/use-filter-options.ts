@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FilterOptionsResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
+import { trackEvent } from "@/lib/analytics";
 
 interface UseFilterOptionsReturn {
   targets: string[];
@@ -37,6 +38,11 @@ export function useFilterOptions(): UseFilterOptionsReturn {
         const response = await fetch(apiUrl("api/filter-options"));
 
         if (!response.ok) {
+          trackEvent("api_error", {
+            endpoint: "api/filter-options",
+            status: response.status,
+            status_text: response.statusText,
+          });
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
@@ -54,6 +60,13 @@ export function useFilterOptions(): UseFilterOptionsReturn {
         if (import.meta.env.DEV) {
           console.error("Failed to fetch filter options:", err);
         }
+        trackEvent("api_error", {
+          endpoint: "api/filter-options",
+          kind:
+            err instanceof TypeError && err.message.includes("fetch")
+              ? "network"
+              : "unknown",
+        });
         setError(
           err instanceof Error ? err.message : "Failed to fetch filter options",
         );

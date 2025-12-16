@@ -5,6 +5,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PageShell } from "@/components/PageShell";
+import { trackEvent } from "@/lib/analytics";
 
 export default function Feedback() {
   return (
@@ -53,7 +54,10 @@ export default function Feedback() {
           value="survey"
           className="bg-card rounded-lg shadow-sm border border-border"
         >
-          <AccordionTrigger className="px-6 py-4 text-lg font-semibold text-foreground">
+          <AccordionTrigger
+            className="px-6 py-4 text-lg font-semibold text-foreground"
+            onClick={() => trackEvent("feedback_section_click", { section: "survey" })}
+          >
             Survey
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">
@@ -77,7 +81,12 @@ export default function Feedback() {
           value="general-feedback"
           className="bg-card rounded-lg shadow-sm border border-border"
         >
-          <AccordionTrigger className="px-6 py-4 text-lg font-semibold text-foreground">
+          <AccordionTrigger
+            className="px-6 py-4 text-lg font-semibold text-foreground"
+            onClick={() =>
+              trackEvent("feedback_section_click", { section: "general_feedback" })
+            }
+          >
             General Feedback
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">

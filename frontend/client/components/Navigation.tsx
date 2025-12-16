@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
 import PandaEasterEgg from "@/components/PandaEasterEgg";
+import { trackEvent } from "@/lib/analytics";
 import {
   Sheet,
   SheetContent,
@@ -52,6 +53,12 @@ export default function Navigation() {
         <Link
           to="/"
           className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          onClick={() =>
+            trackEvent("logo_click", {
+              from_path: location.pathname,
+              to_path: "/",
+            })
+          }
         >
           <img
             src={logo}
@@ -77,6 +84,13 @@ export default function Navigation() {
               key={link.to}
               to={link.to}
               data-panda-target={link.pandaTarget}
+              onClick={() =>
+                trackEvent("nav_click", {
+                  nav_item: link.label,
+                  from_path: location.pathname,
+                  to_path: link.to,
+                })
+              }
               aria-current={isActive(link.to) ? "page" : undefined}
               className={cn(
                 navLinkBase,
@@ -149,6 +163,13 @@ export default function Navigation() {
                       <SheetClose asChild key={link.to}>
                         <Link
                           to={link.to}
+                          onClick={() =>
+                            trackEvent("nav_click", {
+                              nav_item: link.label,
+                              from_path: location.pathname,
+                              to_path: link.to,
+                            })
+                          }
                           aria-current={isActive(link.to) ? "page" : undefined}
                           className={cn(
                             navLinkBase,

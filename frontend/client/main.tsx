@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import { isLocalEnvironment } from "./lib/environment";
+import { installGlobalErrorTracking } from "@/lib/analytics";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
@@ -27,6 +28,8 @@ const App = () => {
   useEffect(() => {
     void fetch("/api/dumps").catch(() => undefined);
   }, []);
+
+  useEffect(() => installGlobalErrorTracking(), []);
 
   return (
     <QueryClientProvider client={queryClient}>

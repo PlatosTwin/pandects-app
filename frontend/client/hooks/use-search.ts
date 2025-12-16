@@ -3,6 +3,7 @@ import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams, extractStandardIds } from "@/lib/url-params";
 import type { ClauseTypeTree } from "@/lib/clause-types";
+import { trackEvent } from "@/lib/analytics";
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_PAGE,
@@ -135,6 +136,24 @@ export function useSearch() {
           setFilters((prev) => ({ ...prev, page: 1 }));
         }
 
+        if (markAsSearched) {
+          trackEvent("search_performed", {
+            years_count: searchFilters.year.length,
+            targets_count: searchFilters.target.length,
+            acquirers_count: searchFilters.acquirer.length,
+            clause_types_count: searchFilters.clauseType.length,
+            standard_ids_count: searchFilters.standardId.length,
+            transaction_size_count: searchFilters.transactionSize.length,
+            transaction_type_count: searchFilters.transactionType.length,
+            consideration_type_count: searchFilters.considerationType.length,
+            target_type_count: searchFilters.targetType.length,
+            page: searchFilters.page,
+            page_size: searchFilters.pageSize,
+            sort_by: currentSort ?? "none",
+            sort_direction: sortDirection,
+          });
+        }
+
         const params = buildSearchParams(searchFilters, clauseTypesNested);
 
         const queryString = params.toString();
@@ -145,6 +164,11 @@ export function useSearch() {
           if (res.status === 404) {
             return;
           }
+          trackEvent("api_error", {
+            endpoint: "api/search",
+            status: res.status,
+            status_text: res.statusText,
+          });
           // Other HTTP errors
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
@@ -166,6 +190,15 @@ export function useSearch() {
         setHasPrev(searchResponse.hasPrev);
         setNextNum(searchResponse.nextNum);
         setPrevNum(searchResponse.prevNum);
+
+        if (markAsSearched) {
+          trackEvent("search_results_loaded", {
+            total_count: searchResponse.totalCount,
+            total_pages: searchResponse.totalPages,
+            page: searchFilters.page,
+            page_size: searchFilters.pageSize,
+          });
+        }
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error("Search failed:", error);
@@ -176,11 +209,19 @@ export function useSearch() {
 
         // Check if it's a network error
         if (error instanceof TypeError && error.message.includes("fetch")) {
+          trackEvent("api_error", {
+            endpoint: "api/search",
+            kind: "network",
+          });
           setErrorMessage(
             "Network error: unable to reach the back end database. Check your connection and try again.",
           );
           setShowErrorModal(true);
         } else {
+          trackEvent("api_error", {
+            endpoint: "api/search",
+            kind: "unknown",
+          });
           setErrorMessage(
             "Network error: unable to reach the back end database. Check your connection and try again.",
           );
@@ -242,6 +283,11 @@ export function useSearch() {
           const res = await fetch(apiUrl(`api/search?${queryString}`));
 
           if (!res.ok) {
+            trackEvent("api_error", {
+              endpoint: "api/search",
+              status: res.status,
+              status_text: res.statusText,
+            });
             throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           }
 
@@ -251,12 +297,30 @@ export function useSearch() {
           if (import.meta.env.DEV) {
             console.error("Failed to fetch all results for CSV:", error);
           }
+          trackEvent("api_error", {
+            endpoint: "api/search",
+            kind:
+              error instanceof TypeError && error.message.includes("fetch")
+                ? "network"
+                : "unknown",
+          });
           // Fallback to current page results
           resultsToDownload = searchResults;
         }
       }
 
       if (resultsToDownload.length === 0) return;
+
+      trackEvent("search_csv_download_click", {
+        mode: selectedResults.size > 0 ? "selected" : "all",
+        selected_count: selectedResults.size,
+        downloaded_count: resultsToDownload.length,
+        years_count: filters.year.length,
+        targets_count: filters.target.length,
+        acquirers_count: filters.acquirer.length,
+        clause_types_count: filters.clauseType.length,
+        standard_ids_count: filters.standardId.length,
+      });
 
       // Create CSV content
       const headers = [
