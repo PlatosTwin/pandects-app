@@ -2,7 +2,7 @@
 
 **Pandects** is an open-source M\&A research platform built with a Vite frontend and Flask backend.
 
-For more on the project, including data sources and pipelines, see our [About page](https://pandects-app.fly.dev/about) on the frontend.
+For more on the project, including data sources and pipelines, see our [About page](https://pandects.org/about) on the frontend.
 
 We welcome contributions to the frontend via pull requests. To contribute to data pipelines and analytics, please send a note to Nikita Bogdanov at nmbogdan [at] alumni [dot] stanford [dot] edu.
 
