@@ -17,6 +17,8 @@ AGENTS.md
 *.pyc
 *.parquet
 
+_t.*
+
 *.csv
 
 **/*.tmp_dagster*
