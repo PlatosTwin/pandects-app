@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import { isLocalEnvironment } from "./lib/environment";
 import { installGlobalErrorTracking } from "@/lib/analytics";
+import { apiUrl } from "@/lib/api-config";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
@@ -26,7 +27,7 @@ const queryClient = new QueryClient();
 const App = () => {
   // on first mount, fire a lightweight ping to warm up the Fly.io db machine
   useEffect(() => {
-    void fetch("/api/dumps").catch(() => undefined);
+    void fetch(apiUrl("api/dumps")).catch(() => undefined);
   }, []);
 
   useEffect(() => installGlobalErrorTracking(), []);
