@@ -37,6 +37,7 @@ export default function Navigation() {
       { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
       { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
+      { to: "/donate", label: "Donate", pandaTarget: "nav-donate" },
     ],
     [],
   );

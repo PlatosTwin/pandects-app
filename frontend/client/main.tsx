@@ -16,6 +16,7 @@ const Docs = lazy(() => import("./pages/Docs"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const About = lazy(() => import("./pages/About"));
 const Feedback = lazy(() => import("./pages/Feedback"));
+const Donate = lazy(() => import("./pages/Donate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Edit = lazy(() => import("./pages/Edit"));
 
@@ -41,6 +42,7 @@ const App = () => {
               <Route path="/bulk-data" element={<BulkData />} />
               <Route path="/about" element={<About />} />
               <Route path="/feedback" element={<Feedback />} />
+              <Route path="/donate" element={<Donate />} />
               {/* Editor route - Only available in local development */}
               {isLocalEnvironment() && (
                 <Route path="/editor" element={<Edit />} />
