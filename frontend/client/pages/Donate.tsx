@@ -23,6 +23,11 @@ export default function Donate() {
             Every contribution helps keep the site fast, reliable, and free to
             use.
           </p>
+          <p className="italic">
+            Disclaimer: Although the navigation text says "Donate," Pandects is 
+            not actually a registered non-profit, so any contributions via Buy Me A Coffee 
+            are not tax-deductible.
+          </p>
         </div>
       </div>
 

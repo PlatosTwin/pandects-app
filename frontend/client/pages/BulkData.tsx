@@ -3,7 +3,13 @@ import { Copy, Check } from "lucide-react";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { PageShell } from "@/components/PageShell";
-import { toast } from "sonner";
+
+async function showToast(kind: "success" | "error", message: string) {
+  if (typeof window === "undefined") return;
+  const { toast } = await import("sonner");
+  if (kind === "success") toast.success(message);
+  else toast.error(message);
+}
 
 interface DumpInfo {
   manifest: string;
@@ -133,11 +139,11 @@ export default function BulkData() {
       await navigator.clipboard.writeText(text);
       setCopiedStates((prev) => ({ ...prev, [id]: true }));
       setTimeout(() => {
-        setCopiedStates((prev) => ({ ...prev, [id]: false }));
+      setCopiedStates((prev) => ({ ...prev, [id]: false }));
       }, 2000);
-      toast.success("Copied to clipboard");
+      void showToast("success", "Copied to clipboard");
     } catch (err) {
-      toast.error("Copy failed");
+      void showToast("error", "Copy failed");
     }
   };
 
