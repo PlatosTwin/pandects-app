@@ -6,8 +6,52 @@ import {
 } from "@/components/ui/accordion";
 import { PageShell } from "@/components/PageShell";
 import { trackEvent } from "@/lib/analytics";
+import { useMemo, useState } from "react";
 
 export default function Feedback() {
+  const [openSection, setOpenSection] = useState<string>("");
+  const [mountedSections, setMountedSections] = useState<
+    Record<"survey" | "general-feedback", boolean>
+  >({
+    survey: false,
+    "general-feedback": false,
+  });
+  const [loadedSections, setLoadedSections] = useState<
+    Record<"survey" | "general-feedback", boolean>
+  >({
+    survey: false,
+    "general-feedback": false,
+  });
+
+  const handleSectionChange = (value: string) => {
+    setOpenSection(value);
+    if (value === "survey" || value === "general-feedback") {
+      setMountedSections((prev) => ({ ...prev, [value]: true }));
+    }
+  };
+
+  const skeletonBySection = useMemo(
+    () => ({
+      survey: (
+        <div className="h-[895px] rounded-lg border border-border bg-muted/30 p-6">
+          <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+          <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+        </div>
+      ),
+      "general-feedback": (
+        <div className="h-[895px] rounded-lg border border-border bg-muted/30 p-6">
+          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+          <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+        </div>
+      ),
+    }),
+    [],
+  );
+
   return (
     <PageShell size="xl" title="Feedback">
       <div className="mb-8">
@@ -49,30 +93,54 @@ export default function Feedback() {
         </div>
       </div>
 
-      <Accordion type="single" collapsible className="w-full space-y-4">
+      <Accordion
+        type="single"
+        collapsible
+        value={openSection}
+        onValueChange={handleSectionChange}
+        className="w-full space-y-4"
+      >
         <AccordionItem
           value="survey"
           className="bg-card rounded-lg shadow-sm border border-border"
         >
           <AccordionTrigger
             className="px-6 py-4 text-lg font-semibold text-foreground"
-            onClick={() => trackEvent("feedback_section_click", { section: "survey" })}
+            onClick={() =>
+              trackEvent("feedback_section_click", { section: "survey" })
+            }
           >
             Survey
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">
             <div className="bg-card rounded-lg">
-              <iframe
-                loading="lazy"
-                className="airtable-embed w-full rounded-lg"
-                src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagNFOMrP8gZLyEl3/form"
-                width="100%"
-                height="895"
-                style={{
-                  background: "transparent",
-                  border: "1px solid #ccc",
-                }}
-              />
+              {!mountedSections.survey ? (
+                skeletonBySection.survey
+              ) : (
+                <div className="relative">
+                  {!loadedSections.survey && (
+                    <div className="absolute inset-0">
+                      {skeletonBySection.survey}
+                    </div>
+                  )}
+                  <iframe
+                    loading="lazy"
+                    className="airtable-embed w-full rounded-lg"
+                    style={{
+                      background: "transparent",
+                      border: "1px solid #ccc",
+                      opacity: loadedSections.survey ? 1 : 0,
+                    }}
+                    src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagNFOMrP8gZLyEl3/form"
+                    title="Pandects user survey form"
+                    width="100%"
+                    height="895"
+                    onLoad={() =>
+                      setLoadedSections((prev) => ({ ...prev, survey: true }))
+                    }
+                  />
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -84,24 +152,45 @@ export default function Feedback() {
           <AccordionTrigger
             className="px-6 py-4 text-lg font-semibold text-foreground"
             onClick={() =>
-              trackEvent("feedback_section_click", { section: "general_feedback" })
+              trackEvent("feedback_section_click", {
+                section: "general_feedback",
+              })
             }
           >
             General Feedback
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">
             <div className="bg-card rounded-lg">
-              <iframe
-                loading="lazy"
-                className="airtable-embed w-full rounded-lg"
-                src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form"
-                width="100%"
-                height="895"
-                style={{
-                  background: "transparent",
-                  border: "1px solid #ccc",
-                }}
-              />
+              {!mountedSections["general-feedback"] ? (
+                skeletonBySection["general-feedback"]
+              ) : (
+                <div className="relative">
+                  {!loadedSections["general-feedback"] && (
+                    <div className="absolute inset-0">
+                      {skeletonBySection["general-feedback"]}
+                    </div>
+                  )}
+                  <iframe
+                    loading="lazy"
+                    className="airtable-embed w-full rounded-lg"
+                    style={{
+                      background: "transparent",
+                      border: "1px solid #ccc",
+                      opacity: loadedSections["general-feedback"] ? 1 : 0,
+                    }}
+                    src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form"
+                    title="Pandects general feedback form"
+                    width="100%"
+                    height="895"
+                    onLoad={() =>
+                      setLoadedSections((prev) => ({
+                        ...prev,
+                        "general-feedback": true,
+                      }))
+                    }
+                  />
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
