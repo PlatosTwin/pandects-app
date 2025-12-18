@@ -389,7 +389,7 @@ export default function Account() {
             <div className="flex justify-center pt-1">
               <div
                 ref={googleButtonRef}
-                className="flex h-[44px] w-full max-w-[360px] items-center justify-center overflow-hidden"
+                className="flex min-h-[44px] w-full max-w-[360px] items-center justify-center overflow-visible px-1 py-1"
               />
             </div>
             {googleNeedsLegal ? (
