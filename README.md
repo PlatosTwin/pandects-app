@@ -39,7 +39,7 @@ Google sign-in is implemented via backend OAuth endpoints and requires these env
 - `AUTH_SECRET_KEY`
 - `GOOGLE_OAUTH_CLIENT_ID`
 - `GOOGLE_OAUTH_CLIENT_SECRET`
-- `PUBLIC_API_BASE_URL` (e.g. `https://pandects-api.fly.dev`)
+- `PUBLIC_API_BASE_URL` (e.g. `https://api.pandects.org`)
 - `PUBLIC_FRONTEND_BASE_URL` (e.g. `https://pandects.org`)
 
 ##### Session auth (recommended for production)
@@ -78,7 +78,7 @@ If you omit it, the frontend will fetch the client ID from `GET /api/auth/google
 Optional: override the API base URL at build/runtime:
 
 ```bash
-export VITE_API_BASE_URL=https://pandects-api.fly.dev
+export VITE_API_BASE_URL=https://api.pandects.org
 ```
 
 Navbar easter egg (purely cosmetic): type `panda` anywhere (when not focused in a text input) to toggle a little gravity-driven ball.

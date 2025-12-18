@@ -16,6 +16,10 @@ ENV NODE_ENV="production"
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
+# Vite env vars are baked in at build time; pass as Docker build args (configured in fly.toml).
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3

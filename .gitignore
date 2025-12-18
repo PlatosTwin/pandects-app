@@ -5,6 +5,8 @@ etl/.venv/
 
 # Env / secrets
 **/*.env
+**/.env.local
+**/.env.*.local
 **/pipeline.yaml
 *.sqlite
 client_secret*.json
