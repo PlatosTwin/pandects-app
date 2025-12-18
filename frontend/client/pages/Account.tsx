@@ -53,6 +53,12 @@ export default function Account() {
     "loading" | "ready" | "unavailable"
   >("loading");
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const refreshRef = useRef(refresh);
+  const googleInitRunRef = useRef(0);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [usageByDay, setUsageByDay] = useState<UsageByDay[]>([]);
@@ -194,6 +200,7 @@ export default function Account() {
   useEffect(() => {
     if (user) return;
     if (authBackendStatus !== "ready") return;
+    const runId = ++googleInitRunRef.current;
     setGoogleStatus("loading");
     setGooglePendingCredential(null);
     setGoogleNeedsLegal(false);
@@ -217,12 +224,14 @@ export default function Account() {
 
     void resolveClientId()
       .then(async (clientId) => {
+        if (googleInitRunRef.current !== runId) return;
         if (!clientId) {
           setGoogleStatus("unavailable");
           return;
         }
 
         await loadGoogleIdentityServices();
+        if (googleInitRunRef.current !== runId) return;
         if (!googleButtonRef.current) {
           setGoogleStatus("unavailable");
           return;
@@ -243,7 +252,7 @@ export default function Account() {
                 if (!res.sessionToken) throw new Error("Missing session token.");
                 setSessionToken(res.sessionToken);
               }
-              await refresh();
+              await refreshRef.current();
               toast({ title: "Signed in" });
             } catch (err) {
               const msg = String(err);
@@ -265,6 +274,8 @@ export default function Account() {
         });
 
         googleButtonRef.current.replaceChildren();
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        if (googleInitRunRef.current !== runId) return;
         const width = Math.round(
           Math.min(360, Math.max(240, googleButtonRef.current.getBoundingClientRect().width)),
         );
@@ -279,7 +290,7 @@ export default function Account() {
         setGoogleStatus("ready");
       })
       .catch(() => setGoogleStatus("unavailable"));
-  }, [authBackendStatus, refresh, user]);
+  }, [authBackendStatus, user]);
 
   useEffect(() => {
     if (user) return;
@@ -378,7 +389,7 @@ export default function Account() {
             <div className="flex justify-center pt-1">
               <div
                 ref={googleButtonRef}
-                className="min-h-[44px] w-full max-w-[360px]"
+                className="flex h-[44px] w-full max-w-[360px] items-center justify-center overflow-hidden"
               />
             </div>
             {googleNeedsLegal ? (
