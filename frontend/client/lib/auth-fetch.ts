@@ -18,33 +18,34 @@ function isUnsafeMethod(method: string | undefined): boolean {
 }
 
 let csrfInitPromise: Promise<void> | null = null;
-let csrfToken: string | null = null;
 
-async function ensureCsrfToken(): Promise<void> {
-  if (csrfToken) return;
-
+async function ensureCsrfToken(): Promise<string | null> {
   const existing = getCookie("pdcts_csrf");
   if (existing) {
-    csrfToken = existing;
     csrfInitPromise = null;
-    return;
+    return existing;
   }
-
   if (!csrfInitPromise) {
     csrfInitPromise = fetch(apiUrl("api/auth/csrf"), { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json().catch(() => null)) as unknown;
-        if (!data || typeof data !== "object") return;
-        const token = (data as { csrfToken?: unknown }).csrfToken;
-        if (typeof token === "string" && token.trim()) csrfToken = token.trim();
-      })
+      .then(() => undefined)
       .catch(() => undefined);
   }
 
   await csrfInitPromise;
   const after = getCookie("pdcts_csrf");
-  if (after) csrfToken = after;
+  if (after) return after;
+
+  // Fallback: some environments may block cookie access; the endpoint can return the token too.
+  // Note: this does not make CSRF work without cookies; the server still requires the cookie.
+  try {
+    const res = await fetch(apiUrl("api/auth/csrf"), { credentials: "include" });
+    const data = (await res.json().catch(() => null)) as unknown;
+    if (!data || typeof data !== "object") return null;
+    const token = (data as { csrfToken?: unknown }).csrfToken;
+    return typeof token === "string" && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function authFetch(
@@ -63,8 +64,8 @@ export async function authFetch(
   }
 
   if (isUnsafeMethod(init.method) && !headers.has("X-CSRF-Token")) {
-    await ensureCsrfToken();
-    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+    const token = getCookie("pdcts_csrf") ?? (await ensureCsrfToken());
+    if (token) headers.set("X-CSRF-Token", token);
   }
 
   return fetch(input, { ...init, headers, credentials: "include" });
