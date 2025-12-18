@@ -77,10 +77,22 @@ export async function authFetchJson<T>(
 ): Promise<T> {
   const res = await authFetch(input, init);
   if (!res.ok) {
+    const contentType = res.headers.get("Content-Type") || "";
     const bodyText = await res.text().catch(() => "");
-    throw new Error(
-      `HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`,
-    );
+    if (contentType.includes("application/json") && bodyText) {
+      try {
+        const body = JSON.parse(bodyText) as unknown;
+        if (body && typeof body === "object") {
+          const message = (body as { message?: unknown }).message;
+          if (typeof message === "string" && message.trim()) {
+            throw new Error(message);
+          }
+        }
+      } catch {
+        // Fall through to generic error below.
+      }
+    }
+    throw new Error(`HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`);
   }
   return (await res.json()) as T;
 }

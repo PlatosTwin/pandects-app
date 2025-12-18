@@ -18,6 +18,18 @@ def main() -> None:
         url = make_url(str(engine.url)).render_as_string(hide_password=True)
         inspector = inspect(engine)
         if engine.dialect.name == "postgresql":
+            user_columns = {c["name"]: c for c in inspector.get_columns("auth_users")}
+            if "email_verified_at" not in user_columns:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE auth_users ADD COLUMN email_verified_at TIMESTAMP"))
+                    conn.execute(
+                        text(
+                            "UPDATE auth_users "
+                            "SET email_verified_at = created_at "
+                            "WHERE email_verified_at IS NULL"
+                        )
+                    )
+
             columns = {c["name"]: c for c in inspector.get_columns("api_keys")}
             prefix_type = columns.get("prefix", {}).get("type")
             prefix_len = getattr(prefix_type, "length", None)

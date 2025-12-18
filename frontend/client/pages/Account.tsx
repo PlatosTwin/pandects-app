@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ function formatDate(value: string | null) {
 export default function Account() {
   const { status, user, login, register, logout, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,6 +56,21 @@ export default function Account() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const refreshRef = useRef(refresh);
   const googleInitRunRef = useRef(0);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("emailVerified") !== "1") return;
+    toast({
+      title: "Email verified!",
+      description: "Login to create API keys and access full search results.",
+    });
+    params.delete("emailVerified");
+    const nextQuery = params.toString();
+    navigate(
+      { pathname: location.pathname, search: nextQuery ? `?${nextQuery}` : "" },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
     refreshRef.current = refresh;
@@ -586,7 +602,10 @@ export default function Account() {
                       },
                       captchaToken ?? undefined,
                     );
-                    toast({ title: "Account created" });
+                    toast({
+                      title: "Check your email",
+                      description: "Verify your email address to finish creating your account.",
+                    });
                     navigate("/");
                   } catch (err) {
                     toast({
@@ -723,8 +742,8 @@ export default function Account() {
               <div>
                 <h2 className="text-lg font-semibold">API keys</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Use `X-API-Key` for API access. Keep keys secret — you can only
-                  view a newly created key once.
+                  Use `X-API-Key` for API access. Keep keys secret — you can view
+                  a newly created key only once.
                 </p>
               </div>
               <div className="flex items-center gap-2">

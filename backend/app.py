@@ -339,6 +339,7 @@ class AuthUser(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = db.Column(db.String(320), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=True)
+    email_verified_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
@@ -483,6 +484,7 @@ class _MockAuthUser:
     id: str
     email: str
     password_hash: str | None
+    email_verified_at: datetime | None
     created_at: datetime
 
 
@@ -514,6 +516,7 @@ class _MockAuthStore:
             id=user_id,
             email=email,
             password_hash=generate_password_hash(password),
+            email_verified_at=None,
             created_at=datetime.utcnow(),
         )
         with self._lock:
@@ -534,6 +537,22 @@ class _MockAuthStore:
     def get_user(self, user_id: str) -> _MockAuthUser | None:
         with self._lock:
             return self._users_by_id.get(user_id)
+
+    def mark_email_verified(self, user_id: str) -> bool:
+        with self._lock:
+            user = self._users_by_id.get(user_id)
+            if user is None:
+                return False
+            if user.email_verified_at is not None:
+                return True
+            self._users_by_id[user_id] = _MockAuthUser(
+                id=user.id,
+                email=user.email,
+                password_hash=user.password_hash,
+                email_verified_at=datetime.utcnow(),
+                created_at=user.created_at,
+            )
+            return True
 
     def issue_session_token(self, *, user_id: str) -> str:
         token = f"mock_{uuid.uuid4().hex}{uuid.uuid4().hex}"
@@ -630,6 +649,118 @@ def _auth_serializer() -> URLSafeTimedSerializer | None:
     if not secret:
         return None
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-auth")
+
+
+def _email_verification_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-email-verify")
+
+
+def _email_verification_max_age_seconds() -> int:
+    raw = os.environ.get("EMAIL_VERIFICATION_TOKEN_MAX_AGE_SECONDS", "").strip()
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError:
+            abort(503, description="Invalid EMAIL_VERIFICATION_TOKEN_MAX_AGE_SECONDS.")
+        if value <= 0:
+            abort(503, description="Invalid EMAIL_VERIFICATION_TOKEN_MAX_AGE_SECONDS.")
+        return value
+    return 60 * 60 * 24 * 7
+
+
+def _issue_email_verification_token(*, user_id: str, email: str) -> str:
+    serializer = _email_verification_serializer()
+    return serializer.dumps({"user_id": user_id, "email": email})
+
+
+def _load_email_verification_token(token: str) -> tuple[str, str] | None:
+    serializer = _email_verification_serializer()
+    try:
+        payload = serializer.loads(token, max_age=_email_verification_max_age_seconds())
+    except (BadSignature, SignatureExpired):
+        return None
+    user_id = payload.get("user_id")
+    email = payload.get("email")
+    if not isinstance(user_id, str) or not isinstance(email, str):
+        return None
+    return user_id, email
+
+
+def _resend_api_key() -> str | None:
+    key = os.environ.get("RESEND_API_KEY")
+    key = key.strip() if isinstance(key, str) else ""
+    return key or None
+
+
+def _resend_from_email() -> str | None:
+    sender = os.environ.get("RESEND_FROM_EMAIL")
+    sender = sender.strip() if isinstance(sender, str) else ""
+    return sender or None
+
+
+def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | None) -> None:
+    api_key = _resend_api_key()
+    sender = _resend_from_email()
+    if api_key is None or sender is None:
+        if app.testing:
+            return
+        missing = []
+        if api_key is None:
+            missing.append("RESEND_API_KEY")
+        if sender is None:
+            missing.append("RESEND_FROM_EMAIL")
+        abort(503, description=f"Email is not configured (missing {', '.join(missing)}).")
+
+    payload: dict[str, object] = {"from": sender, "to": [to_email], "subject": subject, "html": html}
+    if text:
+        payload["text"] = text
+    body = json.dumps(payload).encode("utf-8")
+    req = Request(
+        "https://api.resend.com/emails",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            resp.read()
+    except HTTPError as e:
+        if app.testing:
+            return
+        try:
+            details = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            details = ""
+        app.logger.error("Resend email failed (HTTP %s): %s", e.code, details)
+        abort(503, description="Email delivery failed.")
+    except URLError as e:
+        if app.testing:
+            return
+        app.logger.error("Resend email failed (network error): %s", e)
+        abort(503, description="Email delivery failed.")
+
+
+def _send_email_verification_email(*, to_email: str, token: str) -> None:
+    verify_url = f"{_public_api_base_url()}/api/auth/email/verify?token={quote(token)}"
+    subject = "Verify your email"
+    html = (
+        "<p>Confirm your email address to finish creating your account.</p>"
+        f"<p><a href=\"{verify_url}\">Verify email</a></p>"
+        "<p>If you didn't create an account, you can ignore this email.</p>"
+    )
+    text = (
+        "Confirm your email address to finish creating your account.\n\n"
+        f"Verify: {verify_url}\n\n"
+        "If you didn't create an account, you can ignore this email.\n"
+    )
+    _send_resend_email(to_email=to_email, subject=subject, html=html, text=text)
 
 
 def _issue_session_token(user_id: str) -> str:
@@ -1098,14 +1229,14 @@ def _current_access_context() -> AccessContext:
             if user_id:
                 if _auth_is_mocked():
                     user = _mock_auth.get_user(user_id)
-                    if user is not None:
+                    if user is not None and user.email_verified_at is not None:
                         return AccessContext(tier="user", user_id=user_id)
                 elif _auth_db_is_configured():
                     try:
                         user = db.session.get(AuthUser, user_id)
                     except SQLAlchemyError:
                         user = None
-                    if user is not None:
+                    if user is not None and user.email_verified_at is not None:
                         return AccessContext(tier="user", user_id=user_id)
 
     api_key_raw = request.headers.get("X-API-Key")
@@ -1114,18 +1245,20 @@ def _current_access_context() -> AccessContext:
         if _auth_is_mocked():
             api_key = _mock_auth.lookup_api_key(api_key_raw)
             if api_key is not None:
-                return AccessContext(
-                    tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
-                )
+                if _user_id_is_verified(api_key.user_id):
+                    return AccessContext(
+                        tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
+                    )
         elif _auth_db_is_configured():
             try:
                 api_key = _lookup_api_key(api_key_raw)
             except SQLAlchemyError:
                 api_key = None
             if api_key is not None:
-                return AccessContext(
-                    tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
-                )
+                if _user_id_is_verified(api_key.user_id):
+                    return AccessContext(
+                        tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
+                    )
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
@@ -1134,14 +1267,14 @@ def _current_access_context() -> AccessContext:
         if user_id:
             if _auth_is_mocked():
                 user = _mock_auth.get_user(user_id)
-                if user is not None:
+                if user is not None and user.email_verified_at is not None:
                     return AccessContext(tier="user", user_id=user_id)
             elif _auth_db_is_configured():
                 try:
                     user = db.session.get(AuthUser, user_id)
                 except SQLAlchemyError:
                     user = None
-                if user is not None:
+                if user is not None and user.email_verified_at is not None:
                     return AccessContext(tier="user", user_id=user_id)
 
     return AccessContext(tier="anonymous")
@@ -1171,7 +1304,15 @@ def _require_user() -> tuple[AuthUser, AccessContext]:
             abort(401, description="Invalid session.")
         if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
             abort(401, description="Account deleted.")
-        return AuthUser(id=user.id, email=user.email, created_at=user.created_at), ctx
+        return (
+            AuthUser(
+                id=user.id,
+                email=user.email,
+                email_verified_at=user.email_verified_at,
+                created_at=user.created_at,
+            ),
+            ctx,
+        )
     try:
         user = db.session.get(AuthUser, ctx.user_id)
     except SQLAlchemyError:
@@ -1181,6 +1322,26 @@ def _require_user() -> tuple[AuthUser, AccessContext]:
     if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
         abort(401, description="Account deleted.")
     return user, ctx
+
+
+def _require_verified_user() -> tuple[AuthUser, AccessContext]:
+    user, ctx = _require_user()
+    if user.email_verified_at is None:
+        abort(403, description="Email address not verified.")
+    return user, ctx
+
+
+def _user_id_is_verified(user_id: str) -> bool:
+    if _auth_is_mocked():
+        user = _mock_auth.get_user(user_id)
+        return user is not None and user.email_verified_at is not None
+    if not _auth_db_is_configured():
+        return False
+    try:
+        user = db.session.get(AuthUser, user_id)
+    except SQLAlchemyError:
+        return False
+    return user is not None and user.email_verified_at is not None
 
 
 def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
@@ -1922,20 +2083,21 @@ def auth_register():
 
     if _auth_is_mocked():
         user = _mock_auth.create_user(email=email, password=password)
-        token = _issue_session_token(user.id)
-        payload = {
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "createdAt": user.created_at.isoformat(),
-            },
-        }
-        if _auth_session_transport() == "bearer":
-            payload["sessionToken"] = token
+        verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
+        if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and app.debug:
+            payload = {
+                "status": "verification_required",
+                "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
+                "debugToken": verify_token,
+            }
+        else:
+            payload = {
+                "status": "verification_required",
+                "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
+            }
         resp = make_response(jsonify(payload), 201)
         resp.headers["Cache-Control"] = "no-store"
-        if _auth_session_transport() == "cookie":
-            _set_auth_cookies(resp, session_token=token)
+        _clear_auth_cookies(resp)
         return resp
 
     try:
@@ -1946,7 +2108,11 @@ def auth_register():
         now = datetime.utcnow()
         ip_address = _request_ip_address()
         user_agent = _request_user_agent()
-        user = AuthUser(email=email, password_hash=generate_password_hash(password))
+        user = AuthUser(
+            email=email,
+            password_hash=generate_password_hash(password),
+            email_verified_at=None,
+        )
         db.session.add(user)
         db.session.flush()
         for doc, meta in _LEGAL_DOCS.items():
@@ -1963,24 +2129,25 @@ def auth_register():
                 )
             )
         _record_signon_event(user_id=user.id, provider="email", action="register")
+        verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
+        _send_email_verification_email(to_email=user.email, token=verify_token)
         db.session.commit()
-        token = _issue_session_token(user.id)
+    except HTTPException:
+        db.session.rollback()
+        raise
     except SQLAlchemyError:
+        db.session.rollback()
         abort(503, description="Auth backend is unavailable right now.")
 
-    payload = {
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "createdAt": user.created_at.isoformat(),
-        },
+    payload: dict[str, object] = {
+        "status": "verification_required",
+        "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
     }
-    if _auth_session_transport() == "bearer":
-        payload["sessionToken"] = token
+    if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and app.debug:
+        payload["debugToken"] = verify_token
     resp = make_response(jsonify(payload), 201)
     resp.headers["Cache-Control"] = "no-store"
-    if _auth_session_transport() == "cookie":
-        _set_auth_cookies(resp, session_token=token)
+    _clear_auth_cookies(resp)
     return resp
 
 
@@ -1998,6 +2165,8 @@ def auth_login():
         user = _mock_auth.authenticate(email=email, password=password)
         if user is None:
             abort(401, description="Invalid credentials.")
+        if user.email_verified_at is None:
+            abort(403, description="Email address not verified.")
         token = _issue_session_token(user.id)
         payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
         if _auth_session_transport() == "bearer":
@@ -2014,6 +2183,8 @@ def auth_login():
             abort(401, description="Invalid credentials.")
         if not check_password_hash(user.password_hash, password):
             abort(401, description="Invalid credentials.")
+        if user.email_verified_at is None:
+            abort(403, description="Email address not verified.")
 
         _record_signon_event(user_id=user.id, provider="email", action="login")
         db.session.commit()
@@ -2030,10 +2201,91 @@ def auth_login():
         abort(503, description="Auth backend is unavailable right now.")
 
 
+@app.route("/api/auth/email/verify", methods=["POST"])
+def auth_verify_email():
+    _require_auth_db()
+    data = _require_json()
+    token = data.get("token")
+    if not isinstance(token, str) or not token.strip():
+        abort(400, description="Missing verification token.")
+    parsed = _load_email_verification_token(token.strip())
+    if parsed is None:
+        abort(400, description="Invalid or expired verification token.")
+    user_id, email = parsed
+
+    if _auth_is_mocked():
+        user = _mock_auth.get_user(user_id)
+        if user is None or user.email != email:
+            abort(400, description="Invalid verification token.")
+        _mock_auth.mark_email_verified(user_id)
+        resp = make_response(jsonify({"status": "ok"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    try:
+        user = db.session.get(AuthUser, user_id)
+        if user is None or user.email != email:
+            abort(400, description="Invalid verification token.")
+        if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
+            abort(400, description="Invalid verification token.")
+        if user.email_verified_at is None:
+            user.email_verified_at = datetime.utcnow()
+            db.session.commit()
+    except HTTPException:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError:
+        db.session.rollback()
+        abort(503, description="Auth backend is unavailable right now.")
+
+    resp = make_response(jsonify({"status": "ok"}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/auth/email/verify", methods=["GET"])
+def auth_verify_email_get():
+    _require_auth_db()
+    token = request.args.get("token")
+    if not isinstance(token, str) or not token.strip():
+        abort(400, description="Missing verification token.")
+    parsed = _load_email_verification_token(token.strip())
+    if parsed is None:
+        abort(400, description="Invalid or expired verification token.")
+    user_id, email = parsed
+
+    if _auth_is_mocked():
+        user = _mock_auth.get_user(user_id)
+        if user is None or user.email != email:
+            abort(400, description="Invalid verification token.")
+        _mock_auth.mark_email_verified(user_id)
+    else:
+        try:
+            user = db.session.get(AuthUser, user_id)
+            if user is None or user.email != email:
+                abort(400, description="Invalid verification token.")
+            if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
+                abort(400, description="Invalid verification token.")
+            if user.email_verified_at is None:
+                user.email_verified_at = datetime.utcnow()
+                db.session.commit()
+        except HTTPException:
+            db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+    dest = f"{_frontend_base_url()}/account?emailVerified=1"
+    resp = redirect(dest, code=303)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     resp = make_response(jsonify({"user": {"id": user.id, "email": user.email}}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -2085,7 +2337,7 @@ def auth_health():
 @app.route("/api/auth/api-keys", methods=["GET"])
 def auth_list_api_keys():
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     if _auth_is_mocked():
         keys = _mock_auth.list_api_keys(user_id=user.id)
         resp = make_response(
@@ -2139,7 +2391,7 @@ def auth_list_api_keys():
 @app.route("/api/auth/api-keys", methods=["POST"])
 def auth_create_api_key():
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     data = _require_json()
     name = data.get("name")
     if name is not None and not isinstance(name, str):
@@ -2189,7 +2441,7 @@ def auth_create_api_key():
 @app.route("/api/auth/api-keys/<string:key_id>", methods=["DELETE"])
 def auth_revoke_api_key(key_id: str):
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     if not _UUID_RE.match(key_id):
         abort(404)
     if _auth_is_mocked():
@@ -2215,7 +2467,7 @@ def auth_revoke_api_key(key_id: str):
 @app.route("/api/auth/usage", methods=["GET"])
 def auth_usage():
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     if _auth_is_mocked():
         by_day, total = _mock_auth.usage_for_user(user_id=user.id)
         resp = make_response(jsonify({"byDay": by_day, "total": total}))
@@ -2257,7 +2509,7 @@ def auth_usage():
 @app.route("/api/auth/account/delete", methods=["POST"])
 def auth_delete_account():
     _require_auth_db()
-    user, _ctx = _require_user()
+    user, _ctx = _require_verified_user()
     data = _require_json()
     confirm = data.get("confirm")
     if confirm != "Delete":
@@ -2417,6 +2669,8 @@ def auth_google_callback():
                 next_path=next_path or "/account",
                 error="legal_required",
             )
+        if user.email_verified_at is None:
+            user.email_verified_at = datetime.utcnow()
         _record_signon_event(user_id=user.id, provider="google", action="login")
         db.session.commit()
     except SQLAlchemyError:
@@ -2453,7 +2707,7 @@ def auth_google_credential():
             now = datetime.utcnow()
             ip_address = _request_ip_address()
             user_agent = _request_user_agent()
-            user = AuthUser(email=normalized, password_hash=None)
+            user = AuthUser(email=normalized, password_hash=None, email_verified_at=now)
             db.session.add(user)
             db.session.flush()
             for doc, meta in _LEGAL_DOCS.items():
@@ -2474,9 +2728,13 @@ def auth_google_credential():
         elif not _user_has_current_legal_acceptances(user_id=user.id):
             checked_at = _require_legal_acceptance(data)
             _ensure_current_legal_acceptances(user_id=user.id, checked_at=checked_at)
+            if user.email_verified_at is None:
+                user.email_verified_at = datetime.utcnow()
             _record_signon_event(user_id=user.id, provider="google", action="login")
             db.session.commit()
         else:
+            if user.email_verified_at is None:
+                user.email_verified_at = datetime.utcnow()
             _record_signon_event(user_id=user.id, provider="google", action="login")
             db.session.commit()
     except SQLAlchemyError:

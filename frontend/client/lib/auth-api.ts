@@ -14,8 +14,9 @@ export async function registerWithEmail(
   captchaToken?: string,
 ) {
   return authFetchJson<{
+    status: "verification_required";
     user: AuthUser;
-    sessionToken?: string;
+    debugToken?: string;
   }>(apiUrl("api/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
