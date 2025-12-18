@@ -3,6 +3,11 @@
  */
 
 function getApiBaseUrl(): string {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL;
+  if (typeof fromEnv === "string" && fromEnv.trim().length > 0) {
+    return fromEnv.trim().replace(/\/+$/, "");
+  }
+
   // Check if we're in production (build environment)
   const isProduction = import.meta.env.PROD;
 

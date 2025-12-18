@@ -31,17 +31,21 @@ export default function Edit() {
         {/* Header Section */}
         <div className="flex items-start gap-10 flex-wrap">
           {/* Page UUID Input */}
-          <div className="flex flex-col gap-6 flex-1 min-w-[300px]">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground">
-                Page UUID
-              </label>
-              <div className="relative flex items-center">
-                <input
-                  type="text"
-                  placeholder="Enter page UUID"
-                  value={state.pageUuid}
-                  onChange={(e) => actions.updatePageUuid(e.target.value)}
+	          <div className="flex flex-col gap-6 flex-1 min-w-[300px]">
+	            <div className="flex flex-col gap-1.5">
+	              <label
+	                htmlFor="page-uuid"
+	                className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground"
+	              >
+	                Page UUID
+	              </label>
+	              <div className="relative flex items-center">
+	                <input
+	                  id="page-uuid"
+	                  type="text"
+	                  placeholder="Enter page UUID"
+	                  value={state.pageUuid}
+	                  onChange={(e) => actions.updatePageUuid(e.target.value)}
                   onKeyDown={(e) => {
                     if (
                       e.key === "Enter" &&
@@ -50,14 +54,14 @@ export default function Edit() {
                     ) {
                       actions.loadPage();
                     }
-                  }}
-                  tabIndex={1}
-                  className="flex-1 text-base font-normal leading-6 tracking-[0.15px] text-foreground bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-accent transition-colors"
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
-              </div>
-            </div>
-          </div>
+	                  }}
+	                  tabIndex={1}
+	                  className="flex-1 rounded-sm text-base font-normal leading-6 tracking-[0.15px] text-foreground bg-transparent border-none min-h-6 py-1 focus:outline-none focus:bg-accent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+	                />
+	                <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
+	              </div>
+	            </div>
+	          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-4">
@@ -117,23 +121,25 @@ export default function Edit() {
               <label className="text-xs font-normal text-muted-foreground">
                 Font size:
               </label>
-              <button
-                type="button"
-                onClick={actions.decreaseFontSize}
-                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
+	              <button
+	                type="button"
+	                onClick={actions.decreaseFontSize}
+	                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
+	                aria-label="Decrease font size"
+	              >
+	                <Minus className="w-4 h-4" aria-hidden="true" />
+	              </button>
               <span className="text-sm font-normal text-foreground min-w-8 text-center">
                 {state.fontSize}px
               </span>
-              <button
-                type="button"
-                onClick={actions.increaseFontSize}
-                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+	              <button
+	                type="button"
+	                onClick={actions.increaseFontSize}
+	                className="w-8 h-8 flex items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent transition-all duration-200"
+	                aria-label="Increase font size"
+	              >
+	                <Plus className="w-4 h-4" aria-hidden="true" />
+	              </button>
             </div>
           </div>
         )}
@@ -188,18 +194,22 @@ export default function Edit() {
 
           {/* Text Area Container */}
           <div className="relative flex-1 min-h-[400px]">
-            <div className="absolute inset-0 rounded-t-md bg-muted p-3">
-              <div className="flex flex-col gap-3 h-full">
-                <label className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground">
-                  LLM Output
-                </label>
-                <textarea
-                  className="resize-none flex-1 w-full bg-transparent border-none text-foreground font-normal leading-6 tracking-[0.15px] focus:outline-none"
-                  placeholder="Enter or load content here..."
-                  value={state.llmOutput}
-                  onChange={(e) => actions.updateLLMOutput(e.target.value)}
-                  style={{ fontSize: `${state.fontSize}px` }}
-                />
+	            <div className="absolute inset-0 rounded-t-md bg-muted p-3">
+	              <div className="flex flex-col gap-3 h-full">
+	                <label
+	                  htmlFor="llm-output"
+	                  className="text-xs font-normal leading-5 tracking-[0.15px] text-muted-foreground"
+	                >
+	                  LLM Output
+	                </label>
+	                <textarea
+	                  id="llm-output"
+	                  className="resize-none flex-1 w-full rounded-sm bg-transparent border-none text-foreground font-normal leading-6 tracking-[0.15px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+	                  placeholder="Enter or load content here..."
+	                  value={state.llmOutput}
+	                  onChange={(e) => actions.updateLLMOutput(e.target.value)}
+	                  style={{ fontSize: `${state.fontSize}px` }}
+	                />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
@@ -208,26 +218,37 @@ export default function Edit() {
         </div>
       </PageShell>
 
-      {/* Copy Success Toast */}
-      {state.showCopySuccess && (
-        <div className="fixed bottom-6 right-6 bg-primary text-primary-foreground px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
-          Copied to clipboard!
-        </div>
-      )}
+	      {/* Copy Success Toast */}
+	      {state.showCopySuccess && (
+	        <div
+	          role="status"
+	          aria-live="polite"
+	          className="fixed bottom-6 right-6 bg-primary text-primary-foreground px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm"
+	        >
+	          Copied to clipboard!
+	        </div>
+	      )}
 
-      {/* Copy Error Toast */}
-      {state.copyError && (
-        <div className="fixed bottom-6 right-6 bg-red-600 text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
-          Copy failed. Please select and copy manually.
-        </div>
-      )}
+	      {/* Copy Error Toast */}
+	      {state.copyError && (
+	        <div
+	          role="alert"
+	          className="fixed bottom-6 right-6 bg-red-600 text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm"
+	        >
+	          Copy failed. Please select and copy manually.
+	        </div>
+	      )}
 
-      {/* Save Success Toast */}
-      {state.showSaveSuccess && (
-        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm">
-          Changes saved successfully!
-        </div>
-      )}
+	      {/* Save Success Toast */}
+	      {state.showSaveSuccess && (
+	        <div
+	          role="status"
+	          aria-live="polite"
+	          className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded shadow-[0_10px_15px_-3px_rgb(0_0_0_/_0.1),0_4px_6px_-4px_rgb(0_0_0_/_0.1)] text-sm"
+	        >
+	          Changes saved successfully!
+	        </div>
+	      )}
 
       {/* Save Confirmation Modal */}
       <SaveConfirmationModal

@@ -4,6 +4,7 @@ import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams, extractStandardIds } from "@/lib/url-params";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { trackEvent } from "@/lib/analytics";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_PAGE,
@@ -71,6 +72,9 @@ export function useSearch() {
   const [hasPrev, setHasPrev] = useState(false);
   const [nextNum, setNextNum] = useState<number | null>(null);
   const [prevNum, setPrevNum] = useState<number | null>(null);
+  const [access, setAccess] = useState<SearchResponse["access"]>({
+    tier: "anonymous",
+  });
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[] | number) => {
@@ -157,7 +161,7 @@ export function useSearch() {
         const params = buildSearchParams(searchFilters, clauseTypesNested);
 
         const queryString = params.toString();
-        const res = await fetch(apiUrl(`api/search?${queryString}`));
+        const res = await authFetch(apiUrl(`api/search?${queryString}`));
 
         // Check if the response is ok (status 200-299)
         if (!res.ok) {
@@ -176,6 +180,14 @@ export function useSearch() {
         // Parse as SearchResponse with pagination metadata
         const searchResponse = (await res.json()) as SearchResponse;
 
+        if (!filtersOverride) {
+          setFilters((prev) => ({
+            ...prev,
+            page: searchResponse.page,
+            pageSize: searchResponse.pageSize,
+          }));
+        }
+
         // Apply client-side sorting to the current page results
         const sortedResults = sortResultsArray(
           searchResponse.results,
@@ -184,6 +196,7 @@ export function useSearch() {
         );
 
         setSearchResults(sortedResults);
+        setAccess(searchResponse.access);
         setTotalCount(searchResponse.totalCount);
         setTotalPages(searchResponse.totalPages);
         setHasNext(searchResponse.hasNext);
@@ -392,22 +405,20 @@ export function useSearch() {
 
   const goToPage = useCallback(
     async (page: number, clauseTypesNested?: ClauseTypeTree) => {
-      setFilters((prev) => ({ ...prev, page }));
-
-      // Trigger a new search with the new page number
-      await performSearch(false, clauseTypesNested);
+      const nextFilters: SearchFilters = { ...filters, page };
+      setFilters(nextFilters);
+      await performSearch(false, clauseTypesNested, false, nextFilters);
     },
-    [performSearch],
+    [filters, performSearch],
   );
 
   const changePageSize = useCallback(
     async (pageSize: number, clauseTypesNested?: ClauseTypeTree) => {
-      setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
-
-      // Trigger a new search with the new page size and reset to page 1
-      await performSearch(false, clauseTypesNested);
+      const nextFilters: SearchFilters = { ...filters, pageSize, page: 1 };
+      setFilters(nextFilters);
+      await performSearch(false, clauseTypesNested, false, nextFilters);
     },
-    [performSearch],
+    [filters, performSearch],
   );
 
   const closeErrorModal = useCallback(() => {
@@ -480,6 +491,7 @@ export function useSearch() {
     searchResults,
     selectedResults,
     hasSearched,
+    access,
     totalCount,
     totalPages,
     currentSort,

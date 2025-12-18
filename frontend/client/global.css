@@ -168,8 +168,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .animate-spin,
   .animate-spin-custom,
-  .animate-fade-in-up {
+  .animate-fade-in-up,
+  .animate-pulse {
     animation: none !important;
   }
 }

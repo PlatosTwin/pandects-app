@@ -21,6 +21,9 @@ primary_region = 'iad'
   min_machines_running = 0
   processes = ['app']
 
+[deploy]
+  release_command = "python3 init_auth_db.py"
+
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'

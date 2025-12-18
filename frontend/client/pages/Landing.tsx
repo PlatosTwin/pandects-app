@@ -67,6 +67,7 @@ export default function Landing() {
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="See Examples (opens in a new tab)"
                 onClick={() =>
                   trackEvent("landing_cta_click", {
                     cta: "See Examples",

@@ -11,7 +11,7 @@ export default function Donate() {
       subtitle="Help keep the project running."
     >
       <div className="mb-8">
-        <div className="prose text-muted-foreground space-y-4">
+        <div className="prose max-w-none text-muted-foreground space-y-4">
           <p>
             Pandects is an open-source project with real, ongoing costs: hosting
             and compute for the API, database storage, backups, CI/CD, and the
@@ -37,6 +37,7 @@ export default function Donate() {
             href="https://www.buymeacoffee.com/nmbogdan"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Buy me a coffee (opens in a new tab)"
             onClick={() =>
               trackEvent("buy_me_a_coffee_click", {
                 href: "https://www.buymeacoffee.com/nmbogdan",

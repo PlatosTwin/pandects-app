@@ -42,7 +42,9 @@ const ChartContainer = React.forwardRef<
   }
 >(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId();
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
+  const rawId = id || uniqueId;
+  const safeId = rawId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const chartId = `chart-${safeId}`;
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -83,10 +85,11 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "");
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    return color && safeKey ? `  --color-${safeKey}: ${color};` : null;
   })
   .join("\n")}
 }

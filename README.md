@@ -25,11 +25,37 @@ cd pandects-app
 
 ```bash
 cd backend
+cp .env.example .env  # fill in values (never commit secrets)
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 flask run
 ```
+
+##### Optional: Google sign-in
+
+Google sign-in is implemented via backend OAuth endpoints and requires these env vars (set them in `backend/.env` locally, and as secrets in production):
+
+- `AUTH_SECRET_KEY`
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `PUBLIC_API_BASE_URL` (e.g. `https://pandects-api.fly.dev`)
+- `PUBLIC_FRONTEND_BASE_URL` (e.g. `https://pandects.org`)
+
+##### Session auth (recommended for production)
+
+Production can use cookie-based sessions with CSRF protection:
+
+- Backend: `AUTH_SESSION_TRANSPORT=cookie` (default on Fly)
+- Frontend: `VITE_AUTH_SESSION_TRANSPORT=cookie` (default in production builds)
+
+Local development defaults to bearer tokens to avoid cross-site cookie limitations on `http://localhost`.
+
+##### Auth DB (Fly Postgres)
+
+Auth data (users, API keys, usage) lives in a separate database bind. Locally, it defaults to a sqlite file (`backend/auth_dev.sqlite`). For Fly deployments, set `AUTH_DATABASE_URI` (preferred) or `DATABASE_URL` to your Postgres URL.
+
+For local end-to-end testing against Fly Postgres, the recommended approach is a Fly WireGuard tunnel; see `pg/README.md`.
 
 #### Frontend (Vite + React/TypeScript)
 
@@ -37,6 +63,20 @@ flask run
 cd frontend
 npm install
 npm run dev
+```
+
+Google Identity Services button requires the public client ID in the frontend environment:
+
+```bash
+export VITE_GOOGLE_OAUTH_CLIENT_ID="..."
+```
+
+If you omit it, the frontend will fetch the client ID from `GET /api/auth/google/client-id`.
+
+Optional: override the API base URL at build/runtime:
+
+```bash
+export VITE_API_BASE_URL=https://pandects-api.fly.dev
 ```
 
 Navbar easter egg (purely cosmetic): type `panda` anywhere (when not focused in a text input) to toggle a little gravity-driven ball.

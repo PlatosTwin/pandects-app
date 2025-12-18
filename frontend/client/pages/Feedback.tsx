@@ -55,7 +55,7 @@ export default function Feedback() {
   return (
     <PageShell size="xl" title="Feedback">
       <div className="mb-8">
-        <div className="prose text-muted-foreground space-y-4 mb-8">
+        <div className="prose max-w-none text-muted-foreground space-y-4 mb-8">
           <p>
             We're currently soliciting input from our end users on all things
             data. How are you planning to access Pandects data? Do you have
@@ -72,6 +72,7 @@ export default function Feedback() {
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
+              aria-label="Open an issue (opens in a new tab)"
             >
               open an issue
             </a>{" "}
@@ -82,6 +83,7 @@ export default function Feedback() {
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
+              aria-label="Main GitHub repository (opens in a new tab)"
             >
               main GitHub repository
             </a>

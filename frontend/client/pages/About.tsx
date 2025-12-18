@@ -72,6 +72,7 @@ export default function About() {
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary hover:underline"
+          aria-label="Open an issue (opens in a new tab)"
         >
           open an issue
         </a>{" "}
@@ -221,6 +222,7 @@ export default function About() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
+                aria-label="GitHub repository (opens in a new tab)"
               >
                 GitHub repository
               </a>{" "}
@@ -241,6 +243,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
                 >
                   Jacobson Leadership Program in Law and Business
                 </a>{" "}
@@ -253,6 +256,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="Caselaw Access Project (opens in a new tab)"
                 >
                   Caselaw Access Project
                 </a>
@@ -262,6 +266,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="Library Innovation Lab (opens in a new tab)"
                 >
                   Library Innovation Lab
                 </a>{" "}
@@ -278,6 +283,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
                 >
                   <em>
                     Introducing a New Corpus of Definitive M&A Agreements,
@@ -292,6 +298,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="here (opens in a new tab)"
                 >
                   here
                 </a>

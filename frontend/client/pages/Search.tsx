@@ -19,11 +19,14 @@ import { SearchResultsTable } from "@/components/SearchResultsTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypePaths } from "@/lib/clause-type-index";
 import { trackEvent } from "@/lib/analytics";
 
 export default function Search() {
+  const { status: authStatus } = useAuth();
   const {
     filters,
     isSearching,
@@ -38,6 +41,7 @@ export default function Search() {
     showErrorModal,
     errorMessage,
     sortDirection,
+    access,
     actions,
   } = useSearch();
 
@@ -395,6 +399,19 @@ export default function Search() {
                 </Sheet>
               </div>
             </div>
+
+            {authStatus === "anonymous" && (
+              <div className="mt-4">
+                <Alert>
+                  <Sparkles className="h-4 w-4" />
+                  <AlertTitle>Limited mode</AlertTitle>
+                  <AlertDescription>
+                    Sign in to view clause text, open full agreements, and unlock
+                    higher page sizes.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
           </div>
 
           {filterOptionsError && (
@@ -560,6 +577,7 @@ export default function Search() {
                           changePageSize(nextPageSize, clauseTypesNested)
                         }
                         isLoading={isSearching}
+                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
                       />
 
                       <SearchResultsTable
@@ -617,6 +635,7 @@ export default function Search() {
                           changePageSize(nextPageSize, clauseTypesNested)
                         }
                         isLoading={isSearching}
+                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
                       />
                     </>
                   )}

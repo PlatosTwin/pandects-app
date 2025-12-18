@@ -17,6 +17,7 @@ interface SearchPaginationProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
+  isLimited?: boolean;
 }
 
 export function SearchPagination({
@@ -27,9 +28,11 @@ export function SearchPagination({
   onPageChange,
   onPageSizeChange,
   isLoading = false,
+  isLimited = false,
 }: SearchPaginationProps) {
   const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
   const pageSizeOptions = [10, 25, 50, 100];
+  const navigationDisabled = isLoading || isLimited;
 
   const getVisiblePages = () => {
     const delta = 2; // Number of pages to show on each side of current page
@@ -70,16 +73,22 @@ export function SearchPagination({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <nav
+      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      aria-label="Search results pagination"
+    >
       {/* Results per page selector */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Results per page:</span>
+        <span id="results-per-page-label">Results per page:</span>
         <Select
           value={pageSize.toString()}
           onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
-          disabled={isLoading}
+          disabled={navigationDisabled}
         >
-          <SelectTrigger className="h-8 w-20 rounded-none border-none border-b border-input bg-transparent focus:border-ring">
+          <SelectTrigger
+            className="h-8 w-20 rounded-none border-none border-b border-input bg-transparent focus:border-ring"
+            aria-label="Results per page"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -93,7 +102,7 @@ export function SearchPagination({
       </div>
 
       {/* Results info */}
-      <div className="text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground" aria-live="polite">
         Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
         {formatNumber(totalCount)} results
       </div>
@@ -103,10 +112,11 @@ export function SearchPagination({
         {/* Previous button */}
         <Button
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1 || isLoading}
+          disabled={currentPage === 1 || navigationDisabled}
           variant="ghost"
           size="sm"
           className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+          aria-label="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Previous</span>
@@ -133,13 +143,15 @@ export function SearchPagination({
               <Button
                 key={pageNumber}
                 onClick={() => onPageChange(pageNumber)}
-                disabled={isLoading}
+                disabled={navigationDisabled}
                 variant={isActive ? "default" : "ghost"}
                 size="icon"
                 className={cn(
                   "h-8 w-8",
                   !isActive && "text-muted-foreground hover:text-foreground",
                 )}
+                aria-label={`Page ${pageNumber}`}
+                aria-current={isActive ? "page" : undefined}
               >
                 {pageNumber}
               </Button>
@@ -150,15 +162,16 @@ export function SearchPagination({
         {/* Next button */}
         <Button
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages || isLoading}
+          disabled={currentPage === totalPages || navigationDisabled}
           variant="ghost"
           size="sm"
           className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+          aria-label="Next page"
         >
           <span className="hidden sm:inline">Next</span>
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

@@ -7,6 +7,7 @@ import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
 import PandaEasterEgg from "@/components/PandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
+import { AuthMenu } from "@/components/AuthMenu";
 import {
   Sheet,
   SheetContent,
@@ -47,6 +48,7 @@ export default function Navigation() {
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <nav
         ref={navRef}
+        aria-label="Primary"
         className="relative z-0 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
       >
         {/* Brand */}
@@ -79,6 +81,7 @@ export default function Navigation() {
 
         {/* Desktop navigation */}
         <div className="hidden items-center gap-1 md:flex">
+          <div className="flex items-center gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.to}
@@ -102,6 +105,7 @@ export default function Navigation() {
               {link.label}
             </Link>
           ))}
+          </div>
 
           {isLocalEnvironment() && (
             <DropdownMenu>
@@ -124,10 +128,17 @@ export default function Navigation() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          <div className="ml-2">
+            <AuthMenu />
+          </div>
         </div>
 
         {/* Mobile navigation */}
         <div className="flex items-center md:hidden">
+          <div className="mr-2">
+            <AuthMenu />
+          </div>
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button

@@ -13,6 +13,7 @@ import { apiUrl } from "@/lib/api-config";
 import Search from "./pages/Search";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const Docs = lazy(() => import("./pages/Docs"));
 const BulkData = lazy(() => import("./pages/BulkData"));
@@ -21,6 +22,11 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const Donate = lazy(() => import("./pages/Donate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Edit = lazy(() => import("./pages/Edit"));
+const Account = lazy(() => import("./pages/Account"));
+const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const License = lazy(() => import("./pages/License"));
 
 const queryClient = new QueryClient();
 
@@ -34,29 +40,39 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Landing />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/docs" element={<Docs />} />
-              <Route path="/bulk-data" element={<BulkData />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/feedback" element={<Feedback />} />
-              <Route path="/donate" element={<Donate />} />
-              {/* Editor route - Only available in local development */}
-              {isLocalEnvironment() && (
-                <Route path="/editor" element={<Edit />} />
-              )}
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Landing />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/docs" element={<Docs />} />
+                <Route path="/bulk-data" element={<BulkData />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/feedback" element={<Feedback />} />
+                <Route path="/donate" element={<Donate />} />
+                <Route path="/account" element={<Account />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/license" element={<License />} />
+                <Route
+                  path="/auth/google/callback"
+                  element={<AuthGoogleCallback />}
+                />
+                {/* Editor route - Only available in local development */}
+                {isLocalEnvironment() && (
+                  <Route path="/editor" element={<Edit />} />
+                )}
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

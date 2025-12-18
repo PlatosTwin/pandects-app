@@ -179,6 +179,7 @@ export default function BulkData() {
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
+            aria-label="dbdocs (opens in a new tab)"
           >
             dbdocs
           </a>
@@ -317,6 +318,7 @@ export default function BulkData() {
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
+            aria-label="MariaDB Documentation (opens in a new tab)"
           >
             MariaDB Documentation
           </a>
@@ -435,6 +437,7 @@ export default function BulkData() {
                           className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors"
                           target="_blank"
                           rel="noopener noreferrer"
+                          aria-label="Download SQL (opens in a new tab)"
                         >
                           Download SQL
                         </a>

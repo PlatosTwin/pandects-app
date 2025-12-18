@@ -6,6 +6,7 @@ export interface Agreement {
   acquirer: string;
   xml: string;
   url?: string;
+  isRedacted?: boolean;
 }
 
 // Table of Contents types for XML navigation

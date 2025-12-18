@@ -21,13 +21,17 @@ export function AppLayout() {
     <div className="min-h-screen bg-cream flex flex-col">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         Skip to content
       </a>
       <SiteBanner />
       <Navigation />
-      <main id="main-content" className="flex-1">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>
@@ -36,4 +40,3 @@ export function AppLayout() {
     </div>
   );
 }
-

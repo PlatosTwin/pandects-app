@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { FilterOptionsResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface UseFilterOptionsReturn {
   targets: string[];
@@ -35,7 +36,7 @@ export function useFilterOptions(): UseFilterOptionsReturn {
     // Fetch from API
     const fetchFilterOptions = async () => {
       try {
-        const response = await fetch(apiUrl("api/filter-options"));
+        const response = await authFetch(apiUrl("api/filter-options"));
 
         if (!response.ok) {
           trackEvent("api_error", {

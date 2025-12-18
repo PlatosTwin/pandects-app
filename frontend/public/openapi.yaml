@@ -192,6 +192,16 @@ components:
           type: integer
         verified:
           type: boolean
+    AccessInfo:
+      type: object
+      properties:
+        tier:
+          type: string
+        message:
+          type: string
+          nullable: true
+      required:
+      - tier
     SearchResponse:
       type: object
       properties:
@@ -199,6 +209,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SectionItem'
+        access:
+          $ref: '#/components/schemas/AccessInfo'
         page:
           type: integer
         pageSize:

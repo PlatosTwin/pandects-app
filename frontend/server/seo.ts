@@ -12,6 +12,7 @@ export type SeoPage = {
 };
 
 const DEFAULT_ORIGIN = "https://pandects.org";
+const CONFIGURED_ORIGIN = (process.env.PUBLIC_ORIGIN || "").trim().replace(/\/+$/, "");
 
 const KNOWN_ROUTES = new Set([
   "/",
@@ -21,6 +22,9 @@ const KNOWN_ROUTES = new Set([
   "/about",
   "/feedback",
   "/donate",
+  "/privacy-policy",
+  "/terms",
+  "/license",
 ]);
 
 export function isKnownRoute(pathname: string): boolean {
@@ -28,14 +32,27 @@ export function isKnownRoute(pathname: string): boolean {
 }
 
 export function getPublicOrigin(req: Request): string {
+  const fallback = CONFIGURED_ORIGIN || DEFAULT_ORIGIN;
+
   const forwardedProto = req.get("x-forwarded-proto");
   const forwardedHost = req.get("x-forwarded-host");
-  const host = forwardedHost ?? req.get("host");
+  const hostHeader = forwardedHost ?? req.get("host");
+  if (!hostHeader) return fallback;
 
-  if (!host) return DEFAULT_ORIGIN;
+  const host = hostHeader.split(",", 1)[0]?.trim();
+  if (!host) return fallback;
 
-  const protocol = forwardedProto ?? req.protocol;
-  return `${protocol}://${host}`.replace(/\/+$/, "");
+  const protoHeader = (forwardedProto ?? req.protocol).split(",", 1)[0]?.trim().toLowerCase();
+  const protocol = protoHeader === "http" || protoHeader === "https" ? protoHeader : "https";
+
+  try {
+    const url = new URL(`${protocol}://${host}`);
+    if (url.username || url.password) return fallback;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return fallback;
+    return url.origin.replace(/\/+$/, "");
+  } catch {
+    return fallback;
+  }
 }
 
 export function getSeoForPath(pathname: string, origin: string): SeoPage {
@@ -167,6 +184,42 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
               "Support Pandects to help maintain and expand open access to M&A agreement research data.",
           }),
         };
+      case "/privacy-policy":
+        return {
+          title: "Privacy Policy | Pandects",
+          description: "Read Pandects' Privacy Policy.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Privacy Policy",
+            pageDescription: "Read Pandects' Privacy Policy.",
+          }),
+        };
+      case "/terms":
+        return {
+          title: "Terms of Service | Pandects",
+          description: "Read the Pandects Terms of Service.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Terms of Service",
+            pageDescription: "Read the Pandects Terms of Service.",
+          }),
+        };
+      case "/license":
+        return {
+          title: "License | Pandects",
+          description: "Pandects open-source software license information.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "License",
+            pageDescription: "Pandects open-source software license information.",
+          }),
+        };
     }
   })();
 
@@ -218,6 +271,7 @@ function buildSeoBlock(seo: SeoPage): string {
   const robots = escapeHtmlAttribute(seo.robots);
   const ogImage = escapeHtmlAttribute(seo.ogImage);
   const imageAlt = escapeHtmlAttribute("Pandects");
+  const jsonLd = escapeJsonForHtmlScript(seo.jsonLd);
 
   return `<!-- SEO:BEGIN -->
   <meta name="description" content="${description}" />
@@ -239,7 +293,7 @@ function buildSeoBlock(seo: SeoPage): string {
   <meta name="twitter:image" content="${ogImage}" />
   <meta name="twitter:image:alt" content="${imageAlt}" />
 
-  <script type="application/ld+json">${seo.jsonLd}</script>
+  <script type="application/ld+json">${jsonLd}</script>
   <!-- SEO:END -->`;
 }
 
@@ -301,4 +355,13 @@ function buildJsonLd(params: JsonLdParams): Record<string, unknown> {
     "@context": "https://schema.org",
     "@graph": [organization, website, page],
   };
+}
+
+function escapeJsonForHtmlScript(value: string): string {
+  return value
+    .replace(/&/g, "\\u0026")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 }

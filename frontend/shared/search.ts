@@ -30,6 +30,10 @@ export interface SearchResult {
 
 export interface SearchResponse {
   results: SearchResult[];
+  access: {
+    tier: "anonymous" | "user" | "api_key";
+    message?: string | null;
+  };
   totalCount: number;
   page: number;
   pageSize: number;

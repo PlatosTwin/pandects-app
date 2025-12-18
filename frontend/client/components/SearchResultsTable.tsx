@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { XMLRenderer } from "@/components/XMLRenderer";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -158,8 +159,9 @@ export function SearchResultsTable({
               checked={allSelected ? true : someSelected ? "indeterminate" : false}
               onCheckedChange={() => onToggleSelectAll()}
               className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              aria-label="Select all results"
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground" aria-live="polite">
               {selectedResults.size > 0
                 ? `${selectedResults.size} of ${searchResults.length} selected`
                 : "Select all"}
@@ -212,33 +214,39 @@ export function SearchResultsTable({
 
             {/* Sort */}
             <div className="flex items-center gap-2">
-              <span className="hidden text-sm text-muted-foreground sm:inline">
+              <label
+                htmlFor="search-sort-by"
+                className="hidden text-sm text-muted-foreground sm:inline"
+              >
                 Sort by:
-              </span>
-            <select
-              className="h-9 w-full rounded border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:w-auto"
-              onChange={(e) =>
-                onSortResults(e.target.value as "year" | "target" | "acquirer")
-              }
-              value={sortBy}
-            >
-              <option value="year">Year</option>
-              <option value="target">Target</option>
-              <option value="acquirer">Acquirer</option>
-            </select>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleSortDirection}
-              className="p-1 h-8 w-8"
-              title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-            >
-              {sortDirection === "asc" ? (
-                <ArrowUp className="w-4 h-4" />
-              ) : (
-                <ArrowDown className="w-4 h-4" />
-              )}
-            </Button>
+              </label>
+              <select
+                id="search-sort-by"
+                className="h-9 w-full rounded border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:w-auto"
+                onChange={(e) =>
+                  onSortResults(e.target.value as "year" | "target" | "acquirer")
+                }
+                value={sortBy}
+                aria-label="Sort by"
+              >
+                <option value="year">Year</option>
+                <option value="target">Target</option>
+                <option value="acquirer">Acquirer</option>
+              </select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleSortDirection}
+                className="p-1 h-8 w-8"
+                title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+                aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+              >
+                {sortDirection === "asc" ? (
+                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -311,6 +319,7 @@ export function SearchResultsTable({
                           onToggleResultSelection(result.id)
                         }
                         className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                        aria-label={`Select result ${resultNumber}`}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -440,19 +449,31 @@ export function SearchResultsTable({
 
                 {/* Clause text */}
                 <div className={cn(density === "compact" ? "p-3" : "p-4")}>
-                  <div
-                    className={cn(
-                      "overflow-y-auto text-sm text-foreground leading-relaxed",
-                      density === "compact" ? "h-28" : "h-36",
-                    )}
-                    style={{
-                      scrollbarWidth: "thin",
-                      scrollbarColor:
-                        "hsl(var(--border)) hsl(var(--background))",
-                    }}
-                  >
-                    <XMLRenderer xmlContent={result.xml} mode="search" />
-                  </div>
+                  {result.xml ? (
+                    <div
+                      className={cn(
+                        "overflow-y-auto text-sm text-foreground leading-relaxed",
+                        density === "compact" ? "h-28" : "h-36",
+                      )}
+                      style={{
+                        scrollbarWidth: "thin",
+                        scrollbarColor:
+                          "hsl(var(--border)) hsl(var(--background))",
+                      }}
+                    >
+                      <XMLRenderer xmlContent={result.xml} mode="search" />
+                    </div>
+                  ) : (
+                    <div className={cn(density === "compact" ? "h-28" : "h-36")}>
+                      <Alert className="h-full">
+                        <AlertTitle>Sign in to view clause text</AlertTitle>
+                        <AlertDescription>
+                          Search and filters work in limited mode, but the text is
+                          hidden until you create an account.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
                 </div>
               </div>
             );

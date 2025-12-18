@@ -1,0 +1,268 @@
+import os
+import tempfile
+import unittest
+from sqlalchemy import text
+
+
+def _set_default_env() -> None:
+    os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
+    os.environ.setdefault("MARIADB_USER", "root")
+    os.environ.setdefault("MARIADB_PASSWORD", "password")
+    os.environ.setdefault("MARIADB_HOST", "127.0.0.1")
+    os.environ.setdefault("MARIADB_DATABASE", "mna")
+    os.environ.setdefault("AUTH_SECRET_KEY", "test-auth-secret")
+    os.environ.setdefault("PUBLIC_API_BASE_URL", "http://127.0.0.1:5000")
+    os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
+    os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
+    os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
+
+
+_set_default_env()
+
+_AUTH_DB_TEMP = tempfile.NamedTemporaryFile(prefix="pandects_auth_", suffix=".sqlite", delete=False)
+_AUTH_DB_TEMP.close()
+os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
+
+
+from backend.app import app, db, ApiKey  # noqa: E402
+import backend.app as backend_app  # noqa: E402
+
+
+class AuthFlowTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        app.testing = True
+        with app.app_context():
+            db.create_all(bind_key="auth")
+
+    def setUp(self) -> None:
+        with app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM api_usage_daily"))
+                conn.execute(text("DELETE FROM api_keys"))
+                conn.execute(text("DELETE FROM legal_acceptances"))
+                conn.execute(text("DELETE FROM auth_users"))
+
+    def _csrf_cookie_value(self, client) -> str:
+        cookie = client.get_cookie("pdcts_csrf")
+        if cookie is None:
+            self.fail("Expected pdcts_csrf cookie to be set")
+        return cookie.value
+
+    def test_cookie_transport_register_login_csrf_and_logout(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = app.test_client()
+
+        res = client.get("/api/auth/csrf")
+        self.assertEqual(res.status_code, 200)
+        csrf = self._csrf_cookie_value(client)
+        checked_at_ms = 1700000000000
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "a@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": checked_at_ms,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 403)
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "a@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": checked_at_ms,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 201)
+        data = res.get_json()
+        self.assertIsInstance(data, dict)
+        self.assertNotIn("sessionToken", data)
+        set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
+        self.assertIn("pdcts_session=", set_cookie)
+        self.assertIn("HttpOnly", set_cookie)
+
+        res = client.get("/api/auth/me")
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post("/api/auth/api-keys", json={"name": "x"})
+        self.assertEqual(res.status_code, 403)
+
+        csrf = self._csrf_cookie_value(client)
+        res = client.post(
+            "/api/auth/api-keys",
+            json={"name": "x"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post("/api/auth/logout")
+        self.assertEqual(res.status_code, 403)
+        res = client.post("/api/auth/logout", headers={"X-CSRF-Token": csrf})
+        self.assertEqual(res.status_code, 200)
+        set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
+        self.assertIn("pdcts_session=;", set_cookie)
+
+        res = client.get("/api/auth/me")
+        self.assertEqual(res.status_code, 401)
+
+    def test_bearer_transport_issues_session_tokens(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "b@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        data = res.get_json()
+        self.assertIsInstance(data, dict)
+        token = data.get("sessionToken")
+        self.assertIsInstance(token, str)
+        self.assertGreater(len(token), 10)
+
+        res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_google_credential_invalid_token_is_401_without_network(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        import jwt
+
+        class DummyJwkClient:
+            def get_signing_key_from_jwt(self, _token: str):
+                raise jwt.exceptions.InvalidTokenError("bad token")
+
+        backend_app._google_jwk_client = DummyJwkClient()
+
+        res = client.post("/api/auth/google/credential", json={"credential": "nope"})
+        self.assertEqual(res.status_code, 401)
+
+    def test_google_credential_jwks_outage_returns_503(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        import jwt
+
+        class DummyJwkClient:
+            def get_signing_key_from_jwt(self, _token: str):
+                raise jwt.exceptions.PyJWKClientError("jwks unavailable")
+
+        backend_app._google_jwk_client = DummyJwkClient()
+
+        res = client.post("/api/auth/google/credential", json={"credential": "nope"})
+        self.assertEqual(res.status_code, 503)
+
+    def test_cors_allows_credentials_for_localhost(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = app.test_client()
+
+        res = client.get("/api/auth/csrf", headers={"Origin": "http://localhost:8080"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("Access-Control-Allow-Credentials"), "true")
+
+    def test_delete_account_requires_confirmation_and_revokes_keys(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = app.test_client()
+
+        res = client.get("/api/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "delete-me@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 201)
+
+        csrf = self._csrf_cookie_value(client)
+        res = client.post(
+            "/api/auth/account/delete",
+            json={"confirm": "nope"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/api/auth/account/delete",
+            json={"confirm": "Delete"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.get("/api/auth/me")
+        self.assertEqual(res.status_code, 401)
+
+    def test_api_key_whitespace_is_ignored_for_last_used(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "keyuser@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        data = res.get_json()
+        self.assertIsInstance(data, dict)
+        token = data.get("sessionToken")
+        self.assertIsInstance(token, str)
+
+        res = client.post(
+            "/api/auth/api-keys",
+            json={"name": "x"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        created = res.get_json()
+        self.assertIsInstance(created, dict)
+        api_key = created.get("apiKeyPlaintext")
+        self.assertIsInstance(api_key, str)
+
+        with app.app_context():
+            key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
+            self.assertIsNotNone(key_row)
+            self.assertIsNone(key_row.last_used_at)
+
+        res = client.get("/api/auth/me", headers={"X-API-Key": f"  {api_key}  "})
+        self.assertEqual(res.status_code, 401)
+
+        with app.app_context():
+            key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
+            self.assertIsNotNone(key_row)
+            self.assertIsNotNone(key_row.last_used_at)
+
+
+if __name__ == "__main__":
+    unittest.main()

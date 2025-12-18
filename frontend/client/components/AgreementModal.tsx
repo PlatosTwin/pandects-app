@@ -14,6 +14,7 @@ import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   animateScrollTop,
   getScrollTopForElementInContainer,
@@ -62,11 +63,24 @@ export function AgreementModal({
 
   useEffect(() => {
     if (isOpen && agreementUuid) {
-      fetchAgreement(agreementUuid);
+      fetchAgreement(agreementUuid, targetSectionUuid);
     } else if (!isOpen) {
       clearAgreement();
     }
-  }, [isOpen, agreementUuid, fetchAgreement, clearAgreement]);
+  }, [isOpen, agreementUuid, targetSectionUuid, fetchAgreement, clearAgreement]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   const scrollToSection = (
     sectionUuid: string,
@@ -287,6 +301,7 @@ export function AgreementModal({
                       href={agreement.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label="Original Filing (opens in a new tab)"
                       className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit"
                       title="View original SEC filing"
                     >
@@ -324,6 +339,7 @@ export function AgreementModal({
                       href={agreement.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label="Original Filing (opens in a new tab)"
                       className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group"
                       title="View original SEC filing"
                     >
@@ -384,6 +400,17 @@ export function AgreementModal({
                 }}
               >
                 <div className="max-w-4xl mx-auto">
+                  {agreement.isRedacted ? (
+                    <div className="mb-4">
+                      <Alert>
+                        <AlertTitle>Preview mode</AlertTitle>
+                        <AlertDescription>
+                          Showing the selected section and adjacent context. Sign in to
+                          view the full agreement.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : null}
                   <XMLRenderer
                     xmlContent={agreement.xml}
                     mode="agreement"
