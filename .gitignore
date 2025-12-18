@@ -5,6 +5,9 @@ etl/.venv/
 # Env / secrets
 **/*.env
 **/pipeline.yaml
+*.sqlite
+client_secret*.json
+fly-wg*.conf
 
 # Build outputs
 frontend/dist/
@@ -26,6 +29,8 @@ _t.*
 **/tb_logs
 **/lightning_logs
 **/model_files
+
+**/.ipynb_checkpoints
 
 .vscode
 
