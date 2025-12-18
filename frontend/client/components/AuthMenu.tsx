@@ -26,9 +26,10 @@ export function AuthMenu() {
       <Button asChild variant="outline" className="h-9 px-3 text-sm">
         <Link
           to="/account"
-          onClick={() =>
-            trackEvent("auth_open", { from_path: location.pathname, kind: "link" })
-          }
+          onClick={() => {
+            trackEvent("nav_signin_click", { from_path: location.pathname, to_path: "/account" });
+            trackEvent("auth_open", { from_path: location.pathname, kind: "link" });
+          }}
         >
           Sign in
         </Link>
@@ -59,4 +60,3 @@ export function AuthMenu() {
     </DropdownMenu>
   );
 }
-

@@ -23,6 +23,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     legal: LegalAcceptancePayload,
+    captchaToken?: string,
   ) => Promise<void>;
   logout: () => void;
 }
@@ -74,17 +75,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [transport]);
 
   const register = useCallback(
-    async (email: string, password: string, legal: LegalAcceptancePayload) => {
-      const res = await registerWithEmail(email, password, legal);
-    if (transport === "bearer") {
-      if (!res.sessionToken) {
-        throw new Error("Missing session token.");
+    async (
+      email: string,
+      password: string,
+      legal: LegalAcceptancePayload,
+      captchaToken?: string,
+    ) => {
+      const res = await registerWithEmail(email, password, legal, captchaToken);
+      if (transport === "bearer") {
+        if (!res.sessionToken) {
+          throw new Error("Missing session token.");
+        }
+        setSessionToken(res.sessionToken);
+        setSessionTokenState(res.sessionToken);
       }
-      setSessionToken(res.sessionToken);
-      setSessionTokenState(res.sessionToken);
-    }
-    setUser(res.user);
-    setStatus("authenticated");
+      setUser(res.user);
+      setStatus("authenticated");
     },
     [transport],
   );

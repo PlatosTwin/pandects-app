@@ -11,6 +11,7 @@ export async function registerWithEmail(
   email: string,
   password: string,
   legal: LegalAcceptancePayload,
+  captchaToken?: string,
 ) {
   return authFetchJson<{
     user: AuthUser;
@@ -18,7 +19,9 @@ export async function registerWithEmail(
   }>(apiUrl("api/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, legal }),
+    body: JSON.stringify(
+      captchaToken ? { email, password, legal, captchaToken } : { email, password, legal },
+    ),
   });
 }
 

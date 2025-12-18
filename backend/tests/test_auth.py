@@ -42,6 +42,7 @@ class AuthFlowTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM api_usage_daily"))
                 conn.execute(text("DELETE FROM api_keys"))
                 conn.execute(text("DELETE FROM legal_acceptances"))
+                conn.execute(text("DELETE FROM auth_signon_events"))
                 conn.execute(text("DELETE FROM auth_users"))
 
     def _csrf_cookie_value(self, client) -> str:
@@ -115,6 +116,125 @@ class AuthFlowTests(unittest.TestCase):
 
         res = client.get("/api/auth/me")
         self.assertEqual(res.status_code, 401)
+
+    def test_register_and_login_record_signon_events(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "events@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "events@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        with app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                rows = conn.execute(
+                    text("SELECT provider, action FROM auth_signon_events")
+                ).fetchall()
+            self.assertEqual(len(rows), 2)
+            self.assertIn(("email", "register"), rows)
+            self.assertIn(("email", "login"), rows)
+
+    def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        original_verify = backend_app._google_verify_id_token
+        backend_app._google_verify_id_token = lambda _token: "google-new@example.com"
+
+        try:
+            res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+            self.assertEqual(res.status_code, 412)
+            body = res.get_json()
+            self.assertIsInstance(body, dict)
+            self.assertEqual(body.get("error"), "legal_required")
+
+            res = client.post(
+                "/api/auth/google/credential",
+                json={
+                    "credential": "fake",
+                    "legal": {
+                        "checkedAtMs": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+            self.assertEqual(res.status_code, 200)
+
+            with app.app_context():
+                engine = db.engines["auth"]
+                with engine.begin() as conn:
+                    rows = conn.execute(
+                        text(
+                            "SELECT provider, action "
+                            "FROM auth_signon_events "
+                            "WHERE provider = 'google'"
+                        )
+                    ).fetchall()
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(rows[0], ("google", "register"))
+        finally:
+            backend_app._google_verify_id_token = original_verify
+
+    def test_register_requires_captcha_when_enabled(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["TURNSTILE_ENABLED"] = "1"
+        os.environ["TURNSTILE_SITE_KEY"] = "test-site-key"
+        os.environ["TURNSTILE_SECRET_KEY"] = "test-secret-key"
+        client = app.test_client()
+
+        original_verify = backend_app._verify_turnstile_token
+        backend_app._verify_turnstile_token = lambda *, token: None
+        try:
+            res = client.post(
+                "/api/auth/register",
+                json={
+                    "email": "captcha@example.com",
+                    "password": "password123",
+                    "legal": {
+                        "checkedAtMs": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+            self.assertEqual(res.status_code, 412)
+            body = res.get_json()
+            self.assertIsInstance(body, dict)
+            self.assertEqual(body.get("error"), "captcha_required")
+
+            res = client.post(
+                "/api/auth/register",
+                json={
+                    "email": "captcha@example.com",
+                    "password": "password123",
+                    "captchaToken": "ok",
+                    "legal": {
+                        "checkedAtMs": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+        finally:
+            backend_app._verify_turnstile_token = original_verify
+            os.environ.pop("TURNSTILE_ENABLED", None)
+            os.environ.pop("TURNSTILE_SITE_KEY", None)
+            os.environ.pop("TURNSTILE_SECRET_KEY", None)
 
     def test_bearer_transport_issues_session_tokens(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

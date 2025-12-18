@@ -65,6 +65,8 @@ npm install
 npm run dev
 ```
 
+Note: In local dev on `http://localhost:8080`, the Google Identity Services button iframe (`accounts.google.com/gsi/button`) may show a `403` in DevTools even though the button renders. Production runs on `https://…` and does not hit this.
+
 Google Identity Services button requires the public client ID in the frontend environment:
 
 ```bash

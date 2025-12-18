@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/hooks/use-auth";
@@ -32,8 +32,10 @@ import { loadGoogleIdentityServices } from "@/lib/google-identity";
 import { setSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
 import { authSessionTransport } from "@/lib/auth-transport";
+import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -65,10 +67,71 @@ export default function Account() {
   const [googlePendingCredential, setGooglePendingCredential] = useState<string | null>(null);
   const [googleNeedsLegal, setGoogleNeedsLegal] = useState(false);
 
+  const [captchaEnabled, setCaptchaEnabled] = useState(false);
+  const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaStatus, setCaptchaStatus] = useState<"loading" | "ready" | "unavailable">(
+    "loading",
+  );
+
+  const [authBackendStatus, setAuthBackendStatus] = useState<
+    "checking" | "ready" | "waking" | "failed"
+  >("checking");
+  const [authBackendError, setAuthBackendError] = useState<string | null>(null);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const hasAnyKey = apiKeys.some((k) => !k.revokedAt);
+
+  const fetchWithTimeout = useCallback(
+    async (input: RequestInfo | URL, init: RequestInit, timeoutMs: number) => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(input, { ...init, signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    },
+    [],
+  );
+
+  const pingAuthBackend = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetchWithTimeout(
+        apiUrl("api/auth/health"),
+        { cache: "no-store" },
+        5000,
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, [fetchWithTimeout]);
+
+  const waitForAuthBackendReady = useCallback(async () => {
+    setAuthBackendError(null);
+    if (await pingAuthBackend()) {
+      setAuthBackendStatus("ready");
+      return;
+    }
+    setAuthBackendStatus("waking");
+    const deadline = Date.now() + 60_000;
+    const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const poll = async (): Promise<void> => {
+      if (Date.now() >= deadline) {
+        throw new Error("Auth database is still waking up. Please retry in a moment.");
+      }
+      await delay(1000);
+      if (await pingAuthBackend()) {
+        setAuthBackendStatus("ready");
+        return;
+      }
+      return poll();
+    };
+    await poll();
+  }, [pingAuthBackend]);
 
   const loadAccountData = async () => {
     const [keys, usage] = await Promise.all([listApiKeys(), fetchUsage()]);
@@ -109,6 +172,19 @@ export default function Account() {
     setCopiedNewKey(false);
   }, [revealedKey]);
 
+  useEffect(() => {
+    if (user) {
+      setAuthBackendStatus("ready");
+      setAuthBackendError(null);
+      return;
+    }
+    setAuthBackendStatus("checking");
+    void waitForAuthBackendReady().catch((err) => {
+      setAuthBackendError(String(err));
+      setAuthBackendStatus("failed");
+    });
+  }, [user, waitForAuthBackendReady]);
+
   const redactedReminder = useMemo(() => {
     if (status !== "authenticated") return null;
     if (hasAnyKey) return null;
@@ -117,6 +193,7 @@ export default function Account() {
 
   useEffect(() => {
     if (user) return;
+    if (authBackendStatus !== "ready") return;
     setGoogleStatus("loading");
     setGooglePendingCredential(null);
     setGoogleNeedsLegal(false);
@@ -158,6 +235,7 @@ export default function Account() {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: async ({ credential }) => {
+            trackEvent("google_continue_click", { from_path: "/account" });
             setBusy(true);
             try {
               const res = await loginWithGoogleCredential(credential);
@@ -201,7 +279,46 @@ export default function Account() {
         setGoogleStatus("ready");
       })
       .catch(() => setGoogleStatus("unavailable"));
-  }, [refresh, user]);
+  }, [authBackendStatus, refresh, user]);
+
+  useEffect(() => {
+    if (user) return;
+    if (authBackendStatus !== "ready") return;
+    setCaptchaToken(null);
+    setCaptchaStatus("loading");
+
+    const fromEnv = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+    if (typeof fromEnv === "string" && fromEnv.trim().length > 0) {
+      setCaptchaEnabled(true);
+      setCaptchaSiteKey(fromEnv.trim());
+      setCaptchaStatus("ready");
+      return;
+    }
+
+    void fetch(apiUrl("api/auth/captcha/site-key"))
+      .then(async (res) => {
+        if (!res.ok) {
+          setCaptchaEnabled(res.status === 503);
+          setCaptchaSiteKey(null);
+          setCaptchaStatus("unavailable");
+          return;
+        }
+        const data = (await res.json()) as { enabled?: unknown; siteKey?: unknown };
+        const enabled = data.enabled === true;
+        const resolvedSiteKey =
+          enabled && typeof data.siteKey === "string" && data.siteKey.trim()
+            ? data.siteKey.trim()
+            : null;
+        setCaptchaEnabled(enabled);
+        setCaptchaSiteKey(resolvedSiteKey);
+        setCaptchaStatus(enabled && !resolvedSiteKey ? "unavailable" : "ready");
+      })
+      .catch(() => {
+        setCaptchaEnabled(false);
+        setCaptchaSiteKey(null);
+        setCaptchaStatus("unavailable");
+      });
+  }, [authBackendStatus, user]);
 
   return (
     <PageShell
@@ -219,8 +336,45 @@ export default function Account() {
       {status === "loading" ? (
         <Card className="p-6">Loading…</Card>
       ) : !user ? (
-        <Card className="p-6">
-          <div className="grid gap-6">
+        <Card className="relative p-6">
+          {authBackendStatus !== "ready" ? (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70 px-6 text-center">
+              {authBackendStatus === "failed" ? (
+                <>
+                  <div className="text-sm font-medium">
+                    Auth is unavailable right now
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {authBackendError ||
+                      "The auth database may still be starting. Please retry."}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void waitForAuthBackendReady()}
+                  >
+                    Retry
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <div className="text-sm font-medium">
+                    Waking up the auth database…
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Sign-in and account creation will be available shortly.
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              "grid gap-6",
+              authBackendStatus !== "ready" && "opacity-50",
+            )}
+          >
             <div className="flex justify-center pt-1">
               <div
                 ref={googleButtonRef}
@@ -334,19 +488,21 @@ export default function Account() {
             )}
           </div>
 
-          <Tabs defaultValue="signin" className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign in</TabsTrigger>
-              <TabsTrigger value="register">Create account</TabsTrigger>
-            </TabsList>
+            <Tabs defaultValue="signin" className="mt-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign in</TabsTrigger>
+                <TabsTrigger value="register">Create account</TabsTrigger>
+              </TabsList>
 
             <TabsContent value="signin">
               <form
                 className="mt-4 grid gap-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  trackEvent("signin_click", { from_path: "/account", method: "email" });
                   setBusy(true);
                   try {
+                    await waitForAuthBackendReady();
                     await login(email, password);
                     toast({ title: "Signed in" });
                   } catch (err) {
@@ -365,6 +521,7 @@ export default function Account() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={busy || authBackendStatus !== "ready"}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -376,11 +533,12 @@ export default function Account() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={busy || authBackendStatus !== "ready"}
                   />
                 </div>
                 <Button
                   type="submit"
-                  disabled={busy}
+                  disabled={busy || authBackendStatus !== "ready"}
                   className="w-64 justify-self-center"
                 >
                   Sign in
@@ -393,20 +551,30 @@ export default function Account() {
                 className="mt-4 grid gap-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  trackEvent("create_account_click", { from_path: "/account", method: "email" });
                   setBusy(true);
                   try {
+                    await waitForAuthBackendReady();
                     if (!legalCheckedAtMs) {
                       throw new Error("Please accept the Terms, Privacy Policy, and License.");
+                    }
+                    if (captchaEnabled && !captchaToken) {
+                      throw new Error("Please complete the captcha.");
                     }
                     trackEvent("legal_consent_submitted", {
                       context: "email_register",
                       checked_at_ms: legalCheckedAtMs,
                       submitted_at_ms: Date.now(),
                     });
-                    await register(email, password, {
-                      checkedAtMs: legalCheckedAtMs,
-                      docs: ["tos", "privacy", "license"],
-                    });
+                    await register(
+                      email,
+                      password,
+                      {
+                        checkedAtMs: legalCheckedAtMs,
+                        docs: ["tos", "privacy", "license"],
+                      },
+                      captchaToken ?? undefined,
+                    );
                     toast({ title: "Account created" });
                     navigate("/");
                   } catch (err) {
@@ -428,6 +596,7 @@ export default function Account() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={busy || authBackendStatus !== "ready"}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -439,12 +608,31 @@ export default function Account() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={busy || authBackendStatus !== "ready"}
                   />
                 </div>
+                {captchaEnabled ? (
+                  captchaSiteKey ? (
+                    <TurnstileWidget
+                      siteKey={captchaSiteKey}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={(message) =>
+                        toast({ title: "Captcha error", description: message })
+                      }
+                    />
+                  ) : captchaStatus === "unavailable" ? (
+                    <div className="text-xs text-muted-foreground">
+                      Captcha is temporarily unavailable.
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Loading captcha…</div>
+                  )
+                ) : null}
                 <div className="mt-2 flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
                   <Checkbox
                     id="legal-register"
                     checked={legalAccepted}
+                    disabled={busy || authBackendStatus !== "ready"}
                     onCheckedChange={(next) => {
                       const isChecked = next === true;
                       setLegalAccepted(isChecked);
@@ -496,7 +684,12 @@ export default function Account() {
                 </div>
                 <Button
                   type="submit"
-                  disabled={busy || !legalAccepted}
+                  disabled={
+                    busy ||
+                    authBackendStatus !== "ready" ||
+                    !legalAccepted ||
+                    (captchaEnabled && !captchaToken)
+                  }
                   className="w-64 justify-self-center"
                 >
                   Create account
@@ -546,6 +739,7 @@ export default function Account() {
                 />
                 <Button
                   onClick={async () => {
+                    trackEvent("api_key_new_click", { from_path: "/account" });
                     setBusy(true);
                     try {
                       const created = await createApiKey(newKeyName || undefined);

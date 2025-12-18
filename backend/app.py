@@ -64,6 +64,12 @@ app = Flask(__name__)
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "https://pandects.org",
     "https://www.pandects.org",
 )
@@ -211,6 +217,9 @@ def _normalize_database_uri(uri: str) -> str:
     normalized = uri.strip()
     if normalized.startswith("postgres://"):
         normalized = f"postgresql://{normalized[len('postgres://'):]}"
+    if normalized.startswith("postgresql://") and "connect_timeout=" not in normalized:
+        joiner = "&" if "?" in normalized else "?"
+        normalized = f"{normalized}{joiner}connect_timeout=5"
     return normalized
 
 
@@ -386,6 +395,21 @@ class LegalAcceptance(db.Model):
     __table_args__ = (
         db.Index("ix_legal_acceptances_user_doc_ver", "user_id", "document", "version"),
     )
+
+
+class AuthSignonEvent(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_signon_events"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    provider = db.Column(db.String(32), nullable=False)  # "email" | "google"
+    action = db.Column(db.String(32), nullable=False)  # "register" | "login"
+    occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ip_address = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
 
 
 def _ensure_auth_tables_exist() -> None:
@@ -672,6 +696,83 @@ def _google_state_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-google-oauth")
 
 
+def _turnstile_enabled() -> bool:
+    raw = os.environ.get("TURNSTILE_ENABLED", "").strip()
+    if raw == "1":
+        return True
+    if raw == "0":
+        return False
+    return _is_running_on_fly()
+
+
+def _turnstile_site_key() -> str:
+    site_key = os.environ.get("TURNSTILE_SITE_KEY", "").strip()
+    if not site_key:
+        abort(503, description="Captcha is not configured (missing TURNSTILE_SITE_KEY).")
+    return site_key
+
+
+def _turnstile_secret_key() -> str:
+    secret = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+    if not secret:
+        abort(503, description="Captcha is not configured (missing TURNSTILE_SECRET_KEY).")
+    return secret
+
+
+def _require_captcha_token(data: dict) -> str:
+    token = data.get("captchaToken")
+    if not isinstance(token, str) or not token.strip():
+        abort(
+            Response(
+                response=json.dumps(
+                    {
+                        "error": "captcha_required",
+                        "message": "Captcha is required to create an account.",
+                    }
+                ),
+                status=412,
+                mimetype="application/json",
+            )
+        )
+    return token.strip()
+
+
+def _verify_turnstile_token(*, token: str) -> None:
+    ip_address = _request_ip_address()
+    payload: dict[str, str] = {"secret": _turnstile_secret_key(), "response": token}
+    if ip_address:
+        payload["remoteip"] = ip_address
+    body = urlencode(payload).encode("utf-8")
+    req = Request(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            raw = resp.read().decode("utf-8")
+    except (HTTPError, URLError):
+        abort(503, description="Captcha verification is unavailable right now.")
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        abort(503, description="Captcha verification returned invalid data.")
+    if not isinstance(result, dict) or result.get("success") is not True:
+        abort(
+            Response(
+                response=json.dumps(
+                    {
+                        "error": "captcha_failed",
+                        "message": "Captcha verification failed. Please retry.",
+                    }
+                ),
+                status=412,
+                mimetype="application/json",
+            )
+        )
+
+
 def _encode_frontend_hash_params(params: dict[str, str]) -> str:
     return urlencode(params, quote_via=quote)
 
@@ -880,6 +981,75 @@ def _require_legal_acceptance(data: dict) -> datetime:
     if set(normalized) != {"tos", "privacy", "license"}:
         abort(400, description="legal.docs must include tos, privacy, and license.")
     return checked_at
+
+
+def _user_has_current_legal_acceptances(*, user_id: str) -> bool:
+    expected_rows = {(doc, meta["version"], meta["sha256"]) for doc, meta in _LEGAL_DOCS.items()}
+    try:
+        rows = (
+            LegalAcceptance.query.with_entities(
+                LegalAcceptance.document,
+                LegalAcceptance.version,
+                LegalAcceptance.document_hash,
+            )
+            .filter_by(user_id=user_id)
+            .filter(LegalAcceptance.document.in_(list(_LEGAL_DOCS.keys())))
+            .all()
+        )
+    except SQLAlchemyError:
+        abort(503, description="Auth backend is unavailable right now.")
+    found = {(doc, ver, (h or "").strip()) for (doc, ver, h) in rows}
+    return expected_rows.issubset(found)
+
+
+def _ensure_current_legal_acceptances(*, user_id: str, checked_at: datetime) -> None:
+    now = datetime.utcnow()
+    ip_address = _request_ip_address()
+    user_agent = _request_user_agent()
+    try:
+        existing = (
+            LegalAcceptance.query.with_entities(
+                LegalAcceptance.document, LegalAcceptance.version, LegalAcceptance.document_hash
+            )
+            .filter_by(user_id=user_id)
+            .filter(LegalAcceptance.document.in_(list(_LEGAL_DOCS.keys())))
+            .all()
+        )
+        existing_set = {(doc, ver, (h or "").strip()) for (doc, ver, h) in existing}
+        for doc, meta in _LEGAL_DOCS.items():
+            key = (doc, meta["version"], meta["sha256"])
+            if key in existing_set:
+                continue
+            db.session.add(
+                LegalAcceptance(
+                    user_id=user_id,
+                    document=doc,
+                    version=meta["version"],
+                    document_hash=meta["sha256"],
+                    checked_at=checked_at,
+                    submitted_at=now,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+            )
+    except SQLAlchemyError:
+        abort(503, description="Auth backend is unavailable right now.")
+
+
+def _record_signon_event(*, user_id: str, provider: str, action: str) -> None:
+    if _auth_is_mocked():
+        return
+    ip_address = _request_ip_address()
+    user_agent = _request_user_agent()
+    db.session.add(
+        AuthSignonEvent(
+            user_id=user_id,
+            provider=provider,
+            action=action,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+    )
 
 
 def _lookup_api_key(raw_key: str) -> ApiKey | None:
@@ -1714,6 +1884,9 @@ def auth_register():
     _require_auth_db()
     data = _require_json()
     checked_at = _require_legal_acceptance(data)
+    if _turnstile_enabled():
+        captcha_token = _require_captcha_token(data)
+        _verify_turnstile_token(token=captcha_token)
     email_raw = data.get("email")
     password = data.get("password")
     if not isinstance(email_raw, str) or not isinstance(password, str):
@@ -1766,6 +1939,7 @@ def auth_register():
                     user_agent=user_agent,
                 )
             )
+        _record_signon_event(user_id=user.id, provider="email", action="register")
         db.session.commit()
         token = _issue_session_token(user.id)
     except SQLAlchemyError:
@@ -1818,6 +1992,8 @@ def auth_login():
         if not check_password_hash(user.password_hash, password):
             abort(401, description="Invalid credentials.")
 
+        _record_signon_event(user_id=user.id, provider="email", action="login")
+        db.session.commit()
         token = _issue_session_token(user.id)
         payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
         if _auth_session_transport() == "bearer":
@@ -1845,6 +2021,33 @@ def auth_csrf():
     resp.headers["Cache-Control"] = "no-store"
     if _auth_session_transport() == "cookie":
         _ensure_csrf_cookie(resp)
+    return resp
+
+
+@app.route("/api/auth/health", methods=["GET"])
+def auth_health():
+    if _auth_is_mocked():
+        resp = make_response(jsonify({"status": "ok"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    if not _auth_db_is_configured():
+        abort(
+            503,
+            description=(
+                "Auth is not configured (missing AUTH_DATABASE_URI / DATABASE_URL). "
+                "Search is available in limited mode."
+            ),
+        )
+    engine = db.engines.get("auth")
+    if engine is None:
+        abort(503, description="Auth backend is unavailable right now.")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        abort(503, description="Auth backend is unavailable right now.")
+    resp = make_response(jsonify({"status": "ok"}))
+    resp.headers["Cache-Control"] = "no-store"
     return resp
 
 
@@ -2053,6 +2256,28 @@ def auth_google_client_id():
     return jsonify({"clientId": _google_oauth_client_id()})
 
 
+@app.route("/api/auth/captcha/site-key", methods=["GET"])
+def auth_captcha_site_key():
+    _require_auth_db()
+    if not _turnstile_enabled():
+        payload: dict[str, object] = {"enabled": False}
+        if app.debug:
+            payload["debug"] = {
+                "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
+                "has_site_key": bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()),
+                "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
+            }
+        return jsonify(payload)
+    payload: dict[str, object] = {"enabled": True, "siteKey": _turnstile_site_key()}
+    if app.debug:
+        payload["debug"] = {
+            "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
+            "has_site_key": True,
+            "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
+        }
+    return jsonify(payload)
+
+
 @app.route("/api/auth/google/callback", methods=["GET"])
 def auth_google_callback():
     _require_auth_db()
@@ -2117,6 +2342,14 @@ def auth_google_callback():
                 next_path=next_path or "/account",
                 error="legal_required",
             )
+        if not _user_has_current_legal_acceptances(user_id=user.id):
+            return _frontend_google_callback_redirect(
+                token=None,
+                next_path=next_path or "/account",
+                error="legal_required",
+            )
+        _record_signon_event(user_id=user.id, provider="google", action="login")
+        db.session.commit()
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
 
@@ -2167,6 +2400,15 @@ def auth_google_credential():
                         user_agent=user_agent,
                     )
                 )
+            _record_signon_event(user_id=user.id, provider="google", action="register")
+            db.session.commit()
+        elif not _user_has_current_legal_acceptances(user_id=user.id):
+            checked_at = _require_legal_acceptance(data)
+            _ensure_current_legal_acceptances(user_id=user.id, checked_at=checked_at)
+            _record_signon_event(user_id=user.id, provider="google", action="login")
+            db.session.commit()
+        else:
+            _record_signon_event(user_id=user.id, provider="google", action="login")
             db.session.commit()
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")

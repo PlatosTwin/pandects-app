@@ -49,7 +49,13 @@ def main() -> None:
                         ),
                         {"hash": meta["sha256"], "doc": doc, "version": meta["version"]},
                     )
-        expected = {"auth_users", "api_keys", "api_usage_daily", "legal_acceptances"}
+        expected = {
+            "auth_users",
+            "api_keys",
+            "api_usage_daily",
+            "legal_acceptances",
+            "auth_signon_events",
+        }
         existing = set(inspector.get_table_names())
         missing = sorted(expected - existing)
         if missing:
