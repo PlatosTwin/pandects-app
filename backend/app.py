@@ -1231,9 +1231,14 @@ def _auth_rate_limit_guard():
     ctx = _current_access_context()
     g.access_ctx = ctx
     if _csrf_required(request.path):
-        csrf_cookie = request.cookies.get(_CSRF_COOKIE_NAME, "")
-        csrf_header = request.headers.get("X-CSRF-Token", "")
-        if not csrf_cookie or csrf_cookie != csrf_header:
+        csrf_cookie = request.cookies.get(_CSRF_COOKIE_NAME)
+        csrf_header = request.headers.get("X-CSRF-Token")
+        if (
+            not isinstance(csrf_cookie, str)
+            or not isinstance(csrf_header, str)
+            or not csrf_cookie
+            or not secrets.compare_digest(csrf_cookie, csrf_header)
+        ):
             abort(403, description="Missing or invalid CSRF token.")
     _check_rate_limit(ctx)
 
@@ -2029,7 +2034,9 @@ def auth_login():
 def auth_me():
     _require_auth_db()
     user, _ctx = _require_user()
-    return jsonify({"user": {"id": user.id, "email": user.email}})
+    resp = make_response(jsonify({"user": {"id": user.id, "email": user.email}}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/csrf", methods=["GET"])
@@ -2081,7 +2088,35 @@ def auth_list_api_keys():
     user, _ctx = _require_user()
     if _auth_is_mocked():
         keys = _mock_auth.list_api_keys(user_id=user.id)
-        return jsonify(
+        resp = make_response(
+            jsonify(
+            {
+                "keys": [
+                    {
+                        "id": k.id,
+                        "name": k.name,
+                        "prefix": k.prefix,
+                        "createdAt": k.created_at.isoformat(),
+                        "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
+                        "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
+                    }
+                    for k in keys
+                ]
+            }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    try:
+        keys = (
+            ApiKey.query.filter_by(user_id=user.id)
+            .order_by(ApiKey.created_at.desc())
+            .all()
+        )
+    except SQLAlchemyError:
+        abort(503, description="Auth backend is unavailable right now.")
+    resp = make_response(
+        jsonify(
             {
                 "keys": [
                     {
@@ -2096,29 +2131,9 @@ def auth_list_api_keys():
                 ]
             }
         )
-    try:
-        keys = (
-            ApiKey.query.filter_by(user_id=user.id)
-            .order_by(ApiKey.created_at.desc())
-            .all()
-        )
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    return jsonify(
-        {
-            "keys": [
-                {
-                    "id": k.id,
-                    "name": k.name,
-                    "prefix": k.prefix,
-                    "createdAt": k.created_at.isoformat(),
-                    "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
-                    "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
-                }
-                for k in keys
-            ]
-        }
     )
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/api-keys", methods=["POST"])
@@ -2129,9 +2144,33 @@ def auth_create_api_key():
     name = data.get("name")
     if name is not None and not isinstance(name, str):
         abort(400, description="Key name must be a string.")
+    if isinstance(name, str):
+        name = name.strip() or None
+        if name is not None and len(name) > 120:
+            abort(400, description="Key name is too long.")
     if _auth_is_mocked():
         key, plaintext = _mock_auth.create_api_key(user_id=user.id, name=name)
-        return jsonify(
+        resp = make_response(
+            jsonify(
+            {
+                "apiKey": {
+                    "id": key.id,
+                    "name": key.name,
+                    "prefix": key.prefix,
+                    "createdAt": key.created_at.isoformat(),
+                },
+                "apiKeyPlaintext": plaintext,
+            }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    try:
+        key, plaintext = _create_api_key(user_id=user.id, name=name)
+    except SQLAlchemyError:
+        abort(503, description="Auth backend is unavailable right now.")
+    resp = make_response(
+        jsonify(
             {
                 "apiKey": {
                     "id": key.id,
@@ -2142,31 +2181,23 @@ def auth_create_api_key():
                 "apiKeyPlaintext": plaintext,
             }
         )
-    try:
-        key, plaintext = _create_api_key(user_id=user.id, name=name)
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    return jsonify(
-        {
-            "apiKey": {
-                "id": key.id,
-                "name": key.name,
-                "prefix": key.prefix,
-                "createdAt": key.created_at.isoformat(),
-            },
-            "apiKeyPlaintext": plaintext,
-        }
     )
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/api-keys/<string:key_id>", methods=["DELETE"])
 def auth_revoke_api_key(key_id: str):
     _require_auth_db()
     user, _ctx = _require_user()
+    if not _UUID_RE.match(key_id):
+        abort(404)
     if _auth_is_mocked():
         if not _mock_auth.revoke_api_key(user_id=user.id, key_id=key_id):
             abort(404)
-        return jsonify({"status": "revoked"})
+        resp = make_response(jsonify({"status": "revoked"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     try:
         key = ApiKey.query.filter_by(id=key_id, user_id=user.id).first()
         if key is None:
@@ -2174,7 +2205,9 @@ def auth_revoke_api_key(key_id: str):
         if key.revoked_at is None:
             key.revoked_at = datetime.utcnow()
             db.session.commit()
-        return jsonify({"status": "revoked"})
+        resp = make_response(jsonify({"status": "revoked"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
 
@@ -2185,7 +2218,9 @@ def auth_usage():
     user, _ctx = _require_user()
     if _auth_is_mocked():
         by_day, total = _mock_auth.usage_for_user(user_id=user.id)
-        return jsonify({"byDay": by_day, "total": total})
+        resp = make_response(jsonify({"byDay": by_day, "total": total}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     cutoff = date.today() - timedelta(days=29)
     try:
         key_ids = [k.id for k in ApiKey.query.filter_by(user_id=user.id).all()]
@@ -2205,12 +2240,16 @@ def auth_usage():
             by_day[day_str] += int(row.count)
             total += int(row.count)
 
-        return jsonify(
-            {
-                "byDay": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
-                "total": total,
-            }
+        resp = make_response(
+            jsonify(
+                {
+                    "byDay": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
+                    "total": total,
+                }
+            )
         )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
 
@@ -2277,7 +2316,9 @@ def auth_google_client_id():
     _require_auth_db()
     if _auth_is_mocked():
         abort(501, description="Google auth is unavailable in mock auth mode.")
-    return jsonify({"clientId": _google_oauth_client_id()})
+    resp = make_response(jsonify({"clientId": _google_oauth_client_id()}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/captcha/site-key", methods=["GET"])
@@ -2291,7 +2332,9 @@ def auth_captcha_site_key():
                 "has_site_key": bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()),
                 "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
             }
-        return jsonify(payload)
+        resp = make_response(jsonify(payload))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     payload: dict[str, object] = {"enabled": True, "siteKey": _turnstile_site_key()}
     if app.debug:
         payload["debug"] = {
@@ -2299,7 +2342,9 @@ def auth_captcha_site_key():
             "has_site_key": True,
             "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
         }
-    return jsonify(payload)
+    resp = make_response(jsonify(payload))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/google/callback", methods=["GET"])
