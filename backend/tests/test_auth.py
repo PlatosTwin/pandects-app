@@ -15,6 +15,9 @@ def _set_default_env() -> None:
     os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
+    os.environ["TURNSTILE_ENABLED"] = "0"
+    os.environ.pop("TURNSTILE_SITE_KEY", None)
+    os.environ.pop("TURNSTILE_SECRET_KEY", None)
 
 
 _set_default_env()

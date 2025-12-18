@@ -18,19 +18,33 @@ function isUnsafeMethod(method: string | undefined): boolean {
 }
 
 let csrfInitPromise: Promise<void> | null = null;
+let csrfToken: string | null = null;
 
-async function ensureCsrfCookie(): Promise<void> {
+async function ensureCsrfToken(): Promise<void> {
+  if (csrfToken) return;
+
   const existing = getCookie("pdcts_csrf");
   if (existing) {
+    csrfToken = existing;
     csrfInitPromise = null;
     return;
   }
+
   if (!csrfInitPromise) {
     csrfInitPromise = fetch(apiUrl("api/auth/csrf"), { credentials: "include" })
-      .then(() => undefined)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as unknown;
+        if (!data || typeof data !== "object") return;
+        const token = (data as { csrfToken?: unknown }).csrfToken;
+        if (typeof token === "string" && token.trim()) csrfToken = token.trim();
+      })
       .catch(() => undefined);
   }
+
   await csrfInitPromise;
+  const after = getCookie("pdcts_csrf");
+  if (after) csrfToken = after;
 }
 
 export async function authFetch(
@@ -49,9 +63,8 @@ export async function authFetch(
   }
 
   if (isUnsafeMethod(init.method) && !headers.has("X-CSRF-Token")) {
-    await ensureCsrfCookie();
-    const csrf = getCookie("pdcts_csrf");
-    if (csrf) headers.set("X-CSRF-Token", csrf);
+    await ensureCsrfToken();
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
   }
 
   return fetch(input, { ...init, headers, credentials: "include" });

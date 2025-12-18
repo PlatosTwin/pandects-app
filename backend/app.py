@@ -160,16 +160,27 @@ def _ensure_csrf_cookie(resp: Response) -> None:
         return
     max_age = 60 * 60 * 24 * 14
     csrf_token = secrets.token_urlsafe(32)
+    _set_csrf_cookie(resp, csrf_token, max_age=max_age)
+
+
+def _set_csrf_cookie(resp: Response, value: str, *, max_age: int) -> None:
     samesite, secure = _cookie_settings()
     resp.set_cookie(
         _CSRF_COOKIE_NAME,
-        csrf_token,
+        value,
         max_age=max_age,
         httponly=False,
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
         path="/",
     )
+
+
+def _csrf_cookie_value() -> str | None:
+    existing = request.cookies.get(_CSRF_COOKIE_NAME)
+    if isinstance(existing, str) and existing.strip():
+        return existing.strip()
+    return None
 
 
 def _clear_auth_cookies(resp: Response) -> None:
@@ -702,7 +713,11 @@ def _turnstile_enabled() -> bool:
         return True
     if raw == "0":
         return False
-    return _is_running_on_fly()
+    if not _is_running_on_fly():
+        return False
+    return bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()) and bool(
+        os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+    )
 
 
 def _turnstile_site_key() -> str:
@@ -893,7 +908,10 @@ def _safe_next_path(value: str | None) -> str | None:
 def _redact_agreement_xml(
     xml_content: str, *, focus_section_uuid: str | None, neighbor_sections: int
 ) -> str:
-    from backend.redaction import redact_agreement_xml
+    if __package__:
+        from .redaction import redact_agreement_xml
+    else:
+        from redaction import redact_agreement_xml
 
     try:
         return redact_agreement_xml(
@@ -2017,10 +2035,16 @@ def auth_me():
 @app.route("/api/auth/csrf", methods=["GET"])
 def auth_csrf():
     _require_auth_db()
+    if _auth_session_transport() == "cookie":
+        existing = _csrf_cookie_value()
+        token = existing or secrets.token_urlsafe(32)
+        resp = make_response(jsonify({"status": "ok", "csrfToken": token}))
+        resp.headers["Cache-Control"] = "no-store"
+        if existing is None:
+            _set_csrf_cookie(resp, token, max_age=60 * 60 * 24 * 14)
+        return resp
     resp = make_response(jsonify({"status": "ok"}))
     resp.headers["Cache-Control"] = "no-store"
-    if _auth_session_transport() == "cookie":
-        _ensure_csrf_cookie(resp)
     return resp
 
 
