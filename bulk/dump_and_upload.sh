@@ -7,8 +7,8 @@ MARIADB_USER="panda"
 MARIADB_DATABASE="mna"
 
 R2_BUCKET_NAME="pandects-bulk"
-R2_ENDPOINT="https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
-PUBLIC_DEV_BASE="https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
+R2_ENDPOINT="https://7b5e7846d94ee35b35e21999fc4fad5b.r2.cloudflarestorage.com"
+PUBLIC_DEV_BASE="https://bulk.pandects.org"
 
 # ── Dump DB ─────────────────────────────────────────────────────
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M")

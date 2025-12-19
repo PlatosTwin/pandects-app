@@ -18,6 +18,8 @@
     "build:server": "vite build --config vite.config.server.ts",
     "prerender:build": "vite build --config vite.config.prerender.ts",
     "prerender:pages": "npm run prerender:build && node scripts/render-prerendered.mjs",
+    "render:emails": "node scripts/render-email-templates.mjs",
+    "render:emails:sync": "npm run render:emails && ../backend/venv/bin/python ../backend/resend_templates_sync.py sync",
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
     "format.fix": "prettier --write .",

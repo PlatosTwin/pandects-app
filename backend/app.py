@@ -7,6 +7,7 @@ import uuid
 import re
 import click
 import json
+import html as _html
 import math
 from flask import Flask, jsonify, request, abort, Response, g
 from flask import redirect
@@ -303,8 +304,8 @@ CORS(
 
 # —— Bulk data setup ——————��———————————————————————————————————————————————
 R2_BUCKET_NAME = "pandects-bulk"
-R2_ENDPOINT = "https://34730161d8a80dadcd289d6774ffff3d.r2.cloudflarestorage.com"
-PUBLIC_DEV_BASE = "https://pub-d1f4ad8b64bd4b89a2d5c5ab58a4ebdf.r2.dev"
+R2_ENDPOINT = "https://7b5e7846d94ee35b35e21999fc4fad5b.r2.cloudflarestorage.com"
+PUBLIC_DEV_BASE = "https://bulk.pandects.org"
 
 client = None
 if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY"):
@@ -698,7 +699,36 @@ def _resend_api_key() -> str | None:
 def _resend_from_email() -> str | None:
     sender = os.environ.get("RESEND_FROM_EMAIL")
     sender = sender.strip() if isinstance(sender, str) else ""
-    return sender or None
+    if not sender:
+        return None
+    display_name = os.environ.get("RESEND_FROM_NAME")
+    display_name = display_name.strip() if isinstance(display_name, str) else ""
+    if display_name and "<" not in sender and ">" not in sender:
+        return f"{display_name} <{sender}>"
+    return sender
+
+
+_EMAIL_TEMPLATE_CACHE: dict[str, str] = {}
+
+
+def _load_email_template(name: str) -> str:
+    cached = _EMAIL_TEMPLATE_CACHE.get(name)
+    if cached is not None:
+        return cached
+    path = Path(__file__).with_name("email_templates") / name
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        abort(503, description="Email templates are unavailable right now.")
+    _EMAIL_TEMPLATE_CACHE[name] = content
+    return content
+
+
+def _render_email_template(name: str, *, params: dict[str, str]) -> str:
+    rendered = _load_email_template(name)
+    for key, value in params.items():
+        rendered = rendered.replace(f"{{{{{key}}}}}", value)
+    return rendered
 
 
 def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | None) -> None:
@@ -749,17 +779,26 @@ def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | No
 
 def _send_email_verification_email(*, to_email: str, token: str) -> None:
     verify_url = f"{_public_api_base_url()}/api/auth/email/verify?token={quote(token)}"
-    subject = "Verify your email"
-    html = (
-        "<p>Confirm your email address to finish creating your account.</p>"
-        f"<p><a href=\"{verify_url}\">Verify email</a></p>"
-        "<p>If you didn't create an account, you can ignore this email.</p>"
+    subject = "Verify your email for Pandects"
+    year = str(datetime.utcnow().year)
+    preheader = (
+        os.environ.get(
+            "EMAIL_VERIFICATION_PREHEADER",
+            "Verify your email to activate your Pandects account.",
+        )
+        .strip()
     )
-    text = (
-        "Confirm your email address to finish creating your account.\n\n"
-        f"Verify: {verify_url}\n\n"
-        "If you didn't create an account, you can ignore this email.\n"
+    if not preheader:
+        preheader = "Verify your email to activate your Pandects account."
+    html = _render_email_template(
+        "verify_email.html",
+        params={
+            "VERIFY_URL": _html.escape(verify_url, quote=True),
+            "YEAR": year,
+            "PREHEADER": _html.escape(preheader, quote=False),
+        },
     )
+    text = _render_email_template("verify_email.txt", params={"VERIFY_URL": verify_url})
     _send_resend_email(to_email=to_email, subject=subject, html=html, text=text)
 
 
