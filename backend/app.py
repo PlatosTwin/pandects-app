@@ -813,6 +813,23 @@ _UUID_RE = re.compile(
 )
 
 
+def _is_email_like(value: str) -> bool:
+    if not value or value.strip() != value:
+        return False
+    if " " in value:
+        return False
+    if value.count("@") != 1:
+        return False
+    local, domain = value.split("@", 1)
+    if not local or not domain:
+        return False
+    if "." not in domain:
+        return False
+    if domain.startswith(".") or domain.endswith("."):
+        return False
+    return True
+
+
 def _frontend_base_url() -> str:
     base = os.environ.get("PUBLIC_FRONTEND_BASE_URL", "").strip().rstrip("/")
     if base:
@@ -2097,7 +2114,7 @@ def auth_register():
     if not isinstance(email_raw, str) or not isinstance(password, str):
         abort(400, description="Email and password are required.")
     email = _normalize_email(email_raw)
-    if not _EMAIL_RE.match(email):
+    if not _is_email_like(email):
         abort(400, description="Invalid email address.")
     if len(password) < 8:
         abort(400, description="Password must be at least 8 characters.")
