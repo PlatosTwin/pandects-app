@@ -60,7 +60,7 @@ def tagging_asset(
                         ON t.page_uuid = p.page_uuid
                     WHERE
                         p.page_uuid > :last_uuid
-                        AND p.source_page_type = 'body'
+                        AND coalesce(p.gold_label, p.source_page_type) = 'body'
                         AND p.processed_page_content IS NOT NULL
                         AND t.page_uuid IS NULL
                     ORDER BY
