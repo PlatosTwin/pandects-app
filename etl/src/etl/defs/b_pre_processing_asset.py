@@ -1,6 +1,6 @@
 """Split agreements into pages, classify page types, and format text.
 
-Respects CLEANUP vs FROM_SCRATCH modes via context tags or `PipelineConfig`.
+Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
 """
 

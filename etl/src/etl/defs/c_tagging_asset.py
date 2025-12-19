@@ -9,7 +9,7 @@ from etl.defs.b_pre_processing_asset import pre_processing_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
 from etl.domain.c_tagging import tag
 from etl.utils.db_utils import upsert_tags
-from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
+from etl.utils.run_config import is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -32,8 +32,7 @@ def tagging_asset(
     inference_model = tagging_model.model()
 
     # batching controls
-    page_bs_tag = get_int_tag(context, "tagging_page_batch_size")
-    batch_size = page_bs_tag if page_bs_tag is not None else pipeline_config.tagging_page_batch_size
+    batch_size = pipeline_config.tagging_page_batch_size
     batched = is_batched(context, pipeline_config)
 
     last_uuid: str = ""

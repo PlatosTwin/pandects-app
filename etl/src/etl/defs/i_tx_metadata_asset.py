@@ -6,8 +6,7 @@ output directly from `response.output_text`, and updates `pdx.agreements`,
 setting metadata=1 for successfully parsed rows (even if values are unknown/null).
 
 Runs in batched mode only; in non-batched mode it logs a warning and exits.
-Default batch size is configured via `PipelineConfig.tx_metadata_agreement_batch_size`
-(overridable via run tag `tx_metadata_agreement_batch_size`).
+Default batch size is configured via `PipelineConfig.tx_metadata_agreement_batch_size`.
 """
 
 from __future__ import annotations
@@ -46,11 +45,7 @@ def tx_metadata_asset(
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
         return
 
-    bs_tag = context.run.tags.get("tx_metadata_agreement_batch_size")
-    try:
-        batch_size = int(bs_tag) if bs_tag else pipeline_config.tx_metadata_agreement_batch_size
-    except Exception:
-        batch_size = pipeline_config.tx_metadata_agreement_batch_size
+    batch_size = pipeline_config.tx_metadata_agreement_batch_size
 
     engine = db.get_engine()
 

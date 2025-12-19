@@ -83,9 +83,10 @@ def _merge_with_rulings(
     existing spans except when the ruling is entirely outside any tag.
 
     Rules per requirements:
-      - Ruling entirely within exactly one base span:
-          * if labels match -> keep original (no change)
-          * else (including label=='none') -> conflict
+      - Ruling identical to a base span -> ruling wins
+      - Ruling fully within exactly one base span:
+          * if labels match -> keep original (base wins)
+          * else -> conflict
       - Ruling entirely outside any base span:
           * if label=='none' -> no change
           * else -> insert new span
@@ -209,7 +210,7 @@ def _merge_with_rulings(
             )
         # fully enclosed
         if coextensive:
-            # Use ruling: replace or remove the base span
+            # Ruling wins: replace or remove the base span
             if rlab == "none":
                 replacements[overlaps_idx[0]] = None
             else:
@@ -244,14 +245,8 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
     engine = db.get_engine()
 
     # batching controls
-    page_bs_tag = context.run.tags.get("page_batch_size")
-    run_scope_tag = context.run.tags.get("run_scope")
-    batch_size = int(page_bs_tag) if page_bs_tag else pipeline_config.tagging_page_batch_size
-    is_batched = (
-        run_scope_tag == "batched"
-        if run_scope_tag is not None
-        else pipeline_config.is_batched()
-    )
+    batch_size = pipeline_config.tagging_page_batch_size
+    is_batched = pipeline_config.is_batched()
 
     last_uuid = ""
     ran_batches = 0

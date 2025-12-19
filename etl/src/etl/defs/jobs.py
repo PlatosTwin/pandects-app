@@ -12,7 +12,6 @@ etl_pipeline = dg.define_asset_job(
     selection=dg.AssetSelection.assets(
         staging_asset, pre_processing_asset, tagging_asset, xml_asset
     ),
-    tags={"pipeline_mode": "from_scratch"},
 )
 
 cleanup_pipeline = dg.define_asset_job(
@@ -20,7 +19,6 @@ cleanup_pipeline = dg.define_asset_job(
     selection=dg.AssetSelection.assets(
         staging_asset, pre_processing_asset, tagging_asset
     ),
-    tags={"pipeline_mode": "cleanup"},
 )
 
 defs = dg.Definitions(

@@ -24,7 +24,7 @@ import os
 import time
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.utils.run_config import get_int_tag, is_batched
+from etl.utils.run_config import is_batched
 from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
@@ -233,12 +233,7 @@ def ai_repair_enqueue_asset(
         _ensure_tables(conn)
 
         # 1) fetch candidate pages needing AI repair
-        page_bs_tag = get_int_tag(context, "ai_repair_page_batch_size")
-        batch_size = (
-            page_bs_tag
-            if page_bs_tag is not None
-            else pipeline_config.ai_repair_page_batch_size
-        )
+        batch_size = pipeline_config.ai_repair_page_batch_size
         batched = is_batched(context, pipeline_config)
 
         if not batched:

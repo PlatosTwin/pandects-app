@@ -1,0 +1,9 @@
+resources:
+  pipeline_config:
+    config:
+      mode: from_scratch
+      scope: batched
+      tagging_page_batch_size: 500
+      xml_agreement_batch_size: 10
+      ai_repair_page_batch_size: 150
+      tx_metadata_agreement_batch_size: 10

@@ -1,6 +1,6 @@
 """Stage new filings and record pipeline run metadata.
 
-Respects CLEANUP vs FROM_SCRATCH modes via context tags or `PipelineConfig`.
+Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Returns the number of new filings processed.
 """
 

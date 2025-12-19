@@ -10,7 +10,7 @@ from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
-from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
+from etl.utils.run_config import is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
@@ -26,8 +26,7 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
         pipeline_config: Pipeline configuration for mode.
     """
     # batching controls
-    ag_bs_tag = get_int_tag(context, "xml_agreement_batch_size")
-    agreement_batch_size = ag_bs_tag if ag_bs_tag is not None else pipeline_config.xml_agreement_batch_size
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
