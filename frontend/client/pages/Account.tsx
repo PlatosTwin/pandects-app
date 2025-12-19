@@ -19,12 +19,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   createApiKey,
   deleteAccount,
   fetchUsage,
   listApiKeys,
   loginWithGoogleCredential,
+  resendVerificationEmail,
   revokeApiKey,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay } from "@/lib/auth-types";
@@ -105,6 +107,7 @@ export default function Account() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const hasAnyKey = apiKeys.some((k) => !k.revokedAt);
+  const emailNotVerifiedMessage = "Email address not verified.";
 
   const fetchWithTimeout = useCallback(
     async (input: RequestInfo | URL, init: RequestInit, timeoutMs: number) => {
@@ -533,7 +536,37 @@ export default function Account() {
                     await login(email, password);
                     toast({ title: "Signed in" });
                   } catch (err) {
-                    toast({ title: "Sign-in failed", description: String(err) });
+                    const message = err instanceof Error ? err.message : String(err);
+                    if (message.includes(emailNotVerifiedMessage)) {
+                      toast({
+                        title: "Verify your email to sign in",
+                        description:
+                          "We sent a verification email when you signed up. Please check your inbox and spam folder.",
+                        action: (
+                          <ToastAction
+                            altText="Resend verification email"
+                            onClick={async () => {
+                              try {
+                                await resendVerificationEmail(email);
+                                toast({
+                                  title: "Verification email resent",
+                                  description: "Check your inbox for the latest link.",
+                                });
+                              } catch (sendError) {
+                                toast({
+                                  title: "Couldn't resend email",
+                                  description: String(sendError),
+                                });
+                              }
+                            }}
+                          >
+                            Resend email
+                          </ToastAction>
+                        ),
+                      });
+                    } else {
+                      toast({ title: "Sign-in failed", description: message });
+                    }
                   } finally {
                     setBusy(false);
                   }

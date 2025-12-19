@@ -535,6 +535,11 @@ class _MockAuthStore:
             return None
         return user if check_password_hash(user.password_hash, password) else None
 
+    def get_user_by_email(self, email: str) -> _MockAuthUser | None:
+        with self._lock:
+            user_id = self._users_by_email.get(email)
+            return self._users_by_id.get(user_id) if user_id else None
+
     def get_user(self, user_id: str) -> _MockAuthUser | None:
         with self._lock:
             return self._users_by_id.get(user_id)
@@ -2215,6 +2220,43 @@ def auth_login():
         return resp
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
+
+
+@app.route("/api/auth/email/resend", methods=["POST"])
+def auth_resend_email_verification():
+    _require_auth_db()
+    data = _require_json()
+    email_raw = data.get("email")
+    if not isinstance(email_raw, str) or not email_raw.strip():
+        abort(400, description="Email is required.")
+    email = _normalize_email(email_raw)
+    if not _EMAIL_RE.match(email):
+        abort(400, description="Invalid email address.")
+
+    if _auth_is_mocked():
+        user = _mock_auth.get_user_by_email(email)
+        if user is not None and user.email_verified_at is None:
+            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
+            _send_email_verification_email(to_email=user.email, token=verify_token)
+        resp = make_response(jsonify({"status": "sent"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    try:
+        user = AuthUser.query.filter_by(email=email).first()
+        if user is not None and user.email_verified_at is None:
+            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
+            _send_email_verification_email(to_email=user.email, token=verify_token)
+    except HTTPException:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError:
+        db.session.rollback()
+        abort(503, description="Auth backend is unavailable right now.")
+
+    resp = make_response(jsonify({"status": "sent"}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/auth/email/verify", methods=["POST"])
