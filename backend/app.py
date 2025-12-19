@@ -701,52 +701,47 @@ def _resend_from_email() -> str | None:
     sender = sender.strip() if isinstance(sender, str) else ""
     if not sender:
         return None
-    display_name = os.environ.get("RESEND_FROM_NAME")
-    display_name = display_name.strip() if isinstance(display_name, str) else ""
-    if display_name and "<" not in sender and ">" not in sender:
-        return f"{display_name} <{sender}>"
+   
     return sender
 
 
-_EMAIL_TEMPLATE_CACHE: dict[str, str] = {}
+def _resend_template_id() -> str | None:
+    template_id = os.environ.get("RESEND_TEMPLATE_ID")
+    template_id = template_id.strip() if isinstance(template_id, str) else ""
+    return template_id or None
 
 
-def _load_email_template(name: str) -> str:
-    cached = _EMAIL_TEMPLATE_CACHE.get(name)
-    if cached is not None:
-        return cached
-    path = Path(__file__).with_name("email_templates") / name
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        abort(503, description="Email templates are unavailable right now.")
-    _EMAIL_TEMPLATE_CACHE[name] = content
-    return content
-
-
-def _render_email_template(name: str, *, params: dict[str, str]) -> str:
-    rendered = _load_email_template(name)
-    for key, value in params.items():
-        rendered = rendered.replace(f"{{{{{key}}}}}", value)
-    return rendered
-
-
-def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | None) -> None:
+def _send_resend_template_email(*, to_email: str, subject: str, variables: dict[str, object]) -> None:
     api_key = _resend_api_key()
     sender = _resend_from_email()
     if api_key is None or sender is None:
-        if app.testing:
-            return
         missing = []
         if api_key is None:
             missing.append("RESEND_API_KEY")
         if sender is None:
             missing.append("RESEND_FROM_EMAIL")
+        if app.testing:
+            return
         abort(503, description=f"Email is not configured (missing {', '.join(missing)}).")
 
-    payload: dict[str, object] = {"from": sender, "to": [to_email], "subject": subject, "html": html}
-    if text:
-        payload["text"] = text
+    if app.testing:
+        return
+
+    template_id = _resend_template_id()
+    if template_id is None:
+        abort(503, description="Email is not configured (missing RESEND_TEMPLATE_ID).")
+
+    payload: dict[str, object] = {
+        "from": sender,
+        "to": [to_email],
+        "subject": subject,
+        "template": {
+            "id": template_id,
+            "variables": variables,
+        },
+        # Prevent Gmail conversation threading from collapsing the message behind "..." in mobile clients.
+        "headers": {"X-Entity-Ref-ID": uuid.uuid4().hex},
+    }
     body = json.dumps(payload).encode("utf-8")
     req = Request(
         "https://api.resend.com/emails",
@@ -762,8 +757,6 @@ def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | No
         with urlopen(req, timeout=15) as resp:
             resp.read()
     except HTTPError as e:
-        if app.testing:
-            return
         try:
             details = e.read().decode("utf-8", errors="replace")
         except Exception:
@@ -771,8 +764,6 @@ def _send_resend_email(*, to_email: str, subject: str, html: str, text: str | No
         app.logger.error("Resend email failed (HTTP %s): %s", e.code, details)
         abort(503, description="Email delivery failed.")
     except URLError as e:
-        if app.testing:
-            return
         app.logger.error("Resend email failed (network error): %s", e)
         abort(503, description="Email delivery failed.")
 
@@ -781,25 +772,11 @@ def _send_email_verification_email(*, to_email: str, token: str) -> None:
     verify_url = f"{_public_api_base_url()}/api/auth/email/verify?token={quote(token)}"
     subject = "Verify your email for Pandects"
     year = str(datetime.utcnow().year)
-    preheader = (
-        os.environ.get(
-            "EMAIL_VERIFICATION_PREHEADER",
-            "Verify your email to activate your Pandects account.",
-        )
-        .strip()
+    _send_resend_template_email(
+        to_email=to_email,
+        subject=subject,
+        variables={"VERIFY_URL": verify_url, "YEAR": year},
     )
-    if not preheader:
-        preheader = "Verify your email to activate your Pandects account."
-    html = _render_email_template(
-        "verify_email.html",
-        params={
-            "VERIFY_URL": _html.escape(verify_url, quote=True),
-            "YEAR": year,
-            "PREHEADER": _html.escape(preheader, quote=False),
-        },
-    )
-    text = _render_email_template("verify_email.txt", params={"VERIFY_URL": verify_url})
-    _send_resend_email(to_email=to_email, subject=subject, html=html, text=text)
 
 
 def _issue_session_token(user_id: str) -> str:

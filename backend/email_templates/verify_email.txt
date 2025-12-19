@@ -1,7 +1,0 @@
-Verify your email
-
-Thanks for creating a Pandects account. Please verify your email address to activate your account, unlock API keys, and access full search results.
-
-Verify: {{VERIFY_URL}}
-
-If you didn’t create a Pandects account, you can ignore this email.
