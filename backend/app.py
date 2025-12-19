@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 import time
+import random
+import hmac
+import hashlib
 from threading import Lock
 from datetime import datetime, date, timedelta
 import uuid
@@ -57,6 +60,10 @@ _filter_options_lock = Lock()
 # ── Simple in-process rate limiting ──────────────────────────────────────
 _rate_limit_lock = Lock()
 _rate_limit_state: dict[str, dict[str, float | int]] = {}
+
+# ── API usage logging ─────────────────────────────────────────────────────
+_USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
+_USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "0.05"))
 
 # ── Flask setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -372,6 +379,75 @@ class ApiUsageDaily(db.Model):
     count = db.Column(db.Integer, nullable=False, default=0)
 
     __table_args__ = (db.UniqueConstraint("api_key_id", "day"),)
+
+
+class ApiUsageHourly(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "api_usage_hourly"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    api_key_id = db.Column(
+        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
+    )
+    hour = db.Column(db.DateTime, index=True, nullable=False)
+    route = db.Column(db.String(256), nullable=False)
+    method = db.Column(db.String(8), nullable=False)
+    status_class = db.Column(db.Integer, nullable=False)
+    count = db.Column(db.Integer, nullable=False, default=0)
+    total_ms = db.Column(db.Integer, nullable=False, default=0)
+    max_ms = db.Column(db.Integer, nullable=False, default=0)
+    request_bytes = db.Column(db.Integer, nullable=False, default=0)
+    response_bytes = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "api_key_id", "hour", "route", "method", "status_class"
+        ),
+        db.Index("ix_api_usage_hourly_route_method", "route", "method"),
+    )
+
+
+class ApiRequestEvent(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "api_request_events"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    api_key_id = db.Column(
+        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
+    )
+    occurred_at = db.Column(db.DateTime, index=True, nullable=False)
+    route = db.Column(db.String(256), nullable=False)
+    method = db.Column(db.String(8), nullable=False)
+    status_code = db.Column(db.Integer, nullable=False)
+    status_class = db.Column(db.Integer, nullable=False)
+    latency_ms = db.Column(db.Integer, nullable=False)
+    request_bytes = db.Column(db.Integer, nullable=True)
+    response_bytes = db.Column(db.Integer, nullable=True)
+    ip_hash = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_api_request_events_key_time", "api_key_id", "occurred_at"),
+        db.Index("ix_api_request_events_ip_time", "ip_hash", "occurred_at"),
+    )
+
+
+class ApiUsageDailyIp(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "api_usage_daily_ips"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    api_key_id = db.Column(
+        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
+    )
+    day = db.Column(db.Date, index=True, nullable=False)
+    ip_hash = db.Column(db.String(64), nullable=False)
+    first_seen_at = db.Column(db.DateTime, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("api_key_id", "day", "ip_hash"),
+        db.Index("ix_api_usage_daily_ips_key_day", "api_key_id", "day"),
+    )
 
 
 _LEGAL_DOCS: dict[str, dict[str, str]] = {
@@ -1139,6 +1215,34 @@ def _request_user_agent() -> str | None:
     return ua[:512]
 
 
+def _api_route_template() -> str | None:
+    rule = request.url_rule
+    if rule is not None and isinstance(rule.rule, str) and rule.rule:
+        return rule.rule
+    path = request.path
+    if isinstance(path, str) and path:
+        return path
+    return None
+
+
+def _ip_hash(value: str | None) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not isinstance(secret, str) or not secret.strip():
+        return None
+    digest = hmac.new(secret.encode("utf-8"), value.strip().encode("utf-8"), hashlib.sha256)
+    return digest.hexdigest()
+
+
+def _usage_event_sample_rate(status_code: int) -> float:
+    if status_code >= 400:
+        return 1.0
+    if 300 <= status_code <= 399:
+        return _USAGE_SAMPLE_RATE_3XX
+    return _USAGE_SAMPLE_RATE_2XX
+
+
 def _require_legal_acceptance(data: dict) -> datetime:
     legal = data.get("legal")
     if not isinstance(legal, dict):
@@ -1425,6 +1529,11 @@ def _check_rate_limit(ctx: AccessContext) -> None:
 
 
 @app.before_request
+def _capture_request_start() -> None:
+    g.request_start = time.perf_counter()
+
+
+@app.before_request
 def _auth_rate_limit_guard():
     ctx = _current_access_context()
     g.access_ctx = ctx
@@ -1455,13 +1564,91 @@ def _record_api_key_usage(response):
         _mock_auth.record_usage(api_key_id=ctx.api_key_id)
         return response
     try:
+        route = _api_route_template()
+        if route is None:
+            return response
+        now = datetime.utcnow()
         today = date.today()
+        hour = now.replace(minute=0, second=0, microsecond=0)
+        status_code = int(response.status_code)
+        status_class = status_code // 100
+        elapsed_ms = 0
+        start = getattr(g, "request_start", None)
+        if isinstance(start, (int, float)):
+            elapsed_ms = max(0, int((time.perf_counter() - start) * 1000))
+        req_bytes = request.content_length
+        req_bytes_int = int(req_bytes) if isinstance(req_bytes, int) else 0
+        resp_bytes = response.content_length
+        resp_bytes_int = int(resp_bytes) if isinstance(resp_bytes, int) else 0
+
         row = ApiUsageDaily.query.filter_by(api_key_id=ctx.api_key_id, day=today).first()
         if row is None:
             row = ApiUsageDaily(api_key_id=ctx.api_key_id, day=today, count=1)
             db.session.add(row)
         else:
             row.count = int(row.count) + 1
+
+        hourly = ApiUsageHourly.query.filter_by(
+            api_key_id=ctx.api_key_id,
+            hour=hour,
+            route=route,
+            method=request.method,
+            status_class=status_class,
+        ).first()
+        if hourly is None:
+            hourly = ApiUsageHourly(
+                api_key_id=ctx.api_key_id,
+                hour=hour,
+                route=route,
+                method=request.method,
+                status_class=status_class,
+                count=1,
+                total_ms=elapsed_ms,
+                max_ms=elapsed_ms,
+                request_bytes=req_bytes_int,
+                response_bytes=resp_bytes_int,
+            )
+            db.session.add(hourly)
+        else:
+            hourly.count = int(hourly.count) + 1
+            hourly.total_ms = int(hourly.total_ms) + elapsed_ms
+            hourly.max_ms = max(int(hourly.max_ms), elapsed_ms)
+            hourly.request_bytes = int(hourly.request_bytes) + req_bytes_int
+            hourly.response_bytes = int(hourly.response_bytes) + resp_bytes_int
+
+        ip_hash = _ip_hash(_request_ip_address())
+        if ip_hash is not None:
+            existing_ip = ApiUsageDailyIp.query.filter_by(
+                api_key_id=ctx.api_key_id, day=today, ip_hash=ip_hash
+            ).first()
+            if existing_ip is None:
+                db.session.add(
+                    ApiUsageDailyIp(
+                        api_key_id=ctx.api_key_id,
+                        day=today,
+                        ip_hash=ip_hash,
+                        first_seen_at=now,
+                    )
+                )
+
+        sample_rate = _usage_event_sample_rate(status_code)
+        if random.random() < sample_rate:
+            user_agent = _request_user_agent()
+            db.session.add(
+                ApiRequestEvent(
+                    api_key_id=ctx.api_key_id,
+                    occurred_at=now,
+                    route=route,
+                    method=request.method,
+                    status_code=status_code,
+                    status_class=status_class,
+                    latency_ms=elapsed_ms,
+                    request_bytes=req_bytes if isinstance(req_bytes, int) else None,
+                    response_bytes=resp_bytes if isinstance(resp_bytes, int) else None,
+                    ip_hash=ip_hash,
+                    user_agent=user_agent,
+                )
+            )
         db.session.commit()
     except SQLAlchemyError:
         return response
@@ -2851,7 +3038,14 @@ def init_auth_db():
         if engine is None:
             raise click.ClickException("Auth DB bind is missing.")
         inspector = inspect(engine)
-        expected = {"auth_users", "api_keys", "api_usage_daily"}
+        expected = {
+            "auth_users",
+            "api_keys",
+            "api_usage_daily",
+            "api_usage_hourly",
+            "api_request_events",
+            "api_usage_daily_ips",
+        }
         existing = set(inspector.get_table_names())
         missing = sorted(expected - existing)
         if missing:

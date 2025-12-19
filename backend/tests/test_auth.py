@@ -42,6 +42,9 @@ class AuthFlowTests(unittest.TestCase):
         with app.app_context():
             engine = db.engines["auth"]
             with engine.begin() as conn:
+                conn.execute(text("DELETE FROM api_request_events"))
+                conn.execute(text("DELETE FROM api_usage_hourly"))
+                conn.execute(text("DELETE FROM api_usage_daily_ips"))
                 conn.execute(text("DELETE FROM api_usage_daily"))
                 conn.execute(text("DELETE FROM api_keys"))
                 conn.execute(text("DELETE FROM legal_acceptances"))
