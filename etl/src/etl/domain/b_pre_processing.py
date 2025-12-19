@@ -3,9 +3,8 @@ import os
 import re
 import threading
 import time
-import uuid
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
@@ -13,18 +12,13 @@ from urllib.parse import urlparse
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from bs4.element import Comment, NavigableString
+from bs4.element import Comment, NavigableString, Tag
 
 # Rate limiting configuration
 _request_times: deque = deque()
 _request_lock = threading.Lock()
 _RATE_LIMIT = 10  # requests per period
 _RATE_PERIOD = 1.025  # seconds
-
-
-def get_uuid(x: str) -> str:
-    """Generate a UUID5 hash from the input string."""
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
 
 
 @dataclass
@@ -169,6 +163,39 @@ def strip_formatting_tags(
     for c in soup.find_all(string=lambda text: isinstance(text, Comment)):
         c.extract()
 
+    def _style_value(style: str, prop: str) -> Optional[str]:
+        for part in style.split(";"):
+            if ":" not in part:
+                continue
+            key, value = part.split(":", 1)
+            if key.strip().lower() == prop:
+                return value.strip().lower()
+        return None
+
+    def _is_hidden_self(tag) -> bool:
+        if tag.has_attr("hidden"):
+            return True
+        if tag.get("aria-hidden", "").strip().lower() == "true":
+            return True
+        style = tag.get("style", "")
+        if not style:
+            return False
+        return _style_value(style, "display") == "none" or _style_value(
+            style, "visibility"
+        ) == "hidden"
+
+    def _has_hidden_ancestor(tag) -> bool:
+        if _is_hidden_self(tag):
+            return True
+        for parent in tag.parents:
+            if _is_hidden_self(parent):
+                return True
+        return False
+
+    for tag in list(soup.find_all(True)):
+        if _has_hidden_ancestor(tag):
+            tag.decompose()
+
     if remove_tags is None:
         remove_tags = [
             "font",
@@ -238,6 +265,20 @@ def block_level_soup(
         New BeautifulSoup object with only top-level block elements.
     """
     new_soup = BeautifulSoup("", "html.parser")
+    root = soup.body if soup.body else soup
+
+    for child in root.contents:
+        if isinstance(child, NavigableString) and child.strip():
+            p = new_soup.new_tag("p")
+            p.string = str(child)
+            new_soup.append(p)
+        elif isinstance(child, Tag) and child.name not in block_tags:
+            if child.get_text(strip=True):
+                p = new_soup.new_tag("p")
+                fragment = BeautifulSoup(str(child), "html.parser")
+                for node in fragment.contents:
+                    p.append(node)
+                new_soup.append(p)
     for tag in soup.find_all(block_tags):
         # Skip any that live inside another block_tag
         if tag.find_parent(block_tags):
@@ -349,9 +390,16 @@ def split_to_pages(
             )
 
         for div in soup.find_all(is_page_break_div):
-            hr = soup.new_tag("hr")
-            hr["data-page-break"] = "true"
-            div.replace_with(hr)
+            style = div.get("style", "").lower()
+            has_hr = div.find("hr") is not None
+            if "page-break-before" in style and not has_hr:
+                hr = soup.new_tag("hr")
+                hr["data-page-break"] = "true"
+                div.insert_before(hr)
+            if "page-break-after" in style and not has_hr:
+                hr = soup.new_tag("hr")
+                hr["data-page-break"] = "true"
+                div.insert_after(hr)
 
         # Mark every other <hr> outside of tables
         for hr in soup.find_all("hr"):
@@ -373,6 +421,10 @@ def _format_page(page, is_txt, is_html):
     return format_content(page["content"], is_txt, is_html)
 
 
+def _count_alpha_tokens(text: str) -> int:
+    return sum(1 for token in text.split() if re.search(r"[A-Za-z]", token))
+
+
 def _attach_preds_to_pages(
     page_objs: List[PageMetadata], preds: List[List[Dict[str, Any]]]
 ) -> None:
@@ -390,12 +442,13 @@ def _attach_preds_to_pages(
 
 
 def pre_process(
-    rows: List[Dict[str, Any]], classifier_model: Any
+    context: Any, rows: List[Dict[str, Any]], classifier_model: Any
 ) -> Optional[List[PageMetadata]]:
     """
     Split agreements into pages, classify page type, and process HTML into formatted text.
 
     Args:
+        context: Optional context for logging.
         rows: List of agreement data dictionaries.
         classifier_model: Model to use for page classification.
 
@@ -430,18 +483,38 @@ def pre_process(
 
         if len(pages) <= 10:
             if context:
-                context.log.info(f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload.")
+                context.log.info(
+                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. "
+                    "Skipping page upload."
+                )
             else:
-                print(f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload.")
-            return staged_pages
+                print(
+                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. "
+                    "Skipping page upload."
+                )
+            continue
 
         # Format and classify
+        page_objs: List[PageMetadata] = []
         page_order = 0
         for page in pages:
             formatted = _format_page(page, is_txt, is_html)
             if not formatted:
                 continue
-            all_page_objs.append(
+            if _count_alpha_tokens(formatted) > 2000:
+                if context:
+                    context.log.info(
+                        f"Agreement {agreement['agreement_uuid']} has a long page. "
+                        "Skipping page upload."
+                    )
+                else:
+                    print(
+                        f"Agreement {agreement['agreement_uuid']} has a long page. "
+                        "Skipping page upload."
+                    )
+                page_objs = []
+                break
+            page_objs.append(
                 PageMetadata(
                     agreement_uuid=agreement["agreement_uuid"],
                     page_order=page_order,
@@ -453,6 +526,8 @@ def pre_process(
                 )
             )
             page_order += 1
+        if page_objs:
+            all_page_objs.extend(page_objs)
 
     if not all_page_objs:
         return staged_pages
@@ -464,7 +539,7 @@ def pre_process(
 
 
 def cleanup(
-    rows: List[Dict[str, Any]], classifier_model: Any, context: Any
+    rows: List[Dict[str, Any]], classifier_model: Any, context: Any = None
 ) -> Optional[List[PageMetadata]]:
     """
     Clean up and reprocess existing page data.
@@ -472,6 +547,7 @@ def cleanup(
     Args:
         rows: List of page data dictionaries.
         classifier_model: Model to use for page classification.
+        context: Optional context for logging.
 
     Returns:
         List of reprocessed PageMetadata objects.
@@ -485,7 +561,7 @@ def cleanup(
         is_txt = pages[0]["is_txt"]
         is_html = pages[0]["is_html"]
         page_order = 0
-        for p in sorted(pages, key=lambda x: x["page_uuid"]):
+        for p in sorted(pages, key=lambda x: x["page_order"]):
             formatted = format_content(p["content"], is_txt, is_html)
             if not formatted:
                 continue
@@ -520,6 +596,7 @@ if __name__ == "__main__":
     clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 
     pre_process(
+        None,
         [
             {
                 "url": "https://www.sec.gov/Archives/edgar/data/1035884/000110465907050454/a07-17577_1ex2d1.htm",
