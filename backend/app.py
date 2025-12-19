@@ -807,7 +807,6 @@ def _load_session_token(token: str) -> str | None:
     return user_id if isinstance(user_id, str) else None
 
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
@@ -1056,7 +1055,7 @@ def _google_verify_id_token(id_token: str) -> str:
         abort(401, description="Google email is not verified.")
 
     normalized = _normalize_email(email)
-    if not _EMAIL_RE.match(normalized):
+    if not _is_email_like(normalized):
         abort(401, description="Invalid email address.")
     return normalized
 
@@ -2247,7 +2246,7 @@ def auth_resend_email_verification():
     if not isinstance(email_raw, str) or not email_raw.strip():
         abort(400, description="Email is required.")
     email = _normalize_email(email_raw)
-    if not _EMAIL_RE.match(email):
+    if not _is_email_like(email):
         abort(400, description="Invalid email address.")
 
     if _auth_is_mocked():
