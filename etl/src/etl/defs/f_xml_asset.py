@@ -8,7 +8,7 @@ from sqlalchemy import text
 from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.xml import generate_xml
+from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
 from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
 

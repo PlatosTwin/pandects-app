@@ -41,7 +41,7 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
     """
     usecols = ["target", "acquirer", "date_announcement", "url", "filename"]
     df = pd.read_csv(
-        "/Users/nikitabogdanov/Downloads/dma_corpus_metadata.csv",
+        "/Users/nikitabogdanov/PycharmProjects/merger_agreements/dma_corpus/dma_corpus_metadata_150_sample.csv",
         usecols=usecols,
         parse_dates=["date_announcement"],
     )
@@ -53,10 +53,10 @@ def fetch_new_filings(since: str) -> List[FilingMetadata]:
     cutoff = pd.to_datetime(since)
     df = df[df["date_announcement"] > cutoff]
 
-    # Sort oldest first and take only the 10 oldest new filings
-    df.sort_values("date_announcement", ascending=True, inplace=True)
-    # df = df.head(10)
-    df = df.sample(frac=0.25)
+    # # Sort oldest first and take only the 10 oldest new filings
+    # df.sort_values("date_announcement", ascending=True, inplace=True)
+    # # df = df.head(10)
+    # df = df.sample(frac=0.25)
 
     # Build our results list via a memory‑light iterator
     results: List[FilingMetadata] = []

@@ -10,7 +10,7 @@ import dagster as dg
 from sqlalchemy import text
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.staging import fetch_new_filings
+from etl.domain.a_staging import fetch_new_filings
 from etl.utils.db_utils import upsert_agreements
 from etl.utils.run_config import is_cleanup_mode
 

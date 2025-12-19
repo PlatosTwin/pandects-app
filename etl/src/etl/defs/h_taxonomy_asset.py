@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from etl.defs.g_sections_asset import sections_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel
 from etl.domain.h_taxonomy import strip_xml_tags_to_text, apply_standard_ids_to_xml
-from etl.domain.xml import XMLData
+from etl.domain.f_xml import XMLData
 from etl.utils.db_utils import upsert_xml
 from etl.utils.run_config import get_int_tag, is_batched
 

@@ -1,8 +1,8 @@
 import dagster as dg
-from etl.defs.staging_asset import staging_asset
-from etl.defs.pre_processing_asset import pre_processing_asset
-from etl.defs.tagging_asset import tagging_asset
-from etl.defs.xml_asset import xml_asset
+from etl.defs.a_staging_asset import staging_asset
+from etl.defs.b_pre_processing_asset import pre_processing_asset
+from etl.defs.c_tagging_asset import tagging_asset
+from etl.defs.f_xml_asset import xml_asset
 from etl.defs.resources import get_resources
 
 base_resources = get_resources()

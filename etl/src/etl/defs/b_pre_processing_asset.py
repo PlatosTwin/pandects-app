@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from etl.defs.a_staging_asset import staging_asset
 from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
-from etl.domain.pre_processing import cleanup, pre_process
+from etl.domain.b_pre_processing import cleanup, pre_process
 from etl.utils.db_utils import upsert_pages
 from etl.utils.run_config import is_cleanup_mode
 

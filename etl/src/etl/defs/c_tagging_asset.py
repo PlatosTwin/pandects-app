@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from etl.defs.b_pre_processing_asset import pre_processing_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
-from etl.domain.tagging import tag
+from etl.domain.c_tagging import tag
 from etl.utils.db_utils import upsert_tags
 from etl.utils.run_config import get_int_tag, is_batched, is_cleanup_mode
 
