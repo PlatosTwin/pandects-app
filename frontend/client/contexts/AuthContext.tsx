@@ -81,16 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       legal: LegalAcceptancePayload,
       captchaToken?: string,
     ) => {
-      const res = await registerWithEmail(email, password, legal, captchaToken);
-      if (transport === "bearer") {
-        if (!res.sessionToken) {
-          throw new Error("Missing session token.");
-        }
-        setSessionToken(res.sessionToken);
-        setSessionTokenState(res.sessionToken);
+      if (transport === "cookie") {
+        void logoutSession().catch(() => undefined);
+      } else {
+        clearSessionToken();
       }
-      setUser(res.user);
-      setStatus("authenticated");
+      setSessionTokenState(null);
+      setUser(null);
+      setStatus("anonymous");
+
+      await registerWithEmail(email, password, legal, captchaToken);
     },
     [transport],
   );

@@ -14,8 +14,9 @@ export async function registerWithEmail(
   captchaToken?: string,
 ) {
   return authFetchJson<{
+    status: "verification_required";
     user: AuthUser;
-    sessionToken?: string;
+    debugToken?: string;
   }>(apiUrl("api/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -34,6 +35,14 @@ export async function loginWithEmail(email: string, password: string) {
       body: JSON.stringify({ email, password }),
     },
   );
+}
+
+export async function resendVerificationEmail(email: string) {
+  return authFetchJson<{ status: "sent" }>(apiUrl("api/auth/email/resend"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
 }
 
 export async function fetchMe() {

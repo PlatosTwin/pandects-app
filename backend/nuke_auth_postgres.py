@@ -1,9 +1,17 @@
 import argparse
 import os
 import sys
+from pathlib import Path
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.url import make_url
+
+
+# Load env vars from `backend/.env` regardless of the process working directory.
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+# Also allow a repo/root `.env` (or process env) to supply values without overriding.
+load_dotenv()
 
 
 def _normalize_database_uri(uri: str) -> str:
@@ -11,7 +19,7 @@ def _normalize_database_uri(uri: str) -> str:
     if normalized.startswith("postgres://"):
         normalized = f"postgresql://{normalized[len('postgres://'):]}"
     if normalized.startswith("postgresql://") and "connect_timeout=" not in normalized:
-        joiner = "&" if "?" in normalized else "?"
+        joiner = "?" if "?" not in normalized else ("" if normalized.endswith("?") else "&")
         normalized = f"{normalized}{joiner}connect_timeout=5"
     return normalized
 
@@ -24,7 +32,10 @@ def _effective_database_uri(*, explicit_uri: str | None) -> str:
     db_url = os.environ.get("DATABASE_URL")
     raw = (auth_uri or db_url or "").strip()
     if not raw:
-        raise RuntimeError("Missing AUTH_DATABASE_URI (or DATABASE_URL) for Postgres connection.")
+        raise RuntimeError(
+            "Missing AUTH_DATABASE_URI (or DATABASE_URL) for Postgres connection. "
+            "Set it in your environment or in backend/.env."
+        )
     return _normalize_database_uri(raw)
 
 

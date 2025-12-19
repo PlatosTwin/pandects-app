@@ -27,7 +27,7 @@ _AUTH_DB_TEMP.close()
 os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 
-from backend.app import app, db, ApiKey  # noqa: E402
+from backend.app import app, db, ApiKey, AuthUser  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 
 
@@ -89,9 +89,38 @@ class AuthFlowTests(unittest.TestCase):
             headers={"X-CSRF-Token": csrf},
         )
         self.assertEqual(res.status_code, 201)
-        data = res.get_json()
-        self.assertIsInstance(data, dict)
-        self.assertNotIn("sessionToken", data)
+        set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
+        if "pdcts_session=" in set_cookie:
+            self.assertIn("Expires=Thu, 01 Jan 1970", set_cookie)
+
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="a@example.com").first()
+            self.assertIsNotNone(user)
+            token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+
+        res = client.post("/api/auth/email/verify", json={"token": token})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.get(f"/api/auth/email/verify?token={token}")
+        self.assertEqual(res.status_code, 303)
+
+        res = client.get("/api/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "a@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 403)
+
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "a@example.com", "password": "password123"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 200)
         set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
         self.assertIn("pdcts_session=", set_cookie)
         self.assertIn("HttpOnly", set_cookie)
@@ -136,6 +165,19 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 201)
+
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="events@example.com").first()
+            self.assertIsNotNone(user)
+            token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+
+        res = client.post("/api/auth/login", json={"email": "events@example.com", "password": "password123"})
+        self.assertEqual(res.status_code, 403)
+
+        res = client.post("/api/auth/email/verify", json={"token": token})
+        self.assertEqual(res.status_code, 200)
 
         res = client.post(
             "/api/auth/login",
@@ -255,6 +297,19 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 201)
+        res = client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"})
+        self.assertEqual(res.status_code, 403)
+
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="b@example.com").first()
+            self.assertIsNotNone(user)
+            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
+
+        res = client.post("/api/auth/email/verify", json={"token": verify})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"})
+        self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
         token = data.get("sessionToken")
@@ -323,6 +378,23 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
 
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="delete-me@example.com").first()
+            self.assertIsNotNone(user)
+            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
+
+        res = client.post("/api/auth/email/verify", json={"token": verify})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.get("/api/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "delete-me@example.com", "password": "password123"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(res.status_code, 200)
+
         csrf = self._csrf_cookie_value(client)
         res = client.post(
             "/api/auth/account/delete",
@@ -357,6 +429,16 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 201)
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="keyuser@example.com").first()
+            self.assertIsNotNone(user)
+            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
+
+        res = client.post("/api/auth/email/verify", json={"token": verify})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post("/api/auth/login", json={"email": "keyuser@example.com", "password": "password123"})
+        self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
         token = data.get("sessionToken")
