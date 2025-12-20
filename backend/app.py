@@ -32,8 +32,6 @@ from sqlalchemy import (
     inspect,
     MetaData,
     Table,
-    func,
-    desc,
     Column,
     CHAR,
     Integer,
@@ -1687,16 +1685,6 @@ metadata = MetaData()
 if not _SKIP_MAIN_DB_REFLECTION:
     engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
 
-    llm_output_table = Table(
-        "llm_output",
-        metadata,
-        autoload_with=engine,
-    )
-    prompts_table = Table(
-        "prompts",
-        metadata,
-        autoload_with=engine,
-    )
     agreements_table = Table(
         "agreements",
         metadata,
@@ -1715,8 +1703,6 @@ if not _SKIP_MAIN_DB_REFLECTION:
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
-    llm_output_table = Table("llm_output", metadata, Column("id", Integer, primary_key=True))
-    prompts_table = Table("prompts", metadata, Column("id", Integer, primary_key=True))
     agreements_table = Table(
         "agreements",
         metadata,
@@ -1744,14 +1730,6 @@ sections_table = Table(
 
 
 # ── SQLAlchemy models mapping ───────────────────────────────────────
-class LLMOut(db.Model):
-    __table__ = llm_output_table
-
-
-class Prompts(db.Model):
-    __table__ = prompts_table
-
-
 class Sections(db.Model):
     __table__ = sections_table
 
@@ -1840,56 +1818,6 @@ class DumpEntrySchema(Schema):
 
 
 # ── Route definitions ───────────────────────────────────────
-
-# LLM routes - Only available in local development (debug mode)
-@app.route("/api/llm/<string:page_uuid>", methods=["GET"])
-def get_llm(page_uuid):
-    # Check if running in debug mode (local development)
-    if not app.debug:
-        abort(404)  # Return 404 in production to hide the endpoint
-
-    # pick the most-recent prompt for this page (excluding SKIP outputs)
-    latest_prompt_id = (
-        db.session.query(Prompts.prompt_id)
-        .join(LLMOut, Prompts.prompt_id == LLMOut.prompt_id)
-        .filter(LLMOut.page_uuid == page_uuid)
-        .filter(func.coalesce(LLMOut.llm_output_corrected, LLMOut.llm_output) != "SKIP")
-        .order_by(desc(Prompts.updated_at))
-        .limit(1)
-        .scalar()
-    )
-    if not latest_prompt_id:
-        abort(404)
-
-    # fetch the LLMOut record
-    record = LLMOut.query.get_or_404((page_uuid, latest_prompt_id))
-
-    return jsonify(
-        {
-            "pageUuid": record.page_uuid,
-            "promptId": record.prompt_id,
-            "llmOutput": record.llm_output,
-            "llmOutputCorrected": record.llm_output_corrected,
-        }
-    )
-
-
-@app.route("/api/llm/<string:page_uuid>/<string:prompt_id>", methods=["PUT"])
-def update_llm(page_uuid, prompt_id):
-    # Check if running in debug mode (local development)
-    if not app.debug:
-        abort(404)  # Return 404 in production to hide the endpoint
-
-    data = request.get_json()
-    corrected = data.get("llmOutputCorrected")
-    if corrected is None:
-        return jsonify({"error": "llmOutputCorrected is required"}), 400
-
-    record = LLMOut.query.get_or_404((page_uuid, prompt_id))
-    record.llm_output_corrected = corrected
-    db.session.commit()
-    return jsonify({"status": "updated"}), 200
-
 
 @app.route("/api/agreements/<string:agreement_uuid>", methods=["GET"])
 def get_agreement(agreement_uuid):
