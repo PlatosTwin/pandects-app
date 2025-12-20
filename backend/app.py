@@ -62,6 +62,7 @@ _rate_limit_state: dict[str, dict[str, float | int]] = {}
 # ── API usage logging ─────────────────────────────────────────────────────
 _USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
 _USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "0.05"))
+_LATENCY_BUCKET_BOUNDS_MS = (25, 50, 100, 250, 500, 1000, 2000, 5000, 10000)
 
 # ── Flask setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -394,6 +395,7 @@ class ApiUsageHourly(db.Model):
     count = db.Column(db.Integer, nullable=False, default=0)
     total_ms = db.Column(db.Integer, nullable=False, default=0)
     max_ms = db.Column(db.Integer, nullable=False, default=0)
+    latency_buckets = db.Column(db.JSON, nullable=True)
     request_bytes = db.Column(db.Integer, nullable=False, default=0)
     response_bytes = db.Column(db.Integer, nullable=False, default=0)
 
@@ -695,10 +697,10 @@ class _MockAuthStore:
 
     def record_usage(self, *, api_key_id: str) -> None:
         with self._lock:
-            self._usage_daily[(api_key_id, date.today())] += 1
+            self._usage_daily[(api_key_id, _utc_today())] += 1
 
     def usage_for_user(self, *, user_id: str) -> tuple[list[dict[str, object]], int]:
-        cutoff = date.today() - timedelta(days=29)
+        cutoff = _utc_today() - timedelta(days=29)
         with self._lock:
             key_ids = [
                 k.id for k in self._api_keys_by_id.values() if k.user_id == user_id
@@ -1241,6 +1243,21 @@ def _usage_event_sample_rate(status_code: int) -> float:
     return _USAGE_SAMPLE_RATE_2XX
 
 
+def _utc_today() -> date:
+    return datetime.utcnow().date()
+
+
+def _init_latency_buckets() -> list[int]:
+    return [0] * (len(_LATENCY_BUCKET_BOUNDS_MS) + 1)
+
+
+def _latency_bucket_index(elapsed_ms: int) -> int:
+    for idx, bound in enumerate(_LATENCY_BUCKET_BOUNDS_MS):
+        if elapsed_ms <= bound:
+            return idx
+    return len(_LATENCY_BUCKET_BOUNDS_MS)
+
+
 def _require_legal_acceptance(data: dict) -> datetime:
     legal = data.get("legal")
     if not isinstance(legal, dict):
@@ -1566,7 +1583,7 @@ def _record_api_key_usage(response):
         if route is None:
             return response
         now = datetime.utcnow()
-        today = date.today()
+        today = now.date()
         hour = now.replace(minute=0, second=0, microsecond=0)
         status_code = int(response.status_code)
         status_class = status_code // 100
@@ -1593,7 +1610,10 @@ def _record_api_key_usage(response):
             method=request.method,
             status_class=status_class,
         ).first()
+        bucket_index = _latency_bucket_index(elapsed_ms)
         if hourly is None:
+            buckets = _init_latency_buckets()
+            buckets[bucket_index] = 1
             hourly = ApiUsageHourly(
                 api_key_id=ctx.api_key_id,
                 hour=hour,
@@ -1603,6 +1623,7 @@ def _record_api_key_usage(response):
                 count=1,
                 total_ms=elapsed_ms,
                 max_ms=elapsed_ms,
+                latency_buckets=buckets,
                 request_bytes=req_bytes_int,
                 response_bytes=resp_bytes_int,
             )
@@ -1611,6 +1632,11 @@ def _record_api_key_usage(response):
             hourly.count = int(hourly.count) + 1
             hourly.total_ms = int(hourly.total_ms) + elapsed_ms
             hourly.max_ms = max(int(hourly.max_ms), elapsed_ms)
+            buckets = hourly.latency_buckets
+            if not isinstance(buckets, list) or len(buckets) != len(_LATENCY_BUCKET_BOUNDS_MS) + 1:
+                buckets = _init_latency_buckets()
+            buckets[bucket_index] = int(buckets[bucket_index]) + 1
+            hourly.latency_buckets = buckets
             hourly.request_bytes = int(hourly.request_bytes) + req_bytes_int
             hourly.response_bytes = int(hourly.response_bytes) + resp_bytes_int
 
@@ -2662,7 +2688,7 @@ def auth_usage():
         resp = make_response(jsonify({"byDay": by_day, "total": total}))
         resp.headers["Cache-Control"] = "no-store"
         return resp
-    cutoff = date.today() - timedelta(days=29)
+    cutoff = _utc_today() - timedelta(days=29)
     try:
         key_ids = [k.id for k in ApiKey.query.filter_by(user_id=user.id).all()]
         if not key_ids:
