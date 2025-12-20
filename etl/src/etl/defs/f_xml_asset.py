@@ -46,28 +46,28 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
                 conn.execute(
                     text(
                         """
-                    SELECT
-                        a.agreement_uuid
-                    FROM
-                        pdx.agreements a
-                    JOIN pdx.pages p
-                        ON p.agreement_uuid = a.agreement_uuid
-                    LEFT JOIN pdx.tagged_outputs t
-                        ON t.page_uuid = p.page_uuid
-                    WHERE a.agreement_uuid > :last_uuid
-                      AND NOT EXISTS (
-                        SELECT 1 FROM pdx.xml x WHERE x.agreement_uuid = a.agreement_uuid
-                      )
-                    GROUP BY a.agreement_uuid
-                    HAVING
-                      SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END) > 0
-                      AND SUM(
-                        CASE WHEN p.source_page_type = 'body'
-                               AND COALESCE(t.tagged_text_corrected, t.tagged_text) IS NOT NULL
-                             THEN 1 ELSE 0 END
-                      ) = SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END)
-                    ORDER BY a.agreement_uuid
-                    LIMIT :limit;
+                        SELECT
+                            a.agreement_uuid
+                        FROM
+                            pdx.agreements a
+                        JOIN pdx.pages p
+                            ON p.agreement_uuid = a.agreement_uuid
+                        LEFT JOIN pdx.tagged_outputs t
+                            ON t.page_uuid = p.page_uuid
+                        WHERE a.agreement_uuid > :last_uuid
+                        AND NOT EXISTS (
+                            SELECT 1 FROM pdx.xml x WHERE x.agreement_uuid = a.agreement_uuid
+                        )
+                        GROUP BY a.agreement_uuid
+                        HAVING
+                        SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END) > 0
+                        AND SUM(
+                            CASE WHEN p.source_page_type = 'body'
+                                AND COALESCE(t.tagged_text_corrected, t.tagged_text) IS NOT NULL
+                                THEN 1 ELSE 0 END
+                        ) = SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END)
+                        ORDER BY a.agreement_uuid
+                        LIMIT :limit;
                 """
                     ),
                     {"limit": agreement_batch_size, "last_uuid": last_uuid},
