@@ -80,7 +80,7 @@ def tx_metadata_asset(
     context.log.info(f"tx_metadata_asset: selected {len(agreements)} agreements for enrichment")
 
     # Use standard Responses API per agreement (web_search is not supported in batch API)
-    model_name = "gpt-5-mini"
+    model_name = "gpt-5"
     client = _oai_client()
 
     success_data: List[Tuple[str, Dict[str, Any]]] = []  # (agreement_uuid, parsed_obj)
