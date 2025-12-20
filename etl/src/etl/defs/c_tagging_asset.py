@@ -32,7 +32,7 @@ def tagging_asset(
     inference_model = tagging_model.model()
 
     # batching controls
-    batch_size = pipeline_config.tagging_page_batch_size
+    agreement_batch_size = pipeline_config.tagging_agreement_batch_size
     batched = is_batched(context, pipeline_config)
 
     last_uuid: str = ""
@@ -46,34 +46,71 @@ def tagging_asset(
     ran_batches = 0
     while True:
         with engine.begin() as conn:
-            # Fetch batch of body pages that are missing tags
-            result = conn.execute(
-                text(
+            # Fetch batch of agreements with at least one body page missing tags
+            agreement_uuids = (
+                conn.execute(
+                    text(
+                        """
+                        SELECT
+                            p.agreement_uuid
+                        FROM
+                            pdx.pages p
+                        LEFT JOIN pdx.tagged_outputs t
+                            ON t.page_uuid = p.page_uuid
+                        WHERE
+                            p.agreement_uuid > :last_uuid
+                            AND coalesce(p.gold_label, p.source_page_type) = 'body'
+                            AND p.processed_page_content IS NOT NULL
+                            AND t.page_uuid IS NULL
+                        GROUP BY
+                            p.agreement_uuid
+                        ORDER BY
+                            p.agreement_uuid ASC
+                        LIMIT
+                            :batch_size
                     """
-                    SELECT
-                        p.page_uuid,
-                        p.processed_page_content
-                    FROM
-                        pdx.pages p
-                    LEFT JOIN pdx.tagged_outputs t
-                        ON t.page_uuid = p.page_uuid
-                    WHERE
-                        p.page_uuid > :last_uuid
-                        AND coalesce(p.gold_label, p.source_page_type) = 'body'
-                        AND p.processed_page_content IS NOT NULL
-                        AND t.page_uuid IS NULL
-                    ORDER BY
-                        p.page_uuid ASC
-                    LIMIT
-                        :batch_size
-                """
-                ),
-                {"last_uuid": last_uuid, "batch_size": batch_size},
+                    ),
+                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
+                )
+                .scalars()
+                .all()
             )
-            rows_mapping = result.mappings().fetchall()
+
+            if not agreement_uuids:
+                break
+
+            # Fetch body pages missing tags for those agreements
+            rows_mapping = (
+                conn.execute(
+                    text(
+                        """
+                        SELECT
+                            p.page_uuid,
+                            p.processed_page_content
+                        FROM
+                            pdx.pages p
+                        LEFT JOIN pdx.tagged_outputs t
+                            ON t.page_uuid = p.page_uuid
+                        WHERE
+                            p.agreement_uuid IN :uuids
+                            AND coalesce(p.gold_label, p.source_page_type) = 'body'
+                            AND p.processed_page_content IS NOT NULL
+                            AND t.page_uuid IS NULL
+                        ORDER BY
+                            p.agreement_uuid ASC,
+                            p.page_order ASC,
+                            p.page_uuid ASC
+                    """
+                    ),
+                    {"uuids": tuple(agreement_uuids)},
+                )
+                .mappings()
+                .fetchall()
+            )
 
             if not rows_mapping:
-                break
+                last_uuid = agreement_uuids[-1]
+                continue
 
             # Apply tagging to pages
             rows: List[Dict[str, Any]] = [dict(r) for r in rows_mapping]
@@ -86,8 +123,8 @@ def tagging_asset(
                 context.log.error(f"Error upserting tags: {e}")
                 raise RuntimeError(e)
 
-            last_uuid = rows[-1]["page_uuid"]
+            last_uuid = agreement_uuids[-1]
 
         ran_batches += 1
-        if is_batched:
+        if batched:
             break
