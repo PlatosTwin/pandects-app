@@ -18,6 +18,19 @@
 8. Stage 8: taxonomize ()
     * Assign each section to a taxonomy and update table + XML accordingly
 
+## Running the ETL with config
+
+Run config is centralized in `etl/configs/etl_pipeline.yaml`. Edit `mode`, `scope`,
+and batch sizes there, then execute:
+
+```bash
+dagster job execute -f etl/src/etl/defs/jobs.py -j etl_pipeline -c etl/configs/etl_pipeline.yaml
+```
+
+If you're using `dg dev`, open the asset (or job) in the UI, click Materialize,
+and paste the same `resources.pipeline_config` block into the Launchpad run config
+editor before launching.
+
 ## Stage 1—Stage agreements
 
 **Description**: Checks EDGAR for new filings, and stages for filings for ingestion by writing to a temp staging file. Set `pdx.agreements.processed = 0` until XML is generated in Step 4.
