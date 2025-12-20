@@ -66,7 +66,8 @@ DDL_CREATE = [
         excerpt_start INT NULL,
         excerpt_end   INT NULL,
         created_at   DATETIME NOT NULL,
-        status       VARCHAR(32) NOT NULL
+        status       VARCHAR(32) NOT NULL,
+        token_usage  JSON NULL
     )
     """,
     
@@ -99,16 +100,14 @@ def _ensure_tables(conn) -> None:
         conn.execute(text(ddl))
 
 
-def _fetch_candidates(conn, batch_limit: int) -> List[Dict[str, Any]]:
+def _fetch_candidates(conn, agreement_limit: int) -> List[Dict[str, Any]]:
     """
-    Pull pages that have uncertain spans and haven't yet been queued for AI repair.
+    Pull pages with uncertain spans for the first N agreements that need AI repair.
     """
-    q = text(
+    agreements_q = text(
         """
         SELECT
-            p.page_uuid,
-            p.processed_page_content AS text,
-            t.spans AS spans
+            p.agreement_uuid
         FROM
             pdx.pages p
             JOIN pdx.tagged_outputs t USING (page_uuid)
@@ -121,16 +120,88 @@ def _fetch_candidates(conn, batch_limit: int) -> List[Dict[str, Any]]:
                     pdx.ai_repair_requests r
                 WHERE
                     r.page_uuid = p.page_uuid
-                    and status = 'completed'
+                    and status not in ('completed', 'queued')
             )
+        GROUP BY
+            p.agreement_uuid
         ORDER BY
-            p.page_uuid
+            p.agreement_uuid
         LIMIT
             :lim
         """
     )
-    rows = conn.execute(q, {"lim": batch_limit}).mappings().fetchall()
+    agreement_uuids = conn.execute(
+        agreements_q, {"lim": agreement_limit}
+    ).scalars().all()
+    if not agreement_uuids:
+        return []
+
+    pages_q = text(
+        """
+        SELECT
+            p.page_uuid,
+            p.agreement_uuid,
+            p.processed_page_content AS text,
+            t.spans AS spans
+        FROM
+            pdx.pages p
+            JOIN pdx.tagged_outputs t USING (page_uuid)
+        WHERE
+            p.agreement_uuid IN :uuids
+            AND JSON_LENGTH(t.spans) > 0
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    pdx.ai_repair_requests r
+                WHERE
+                    r.page_uuid = p.page_uuid
+                    and status not in ('completed', 'queued')
+            )
+        ORDER BY
+            p.agreement_uuid,
+            p.page_order,
+            p.page_uuid
+        """
+    )
+    rows = conn.execute(pages_q, {"uuids": tuple(agreement_uuids)}).mappings().fetchall()
     return [dict(r) for r in rows]
+
+
+def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
+    if not isinstance(spans_json, str):
+        raise ValueError("Expected spans to be a JSON string.")
+    spans_raw = json.loads(spans_json)
+    if not isinstance(spans_raw, list):
+        raise ValueError("Spans JSON must decode to a list.")
+
+    spans: List[UncertainSpan] = []
+    for s in spans_raw:
+        if not isinstance(s, dict):
+            raise ValueError("Span entries must be objects.")
+        entity = s["entity"]
+        start_char = s["start_char"]
+        end_char = s["end_char"]
+        avg_confidence = s["avg_confidence"]
+
+        if not isinstance(entity, str):
+            raise ValueError("Span entity must be a string.")
+        if not isinstance(start_char, int) or not isinstance(end_char, int):
+            raise ValueError("Span start/end must be integers.")
+        if end_char < start_char:
+            raise ValueError("Span end_char must be >= start_char.")
+        if not isinstance(avg_confidence, (int, float)):
+            raise ValueError("Span avg_confidence must be numeric.")
+
+        spans.append(
+            UncertainSpan(
+                entity=entity,
+                start_char=start_char,
+                end_char=end_char,
+                avg_confidence=float(avg_confidence),
+            )
+        )
+    return spans
 
 
 def _insert_batch_row(conn, batch, completion_window: str, request_total: int) -> None:
@@ -191,8 +262,8 @@ def _insert_requests(conn, batch_id: str, lines_meta: List[Dict[str, Any]]) -> N
                 "bid": batch_id,
                 "pid": m["page_uuid"],
                 "mode": m["mode"],
-                "xs": m.get("excerpt_start"),
-                "xe": m.get("excerpt_end"),
+                "xs": m["excerpt_start"],
+                "xe": m["excerpt_end"],
                 "ts": now,
             },
         )
@@ -227,96 +298,95 @@ def ai_repair_enqueue_asset(
     client = _oai_client()
 
     batch_completion_window = "24h"
-    model_name = "gpt-5-mini"
+    full_page_model = "gpt-5"
+    excerpt_model = "gpt-5-mini"
 
     with engine.begin() as conn:
         _ensure_tables(conn)
 
         # 1) fetch candidate pages needing AI repair
-        batch_size = pipeline_config.ai_repair_page_batch_size
+        batch_size = pipeline_config.ai_repair_agreement_batch_size
         batched = is_batched(context, pipeline_config)
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
             return
 
-        candidates = _fetch_candidates(conn, batch_limit=batch_size)
+        candidates = _fetch_candidates(conn, agreement_limit=batch_size)
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
             return
 
-        # 2) build JSONL in-memory
-        jsonl_buf = io.StringIO()
-        lines_meta: List[Dict[str, Any]] = []
-        total_lines = 0
+        # 2) build JSONL in-memory, split by mode to keep batch models consistent
+        jsonl_full_buf = io.StringIO()
+        jsonl_excerpt_buf = io.StringIO()
+        lines_meta_full: List[Dict[str, Any]] = []
+        lines_meta_excerpt: List[Dict[str, Any]] = []
 
         for row in candidates:
             page_uuid = row["page_uuid"]
             text = row["text"]
-            try:
-                spans_raw = json.loads(row["spans"])
-            except Exception:
-                spans_raw = row["spans"]
-
-            spans = []
-            for s in spans_raw:
-                try:
-                    start_char = int(s["start_char"])  # required
-                    end_char = int(s["end_char"])      # required
-                    spans.append(
-                        UncertainSpan(
-                            entity=s.get("entity", "o"),
-                            start_char=start_char,
-                            end_char=end_char,
-                            avg_confidence=float(s.get("avg_confidence", 0.0)),
-                        )
-                    )
-                except Exception:
-                    # Malformed span → skip
-                    continue
+            spans = _parse_uncertain_spans(row["spans"])
 
             decision: RepairDecision = decide_repair_windows(
                 text=text,
                 uncertain_spans=spans,
             )
 
-            batch_lines, metas = build_jsonl_lines_for_page(
-                page_uuid=page_uuid,
-                text=text,
-                decision=decision,
-                model=model_name,
-                uncertain_spans=spans,
-            )
-            for line in batch_lines:
-                jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+            if decision.mode == "full":
+                batch_lines, metas = build_jsonl_lines_for_page(
+                    page_uuid=page_uuid,
+                    text=text,
+                    decision=decision,
+                    model=full_page_model,
+                    uncertain_spans=spans,
+                )
+                for line in batch_lines:
+                    jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+                lines_meta_full.extend(metas)
+            elif decision.mode == "excerpt":
+                batch_lines, metas = build_jsonl_lines_for_page(
+                    page_uuid=page_uuid,
+                    text=text,
+                    decision=decision,
+                    model=excerpt_model,
+                    uncertain_spans=spans,
+                )
+                for line in batch_lines:
+                    jsonl_excerpt_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+                lines_meta_excerpt.extend(metas)
+            else:
+                raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
 
-            lines_meta.extend(metas)
-            total_lines += len(batch_lines)
-
-        if total_lines == 0:
+        if not lines_meta_full and not lines_meta_excerpt:
             context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
             return
 
-        # 3) upload JSONL + create Batch
-        jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
-        jsonl_bytes.name = "ai_repair_requests.jsonl"
+        def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
+            if not lines_meta:
+                return
+            jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+            jsonl_bytes.name = f"ai_repair_requests_{label}.jsonl"
 
-        in_file = client.files.create(purpose="batch", file=jsonl_bytes)
-        batch = client.batches.create(
-            input_file_id=in_file.id,
-            endpoint="/v1/responses",
-            completion_window=batch_completion_window,
-        )
+            in_file = client.files.create(purpose="batch", file=jsonl_bytes)
+            batch = client.batches.create(
+                input_file_id=in_file.id,
+                endpoint="/v1/responses",
+                completion_window=batch_completion_window,
+            )
 
-        _insert_batch_row(conn, batch, batch_completion_window, total_lines)
-        _insert_requests(conn, batch.id, lines_meta)
+            request_total = len(lines_meta)
+            _insert_batch_row(conn, batch, batch_completion_window, request_total)
+            _insert_requests(conn, batch.id, lines_meta)
 
-        context.log.info(
-            f"Enqueued OpenAI Batch {batch.id} with {total_lines} requests; input_file_id={in_file.id}"
-        )
+            context.log.info(
+                f"Enqueued OpenAI Batch {batch.id} ({label}) with {request_total} requests; "
+                f"input_file_id={in_file.id}"
+            )
 
-
-ALLOWED_LABELS = {"article", "section", "page"}
+        # 3) upload JSONL + create Batch per mode
+        _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
+        _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
 
 
 def _read_file_text(client, file_id: str) -> str:
@@ -325,8 +395,22 @@ def _read_file_text(client, file_id: str) -> str:
     if hasattr(resp, "text"):
         t = resp.text
         text_val = t() if callable(t) else t
-        return text_val if isinstance(text_val, str) else str(text_val)
+        if not isinstance(text_val, str):
+            raise ValueError("Expected text response from OpenAI file content.")
+        return text_val
     return resp.content.decode("utf-8")
+
+
+def _request_counts(batch) -> Tuple[int, int, int]:
+    rc = batch.request_counts
+    if rc is None:
+        raise ValueError(f"Batch {batch.id} is missing request_counts.")
+    total = rc.total
+    failed = rc.failed
+    completed = rc.completed
+    if not isinstance(total, int) or not isinstance(failed, int) or not isinstance(completed, int):
+        raise ValueError(f"Batch {batch.id} request_counts fields must be integers.")
+    return total, failed, completed
 
 
 def _bulk_update_status(conn, request_ids: Set[str], status: str) -> None:
@@ -337,62 +421,6 @@ def _bulk_update_status(conn, request_ids: Set[str], status: str) -> None:
     ).bindparams(bindparam("ids", expanding=True))
     conn.execute(q, {"st": status, "ids": list(request_ids)})
 
-
-def _extract_entities_from_body(body: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Strictly extract entities from response.body:
-      - Find the *assistant* message in body["output"] (type == "message")
-      - Take the first content item with a "text" field (the JSON string)
-      - json.loads it and return obj["entities"] (must exist and be a list)
-    """
-    output = body["output"]  # KeyError → parse_error
-    # Usually index 1, but we scan for "message" to be explicit
-    msg_blocks = [o for o in output if o.get("type") == "message"]
-    if not msg_blocks:
-        raise ValueError("No assistant message block in output.")
-    contents = msg_blocks[0]["content"]  # KeyError → parse_error
-    # Pick the first content item that carries the text JSON
-    text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
-    if not text_items:
-        raise ValueError("Assistant message has no text content.")
-    raw_text = text_items[0]["text"]
-    obj = json.loads(raw_text)  # any JSON error → parse_error
-    if not isinstance(obj, dict):
-        raise ValueError("Top-level response JSON is not an object.")
-    if "entities" not in obj or "warnings" not in obj:
-        raise ValueError("Missing required keys 'entities' or 'warnings'.")
-    ents = obj["entities"]
-    if not isinstance(ents, list):
-        raise ValueError("'entities' must be a list.")
-    # Strict validation; no coercion
-    for e in ents:
-        if not isinstance(e, dict):
-            raise ValueError("Entity is not an object.")
-        label = e.get("label")
-        sc = e.get("start_char")
-        ec = e.get("end_char")
-        title = e.get("title")
-        if label not in ALLOWED_LABELS:
-            raise ValueError(f"Invalid label: {label!r}")
-        if not isinstance(sc, int) or not isinstance(ec, int):
-            raise ValueError("start_char/end_char must be integers.")
-        if not isinstance(title, str):
-            raise ValueError("title must be a string.")
-    return ents
-
-
-def _parse_success_line_strict(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
-    """
-    Legacy parser: Return (request_id, entities) or raise for any deviation.
-    """
-    rid = raw["custom_id"]
-    resp = raw["response"]
-    sc = resp.get("status_code")
-    if sc not in (200, 201, 202):
-        raise ValueError(f"Non-success status_code: {sc}")
-    body = resp["body"]
-    entities = _extract_entities_from_body(body)
-    return rid, entities
 
 def _extract_message_text(body: Dict[str, Any]) -> str:
     """Pull the assistant message first text block from body.output."""
@@ -408,11 +436,28 @@ def _extract_message_text(body: Dict[str, Any]) -> str:
     return raw_text
 
 
+def _extract_usage(body: Dict[str, Any]) -> Dict[str, Any]:
+    usage = body["usage"]
+    if not isinstance(usage, dict):
+        raise ValueError("Expected usage to be an object.")
+    required = ("input_tokens", "output_tokens", "total_tokens")
+    for key in required:
+        if key not in usage:
+            raise ValueError(f"Missing usage field: {key}")
+        if not isinstance(usage[key], int):
+            raise ValueError(f"usage.{key} must be an integer.")
+    details_keys = ("input_tokens_details", "output_tokens_details")
+    for key in details_keys:
+        if key in usage and not isinstance(usage[key], dict):
+            raise ValueError(f"usage.{key} must be an object when present.")
+    return usage
+
+
 def _parse_full_page_tagged_text(raw: Dict[str, Any]) -> Tuple[str, str]:
     """Return (request_id, tagged_text) strictly or raise."""
     rid = raw["custom_id"]
     resp = raw["response"]
-    sc = resp.get("status_code")
+    sc = resp["status_code"]
     if sc not in (200, 201, 202):
         raise ValueError(f"Non-success status_code: {sc}")
     body = resp["body"]
@@ -427,7 +472,7 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     """Return (request_id, rulings) strictly or raise."""
     rid = raw["custom_id"]
     resp = raw["response"]
-    sc = resp.get("status_code")
+    sc = resp["status_code"]
     if sc not in (200, 201, 202):
         raise ValueError(f"Non-success status_code: {sc}")
     body = resp["body"]
@@ -442,9 +487,9 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     for r in rulings:
         if not isinstance(r, dict):
             raise ValueError("ruling is not an object")
-        s = r.get("start_char")
-        e = r.get("end_char")
-        lab = r.get("label")
+        s = r["start_char"]
+        e = r["end_char"]
+        lab = r["label"]
         if not isinstance(s, int) or not isinstance(e, int):
             raise ValueError("start_char/end_char must be integers")
         if lab not in ("article", "section", "page", "none"):
@@ -466,6 +511,11 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
     """
     engine = db.get_engine()
     client = _oai_client()
+
+    base_sleep_seconds = 5
+    backoff_level = 0
+    no_update_polls = 0
+    last_progress_snapshot: Optional[Tuple[Tuple[str, str, int, int], ...]] = None
 
     while True:
         running_progress: List[Dict[str, Any]] = []
@@ -509,12 +559,7 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                 b = client.batches.retrieve(bid)
 
                 # Update batch row with fresh metadata
-                rc = getattr(b, "request_counts", None)
-                total = (getattr(rc, "total", 0) or 0) if rc is not None else 0
-                failed = (getattr(rc, "failed", 0) or 0) if rc is not None else 0
-                completed = getattr(rc, "completed", None) if rc is not None else None
-                if completed is None and rc is not None:
-                    completed = getattr(rc, "succeeded", 0) or 0
+                total, failed, completed = _request_counts(b)
 
                 conn.execute(
                     upd_batch,
@@ -530,7 +575,7 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
 
                 if b.status not in ("completed", "failed", "cancelled", "expired"):
                     conn.execute(mark_running, {"bid": bid})
-                    done = (completed or 0) + (failed or 0)
+                    done = completed + failed
                     pct = int((done / total) * 100) if total else 0
                     running_progress.append(
                         {
@@ -538,7 +583,7 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                             "status": b.status,
                             "total": total,
                             "failed": failed,
-                            "completed": (completed or 0),
+                            "completed": completed,
                             "pct": pct,
                         }
                     )
@@ -555,9 +600,9 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                 http_success_ids: Set[str] = set()
                 failed_ids: Set[str] = set()
                 parse_error_ids: Set[str] = set()
+                usage_by_request: Dict[str, Dict[str, int]] = {}
 
-                # Parsed entities for legacy (unused in new flow), excerpt rulings, and full pages
-                parsed_rows: List[Dict[str, Any]] = []
+                # Parsed excerpt rulings and full pages
                 parsed_rulings: List[Tuple[str, str, List[Dict[str, Any]]]] = []  # (rid, page_uuid, rulings)
                 parsed_full_pages: List[Tuple[str, str, str]] = []  # (rid, page_uuid, tagged_text)
 
@@ -568,17 +613,15 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                     if out_text:
                         for line in out_text.splitlines():
                             raw = json.loads(line)
-                            rid = raw.get("custom_id")
-                            if not rid:
-                                # Skip malformed line; we don't try to salvage
-                                continue
-                            # Mark HTTP success if present
-                            resp = raw.get("response") or {}
-                            sc = resp.get("status_code")
-                            if sc in (200, 201, 202) or ("body" in resp):
+                            rid = raw["custom_id"]
+                            resp = raw["response"]
+                            sc = resp["status_code"]
+                            if sc in (200, 201, 202):
                                 http_success_ids.add(rid)
                             try:
-                                pid, mode, xs = req_info.get(rid, (None, None, None))
+                                if sc in (200, 201, 202):
+                                    usage_by_request[rid] = _extract_usage(resp["body"])
+                                pid, mode, xs = req_info[rid]
                                 if mode == "full":
                                     rid2, tagged_text = _parse_full_page_tagged_text(raw)
                                     parsed_full_pages.append((rid2, pid, tagged_text))
@@ -588,12 +631,7 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                                     parsed_rulings.append((rid2, pid, rulings))
                                     success_ids.add(rid2)
                                 else:
-                                    # Fallback: attempt strict entities parse for compatibility
-                                    rid2, ents = _parse_success_line_strict(raw)
-                                    parsed_rows.append(
-                                        {"request_id": rid2, "page_uuid": pid, "entities": ents}
-                                    )
-                                    success_ids.add(rid2)
+                                    raise ValueError(f"Unexpected request mode {mode!r} for {rid}.")
                             except Exception:
                                 parse_error_ids.add(rid)
                     else:
@@ -606,11 +644,17 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                     if err_text:
                         for line in err_text.splitlines():
                             err = json.loads(line)
-                            rid = err.get("custom_id")
-                            if rid:
-                                failed_ids.add(rid)
+                            rid = err["custom_id"]
+                            failed_ids.add(rid)
 
                 # Persist parsed data
+
+                if usage_by_request:
+                    upd_usage = text(
+                        "UPDATE pdx.ai_repair_requests SET token_usage = :usage WHERE request_id = :rid"
+                    )
+                    for rid, usage in usage_by_request.items():
+                        conn.execute(upd_usage, {"rid": rid, "usage": json.dumps(usage)})
 
                 # Full-page tagged_text
                 if parsed_full_pages:
@@ -634,8 +678,10 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                         """
                     )
                     for rid2, pid, rulings in parsed_rulings:
-                        _, _, xs = req_info.get(rid2, (None, None, 0))
-                        base = int(xs) if xs is not None else 0
+                        _, _, xs = req_info[rid2]
+                        if not isinstance(xs, int):
+                            raise ValueError(f"Missing excerpt_start for request {rid2}.")
+                        base = xs
                         for r in rulings:
                             s_adj = int(r["start_char"]) + base
                             e_adj = int(r["end_char"]) + base
@@ -668,10 +714,8 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                 _bulk_update_status(conn, leftover_ids, "completed_no_output")
 
                 # Summary
-                entity_count = sum(len(r["entities"]) for r in parsed_rows)
                 context.log.info(
-                    f"Batch {bid}: parsed {len(parsed_rows)} requests; "
-                    f"entities={entity_count} success={len(success_ids)} "
+                    f"Batch {bid}: success={len(success_ids)} "
                     f"failed={len(failed_ids)} parse_error={len(parse_error_ids)} "
                     f"no_output={len(no_output_ids)}"
                 )
@@ -685,7 +729,40 @@ def ai_repair_poll_asset(context, db: DBResource) -> None:
                     f"{(p['completed'] + p['failed'])}/{p['total']} done ({p['pct']}%), failed={p['failed']}"
                 )
 
-        # If nothing is running, exit; otherwise, wait 5 seconds and poll again
+        # If nothing is running, exit; otherwise, wait and poll again with backoff
         if not running_progress:
             break
-        time.sleep(5)
+
+        progress_snapshot = tuple(
+            sorted(
+                (p["bid"], p["status"], p["completed"], p["failed"]) for p in running_progress
+            )
+        )
+        if progress_snapshot == last_progress_snapshot:
+            no_update_polls += 1
+        else:
+            if backoff_level > 0:
+                prev_sleep = base_sleep_seconds * (2**backoff_level)
+                context.log.info(
+                    f"Backoff reset: interval {prev_sleep}s -> {base_sleep_seconds}s"
+                )
+            no_update_polls = 0
+            backoff_level = 0
+            last_progress_snapshot = progress_snapshot
+
+        max_sleep_seconds = 30 * 60
+        if no_update_polls >= 10:
+            prev_sleep = min(
+                base_sleep_seconds * (2**backoff_level),
+                max_sleep_seconds,
+            )
+            backoff_level += 1
+            no_update_polls = 0
+            new_sleep = min(
+                base_sleep_seconds * (2**backoff_level),
+                max_sleep_seconds,
+            )
+            if new_sleep > prev_sleep:
+                context.log.info(f"Backoff increased: interval {prev_sleep}s -> {new_sleep}s")
+
+        time.sleep(min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds))
