@@ -205,6 +205,8 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
             :agreement_uuid,
             :xml
         )
+        ON DUPLICATE KEY UPDATE
+            xml = VALUES(xml)
         """
     )
 
@@ -219,31 +221,9 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
 
         # agreements list no longer needed for processed flag updates
 
-    upsert_sql_xml = text("CALL pdx.upsert_xml(:uuid, :xml)")
-    # No processed flag writes; idempotency achieved via existence checks downstream
-
-    # rows_xmls: either list[dict] with keys {"agreement_uuid","xml"} or list[tuple]
-    # rows_agreements: either list[dict] with key {"agreement_uuid"} or list[str]/list[tuple]
-
     for i in range(0, len(rows_xmls), 250):
         batch_tags = rows_xmls[i : i + 250]
-        # batch_agreements removed; we do not update agreements.processed
-
-        # normalize
-        tag_params = (
-            [{"uuid": r["agreement_uuid"], "xml": r["xml"]} for r in batch_tags]
-            if isinstance(batch_tags[0], dict)
-            else [{"uuid": u, "xml": x} for (u, x) in batch_tags]
-        )
-        # agr_params removed
-
-        # one transaction per outer context; no begin_nested()
-        for p in tag_params:
-            # CALL per row; no result sets are produced by the proc, so just close
-            res = conn.execute(upsert_sql_xml, p)
-            res.close()
-
-        # no agreement processed flag updates
+        conn.execute(upsert_sql_xml, batch_tags)
 
 
 def upsert_sections(staged_sections: Sequence, conn: Connection) -> None:
