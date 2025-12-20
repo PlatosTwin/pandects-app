@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 # ------------------------------
 # Data models
@@ -52,23 +52,21 @@ def _tokens_to_chars(
 ) -> Tuple[int, int]:
     """Convert token span [i, j] inclusive to character span [start, end)."""
     if not token_map:
-        return (0, 0)
-    i = max(0, min(i, len(token_map) - 1))
-    j = max(0, min(j, len(token_map) - 1))
+        raise ValueError("token_map must be non-empty.")
+    if i < 0 or j < i or j >= len(token_map):
+        raise ValueError("Token span is out of bounds.")
     return (token_map[i][0], token_map[j][1])
 
 
 def _chars_to_tokens(
     token_map: List[Tuple[int, int]], s_char: int, e_char: int
 ) -> Tuple[int, int]:
-    """Convert character span [s_char, e_char) to inclusive token indices [i, j].
-    Falls back to nearest tokens if boundaries land in whitespace.
-    """
+    """Convert character span [s_char, e_char) to inclusive token indices [i, j]."""
     if not token_map:
-        return (0, 0)
+        raise ValueError("token_map must be non-empty.")
+    if s_char < 0 or e_char < s_char:
+        raise ValueError("Character span is invalid.")
     n = len(token_map)
-    s_char = max(0, s_char)
-    e_char = max(s_char, e_char)
 
     # Find first token whose end > s_char
     i = 0
@@ -120,10 +118,10 @@ def _coverage_metrics_from_tokens(
     if num_tokens <= 0 or not spans_tok:
         return {"coverage": 0.0, "breadth": 0.0}
     total_uncertain = sum((e - s + 1) for s, e in spans_tok)
-    coverage = total_uncertain / max(1, num_tokens)
+    coverage = total_uncertain / num_tokens
     min_i = min(s for s, _ in spans_tok)
     max_j = max(e for _, e in spans_tok)
-    breadth = (max_j - min_i + 1) / max(1, num_tokens)
+    breadth = (max_j - min_i + 1) / num_tokens
     return {"coverage": coverage, "breadth": breadth}
 
 
@@ -145,8 +143,10 @@ def decide_repair_windows(
     token_map = _build_token_char_map(text)
     num_tokens = len(token_map)
 
-    if not uncertain_spans or num_tokens == 0:
+    if not uncertain_spans:
         return RepairDecision(mode="excerpt", windows=[], token_map=token_map)
+    if num_tokens == 0:
+        raise ValueError("Cannot build repair windows with empty token map.")
 
     # Convert char spans to token-index spans for clustering/metrics
     tok_spans: List[Tuple[int, int]] = []
@@ -484,54 +484,3 @@ def build_jsonl_lines_for_page(
             }
         )
     return lines, metas
-
-
-# ------------------------------
-# Output parsing (STRICT)
-# ------------------------------
-
-
-def parse_batch_output_line(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Strictly parse a single JSONL 'raw' line from Responses API.
-    Assumes:
-      raw = {
-        "custom_id": "...",
-        "response": {
-          "status_code": 200,
-          "body": {
-            "output": [
-              {"type":"reasoning", ...},
-              {"type":"message","content":[{"type":"output_text","text":"<JSON STRING>"}], "role":"assistant"}
-            ]
-          }
-        }
-      }
-    Returns {"request_id": str, "page_uuid": "", "entities": List[Dict]]} or None on deviation.
-    """
-    try:
-        rid = raw["custom_id"]
-        resp = raw["response"]
-        sc = resp.get("status_code")
-        if sc not in (200, 201, 202):
-            return None
-        body = resp["body"]
-        output = body["output"]
-        msg_blocks = [o for o in output if o.get("type") == "message"]
-        if not msg_blocks:
-            return None
-        contents = msg_blocks[0]["content"]
-        text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
-        if not text_items:
-            return None
-        raw_text = text_items[0]["text"]
-        obj = json.loads(raw_text)
-        if not isinstance(obj, dict) or "entities" not in obj or "warnings" not in obj:
-            return None
-        ents = obj["entities"]
-        if not isinstance(ents, list):
-            return None
-        
-        return {"request_id": rid, "page_uuid": "", "entities": ents}
-    except Exception:
-        return None
