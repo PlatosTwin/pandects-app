@@ -52,13 +52,24 @@ def _strip_tags_and_spans(tagged_text: str) -> Tuple[str, List[Tuple[int, int, s
 def _render_tags(raw_text: str, spans: List[Tuple[int, int, str]]) -> str:
     """
     Render tags over raw_text given non-overlapping sorted spans.
+    Adjacent spans with the same label are merged.
     """
     if not spans:
         return raw_text
     spans_sorted = sorted(spans, key=lambda x: (x[0], x[1]))
+    merged: List[Tuple[int, int, str]] = []
+    for s, e, lab in spans_sorted:
+        if not merged:
+            merged.append((s, e, lab))
+            continue
+        ms, me, mlab = merged[-1]
+        if lab == mlab and s <= me:
+            merged[-1] = (ms, max(me, e), mlab)
+        else:
+            merged.append((s, e, lab))
     out: List[str] = []
     pos = 0
-    for s, e, lab in spans_sorted:
+    for s, e, lab in merged:
         if s < pos:
             # skip malformed/overlap silently
             continue
@@ -245,7 +256,7 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
     engine = db.get_engine()
 
     # batching controls
-    batch_size = pipeline_config.tagging_page_batch_size
+    batch_size = pipeline_config.tagging_agreement_batch_size
     is_batched = pipeline_config.is_batched()
 
     last_uuid = ""
