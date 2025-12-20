@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
-import { isLocalEnvironment } from "./lib/environment";
 import { installGlobalErrorTracking } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import Search from "./pages/Search";
@@ -21,7 +20,6 @@ const About = lazy(() => import("./pages/About"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Donate = lazy(() => import("./pages/Donate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Edit = lazy(() => import("./pages/Edit"));
 const Account = lazy(() => import("./pages/Account"));
 const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -62,10 +60,6 @@ const App = () => {
                   path="/auth/google/callback"
                   element={<AuthGoogleCallback />}
                 />
-                {/* Editor route - Only available in local development */}
-                {isLocalEnvironment() && (
-                  <Route path="/editor" element={<Edit />} />
-                )}
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Route>

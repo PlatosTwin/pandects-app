@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { isLocalEnvironment } from "@/lib/environment";
-import { ChevronDown, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
@@ -16,12 +15,6 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function Navigation() {
   const location = useLocation();
@@ -107,28 +100,6 @@ export default function Navigation() {
           ))}
           </div>
 
-          {isLocalEnvironment() && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "ml-1 h-9 gap-1 px-3 text-sm font-medium",
-                    isActive("/editor") && "bg-accent text-foreground",
-                  )}
-                >
-                  Utils
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link to="/editor">LLM Output Editor</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
           <div className="ml-2">
             <AuthMenu />
           </div>
@@ -195,31 +166,6 @@ export default function Navigation() {
                     ))}
                   </div>
 
-                  {isLocalEnvironment() && (
-                    <div className="mt-4 border-t pt-4">
-                      <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Utils
-                      </div>
-                      <div className="grid gap-1">
-                        <SheetClose asChild>
-                          <Link
-                            to="/editor"
-                            aria-current={
-                              isActive("/editor") ? "page" : undefined
-                            }
-                            className={cn(
-                              navLinkBase,
-                              isActive("/editor")
-                                ? "bg-accent text-foreground"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                            )}
-                          >
-                            LLM Output Editor
-                          </Link>
-                        </SheetClose>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </SheetContent>
