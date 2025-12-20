@@ -364,7 +364,7 @@ def generate_xml(df: Any) -> List[XMLData]:
         if not fm_rows.empty:
             fm_el = ET.SubElement(root, "frontMatter")
             text_block = "\n".join(
-                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
+                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
             )
             add_text_nodes_simple(fm_el, text_block)
 
@@ -373,7 +373,7 @@ def generate_xml(df: Any) -> List[XMLData]:
         if not toc_rows.empty:
             toc_el = ET.SubElement(root, "tableOfContents")
             text_block = "\n".join(
-                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
+                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
             )
             add_text_nodes_simple(toc_el, text_block)
 
@@ -382,7 +382,7 @@ def generate_xml(df: Any) -> List[XMLData]:
         if not body_rows.empty:
             body_el = ET.SubElement(root, "body")
             body_text = "\n".join(
-                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
             )
             tmp_xml = convert_to_xml(
                 body_text,
@@ -410,7 +410,7 @@ def generate_xml(df: Any) -> List[XMLData]:
         if not sig_rows.empty:
             sig_el = ET.SubElement(root, "sigPages")
             text_block = "\n".join(
-                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
+                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
             )
             add_text_nodes_simple(sig_el, text_block)
 
@@ -419,7 +419,7 @@ def generate_xml(df: Any) -> List[XMLData]:
         if not bm_rows.empty:
             bm_el = ET.SubElement(root, "backMatter")
             text_block = "\n".join(
-                (r["tagged_output"] + f"<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
+                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
             )
             add_text_nodes_simple(bm_el, text_block)
 
