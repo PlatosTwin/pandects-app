@@ -771,15 +771,15 @@ export default function Account() {
           ) : null}
 
           <Card className="p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-lg font-semibold">API keys</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Use `X-API-Key` for API access. Keep keys secret — you can view
                   a newly created key only once.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -791,6 +791,7 @@ export default function Account() {
                       .finally(() => setBusy(false));
                   }}
                   disabled={busy}
+                  className="w-full sm:w-auto"
                 >
                   Refresh
                 </Button>
@@ -798,7 +799,7 @@ export default function Account() {
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="Key name (optional)"
-                  className="w-48"
+                  className="w-full sm:w-48"
                 />
                 <Button
                   onClick={async () => {
@@ -819,65 +820,132 @@ export default function Account() {
                     }
                   }}
                   disabled={busy}
+                  className="w-full sm:w-auto"
                 >
                   New key
                 </Button>
               </div>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="py-2 text-left font-medium">Name</th>
-                    <th className="py-2 text-left font-medium">Prefix</th>
-                    <th className="py-2 text-left font-medium">Created</th>
-                    <th className="py-2 text-left font-medium">Last used</th>
-                    <th className="py-2 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {apiKeys.length === 0 ? (
-                    <tr>
-                      <td className="py-3 text-muted-foreground" colSpan={5}>
-                        No API keys yet.
-                      </td>
+            <div className="mt-4">
+              <div className="grid gap-3 sm:hidden">
+                {apiKeys.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    No API keys yet.
+                  </div>
+                ) : (
+                  apiKeys.map((k) => (
+                    <div
+                      key={k.id}
+                      className="rounded-md border border-border p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground">
+                            {k.name ?? "Untitled key"}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Prefix
+                          </div>
+                          <div className="font-mono text-xs text-foreground">
+                            {k.prefix}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            setBusy(true);
+                            try {
+                              await revokeApiKey(k.id);
+                              await loadAccountData();
+                            } catch (err) {
+                              toast({
+                                title: "Failed to revoke key",
+                                description: String(err),
+                              });
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                          disabled={busy || !!k.revokedAt}
+                          className="shrink-0"
+                        >
+                          {k.revokedAt ? "Revoked" : "Revoke"}
+                        </Button>
+                      </div>
+                      <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Created</span>
+                          <span className="text-foreground">
+                            {formatDate(k.createdAt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Last used</span>
+                          <span className="text-foreground">
+                            {formatDate(k.lastUsedAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-sm">
+                  <thead className="text-muted-foreground">
+                    <tr className="border-b">
+                      <th className="py-2 text-left font-medium">Name</th>
+                      <th className="py-2 text-left font-medium">Prefix</th>
+                      <th className="py-2 text-left font-medium">Created</th>
+                      <th className="py-2 text-left font-medium">Last used</th>
+                      <th className="py-2 text-right font-medium">Actions</th>
                     </tr>
-                  ) : (
-                    apiKeys.map((k) => (
-                      <tr key={k.id} className="border-b last:border-b-0">
-                        <td className="py-3">{k.name ?? "—"}</td>
-                        <td className="py-3 font-mono">{k.prefix}</td>
-                        <td className="py-3">{formatDate(k.createdAt)}</td>
-                        <td className="py-3">{formatDate(k.lastUsedAt)}</td>
-                        <td className="py-3 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              setBusy(true);
-                              try {
-                                await revokeApiKey(k.id);
-                                await loadAccountData();
-                              } catch (err) {
-                                toast({
-                                  title: "Failed to revoke key",
-                                  description: String(err),
-                                });
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                            disabled={busy || !!k.revokedAt}
-                          >
-                            {k.revokedAt ? "Revoked" : "Revoke"}
-                          </Button>
+                  </thead>
+                  <tbody>
+                    {apiKeys.length === 0 ? (
+                      <tr>
+                        <td className="py-3 text-muted-foreground" colSpan={5}>
+                          No API keys yet.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      apiKeys.map((k) => (
+                        <tr key={k.id} className="border-b last:border-b-0">
+                          <td className="py-3">{k.name ?? "—"}</td>
+                          <td className="py-3 font-mono">{k.prefix}</td>
+                          <td className="py-3">{formatDate(k.createdAt)}</td>
+                          <td className="py-3">{formatDate(k.lastUsedAt)}</td>
+                          <td className="py-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                setBusy(true);
+                                try {
+                                  await revokeApiKey(k.id);
+                                  await loadAccountData();
+                                } catch (err) {
+                                  toast({
+                                    title: "Failed to revoke key",
+                                    description: String(err),
+                                  });
+                                } finally {
+                                  setBusy(false);
+                                }
+                              }}
+                              disabled={busy || !!k.revokedAt}
+                            >
+                              {k.revokedAt ? "Revoked" : "Revoke"}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </Card>
 
@@ -894,10 +962,14 @@ export default function Account() {
                 usageByDay.map((row) => (
                   <div
                     key={row.day}
-                    className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                    className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <span className="font-mono text-xs">{row.day}</span>
-                    <span className="text-sm">{row.count.toLocaleString()}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {row.day}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">
+                      {row.count.toLocaleString()}
+                    </span>
                   </div>
                 ))
               )}
