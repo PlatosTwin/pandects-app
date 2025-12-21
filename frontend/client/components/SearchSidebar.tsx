@@ -249,7 +249,7 @@ export function SearchSidebar({
                 <button
                   type="button"
                   onClick={toggleCollapse}
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   title="Collapse sidebar"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -277,7 +277,7 @@ export function SearchSidebar({
             <button
               type="button"
               onClick={toggleCollapse}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Expand sidebar"
             >
               <ChevronRight className="w-4 h-4" />

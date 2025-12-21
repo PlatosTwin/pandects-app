@@ -3,6 +3,7 @@ import { DROPDOWN_ANIMATION_DELAY } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
 import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -321,7 +322,7 @@ export function NestedCheckboxFilter({
           <label
             key={key}
             className={cn(
-              "flex items-center gap-3 py-2 px-2 hover:bg-gray-50 cursor-pointer rounded text-sm",
+              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-within:bg-accent",
               indentClass,
             )}
           >
@@ -329,7 +330,7 @@ export function NestedCheckboxFilter({
               type="checkbox"
               checked={selectedValues.includes(key)}
               onChange={() => onToggle(key)}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
+              className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
             />
             <span className="text-foreground">{key}</span>
           </label>
@@ -342,16 +343,17 @@ export function NestedCheckboxFilter({
 
         return (
           <div key={key} className={indentClass}>
-            <div className="flex items-center gap-1 py-2 px-2 hover:bg-gray-50 rounded text-sm">
+            <div className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-accent/50">
               <button
                 type="button"
                 onClick={() => toggleExpand(expandKey)}
-                className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
+                className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+                aria-label={isExpanded ? `Collapse ${key}` : `Expand ${key}`}
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  <ChevronDown className="h-3.5 w-3.5" />
                 ) : (
-                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                  <ChevronRight className="h-3.5 w-3.5" />
                 )}
               </button>
 
@@ -365,7 +367,7 @@ export function NestedCheckboxFilter({
                     }
                   }}
                   onChange={() => handleCategoryToggle(currentPath)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
+                  className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                 />
                 <span className="text-foreground font-medium">{key}</span>
               </label>
@@ -402,7 +404,10 @@ export function NestedCheckboxFilter({
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             tabIndex={tabIndex}
-            className="w-full text-left text-base font-normal text-foreground bg-transparent border-none border-b border-input py-2 focus:outline-none focus:border-primary focus:bg-accent flex items-center justify-between min-h-[44px] transition-colors"
+            className={cn(
+              "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
+              "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            )}
           >
             {totalSelected === 0 ? (
               <span>{`All ${label}s`}</span>
@@ -437,12 +442,9 @@ export function NestedCheckboxFilter({
           </button>
         </TooltipProvider>
 
-        {/* Bottom border line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
-
         {/* Expanded nested checkbox list or Modal */}
         {isExpanded && !useModal && (
-          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-80 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
             <div className="p-2">{renderNestedItems(data)}</div>
           </div>
         )}
@@ -453,14 +455,14 @@ export function NestedCheckboxFilter({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setIsExpanded(false)}
           />
 
           {/* Modal */}
           <div
             ref={modalRef}
-            className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+            className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-background text-foreground shadow-xl"
             onKeyDown={(e) => {
               // Handle Enter and Escape keys to close modal
               if (e.key === "Enter" || e.key === "Escape") {
@@ -482,24 +484,27 @@ export function NestedCheckboxFilter({
             tabIndex={-1}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 flex-shrink-0">
+            <div className="flex-shrink-0 border-b border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-foreground">
                   Select {label}s
                 </h3>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setIsExpanded(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="h-8 w-8"
                 >
                   <X className="w-5 h-5" />
-                </button>
+                  <span className="sr-only">Close</span>
+                </Button>
               </div>
 
               {/* Search Input */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" />
+                  <Search className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <input
                   ref={searchInputRef}
@@ -523,17 +528,17 @@ export function NestedCheckboxFilter({
 
                 {/* Search Results Dropdown */}
                 {showSearchResults && searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                     {searchResults.map((result, index) => (
                       <button
                         type="button"
                         key={`${result.path.join(".")}.${result.key}`}
                         onClick={() => handleSearchResultSelect(result)}
                         className={cn(
-                          "w-full text-left px-3 py-2 focus:outline-none text-sm border-b border-gray-100 last:border-b-0",
+                          "w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover",
                           highlightedSearchIndex === index
-                            ? "bg-primary/10"
-                            : "hover:bg-gray-50 focus:bg-gray-50",
+                            ? "bg-accent"
+                            : "hover:bg-accent/50 focus-visible:bg-accent/50",
                         )}
                       >
                         <div className="text-foreground font-medium">
@@ -550,7 +555,7 @@ export function NestedCheckboxFilter({
                 {showSearchResults &&
                   searchResults.length === 0 &&
                   searchTerm.trim() && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-20 px-3 py-2">
+                    <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground shadow-md">
                       <div className="text-sm text-muted-foreground">
                         No clause types found matching "{searchTerm}"
                       </div>
@@ -563,7 +568,7 @@ export function NestedCheckboxFilter({
             <div className="overflow-y-auto flex-1 flex flex-col">
               {/* Selected Items (Sticky at top) */}
               {selectedValues.length > 0 && (
-                <div className="flex-shrink-0 bg-primary/10 border-b border-gray-200">
+                <div className="flex-shrink-0 border-b border-border bg-muted/30">
                   <div className="p-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Selected ({selectedValues.length})
                   </div>
@@ -572,19 +577,22 @@ export function NestedCheckboxFilter({
                       {selectedValues.map((value) => (
                         <div
                           key={`selected-${value}`}
-                          className="flex items-center justify-between bg-white p-3 rounded border border-blue-200"
+                          className="flex items-center justify-between rounded-md border border-border bg-background p-3"
                         >
                           <span className="text-sm text-foreground font-medium">
                             {value}
                           </span>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => onToggle(value)}
-                            className="p-1 hover:bg-red-100 rounded text-red-600 transition-colors"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             title="Remove filter"
                           >
                             <X className="w-4 h-4" />
-                          </button>
+                            <span className="sr-only">Remove</span>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -602,17 +610,13 @@ export function NestedCheckboxFilter({
             </div>
 
             {/* Footer with selection summary */}
-            <div className="flex items-center justify-between p-6 border-t border-gray-200 flex-shrink-0">
+            <div className="flex flex-shrink-0 items-center justify-between border-t border-border p-6">
               <span className="text-sm text-muted-foreground">
                 {totalSelected} of {totalOptions} selected
               </span>
-              <button
-                type="button"
-                onClick={() => setIsExpanded(false)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-              >
+              <Button type="button" onClick={() => setIsExpanded(false)}>
                 Done
-              </button>
+              </Button>
             </div>
           </div>
         </div>

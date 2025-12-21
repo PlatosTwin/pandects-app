@@ -216,10 +216,9 @@ export function CheckboxFilter({
             tabIndex={disabled ? -1 : tabIndex}
             disabled={disabled}
             className={cn(
-              "w-full text-left text-base font-normal bg-transparent border-none border-b py-2 flex items-center justify-between min-h-[44px] transition-colors",
-              disabled
-                ? "text-gray-400 border-gray-300 cursor-not-allowed"
-                : "text-foreground border-input focus:outline-none focus:border-primary focus:bg-accent cursor-pointer",
+              "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
+              "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background",
             )}
           >
             {selectedValues.length === 0 ? (
@@ -253,14 +252,11 @@ export function CheckboxFilter({
           </button>
         </TooltipProvider>
 
-        {/* Bottom border line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
-
         {/* Expanded dropdown with search and sticky selected items */}
         {isExpanded && !disabled && (
           <div
             ref={expandedDropdownRef}
-            className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-72 flex flex-col"
+            className="absolute top-full left-0 right-0 z-10 mt-1 flex max-h-72 flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
             onKeyDown={(e) => {
               // Handle Enter and Escape keys to close dropdown
               if (e.key === "Enter" || e.key === "Escape") {
@@ -289,10 +285,10 @@ export function CheckboxFilter({
           >
             {/* Search Input */}
             {!hideSearch && (
-              <div className="p-3 border-b border-gray-200">
+              <div className="border-b border-border p-2">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-gray-400" />
+                    <Search className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <input
                     ref={searchInputRef}
@@ -309,21 +305,21 @@ export function CheckboxFilter({
 
             {/* Selected Items (Sticky at top) */}
             {selectedOptions.length > 0 && (
-              <div className="flex-shrink-0 bg-primary/10 border-b border-gray-200">
-                <div className="p-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <div className="flex-shrink-0 border-b border-border bg-muted/30">
+                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Selected ({selectedOptions.length})
                 </div>
-                <div className="p-2 pt-0">
+                <div className="px-2 pb-2">
                   {selectedOptions.map((option) => (
                     <label
                       key={`selected-${option}`}
-                      className="flex items-center gap-3 py-2 px-2 hover:bg-primary/10 cursor-pointer rounded text-sm"
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-within:bg-accent"
                     >
                       <input
                         type="checkbox"
                         checked={true}
                         onChange={() => onToggle(option)}
-                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
+                        className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                       />
                       <span className="text-foreground font-medium">
                         {option}
@@ -335,10 +331,10 @@ export function CheckboxFilter({
                           e.stopPropagation();
                           onToggle(option);
                         }}
-                        className="ml-auto p-1 hover:bg-blue-200 rounded"
+                        className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                         title="Remove filter"
                       >
-                        <X className="w-3 h-3 text-gray-500" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </label>
                   ))}
@@ -353,24 +349,24 @@ export function CheckboxFilter({
                 <div className="p-2">
                   {filteredOptions.length > 0 ? (
                     <>
-                      <div className="p-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Search Results
                       </div>
                       {filteredOptions.map((option, index) => (
                         <label
                           key={`filtered-${option}`}
                           className={cn(
-                            "flex items-center gap-3 py-2 px-2 cursor-pointer rounded text-sm",
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-within:bg-accent",
                             highlightedIndex === index
-                              ? "bg-primary/10"
-                              : "hover:bg-gray-50",
+                              ? "bg-accent"
+                              : null,
                           )}
                         >
                           <input
                             type="checkbox"
                             checked={selectedValues.includes(option)}
                             onChange={() => onToggle(option)}
-                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
+                            className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                           />
                           <span className="text-foreground">
                             {option}
@@ -393,17 +389,17 @@ export function CheckboxFilter({
                         <label
                           key={`unselected-${option}`}
                           className={cn(
-                            "flex items-center gap-3 py-2 px-2 cursor-pointer rounded text-sm",
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-within:bg-accent",
                             !searchTerm.trim() && highlightedIndex === index
-                              ? "bg-primary/10"
-                              : "hover:bg-gray-50",
+                              ? "bg-accent"
+                              : null,
                           )}
                         >
                           <input
                             type="checkbox"
                             checked={false}
                             onChange={() => onToggle(option)}
-                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-ring focus:ring-2"
+                            className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                           />
                           <span className="text-foreground">
                             {option}

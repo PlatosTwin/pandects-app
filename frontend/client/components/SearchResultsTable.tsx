@@ -277,34 +277,16 @@ export function SearchResultsTable({
 		              <div
 		                key={result.id}
 	                className={cn(
-	                  "relative rounded-lg border bg-card shadow-sm overflow-hidden transition-colors",
+	                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-colors",
 	                  isSelected
 	                    ? "border-primary/40 bg-primary/5"
-	                    : "border-border",
+	                    : "border-border hover:bg-muted/10",
 	                )}
 	              >
-                  {result.verified ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Verified agreement"
-                          className="absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-emerald-600 ring-1 ring-border backdrop-blur transition-colors hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-400"
-                        >
-                          <BadgeCheck className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                        <p>This agreement has been verified by hand.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : null}
-
 	                {/* Header with metadata and checkbox */}
 	                <div
 	                  className={cn(
 	                    density === "compact" ? "px-3 py-2" : "px-4 py-3",
-                      result.verified ? "pr-10" : null,
 	                    "border-b",
 	                    isSelected
 	                      ? "bg-primary/10 border-primary/20"
@@ -322,13 +304,30 @@ export function SearchResultsTable({
                         aria-label={`Select result ${resultNumber}`}
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-muted-foreground">
-                            {resultNumber}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            #{resultNumber}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+                          <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
                             {result.year}
                           </span>
+                          {result.verified ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="Verified agreement"
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
+                                >
+                                  <BadgeCheck className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Verified</span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p>This agreement has been verified by hand.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
                           {clauseTypeLabel ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -380,15 +379,17 @@ export function SearchResultsTable({
                         <div
                           className={cn(
                             "grid text-sm text-foreground",
-                            density === "compact" ? "mt-1 gap-0.5" : "mt-2 gap-1",
+                            density === "compact" ? "mt-1 gap-1" : "mt-2 gap-1.5",
                           )}
                         >
                           <div className="min-w-0 break-words">
-                            <span className="font-bold">T:</span>{" "}
+                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Target
+                            </span>{" "}
                             {targetText.needsTooltip ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help break-words">
+                                  <span className="cursor-help break-words font-medium">
                                     {targetText.truncated}
                                   </span>
                                 </TooltipTrigger>
@@ -397,17 +398,19 @@ export function SearchResultsTable({
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              <span className="break-words">
+                              <span className="break-words font-medium">
                                 {targetText.truncated}
                               </span>
                             )}
                           </div>
                           <div className="min-w-0 break-words">
-                            <span className="font-bold">A:</span>{" "}
+                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Acquirer
+                            </span>{" "}
                             {acquirerText.needsTooltip ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help break-words">
+                                  <span className="cursor-help break-words font-medium">
                                     {acquirerText.truncated}
                                   </span>
                                 </TooltipTrigger>
@@ -416,17 +419,20 @@ export function SearchResultsTable({
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              <span className="break-words">
+                              <span className="break-words font-medium">
                                 {acquirerText.truncated}
                               </span>
                             )}
                           </div>
-                          <div
-                            className="text-xs text-muted-foreground break-words"
+                          <span
+                            className="inline-flex w-full min-w-0 max-w-full items-center rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border sm:w-auto"
                             title={`${result.articleTitle} >> ${result.sectionTitle}`}
                           >
-                            {result.articleTitle} &gt;&gt; {result.sectionTitle}
-                          </div>
+                            <TruncatedText
+                              text={`${result.articleTitle} \u2192 ${result.sectionTitle}`}
+                              className="max-w-full sm:max-w-[22rem]"
+                            />
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -452,16 +458,20 @@ export function SearchResultsTable({
                   {result.xml ? (
                     <div
                       className={cn(
-                        "overflow-y-auto text-sm text-foreground leading-relaxed",
-                        density === "compact" ? "h-28" : "h-36",
+                        "rounded-md border border-border bg-muted/20",
+                        density === "compact" ? "h-28 p-2" : "h-36 p-3",
                       )}
-                      style={{
-                        scrollbarWidth: "thin",
-                        scrollbarColor:
-                          "hsl(var(--border)) hsl(var(--background))",
-                      }}
                     >
-                      <XMLRenderer xmlContent={result.xml} mode="search" />
+                      <div
+                        className="h-full overflow-y-auto text-sm leading-relaxed text-foreground"
+                        style={{
+                          scrollbarWidth: "thin",
+                          scrollbarColor:
+                            "hsl(var(--border)) hsl(var(--background))",
+                        }}
+                      >
+                        <XMLRenderer xmlContent={result.xml} mode="search" />
+                      </div>
                     </div>
                   ) : (
                     <div className={cn(density === "compact" ? "h-28" : "h-36")}>

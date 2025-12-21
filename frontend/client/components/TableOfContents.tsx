@@ -48,10 +48,12 @@ export function TableOfContents({
 
     return (
       <div key={item.id} className="select-none">
-        <div
+        <button
+          type="button"
           className={cn(
-            "flex items-center gap-2 py-2 px-3 text-sm cursor-pointer rounded hover:bg-gray-100 transition-colors",
-            isTarget && "bg-blue-50 text-blue-700 font-medium",
+            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors",
+            "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            isTarget && "bg-primary/10 text-primary font-medium",
             depth > 0 && "ml-4",
           )}
           onClick={() => {
@@ -62,25 +64,26 @@ export function TableOfContents({
               onSectionClick(item.sectionUuid);
             }
           }}
+          aria-expanded={hasChildren ? isExpanded : undefined}
         >
           <div className="w-4 flex-shrink-0 flex items-center justify-center">
             {hasChildren ? (
               isExpanded ? (
-                <ChevronDown className="w-3 h-3 text-gray-400" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-gray-400" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground" />
               )
             ) : (
-              <FileText className="w-3 h-3 text-gray-400" />
+              <FileText className="w-3 h-3 text-muted-foreground" />
             )}
           </div>
           <span
-            className="truncate text-gray-700 leading-relaxed"
+            className="truncate leading-relaxed"
             title={item.title}
           >
             {item.title}
           </span>
-        </div>
+        </button>
 
         {hasChildren && isExpanded && (
           <div className="ml-2">
@@ -94,7 +97,7 @@ export function TableOfContents({
   return (
     <div className={cn("overflow-y-auto", className)}>
       <div className="p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">
+        <h3 className="mb-3 text-sm font-medium text-foreground">
           Table of Contents
         </h3>
         <div className="space-y-1">
