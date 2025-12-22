@@ -603,6 +603,12 @@ export default function Account() {
                 >
                   Sign in
                 </Button>
+                <Link
+                  to="/auth/forgot-password"
+                  className="justify-self-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Forgot your password?
+                </Link>
               </form>
             </TabsContent>
 

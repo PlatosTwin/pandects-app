@@ -43,6 +43,7 @@ class AuthFlowTests(unittest.TestCase):
             engine = db.engines["auth"]
             with engine.begin() as conn:
                 conn.execute(text("DELETE FROM auth_sessions"))
+                conn.execute(text("DELETE FROM auth_password_reset_tokens"))
                 conn.execute(text("DELETE FROM api_request_events"))
                 conn.execute(text("DELETE FROM api_usage_hourly"))
                 conn.execute(text("DELETE FROM api_usage_daily_ips"))
@@ -51,6 +52,8 @@ class AuthFlowTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM legal_acceptances"))
                 conn.execute(text("DELETE FROM auth_signon_events"))
                 conn.execute(text("DELETE FROM auth_users"))
+        backend_app._rate_limit_state.clear()
+        backend_app._endpoint_rate_limit_state.clear()
 
     def _csrf_cookie_value(self, client) -> str:
         cookie = client.get_cookie("pdcts_csrf")
@@ -250,6 +253,58 @@ class AuthFlowTests(unittest.TestCase):
             "/api/auth/me", headers={"Authorization": f"Bearer {session_token}"}
         )
         self.assertEqual(res.status_code, 401)
+
+    def test_password_reset_flow(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "reset@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="reset@example.com").first()
+            self.assertIsNotNone(user)
+            token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+
+        res = client.post("/api/auth/email/verify", json={"token": token})
+        self.assertEqual(res.status_code, 200)
+
+        captured: dict[str, str] = {}
+        original_send = backend_app._send_password_reset_email
+        backend_app._send_password_reset_email = lambda *, to_email, token: captured.setdefault(
+            "token", token
+        )
+        try:
+            res = client.post("/api/auth/password/forgot", json={"email": "reset@example.com"})
+            self.assertEqual(res.status_code, 200)
+            reset_token = captured.get("token")
+            self.assertIsInstance(reset_token, str)
+
+            res = client.post(
+                "/api/auth/password/reset",
+                json={"token": reset_token, "password": "newpassword123"},
+            )
+            self.assertEqual(res.status_code, 200)
+        finally:
+            backend_app._send_password_reset_email = original_send
+
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "reset@example.com", "password": "newpassword123"},
+        )
+        self.assertEqual(res.status_code, 200)
 
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

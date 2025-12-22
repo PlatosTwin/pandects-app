@@ -101,3 +101,19 @@ export async function deleteAccount(payload: { confirm: string }) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function requestPasswordReset(email: string) {
+  return authFetchJson<{ status: "sent" }>(apiUrl("api/auth/password/forgot"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token: string, password: string) {
+  return authFetchJson<{ status: "ok" }>(apiUrl("api/auth/password/reset"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+}

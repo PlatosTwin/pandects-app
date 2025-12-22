@@ -224,6 +224,8 @@ def _csrf_required(path: str) -> bool:
         "/api/auth/login",
         "/api/auth/register",
         "/api/auth/google/credential",
+        "/api/auth/password/forgot",
+        "/api/auth/password/reset",
         "/api/auth/logout",
     )
 
@@ -366,6 +368,21 @@ class AuthSession(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     revoked_at = db.Column(db.DateTime, nullable=True)
     last_used_at = db.Column(db.DateTime, nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
+
+
+class AuthPasswordResetToken(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_password_reset_tokens"
+
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
     ip_address = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(512), nullable=True)
 
@@ -603,6 +620,7 @@ class _MockAuthStore:
         self._users_by_id: dict[str, _MockAuthUser] = {}
         self._users_by_email: dict[str, str] = {}
         self._tokens: dict[str, str] = {}
+        self._reset_tokens: dict[str, tuple[str, str, datetime, bool]] = {}
         self._api_keys_by_id: dict[str, _MockApiKey] = {}
         self._api_keys_by_prefix: dict[str, list[str]] = defaultdict(list)
         self._usage_daily: dict[tuple[str, date], int] = defaultdict(int)
@@ -669,6 +687,39 @@ class _MockAuthStore:
     def revoke_session_token(self, token: str) -> None:
         with self._lock:
             self._tokens.pop(token, None)
+
+    def issue_password_reset_token(self, *, user_id: str, email: str) -> str:
+        token = secrets.token_urlsafe(48)
+        expires_at = datetime.utcnow() + timedelta(seconds=_password_reset_max_age_seconds())
+        with self._lock:
+            self._reset_tokens[token] = (user_id, email, expires_at, False)
+        return token
+
+    def consume_password_reset_token(self, token: str) -> tuple[str, str] | None:
+        now = datetime.utcnow()
+        with self._lock:
+            entry = self._reset_tokens.get(token)
+            if entry is None:
+                return None
+            user_id, email, expires_at, used = entry
+            if used or expires_at <= now:
+                return None
+            self._reset_tokens[token] = (user_id, email, expires_at, True)
+        return user_id, email
+
+    def set_user_password(self, *, user_id: str, password: str) -> bool:
+        with self._lock:
+            user = self._users_by_id.get(user_id)
+            if user is None:
+                return False
+            self._users_by_id[user_id] = _MockAuthUser(
+                id=user.id,
+                email=user.email,
+                password_hash=generate_password_hash(password),
+                email_verified_at=user.email_verified_at or datetime.utcnow(),
+                created_at=user.created_at,
+            )
+        return True
 
     def create_api_key(
         self, *, user_id: str, name: str | None
@@ -781,6 +832,26 @@ def _email_verification_max_age_seconds() -> int:
     return 60 * 60 * 24 * 7
 
 
+def _password_reset_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-password-reset")
+
+
+def _password_reset_max_age_seconds() -> int:
+    raw = os.environ.get("PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS", "").strip()
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError:
+            abort(503, description="Invalid PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS.")
+        if value <= 0:
+            abort(503, description="Invalid PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS.")
+        return value
+    return 60 * 60
+
+
 def _issue_email_verification_token(*, user_id: str, email: str) -> str:
     serializer = _email_verification_serializer()
     return serializer.dumps({"user_id": user_id, "email": email})
@@ -797,6 +868,58 @@ def _load_email_verification_token(token: str) -> tuple[str, str] | None:
     if not isinstance(user_id, str) or not isinstance(email, str):
         return None
     return user_id, email
+
+
+def _issue_password_reset_token(*, user_id: str, email: str) -> str:
+    if _auth_is_mocked():
+        return _mock_auth.issue_password_reset_token(user_id=user_id, email=email)
+    serializer = _password_reset_serializer()
+    reset_id = str(uuid.uuid4())
+    now = datetime.utcnow()
+    expires_at = now + timedelta(seconds=_password_reset_max_age_seconds())
+    db.session.add(
+        AuthPasswordResetToken(
+            id=reset_id,
+            user_id=user_id,
+            created_at=now,
+            expires_at=expires_at,
+            ip_address=_request_ip_address(),
+            user_agent=_request_user_agent(),
+        )
+    )
+    db.session.commit()
+    return serializer.dumps({"user_id": user_id, "email": email, "reset_id": reset_id})
+
+
+def _load_password_reset_token(
+    token: str,
+) -> tuple[str, str, AuthPasswordResetToken | None] | None:
+    if _auth_is_mocked():
+        parsed = _mock_auth.consume_password_reset_token(token)
+        if parsed is None:
+            return None
+        user_id, email = parsed
+        return user_id, email, None
+    serializer = _password_reset_serializer()
+    try:
+        payload = serializer.loads(token, max_age=_password_reset_max_age_seconds())
+    except (BadSignature, SignatureExpired):
+        return None
+    user_id = payload.get("user_id")
+    email = payload.get("email")
+    reset_id = payload.get("reset_id")
+    if not isinstance(user_id, str) or not isinstance(email, str) or not isinstance(reset_id, str):
+        return None
+    try:
+        row = (
+            AuthPasswordResetToken.query.filter_by(id=reset_id, user_id=user_id, used_at=None)
+            .first()
+        )
+    except SQLAlchemyError:
+        return None
+    if row is None or row.expires_at <= datetime.utcnow():
+        return None
+    return user_id, email, row
 
 
 def _resend_api_key() -> str | None:
@@ -820,7 +943,19 @@ def _resend_template_id() -> str | None:
     return template_id or None
 
 
-def _send_resend_template_email(*, to_email: str, subject: str, variables: dict[str, object]) -> None:
+def _resend_forgot_password_template_id() -> str | None:
+    template_id = os.environ.get("RESEND_FORGOT_PASSWORD_TEMPLATE_ID")
+    template_id = template_id.strip() if isinstance(template_id, str) else ""
+    return template_id or "forgot-password"
+
+
+def _send_resend_template_email(
+    *,
+    to_email: str,
+    subject: str,
+    variables: dict[str, object],
+    template_id: str,
+) -> None:
     api_key = _resend_api_key()
     sender = _resend_from_email()
     if api_key is None or sender is None:
@@ -836,9 +971,8 @@ def _send_resend_template_email(*, to_email: str, subject: str, variables: dict[
     if app.testing:
         return
 
-    template_id = _resend_template_id()
-    if template_id is None:
-        abort(503, description="Email is not configured (missing RESEND_TEMPLATE_ID).")
+    if not template_id:
+        abort(503, description="Email is not configured (missing template id).")
 
     payload: dict[str, object] = {
         "from": sender,
@@ -881,10 +1015,26 @@ def _send_email_verification_email(*, to_email: str, token: str) -> None:
     verify_url = f"{_public_api_base_url()}/api/auth/email/verify?token={quote(token)}"
     subject = "Verify your email for Pandects"
     year = str(datetime.utcnow().year)
+    template_id = _resend_template_id()
+    if template_id is None:
+        abort(503, description="Email is not configured (missing RESEND_TEMPLATE_ID).")
     _send_resend_template_email(
         to_email=to_email,
         subject=subject,
         variables={"VERIFY_URL": verify_url, "YEAR": year},
+        template_id=template_id,
+    )
+
+
+def _send_password_reset_email(*, to_email: str, token: str) -> None:
+    reset_url = f"{_frontend_base_url()}/auth/reset-password?token={quote(token)}"
+    subject = "Reset your Pandects password"
+    year = str(datetime.utcnow().year)
+    _send_resend_template_email(
+        to_email=to_email,
+        subject=subject,
+        variables={"RESET_URL": reset_url, "YEAR": year},
+        template_id=_resend_forgot_password_template_id() or "",
     )
 
 
@@ -1588,6 +1738,8 @@ _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/api/auth/login"): 10,
     ("POST", "/api/auth/register"): 5,
     ("POST", "/api/auth/email/resend"): 5,
+    ("POST", "/api/auth/password/forgot"): 5,
+    ("POST", "/api/auth/password/reset"): 10,
     ("POST", "/api/auth/google/credential"): 10,
 }
 
@@ -2545,6 +2697,108 @@ def auth_resend_email_verification():
     return resp
 
 
+@app.route("/api/auth/password/forgot", methods=["POST"])
+def auth_password_forgot():
+    _require_auth_db()
+    data = _require_json()
+    email_raw = data.get("email")
+    if not isinstance(email_raw, str) or not email_raw.strip():
+        abort(400, description="Email is required.")
+    email = _normalize_email(email_raw)
+    if not _is_email_like(email):
+        abort(400, description="Invalid email address.")
+
+    if _auth_is_mocked():
+        user = _mock_auth.get_user_by_email(email)
+        if user is not None and not (
+            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
+        ):
+            token = _issue_password_reset_token(user_id=user.id, email=user.email)
+            _send_password_reset_email(to_email=user.email, token=token)
+        resp = make_response(jsonify({"status": "sent"}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    try:
+        user = AuthUser.query.filter_by(email=email).first()
+        if user is not None and not (
+            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
+        ):
+            token = _issue_password_reset_token(user_id=user.id, email=user.email)
+            _send_password_reset_email(to_email=user.email, token=token)
+    except HTTPException:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError:
+        db.session.rollback()
+        abort(503, description="Auth backend is unavailable right now.")
+
+    resp = make_response(jsonify({"status": "sent"}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/auth/password/reset", methods=["POST"])
+def auth_password_reset():
+    _require_auth_db()
+    data = _require_json()
+    token = data.get("token")
+    password = data.get("password")
+    if not isinstance(token, str) or not token.strip():
+        abort(400, description="Missing reset token.")
+    if not isinstance(password, str):
+        abort(400, description="Password is required.")
+    if len(password) < 8:
+        abort(400, description="Password must be at least 8 characters.")
+
+    if _auth_is_mocked():
+        parsed = _load_password_reset_token(token.strip())
+        if parsed is None:
+            abort(400, description="Invalid or expired reset token.")
+        user_id, email, _row = parsed
+        user = _mock_auth.get_user(user_id)
+        if user is None or user.email != email:
+            abort(400, description="Invalid or expired reset token.")
+        if not _mock_auth.set_user_password(user_id=user_id, password=password):
+            abort(400, description="Invalid or expired reset token.")
+        resp = make_response(jsonify({"status": "ok"}))
+        resp.headers["Cache-Control"] = "no-store"
+        _clear_auth_cookies(resp)
+        return resp
+
+    try:
+        parsed = _load_password_reset_token(token.strip())
+        if parsed is None:
+            abort(400, description="Invalid or expired reset token.")
+        user_id, email, row = parsed
+        user = db.session.get(AuthUser, user_id)
+        if user is None or user.email != email:
+            abort(400, description="Invalid or expired reset token.")
+        if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
+            abort(400, description="Invalid or expired reset token.")
+        user.password_hash = generate_password_hash(password)
+        if user.email_verified_at is None:
+            user.email_verified_at = datetime.utcnow()
+        now = datetime.utcnow()
+        if row is not None:
+            row.used_at = now
+        AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
+            {"revoked_at": now}, synchronize_session=False
+        )
+        db.session.commit()
+    except HTTPException:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError:
+        db.session.rollback()
+        abort(503, description="Auth backend is unavailable right now.")
+
+    resp = make_response(jsonify({"status": "ok"}))
+    resp.headers["Cache-Control"] = "no-store"
+    _clear_auth_cookies(resp)
+    return resp
+
+
 @app.route("/api/auth/email/verify", methods=["POST"])
 def auth_verify_email():
     _require_auth_db()
@@ -3137,6 +3391,7 @@ def init_auth_db():
         expected = {
             "auth_users",
             "auth_sessions",
+            "auth_password_reset_tokens",
             "api_keys",
             "api_usage_daily",
             "api_usage_hourly",
