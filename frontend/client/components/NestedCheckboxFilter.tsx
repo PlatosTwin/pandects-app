@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { DROPDOWN_ANIMATION_DELAY } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
 import { ChevronDown, ChevronUp, ChevronRight, X, Search } from "lucide-react";
@@ -22,7 +22,6 @@ interface NestedCheckboxFilterProps {
   onToggle: (value: string) => void;
   className?: string;
   useModal?: boolean;
-  tabIndex?: number;
 }
 
 interface ExpandState {
@@ -36,7 +35,6 @@ export function NestedCheckboxFilter({
   onToggle,
   className,
   useModal = false,
-  tabIndex,
 }: NestedCheckboxFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandState, setExpandState] = useState<ExpandState>({});
@@ -46,6 +44,9 @@ export function NestedCheckboxFilter({
   >([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
+  const dropdownId = useId();
+  const modalId = useId();
+  const modalTitleId = useId();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -403,7 +404,9 @@ export function NestedCheckboxFilter({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            tabIndex={tabIndex}
+            aria-expanded={isExpanded}
+            aria-controls={useModal ? modalId : dropdownId}
+            aria-haspopup={useModal ? "dialog" : undefined}
             className={cn(
               "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
               "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -444,7 +447,10 @@ export function NestedCheckboxFilter({
 
         {/* Expanded nested checkbox list or Modal */}
         {isExpanded && !useModal && (
-          <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+          <div
+            id={dropdownId}
+            className="absolute top-full left-0 right-0 z-10 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+          >
             <div className="p-2">{renderNestedItems(data)}</div>
           </div>
         )}
@@ -462,6 +468,10 @@ export function NestedCheckboxFilter({
           {/* Modal */}
           <div
             ref={modalRef}
+            id={modalId}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
             className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-background text-foreground shadow-xl"
             onKeyDown={(e) => {
               // Handle Enter and Escape keys to close modal
@@ -486,7 +496,10 @@ export function NestedCheckboxFilter({
             {/* Header */}
             <div className="flex-shrink-0 border-b border-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-foreground">
+                <h3
+                  id={modalTitleId}
+                  className="text-lg font-medium text-foreground"
+                >
                   Select {label}s
                 </h3>
                 <Button
@@ -522,6 +535,7 @@ export function NestedCheckboxFilter({
                     // Handle other keys with existing function
                     handleSearchKeyDown(e);
                   }}
+                  aria-label={`Search ${label}`}
                   placeholder="Search clause types..."
                   className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-sm leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                 />

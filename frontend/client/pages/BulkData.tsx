@@ -204,7 +204,7 @@ export default function BulkData() {
                   "api-call",
                 );
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent z-10"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy API curl command"
             >
@@ -240,7 +240,7 @@ export default function BulkData() {
                 trackEvent("bulk_copy_click", { copy_target: "wget_latest" });
                 void copyToClipboard(`wget ${latestSqlUrl}`, "wget-download");
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy wget command for latest SQL"
             >
@@ -281,7 +281,7 @@ export default function BulkData() {
                   "checksum-verify",
                 );
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy checksum verification command"
             >
@@ -338,12 +338,12 @@ export default function BulkData() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">
+          <div className="p-8 text-center" role="status" aria-live="polite">
             <div className="animate-spin inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
             <p className="text-muted-foreground mt-2">Loading dumps...</p>
           </div>
         ) : error ? (
-          <div className="p-8 text-center">
+          <div className="p-8 text-center" role="alert">
             <p className="text-red-600">{error}</p>
           </div>
         ) : (
@@ -351,16 +351,28 @@ export default function BulkData() {
             <table className="w-full">
               <thead className="bg-muted">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                  >
                     Version
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                  >
                     SHA256 Hash
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                  >
                     Download Size
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                  >
                     Actions
                   </th>
                 </tr>
@@ -390,14 +402,16 @@ export default function BulkData() {
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
                         <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
-                          {formatSha256(dump.sha256)}
+                          <span title={dump.sha256} aria-label={dump.sha256}>
+                            {formatSha256(dump.sha256)}
+                          </span>
                         </span>
                         <button
                           type="button"
                           onClick={() =>
                             copyToClipboard(dump.sha256, `sha-${index}`)
                           }
-                          className="p-1 rounded hover:bg-accent transition-colors"
+                          className="p-1 rounded hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           title="Copy SHA256"
                           aria-label="Copy SHA256"
                         >
@@ -434,7 +448,7 @@ export default function BulkData() {
                               }
                             }
                           }
-                          className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label="Download SQL (opens in a new tab)"
@@ -459,7 +473,7 @@ export default function BulkData() {
                             }
                             void downloadManifest(dump.manifest);
                           }}
-                          className="inline-flex items-center px-3 py-1 border border-border text-foreground hover:bg-accent rounded text-sm font-medium transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-border text-foreground hover:bg-accent rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                           Manifest
                         </button>

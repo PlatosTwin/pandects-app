@@ -12,6 +12,7 @@ import {
 import { PageShell } from "@/components/PageShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -253,7 +254,11 @@ export default function AgreementIndex() {
       title="Agreement Index"
       subtitle="Explore the full agreement universe and drill into deal-level metadata."
     >
-      <div className="mb-10 grid gap-4 md:grid-cols-3">
+      <div
+        className="mb-10 grid gap-4 md:grid-cols-3"
+        aria-busy={summaryLoading}
+        aria-live="polite"
+      >
         {summaryCards.map((card) => {
           const Icon = card.icon;
           const value = summary?.[card.key] ?? null;
@@ -265,7 +270,7 @@ export default function AgreementIndex() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
               <CardContent className="relative flex items-center gap-4 p-6">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -273,7 +278,10 @@ export default function AgreementIndex() {
                   </div>
                   <div className="text-2xl font-semibold text-foreground">
                     {summaryLoading ? (
-                      <Skeleton className="h-7 w-24" />
+                      <>
+                        <Skeleton className="h-7 w-24" />
+                        <span className="sr-only">Loading summary</span>
+                      </>
                     ) : summaryError ? (
                       "—"
                     ) : (
@@ -297,14 +305,18 @@ export default function AgreementIndex() {
               <h2 className="text-lg font-semibold text-foreground">
                 Agreements
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" aria-live="polite">
                 {filteredLabel}
               </p>
             </div>
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
               <div className="relative w-full sm:max-w-xs">
+                <Label htmlFor="agreement-filter" className="sr-only">
+                  Filter agreements
+                </Label>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  id="agreement-filter"
                   value={filter}
                   onChange={(event) => {
                     setFilter(event.target.value);
@@ -324,7 +336,16 @@ export default function AgreementIndex() {
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur">
                 <TableRow>
-                  <TableHead>
+                  <TableHead
+                    scope="col"
+                    aria-sort={
+                      sortBy === "year"
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
                     <Button
                       variant="ghost"
                       size="sm"
@@ -343,7 +364,16 @@ export default function AgreementIndex() {
                       )}
                     </Button>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    scope="col"
+                    aria-sort={
+                      sortBy === "target"
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
                     <Button
                       variant="ghost"
                       size="sm"
@@ -362,7 +392,16 @@ export default function AgreementIndex() {
                       )}
                     </Button>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    scope="col"
+                    aria-sort={
+                      sortBy === "acquirer"
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
                     <Button
                       variant="ghost"
                       size="sm"
@@ -381,13 +420,15 @@ export default function AgreementIndex() {
                       )}
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">
+                  <TableHead scope="col" className="hidden lg:table-cell">
                     Consideration Type
                   </TableHead>
-                  <TableHead className="hidden xl:table-cell">
+                  <TableHead scope="col" className="hidden xl:table-cell">
                     Total Consideration
                   </TableHead>
-                  <TableHead className="w-28 text-right">Verified</TableHead>
+                  <TableHead scope="col" className="w-28 text-right">
+                    Verified
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -402,7 +443,7 @@ export default function AgreementIndex() {
                 ) : error ? (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground" role="alert">
                         {error}
                       </div>
                     </TableCell>
@@ -410,7 +451,7 @@ export default function AgreementIndex() {
                 ) : agreements.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground" role="status">
                         No agreements match this filter.
                       </div>
                     </TableCell>
@@ -434,7 +475,7 @@ export default function AgreementIndex() {
                               acquirer: agreement.acquirer ?? "",
                             })
                           }
-                          className="group inline-flex items-center gap-2 text-left text-foreground transition-colors hover:text-foreground"
+                          className="group inline-flex items-center gap-2 text-left text-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                           <span className="truncate">
                             {formatValue(agreement.target)}

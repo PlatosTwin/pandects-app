@@ -89,7 +89,6 @@ export function SearchSidebar({
           options={years}
           selectedValues={filters.year || []}
           onToggle={(value) => onToggleFilterValue("year", value)}
-          tabIndex={1}
         />
       </div>
 
@@ -100,11 +99,15 @@ export function SearchSidebar({
           options={targets}
           selectedValues={filters.target || []}
           onToggle={(value) => onToggleFilterValue("target", value)}
-          tabIndex={2}
         />
         {isLoadingFilterOptions && (
-          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
+            role="status"
+            aria-live="polite"
+          >
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="sr-only">Loading filter options</span>
           </div>
         )}
       </div>
@@ -116,11 +119,15 @@ export function SearchSidebar({
           options={acquirers}
           selectedValues={filters.acquirer || []}
           onToggle={(value) => onToggleFilterValue("acquirer", value)}
-          tabIndex={3}
         />
         {isLoadingFilterOptions && (
-          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
+            role="status"
+            aria-live="polite"
+          >
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="sr-only">Loading filter options</span>
           </div>
         )}
       </div>
@@ -133,7 +140,6 @@ export function SearchSidebar({
           selectedValues={filters.clauseType || []}
           onToggle={(value) => onToggleFilterValue("clauseType", value)}
           useModal={true}
-          tabIndex={4}
         />
       </div>
 
@@ -144,7 +150,6 @@ export function SearchSidebar({
           options={TRANSACTION_SIZE_OPTIONS}
           selectedValues={filters.transactionSize || []}
           onToggle={(value) => onToggleFilterValue("transactionSize", value)}
-          tabIndex={5}
           hideSearch={true}
           disabled={true}
         />
@@ -157,7 +162,6 @@ export function SearchSidebar({
           options={TRANSACTION_TYPE_OPTIONS}
           selectedValues={filters.transactionType || []}
           onToggle={(value) => onToggleFilterValue("transactionType", value)}
-          tabIndex={6}
           hideSearch={true}
           disabled={true}
         />
@@ -170,7 +174,6 @@ export function SearchSidebar({
           options={CONSIDERATION_TYPE_OPTIONS}
           selectedValues={filters.considerationType || []}
           onToggle={(value) => onToggleFilterValue("considerationType", value)}
-          tabIndex={7}
           hideSearch={true}
           disabled={true}
         />
@@ -183,7 +186,6 @@ export function SearchSidebar({
           options={TARGET_TYPE_OPTIONS}
           selectedValues={filters.targetType || []}
           onToggle={(value) => onToggleFilterValue("targetType", value)}
-          tabIndex={8}
           hideSearch={true}
           disabled={true}
         />
@@ -218,9 +220,11 @@ export function SearchSidebar({
     <>
       {/* Backdrop for tablet overlay */}
       {!isCollapsed && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 border-0 bg-black bg-opacity-50 p-0 z-40 lg:hidden"
           onClick={toggleCollapse}
+          aria-label="Close filters"
         />
       )}
 
@@ -251,6 +255,7 @@ export function SearchSidebar({
                   onClick={toggleCollapse}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   title="Collapse sidebar"
+                  aria-label="Collapse sidebar"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -279,6 +284,7 @@ export function SearchSidebar({
               onClick={toggleCollapse}
               className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Expand sidebar"
+              aria-label="Expand sidebar"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

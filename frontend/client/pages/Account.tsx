@@ -369,11 +369,17 @@ export default function Account() {
       }
     >
       {status === "loading" ? (
-        <Card className="p-6">Loading…</Card>
+        <Card className="p-6" role="status" aria-live="polite">
+          Loading…
+        </Card>
       ) : !user ? (
         <Card className="relative p-6">
           {authBackendStatus !== "ready" ? (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70 px-6 text-center">
+            <div
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70 px-6 text-center"
+              role={authBackendStatus === "failed" ? "alert" : "status"}
+              aria-live={authBackendStatus === "failed" ? "assertive" : "polite"}
+            >
               {authBackendStatus === "failed" ? (
                 <>
                   <div className="text-sm font-medium">
@@ -409,6 +415,7 @@ export default function Account() {
               "grid gap-6",
               authBackendStatus !== "ready" && "opacity-50",
             )}
+            aria-busy={authBackendStatus !== "ready"}
           >
             <div className="flex justify-center pt-1">
               <div
@@ -517,7 +524,11 @@ export default function Account() {
                 Google sign-in is not configured.
               </div>
             ) : (
-              <div className="text-center text-xs text-muted-foreground">
+              <div
+                className="text-center text-xs text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
                 Loading Google sign-in…
               </div>
             )}
@@ -699,7 +710,9 @@ export default function Account() {
                       Captcha is temporarily unavailable.
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground">Loading captcha…</div>
+                    <div className="text-xs text-muted-foreground" role="status" aria-live="polite">
+                      Loading captcha…
+                    </div>
                   )
                 ) : null}
                 <div className="mt-2 flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
@@ -806,7 +819,11 @@ export default function Account() {
                 >
                   Refresh
                 </Button>
+                <Label htmlFor="api-key-name" className="sr-only">
+                  Key name (optional)
+                </Label>
                 <Input
+                  id="api-key-name"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="Key name (optional)"
@@ -905,13 +922,14 @@ export default function Account() {
               </div>
               <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full text-sm">
+                  <caption className="sr-only">API keys</caption>
                   <thead className="text-muted-foreground">
                     <tr className="border-b">
-                      <th className="py-2 text-left font-medium">Name</th>
-                      <th className="py-2 text-left font-medium">Prefix</th>
-                      <th className="py-2 text-left font-medium">Created</th>
-                      <th className="py-2 text-left font-medium">Last used</th>
-                      <th className="py-2 text-right font-medium">Actions</th>
+                      <th scope="col" className="py-2 text-left font-medium">Name</th>
+                      <th scope="col" className="py-2 text-left font-medium">Prefix</th>
+                      <th scope="col" className="py-2 text-left font-medium">Created</th>
+                      <th scope="col" className="py-2 text-left font-medium">Last used</th>
+                      <th scope="col" className="py-2 text-right font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -966,13 +984,14 @@ export default function Account() {
               Total: {usageTotal.toLocaleString()} API requests.
             </p>
 
-            <div className="mt-4 grid gap-2">
+            <div className="mt-4 grid gap-2" role="list">
               {usageByDay.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No usage yet.</div>
               ) : (
                 usageByDay.map((row) => (
                   <div
                     key={row.day}
+                    role="listitem"
                     className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                   >
                     <span className="font-mono text-xs text-muted-foreground">
@@ -1034,7 +1053,7 @@ export default function Account() {
                 setCopiedNewKey(true);
                 toast({ title: "Copied to clipboard" });
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border hover:bg-accent"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy API key"
             >

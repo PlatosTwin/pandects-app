@@ -101,6 +101,8 @@ export default function About() {
                       <button
                         type="button"
                         onClick={() => scrollToSection(id)}
+                        aria-current={activeSection === id ? "location" : undefined}
+                        aria-controls={id}
                         className={cn(
                           "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                           activeSection === id

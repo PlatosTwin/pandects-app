@@ -15,7 +15,7 @@ export default function Footer() {
             </span>
             <Link
               to="/license"
-              className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60"
+              className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
             >
               License
             </Link>
@@ -25,7 +25,7 @@ export default function Footer() {
             <nav aria-label="Legal" className="flex items-center gap-x-3">
               <Link
                 to="/privacy-policy"
-                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60"
+                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
               >
                 Privacy Policy
               </Link>
@@ -34,7 +34,7 @@ export default function Footer() {
               </span>
               <Link
                 to="/terms"
-                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60"
+                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
               >
                 Terms
               </Link>
@@ -45,7 +45,7 @@ export default function Footer() {
             href="https://github.com/PlatosTwin/pandects-app"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
             title="View source code on GitHub"
             aria-label="View source code on GitHub"
           >

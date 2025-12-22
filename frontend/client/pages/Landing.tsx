@@ -30,7 +30,7 @@ export default function Landing() {
           </h1>
 
           <p className="mt-3 text-base font-medium text-muted-foreground sm:text-xl">
-            Welcome to Pandects, the open-source M&A research platform.
+            Search Thousands of M&A Agreements in Seconds — All Open, All Structured.
           </p>
 
           <div className="mx-auto mt-6 h-1 w-24 rounded-full bg-primary" />
@@ -67,16 +67,16 @@ export default function Landing() {
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="See Examples (opens in a new tab)"
+                aria-label="See API Examples (opens in a new tab)"
                 onClick={() =>
                   trackEvent("landing_cta_click", {
-                    cta: "See Examples",
+                    cta: "See API Examples",
                     href:
                       "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
                   })
                 }
               >
-                See Examples
+                See API Examples
               </a>
             </Button>
 
@@ -89,12 +89,12 @@ export default function Landing() {
                 to="/about#data"
                 onClick={() =>
                   trackEvent("landing_cta_click", {
-                    cta: "Learn About the Data",
+                    cta: "About the Dataset",
                     to_path: "/about#data",
                   })
                 }
               >
-                Learn About the Data
+                About the Dataset
               </Link>
             </Button>
           </div>

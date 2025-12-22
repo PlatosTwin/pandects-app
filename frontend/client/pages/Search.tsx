@@ -415,7 +415,10 @@ export default function Search() {
           </div>
 
           {filterOptionsError && (
-            <div className="mx-4 mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm sm:mx-8">
+            <div
+              className="mx-4 mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm sm:mx-8"
+              role="alert"
+            >
               <p className="font-medium text-foreground">
                 Filter options error
               </p>
@@ -504,7 +507,7 @@ export default function Search() {
                       <button
                         type="button"
                         onClick={() => toggleFilterValue(field, value)}
-                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={`Remove ${label} filter: ${value}`}
                       >
                         <X className="h-3 w-3" />
@@ -554,7 +557,11 @@ export default function Search() {
               {hasSearched && (
                 <div className="space-y-6">
                   {totalCount === 0 ? (
-                    <div className="mx-auto max-w-3xl text-center py-12 text-muted-foreground">
+                    <div
+                      className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
+                      role="status"
+                      aria-live="polite"
+                    >
                       <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p className="text-foreground font-medium">
                         No clauses found.

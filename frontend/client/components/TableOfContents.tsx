@@ -100,9 +100,11 @@ export function TableOfContents({
         <h3 className="mb-3 text-sm font-medium text-foreground">
           Table of Contents
         </h3>
-        <div className="space-y-1">
-          {tocItems.map((item) => renderTOCItem(item))}
-        </div>
+        <nav aria-label="Agreement table of contents">
+          <div className="space-y-1">
+            {tocItems.map((item) => renderTOCItem(item))}
+          </div>
+        </nav>
       </div>
     </div>
   );

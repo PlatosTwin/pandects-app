@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { DROPDOWN_ANIMATION_DELAY } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
@@ -16,7 +16,6 @@ interface CheckboxFilterProps {
   selectedValues: string[];
   onToggle: (value: string) => void;
   className?: string;
-  tabIndex?: number;
   hideSearch?: boolean;
   disabled?: boolean;
 }
@@ -27,7 +26,6 @@ export function CheckboxFilter({
   selectedValues,
   onToggle,
   className,
-  tabIndex,
   hideSearch = false,
   disabled = false,
 }: CheckboxFilterProps) {
@@ -35,6 +33,7 @@ export function CheckboxFilter({
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredOptions, setFilteredOptions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownId = useId();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const expandedDropdownRef = useRef<HTMLDivElement>(null);
@@ -202,7 +201,11 @@ export function CheckboxFilter({
   }, [isExpanded, searchTerm, highlightedIndex]);
 
   return (
-    <div ref={componentRef} className={cn("flex flex-col gap-2", className)}>
+    <div
+      ref={componentRef}
+      tabIndex={-1}
+      className={cn("flex flex-col gap-2", className)}
+    >
       <label className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
         {label}
       </label>
@@ -213,7 +216,8 @@ export function CheckboxFilter({
           <button
             type="button"
             onClick={() => !disabled && setIsExpanded(!isExpanded)}
-            tabIndex={disabled ? -1 : tabIndex}
+            aria-expanded={isExpanded}
+            aria-controls={dropdownId}
             disabled={disabled}
             className={cn(
               "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
@@ -256,6 +260,7 @@ export function CheckboxFilter({
         {isExpanded && !disabled && (
           <div
             ref={expandedDropdownRef}
+            id={dropdownId}
             className="absolute top-full left-0 right-0 z-10 mt-1 flex max-h-72 flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
             onKeyDown={(e) => {
               // Handle Enter and Escape keys to close dropdown
@@ -296,6 +301,7 @@ export function CheckboxFilter({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    aria-label={`Search ${label}`}
                     placeholder={`Search ${label.toLowerCase()}s...`}
                     className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-sm leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   />
@@ -331,6 +337,7 @@ export function CheckboxFilter({
                           e.stopPropagation();
                           onToggle(option);
                         }}
+                        aria-label={`Remove ${option}`}
                         className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                         title="Remove filter"
                       >

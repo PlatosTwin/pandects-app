@@ -55,7 +55,7 @@ export default function ResetPassword() {
         </div>
         <Card className="p-6 sm:p-8">
           {!token ? (
-            <div className="grid gap-4 text-sm text-muted-foreground">
+            <div className="grid gap-4 text-sm text-muted-foreground" role="alert">
               <p>That reset link is missing or invalid.</p>
               <Link
                 to="/auth/forgot-password"

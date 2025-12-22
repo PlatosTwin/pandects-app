@@ -57,7 +57,7 @@ export default function AuthGoogleCallback() {
     <PageShell title="Signing in…" subtitle="Completing Google sign-in." size="md">
       <Card className="p-6">
         {error ? (
-          <div className="grid gap-4">
+          <div className="grid gap-4" role="alert">
             <div>
               <div className="text-sm font-medium">Google sign-in failed</div>
               <div className="mt-1 text-sm text-muted-foreground">
@@ -69,7 +69,9 @@ export default function AuthGoogleCallback() {
             </Button>
           </div>
         ) : busy ? (
-          <div className="text-sm text-muted-foreground">Finishing sign-in…</div>
+          <div className="text-sm text-muted-foreground" role="status" aria-live="polite">
+            Finishing sign-in…
+          </div>
         ) : (
           <Button onClick={() => navigate("/account", { replace: true })}>
             Back to account

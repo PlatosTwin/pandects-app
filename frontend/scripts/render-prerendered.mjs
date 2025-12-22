@@ -16,8 +16,11 @@ const outDir = path.join(spaDir, "prerender");
 fs.mkdirSync(outDir, { recursive: true });
 
 const routes = [
+  { pathname: "/", filename: "index.html" },
   { pathname: "/about", filename: "about.html" },
   { pathname: "/bulk-data", filename: "bulk-data.html" },
+  { pathname: "/donate", filename: "donate.html" },
+  { pathname: "/feedback", filename: "feedback.html" },
 ];
 
 for (const route of routes) {
@@ -34,4 +37,3 @@ function injectRootHtml(html, rendered) {
   }
   return html.replace(needle, replacement);
 }
-

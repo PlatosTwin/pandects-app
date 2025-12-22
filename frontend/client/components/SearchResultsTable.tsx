@@ -81,6 +81,8 @@ function TruncatedText({
   return (
     <span
       ref={containerRef}
+      aria-label={displayText !== text ? text : undefined}
+      title={displayText !== text ? text : undefined}
       className={cn(
         "relative block max-w-full min-w-0 overflow-hidden whitespace-nowrap",
         className,
@@ -254,7 +256,10 @@ export function SearchResultsTable({
 
       {/* Results Grid */}
 	      <TooltipProvider>
-	        <div className={cn("grid", density === "compact" ? "gap-2" : "gap-4")}>
+        <div
+          role="list"
+          className={cn("grid", density === "compact" ? "gap-2" : "gap-4")}
+        >
 	          {searchResults.map((result, index) => {
 	            const targetText = truncateText(result.target, 75);
 	            const acquirerText = truncateText(result.acquirer, 75);
@@ -274,9 +279,10 @@ export function SearchResultsTable({
 	              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 	
 		            return (
-		              <div
+	              <div
+                  role="listitem"
 		                key={result.id}
-	                className={cn(
+                className={cn(
 	                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-colors",
 	                  isSelected
 	                    ? "border-primary/40 bg-primary/5"

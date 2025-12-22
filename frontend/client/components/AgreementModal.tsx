@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useId } from "react";
 import {
   X,
   ArrowLeft,
@@ -48,10 +48,17 @@ export function AgreementModal({
   );
   const contentRef = useRef<HTMLDivElement>(null);
   const cancelScrollAnimationRef = useRef<null | (() => void)>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const modalTitleId = useId();
+  const modalDescriptionId = useId();
   const isMobile = useIsMobile();
   const year = agreementMetadata?.year ?? agreement?.year;
   const target = agreementMetadata?.target ?? agreement?.target;
   const acquirer = agreementMetadata?.acquirer ?? agreement?.acquirer;
+  const modalTitle =
+    [year, target, acquirer].filter(Boolean).join(" - ") || "Agreement details";
   const mobileMetadataSummary = (() => {
     const parts: string[] = [];
     if (year) parts.push(year);
@@ -81,6 +88,48 @@ export function AgreementModal({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    lastFocusedElementRef.current = document.activeElement as HTMLElement | null;
+
+    const frame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      lastFocusedElementRef.current?.focus?.();
+      lastFocusedElementRef.current = null;
+    };
+  }, [isOpen]);
+
+  const handleTrapFocus = (event: React.KeyboardEvent) => {
+    if (event.key !== "Tab") return;
+    const container = modalRef.current;
+    if (!container) return;
+
+    const focusable = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => el.getClientRects().length > 0);
+
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const scrollToSection = (
     sectionUuid: string,
@@ -168,6 +217,11 @@ export function AgreementModal({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
+        aria-describedby={modalDescriptionId}
         className={cn(
           "bg-card text-foreground shadow-xl w-full flex flex-col overflow-hidden",
           // Mobile: full-screen modal for a native-app feel
@@ -176,7 +230,15 @@ export function AgreementModal({
           "sm:h-full sm:max-h-[95vh] sm:rounded-lg sm:max-w-7xl",
         )}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleTrapFocus}
       >
+        <h2 id={modalTitleId} className="sr-only">
+          {modalTitle}
+        </h2>
+        <p id={modalDescriptionId} className="sr-only">
+          Agreement document viewer
+        </p>
+
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <div className="flex items-center justify-between gap-3 px-3 py-3 sm:p-4">
@@ -243,6 +305,7 @@ export function AgreementModal({
             </div>
 
             <Button
+              ref={closeButtonRef}
               onClick={onClose}
               variant="ghost"
               size="icon"
@@ -302,7 +365,7 @@ export function AgreementModal({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Original Filing (opens in a new tab)"
-                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit"
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       title="View original SEC filing"
                     >
                       <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -340,7 +403,7 @@ export function AgreementModal({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Original Filing (opens in a new tab)"
-                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group"
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       title="View original SEC filing"
                     >
                       <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -373,7 +436,7 @@ export function AgreementModal({
           <div className="flex-1 min-w-0 overflow-hidden">
             {isLoading && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
+                <div className="text-center" role="status" aria-live="polite">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                   <p className="text-muted-foreground">Loading agreement...</p>
                 </div>
@@ -382,7 +445,7 @@ export function AgreementModal({
 
             {error && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-red-600">
+                <div className="text-center text-red-600" role="alert">
                   <p className="mb-2">Failed to load agreement</p>
                   <p className="text-sm text-muted-foreground">{error}</p>
                 </div>

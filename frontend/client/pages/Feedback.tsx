@@ -33,7 +33,12 @@ export default function Feedback() {
   const skeletonBySection = useMemo(
     () => ({
       survey: (
-        <div className="h-[895px] rounded-lg border border-border bg-muted/30 p-6">
+        <div
+          className="h-[895px] rounded-lg border border-border bg-muted/30 p-6"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="sr-only">Loading survey form</span>
           <div className="h-4 w-40 animate-pulse rounded bg-muted" />
           <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
           <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
@@ -41,7 +46,12 @@ export default function Feedback() {
         </div>
       ),
       "general-feedback": (
-        <div className="h-[895px] rounded-lg border border-border bg-muted/30 p-6">
+        <div
+          className="h-[895px] rounded-lg border border-border bg-muted/30 p-6"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="sr-only">Loading feedback form</span>
           <div className="h-4 w-48 animate-pulse rounded bg-muted" />
           <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
           <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
@@ -119,9 +129,12 @@ export default function Feedback() {
               {!mountedSections.survey ? (
                 skeletonBySection.survey
               ) : (
-                <div className="relative">
+                <div
+                  className="relative"
+                  aria-busy={!loadedSections.survey}
+                >
                   {!loadedSections.survey && (
-                    <div className="absolute inset-0">
+                    <div className="absolute inset-0" aria-hidden="true">
                       {skeletonBySection.survey}
                     </div>
                   )}
@@ -166,9 +179,12 @@ export default function Feedback() {
               {!mountedSections["general-feedback"] ? (
                 skeletonBySection["general-feedback"]
               ) : (
-                <div className="relative">
+                <div
+                  className="relative"
+                  aria-busy={!loadedSections["general-feedback"]}
+                >
                   {!loadedSections["general-feedback"] && (
-                    <div className="absolute inset-0">
+                    <div className="absolute inset-0" aria-hidden="true">
                       {skeletonBySection["general-feedback"]}
                     </div>
                   )}

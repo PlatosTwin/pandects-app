@@ -45,7 +45,7 @@ export default function ForgotPassword() {
         </div>
         <Card className="p-6 sm:p-8">
           {sent ? (
-            <div className="grid gap-4 text-sm text-muted-foreground">
+            <div className="grid gap-4 text-sm text-muted-foreground" role="status" aria-live="polite">
               <p>
                 If the email matches an account, you’ll receive a password reset
                 link shortly.

@@ -26,6 +26,10 @@ const KNOWN_ROUTES = new Set([
   "/privacy-policy",
   "/terms",
   "/license",
+  "/account",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/auth/google/callback",
 ]);
 
 export function isKnownRoute(pathname: string): boolean {
@@ -89,16 +93,16 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
     switch (normalizedPath) {
       case "/":
         return {
-          title: "Pandects — M&A Agreement Research",
+          title: "Pandects - Open-Source M&A Agreement Search & Data",
           description:
-            "Pandects is an open-source M&A research platform for exploring and analyzing merger agreement clauses.",
+            "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
           jsonLd: buildJsonLd({
             origin,
             canonical: `${origin}/`,
             pageType: "WebSite",
             pageName: "Pandects",
             pageDescription:
-              "Pandects is an open-source M&A research platform for exploring and analyzing merger agreement clauses.",
+              "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
           }),
         };
       case "/search":
@@ -161,14 +165,14 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
         return {
           title: "About | Pandects",
           description:
-            "Learn what Pandects is, why it exists, and how it’s built as an open-source M&A research platform.",
+            "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
           jsonLd: buildJsonLd({
             origin,
             canonical,
             pageType: "AboutPage",
             pageName: "About",
             pageDescription:
-              "Learn what Pandects is, why it exists, and how it’s built as an open-source M&A research platform.",
+              "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
           }),
         };
       case "/feedback":
@@ -235,6 +239,64 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
             pageDescription: "Pandects open-source software license information.",
           }),
         };
+      case "/account":
+        return {
+          title: "Account | Pandects",
+          description:
+            "Manage your Pandects account, access, and saved settings.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Account",
+            pageDescription:
+              "Manage your Pandects account, access, and saved settings.",
+          }),
+          robots: "noindex,nofollow",
+          xRobotsTag: "noindex, nofollow",
+        };
+      case "/auth/forgot-password":
+        return {
+          title: "Reset Password | Pandects",
+          description: "Reset your Pandects account password.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Reset Password",
+            pageDescription: "Reset your Pandects account password.",
+          }),
+          robots: "noindex,nofollow",
+          xRobotsTag: "noindex, nofollow",
+        };
+      case "/auth/reset-password":
+        return {
+          title: "Reset Password | Pandects",
+          description: "Reset your Pandects account password.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Reset Password",
+            pageDescription: "Reset your Pandects account password.",
+          }),
+          robots: "noindex,nofollow",
+          xRobotsTag: "noindex, nofollow",
+        };
+      case "/auth/google/callback":
+        return {
+          title: "Signing In | Pandects",
+          description: "Completing your Pandects sign-in flow.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Signing In",
+            pageDescription: "Completing your Pandects sign-in flow.",
+          }),
+          robots: "noindex,nofollow",
+          xRobotsTag: "noindex, nofollow",
+        };
     }
   })();
 
@@ -242,10 +304,11 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
     title: page.title,
     description: page.description,
     canonical,
-    robots: "index,follow,max-image-preview:large",
+    robots: page.robots ?? "index,follow,max-image-preview:large",
     ogImage,
     jsonLd: JSON.stringify(page.jsonLd, null, 0),
     status: 200,
+    xRobotsTag: page.xRobotsTag,
   };
 }
 

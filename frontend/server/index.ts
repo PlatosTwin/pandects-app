@@ -96,10 +96,13 @@ export function createServer() {
 
 function loadPrerenderedTemplates(staticPath: string): Map<string, string> {
   const templates = new Map<string, string>();
-  const entries = [
-    { route: "/about", file: "about.html" },
-    { route: "/bulk-data", file: "bulk-data.html" },
-  ];
+    const entries = [
+      { route: "/", file: "index.html" },
+      { route: "/about", file: "about.html" },
+      { route: "/bulk-data", file: "bulk-data.html" },
+      { route: "/donate", file: "donate.html" },
+      { route: "/feedback", file: "feedback.html" },
+    ];
 
   const dir = path.join(staticPath, "prerender");
   for (const entry of entries) {

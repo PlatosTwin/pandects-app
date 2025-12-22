@@ -130,7 +130,7 @@ export function XMLRenderer({
                     type="button"
                     onClick={() => toggleCollapse(tagId)}
                     data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     aria-expanded={!isCollapsed}
                     aria-label={
                       isCollapsed ? "Expand section" : "Collapse section"
@@ -234,7 +234,7 @@ export function XMLRenderer({
                     type="button"
                     onClick={() => toggleCollapse(tagId)}
                     data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     aria-expanded={!isCollapsed}
                     aria-label={
                       isCollapsed ? "Expand section" : "Collapse section"
@@ -272,16 +272,16 @@ export function XMLRenderer({
           <div className="flex items-start gap-1">
             <div className="flex-shrink-0">
               {isCollapsible && (
-                <button
-                  type="button"
-                  onClick={() => toggleCollapse(tagId)}
-                  data-collapse-toggle="true"
-                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
-                  aria-expanded={!isCollapsed}
-                  aria-label={
-                    isCollapsed ? "Expand section" : "Collapse section"
-                  }
-                >
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(tagId)}
+                    data-collapse-toggle="true"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    aria-expanded={!isCollapsed}
+                    aria-label={
+                      isCollapsed ? "Expand section" : "Collapse section"
+                    }
+                  >
                   {isCollapsed ? (
                     <ChevronRight className="w-3 h-3" />
                   ) : (

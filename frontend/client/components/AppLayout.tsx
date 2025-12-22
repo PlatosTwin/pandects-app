@@ -1,8 +1,9 @@
-import { Outlet } from "react-router-dom";
-import { Suspense } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { Suspense, useEffect } from "react";
 import SiteBanner from "@/components/SiteBanner";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { applySeoForPath } from "@/lib/seo";
 
 function RouteFallback() {
   return (
@@ -17,6 +18,12 @@ function RouteFallback() {
 }
 
 export function AppLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    applySeoForPath(location.pathname);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen bg-cream flex flex-col">
       <a

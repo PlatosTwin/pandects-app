@@ -13,6 +13,9 @@ const routes = [
   "/about",
   "/feedback",
   "/donate",
+  "/privacy-policy",
+  "/terms",
+  "/license",
 ];
 
 const now = new Date();
