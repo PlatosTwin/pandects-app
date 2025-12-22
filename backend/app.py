@@ -58,6 +58,7 @@ _filter_options_lock = Lock()
 # ── Simple in-process rate limiting ──────────────────────────────────────
 _rate_limit_lock = Lock()
 _rate_limit_state: dict[str, dict[str, float | int]] = {}
+_endpoint_rate_limit_state: dict[str, dict[str, float | int]] = {}
 
 # ── API usage logging ─────────────────────────────────────────────────────
 _USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
@@ -1583,6 +1584,22 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
     return f"anon:{ip}", 60
 
 
+_ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
+    ("POST", "/api/auth/login"): 10,
+    ("POST", "/api/auth/register"): 5,
+    ("POST", "/api/auth/email/resend"): 5,
+    ("POST", "/api/auth/google/credential"): 10,
+}
+
+
+def _endpoint_rate_limit_key(method: str, path: str) -> tuple[str, int] | None:
+    limit = _ENDPOINT_RATE_LIMITS.get((method, path))
+    if limit is None:
+        return None
+    ip = _request_ip_address() or "unknown"
+    return f"endpoint:{method}:{path}:ip:{ip}", limit
+
+
 def _check_rate_limit(ctx: AccessContext) -> None:
     if not request.path.startswith("/api/"):
         return
@@ -1594,6 +1611,43 @@ def _check_rate_limit(ctx: AccessContext) -> None:
         state = _rate_limit_state.get(key)
         if state is None or (now - float(state["ts"])) >= window:
             _rate_limit_state[key] = {"ts": now, "count": 1}
+            return
+
+        count = int(state["count"]) + 1
+        state["count"] = count
+        if count <= per_minute:
+            return
+
+        retry_after = max(1, int(window - (now - float(state["ts"]))))
+    abort(
+        Response(
+            response=json.dumps(
+                {
+                    "error": "rate_limited",
+                    "message": "Too many requests. Please retry shortly.",
+                }
+            ),
+            status=429,
+            mimetype="application/json",
+            headers={"Retry-After": str(retry_after)},
+        )
+    )
+
+
+def _check_endpoint_rate_limit() -> None:
+    if not request.path.startswith("/api/"):
+        return
+
+    key_limit = _endpoint_rate_limit_key(request.method, request.path)
+    if key_limit is None:
+        return
+    key, per_minute = key_limit
+    now = time.time()
+    window = 60.0
+    with _rate_limit_lock:
+        state = _endpoint_rate_limit_state.get(key)
+        if state is None or (now - float(state["ts"])) >= window:
+            _endpoint_rate_limit_state[key] = {"ts": now, "count": 1}
             return
 
         count = int(state["count"]) + 1
@@ -1637,6 +1691,7 @@ def _auth_rate_limit_guard():
         ):
             abort(403, description="Missing or invalid CSRF token.")
     _check_rate_limit(ctx)
+    _check_endpoint_rate_limit()
 
 
 @app.after_request
