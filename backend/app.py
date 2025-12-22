@@ -38,6 +38,7 @@ from sqlalchemy import (
     Integer,
     TEXT,
     text,
+    or_,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
@@ -2270,6 +2271,103 @@ def get_agreement(agreement_uuid):
             "xml": xml_content,
         }
     )
+
+
+@app.route("/api/agreements-index", methods=["GET"])
+def get_agreements_index():
+    ctx = _current_access_context()
+    page = request.args.get("page", default=1, type=int)
+    page_size = request.args.get("pageSize", default=25, type=int)
+    sort_by = request.args.get("sortBy", default="year", type=str)
+    sort_dir = request.args.get("sortDir", default="desc", type=str)
+    query = (request.args.get("query") or "").strip()
+
+    if page < 1:
+        page = 1
+
+    max_page_size = 100 if ctx.is_authenticated else 10
+    if page_size < 1 or page_size > max_page_size:
+        page_size = min(25, max_page_size)
+
+    sort_map = {
+        "year": Agreements.year,
+        "target": Agreements.target,
+        "acquirer": Agreements.acquirer,
+    }
+    sort_column = sort_map.get(sort_by, Agreements.year)
+    sort_direction = sort_dir.lower()
+    order_by = sort_column.desc() if sort_direction == "desc" else sort_column.asc()
+
+    q = db.session.query(
+        Agreements.uuid,
+        Agreements.year,
+        Agreements.target,
+        Agreements.acquirer,
+        Agreements.verified,
+    )
+
+    if query:
+        like = f"%{query}%"
+        q = q.filter(
+            or_(
+                Agreements.year.ilike(like),
+                Agreements.target.ilike(like),
+                Agreements.acquirer.ilike(like),
+            )
+        )
+
+    q = q.order_by(order_by, Agreements.uuid)
+
+    try:
+        paginated = q.paginate(page=page, per_page=page_size, error_out=False)
+    except Exception:
+        abort(400, description="Invalid pagination request.")
+
+    results = [
+        {
+            "agreementUuid": row.uuid,
+            "year": row.year,
+            "target": row.target,
+            "acquirer": row.acquirer,
+            "considerationType": None,
+            "totalConsideration": None,
+            "targetIndustry": None,
+            "acquirerIndustry": None,
+            "verified": bool(row.verified) if row.verified is not None else False,
+        }
+        for row in paginated.items
+    ]
+
+    return {
+        "results": results,
+        "page": paginated.page,
+        "pageSize": paginated.per_page,
+        "totalCount": paginated.total,
+        "totalPages": paginated.pages,
+        "hasNext": paginated.has_next,
+        "hasPrev": paginated.has_prev,
+        "nextNum": paginated.next_num,
+        "prevNum": paginated.prev_num,
+    }
+
+
+@app.route("/api/agreements-summary", methods=["GET"])
+def get_agreements_summary():
+    agreements_count = db.session.execute(
+        text("SELECT COUNT(*) FROM mna.agreements")
+    ).scalar()
+    sections_count = db.session.execute(
+        text("SELECT COUNT(*) FROM mna.sections")
+    ).scalar()
+    pages_count = db.session.execute(
+        text("SELECT COUNT(*) FROM mna.pages")
+    ).scalar()
+
+    return {
+        "agreements": int(agreements_count or 0),
+        "sections": int(sections_count or 0),
+        "pages": int(pages_count or 0),
+    }
 
 
 @app.route("/api/filter-options", methods=["GET"])

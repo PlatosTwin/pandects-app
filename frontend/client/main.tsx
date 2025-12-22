@@ -16,6 +16,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 
 const Docs = lazy(() => import("./pages/Docs"));
 const BulkData = lazy(() => import("./pages/BulkData"));
+const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
 const About = lazy(() => import("./pages/About"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Donate = lazy(() => import("./pages/Donate"));
@@ -51,6 +52,7 @@ const App = () => {
                 <Route path="/search" element={<Search />} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/bulk-data" element={<BulkData />} />
+                <Route path="/agreement-index" element={<AgreementIndex />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/feedback" element={<Feedback />} />
                 <Route path="/donate" element={<Donate />} />

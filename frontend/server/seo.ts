@@ -19,6 +19,7 @@ const KNOWN_ROUTES = new Set([
   "/search",
   "/docs",
   "/bulk-data",
+  "/agreement-index",
   "/about",
   "/feedback",
   "/donate",
@@ -140,6 +141,20 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
             pageName: "Bulk Data",
             pageDescription:
               "Download bulk datasets and exports from Pandects for research and analysis.",
+          }),
+        };
+      case "/agreement-index":
+        return {
+          title: "Agreement Index | Pandects",
+          description:
+            "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
+          jsonLd: buildJsonLd({
+            origin,
+            canonical,
+            pageType: "WebPage",
+            pageName: "Agreement Index",
+            pageDescription:
+              "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
           }),
         };
       case "/about":

@@ -4,7 +4,16 @@ import path from "node:path";
 const DEFAULT_ORIGIN = "https://pandects.org";
 const origin = (process.env.PUBLIC_ORIGIN || DEFAULT_ORIGIN).replace(/\/+$/, "");
 
-const routes = ["/", "/search", "/docs", "/bulk-data", "/about", "/feedback", "/donate"];
+const routes = [
+  "/",
+  "/search",
+  "/docs",
+  "/bulk-data",
+  "/agreement-index",
+  "/about",
+  "/feedback",
+  "/donate",
+];
 
 const now = new Date();
 const lastmod = now.toISOString().slice(0, 10);

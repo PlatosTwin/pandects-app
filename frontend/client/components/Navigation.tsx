@@ -1,12 +1,18 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import logo from "../../assets/logo.png";
 import { Button } from "@/components/ui/button";
 import PandaEasterEgg from "@/components/PandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
 import { AuthMenu } from "@/components/AuthMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -25,17 +31,29 @@ export default function Navigation() {
   const navLinkBase =
     "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-  const navLinks = useMemo(
+  const primaryLinks = useMemo(
     () => [
       { to: "/search", label: "Search", pandaTarget: "nav-search" },
       { to: "/docs", label: "Docs", pandaTarget: "nav-docs" },
-      { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
+    ],
+    [],
+  );
+  const secondaryLinks = useMemo(
+    () => [
       { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
       { to: "/donate", label: "Donate", pandaTarget: "nav-donate" },
     ],
     [],
   );
+  const dataLinks = useMemo(
+    () => [
+      { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
+      { to: "/agreement-index", label: "Agreement Index" },
+    ],
+    [],
+  );
+  const isDataActive = dataLinks.some((link) => isActive(link.to));
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -75,29 +93,92 @@ export default function Navigation() {
         {/* Desktop navigation */}
         <div className="hidden items-center gap-1 md:flex">
           <div className="flex items-center gap-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              data-panda-target={link.pandaTarget}
-              onClick={() =>
-                trackEvent("nav_click", {
-                  nav_item: link.label,
-                  from_path: location.pathname,
-                  to_path: link.to,
-                })
-              }
-              aria-current={isActive(link.to) ? "page" : undefined}
-              className={cn(
-                navLinkBase,
-                isActive(link.to)
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+            {primaryLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                data-panda-target={link.pandaTarget}
+                onClick={() =>
+                  trackEvent("nav_click", {
+                    nav_item: link.label,
+                    from_path: location.pathname,
+                    to_path: link.to,
+                  })
+                }
+                aria-current={isActive(link.to) ? "page" : undefined}
+                className={cn(
+                  navLinkBase,
+                  isActive(link.to)
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-panda-target="nav-bulk-data"
+                  className={cn(
+                    navLinkBase,
+                    "inline-flex items-center gap-1",
+                    isDataActive
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  Data
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {dataLinks.map((link) => (
+                  <DropdownMenuItem key={link.to} asChild>
+                    <Link
+                      to={link.to}
+                      onClick={() =>
+                        trackEvent("nav_click", {
+                          nav_item: link.label,
+                          from_path: location.pathname,
+                          to_path: link.to,
+                        })
+                      }
+                      aria-current={isActive(link.to) ? "page" : undefined}
+                      className={cn(
+                        isActive(link.to) ? "text-foreground" : "text-foreground",
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {secondaryLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                data-panda-target={link.pandaTarget}
+                onClick={() =>
+                  trackEvent("nav_click", {
+                    nav_item: link.label,
+                    from_path: location.pathname,
+                    to_path: link.to,
+                  })
+                }
+                aria-current={isActive(link.to) ? "page" : undefined}
+                className={cn(
+                  navLinkBase,
+                  isActive(link.to)
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
           <div className="ml-2">
@@ -141,7 +222,65 @@ export default function Navigation() {
 
                 <div className="flex-1 overflow-auto p-2">
                   <div className="grid gap-1">
-                    {navLinks.map((link) => (
+                    {primaryLinks.map((link) => (
+                      <SheetClose asChild key={link.to}>
+                        <Link
+                          to={link.to}
+                          onClick={() =>
+                            trackEvent("nav_click", {
+                              nav_item: link.label,
+                              from_path: location.pathname,
+                              to_path: link.to,
+                            })
+                          }
+                          aria-current={isActive(link.to) ? "page" : undefined}
+                          className={cn(
+                            navLinkBase,
+                            isActive(link.to)
+                              ? "bg-accent text-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          )}
+                        >
+                          {link.label}
+                        </Link>
+                      </SheetClose>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
+                    <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Data
+                    </div>
+                    <div className="grid gap-1">
+                      {dataLinks.map((link) => (
+                        <SheetClose asChild key={link.to}>
+                          <Link
+                            to={link.to}
+                            onClick={() =>
+                              trackEvent("nav_click", {
+                                nav_item: link.label,
+                                from_path: location.pathname,
+                                to_path: link.to,
+                              })
+                            }
+                            aria-current={isActive(link.to) ? "page" : undefined}
+                            className={cn(
+                              navLinkBase,
+                              "pl-4",
+                              isActive(link.to)
+                                ? "bg-accent text-foreground"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                            )}
+                          >
+                            {link.label}
+                          </Link>
+                        </SheetClose>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-1">
+                    {secondaryLinks.map((link) => (
                       <SheetClose asChild key={link.to}>
                         <Link
                           to={link.to}
