@@ -224,27 +224,31 @@ export default function Account() {
     setGooglePendingCredential(null);
     setGoogleNeedsLegal(false);
 
-    const resolveClientId = async (): Promise<string | null> => {
-      const fromEnv = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
-      if (typeof fromEnv === "string" && fromEnv.trim().length > 0) {
-        return fromEnv.trim();
-      }
+    const resolveClientInfo = async (): Promise<{ clientId: string; nonce: string } | null> => {
       try {
-        const res = await fetch(apiUrl("api/auth/google/client-id"));
+        const res = await fetch(apiUrl("api/auth/google/client-id"), {
+          credentials: "include",
+        });
         if (!res.ok) return null;
-        const data = (await res.json()) as { clientId?: unknown };
-        return typeof data.clientId === "string" && data.clientId.trim().length > 0
-          ? data.clientId.trim()
-          : null;
+        const data = (await res.json()) as { clientId?: unknown; nonce?: unknown };
+        const clientId =
+          typeof data.clientId === "string" && data.clientId.trim().length > 0
+            ? data.clientId.trim()
+            : null;
+        const nonce =
+          typeof data.nonce === "string" && data.nonce.trim().length > 0
+            ? data.nonce.trim()
+            : null;
+        return clientId && nonce ? { clientId, nonce } : null;
       } catch {
         return null;
       }
     };
 
-    void resolveClientId()
-      .then(async (clientId) => {
+    void resolveClientInfo()
+      .then(async (clientInfo) => {
         if (googleInitRunRef.current !== runId) return;
-        if (!clientId) {
+        if (!clientInfo) {
           setGoogleStatus("unavailable");
           return;
         }
@@ -261,7 +265,8 @@ export default function Account() {
         }
 
         window.google.accounts.id.initialize({
-          client_id: clientId,
+          client_id: clientInfo.clientId,
+          nonce: clientInfo.nonce,
           callback: async ({ credential }) => {
             trackEvent("google_continue_click", { from_path: "/account" });
             setBusy(true);

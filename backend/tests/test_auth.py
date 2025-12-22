@@ -61,6 +61,14 @@ class AuthFlowTests(unittest.TestCase):
             self.fail("Expected pdcts_csrf cookie to be set")
         return cookie.value
 
+    def _set_google_nonce_cookie(self, client, nonce: str = "test-google-nonce") -> str:
+        client.set_cookie(
+            "pdcts_google_nonce",
+            nonce,
+            path="/api/auth/google/credential",
+        )
+        return nonce
+
     def test_cookie_transport_register_login_csrf_and_logout(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = app.test_client()
@@ -309,9 +317,10 @@ class AuthFlowTests(unittest.TestCase):
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = app.test_client()
+        self._set_google_nonce_cookie(client)
 
         original_verify = backend_app._google_verify_id_token
-        backend_app._google_verify_id_token = lambda _token: "google-new@example.com"
+        backend_app._google_verify_id_token = lambda _token, expected_nonce=None: "google-new@example.com"
 
         try:
             res = client.post("/api/auth/google/credential", json={"credential": "fake"})
@@ -344,6 +353,33 @@ class AuthFlowTests(unittest.TestCase):
                     ).fetchall()
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0], ("google", "register"))
+        finally:
+            backend_app._google_verify_id_token = original_verify
+
+    def test_google_credential_requires_nonce_cookie(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+        self.assertEqual(res.status_code, 400)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+        self.assertIn("Missing Google nonce", body.get("message", ""))
+
+    def test_google_credential_passes_nonce_from_cookie(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+        expected = self._set_google_nonce_cookie(client)
+
+        captured: dict[str, str | None] = {"nonce": None}
+        original_verify = backend_app._google_verify_id_token
+        backend_app._google_verify_id_token = (
+            lambda _token, expected_nonce=None: captured.__setitem__("nonce", expected_nonce) or "google-new@example.com"
+        )
+        try:
+            res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+            self.assertEqual(res.status_code, 412)
+            self.assertEqual(captured["nonce"], expected)
         finally:
             backend_app._google_verify_id_token = original_verify
 
@@ -433,6 +469,7 @@ class AuthFlowTests(unittest.TestCase):
     def test_google_credential_invalid_token_is_401_without_network(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = app.test_client()
+        self._set_google_nonce_cookie(client)
 
         import jwt
 
@@ -448,6 +485,7 @@ class AuthFlowTests(unittest.TestCase):
     def test_google_credential_jwks_outage_returns_503(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = app.test_client()
+        self._set_google_nonce_cookie(client)
 
         import jwt
 

@@ -70,7 +70,6 @@ Note: In local dev on `http://localhost:8080`, the Google Identity Services butt
 Google Identity Services button requires the public client ID in the frontend environment:
 
 ```bash
-export VITE_GOOGLE_OAUTH_CLIENT_ID="..."
 ```
 
 If you omit it, the frontend will fetch the client ID from `GET /api/auth/google/client-id`.

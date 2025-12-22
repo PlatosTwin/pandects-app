@@ -6,6 +6,7 @@ declare global {
           initialize: (options: {
             client_id: string;
             callback: (resp: { credential: string }) => void;
+            nonce?: string;
             auto_select?: boolean;
             itp_support?: boolean;
             cancel_on_tap_outside?: boolean;
@@ -56,4 +57,3 @@ export function loadGoogleIdentityServices(): Promise<void> {
 
   return gisLoadPromise;
 }
-

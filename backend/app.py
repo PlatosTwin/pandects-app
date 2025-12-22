@@ -4,6 +4,7 @@ import time
 import random
 import hmac
 import hashlib
+import base64
 from threading import Lock
 from datetime import datetime, date, timedelta
 import uuid
@@ -108,6 +109,9 @@ def _is_running_on_fly() -> bool:
 
 _SESSION_COOKIE_NAME = "pdcts_session"
 _CSRF_COOKIE_NAME = "pdcts_csrf"
+_GOOGLE_OAUTH_COOKIE_NAME = "pdcts_google_oauth"
+_GOOGLE_OAUTH_NONCE_COOKIE_NAME = "pdcts_google_nonce"
+_GOOGLE_OAUTH_COOKIE_MAX_AGE = 60 * 10
 
 
 def _auth_session_transport() -> str:
@@ -1164,12 +1168,87 @@ def _google_oauth_client_secret() -> str:
 def _google_oauth_redirect_uri() -> str:
     return f"{_public_api_base_url()}/api/auth/google/callback"
 
-
-def _google_state_serializer() -> URLSafeTimedSerializer:
+def _google_oauth_cookie_serializer() -> URLSafeTimedSerializer:
     secret = os.environ.get("AUTH_SECRET_KEY")
     if not secret:
         abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-google-oauth")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-google-oauth-cookie")
+
+
+def _google_oauth_pkce_pair() -> tuple[str, str]:
+    verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(verifier.encode("utf-8")).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return verifier, challenge
+
+
+def _set_google_oauth_cookie(resp: Response, payload: dict[str, str]) -> None:
+    value = _google_oauth_cookie_serializer().dumps(payload)
+    samesite, secure = _cookie_settings()
+    resp.set_cookie(
+        _GOOGLE_OAUTH_COOKIE_NAME,
+        value,
+        max_age=_GOOGLE_OAUTH_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+        path="/api/auth/google/callback",
+    )
+
+
+def _load_google_oauth_cookie() -> dict[str, str] | None:
+    raw = request.cookies.get(_GOOGLE_OAUTH_COOKIE_NAME)
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        payload = _google_oauth_cookie_serializer().loads(
+            raw, max_age=_GOOGLE_OAUTH_COOKIE_MAX_AGE
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _clear_google_oauth_cookie(resp: Response) -> None:
+    samesite, secure = _cookie_settings()
+    resp.delete_cookie(
+        _GOOGLE_OAUTH_COOKIE_NAME,
+        path="/api/auth/google/callback",
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+    )
+
+
+def _set_google_nonce_cookie(resp: Response, nonce: str) -> None:
+    samesite, secure = _cookie_settings()
+    resp.set_cookie(
+        _GOOGLE_OAUTH_NONCE_COOKIE_NAME,
+        nonce,
+        max_age=_GOOGLE_OAUTH_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+        path="/api/auth/google/credential",
+    )
+
+
+def _google_nonce_cookie_value() -> str | None:
+    raw = request.cookies.get(_GOOGLE_OAUTH_NONCE_COOKIE_NAME)
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    return raw.strip()
+
+
+def _clear_google_nonce_cookie(resp: Response) -> None:
+    samesite, secure = _cookie_settings()
+    resp.delete_cookie(
+        _GOOGLE_OAUTH_NONCE_COOKIE_NAME,
+        path="/api/auth/google/credential",
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+    )
 
 
 def _turnstile_enabled() -> bool:
@@ -1270,6 +1349,7 @@ def _frontend_google_callback_redirect(*, token: str | None, next_path: str | No
         url = f"{url}#{_encode_frontend_hash_params(fragment)}"
     resp = redirect(url)
     resp.headers["Cache-Control"] = "no-store"
+    _clear_google_oauth_cookie(resp)
     return resp
 
 
@@ -1309,7 +1389,7 @@ def _google_fetch_json(url: str, *, data: dict[str, str] | None = None) -> dict[
     return payload if isinstance(payload, dict) else {}
 
 
-def _google_verify_id_token(id_token: str) -> str:
+def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None) -> str:
     try:
         import jwt
         from jwt import PyJWKClient
@@ -1350,6 +1430,13 @@ def _google_verify_id_token(id_token: str) -> str:
     email_verified = payload.get("email_verified")
     if email_verified is not True:
         abort(401, description="Google email is not verified.")
+
+    if expected_nonce:
+        nonce = payload.get("nonce")
+        if not isinstance(nonce, str) or not nonce.strip():
+            abort(401, description="Google token missing nonce.")
+        if not secrets.compare_digest(nonce, expected_nonce):
+            abort(401, description="Google token nonce mismatch.")
 
     normalized = _normalize_email(email)
     if not _is_email_like(normalized):
@@ -3146,9 +3233,16 @@ def auth_google_start():
     client_id = _google_oauth_client_id()
     redirect_uri = _google_oauth_redirect_uri()
 
-    next_path = _safe_next_path(request.args.get("next"))
-    state_payload = {"next": next_path or "/account"}
-    state = _google_state_serializer().dumps(state_payload)
+    next_path = _safe_next_path(request.args.get("next")) or "/account"
+    state = secrets.token_urlsafe(32)
+    code_verifier, code_challenge = _google_oauth_pkce_pair()
+    nonce = secrets.token_urlsafe(32)
+    cookie_payload = {
+        "state": state,
+        "code_verifier": code_verifier,
+        "nonce": nonce,
+        "next": next_path,
+    }
 
     params = {
         "client_id": client_id,
@@ -3157,10 +3251,14 @@ def auth_google_start():
         "scope": "openid email profile",
         "state": state,
         "prompt": "select_account",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "nonce": nonce,
     }
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
     resp = redirect(auth_url)
     resp.headers["Cache-Control"] = "no-store"
+    _set_google_oauth_cookie(resp, cookie_payload)
     return resp
 
 
@@ -3169,8 +3267,10 @@ def auth_google_client_id():
     _require_auth_db()
     if _auth_is_mocked():
         abort(501, description="Google auth is unavailable in mock auth mode.")
-    resp = make_response(jsonify({"clientId": _google_oauth_client_id()}))
+    nonce = secrets.token_urlsafe(32)
+    resp = make_response(jsonify({"clientId": _google_oauth_client_id(), "nonce": nonce}))
     resp.headers["Cache-Control"] = "no-store"
+    _set_google_nonce_cookie(resp, nonce)
     return resp
 
 
@@ -3221,16 +3321,33 @@ def auth_google_callback():
             token=None, next_path="/account", error="missing_code"
         )
 
-    try:
-        state_payload = _google_state_serializer().loads(state, max_age=60 * 10)
-    except (BadSignature, SignatureExpired):
+    cookie_payload = _load_google_oauth_cookie()
+    if not cookie_payload:
         return _frontend_google_callback_redirect(
             token=None, next_path="/account", error="invalid_state"
         )
 
-    next_path = None
-    if isinstance(state_payload, dict):
-        next_path = _safe_next_path(state_payload.get("next"))
+    expected_state = cookie_payload.get("state")
+    if not isinstance(expected_state, str) or not expected_state.strip():
+        return _frontend_google_callback_redirect(
+            token=None, next_path="/account", error="invalid_state"
+        )
+    if not secrets.compare_digest(expected_state, state):
+        return _frontend_google_callback_redirect(
+            token=None, next_path="/account", error="invalid_state"
+        )
+
+    code_verifier = cookie_payload.get("code_verifier")
+    nonce = cookie_payload.get("nonce")
+    next_path = _safe_next_path(cookie_payload.get("next")) if cookie_payload else None
+    if not isinstance(code_verifier, str) or not code_verifier.strip():
+        return _frontend_google_callback_redirect(
+            token=None, next_path=next_path or "/account", error="invalid_state"
+        )
+    if not isinstance(nonce, str) or not nonce.strip():
+        return _frontend_google_callback_redirect(
+            token=None, next_path=next_path or "/account", error="invalid_state"
+        )
 
     token_payload = _google_fetch_json(
         "https://oauth2.googleapis.com/token",
@@ -3240,6 +3357,7 @@ def auth_google_callback():
             "client_secret": _google_oauth_client_secret(),
             "redirect_uri": _google_oauth_redirect_uri(),
             "grant_type": "authorization_code",
+            "code_verifier": code_verifier,
         },
     )
 
@@ -3250,7 +3368,7 @@ def auth_google_callback():
         )
 
     try:
-        normalized = _google_verify_id_token(id_token)
+        normalized = _google_verify_id_token(id_token, expected_nonce=nonce)
     except HTTPException as e:
         return _frontend_google_callback_redirect(
             token=None, next_path=next_path or "/account", error=f"google_{e.code}"
@@ -3283,6 +3401,7 @@ def auth_google_callback():
         resp = redirect(dest)
         resp.headers["Cache-Control"] = "no-store"
         _set_auth_cookies(resp, session_token=token)
+        _clear_google_oauth_cookie(resp)
         return resp
     return _frontend_google_callback_redirect(
         token=token, next_path=next_path or "/account", error=None
@@ -3299,7 +3418,10 @@ def auth_google_credential():
     if not isinstance(credential, str) or not credential.strip():
         abort(400, description="Missing Google credential.")
 
-    normalized = _google_verify_id_token(credential)
+    expected_nonce = _google_nonce_cookie_value()
+    if not expected_nonce:
+        abort(400, description="Missing Google nonce.")
+    normalized = _google_verify_id_token(credential, expected_nonce=expected_nonce)
 
     try:
         user = AuthUser.query.filter_by(email=normalized).first()
@@ -3349,6 +3471,7 @@ def auth_google_credential():
     resp.headers["Cache-Control"] = "no-store"
     if _auth_session_transport() == "cookie":
         _set_auth_cookies(resp, session_token=token)
+    _clear_google_nonce_cookie(resp)
     return resp
 
 
