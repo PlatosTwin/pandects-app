@@ -11,7 +11,7 @@ def _set_default_env() -> None:
     os.environ.setdefault("MARIADB_HOST", "127.0.0.1")
     os.environ.setdefault("MARIADB_DATABASE", "mna")
     os.environ.setdefault("AUTH_SECRET_KEY", "test-auth-secret")
-    os.environ.setdefault("PUBLIC_API_BASE_URL", "http://127.0.0.1:5000")
+    os.environ.setdefault("PUBLIC_API_BASE_URL", "http://localhost:5000")
     os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
@@ -42,6 +42,7 @@ class AuthFlowTests(unittest.TestCase):
         with app.app_context():
             engine = db.engines["auth"]
             with engine.begin() as conn:
+                conn.execute(text("DELETE FROM auth_sessions"))
                 conn.execute(text("DELETE FROM api_request_events"))
                 conn.execute(text("DELETE FROM api_usage_hourly"))
                 conn.execute(text("DELETE FROM api_usage_daily_ips"))
@@ -197,6 +198,58 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertIn(("email", "register"), rows)
             self.assertIn(("email", "login"), rows)
+
+    def test_logout_revokes_bearer_session(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = app.test_client()
+
+        res = client.post(
+            "/api/auth/register",
+            json={
+                "email": "bearer@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        with app.app_context():
+            user = AuthUser.query.filter_by(email="bearer@example.com").first()
+            self.assertIsNotNone(user)
+            token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+
+        res = client.post("/api/auth/email/verify", json={"token": token})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/api/auth/login",
+            json={"email": "bearer@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIsInstance(payload, dict)
+        session_token = payload.get("sessionToken")
+        self.assertIsInstance(session_token, str)
+
+        res = client.get(
+            "/api/auth/me", headers={"Authorization": f"Bearer {session_token}"}
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/api/auth/logout", headers={"Authorization": f"Bearer {session_token}"}
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.get(
+            "/api/auth/me", headers={"Authorization": f"Bearer {session_token}"}
+        )
+        self.assertEqual(res.status_code, 401)
 
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

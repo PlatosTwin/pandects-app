@@ -63,6 +63,8 @@ _rate_limit_state: dict[str, dict[str, float | int]] = {}
 _USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
 _USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "0.05"))
 _LATENCY_BUCKET_BOUNDS_MS = (25, 50, 100, 250, 500, 1000, 2000, 5000, 10000)
+_API_KEY_MIN_HASH_CHECKS = 5
+_DUMMY_API_KEY_HASH = generate_password_hash("pdcts_dummy_api_key")
 
 # ── Flask setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -111,7 +113,7 @@ def _auth_session_transport() -> str:
     raw = os.environ.get("AUTH_SESSION_TRANSPORT", "").strip().lower()
     if raw in ("cookie", "bearer"):
         return raw
-    return "cookie" if _is_running_on_fly() else "bearer"
+    return "cookie"
 
 
 def _cookie_samesite() -> str:
@@ -348,6 +350,23 @@ class AuthUser(db.Model):
     password_hash = db.Column(db.Text, nullable=True)
     email_verified_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class AuthSession(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_sessions"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
 
 
 class ApiKey(db.Model):
@@ -646,6 +665,10 @@ class _MockAuthStore:
         with self._lock:
             return self._tokens.get(token)
 
+    def revoke_session_token(self, token: str) -> None:
+        with self._lock:
+            self._tokens.pop(token, None)
+
     def create_api_key(
         self, *, user_id: str, name: str | None
     ) -> tuple[_MockApiKey, str]:
@@ -687,12 +710,16 @@ class _MockAuthStore:
                 self._api_keys_by_id[key_id]
                 for key_id in self._api_keys_by_prefix.get(prefix, [])
             ]
+        checks = 0
         for candidate in candidates:
             if candidate.revoked_at is not None:
                 continue
+            checks += 1
             if check_password_hash(candidate.key_hash, raw_key):
                 candidate.last_used_at = datetime.utcnow()
                 return candidate
+        for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
+            check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
         return None
 
     def record_usage(self, *, api_key_id: str) -> None:
@@ -860,27 +887,70 @@ def _send_email_verification_email(*, to_email: str, token: str) -> None:
     )
 
 
+def _session_token_hash(token: str) -> str:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not isinstance(secret, str) or not secret.strip():
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    digest = hmac.new(secret.encode("utf-8"), token.encode("utf-8"), hashlib.sha256)
+    return digest.hexdigest()
+
+
 def _issue_session_token(user_id: str) -> str:
     if _auth_is_mocked():
         return _mock_auth.issue_session_token(user_id=user_id)
-    serializer = _auth_serializer()
-    if serializer is None:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return serializer.dumps({"user_id": user_id})
+    token = secrets.token_urlsafe(48)
+    now = datetime.utcnow()
+    expires_at = now + timedelta(days=14)
+    ip_address = _request_ip_address()
+    user_agent = _request_user_agent()
+    session = AuthSession(
+        user_id=user_id,
+        token_hash=_session_token_hash(token),
+        created_at=now,
+        expires_at=expires_at,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.session.add(session)
+    db.session.commit()
+    return token
 
 
 def _load_session_token(token: str) -> str | None:
     if _auth_is_mocked():
         return _mock_auth.load_session_token(token)
-    serializer = _auth_serializer()
-    if serializer is None:
+    if not token:
         return None
     try:
-        payload = serializer.loads(token, max_age=60 * 60 * 24 * 14)
-    except (BadSignature, SignatureExpired):
+        session = (
+            AuthSession.query.filter_by(token_hash=_session_token_hash(token))
+            .filter(AuthSession.revoked_at.is_(None))
+            .first()
+        )
+    except SQLAlchemyError:
         return None
-    user_id = payload.get("user_id")
-    return user_id if isinstance(user_id, str) else None
+    if session is None:
+        return None
+    if session.expires_at <= datetime.utcnow():
+        return None
+    return session.user_id
+
+
+def _revoke_session_token(token: str) -> None:
+    if _auth_is_mocked():
+        _mock_auth.revoke_session_token(token)
+        return
+    if not token:
+        return
+    now = datetime.utcnow()
+    try:
+        AuthSession.query.filter_by(token_hash=_session_token_hash(token)).update(
+            {"revoked_at": now}, synchronize_session=False
+        )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        return
 
 
 _UUID_RE = re.compile(
@@ -919,7 +989,7 @@ def _public_api_base_url() -> str:
     if base:
         return base
     if app.debug:
-        return "http://127.0.0.1:5000"
+        return "http://127.0.0.1:5113"
     abort(503, description="Google auth is not configured (missing PUBLIC_API_BASE_URL).")
 
 
@@ -1365,11 +1435,15 @@ def _lookup_api_key(raw_key: str) -> ApiKey | None:
         return None
     prefix = raw_key[: 6 + 12]  # "pdcts_" + 12 chars
     candidates = ApiKey.query.filter_by(prefix=prefix, revoked_at=None).limit(25).all()
+    checks = 0
     for candidate in candidates:
+        checks += 1
         if check_password_hash(candidate.key_hash, raw_key):
             candidate.last_used_at = datetime.utcnow()
             db.session.commit()
             return candidate
+    for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
+        check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
     return None
 
 
@@ -2738,6 +2812,9 @@ def auth_delete_account():
         tombstone = f"deleted+{uuid.uuid4().hex}@deleted.invalid"
         user.email = tombstone
         user.password_hash = None
+        AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
+            {"revoked_at": now}, synchronize_session=False
+        )
         ApiKey.query.filter_by(user_id=user.id, revoked_at=None).update(
             {"revoked_at": now}, synchronize_session=False
         )
@@ -2971,6 +3048,16 @@ def auth_logout():
     _require_auth_db()
     resp = make_response(jsonify({"status": "ok"}))
     resp.headers["Cache-Control"] = "no-store"
+    token = None
+    if _auth_session_transport() == "cookie":
+        cookie_token = request.cookies.get(_SESSION_COOKIE_NAME)
+        token = cookie_token.strip() if isinstance(cookie_token, str) else None
+    else:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header.removeprefix("Bearer ").strip()
+    if token:
+        _revoke_session_token(token)
     _clear_auth_cookies(resp)
     return resp
 
@@ -2994,6 +3081,7 @@ def init_auth_db():
         inspector = inspect(engine)
         expected = {
             "auth_users",
+            "auth_sessions",
             "api_keys",
             "api_usage_daily",
             "api_usage_hourly",

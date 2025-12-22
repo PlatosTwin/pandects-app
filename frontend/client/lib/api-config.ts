@@ -16,7 +16,7 @@ function getApiBaseUrl(): string {
     return "https://pandects-api.fly.dev";
   } else {
     // Development environment (local)
-    return "http://127.0.0.1:5000";
+    return "http://localhost:5113";
   }
 }
 
