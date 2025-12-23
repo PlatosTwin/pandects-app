@@ -23,7 +23,11 @@ export function AuthMenu() {
 
   if (!user) {
     return (
-      <Button asChild variant="outline" className="h-9 px-3 text-sm">
+    <Button
+      asChild
+      variant="ghost"
+      className="h-9 border border-border/60 bg-transparent px-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+    >
         <Link
           to="/account"
           onClick={() => {

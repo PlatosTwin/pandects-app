@@ -614,8 +614,9 @@ export default function Account() {
                 </div>
                 <Button
                   type="submit"
+                  variant="ghost"
                   disabled={busy || authBackendStatus !== "ready"}
-                  className="w-64 justify-self-center"
+                  className="w-64 justify-self-center border border-input bg-transparent hover:bg-accent/60"
                 >
                   Sign in
                 </Button>
