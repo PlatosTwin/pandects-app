@@ -28,6 +28,8 @@ def json_schema_transaction_metadata():
             "acquirer_public": {"type": ["boolean", "null"]},
             "target_pe": {"type": ["boolean", "null"]},
             "acquirer_pe": {"type": ["boolean", "null"]},
+            "target_industry": {"type": ["string", "null"]},
+            "acquirer_industry": {"type": ["string", "null"]},
             "sources": {"type": "string"},
         },
         "required": [
@@ -37,6 +39,8 @@ def json_schema_transaction_metadata():
             "acquirer_public",
             "target_pe",
             "acquirer_pe",
+            "target_industry",
+            "acquirer_industry",
             "sources",
         ],
     }
@@ -50,8 +54,14 @@ TX_METADATA_INSTRUCTIONS = (
     "3) whether the target was public or private; "
     "4) whether the acquirer was public or private; "
     "5) whether the target was owned by a private equity shop; "
-    "6) whether the acquirer was a private equity shop. "
-    "For booleans and integers where you don't know the answer, use null."
+    "6) whether the acquirer was a private equity shop; "
+    "7) the target industry using the NAICS subsector code (i.e., not the subsector name); "
+    "8) the acquirer industry using the NAICS subsector code (i.e., not the subsector name). "
+    "For fields where you don't know the answer, use null."
+    "Do a sanity check before completing, and dig deeper if need be—e.g., "
+    "if you think total consideration is $19, that is probably wrong, as it's too small; "
+    "if you think the consideration is mixed, at least two consideration type columns should be non-zero; "
+    "etc."
 )
 
 
@@ -144,6 +154,8 @@ def parse_tx_metadata_response_text(raw_text: str) -> Dict[str, Any]:
         "acquirer_public",
         "target_pe",
         "acquirer_pe",
+        "target_industry",
+        "acquirer_industry",
         "sources",
     }
     if not required_keys.issubset(obj.keys()):
@@ -218,6 +230,13 @@ def build_tx_metadata_update_params(
     if not isinstance(sources, str):
         raise TypeError("sources must be a string.")
 
+    target_industry = tx_metadata_obj.get("target_industry")
+    if target_industry is not None and not isinstance(target_industry, str):
+        raise TypeError("target_industry must be a string or null.")
+    acquirer_industry = tx_metadata_obj.get("acquirer_industry")
+    if acquirer_industry is not None and not isinstance(acquirer_industry, str):
+        raise TypeError("acquirer_industry must be a string or null.")
+
     return {
         "consideration": consideration,
         "price_cash": price_cash,
@@ -228,8 +247,8 @@ def build_tx_metadata_update_params(
         "acquirer_type": acquirer_type,
         "target_pe": target_pe,
         "acquirer_pe": acquirer_pe,
+        "target_industry": target_industry,
+        "acquirer_industry": acquirer_industry,
         "sources": sources,
         "uuid": agreement_uuid,
     }
-
-
