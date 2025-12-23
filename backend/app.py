@@ -954,6 +954,59 @@ def _resend_forgot_password_template_id() -> str | None:
     return template_id or "forgot-password"
 
 
+_SIGNUP_NOTIFICATION_EMAIL = "nmbogdan@alumni.stanford.edu"
+
+
+def _send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
+    api_key = _resend_api_key()
+    sender = _resend_from_email()
+    if api_key is None or sender is None:
+        if app.testing:
+            return
+        app.logger.warning("Signup notification skipped (missing RESEND_API_KEY/RESEND_FROM_EMAIL).")
+        return
+
+    if app.testing:
+        return
+
+    payload: dict[str, object] = {
+        "from": sender,
+        "to": [to_email],
+        "subject": subject,
+        "text": text,
+        # Prevent Gmail conversation threading from collapsing the message behind "..." in mobile clients.
+        "headers": {"X-Entity-Ref-ID": uuid.uuid4().hex},
+    }
+    body = json.dumps(payload).encode("utf-8")
+    req = Request(
+        "https://api.resend.com/emails",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            resp.read()
+    except HTTPError as e:
+        try:
+            details = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            details = ""
+        app.logger.error("Resend signup notification failed (HTTP %s): %s", e.code, details)
+    except URLError as e:
+        app.logger.error("Resend signup notification failed (network error): %s", e)
+
+
+def _send_signup_notification_email(*, new_user_email: str) -> None:
+    subject = "New Pandects signup"
+    text = f"{new_user_email} just signed up as a new user on Pandects."
+    _send_resend_text_email(to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text)
+
+
 def _send_resend_template_email(
     *,
     to_email: str,
@@ -2775,6 +2828,7 @@ def auth_register():
         _record_signon_event(user_id=user.id, provider="email", action="register")
         verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
         _send_email_verification_email(to_email=user.email, token=verify_token)
+        _send_signup_notification_email(new_user_email=user.email)
         db.session.commit()
     except HTTPException:
         db.session.rollback()
@@ -3545,6 +3599,7 @@ def auth_google_credential():
                     )
                 )
             _record_signon_event(user_id=user.id, provider="google", action="register")
+            _send_signup_notification_email(new_user_email=user.email)
             db.session.commit()
         elif not _user_has_current_legal_acceptances(user_id=user.id):
             checked_at = _require_legal_acceptance(data)
