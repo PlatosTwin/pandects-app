@@ -11,6 +11,7 @@ const routes = [
   "/bulk-data",
   "/agreement-index",
   "/about",
+  "/sources-methods",
   "/feedback",
   "/donate",
   "/privacy-policy",

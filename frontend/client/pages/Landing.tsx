@@ -102,11 +102,11 @@ export default function Landing() {
               className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
             >
               <Link
-                to="/about#data"
+                to="/sources-methods"
                 onClick={() =>
                   trackEvent("landing_cta_click", {
                     cta: "About the Dataset",
-                    to_path: "/about#data",
+                    to_path: "/sources-methods",
                   })
                 }
               >

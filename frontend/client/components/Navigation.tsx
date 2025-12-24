@@ -50,6 +50,7 @@ export default function Navigation() {
     () => [
       { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
       { to: "/agreement-index", label: "Agreement Index" },
+      { to: "/sources-methods", label: "Sources & Methods" },
     ],
     [],
   );

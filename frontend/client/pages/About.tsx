@@ -11,15 +11,6 @@ export default function About() {
     () => [
       { id: "overview", label: "Overview" },
       { id: "timeline", label: "Timeline", indent: true },
-      { id: "data", label: "Data" },
-      { id: "sources", label: "Sources", indent: true },
-      {
-        id: "processing-pipelines",
-        label: "Processing pipelines",
-        indent: true,
-      },
-      { id: "schema", label: "XML schema", indent: true },
-      { id: "taxonomy", label: "Taxonomy", indent: true },
       { id: "contributing", label: "Contributing" },
       { id: "credits", label: "Credits" },
     ],
@@ -173,42 +164,6 @@ export default function About() {
                   <dd className="text-muted-foreground">Soft launch</dd>
                 </div>
               </dl>
-            </div>
-          </section>
-
-          <section id="data" className="scroll-mt-24 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-              Data
-            </h2>
-            <ComingSoon title="Dataset overview" />
-
-            <div id="sources" className="scroll-mt-24 pt-2 space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">Sources</h3>
-              <ComingSoon title="Source list and inclusion criteria" />
-            </div>
-
-            <div
-              id="processing-pipelines"
-              className="scroll-mt-24 pt-2 space-y-4"
-            >
-              <h3 className="text-lg font-semibold text-foreground">
-                Processing pipelines
-              </h3>
-              <ComingSoon title="How raw filings become structured data" />
-            </div>
-
-            <div id="schema" className="scroll-mt-24 pt-2 space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                XML schema
-              </h3>
-              <ComingSoon title="Schema documentation" />
-            </div>
-
-            <div id="taxonomy" className="scroll-mt-24 pt-2 space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">
-                Taxonomy
-              </h3>
-              <ComingSoon title="Clause taxonomy and mapping" />
             </div>
           </section>
 

@@ -122,6 +122,41 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - dumps
+  /api/agreements/{agreement_uuid}:
+    get:
+      parameters:
+      - in: query
+        name: focusSectionUuid
+        schema:
+          type: string
+          nullable: true
+        required: false
+      - in: query
+        name: neighborSections
+        schema:
+          type: integer
+          default: 1
+        required: false
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+    parameters:
+    - in: path
+      name: agreement_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
 info:
   title: Pandects API
   version: v1
@@ -130,6 +165,8 @@ tags:
   description: Search merger agreement sections
 - name: dumps
   description: Access metadata about bulk data on Cloudflare
+- name: agreements
+  description: Retrieve full text for a given agreement
 openapi: 3.0.2
 components:
   schemas:
@@ -257,6 +294,21 @@ components:
           nullable: true
       required:
       - timestamp
+    AgreementResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+        target:
+          type: string
+        acquirer:
+          type: string
+        url:
+          type: string
+        xml:
+          type: string
+        isRedacted:
+          type: boolean
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity

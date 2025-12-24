@@ -9,8 +9,15 @@ import BulkData from "@/pages/BulkData";
 import Donate from "@/pages/Donate";
 import Feedback from "@/pages/Feedback";
 import Landing from "@/pages/Landing";
+import SourcesMethods from "@/pages/SourcesMethods";
 
-export type PrerenderPath = "/" | "/about" | "/bulk-data" | "/donate" | "/feedback";
+export type PrerenderPath =
+  | "/"
+  | "/about"
+  | "/bulk-data"
+  | "/donate"
+  | "/feedback"
+  | "/sources-methods";
 
 export function renderPage(pathname: PrerenderPath): string {
   const app = (
@@ -23,6 +30,7 @@ export function renderPage(pathname: PrerenderPath): string {
             <Route path="/bulk-data" element={<BulkData />} />
             <Route path="/donate" element={<Donate />} />
             <Route path="/feedback" element={<Feedback />} />
+            <Route path="/sources-methods" element={<SourcesMethods />} />
           </Route>
         </Routes>
       </StaticRouter>

@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { buildJsonLd, getSeoConfigForPath } from "../shared/seo-helpers.mjs";
 
 export type SeoPage = {
   title: string;
@@ -21,6 +22,7 @@ const KNOWN_ROUTES = new Set([
   "/bulk-data",
   "/agreement-index",
   "/about",
+  "/sources-methods",
   "/feedback",
   "/donate",
   "/privacy-policy",
@@ -87,228 +89,27 @@ export function getSeoForPath(pathname: string, origin: string): SeoPage {
     };
   }
 
-  const canonical = normalizedPath === "/" ? `${origin}/` : `${origin}${normalizedPath}`;
-
-  const page = (() => {
-    switch (normalizedPath) {
-      case "/":
-        return {
-          title: "Pandects - Open-Source M&A Agreement Search & Data",
-          description:
-            "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical: `${origin}/`,
-            pageType: "WebSite",
-            pageName: "Pandects",
-            pageDescription:
-              "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
-          }),
-        };
-      case "/search":
-        return {
-          title: "Search Merger Agreements | Pandects",
-          description:
-            "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Search Merger Agreements",
-            pageDescription:
-              "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
-          }),
-        };
-      case "/docs":
-        return {
-          title: "Docs | Pandects",
-          description:
-            "Documentation for Pandects: data sources, coverage, methodology, and how to use the platform.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Docs",
-            pageDescription:
-              "Documentation for Pandects: data sources, coverage, methodology, and how to use the platform.",
-          }),
-        };
-      case "/bulk-data":
-        return {
-          title: "Bulk Data | Pandects",
-          description:
-            "Download bulk datasets and exports from Pandects for research and analysis.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Bulk Data",
-            pageDescription:
-              "Download bulk datasets and exports from Pandects for research and analysis.",
-          }),
-        };
-      case "/agreement-index":
-        return {
-          title: "Agreement Index | Pandects",
-          description:
-            "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Agreement Index",
-            pageDescription:
-              "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
-          }),
-        };
-      case "/about":
-        return {
-          title: "About | Pandects",
-          description:
-            "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "AboutPage",
-            pageName: "About",
-            pageDescription:
-              "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
-          }),
-        };
-      case "/feedback":
-        return {
-          title: "Feedback | Pandects",
-          description:
-            "Share feedback, report issues, or suggest improvements for the Pandects platform.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Feedback",
-            pageDescription:
-              "Share feedback, report issues, or suggest improvements for the Pandects platform.",
-          }),
-        };
-      case "/donate":
-        return {
-          title: "Donate | Pandects",
-          description:
-            "Support Pandects to help maintain and expand open access to M&A agreement research data.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Donate",
-            pageDescription:
-              "Support Pandects to help maintain and expand open access to M&A agreement research data.",
-          }),
-        };
-      case "/privacy-policy":
-        return {
-          title: "Privacy Policy | Pandects",
-          description: "Read Pandects' Privacy Policy.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Privacy Policy",
-            pageDescription: "Read Pandects' Privacy Policy.",
-          }),
-        };
-      case "/terms":
-        return {
-          title: "Terms of Service | Pandects",
-          description: "Read the Pandects Terms of Service.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Terms of Service",
-            pageDescription: "Read the Pandects Terms of Service.",
-          }),
-        };
-      case "/license":
-        return {
-          title: "License | Pandects",
-          description: "Pandects open-source software license information.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "License",
-            pageDescription: "Pandects open-source software license information.",
-          }),
-        };
-      case "/account":
-        return {
-          title: "Account | Pandects",
-          description:
-            "Manage your Pandects account, access, and saved settings.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Account",
-            pageDescription:
-              "Manage your Pandects account, access, and saved settings.",
-          }),
-          robots: "noindex,nofollow",
-          xRobotsTag: "noindex, nofollow",
-        };
-      case "/auth/forgot-password":
-        return {
-          title: "Reset Password | Pandects",
-          description: "Reset your Pandects account password.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Reset Password",
-            pageDescription: "Reset your Pandects account password.",
-          }),
-          robots: "noindex,nofollow",
-          xRobotsTag: "noindex, nofollow",
-        };
-      case "/auth/reset-password":
-        return {
-          title: "Reset Password | Pandects",
-          description: "Reset your Pandects account password.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Reset Password",
-            pageDescription: "Reset your Pandects account password.",
-          }),
-          robots: "noindex,nofollow",
-          xRobotsTag: "noindex, nofollow",
-        };
-      case "/auth/google/callback":
-        return {
-          title: "Signing In | Pandects",
-          description: "Completing your Pandects sign-in flow.",
-          jsonLd: buildJsonLd({
-            origin,
-            canonical,
-            pageType: "WebPage",
-            pageName: "Signing In",
-            pageDescription: "Completing your Pandects sign-in flow.",
-          }),
-          robots: "noindex,nofollow",
-          xRobotsTag: "noindex, nofollow",
-        };
-    }
-  })();
+  const seo = getSeoConfigForPath(normalizedPath, origin);
 
   return {
-    title: page.title,
-    description: page.description,
-    canonical,
-    robots: page.robots ?? "index,follow,max-image-preview:large",
-    ogImage,
-    jsonLd: JSON.stringify(page.jsonLd, null, 0),
+    title: seo.title,
+    description: seo.description,
+    canonical: seo.canonical,
+    robots: seo.robots,
+    ogImage: seo.ogImage,
+    jsonLd: JSON.stringify(
+      buildJsonLd({
+        origin,
+        canonical: seo.canonical,
+        pageType: seo.pageType,
+        pageName: seo.pageName,
+        pageDescription: seo.pageDescription,
+      }),
+      null,
+      0,
+    ),
     status: 200,
-    xRobotsTag: page.xRobotsTag,
+    xRobotsTag: seo.robots.includes("noindex") ? "noindex, nofollow" : undefined,
   };
 }
 
@@ -373,66 +174,6 @@ function buildSeoBlock(seo: SeoPage): string {
 
   <script type="application/ld+json">${jsonLd}</script>
   <!-- SEO:END -->`;
-}
-
-type JsonLdParams = {
-  origin: string;
-  canonical: string;
-  pageType: "WebSite" | "WebPage" | "AboutPage";
-  pageName: string;
-  pageDescription: string;
-};
-
-function buildJsonLd(params: JsonLdParams): Record<string, unknown> {
-  const { origin, canonical, pageType, pageName, pageDescription } = params;
-  const siteUrl = `${origin}/`;
-
-  const organizationId = `${origin}/#organization`;
-  const websiteId = `${origin}/#website`;
-
-  const organization = {
-    "@type": "Organization",
-    "@id": organizationId,
-    name: "Pandects",
-    url: siteUrl,
-    logo: {
-      "@type": "ImageObject",
-      url: `${origin}/og.jpg`,
-    },
-  };
-
-  const website = {
-    "@type": "WebSite",
-    "@id": websiteId,
-    name: "Pandects",
-    url: siteUrl,
-    publisher: { "@id": organizationId },
-  };
-
-  const page =
-    pageType === "WebSite"
-      ? {
-          "@type": "WebSite",
-          "@id": `${siteUrl}#website-home`,
-          name: pageName,
-          url: siteUrl,
-          description: pageDescription,
-          publisher: { "@id": organizationId },
-        }
-      : {
-          "@type": pageType,
-          "@id": `${canonical}#webpage`,
-          name: pageName,
-          url: canonical,
-          description: pageDescription,
-          isPartOf: { "@id": websiteId },
-          about: { "@id": organizationId },
-        };
-
-  return {
-    "@context": "https://schema.org",
-    "@graph": [organization, website, page],
-  };
 }
 
 function escapeJsonForHtmlScript(value: string): string {
