@@ -32,10 +32,17 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollatorForTokenClassification
 from transformers.optimization import get_linear_schedule_with_warmup
 
-from .shared_constants import SPECIAL_TOKENS_TO_ADD
+try:
+    from .shared_constants import SPECIAL_TOKENS_TO_ADD
+except ImportError:  # pragma: no cover - supports running as a script
+    from shared_constants import (  # pyright: ignore[reportMissingImports]
+        SPECIAL_TOKENS_TO_ADD,
+    )
+
 
 # ASCII-only, length-preserving lowercase (A-Z -> a-z)
 _ASCII_LOWER_TBL = str.maketrans({chr(i): chr(i + 32) for i in range(65, 91)})
+
 
 def ascii_lower(s: str) -> str:
     return s.translate(_ASCII_LOWER_TBL)
@@ -748,9 +755,7 @@ class NERTagger(pl.LightningModule):
         self._tok_gold: Dict[int, torch.Tensor] = (
             {}
         )  # [T_doc] (label ids, -100 for unknown)
-        self._doc_raw: Dict[int, str] = (
-            {}
-        )  # Optional: original/clean text
+        self._doc_raw: Dict[int, str] = {}  # Optional: original/clean text
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> Any:
         return self.model(input_ids=input_ids, attention_mask=attention_mask)

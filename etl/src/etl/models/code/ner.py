@@ -39,8 +39,20 @@ from optuna import create_study, Trial
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-from .shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
-from .ner_classes import NERTagger, NERDataModule, ascii_lower
+try:
+    from .shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
+    from .ner_classes import NERTagger, NERDataModule, ascii_lower
+except ImportError:  # pragma: no cover - supports running as a script
+    from shared_constants import (  # pyright: ignore[reportMissingImports]
+        NER_LABEL_LIST,
+        NER_CKPT_PATH,
+        SPECIAL_TOKENS_TO_ADD,
+    )
+    from ner_classes import (  # pyright: ignore[reportMissingImports]
+        NERTagger,
+        NERDataModule,
+        ascii_lower,
+    )
 
 # Reproducibility
 seed_everything(42, workers=True, verbose=False)
@@ -337,7 +349,9 @@ class NERInference:
             )
 
         # >>> Use id2label/label2id from checkpoint to avoid order drift
-        ckpt_id2label = dict(getattr(self.model.hparams, "id2label"))  # keys are ints in training
+        ckpt_id2label = dict(
+            getattr(self.model.hparams, "id2label")
+        )  # keys are ints in training
         self.id2label = {int(k): cast(str, v) for k, v in ckpt_id2label.items()}
         self.label2id = {v: k for k, v in self.id2label.items()}
         self.label_list = [self.id2label[i] for i in range(len(self.id2label))]
@@ -549,8 +563,16 @@ class NERInference:
                         "entity": ent_name(cur_lab),
                         "avg_confidence": sum(acc) / len(acc),
                         # character offsets relative to ORIGINAL untagged text
-                        "start_char": int(offsets[start][0]) if offsets[start][1] > 0 else int(offsets[start][0]),
-                        "end_char": int(offsets[prev][1]) if offsets[prev][1] > 0 else int(offsets[prev][0]),
+                        "start_char": (
+                            int(offsets[start][0])
+                            if offsets[start][1] > 0
+                            else int(offsets[start][0])
+                        ),
+                        "end_char": (
+                            int(offsets[prev][1])
+                            if offsets[prev][1] > 0
+                            else int(offsets[prev][0])
+                        ),
                     }
                 )
                 start = i
@@ -562,8 +584,16 @@ class NERInference:
             {
                 "entity": ent_name(cur_lab),
                 "avg_confidence": sum(acc) / len(acc),
-                "start_char": int(offsets[start][0]) if offsets[start][1] > 0 else int(offsets[start][0]),
-                "end_char": int(offsets[prev][1]) if offsets[prev][1] > 0 else int(offsets[prev][0]),
+                "start_char": (
+                    int(offsets[start][0])
+                    if offsets[start][1] > 0
+                    else int(offsets[start][0])
+                ),
+                "end_char": (
+                    int(offsets[prev][1])
+                    if offsets[prev][1] > 0
+                    else int(offsets[prev][0])
+                ),
             }
         )
         return low_count, spans
