@@ -2209,6 +2209,13 @@ dumps_blp = Blueprint(
     description="Access metadata about bulk data on Cloudflare",
 )
 
+agreements_blp = Blueprint(
+    "agreements",
+    "agreements",
+    url_prefix="/api/agreements",
+    description="Retrieve full text for a given agreement",
+)
+
 
 class SearchArgsSchema(Schema):
     year = fields.List(fields.Int(), load_default=[])
@@ -2265,48 +2272,60 @@ class DumpEntrySchema(Schema):
     warning = fields.Str(required=False, allow_none=True)
 
 
+class AgreementArgsSchema(Schema):
+    focusSectionUuid = fields.Str(required=False, allow_none=True)
+    neighborSections = fields.Int(load_default=1)
+
+
+class AgreementResponseSchema(Schema):
+    year = fields.Int()
+    target = fields.Str()
+    acquirer = fields.Str()
+    url = fields.Str()
+    xml = fields.Str()
+    isRedacted = fields.Bool(required=False)
+
+
 # ── Route definitions ───────────────────────────────────────
 
-@app.route("/api/agreements/<string:agreement_uuid>", methods=["GET"])
-def get_agreement(agreement_uuid):
-    ctx = _current_access_context()
-    focus_section_uuid = request.args.get("focusSectionUuid")
-    if focus_section_uuid is not None:
-        focus_section_uuid = focus_section_uuid.strip()
-        if not _UUID_RE.match(focus_section_uuid):
-            abort(400, description="Invalid focusSectionUuid.")
-    neighbor_sections = request.args.get("neighborSections", "1")
-    try:
-        neighbor_sections_int = int(neighbor_sections)
-    except ValueError:
-        abort(400, description="neighborSections must be an integer.")
+@agreements_blp.route("/<string:agreement_uuid>")
+class AgreementResource(MethodView):
+    @agreements_blp.arguments(AgreementArgsSchema, location="query")
+    @agreements_blp.response(200, AgreementResponseSchema)
+    def get(self, args, agreement_uuid):
+        ctx = _current_access_context()
+        focus_section_uuid = args.get("focusSectionUuid")
+        if focus_section_uuid is not None:
+            focus_section_uuid = focus_section_uuid.strip()
+            if not _UUID_RE.match(focus_section_uuid):
+                abort(400, description="Invalid focusSectionUuid.")
+        neighbor_sections_int = args["neighborSections"]
 
-    # query year, target, acquirer, xml, url for this agreement_uuid
-    row = (
-        db.session.query(
-            Agreements.year,
-            Agreements.target,
-            Agreements.acquirer,
-            Agreements.url,
-            XML.xml,
+        # query year, target, acquirer, xml, url for this agreement_uuid
+        row = (
+            db.session.query(
+                Agreements.year,
+                Agreements.target,
+                Agreements.acquirer,
+                Agreements.url,
+                XML.xml,
+            )
+            .join(XML, XML.agreement_uuid == Agreements.uuid)
+            .filter(Agreements.uuid == agreement_uuid)
+            .first()
         )
-        .join(XML, XML.agreement_uuid == Agreements.uuid)
-        .filter(Agreements.uuid == agreement_uuid)
-        .first()
-    )
 
-    if row is None:
-        abort(404)
+        if row is None:
+            abort(404)
 
-    year, target, acquirer, url, xml_content = row
-    if not ctx.is_authenticated:
-        redacted_xml = _redact_agreement_xml(
-            xml_content,
-            focus_section_uuid=focus_section_uuid,
-            neighbor_sections=neighbor_sections_int,
-        )
-        return jsonify(
-            {
+        year, target, acquirer, url, xml_content = row
+        if not ctx.is_authenticated:
+            redacted_xml = _redact_agreement_xml(
+                xml_content,
+                focus_section_uuid=focus_section_uuid,
+                neighbor_sections=neighbor_sections_int,
+            )
+            return {
                 "year": year,
                 "target": target,
                 "acquirer": acquirer,
@@ -2314,16 +2333,13 @@ def get_agreement(agreement_uuid):
                 "xml": redacted_xml,
                 "isRedacted": True,
             }
-        )
-    return jsonify(
-        {
+        return {
             "year": year,
             "target": target,
             "acquirer": acquirer,
             "url": url,
             "xml": xml_content,
         }
-    )
 
 
 @app.route("/api/agreements-index", methods=["GET"])
@@ -2756,6 +2772,9 @@ class DumpListResource(MethodView):
 
 # Register dumps blueprint
 api.register_blueprint(dumps_blp)
+
+# Register agreements blueprint
+api.register_blueprint(agreements_blp)
 
 # ── Auth routes ──────────────────────────────────────────────────────────
 
