@@ -7,7 +7,6 @@ for use in page classification models.
 
 import re
 import string
-from typing import List
 
 import numpy as np
 
