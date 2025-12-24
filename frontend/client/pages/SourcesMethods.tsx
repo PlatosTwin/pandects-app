@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 
@@ -769,13 +773,12 @@ export default function SourcesMethods() {
                   were less than reliable.
                 </TooltipContent>
               </Tooltip>{" "}
-              still made too many mistakes for us to be
-              comfortable using them at scale. Our solution: use the latest and
-              greatest LLMs to generate high-quality training data from a
-              limited sample of agreements—<strong>137</strong> in total,
-              sampled roughly evenly from 2000 to 2020—and then train up more
-              routine machine learning models to do the work we'd otherwise
-              outsource to LLMs.
+              still made too many mistakes for us to be comfortable using them
+              at scale. Our solution: use the latest and greatest LLMs to
+              generate high-quality training data from a limited sample of
+              agreements—<strong>137</strong> in total, sampled roughly evenly
+              from 2000 to 2020—and then train up more routine machine learning
+              models to do the work we'd otherwise outsource to LLMs.
             </p>
             <p className="text-muted-foreground">
               This section describes the four ML models at the heart of our data
