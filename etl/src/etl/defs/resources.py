@@ -43,6 +43,7 @@ class PipelineConfig(dg.ConfigurableResource):
     scope: ProcessingScope = ProcessingScope.BATCHED
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     xml_agreement_batch_size: int = 10  # used in xml_asset
+    taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
 

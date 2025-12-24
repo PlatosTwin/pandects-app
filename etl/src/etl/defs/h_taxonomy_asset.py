@@ -1,30 +1,38 @@
 import dagster as dg
 from sqlalchemy import text
-from typing import Any, Dict, List
+from typing import cast
 
 from etl.defs.g_sections_asset import sections_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel
-from etl.domain.h_taxonomy import strip_xml_tags_to_text, apply_standard_ids_to_xml
+from etl.domain.h_taxonomy import (
+    TaxonomyPredictor,
+    TaxonomyRow,
+    apply_standard_ids_to_xml,
+    predict_taxonomy,
+)
 from etl.domain.f_xml import XMLData
 from etl.utils.db_utils import upsert_xml
-from etl.utils.run_config import is_batched
-
+from etl.utils.run_config import is_batched, is_cleanup_mode
 
 @dg.asset(deps=[sections_asset], name="8_taxonomy_asset")
 def taxonomy_asset(
-    context,
+    context: dg.AssetExecutionContext,
     db: DBResource,
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,
 ) -> None:
     # batching controls
-    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    agreement_batch_size = pipeline_config.taxonomy_agreement_batch_size
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
     last_uuid = ""
 
-    model = taxonomy_model.model()
+    model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
+    is_cleanup = is_cleanup_mode(context, pipeline_config)
+    context.log.info(
+        f"Running taxonomy in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
+    )
 
     while True:
         with engine.begin() as conn:
@@ -78,30 +86,17 @@ def taxonomy_asset(
                 last_uuid = agr_rows[-1]["agreement_uuid"]
                 continue
 
-            # 3) Prepare model inputs
-            inputs: List[Dict[str, Any]] = []
-            sec_idx: List[Dict[str, Any]] = []  # keep metadata alongside
-            for r in sec_rows:
-                text_block = strip_xml_tags_to_text(r["xml_content"])
-                inputs.append(
-                    {
-                        "article_title": r.get("article_title") or "",
-                        "section_title": r.get("section_title") or "",
-                        "section_text": text_block,
-                    }
-                )
-                sec_idx.append({
-                    "section_uuid": r["section_uuid"],
-                    "agreement_uuid": r["agreement_uuid"],
-                })
-
-            preds = model.predict(inputs)
+            # 3) Prepare model inputs + predict
+            rows: list[TaxonomyRow] = [dict(r) for r in sec_rows]
+            sec_idx, preds = predict_taxonomy(rows, model, context)
 
             # 4) Update pdx.sections with labels and alt probabilities
-            upd_rows: List[Dict[str, Any]] = []
+            upd_rows: list[dict[str, object]] = []
             for meta, pred in zip(sec_idx, preds):
-                label = pred.get("label")
-                alt_probs = pred.get("alt_probs") or [0.0, 0.0, 0.0]
+                label = cast(str, cast(object, pred.get("label")))
+                alt_probs = cast(
+                    list[float], pred.get("alt_probs") or [0.0, 0.0, 0.0]
+                )
                 upd_rows.append(
                     {
                         "section_uuid": meta["section_uuid"],
@@ -128,9 +123,12 @@ def taxonomy_asset(
 
             # 5) Update pdx.xml documents in place with section standardId
             # Build per-agreement mapping of section_uuid -> label
-            by_agr: Dict[str, Dict[str, str]] = {}
+            by_agr: dict[str, dict[str, str]] = {}
             for meta, pred in zip(sec_idx, preds):
-                by_agr.setdefault(meta["agreement_uuid"], {})[meta["section_uuid"]] = pred.get("label")
+                label = cast(str, cast(object, pred.get("label")))
+                by_agr.setdefault(meta["agreement_uuid"], {})[
+                    meta["section_uuid"]
+                ] = label
 
             xml_rows = (
                 conn.execute(
@@ -148,7 +146,7 @@ def taxonomy_asset(
                 .fetchall()
             )
 
-            staged_xml: List[XMLData] = []
+            staged_xml: list[XMLData] = []
             for r in xml_rows:
                 agr_uuid = r["agreement_uuid"]
                 xml_str = r["xml"]
@@ -160,12 +158,13 @@ def taxonomy_asset(
 
             if staged_xml:
                 upsert_xml(staged_xml, conn)
-                context.log.info(
-                    f"taxonomy_asset: updated {len(upd_rows)} sections across {len(agr_list)} agreements; upserted {len(staged_xml)} XMLs"
-                )
+            context.log.info(
+                "taxonomy_asset: batch updated "
+                f"{len(upd_rows)} sections across {len(agr_list)} agreements; "
+                f"upserted {len(staged_xml)} XMLs"
+            )
 
             last_uuid = agr_rows[-1]["agreement_uuid"]
 
-        if is_batched:
+        if batched:
             break
-
