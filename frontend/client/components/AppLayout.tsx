@@ -1,9 +1,14 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import SiteBanner from "@/components/SiteBanner";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { applySeoForPath } from "@/lib/seo";
+import {
+  installOutboundLinkTracking,
+  trackPageview,
+  trackTimeOnPage,
+} from "@/lib/analytics";
 
 function RouteFallback() {
   return (
@@ -19,10 +24,48 @@ function RouteFallback() {
 
 export function AppLayout() {
   const location = useLocation();
+  const routeTimerRef = useRef<{ path: string; start: number } | null>(null);
 
   useEffect(() => {
     applySeoForPath(location.pathname);
-  }, [location.pathname]);
+    trackPageview(
+      `${location.pathname}${location.search}${location.hash}`,
+    );
+  }, [location.hash, location.pathname, location.search]);
+
+  useEffect(() => installOutboundLinkTracking(), []);
+
+  useEffect(() => {
+    const path = `${location.pathname}${location.search}${location.hash}`;
+
+    if (routeTimerRef.current) {
+      trackTimeOnPage(
+        routeTimerRef.current.path,
+        performance.now() - routeTimerRef.current.start,
+      );
+    }
+
+    routeTimerRef.current = {
+      path,
+      start: performance.now(),
+    };
+  }, [location.hash, location.pathname, location.search]);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      if (!routeTimerRef.current) return;
+
+      trackTimeOnPage(
+        routeTimerRef.current.path,
+        performance.now() - routeTimerRef.current.start,
+      );
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
