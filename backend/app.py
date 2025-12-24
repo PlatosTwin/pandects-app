@@ -1070,7 +1070,7 @@ def _send_resend_template_email(
 
 
 def _send_email_verification_email(*, to_email: str, token: str) -> None:
-    verify_url = f"{_public_api_base_url()}/api/auth/email/verify?token={quote(token)}"
+    verify_url = f"{_frontend_base_url()}/auth/verify-email#token={quote(token)}"
     subject = "Verify your email for Pandects"
     year = str(datetime.utcnow().year)
     template_id = _resend_template_id()
@@ -1085,7 +1085,7 @@ def _send_email_verification_email(*, to_email: str, token: str) -> None:
 
 
 def _send_password_reset_email(*, to_email: str, token: str) -> None:
-    reset_url = f"{_frontend_base_url()}/auth/reset-password?token={quote(token)}"
+    reset_url = f"{_frontend_base_url()}/auth/reset-password#token={quote(token)}"
     subject = "Reset your Pandects password"
     year = str(datetime.utcnow().year)
     _send_resend_template_email(
@@ -1221,6 +1221,11 @@ def _google_oauth_client_secret() -> str:
 
 def _google_oauth_redirect_uri() -> str:
     return f"{_public_api_base_url()}/api/auth/google/callback"
+
+
+def _google_oauth_flow_enabled() -> bool:
+    return os.environ.get("GOOGLE_OAUTH_FLOW_ENABLED", "").strip() == "1"
+
 
 def _google_oauth_cookie_serializer() -> URLSafeTimedSerializer:
     secret = os.environ.get("AUTH_SECRET_KEY")
@@ -1538,6 +1543,10 @@ def _require_json() -> dict:
     if not isinstance(data, dict):
         abort(400, description="Expected JSON object body.")
     return data
+
+
+def _auth_enumeration_delay() -> None:
+    time.sleep(random.uniform(0.15, 0.35))
 
 
 def _utc_datetime_from_ms(value: object, *, field: str) -> datetime:
@@ -2798,19 +2807,21 @@ def auth_register():
         abort(400, description="Password must be at least 8 characters.")
 
     if _auth_is_mocked():
-        user = _mock_auth.create_user(email=email, password=password)
-        verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
-        if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and app.debug:
-            payload = {
-                "status": "verification_required",
-                "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
-                "debugToken": verify_token,
-            }
-        else:
-            payload = {
-                "status": "verification_required",
-                "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
-            }
+        existing = _mock_auth.get_user_by_email(email)
+        user = existing or _mock_auth.create_user(email=email, password=password)
+        verify_token = None
+        if user.email_verified_at is None:
+            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
+        payload: dict[str, object] = {
+            "status": "verification_required",
+            "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
+        }
+        if (
+            verify_token
+            and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
+            and app.debug
+        ):
+            payload["debugToken"] = verify_token
         resp = make_response(jsonify(payload), 201)
         resp.headers["Cache-Control"] = "no-store"
         _clear_auth_cookies(resp)
@@ -2819,7 +2830,31 @@ def auth_register():
     try:
         existing = AuthUser.query.filter_by(email=email).first()
         if existing is not None:
-            abort(409, description="An account with this email already exists.")
+            verify_token = None
+            if existing.email_verified_at is None:
+                verify_token = _issue_email_verification_token(
+                    user_id=existing.id, email=existing.email
+                )
+                _send_email_verification_email(to_email=existing.email, token=verify_token)
+            payload: dict[str, object] = {
+                "status": "verification_required",
+                "user": {
+                    "id": existing.id,
+                    "email": existing.email,
+                    "createdAt": existing.created_at.isoformat(),
+                },
+            }
+            if (
+                verify_token
+                and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
+                and app.debug
+            ):
+                payload["debugToken"] = verify_token
+            _auth_enumeration_delay()
+            resp = make_response(jsonify(payload), 201)
+            resp.headers["Cache-Control"] = "no-store"
+            _clear_auth_cookies(resp)
+            return resp
 
         now = datetime.utcnow()
         ip_address = _request_ip_address()
@@ -2881,6 +2916,7 @@ def auth_login():
     if _auth_is_mocked():
         user = _mock_auth.authenticate(email=email, password=password)
         if user is None:
+            _auth_enumeration_delay()
             abort(401, description="Invalid credentials.")
         if user.email_verified_at is None:
             abort(403, description="Email address not verified.")
@@ -2897,8 +2933,10 @@ def auth_login():
     try:
         user = AuthUser.query.filter_by(email=email).first()
         if user is None or not user.password_hash:
+            _auth_enumeration_delay()
             abort(401, description="Invalid credentials.")
         if not check_password_hash(user.password_hash, password):
+            _auth_enumeration_delay()
             abort(401, description="Invalid credentials.")
         if user.email_verified_at is None:
             abort(403, description="Email address not verified.")
@@ -2934,6 +2972,7 @@ def auth_resend_email_verification():
         if user is not None and user.email_verified_at is None:
             verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
             _send_email_verification_email(to_email=user.email, token=verify_token)
+        _auth_enumeration_delay()
         resp = make_response(jsonify({"status": "sent"}))
         resp.headers["Cache-Control"] = "no-store"
         return resp
@@ -2950,6 +2989,7 @@ def auth_resend_email_verification():
         db.session.rollback()
         abort(503, description="Auth backend is unavailable right now.")
 
+    _auth_enumeration_delay()
     resp = make_response(jsonify({"status": "sent"}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -2973,6 +3013,7 @@ def auth_password_forgot():
         ):
             token = _issue_password_reset_token(user_id=user.id, email=user.email)
             _send_password_reset_email(to_email=user.email, token=token)
+        _auth_enumeration_delay()
         resp = make_response(jsonify({"status": "sent"}))
         resp.headers["Cache-Control"] = "no-store"
         return resp
@@ -2991,6 +3032,7 @@ def auth_password_forgot():
         db.session.rollback()
         abort(503, description="Auth backend is unavailable right now.")
 
+    _auth_enumeration_delay()
     resp = make_response(jsonify({"status": "sent"}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -3400,6 +3442,8 @@ def auth_google_start():
     _require_auth_db()
     if _auth_is_mocked():
         abort(501, description="Google auth is unavailable in mock auth mode.")
+    if not _google_oauth_flow_enabled():
+        abort(404)
 
     client_id = _google_oauth_client_id()
     redirect_uri = _google_oauth_redirect_uri()
@@ -3476,6 +3520,8 @@ def auth_google_callback():
     _require_auth_db()
     if _auth_is_mocked():
         abort(501, description="Google auth is unavailable in mock auth mode.")
+    if not _google_oauth_flow_enabled():
+        abort(404)
 
     error = request.args.get("error")
     if isinstance(error, str) and error.strip():
