@@ -5,11 +5,13 @@ This module provides the main entry points for training and testing the page cla
 using PyTorch Lightning with hyperparameter optimization via Optuna.
 """
 
-import os
-import time
-from typing import Dict, List, Optional, Tuple, Union
-import pprint
 import logging
+import os
+import pprint
+import time
+import argparse
+import sys
+from typing import TypedDict
 
 # Disable Tokenizers parallelism before loading any HF/Lightning modules
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -20,6 +22,7 @@ logging.getLogger("lightning").setLevel(logging.ERROR)
 logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(logging.ERROR)
 
 import pandas as pd
+import numpy as np
 import torch
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import (
@@ -29,18 +32,42 @@ from lightning.pytorch.callbacks import (
     TQDMProgressBar,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
-from optuna import create_study
+from optuna import Trial, create_study
 from optuna.integration import PyTorchLightningPruningCallback
-
-from .classifier_classes import PageClassifier, PageDataModule
-from .shared_constants import (
-    CLASSIFIER_CKPT_PATH,
-    CLASSIFIER_XGB_PATH,
-    CLASSIFIER_LABEL_LIST,
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    precision_recall_fscore_support,
 )
 
+try:
+    from .classifier_classes import PageClassifier, PageDataModule
+    from .shared_constants import (
+        CLASSIFIER_CKPT_PATH,
+        CLASSIFIER_XGB_PATH,
+        CLASSIFIER_LABEL_LIST,
+    )
+except ImportError:  # pragma: no cover - supports running as a script
+    from classifier_classes import PageClassifier, PageDataModule  # pyright: ignore[reportMissingImports]
+    from shared_constants import (  # pyright: ignore[reportMissingImports]
+        CLASSIFIER_CKPT_PATH,
+        CLASSIFIER_XGB_PATH,
+        CLASSIFIER_LABEL_LIST,
+    )
+
 # Reproducibility
-pl.seed_everything(42, workers=True, verbose=False)
+_ = pl.seed_everything(42, workers=True, verbose=False)
+
+
+class HyperParams(TypedDict):
+    lr: float
+    weight_decay: float
+    batch_size: int
+    dropout: float
+    hidden_dim: int
+    lstm_dropout: float
+    lstm_hidden: int
+    lstm_num_layers: int
 
 
 class ClassifierTrainer:
@@ -72,13 +99,15 @@ class ClassifierTrainer:
             num_workers: Number of data loading workers
             file_mode: Either 'version' or 'overwrite' - controls checkpoint file management
         """
-        self.data_file = data_csv
-        self.num_trials = num_trials
-        self.max_epochs = max_epochs
-        self.default_batch_size = batch_size
-        self.val_split = val_split
-        self.num_workers = num_workers
-        self.file_mode = file_mode
+        self.data_file: str = data_csv
+        self.num_trials: int = num_trials
+        self.max_epochs: int = max_epochs
+        self.default_batch_size: int = batch_size
+        self.val_split: float = val_split
+        self.num_workers: int = num_workers
+        self.file_mode: str = file_mode
+        self.device: str = "mps"
+        self.df: pd.DataFrame | None = None
 
         # Device selection
         if torch.backends.mps.is_available():
@@ -90,17 +119,24 @@ class ClassifierTrainer:
 
     def _load_data(self) -> None:
         """Load the classification DataFrame from parquet file."""
-        self.df = pd.read_parquet(self.data_file)
-        if not {"html", "text", "label"}.issubset(self.df.columns):
+        df = pd.read_parquet(self.data_file)
+        if not {"html", "text", "label"}.issubset(df.columns):
             raise ValueError("Data must contain 'html', 'text', and 'label' columns")
-        print(f"[data] loaded {self.df.shape[0]} rows from {self.data_file}")
+        self.df = df
+        print(f"[data] loaded {df.shape[0]} rows from {self.data_file}")
 
     def _get_callbacks(
         self,
-        trial: Optional[object] = None,
-        ckpt: Optional[str] = None,
+        trial: Trial | None = None,
+        ckpt: str | None = None,
         overwrite: bool = False,
-    ) -> tuple:
+    ) -> tuple[
+        ModelCheckpoint,
+        EarlyStopping,
+        LearningRateMonitor,
+        TQDMProgressBar,
+        list[PyTorchLightningPruningCallback],
+    ]:
         """
         Instantiate Lightning callbacks.
 
@@ -141,9 +177,7 @@ class ClassifierTrainer:
 
         return checkpoint, early_stop, lr_monitor, progress_bar, prune_callback
 
-    def _build(
-        self, params: Dict[str, Union[float, int]]
-    ) -> Tuple[PageDataModule, PageClassifier]:
+    def _build(self, params: HyperParams) -> tuple[PageDataModule, PageClassifier]:
         """
         Instantiate DataModule and Model with given hyperparameters.
 
@@ -153,9 +187,11 @@ class ClassifierTrainer:
         Returns:
             Tuple of (data_module, model)
         """
+        if self.df is None:
+            raise RuntimeError("Training data not loaded. Call _load_data first.")
         data_module = PageDataModule(
             df=self.df,
-            batch_size=params.get("batch_size", self.default_batch_size),
+            batch_size=params["batch_size"],
             val_split=self.val_split,
             num_workers=self.num_workers,
             xgb_path=CLASSIFIER_XGB_PATH,
@@ -175,7 +211,81 @@ class ClassifierTrainer:
         )
         return data_module, model
 
-    def _objective(self, trial: object) -> float:
+    @staticmethod
+    def _label_names(data_module: PageDataModule) -> list[str]:
+        return [
+            label
+            for label, _ in sorted(data_module.label2idx.items(), key=lambda kv: kv[1])
+        ]
+
+    def _print_val_diagnostics(
+        self, model: PageClassifier, data_module: PageDataModule, *, tag: str
+    ) -> None:
+        if data_module.val_split <= 0:
+            return
+
+        label_names = self._label_names(data_module)
+        num_classes = len(label_names)
+        if num_classes <= 0:
+            raise RuntimeError("No classes available for evaluation.")
+
+        model = model.to(self.device)
+        model.eval()
+
+        y_true_parts: list[np.ndarray] = []
+        y_pred_parts: list[np.ndarray] = []
+
+        with torch.no_grad():
+            for emissions, labels in data_module.val_dataloader():
+                emissions = emissions.to(self.device)
+                labels = labels.to(self.device)
+
+                mask = labels != -100
+                labels = torch.where(mask, labels, torch.zeros_like(labels))
+
+                emissions = model(emissions)
+                emissions = model._apply_learned_positional_prior(emissions, mask)
+                emissions = model._apply_sig_position_bias(emissions, mask)
+                predictions = model._viterbi_decode_ext(emissions, mask)
+
+                y_true_parts.append(labels[mask].cpu().numpy())
+                y_pred_parts.append(predictions[mask].cpu().numpy())
+
+        y_true = np.concatenate(y_true_parts, axis=0) if y_true_parts else np.array([], dtype=int)
+        y_pred = np.concatenate(y_pred_parts, axis=0) if y_pred_parts else np.array([], dtype=int)
+        if y_true.size == 0:
+            raise RuntimeError("Validation set is empty; cannot compute diagnostics.")
+
+        accuracy = accuracy_score(y_true, y_pred)
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, average="macro", zero_division=0
+        )
+        print(f"{tag}  Acc: {accuracy:.4f}  P/R/F1: {precision:.4f}/{recall:.4f}/{f1:.4f}")
+
+        cm = confusion_matrix(y_true, y_pred, labels=np.arange(num_classes))
+        print(f"{tag} Confusion Matrix:")
+        print(cm)
+
+        class_acc = cm.diagonal() / np.maximum(cm.sum(axis=1), 1)
+        per_prec_arr, per_rec_arr, per_f1_arr, _ = precision_recall_fscore_support(
+            y_true,
+            y_pred,
+            labels=np.arange(num_classes),
+            average=None,
+            zero_division=0,
+        )
+        per_prec = np.asarray(per_prec_arr)
+        per_rec = np.asarray(per_rec_arr)
+        per_f1 = np.asarray(per_f1_arr)
+
+        print(f"{tag} Per-class metrics:")
+        for i, label in enumerate(label_names):
+            print(
+                f"  {label}: Acc={class_acc[i]:.4f} "
+                f"P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
+            )
+
+    def _objective(self, trial: Trial) -> float:
         """
         Optuna objective function for hyperparameter optimization.
 
@@ -186,7 +296,7 @@ class ClassifierTrainer:
             Validation F1 score
         """
         # Define hyperparameter search space
-        params = {
+        params: HyperParams = {
             "lr": trial.suggest_float("lr", 1e-6, 1e-3, log=True),
             "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True),
             "batch_size": trial.suggest_categorical("batch_size", [4, 8, 16, 32]),
@@ -257,7 +367,17 @@ class ClassifierTrainer:
             print(f"     • {key}: {value}")
 
         # Final training with best hyperparameters
-        best_params = study.best_trial.params
+        trial_params = study.best_trial.params
+        best_params: HyperParams = {
+            "lr": float(trial_params["lr"]),
+            "weight_decay": float(trial_params["weight_decay"]),
+            "batch_size": int(trial_params["batch_size"]),
+            "dropout": float(trial_params["dropout"]),
+            "hidden_dim": int(trial_params["hidden_dim"]),
+            "lstm_dropout": float(trial_params["lstm_dropout"]),
+            "lstm_hidden": int(trial_params["lstm_hidden"]),
+            "lstm_num_layers": int(trial_params["lstm_num_layers"]),
+        }
         data_module, model = self._build(best_params)
 
         checkpoint, early_stop, lr_monitor, progress_bar, _ = self._get_callbacks(
@@ -273,6 +393,20 @@ class ClassifierTrainer:
             log_every_n_steps=10,
         )
         trainer.fit(model, datamodule=data_module)
+
+        best_ckpt_path = checkpoint.best_model_path
+        if best_ckpt_path:
+            print(f"[model] best checkpoint: {best_ckpt_path}")
+            label_names = self._label_names(data_module)
+            eval_model = PageClassifier.load_from_checkpoint(
+                best_ckpt_path,
+                label_names=label_names,
+                strict=False,
+            )
+        else:
+            eval_model = model
+
+        self._print_val_diagnostics(eval_model, data_module, tag="Model-Val (crf)")
 
 
 class ClassifierInference:
@@ -311,6 +445,7 @@ class ClassifierInference:
             first_sig_threshold: Probability threshold for signature block detection in postprocessing
         """
         # Device selection
+        self.device: str = "cpu"
         if torch.backends.mps.is_available():
             self.device = "mps"
         elif torch.cuda.is_available():
@@ -319,6 +454,7 @@ class ClassifierInference:
             self.device = "cpu"
 
         # Load model
+        self.model: PageClassifier
         self.model = PageClassifier.load_from_checkpoint(
             ckpt_path,
             label_names=CLASSIFIER_LABEL_LIST,
@@ -326,13 +462,14 @@ class ClassifierInference:
             first_sig_threshold=first_sig_threshold,
             strict=False,
         )
-        self.model.to(self.device)
-        self.model.eval()
+        _ = self.model.to(self.device)
+        _ = self.model.eval()
 
-        self.xgb_path = xgb_path
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.xgb_path: str = xgb_path
+        self.batch_size: int = batch_size
+        self.num_workers: int = num_workers
 
+        self.trainer: pl.Trainer
         self.trainer = pl.Trainer(
             accelerator=self.device,
             logger=False,
@@ -343,7 +480,7 @@ class ClassifierInference:
 
     def classify(
         self, df: pd.DataFrame
-    ) -> List[List[Dict[str, Union[str, float, bool]]]]:
+    ) -> list[list[dict[str, str | float | bool]]]:
         """
         Run inference on a DataFrame of pages.
 
@@ -367,8 +504,10 @@ class ClassifierInference:
         outputs = self.trainer.predict(
             self.model, dataloaders=data_module.predict_dataloader()
         )
+        if outputs is None:
+            raise RuntimeError("Prediction returned no outputs.")
 
-        flattened: List[List[Dict[str, Union[str, float, bool]]]] = []
+        flattened: list[list[dict[str, str | float | bool]]] = []
         for batch_out in outputs:
             if isinstance(batch_out, list):
                 flattened.extend(batch_out)
@@ -389,7 +528,7 @@ def main(mode: str, file: str = "version") -> None:
     if mode == "train":
         classifier_trainer = ClassifierTrainer(
             data_csv="etl/src/etl/models/data/page-data.parquet",
-            num_trials=30,
+            num_trials=40,
             max_epochs=25,
             num_workers=7,
             file_mode=file,
@@ -418,6 +557,85 @@ def main(mode: str, file: str = "version") -> None:
     else:
         raise RuntimeError(f"Invalid mode: {mode}. Use 'train' or 'test'")
 
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Train/test/evaluate the CRF page classifier.")
+    parser.add_argument(
+        "mode",
+        choices=["train", "test", "eval"],
+        help="train: train model; test: run inference; eval: evaluate checkpoint on a deterministic split",
+    )
+    parser.add_argument(
+        "--file",
+        default="version",
+        choices=["version", "overwrite"],
+        help="Checkpoint file mode (train only).",
+    )
+    parser.add_argument(
+        "--data-path",
+        default="etl/src/etl/models/data/page-data.parquet",
+        help="Parquet data path for eval (must contain labels).",
+    )
+    parser.add_argument(
+        "--ckpt-path",
+        default=CLASSIFIER_CKPT_PATH,
+        help="Checkpoint path for eval.",
+    )
+    parser.add_argument(
+        "--val-split",
+        type=float,
+        default=0.2,
+        help="Validation split fraction for eval (split by agreement_uuid).",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=8,
+        help="Batch size for eval dataloader.",
+    )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=0,
+        help="Dataloader workers for eval.",
+    )
+    parser.add_argument(
+        "--tag",
+        default="Model-Val (crf)",
+        help="Prefix label for printed eval diagnostics.",
+    )
+    return parser
+
 
 if __name__ == "__main__":
-    main(mode="test", file="overwrite")
+    if len(sys.argv) == 1:
+        main(mode="train", file="overwrite")
+    else:
+        args = _build_arg_parser().parse_args()
+        if args.mode in ("train", "test"):
+            main(mode=args.mode, file=args.file)
+        else:
+            df = pd.read_parquet(args.data_path)
+            data_module = PageDataModule(
+                df=df,
+                batch_size=args.batch_size,
+                val_split=args.val_split,
+                num_workers=args.num_workers,
+                xgb_path=CLASSIFIER_XGB_PATH,
+            )
+            data_module.setup(stage="validate")
+
+            label_names = ClassifierTrainer._label_names(data_module)
+            eval_model = PageClassifier.load_from_checkpoint(
+                args.ckpt_path,
+                label_names=label_names,
+                strict=False,
+            )
+            evaluator = ClassifierTrainer(
+                data_csv=args.data_path,
+                num_trials=0,
+                max_epochs=0,
+                val_split=args.val_split,
+                num_workers=args.num_workers,
+            )
+            evaluator.df = df
+            evaluator._print_val_diagnostics(eval_model, data_module, tag=args.tag)

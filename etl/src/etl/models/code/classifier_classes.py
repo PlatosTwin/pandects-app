@@ -6,7 +6,7 @@ using CRF (Conditional Random Fields) on top of XGBoost emissions.
 """
 
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple, Union
+from typing import cast
 
 import lightning.pytorch as pl
 import numpy as np
@@ -18,12 +18,19 @@ from torch import Tensor
 import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
-from torchmetrics import F1Score, Precision, Recall
+from torchmetrics import F1Score, Precision, Recall, Metric
 import xgboost as xgb
 from joblib import Parallel, delayed
 
-from .classifier_utils import extract_features
-from .shared_constants import CLASSIFIER_LABEL_LIST
+try:
+    from .classifier_utils import extract_features
+    from .shared_constants import CLASSIFIER_LABEL_LIST
+except ImportError:  # pragma: no cover - supports running as a script
+    from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
+    from shared_constants import CLASSIFIER_LABEL_LIST  # pyright: ignore[reportMissingImports]
+
+
+Prediction = dict[str, str | dict[str, float] | bool]
 
 
 @lru_cache(maxsize=2)
@@ -70,7 +77,7 @@ def load_temperature_calibration(calib_path: str) -> float:
     return 1.0
 
 
-class PageDataset(Dataset):
+class PageDataset(Dataset[dict[str, Tensor]]):
     """
     Dataset for individual page classification.
 
@@ -80,10 +87,10 @@ class PageDataset(Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        label2idx: Dict[str, int],
+        label2idx: dict[str, int],
         model: xgb.Booster,
         inference: bool = False,
-        temperature: float = 1.0
+        temperature: float = 1.0,
     ):
         """
         Initialize the page dataset.
@@ -99,9 +106,14 @@ class PageDataset(Dataset):
         df = df.fillna({"text": "", "html": "", "order": 0})
 
         # Extract features using parallel processing for better performance
-        features_list = Parallel(n_jobs=-1, prefer="threads")(
-            delayed(extract_features)(text, html, order)
-            for text, html, order in zip(df["text"], df["html"], df["order"])
+        features_list = cast(
+            list[np.ndarray],
+            list(
+                Parallel(n_jobs=-1, prefer="threads")(
+                    delayed(extract_features)(text, html, order)
+                    for text, html, order in zip(df["text"], df["html"], df["order"])
+                )
+            ),
         )
         features = np.vstack(features_list)
         dmatrix = xgb.DMatrix(features)
@@ -119,11 +131,11 @@ class PageDataset(Dataset):
 
         # Convert to log probabilities, avoiding log(0) → -inf
         probs_tensor = torch.tensor(np.clip(probabilities, 1e-12, 1.0), dtype=torch.float)
-        self.emissions = torch.log(probs_tensor)
+        self.emissions: torch.Tensor = torch.log(probs_tensor)
 
         # Handle labels for training
         if not inference and "label" in df.columns:
-            self.labels = torch.tensor(
+            self.labels: torch.Tensor | None = torch.tensor(
                 [label2idx.get(label, 0) for label in df["label"]], dtype=torch.long
             )
         else:
@@ -132,14 +144,14 @@ class PageDataset(Dataset):
     def __len__(self) -> int:
         return self.emissions.size(0)
 
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, Tensor]:
         """Get emissions and optionally labels for a single page."""
         if self.labels is None:
             return {"emissions": self.emissions[idx]}
         return {"emissions": self.emissions[idx], "labels": self.labels[idx]}
 
 
-class DocumentDataset(Dataset):
+class DocumentDataset(Dataset[dict[str, Tensor]]):
     """
     Dataset for document-level page classification.
 
@@ -149,7 +161,7 @@ class DocumentDataset(Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
-        label2idx: Dict[str, int],
+        label2idx: dict[str, int],
         model: xgb.Booster,
         inference: bool = False,
         temperature: float = 1.0
@@ -164,24 +176,26 @@ class DocumentDataset(Dataset):
             inference: If True, skip label loading for inference
             temperature: Temperature for calibrating XGBoost probabilities
         """
-        self.page_dataset = PageDataset(df, label2idx, model, inference=inference, temperature=temperature)
-        self.document_indices = []
+        self.page_dataset: PageDataset = PageDataset(
+            df, label2idx, model, inference=inference, temperature=temperature
+        )
+        self.document_indices: list[list[int]] = []
 
         # Group pages by document and sort by order
         df = df.copy()  # Make a copy to avoid modifying original
         df['idx'] = range(len(df))  # Add index column
         # Group by agreement and sort by order within each group, excluding grouping columns
-        grouped = df.groupby('agreement_uuid', sort=False, group_keys=False).apply(
+        grouped = df.groupby('agreement_uuid', sort=False, group_keys=False).apply(  # pyright: ignore[reportCallIssue]
             lambda x: list(x.sort_values('order')['idx']),
-            include_groups=False
+            include_groups=False,  # pyright: ignore[reportCallIssue]
         )
         self.document_indices = grouped.tolist()
-        self.inference = inference
+        self.inference: bool = inference
 
     def __len__(self) -> int:
         return len(self.document_indices)
 
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, Tensor]:
         """Get a document's worth of pages, properly ordered."""
         page_indices = self.document_indices[idx]
         emissions = torch.stack(
@@ -198,8 +212,8 @@ class DocumentDataset(Dataset):
 
 
 def collate_pages(
-    batch: List[Dict[str, Tensor]], pad_label: int = -100
-) -> Tuple[Tensor, Tensor]:
+    batch: list[dict[str, Tensor]], pad_label: int = -100
+) -> tuple[Tensor, Tensor]:
     """
     Collate function for training/validation batches.
 
@@ -239,7 +253,7 @@ def collate_pages(
     return torch.stack(padded_emissions), torch.stack(padded_labels)
 
 
-def collate_pages_predict(batch: List[Dict[str, Tensor]]) -> Tuple[Tensor, Tensor]:
+def collate_pages_predict(batch: list[dict[str, Tensor]]) -> tuple[Tensor, Tensor]:
     """
     Collate function for prediction batches.
 
@@ -313,8 +327,15 @@ class PageDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.val_split = val_split
         self.num_workers = num_workers
+        self.label2idx: dict[str, int] = {}
+        self.xgb_model: xgb.Booster | None = None
+        self.temperature: float = 1.0
+        self.train_dataset: DocumentDataset | None = None
+        self.val_dataset: DocumentDataset | None = None
+        self.predict_dataset: DocumentDataset | None = None
+        self.num_classes: int = 0
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         """
         Set up datasets for training, validation, and prediction.
 
@@ -366,37 +387,43 @@ class PageDataModule(pl.LightningDataModule):
         self.num_classes = len(labels)
     
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> DataLoader[dict[str, Tensor]]:
         """Create training data loader with document-level batching."""
+        if self.train_dataset is None:
+            raise RuntimeError("Training dataset is not initialized. Call setup() first.")
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             collate_fn=collate_pages,
-            persistent_workers=True,
+            persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> DataLoader:
+    def val_dataloader(self) -> DataLoader[dict[str, Tensor]]:
         """Create validation data loader with document-level batching."""
+        if self.val_dataset is None:
+            raise RuntimeError("Validation dataset is not initialized. Call setup() first.")
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=collate_pages,
-            persistent_workers=True,
+            persistent_workers=self.num_workers > 0,
         )
 
-    def predict_dataloader(self) -> DataLoader:
+    def predict_dataloader(self) -> DataLoader[dict[str, Tensor]]:
         """Create prediction data loader for inference."""
+        if self.predict_dataset is None:
+            raise RuntimeError("Prediction dataset is not initialized. Call setup() first.")
         return DataLoader(
             self.predict_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=collate_pages_predict,
-            persistent_workers=True,
+            persistent_workers=self.num_workers > 0,
         )
 
 
@@ -418,7 +445,7 @@ class PageClassifier(pl.LightningModule):
         lstm_num_layers: int = 1,
         lstm_dropout: float = 0.0,
         *,
-        label_names: Optional[List[str]] = None,
+        label_names: list[str] | None = None,
         sig_label: str = "sig",
         back_label: str = "back_matter",
         enforce_single_sig_block: bool = True,
@@ -493,7 +520,7 @@ class PageClassifier(pl.LightningModule):
             raise ValueError(f"lstm_num_layers must be positive, got {lstm_num_layers}")
             
         # Initialize metrics
-        metrics = {}
+        metrics: dict[str, Metric] = {}
         for split in ["train", "val"]:
             metrics[f"{split}_precision"] = Precision(
                 task="multiclass", num_classes=num_classes, average="macro"
@@ -504,7 +531,7 @@ class PageClassifier(pl.LightningModule):
             metrics[f"{split}_f1"] = F1Score(
                 task="multiclass", num_classes=num_classes, average="macro"
             )
-        self.metrics = torch.nn.ModuleDict(metrics)
+        self.metrics: torch.nn.ModuleDict = torch.nn.ModuleDict(metrics)
         
         # Core model components
         self.C = num_classes  # number of classes
@@ -578,12 +605,16 @@ class PageClassifier(pl.LightningModule):
         # Register buffers for CRF (important: these persist and move to the right device)
         self.register_buffer("trans_mask", trans_mask)
         self.register_buffer("start_mask", start_mask)
+        self._last_lstm: torch.Tensor | None = None
+
+    def _metric(self, name: str) -> Metric:
+        return cast(Metric, self.metrics[name])
 
     def _ext_index(self, y: int, f: int) -> int:
         # map (label y, flag f) to extended index
         return y + f * self.C
 
-    def _build_ext_masks(self) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _build_ext_masks(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Build allowed transition mask over extended states and start-state mask.
         Rules:
@@ -885,6 +916,8 @@ class PageClassifier(pl.LightningModule):
             a signature block, preventing re-entry into signature pages.
         """
         batch_size, seq_len, _ = emissions.shape
+        start_mask = cast(torch.Tensor, self.start_mask)
+        trans_mask = cast(torch.Tensor, self.trans_mask)
         
         # Get extended labels and mask
         ext_labels = self._extend_tags(labels, mask)  # (B, S)
@@ -895,7 +928,7 @@ class PageClassifier(pl.LightningModule):
         # Initialize with start constraints
         alphas[:, 0] = emissions[:, 0]  # (B, C) or (B, 2C)
         alphas[:, 0] = torch.where(
-            self.start_mask,  # (C,) or (2C,)
+            start_mask,  # (C,) or (2C,)
             alphas[:, 0],
             torch.tensor(-1e9, device=alphas.device)
         )
@@ -911,7 +944,7 @@ class PageClassifier(pl.LightningModule):
             # Transition scores with constraints
             # trans_mask: (C, C) or (2C, 2C) boolean
             trans_scores = torch.where(
-                self.trans_mask,
+                trans_mask,
                 torch.tensor(0.0, device=prev_alpha.device),
                 torch.tensor(-1e9, device=prev_alpha.device)
             )
@@ -935,7 +968,7 @@ class PageClassifier(pl.LightningModule):
         gold_emit = (gold_emit * mask.float()).sum(dim=1)  # (B,)
         
         # Start constraint penalty (0 if allowed, -1e9 if not)
-        start_ok = self.start_mask[ext_labels[:, 0]]  # (B,)
+        start_ok = start_mask[ext_labels[:, 0]]  # (B,)
         start_pen = torch.where(
             start_ok,
             torch.tensor(0.0, device=emissions.device),
@@ -947,7 +980,7 @@ class PageClassifier(pl.LightningModule):
         if emissions.size(1) > 1:
             prev_tags = ext_labels[:, :-1]
             curr_tags = ext_labels[:, 1:]
-            allowed = self.trans_mask[prev_tags, curr_tags]  # (B, S-1)
+            allowed = trans_mask[prev_tags, curr_tags]  # (B, S-1)
             trans_pen = torch.where(
                 allowed,
                 torch.tensor(0.0, device=emissions.device),
@@ -983,6 +1016,8 @@ class PageClassifier(pl.LightningModule):
             Best path indices (B, S) in range [0, C-1] or [0, 2C-1]
         """
         batch_size, seq_len, num_tags = emissions.shape
+        start_mask = cast(torch.Tensor, self.start_mask)
+        trans_mask = cast(torch.Tensor, self.trans_mask)
         device = emissions.device
         
         # Initialize score and backpointers
@@ -994,7 +1029,7 @@ class PageClassifier(pl.LightningModule):
         # First timestep uses start constraints
         scores[:, 0] = emissions[:, 0]  # (B, C) or (B, 2C)
         scores[:, 0] = torch.where(
-            self.start_mask,
+            start_mask,
             scores[:, 0],
             torch.tensor(-1e9, device=device)
         )
@@ -1009,7 +1044,7 @@ class PageClassifier(pl.LightningModule):
             
             # Transition scores with constraints
             trans_scores = torch.where(
-                self.trans_mask,
+                trans_mask,
                 torch.tensor(0.0, device=device),
                 torch.tensor(-1e9, device=device)
             )
@@ -1047,10 +1082,10 @@ class PageClassifier(pl.LightningModule):
             
         return best_path
 
-    def training_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+    def training_step(self, batch: tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         """Training step."""
+        _ = batch_idx
         emissions, labels = batch
-        batch_size, seq_len = labels.shape
         
         # Create mask for padding
         mask = (labels != -100)  # (B, S)
@@ -1083,9 +1118,9 @@ class PageClassifier(pl.LightningModule):
         pred_labels = predictions[mask]
         
         # Update metrics
-        self.metrics["train_precision"](pred_labels, true_labels)
-        self.metrics["train_recall"](pred_labels, true_labels)
-        self.metrics["train_f1"](pred_labels, true_labels)
+        self._metric("train_precision").update(pred_labels, true_labels)
+        self._metric("train_recall").update(pred_labels, true_labels)
+        self._metric("train_f1").update(pred_labels, true_labels)
         
         # Log metrics
         self.log("train_loss", loss, prog_bar=True)
@@ -1097,10 +1132,10 @@ class PageClassifier(pl.LightningModule):
         # Note: Don't compute/log step-level metrics here, we'll do that in epoch_end
         return loss
 
-    def validation_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+    def validation_step(self, batch: tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
         """Validation step."""
+        _ = batch_idx
         emissions, labels = batch
-        batch_size, seq_len = labels.shape
         
         # Create mask for padding
         mask = (labels != -100)  # (B, S)
@@ -1128,9 +1163,9 @@ class PageClassifier(pl.LightningModule):
         pred_labels = predictions[mask]
         
         # Update metrics
-        self.metrics["val_precision"](pred_labels, true_labels)
-        self.metrics["val_recall"](pred_labels, true_labels)
-        self.metrics["val_f1"](pred_labels, true_labels)
+        self._metric("val_precision").update(pred_labels, true_labels)
+        self._metric("val_recall").update(pred_labels, true_labels)
+        self._metric("val_f1").update(pred_labels, true_labels)
         
         # Log metrics
         self.log("val_loss", loss, prog_bar=True)
@@ -1144,35 +1179,35 @@ class PageClassifier(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         """Called at the end of training epoch."""
-        train_f1 = self.metrics["train_f1"].compute()
-        train_precision = self.metrics["train_precision"].compute()
-        train_recall = self.metrics["train_recall"].compute()
+        train_f1 = self._metric("train_f1").compute()
+        train_precision = self._metric("train_precision").compute()
+        train_recall = self._metric("train_recall").compute()
         
         self.log("train_f1_epoch", train_f1, prog_bar=True)
         self.log("train_precision_epoch", train_precision, prog_bar=True)
         self.log("train_recall_epoch", train_recall, prog_bar=True)
         
         # Reset metrics for next epoch
-        self.metrics["train_f1"].reset()
-        self.metrics["train_precision"].reset()
-        self.metrics["train_recall"].reset()
+        self._metric("train_f1").reset()
+        self._metric("train_precision").reset()
+        self._metric("train_recall").reset()
 
     def on_validation_epoch_end(self) -> None:
         """Called at the end of validation epoch."""
-        val_f1 = self.metrics["val_f1"].compute()
-        val_precision = self.metrics["val_precision"].compute()
-        val_recall = self.metrics["val_recall"].compute()
+        val_f1 = self._metric("val_f1").compute()
+        val_precision = self._metric("val_precision").compute()
+        val_recall = self._metric("val_recall").compute()
         
         self.log("val_f1", val_f1, prog_bar=True)
         self.log("val_precision", val_precision, prog_bar=True)
         self.log("val_recall", val_recall, prog_bar=True)
         
         # Reset metrics for next epoch
-        self.metrics["val_f1"].reset()
-        self.metrics["val_precision"].reset()
-        self.metrics["val_recall"].reset()
+        self._metric("val_f1").reset()
+        self._metric("val_precision").reset()
+        self._metric("val_recall").reset()
 
-    def shared_step(self, batch: Tuple[Tensor, Tensor], prefix: str) -> Tensor:
+    def shared_step(self, batch: tuple[Tensor, Tensor], prefix: str) -> Tensor:
         """
         Shared logic for training and validation steps.
         
@@ -1184,7 +1219,6 @@ class PageClassifier(pl.LightningModule):
             Loss value
         """
         emissions, labels = batch
-        batch_size, seq_len = labels.shape
         
         # Create mask for padding
         mask = (labels != -100)  # (B, S)
@@ -1205,9 +1239,9 @@ class PageClassifier(pl.LightningModule):
         pred_labels = predictions[mask]
         
         # Update metrics
-        self.metrics[f"{prefix}_precision"].update(pred_labels, true_labels)
-        self.metrics[f"{prefix}_recall"].update(pred_labels, true_labels)
-        self.metrics[f"{prefix}_f1"].update(pred_labels, true_labels)
+        self._metric(f"{prefix}_precision").update(pred_labels, true_labels)
+        self._metric(f"{prefix}_recall").update(pred_labels, true_labels)
+        self._metric(f"{prefix}_f1").update(pred_labels, true_labels)
         
         # Log step loss
         self.log(f"{prefix}_loss", loss, prog_bar=True)
@@ -1215,10 +1249,10 @@ class PageClassifier(pl.LightningModule):
         return loss
 
     def _apply_first_sig_block_postprocessing(
-        self, 
-        seq_preds: List[Dict[str, Union[str, Dict[str, float]]]], 
-        sig_threshold: float = 0.3
-    ) -> Tuple[List[Dict[str, Union[str, Dict[str, float], bool]]], bool]:
+        self,
+        seq_preds: list[Prediction],
+        sig_threshold: float = 0.3,
+    ) -> tuple[list[Prediction], bool]:
         """
         Apply decode-time fix: find first continuous signature block based on sig probability 
         threshold, convert those pages to 'sig', and everything after to 'back_matter'.
@@ -1246,7 +1280,8 @@ class PageClassifier(pl.LightningModule):
         
         # Find first page with sig probability above threshold
         for i, pred in enumerate(seq_preds):
-            sig_prob = pred["pred_probs"].get(sig_label_name, 0.0)
+            pred_probs = cast(dict[str, float], pred["pred_probs"])
+            sig_prob = pred_probs.get(sig_label_name, 0.0)
             if sig_prob >= sig_threshold:
                 first_sig_idx = i
                 break
@@ -1260,7 +1295,8 @@ class PageClassifier(pl.LightningModule):
         # Find the end of the continuous signature block
         last_sig_idx = first_sig_idx
         for i in range(first_sig_idx + 1, len(seq_preds)):
-            sig_prob = seq_preds[i]["pred_probs"].get(sig_label_name, 0.0)
+            pred_probs = cast(dict[str, float], seq_preds[i]["pred_probs"])
+            sig_prob = pred_probs.get(sig_label_name, 0.0)
             if sig_prob >= sig_threshold:
                 last_sig_idx = i
             else:
@@ -1272,7 +1308,7 @@ class PageClassifier(pl.LightningModule):
         
         for i, pred in enumerate(seq_preds):
             new_pred = pred.copy()
-            new_pred["pred_probs"] = pred["pred_probs"].copy()
+            new_pred["pred_probs"] = cast(dict[str, float], pred["pred_probs"]).copy()
             
             if first_sig_idx <= i <= last_sig_idx:
                 # Pages in the signature block: convert to 'sig'
@@ -1298,7 +1334,9 @@ class PageClassifier(pl.LightningModule):
         
         return modified_preds, was_modified
 
-    def predict_step(self, batch: Union[Tensor, Tuple[Tensor, Tensor]], batch_idx: int) -> List[List[Dict[str, Union[str, float, bool]]]]:
+    def predict_step(
+        self, batch: Tensor | tuple[Tensor, Tensor], batch_idx: int
+    ) -> list[list[Prediction]]:
         """
         Inference step.
         
@@ -1309,6 +1347,7 @@ class PageClassifier(pl.LightningModule):
         Returns:
             List of dictionaries with predictions and probabilities, including postprocess_modified flag
         """
+        _ = batch_idx
         # Unpack batch and build mask
         if isinstance(batch, tuple):
             emissions_in, mask = batch
@@ -1329,9 +1368,9 @@ class PageClassifier(pl.LightningModule):
             class_probs = class_probs.view(class_probs.shape[0], class_probs.shape[1], 2, -1).sum(2)
         
         # Convert to list of dictionaries (respect true sequence lengths)
-        results = []
+        results: list[list[Prediction]] = []
         for b in range(predictions.size(0)):
-            seq_preds = []
+            seq_preds: list[Prediction] = []
             seq_len = int(mask[b].sum().item())
             for t in range(seq_len):
                 pred_class = int(predictions[b, t].item())  # ensure integer index
@@ -1340,10 +1379,12 @@ class PageClassifier(pl.LightningModule):
                     str(name): float(class_probs[b, t, i])
                     for i, name in enumerate(self.label_names)
                 }
-                seq_preds.append({
+                seq_preds.append(
+                    {
                     "pred_class": class_name,
                     "pred_probs": probs
-                })
+                    }
+                )
             
             # Apply decode-time fix for signature block detection if enabled
             if self.enable_first_sig_postprocessing:

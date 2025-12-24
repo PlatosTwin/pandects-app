@@ -6,20 +6,36 @@ hand-crafted features extracted from text and HTML content.
 """
 
 import json
+from typing import cast
+
 import numpy as np
 import optuna
 from optuna.integration import XGBoostPruningCallback
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_recall_fscore_support,
+)
 from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
-from .classifier_utils import extract_features
-from .shared_constants import CLASSIFIER_XGB_PATH, CLASSIFIER_LABEL_LIST
+try:
+    from .classifier_utils import extract_features
+    from .shared_constants import CLASSIFIER_LABEL_LIST, CLASSIFIER_XGB_PATH
+except ImportError:  # pragma: no cover - supports running as a script
+    from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
+    from shared_constants import (  # pyright: ignore[reportMissingImports]
+        CLASSIFIER_LABEL_LIST,
+        CLASSIFIER_XGB_PATH,
+    )
 
 
-def load_and_prepare_data(data_path: str) -> tuple[np.ndarray, np.ndarray, dict]:
+def load_and_prepare_data(
+    data_path: str,
+) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
     """
     Load and prepare data for XGBoost training.
 
@@ -39,17 +55,22 @@ def load_and_prepare_data(data_path: str) -> tuple[np.ndarray, np.ndarray, dict]
     # Map labels to integers
     labels = CLASSIFIER_LABEL_LIST
     label2idx = {label: idx for idx, label in enumerate(labels)}
-    y = df["label"].map(label2idx).values
+    y = df["label"].map(label2idx).to_numpy()
 
     # Build feature matrix using parallel processing
     print(f"[data] extracting features in parallel...")
-    features_list = Parallel(n_jobs=-1, verbose=1)(
-        delayed(extract_features)(row["text"], row["html"], row["order"])
-        for _, row in df.iterrows()
+    features_list = cast(
+        list[np.ndarray],
+        list(
+            Parallel(n_jobs=-1, verbose=1)(
+                delayed(extract_features)(row["text"], row["html"], row["order"])
+                for _, row in df.iterrows()
+            )
+        ),
     )
-    X = np.vstack(features_list)
+    features = np.vstack(features_list)
 
-    return X, y, label2idx
+    return features, y, label2idx
 
 
 def macro_f1_eval(preds: np.ndarray, dmatrix: xgb.DMatrix) -> tuple[str, float]:
@@ -136,12 +157,14 @@ def objective(
     return f1
 
 
-def _nll_with_temperature(probs: np.ndarray, y_true: np.ndarray, T: float) -> float:
+def _nll_with_temperature(
+    probs: np.ndarray, y_true: np.ndarray, temperature: float
+) -> float:
     # probs shape: (N, C), valid probs in (0,1); y_true: (N,)
     p = np.clip(probs, 1e-12, 1.0)
     # treat log-probs as logits; apply temperature scaling in log space
     logits = np.log(p)  # already clipped away from 0
-    scaled_logits = logits / T
+    scaled_logits = logits / temperature
     # subtract max for numerical stability
     logits_max = scaled_logits.max(axis=1, keepdims=True)
     exp_logits = np.exp(scaled_logits - logits_max)
@@ -156,18 +179,18 @@ def _fit_temperature(probs: np.ndarray, y_true: np.ndarray) -> float:
     # simple coarse-to-fine search over T in [0.5, 3.0]
     grid = np.linspace(0.5, 3.0, 26)
     bestT, bestLoss = 1.0, 1e18
-    for T in grid:
-        loss = _nll_with_temperature(probs, y_true, T)
+    for temperature in grid:
+        loss = _nll_with_temperature(probs, y_true, temperature)
         if loss < bestLoss:
-            bestLoss, bestT = loss, T
+            bestLoss, bestT = loss, temperature
     # local refine around bestT
     for step in [0.2, 0.1, 0.05]:
         lo, hi = max(0.1, bestT - step), bestT + step
         cand = np.linspace(lo, hi, 11)
-        for T in cand:
-            loss = _nll_with_temperature(probs, y_true, T)
+        for temperature in cand:
+            loss = _nll_with_temperature(probs, y_true, temperature)
             if loss < bestLoss:
-                bestLoss, bestT = loss, T
+                bestLoss, bestT = loss, temperature
     return float(bestT)
 
 
@@ -175,18 +198,27 @@ def main() -> None:
     """Main training function for XGBoost classifier."""
     # Load and prepare data
     data_path = "etl/src/etl/models/data/page-data.parquet"
-    X, y, label2idx = load_and_prepare_data(data_path)
-    X = X.astype(np.float32, copy=False)
+    features, y, label2idx = load_and_prepare_data(data_path)
+    _ = label2idx
+    features = features.astype(np.float32, copy=False)
 
     # Train/test split
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        features, y, test_size=0.2, random_state=42, stratify=y
     )
+    X_train = np.asarray(X_train)
+    X_val = np.asarray(X_val)
+    y_train = np.asarray(y_train)
+    y_val = np.asarray(y_val)
 
     # Split validation into model-validation and calibration
     X_val_model, X_cal, y_val_model, y_cal = train_test_split(
         X_val, y_val, test_size=0.2, random_state=42, stratify=y_val
     )
+    X_val_model = np.asarray(X_val_model)
+    X_cal = np.asarray(X_cal)
+    y_val_model = np.asarray(y_val_model)
+    y_cal = np.asarray(y_cal)
     dval_model = xgb.DMatrix(X_val_model, label=y_val_model)
     dcal = xgb.DMatrix(X_cal, label=y_cal)
 
@@ -202,14 +234,14 @@ def main() -> None:
     study = optuna.create_study(direction="maximize")
 
     # Define objective with fixed data
-    def objective_wrapper(trial) -> float:
+    def objective_wrapper(trial: optuna.Trial) -> float:
         """Wrapper for objective function with fixed data."""
         return objective(trial, dtrain, dval_model, y_val_model)
 
-    study.optimize(objective_wrapper, n_trials=300)
+    study.optimize(objective_wrapper, n_trials=500)
     print("Best hyperparameters:", study.best_params)
 
-    best_it = int(study.best_trial.user_attrs.get("best_iteration", 300))
+    best_it = int(study.best_trial.user_attrs.get("best_iteration", 500))
     best_params = study.best_params.copy()
     best_params.update(
         {
@@ -226,16 +258,16 @@ def main() -> None:
 
     # ---- Temperature scaling on calibration slice; save calibrator ----
     y_prob_calib = final_model.predict(dcal)  # probs on calib set
-    T = _fit_temperature(y_prob_calib, y_cal)
+    temperature = _fit_temperature(y_prob_calib, y_cal)
     calib_path = CLASSIFIER_XGB_PATH + ".calib.json"
     with open(calib_path, "w") as f:
-        json.dump({"temperature": float(T)}, f)
-    print(f"Saved temperature T={T:.3f} to {calib_path}")
+        json.dump({"temperature": float(temperature)}, f)
+    print(f"Saved temperature T={temperature:.3f} to {calib_path}")
 
     # Evaluate on MODEL-VAL (raw & calibrated)
-    def _apply_T(probs, T):
+    def _apply_T(probs: np.ndarray, temperature: float) -> np.ndarray:
         p = np.clip(probs, 1e-12, 1.0)
-        logp = np.log(p) / T
+        logp = np.log(p) / temperature
         logp = logp - np.logaddexp.reduce(logp, axis=1, keepdims=True)
         return np.exp(logp)
 
@@ -248,13 +280,45 @@ def main() -> None:
     print(
         f"Model-Val (raw)  Acc: {accuracy:.4f}  P/R/F1: {precision:.4f}/{recall:.4f}/{f1:.4f}"
     )
+    cm_raw = confusion_matrix(y_val_model, y_hat_raw, labels=np.arange(num_classes))
+    print("Model-Val (raw) Confusion Matrix:")
+    print(cm_raw)
+    class_acc = cm_raw.diagonal() / np.maximum(cm_raw.sum(axis=1), 1)
+    per_prec_arr, per_rec_arr, per_f1_arr, _ = precision_recall_fscore_support(
+        y_val_model, y_hat_raw, labels=np.arange(num_classes), average=None
+    )
+    per_prec = np.asarray(per_prec_arr)
+    per_rec = np.asarray(per_rec_arr)
+    per_f1 = np.asarray(per_f1_arr)
+    print("Model-Val (raw) Per-class metrics:")
+    for i, label in enumerate(CLASSIFIER_LABEL_LIST):
+        print(
+            f"  {label}: Acc={class_acc[i]:.4f} "
+            f"P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
+        )
 
-    y_prob_model_cal = _apply_T(y_prob_model, T)
+    y_prob_model_cal = _apply_T(y_prob_model, temperature)
     y_hat_cal = np.argmax(y_prob_model_cal, axis=1)
     precision_c, recall_c, f1_c, _ = precision_recall_fscore_support(
         y_val_model, y_hat_cal, average="macro"
     )
     print(f"Model-Val (cal)   P/R/F1: {precision_c:.4f}/{recall_c:.4f}/{f1_c:.4f}")
+    cm_cal = confusion_matrix(y_val_model, y_hat_cal, labels=np.arange(num_classes))
+    print("Model-Val (cal) Confusion Matrix:")
+    print(cm_cal)
+    class_acc_c = cm_cal.diagonal() / np.maximum(cm_cal.sum(axis=1), 1)
+    per_prec_c_arr, per_rec_c_arr, per_f1_c_arr, _ = precision_recall_fscore_support(
+        y_val_model, y_hat_cal, labels=np.arange(num_classes), average=None
+    )
+    per_prec_c = np.asarray(per_prec_c_arr)
+    per_rec_c = np.asarray(per_rec_c_arr)
+    per_f1_c = np.asarray(per_f1_c_arr)
+    print("Model-Val (cal) Per-class metrics:")
+    for i, label in enumerate(CLASSIFIER_LABEL_LIST):
+        print(
+            f"  {label}: Acc={class_acc_c[i]:.4f} "
+            f"P={per_prec_c[i]:.4f} R={per_rec_c[i]:.4f} F1={per_f1_c[i]:.4f}"
+        )
 
 
 if __name__ == "__main__":
