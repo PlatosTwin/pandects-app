@@ -19,7 +19,7 @@ export default function Landing() {
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="w-full max-w-[860px] animate-fade-in-up rounded-2xl border border-border/70 bg-background/75 px-6 py-12 text-center shadow-sm backdrop-blur sm:rounded-3xl sm:px-10 sm:py-16">
           <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
-            Sourced from EDGAR • Updated Weekly
+            Sourced from EDGAR • Updated{"\u00A0"}Weekly
           </div>
 
           <Tooltip>
@@ -30,6 +30,7 @@ export default function Landing() {
                 width={128}
                 height={128}
                 decoding="async"
+                tabIndex={0}
                 className="mx-auto mb-8 h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
               />
             </TooltipTrigger>
@@ -89,7 +90,7 @@ export default function Landing() {
                   })
                 }
               >
-                <Code className="h-4 w-4" />
+                <Code className="h-4 w-4" aria-hidden="true" />
                 See API Examples
               </a>
             </Button>
@@ -110,7 +111,7 @@ export default function Landing() {
                   })
                 }
               >
-                <Database className="h-4 w-4" />
+                <Database className="h-4 w-4" aria-hidden="true" />
                 About the Dataset
               </Link>
             </Button>

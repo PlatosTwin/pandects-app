@@ -325,7 +325,7 @@ export function SearchResultsTable({
                                   aria-label="Verified agreement"
                                   className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
                                 >
-                                  <BadgeCheck className="h-3.5 w-3.5" />
+                                  <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                   <span className="hidden sm:inline">Verified</span>
                                 </button>
                               </TooltipTrigger>
@@ -451,7 +451,7 @@ export function SearchResultsTable({
                         onClick={() => onOpenAgreement(result, resultNumber)}
                         className="flex items-center gap-2 text-primary hover:bg-primary/10"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-4 h-4" aria-hidden="true" />
                         <span className="hidden sm:inline">Open Agreement</span>
                         <span className="sm:hidden">Open</span>
                       </Button>

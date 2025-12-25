@@ -1059,9 +1059,9 @@ export default function Account() {
               aria-label="Copy API key"
             >
               {copiedNewKey ? (
-                <Check className="h-3 w-3 text-green-600" />
+                <Check className="h-3 w-3 text-green-600" aria-hidden="true" />
               ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" />
+                <Copy className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
               )}
             </button>
             {revealedKey}

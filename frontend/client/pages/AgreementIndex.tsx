@@ -314,7 +314,10 @@ export default function AgreementIndex() {
                 <Label htmlFor="agreement-filter" className="sr-only">
                   Filter agreements
                 </Label>
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="agreement-filter"
                   value={filter}
@@ -355,12 +358,15 @@ export default function AgreementIndex() {
                       Year
                       {sortBy === "year" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" />
+                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" />
+                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
                         )
                       ) : (
-                        <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+                        <ArrowUpDown
+                          className="ml-2 h-4 w-4 opacity-50"
+                          aria-hidden="true"
+                        />
                       )}
                     </Button>
                   </TableHead>
@@ -383,12 +389,15 @@ export default function AgreementIndex() {
                       Target
                       {sortBy === "target" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" />
+                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" />
+                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
                         )
                       ) : (
-                        <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+                        <ArrowUpDown
+                          className="ml-2 h-4 w-4 opacity-50"
+                          aria-hidden="true"
+                        />
                       )}
                     </Button>
                   </TableHead>
@@ -411,12 +420,15 @@ export default function AgreementIndex() {
                       Acquirer
                       {sortBy === "acquirer" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" />
+                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" />
+                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
                         )
                       ) : (
-                        <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+                        <ArrowUpDown
+                          className="ml-2 h-4 w-4 opacity-50"
+                          aria-hidden="true"
+                        />
                       )}
                     </Button>
                   </TableHead>
@@ -499,7 +511,7 @@ export default function AgreementIndex() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
-                                <BadgeCheck className="h-3.5 w-3.5" />
+                                <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                 <span className="hidden sm:inline">Verified</span>
                               </span>
                             </TooltipTrigger>

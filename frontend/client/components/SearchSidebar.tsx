@@ -206,7 +206,7 @@ export function SearchSidebar({
             size="sm"
             className="w-full justify-center gap-2"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             Clear Filters
           </Button>
         </div>
@@ -257,7 +257,7 @@ export function SearchSidebar({
                   title="Collapse sidebar"
                   aria-label="Collapse sidebar"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
               <Button
@@ -266,7 +266,7 @@ export function SearchSidebar({
                 size="sm"
                 className="w-full justify-center gap-2"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4" aria-hidden="true" />
                 Clear Filters
               </Button>
             </div>
@@ -286,7 +286,7 @@ export function SearchSidebar({
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )}

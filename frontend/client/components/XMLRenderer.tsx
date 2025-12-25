@@ -137,9 +137,9 @@ export function XMLRenderer({
                     }
                   >
                     {isCollapsed ? (
-                      <ChevronRight className="w-3 h-3" />
+                      <ChevronRight className="w-3 h-3" aria-hidden="true" />
                     ) : (
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3" aria-hidden="true" />
                     )}
                   </button>
                 </div>
@@ -241,9 +241,9 @@ export function XMLRenderer({
                     }
                   >
                     {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
                     ) : (
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     )}
                   </button>
                 )}
@@ -283,9 +283,9 @@ export function XMLRenderer({
                     }
                   >
                   {isCollapsed ? (
-                    <ChevronRight className="w-3 h-3" />
+                    <ChevronRight className="w-3 h-3" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="w-3 h-3" />
+                    <ChevronDown className="w-3 h-3" aria-hidden="true" />
                   )}
                 </button>
               )}

@@ -63,7 +63,7 @@ export default function SiteBanner() {
               onClick={handleDismiss}
               className="p-1 h-auto text-muted-foreground hover:text-foreground"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
               <span className="sr-only">Dismiss banner</span>
             </Button>
           </div>

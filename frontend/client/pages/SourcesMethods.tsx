@@ -15,6 +15,9 @@ export default function SourcesMethods() {
   const pipelineRef = useRef<HTMLDivElement | null>(null);
   const [pipelineProgress, setPipelineProgress] = useState(0);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const [openSourceModelsTooltip, setOpenSourceModelsTooltip] = useState(false);
+  const [openLabelingTooltip, setOpenLabelingTooltip] = useState(false);
 
   const navItems = useMemo(
     () => [
@@ -125,6 +128,19 @@ export default function SourcesMethods() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(pointer: coarse)");
+    const updatePointer = () => setIsCoarsePointer(media.matches);
+    updatePointer();
+    if (media.addEventListener) {
+      media.addEventListener("change", updatePointer);
+      return () => media.removeEventListener("change", updatePointer);
+    }
+    media.addListener(updatePointer);
+    return () => media.removeListener(updatePointer);
+  }, []);
+
   const ComingSoon = ({ title }: { title: string }) => (
     <Card className="border-border/70 bg-card/70 p-5">
       <div className="text-sm font-medium text-foreground">{title}</div>
@@ -146,21 +162,21 @@ export default function SourcesMethods() {
   const pageClassifierMatrix = [
     [25, 0, 0, 0, 0],
     [0, 94, 2, 0, 0],
-    [0, 2, 1507, 3, 34],
+    [0, 2, 1506, 3, 35],
     [0, 0, 0, 32, 1],
-    [0, 0, 20, 3, 173],
+    [0, 0, 19, 3, 174],
   ];
   const pageClassifierMetrics = [
     { label: "front_matter", acc: 1.0, p: 1.0, r: 1.0, f1: 1.0 },
     { label: "toc", acc: 0.9792, p: 0.9792, r: 0.9792, f1: 0.9792 },
-    { label: "body", acc: 0.9748, p: 0.9856, r: 0.9748, f1: 0.9802 },
+    { label: "body", acc: 0.9741, p: 0.9862, r: 0.9741, f1: 0.9801 },
     { label: "sig", acc: 0.9697, p: 0.8421, r: 0.9697, f1: 0.9014 },
     {
       label: "back_matter",
-      acc: 0.8827,
-      p: 0.8317,
-      r: 0.8827,
-      f1: 0.8564,
+      acc: 0.8878,
+      p: 0.8286,
+      r: 0.8878,
+      f1: 0.8571,
     },
   ];
   const finalClassifierLabels = classifierLabels;
@@ -756,11 +772,22 @@ export default function SourcesMethods() {
               Pandects is a small-scale operation run on a shoe-string budget,
               meaning we don't have the resources to send hundreds of thousands
               of pages of agreements to proprietary LLMs—and as of October 2025,{" "}
-              <Tooltip delayDuration={300}>
+              <Tooltip
+                delayDuration={300}
+                open={isCoarsePointer ? openSourceModelsTooltip : undefined}
+                onOpenChange={
+                  isCoarsePointer ? setOpenSourceModelsTooltip : undefined
+                }
+              >
                 <TooltipTrigger asChild>
                   <button
                     type="button"
                     className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                    onClick={(event) => {
+                      if (!isCoarsePointer) return;
+                      event.preventDefault();
+                      setOpenSourceModelsTooltip((prev) => !prev);
+                    }}
                   >
                     open-source models
                   </button>
@@ -810,11 +837,22 @@ export default function SourcesMethods() {
                 positional priors and auxiliary onset losses help place key
                 transitions reliably. We trained both models on 80% random
                 splits of the full set of{" "}
-                <Tooltip delayDuration={300}>
+                <Tooltip
+                  delayDuration={300}
+                  open={isCoarsePointer ? openLabelingTooltip : undefined}
+                  onOpenChange={
+                    isCoarsePointer ? setOpenLabelingTooltip : undefined
+                  }
+                >
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                      onClick={(event) => {
+                        if (!isCoarsePointer) return;
+                        event.preventDefault();
+                        setOpenLabelingTooltip((prev) => !prev);
+                      }}
                     >
                       <strong>11,854</strong>
                     </button>
@@ -845,7 +883,7 @@ export default function SourcesMethods() {
                 model and the full BiLSTM model. While the XGB model does
                 reasonably well on its own, taking into account and enforcing
                 page order substantially improves performance, bringing the F1
-                score up from <strong>94.34%</strong> to <strong>99.69%</strong>
+                score up from <strong>94.36%</strong> to <strong>99.69%</strong>
                 .{" "}
                 <em>
                   Note that both sets of metrics are based on validation
@@ -879,7 +917,7 @@ export default function SourcesMethods() {
                             Precision
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9277)}
+                            {formatMetric(0.9272)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -887,7 +925,7 @@ export default function SourcesMethods() {
                             Recall
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9613)}
+                            {formatMetric(0.9621)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -895,7 +933,7 @@ export default function SourcesMethods() {
                             F1 Score
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9434)}
+                            {formatMetric(0.9436)}
                           </div>
                         </div>
                       </div>

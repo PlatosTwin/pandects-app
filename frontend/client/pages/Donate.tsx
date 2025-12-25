@@ -44,7 +44,7 @@ export default function Donate() {
               })
             }
           >
-            <Coffee className="h-4 w-4" />
+            <Coffee className="h-4 w-4" aria-hidden="true" />
             Buy me a coffee
           </a>
         </Button>

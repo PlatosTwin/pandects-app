@@ -49,7 +49,7 @@ export default function Footer() {
             title="View source code on GitHub"
             aria-label="View source code on GitHub"
           >
-            <Github className="h-4 w-4" />
+            <Github className="h-4 w-4" aria-hidden="true" />
           </a>
         </div>
       </div>

@@ -43,7 +43,7 @@ export default function SaveConfirmationModal({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden="true" />
             {title}
           </DialogTitle>
           {message && <DialogDescription>{message}</DialogDescription>}

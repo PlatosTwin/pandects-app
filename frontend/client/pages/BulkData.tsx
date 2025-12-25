@@ -209,9 +209,9 @@ export default function BulkData() {
               aria-label="Copy API curl command"
             >
               {copiedStates["api-call"] ? (
-                <Check className="w-3 h-3 text-green-600" />
+                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
               ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" />
+                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
@@ -245,9 +245,9 @@ export default function BulkData() {
               aria-label="Copy wget command for latest SQL"
             >
               {copiedStates["wget-download"] ? (
-                <Check className="w-3 h-3 text-green-600" />
+                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
               ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" />
+                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
@@ -286,9 +286,9 @@ export default function BulkData() {
               aria-label="Copy checksum verification command"
             >
               {copiedStates["checksum-verify"] ? (
-                <Check className="w-3 h-3 text-green-600" />
+                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
               ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" />
+                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
@@ -416,9 +416,9 @@ export default function BulkData() {
                           aria-label="Copy SHA256"
                         >
                           {copiedStates[`sha-${index}`] ? (
-                            <Check className="w-3 h-3 text-green-600" />
+                            <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
                           ) : (
-                            <Copy className="w-3 h-3 text-muted-foreground" />
+                            <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
                           )}
                         </button>
                       </div>

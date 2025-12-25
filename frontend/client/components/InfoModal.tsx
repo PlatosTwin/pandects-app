@@ -41,7 +41,7 @@ export default function InfoModal({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <Info className="h-5 w-5 text-primary" />
+            <Info className="h-5 w-5 text-primary" aria-hidden="true" />
             {title}
           </DialogTitle>
           <DialogDescription>{message}</DialogDescription>

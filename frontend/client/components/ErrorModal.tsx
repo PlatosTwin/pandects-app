@@ -41,7 +41,7 @@ export default function ErrorModal({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-destructive" />
+            <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
             {title}
           </DialogTitle>
           <DialogDescription>{message}</DialogDescription>

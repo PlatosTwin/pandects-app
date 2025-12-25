@@ -131,7 +131,7 @@ export default function Navigation() {
                   )}
                 >
                   Data
-                  <ChevronDown className="h-4 w-4 opacity-70" />
+                  <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -200,7 +200,7 @@ export default function Navigation() {
                 className="h-10 w-10"
                 aria-label="Open menu"
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-5 w-5" aria-hidden="true" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[320px] p-0">

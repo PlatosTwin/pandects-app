@@ -118,7 +118,7 @@ export function SearchPagination({
           className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
           aria-label="Previous page"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           <span className="hidden sm:inline">Previous</span>
         </Button>
 
@@ -169,7 +169,7 @@ export function SearchPagination({
           aria-label="Next page"
         >
           <span className="hidden sm:inline">Next</span>
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </Button>
       </div>
     </nav>

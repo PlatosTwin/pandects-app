@@ -69,12 +69,12 @@ export function TableOfContents({
           <div className="w-4 flex-shrink-0 flex items-center justify-center">
             {hasChildren ? (
               isExpanded ? (
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )
             ) : (
-              <FileText className="w-3 h-3 text-muted-foreground" />
+              <FileText className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
             )}
           </div>
           <span

@@ -249,9 +249,15 @@ export function CheckboxFilter({
               <span>{`${selectedValues.length} selected`}</span>
             )}
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <ChevronUp
+                className="w-4 h-4 text-muted-foreground flex-shrink-0"
+                aria-hidden="true"
+              />
             ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <ChevronDown
+                className="w-4 h-4 text-muted-foreground flex-shrink-0"
+                aria-hidden="true"
+              />
             )}
           </button>
         </TooltipProvider>
@@ -293,7 +299,7 @@ export function CheckboxFilter({
               <div className="border-b border-border p-2">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </div>
                   <input
                     ref={searchInputRef}
@@ -341,7 +347,7 @@ export function CheckboxFilter({
                         className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
                         title="Remove filter"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </label>
                   ))}

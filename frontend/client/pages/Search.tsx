@@ -366,7 +366,7 @@ export default function Search() {
           <div className="border-b border-border px-4 py-4 sm:px-8 sm:py-6">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <FileText className="h-6 w-6 text-muted-foreground" />
+                <FileText className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
                 <h1 className="text-lg font-semibold text-foreground sm:text-xl sm:font-normal">
                   M&A Clause Search
                 </h1>
@@ -379,7 +379,7 @@ export default function Search() {
                 >
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
-                      <SlidersHorizontal className="h-4 w-4" />
+                      <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                       Filters
                     </Button>
                   </SheetTrigger>
@@ -403,7 +403,7 @@ export default function Search() {
             {authStatus === "anonymous" && (
               <div className="mt-4">
                 <Alert>
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
                   <AlertTitle>Limited mode</AlertTitle>
                   <AlertDescription>
                     Sign in to view clause text, open full agreements, and unlock
@@ -439,6 +439,7 @@ export default function Search() {
                       "h-4 w-4",
                       isSearching && "animate-spin-custom"
                     )}
+                    aria-hidden="true"
                   />
                   <span>{isSearching ? "Searching..." : "Search"}</span>
                 </Button>
@@ -451,7 +452,7 @@ export default function Search() {
                   variant="outline"
                   className="gap-2"
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4" aria-hidden="true" />
                   <span>
                     Download CSV
                     {selectedResults.size > 0 && ` (${selectedResults.size})`}
@@ -510,7 +511,7 @@ export default function Search() {
                         className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={`Remove ${label} filter: ${value}`}
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3 w-3" aria-hidden="true" />
                       </button>
                     </Badge>
                   ))
@@ -537,7 +538,7 @@ export default function Search() {
                   <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
-                        <Sparkles className="h-5 w-5" />
+                        <Sparkles className="h-5 w-5" aria-hidden="true" />
                       </div>
                       <div className="min-w-0">
                         <h2 className="text-base font-semibold text-foreground">
@@ -562,7 +563,10 @@ export default function Search() {
                       role="status"
                       aria-live="polite"
                     >
-                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <FileText
+                        className="h-12 w-12 mx-auto mb-4 opacity-50"
+                        aria-hidden="true"
+                      />
                       <p className="text-foreground font-medium">
                         No clauses found.
                       </p>

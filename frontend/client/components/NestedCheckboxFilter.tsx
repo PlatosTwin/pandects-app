@@ -352,9 +352,9 @@ export function NestedCheckboxFilter({
                 aria-label={isExpanded ? `Collapse ${key}` : `Expand ${key}`}
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
 
@@ -438,9 +438,15 @@ export function NestedCheckboxFilter({
               <span>{`${totalSelected} selected`}</span>
             )}
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <ChevronUp
+                className="w-4 h-4 text-muted-foreground flex-shrink-0"
+                aria-hidden="true"
+              />
             ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <ChevronDown
+                className="w-4 h-4 text-muted-foreground flex-shrink-0"
+                aria-hidden="true"
+              />
             )}
           </button>
         </TooltipProvider>
@@ -509,7 +515,7 @@ export function NestedCheckboxFilter({
                   onClick={() => setIsExpanded(false)}
                   className="h-8 w-8"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                   <span className="sr-only">Close</span>
                 </Button>
               </div>
@@ -517,7 +523,7 @@ export function NestedCheckboxFilter({
               {/* Search Input */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 </div>
                 <input
                   ref={searchInputRef}
@@ -604,7 +610,7 @@ export function NestedCheckboxFilter({
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             title="Remove filter"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-4 h-4" aria-hidden="true" />
                             <span className="sr-only">Remove</span>
                           </Button>
                         </div>

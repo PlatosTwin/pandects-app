@@ -249,7 +249,7 @@ export function AgreementModal({
                 size="sm"
                 className="gap-2 text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Back to Search</span>
                 <span className="sm:hidden">Back</span>
               </Button>
@@ -263,9 +263,9 @@ export function AgreementModal({
                   className="gap-2 text-muted-foreground hover:text-foreground"
                 >
                   {sidebarCollapsed ? (
-                    <PanelLeftOpen className="h-4 w-4" />
+                    <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <PanelLeftClose className="h-4 w-4" />
+                    <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
                   )}
                   <span className="hidden sm:inline">
                     {sidebarCollapsed ? "Show" : "Hide"} Table of Contents
@@ -278,7 +278,7 @@ export function AgreementModal({
                 <Sheet open={isTocOpen} onOpenChange={setIsTocOpen}>
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
-                      <PanelLeftOpen className="h-4 w-4" />
+                      <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
                       Contents
                     </Button>
                   </SheetTrigger>
@@ -312,7 +312,7 @@ export function AgreementModal({
               className="h-10 w-10 text-muted-foreground hover:text-foreground"
               aria-label="Close"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -326,7 +326,10 @@ export function AgreementModal({
                   <div className="min-w-0 flex-1 text-sm font-medium text-foreground truncate">
                     {mobileMetadataSummary}
                   </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                  <ChevronDown
+                    className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
+                    aria-hidden="true"
+                  />
                 </summary>
 
                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
@@ -368,7 +371,10 @@ export function AgreementModal({
                       className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       title="View original SEC filing"
                     >
-                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      <ExternalLink
+                        className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                        aria-hidden="true"
+                      />
                       <span>Original Filing</span>
                     </a>
                   )}
@@ -406,7 +412,10 @@ export function AgreementModal({
                       className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       title="View original SEC filing"
                     >
-                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      <ExternalLink
+                        className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                        aria-hidden="true"
+                      />
                       <span>Original Filing</span>
                     </a>
                   )}
