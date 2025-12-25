@@ -3,7 +3,7 @@ import {
   DEFAULT_TITLE,
   buildJsonLd,
   getSeoConfigForPath,
-} from "@shared/seo-helpers";
+} from "@shared/seo-helpers.mjs";
 
 type SeoPage = {
   title: string;
