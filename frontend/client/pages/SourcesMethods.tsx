@@ -5,6 +5,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 
@@ -16,8 +21,6 @@ export default function SourcesMethods() {
   const [pipelineProgress, setPipelineProgress] = useState(0);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
-  const [openSourceModelsTooltip, setOpenSourceModelsTooltip] = useState(false);
-  const [openLabelingTooltip, setOpenLabelingTooltip] = useState(false);
 
   const navItems = useMemo(
     () => [
@@ -767,46 +770,55 @@ export default function SourcesMethods() {
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               ML Models
             </h2>
-            <p className="text-muted-foreground">
+            <div className="text-muted-foreground">
               While we'd prefer to outsource all inference tasks to an LLM,
               Pandects is a small-scale operation run on a shoe-string budget,
               meaning we don't have the resources to send hundreds of thousands
               of pages of agreements to proprietary LLMs—and as of October 2025,{" "}
-              <Tooltip
-                delayDuration={300}
-                open={isCoarsePointer ? openSourceModelsTooltip : undefined}
-                onOpenChange={
-                  isCoarsePointer ? setOpenSourceModelsTooltip : undefined
-                }
-              >
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                    onClick={(event) => {
-                      if (!isCoarsePointer) return;
-                      event.preventDefault();
-                      setOpenSourceModelsTooltip((prev) => !prev);
-                    }}
+              {isCoarsePointer ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                    >
+                      open-source models
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                   >
-                    open-source models
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                >
-                  We tried DeepSeek R1 on NYU's HPC clusters, and the results
-                  were less than reliable.
-                </TooltipContent>
-              </Tooltip>{" "}
+                    We tried DeepSeek R1 on NYU's HPC clusters, and the results
+                    were less than reliable.
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                    >
+                      open-source models
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+                  >
+                    We tried DeepSeek R1 on NYU's HPC clusters, and the results
+                    were less than reliable.
+                  </TooltipContent>
+                </Tooltip>
+              )}{" "}
               still made too many mistakes for us to be comfortable using them
               at scale. Our solution: use the latest and greatest LLMs to
               generate high-quality training data from a limited sample of
               agreements—<strong>137</strong> in total, sampled roughly evenly
               from 2000 to 2020—and then train up more routine machine learning
               models to do the work we'd otherwise outsource to LLMs.
-            </p>
+            </div>
             <p className="text-muted-foreground">
               This section describes the four ML models at the heart of our data
               processing pipeline.
@@ -827,7 +839,7 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
               </h3>
-              <p className="text-muted-foreground">
+              <div className="text-muted-foreground">
                 The Page Classifier Model combines two layers: 1) an XGBoost
                 model that scores each page <em>individually</em>, using
                 engineered text/HTML/layout features; and 2) a BiLSTM +
@@ -837,47 +849,58 @@ export default function SourcesMethods() {
                 positional priors and auxiliary onset losses help place key
                 transitions reliably. We trained both models on 80% random
                 splits of the full set of{" "}
-                <Tooltip
-                  delayDuration={300}
-                  open={isCoarsePointer ? openLabelingTooltip : undefined}
-                  onOpenChange={
-                    isCoarsePointer ? setOpenLabelingTooltip : undefined
-                  }
-                >
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                      onClick={(event) => {
-                        if (!isCoarsePointer) return;
-                        event.preventDefault();
-                        setOpenLabelingTooltip((prev) => !prev);
-                      }}
+                {isCoarsePointer ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                      >
+                        <strong>11,854</strong>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="top"
+                      className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                     >
-                      <strong>11,854</strong>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                  >
-                    Did we really label 11,854 pages by hand? Yes—but it wasn't
-                    that bad. We had GPT build us a custom labeling interface
-                    that allowed us to select all body pages in a single go, so
-                    the whole process took less than three hours.
-                  </TooltipContent>
-                </Tooltip>{" "}
+                      Did we really label 11,854 pages by hand? Yes—but it wasn't
+                      that bad. We had GPT build us a custom labeling interface
+                      that allowed us to select all body pages in a single go, so
+                      the whole process took less than three hours.
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <Tooltip delayDuration={300}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                      >
+                        <strong>11,854</strong>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+                    >
+                      Did we really label 11,854 pages by hand? Yes—but it wasn't
+                      that bad. We had GPT build us a custom labeling interface
+                      that allowed us to select all body pages in a single go, so
+                      the whole process took less than three hours.
+                    </TooltipContent>
+                  </Tooltip>
+                )}{" "}
                 manually labeled pages. The full training code is available on{" "}
                 <a
                   href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  GitHub
-                </a>
-                .
-              </p>
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                GitHub
+              </a>
+              .
+              </div>
               <p className="text-muted-foreground">
                 Below are model performance metrics for both the baseline XGB
                 model and the full BiLSTM model. While the XGB model does
