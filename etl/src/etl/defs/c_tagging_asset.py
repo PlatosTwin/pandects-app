@@ -51,6 +51,82 @@ def tagging_asset(
                 conn.execute(
                     text(
                         """
+                        WITH uncertain_pages AS (
+                            SELECT DISTINCT
+                                agreement_uuid
+                            FROM (
+                                SELECT
+                                    agreement_uuid,
+                                    page_order,
+                                    page_type_prob_front_matter,
+                                    page_type_prob_toc,
+                                    page_type_prob_body,
+                                    page_type_prob_sig,
+                                    page_type_prob_back_matter,
+                                    gold_label,
+                                    MIN(
+                                        CASE
+                                            WHEN source_page_type = 'sig'
+                                            AND page_type_prob_sig >= 0.95
+                                            THEN page_order
+                                        END
+                                    ) OVER (PARTITION BY agreement_uuid) AS sig_cutoff_page
+                                FROM
+                                    pdx.pages
+                            ) sub
+                            WHERE
+                                (
+                                    page_type_prob_front_matter BETWEEN 0.3 AND 0.7
+                                    OR page_type_prob_toc BETWEEN 0.3 AND 0.7
+                                    OR page_type_prob_body BETWEEN 0.3 AND 0.7
+                                    OR page_type_prob_sig BETWEEN 0.3 AND 0.7
+                                    OR page_type_prob_back_matter BETWEEN 0.3 AND 0.7
+                                )
+                                AND (
+                                    page_order <= sig_cutoff_page
+                                    OR sig_cutoff_page IS NULL
+                                )
+                                AND gold_label IS NULL
+                        ),
+                        out_of_order_agreements AS (
+                            WITH PageRanks AS (
+                                SELECT
+                                    agreement_uuid,
+                                    page_order,
+                                    CASE
+                                        WHEN source_page_type = 'front_matter' THEN 1
+                                        WHEN source_page_type = 'toc' THEN 2
+                                        WHEN source_page_type = 'body' THEN 3
+                                        WHEN source_page_type = 'sig' THEN 4
+                                        WHEN source_page_type = 'back_matter' THEN 5
+                                        ELSE 99
+                                    END AS type_rank
+                                FROM
+                                    pdx.pages
+                                WHERE
+                                    gold_label IS NULL
+                            ),
+                            RankedPages AS (
+                                SELECT
+                                    agreement_uuid,
+                                    page_order,
+                                    type_rank,
+                                    MAX(type_rank) OVER (
+                                        PARTITION BY agreement_uuid
+                                        ORDER BY page_order
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                                    ) AS max_prev_type_rank
+                                FROM
+                                    PageRanks
+                            )
+                            SELECT DISTINCT
+                                agreement_uuid
+                            FROM
+                                RankedPages
+                            WHERE
+                                max_prev_type_rank IS NOT NULL
+                                AND type_rank < max_prev_type_rank
+                        )
                         SELECT
                             p.agreement_uuid
                         FROM
@@ -62,6 +138,16 @@ def tagging_asset(
                             AND coalesce(p.gold_label, p.source_page_type) = 'body'
                             AND p.processed_page_content IS NOT NULL
                             AND t.page_uuid IS NULL
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM uncertain_pages u
+                                WHERE u.agreement_uuid = p.agreement_uuid
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM out_of_order_agreements o
+                                WHERE o.agreement_uuid = p.agreement_uuid
+                            )
                         GROUP BY
                             p.agreement_uuid
                         ORDER BY
