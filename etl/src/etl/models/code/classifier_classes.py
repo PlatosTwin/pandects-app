@@ -289,7 +289,7 @@ class PageDataModule(pl.LightningDataModule):
     """
     PyTorch Lightning DataModule for page classification.
 
-    Handles data loading, train/val splitting, and XGBoost model loading.
+    Handles data loading, deterministic year-stratified splits, and XGBoost model loading.
     """
 
     def __init__(
@@ -298,6 +298,7 @@ class PageDataModule(pl.LightningDataModule):
         xgb_path: str,
         batch_size: int = 8,
         val_split: float = 0.2,
+        test_split: float = 0.0,
         num_workers: int = 0,
     ):
         """
@@ -308,6 +309,7 @@ class PageDataModule(pl.LightningDataModule):
             xgb_path: Path to pre-trained XGBoost model
             batch_size: Batch size for training
             val_split: Fraction of data to use for validation
+            test_split: Fraction of data to use for test
             num_workers: Number of workers for data loading
         """
         super().__init__()
@@ -326,12 +328,14 @@ class PageDataModule(pl.LightningDataModule):
         self.xgb_path = xgb_path
         self.batch_size = batch_size
         self.val_split = val_split
+        self.test_split = test_split
         self.num_workers = num_workers
         self.label2idx: dict[str, int] = {}
         self.xgb_model: xgb.Booster | None = None
         self.temperature: float = 1.0
         self.train_dataset: DocumentDataset | None = None
         self.val_dataset: DocumentDataset | None = None
+        self.test_dataset: DocumentDataset | None = None
         self.predict_dataset: DocumentDataset | None = None
         self.num_classes: int = 0
 
@@ -340,17 +344,75 @@ class PageDataModule(pl.LightningDataModule):
         Set up datasets for training, validation, and prediction.
 
         Args:
-            stage: Lightning stage ('fit', 'validate', 'predict', or None)
+            stage: Lightning stage ('fit', 'validate', 'test', 'predict', or None)
         """
         agreement_ids = self.df["agreement_uuid"].unique().tolist()
 
-        if stage in ("fit", "validate", None) and self.val_split and self.val_split > 0:
-            # Split by agreement to keep documents together
-            train_ids, val_ids = train_test_split(
-                agreement_ids, test_size=self.val_split, random_state=42
+        needs_split = (
+            stage in ("fit", "validate", "test", None)
+            and (self.val_split > 0 or self.test_split > 0)
+        )
+        if needs_split:
+            if "date_announcement" not in self.df.columns:
+                raise ValueError("Missing required column for splits: 'date_announcement'.")
+            announcement_dates = pd.to_datetime(self.df["date_announcement"], errors="raise")
+            if announcement_dates.isna().any():
+                raise ValueError("Found missing or invalid date_announcement values.")
+            self.df["announcement_year"] = announcement_dates.dt.year
+
+            year_counts = (
+                self.df.groupby("agreement_uuid")["announcement_year"]
+                .nunique()
+                .astype(int)
             )
+            inconsistent = year_counts[year_counts > 1]
+            if not inconsistent.empty:
+                raise ValueError(
+                    "Found agreements spanning multiple announcement years; cannot stratify by year."
+                )
+            agreement_years = (
+                self.df.drop_duplicates("agreement_uuid")
+                .set_index("agreement_uuid")["announcement_year"]
+                .reindex(agreement_ids)
+                .to_numpy()
+            )
+
+            total_split = self.val_split + self.test_split
+            if total_split >= 1.0:
+                raise ValueError("val_split + test_split must be < 1.0")
+
+            if total_split > 0:
+                train_ids, temp_ids, years_train, years_temp = train_test_split(
+                    agreement_ids,
+                    agreement_years,
+                    test_size=total_split,
+                    random_state=42,
+                    stratify=agreement_years,
+                )
+                _ = years_train
+
+                if self.test_split > 0 and self.val_split > 0:
+                    test_ratio = self.test_split / total_split
+                    val_ids, test_ids = train_test_split(
+                        temp_ids,
+                        test_size=test_ratio,
+                        random_state=42,
+                        stratify=years_temp,
+                    )
+                elif self.test_split > 0:
+                    val_ids = []
+                    test_ids = temp_ids
+                else:
+                    val_ids = temp_ids
+                    test_ids = []
+            else:
+                train_ids = agreement_ids
+                val_ids = []
+                test_ids = []
+
             train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
             val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
+            test_df = self.df[self.df["agreement_uuid"].isin(test_ids)]
 
             # Use only labels present in training data
             present_labels = set(train_df["label"])
@@ -361,6 +423,7 @@ class PageDataModule(pl.LightningDataModule):
             # Inference mode: use all data for prediction
             train_df = self.df
             val_df = self.df.iloc[0:0]  # Empty DataFrame
+            test_df = self.df.iloc[0:0]  # Empty DataFrame
             labels = CLASSIFIER_LABEL_LIST
 
         self.label2idx = {label: idx for idx, label in enumerate(labels)}
@@ -372,13 +435,20 @@ class PageDataModule(pl.LightningDataModule):
         calib_path = self.xgb_path + ".calib.json"
         self.temperature = load_temperature_calibration(calib_path)
             
-        if stage in ("fit", "validate", None) and self.val_split and self.val_split > 0:
+        if stage in ("fit", "validate", "test", None) and (
+            self.val_split > 0 or self.test_split > 0
+        ):
             self.train_dataset = DocumentDataset(
                 train_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
             )
-            self.val_dataset = DocumentDataset(
-                val_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
-            )
+            if self.val_split > 0:
+                self.val_dataset = DocumentDataset(
+                    val_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
+                )
+            if self.test_split > 0:
+                self.test_dataset = DocumentDataset(
+                    test_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
+                )
 
         self.predict_dataset = DocumentDataset(
             self.df, self.label2idx, self.xgb_model, inference=True, temperature=self.temperature
@@ -406,6 +476,19 @@ class PageDataModule(pl.LightningDataModule):
             raise RuntimeError("Validation dataset is not initialized. Call setup() first.")
         return DataLoader(
             self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            collate_fn=collate_pages,
+            persistent_workers=self.num_workers > 0,
+        )
+
+    def test_dataloader(self) -> DataLoader[dict[str, Tensor]]:
+        """Create test data loader with document-level batching."""
+        if self.test_dataset is None:
+            raise RuntimeError("Test dataset is not initialized. Call setup() first.")
+        return DataLoader(
+            self.test_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,

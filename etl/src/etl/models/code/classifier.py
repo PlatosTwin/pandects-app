@@ -2,7 +2,8 @@
 Main classifier training and inference module.
 
 This module provides the main entry points for training and testing the page classifier
-using PyTorch Lightning with hyperparameter optimization via Optuna.
+using PyTorch Lightning with hyperparameter optimization via Optuna. Splits are
+deterministic and stratified by announcement year.
 """
 
 import logging
@@ -11,7 +12,7 @@ import pprint
 import time
 import argparse
 import sys
-from typing import TypedDict, cast
+from typing import Iterable, TypedDict, cast
 
 # Disable Tokenizers parallelism before loading any HF/Lightning modules
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -83,7 +84,8 @@ class ClassifierTrainer:
         num_trials: int,
         max_epochs: int,
         batch_size: int = 32,
-        val_split: float = 0.2,
+        val_split: float = 0.1,
+        test_split: float = 0.1,
         num_workers: int = 0,
         file_mode: str = "version",
     ):
@@ -96,6 +98,7 @@ class ClassifierTrainer:
             max_epochs: Maximum training epochs per trial
             batch_size: Default batch size
             val_split: Fraction of data to use for validation
+            test_split: Fraction of data to use for test
             num_workers: Number of data loading workers
             file_mode: Either 'version' or 'overwrite' - controls checkpoint file management
         """
@@ -104,6 +107,7 @@ class ClassifierTrainer:
         self.max_epochs: int = max_epochs
         self.default_batch_size: int = batch_size
         self.val_split: float = val_split
+        self.test_split: float = test_split
         self.num_workers: int = num_workers
         self.file_mode: str = file_mode
         self.device: str = "mps"
@@ -120,8 +124,10 @@ class ClassifierTrainer:
     def _load_data(self) -> None:
         """Load the classification DataFrame from parquet file."""
         df = pd.read_parquet(self.data_file)
-        if not {"html", "text", "label"}.issubset(df.columns):
-            raise ValueError("Data must contain 'html', 'text', and 'label' columns")
+        required_cols = {"html", "text", "label", "date_announcement"}
+        if not required_cols.issubset(df.columns):
+            missing = required_cols - set(df.columns)
+            raise ValueError(f"Data must contain columns: {sorted(required_cols)}. Missing: {sorted(missing)}")
         self.df = df
         print(f"[data] loaded {df.shape[0]} rows from {self.data_file}")
 
@@ -193,6 +199,7 @@ class ClassifierTrainer:
             df=self.df,
             batch_size=params["batch_size"],
             val_split=self.val_split,
+            test_split=self.test_split,
             num_workers=self.num_workers,
             xgb_path=CLASSIFIER_XGB_PATH,
         )
@@ -218,13 +225,17 @@ class ClassifierTrainer:
             for label, _ in sorted(data_module.label2idx.items(), key=lambda kv: kv[1])
         ]
 
-    def _print_val_diagnostics(
-        self, model: PageClassifier, data_module: PageDataModule, *, tag: str
+    def _print_eval_diagnostics(
+        self,
+        model: PageClassifier,
+        data_loader: Iterable[tuple[torch.Tensor, torch.Tensor]],
+        label_names: list[str],
+        *,
+        tag: str,
     ) -> None:
-        if data_module.val_split <= 0:
+        if not label_names:
             return
 
-        label_names = self._label_names(data_module)
         num_classes = len(label_names)
         if num_classes <= 0:
             raise RuntimeError("No classes available for evaluation.")
@@ -236,7 +247,7 @@ class ClassifierTrainer:
         y_pred_parts: list[np.ndarray] = []
 
         with torch.no_grad():
-            for emissions, labels in data_module.val_dataloader():
+            for emissions, labels in data_loader:
                 emissions = emissions.to(self.device)
                 labels = labels.to(self.device)
 
@@ -409,7 +420,13 @@ class ClassifierTrainer:
         else:
             eval_model = model
 
-        self._print_val_diagnostics(eval_model, data_module, tag="Model-Val (crf)")
+        label_names = self._label_names(data_module)
+        self._print_eval_diagnostics(
+            eval_model,
+            data_module.test_dataloader(),
+            label_names,
+            tag="Model-Test (crf)",
+        )
 
 
 class ClassifierInference:
@@ -498,6 +515,7 @@ class ClassifierInference:
             df=df,
             batch_size=self.batch_size,
             val_split=0.0,  # No validation split for inference
+            test_split=0.0,
             num_workers=self.num_workers,
             xgb_path=self.xgb_path,
         )
@@ -586,8 +604,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--val-split",
         type=float,
-        default=0.2,
+        default=0.1,
         help="Validation split fraction for eval (split by agreement_uuid).",
+    )
+    parser.add_argument(
+        "--test-split",
+        type=float,
+        default=0.1,
+        help="Test split fraction for eval (split by agreement_uuid).",
     )
     parser.add_argument(
         "--batch-size",
@@ -603,7 +627,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--tag",
-        default="Model-Val (crf)",
+        default="Model-Test (crf)",
         help="Prefix label for printed eval diagnostics.",
     )
     return parser
@@ -622,10 +646,11 @@ if __name__ == "__main__":
                 df=df,
                 batch_size=args.batch_size,
                 val_split=args.val_split,
+                test_split=args.test_split,
                 num_workers=args.num_workers,
                 xgb_path=CLASSIFIER_XGB_PATH,
             )
-            data_module.setup(stage="validate")
+            data_module.setup(stage="test")
 
             label_names = ClassifierTrainer._label_names(data_module)
             eval_model = PageClassifier.load_from_checkpoint(
@@ -638,7 +663,13 @@ if __name__ == "__main__":
                 num_trials=0,
                 max_epochs=0,
                 val_split=args.val_split,
+                test_split=args.test_split,
                 num_workers=args.num_workers,
             )
             evaluator.df = df
-            evaluator._print_val_diagnostics(eval_model, data_module, tag=args.tag)
+            evaluator._print_eval_diagnostics(
+                eval_model,
+                data_module.test_dataloader(),
+                label_names,
+                tag=args.tag,
+            )

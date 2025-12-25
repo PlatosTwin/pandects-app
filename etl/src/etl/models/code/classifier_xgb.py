@@ -2,7 +2,8 @@
 XGBoost-based page classifier training script.
 
 This module trains an XGBoost model for initial page classification using
-hand-crafted features extracted from text and HTML content.
+hand-crafted features extracted from text and HTML content. Splits are
+deterministic and stratified by announcement year.
 """
 
 import json
@@ -35,7 +36,7 @@ except ImportError:  # pragma: no cover - supports running as a script
 
 def load_and_prepare_data(
     data_path: str,
-) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
+) -> tuple[np.ndarray, np.ndarray, dict[str, int], np.ndarray]:
     """
     Load and prepare data for XGBoost training.
 
@@ -43,14 +44,22 @@ def load_and_prepare_data(
         data_path: Path to the parquet file containing page data
 
     Returns:
-        Tuple of (features, labels, label_mapping)
+        Tuple of (features, labels, label_mapping, announcement_years)
     """
     df = pd.read_parquet(data_path)
 
-    if not {"html", "text", "label"}.issubset(df.columns):
-        raise ValueError("Data must contain 'html', 'text', and 'label' columns")
+    required_cols = {"html", "text", "label", "order", "date_announcement"}
+    if not required_cols.issubset(df.columns):
+        missing = required_cols - set(df.columns)
+        raise ValueError(f"Data must contain columns: {sorted(required_cols)}. Missing: {sorted(missing)}")
 
     print(f"[data] loaded {df.shape[0]} rows from {data_path}")
+
+    # Parse announcement year for stratified splits
+    announcement_dates = pd.to_datetime(df["date_announcement"], errors="raise")
+    if announcement_dates.isna().any():
+        raise ValueError("Found missing or invalid date_announcement values.")
+    announcement_years = announcement_dates.dt.year.to_numpy()
 
     # Map labels to integers
     labels = CLASSIFIER_LABEL_LIST
@@ -70,7 +79,7 @@ def load_and_prepare_data(
     )
     features = np.vstack(features_list)
 
-    return features, y, label2idx
+    return features, y, label2idx, announcement_years
 
 
 def macro_f1_eval(preds: np.ndarray, dmatrix: xgb.DMatrix) -> tuple[str, float]:
@@ -198,22 +207,52 @@ def main() -> None:
     """Main training function for XGBoost classifier."""
     # Load and prepare data
     data_path = "etl/src/etl/models/data/page-data.parquet"
-    features, y, label2idx = load_and_prepare_data(data_path)
+    features, y, label2idx, years = load_and_prepare_data(data_path)
     _ = label2idx
     features = features.astype(np.float32, copy=False)
 
-    # Train/test split
-    X_train, X_val, y_train, y_val = train_test_split(
-        features, y, test_size=0.2, random_state=42, stratify=y
+    # Train/val/test split (70/15/15), stratified by announcement year
+    (
+        X_train,
+        X_temp,
+        y_train,
+        y_temp,
+        years_train,
+        years_temp,
+    ) = train_test_split(
+        features,
+        y,
+        years,
+        test_size=0.3,
+        random_state=42,
+        stratify=years,
     )
+    (
+        X_val,
+        X_test,
+        y_val,
+        y_test,
+        years_val,
+        years_test,
+    ) = train_test_split(
+        X_temp,
+        y_temp,
+        years_temp,
+        test_size=0.5,
+        random_state=42,
+        stratify=years_temp,
+    )
+    _ = years_train, years_test
     X_train = np.asarray(X_train)
     X_val = np.asarray(X_val)
+    X_test = np.asarray(X_test)
     y_train = np.asarray(y_train)
     y_val = np.asarray(y_val)
+    y_test = np.asarray(y_test)
 
     # Split validation into model-validation and calibration
     X_val_model, X_cal, y_val_model, y_cal = train_test_split(
-        X_val, y_val, test_size=0.2, random_state=42, stratify=y_val
+        X_val, y_val, test_size=0.2, random_state=42, stratify=years_val
     )
     X_val_model = np.asarray(X_val_model)
     X_cal = np.asarray(X_cal)
@@ -221,6 +260,7 @@ def main() -> None:
     y_cal = np.asarray(y_cal)
     dval_model = xgb.DMatrix(X_val_model, label=y_val_model)
     dcal = xgb.DMatrix(X_cal, label=y_cal)
+    dtest = xgb.DMatrix(X_test, label=y_test)
 
     # Create XGBoost datasets (weights from TRAIN ONLY)
     num_classes = len(CLASSIFIER_LABEL_LIST)
@@ -264,56 +304,56 @@ def main() -> None:
         json.dump({"temperature": float(temperature)}, f)
     print(f"Saved temperature T={temperature:.3f} to {calib_path}")
 
-    # Evaluate on MODEL-VAL (raw & calibrated)
+    # Evaluate on TEST (raw & calibrated)
     def _apply_T(probs: np.ndarray, temperature: float) -> np.ndarray:
         p = np.clip(probs, 1e-12, 1.0)
         logp = np.log(p) / temperature
         logp = logp - np.logaddexp.reduce(logp, axis=1, keepdims=True)
         return np.exp(logp)
 
-    y_prob_model = final_model.predict(dval_model)
-    y_hat_raw = np.argmax(y_prob_model, axis=1)
-    accuracy = accuracy_score(y_val_model, y_hat_raw)
+    y_prob_test = final_model.predict(dtest)
+    y_hat_raw = np.argmax(y_prob_test, axis=1)
+    accuracy = accuracy_score(y_test, y_hat_raw)
     precision, recall, f1, _ = precision_recall_fscore_support(
-        y_val_model, y_hat_raw, average="macro"
+        y_test, y_hat_raw, average="macro"
     )
     print(
-        f"Model-Val (raw)  Acc: {accuracy:.4f}  P/R/F1: {precision:.4f}/{recall:.4f}/{f1:.4f}"
+        f"Test (raw)  Acc: {accuracy:.4f}  P/R/F1: {precision:.4f}/{recall:.4f}/{f1:.4f}"
     )
-    cm_raw = confusion_matrix(y_val_model, y_hat_raw, labels=np.arange(num_classes))
-    print("Model-Val (raw) Confusion Matrix:")
+    cm_raw = confusion_matrix(y_test, y_hat_raw, labels=np.arange(num_classes))
+    print("Test (raw) Confusion Matrix:")
     print(cm_raw)
     class_acc = cm_raw.diagonal() / np.maximum(cm_raw.sum(axis=1), 1)
     per_prec_arr, per_rec_arr, per_f1_arr, _ = precision_recall_fscore_support(
-        y_val_model, y_hat_raw, labels=np.arange(num_classes), average=None
+        y_test, y_hat_raw, labels=np.arange(num_classes), average=None
     )
     per_prec = np.asarray(per_prec_arr)
     per_rec = np.asarray(per_rec_arr)
     per_f1 = np.asarray(per_f1_arr)
-    print("Model-Val (raw) Per-class metrics:")
+    print("Test (raw) Per-class metrics:")
     for i, label in enumerate(CLASSIFIER_LABEL_LIST):
         print(
             f"  {label}: Acc={class_acc[i]:.4f} "
             f"P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
         )
 
-    y_prob_model_cal = _apply_T(y_prob_model, temperature)
-    y_hat_cal = np.argmax(y_prob_model_cal, axis=1)
+    y_prob_test_cal = _apply_T(y_prob_test, temperature)
+    y_hat_cal = np.argmax(y_prob_test_cal, axis=1)
     precision_c, recall_c, f1_c, _ = precision_recall_fscore_support(
-        y_val_model, y_hat_cal, average="macro"
+        y_test, y_hat_cal, average="macro"
     )
-    print(f"Model-Val (cal)   P/R/F1: {precision_c:.4f}/{recall_c:.4f}/{f1_c:.4f}")
-    cm_cal = confusion_matrix(y_val_model, y_hat_cal, labels=np.arange(num_classes))
-    print("Model-Val (cal) Confusion Matrix:")
+    print(f"Test (cal)   P/R/F1: {precision_c:.4f}/{recall_c:.4f}/{f1_c:.4f}")
+    cm_cal = confusion_matrix(y_test, y_hat_cal, labels=np.arange(num_classes))
+    print("Test (cal) Confusion Matrix:")
     print(cm_cal)
     class_acc_c = cm_cal.diagonal() / np.maximum(cm_cal.sum(axis=1), 1)
     per_prec_c_arr, per_rec_c_arr, per_f1_c_arr, _ = precision_recall_fscore_support(
-        y_val_model, y_hat_cal, labels=np.arange(num_classes), average=None
+        y_test, y_hat_cal, labels=np.arange(num_classes), average=None
     )
     per_prec_c = np.asarray(per_prec_c_arr)
     per_rec_c = np.asarray(per_rec_c_arr)
     per_f1_c = np.asarray(per_f1_c_arr)
-    print("Model-Val (cal) Per-class metrics:")
+    print("Test (cal) Per-class metrics:")
     for i, label in enumerate(CLASSIFIER_LABEL_LIST):
         print(
             f"  {label}: Acc={class_acc_c[i]:.4f} "
