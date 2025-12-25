@@ -4,8 +4,9 @@ import re
 import threading
 import time
 from collections import deque
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import NotRequired, Protocol, TypedDict, cast
 from urllib.parse import urlparse
 
 # Third-party libraries
@@ -15,30 +16,80 @@ from bs4 import BeautifulSoup
 from bs4.element import Comment, NavigableString, Tag
 
 # Rate limiting configuration
-_request_times: deque = deque()
+_request_times: deque[float] = deque()
 _request_lock = threading.Lock()
 _RATE_LIMIT = 10  # requests per period
 _RATE_PERIOD = 1.025  # seconds
+
+
+class ClassifierProbs(TypedDict):
+    front_matter: float
+    toc: float
+    body: float
+    sig: float
+    back_matter: float
+
+
+class ClassifierPrediction(TypedDict):
+    pred_class: str
+    pred_probs: ClassifierProbs
+    postprocess_modified: bool
+
+
+ClassifierPredRaw = dict[str, object]
+ClassifierPredsRaw = Sequence[ClassifierPredRaw] | Sequence[Sequence[ClassifierPredRaw]]
+
+
+class ClassifierModelProtocol(Protocol):
+    def classify(self, df: pd.DataFrame) -> ClassifierPredsRaw: ...
+
+
+class _Logger(Protocol):
+    def info(self, msg: str) -> None: ...
+
+
+class _Context(Protocol):
+    log: _Logger
+
+
+class AgreementRow(TypedDict):
+    url: str
+    agreement_uuid: str
+
+
+class CleanupRow(TypedDict):
+    agreement_uuid: str
+    is_txt: bool
+    is_html: bool
+    page_order: int
+    content: str
+    page_uuid: str | None
+
+
+class PageFragment(TypedDict):
+    content: str
+    order: NotRequired[int]
+    page_uuid: NotRequired[str | None]
 
 
 @dataclass
 class PageMetadata:
     """Metadata for a single page of an agreement."""
 
-    agreement_uuid: Optional[str] = None
-    page_order: Optional[int] = None
-    raw_page_content: Optional[str] = None
-    processed_page_content: Optional[str] = None
-    source_is_txt: Optional[bool] = None
-    source_is_html: Optional[bool] = None
-    source_page_type: Optional[str] = None
-    page_type_prob_front_matter: Optional[float] = None
-    page_type_prob_toc: Optional[float] = None
-    page_type_prob_body: Optional[float] = None
-    page_type_prob_sig: Optional[float] = -1
-    page_type_prob_back_matter: Optional[float] = None
-    page_uuid: Optional[str] = None
-    postprocess_modified: Optional[bool] = None
+    agreement_uuid: str | None = None
+    page_order: int | None = None
+    raw_page_content: str | None = None
+    processed_page_content: str | None = None
+    source_is_txt: bool | None = None
+    source_is_html: bool | None = None
+    source_page_type: str | None = None
+    page_type_prob_front_matter: float | None = None
+    page_type_prob_toc: float | None = None
+    page_type_prob_body: float | None = None
+    page_type_prob_sig: float | None = -1
+    page_type_prob_back_matter: float | None = None
+    page_uuid: str | None = None
+    postprocess_modified: bool | None = None
 
 
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
@@ -61,7 +112,7 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
         now = time.time()
         # Drop timestamps older than RATE_PERIOD
         while _request_times and now - _request_times[0] >= _RATE_PERIOD:
-            _request_times.popleft()
+            _ = _request_times.popleft()
 
         if len(_request_times) >= _RATE_LIMIT:
             # Wait until the oldest request moves outside the window
@@ -82,7 +133,9 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     return resp.text
 
 
-def classify(classifier_model: Any, data: List[PageMetadata]) -> List[Dict[str, Any]]:
+def classify(
+    classifier_model: ClassifierModelProtocol, data: list[PageMetadata]
+) -> ClassifierPredsRaw:
     """
     Classify pages using the provided classifier model.
 
@@ -97,7 +150,9 @@ def classify(classifier_model: Any, data: List[PageMetadata]) -> List[Dict[str, 
     texts = [pm.processed_page_content for pm in data]
     orders = [pm.page_order for pm in data]
     htmls = [
-        pm.raw_page_content if (pm.source_is_html and not pm.source_is_txt) else None
+        pm.raw_page_content
+        if (pm.source_is_html is True and pm.source_is_txt is not True)
+        else None
         for pm in data
     ]
 
@@ -141,7 +196,7 @@ def normalize_text(text: str) -> str:
 
 
 def strip_formatting_tags(
-    soup: BeautifulSoup, remove_tags: Optional[List[str]] = None
+    soup: BeautifulSoup, remove_tags: list[str] | None = None
 ) -> BeautifulSoup:
     """
     Remove font-like tags and clean up formatting.
@@ -163,7 +218,7 @@ def strip_formatting_tags(
     for c in soup.find_all(string=lambda text: isinstance(text, Comment)):
         c.extract()
 
-    def _style_value(style: str, prop: str) -> Optional[str]:
+    def _style_value(style: str, prop: str) -> str | None:
         for part in style.split(";"):
             if ":" not in part:
                 continue
@@ -172,19 +227,32 @@ def strip_formatting_tags(
                 return value.strip().lower()
         return None
 
-    def _is_hidden_self(tag) -> bool:
+    def _style_from_tag(tag: Tag) -> str:
+        style_attr = tag.get("style")
+        if style_attr is None:
+            return ""
+        if isinstance(style_attr, list):
+            return " ".join(style_attr)
+        return str(style_attr)
+
+    def _is_hidden_self(tag: Tag) -> bool:
         if tag.has_attr("hidden"):
             return True
-        if tag.get("aria-hidden", "").strip().lower() == "true":
+        aria_attr = tag.get("aria-hidden")
+        if isinstance(aria_attr, list):
+            aria_val = " ".join(aria_attr)
+        else:
+            aria_val = str(aria_attr or "")
+        if aria_val.strip().lower() == "true":
             return True
-        style = tag.get("style", "")
+        style = _style_from_tag(tag)
         if not style:
             return False
         return _style_value(style, "display") == "none" or _style_value(
             style, "visibility"
         ) == "hidden"
 
-    def _has_hidden_ancestor(tag) -> bool:
+    def _has_hidden_ancestor(tag: Tag) -> bool:
         if _is_hidden_self(tag):
             return True
         for parent in tag.parents:
@@ -193,6 +261,8 @@ def strip_formatting_tags(
         return False
 
     for tag in list(soup.find_all(True)):
+        if not isinstance(tag, Tag):
+            continue
         if _has_hidden_ancestor(tag):
             tag.decompose()
 
@@ -219,18 +289,22 @@ def strip_formatting_tags(
 
     # Remove all style attributes
     for tag in soup.find_all(True):
+        if not isinstance(tag, Tag):
+            continue
         tag.attrs.pop("style", None)
 
     # Unwrap every formatting tag (don't strip its inner whitespace)
     for tag_name in remove_tags:
         for tag in soup.find_all(tag_name):
+            if not isinstance(tag, Tag):
+                continue
             tag.unwrap()
 
     # Normalize any non-breaking spaces into real spaces
     for node in soup.find_all(string=True):
         if isinstance(node, NavigableString):
             text = str(node).replace("\u00a0", " ").replace("\xa0", " ")
-            node.replace_with(text)
+            node.replace_with(NavigableString(text))
 
     return soup
 
@@ -280,6 +354,8 @@ def block_level_soup(
                     p.append(node)
                 new_soup.append(p)
     for tag in soup.find_all(block_tags):
+        if not isinstance(tag, Tag):
+            continue
         # Skip any that live inside another block_tag
         if tag.find_parent(block_tags):
             continue
@@ -307,11 +383,17 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
         BeautifulSoup object with tables converted to paragraphs.
     """
     for table in soup.find_all("table"):
+        if not isinstance(table, Tag):
+            continue
         rows = []
         for tr in table.find_all("tr"):
+            if not isinstance(tr, Tag):
+                continue
             cells = tr.find_all(["td", "th"])
             texts = []
             for cell in cells:
+                if not isinstance(cell, Tag):
+                    continue
                 # Pull all text without auto-spaces, then collapse whitespace
                 raw = cell.get_text(separator="", strip=True)
                 clean = re.sub(r"\s+", " ", raw)
@@ -352,9 +434,7 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         raise RuntimeError("Unknown page source type.")
 
 
-def split_to_pages(
-    content: str, is_txt: bool, is_html: bool
-) -> List[Dict[str, Union[str, int]]]:
+def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragment]:
     """
     Split content into individual pages.
 
@@ -380,17 +460,27 @@ def split_to_pages(
             c.extract()
 
         # Convert div-based page-breaks to <hr data-page-break>
-        def is_page_break_div(tag):
+        def is_page_break_div(tag: Tag) -> bool:
             if tag.name != "div":
                 return False
-            style = tag.get("style", "")
+            style_attr = tag.get("style")
+            if isinstance(style_attr, list):
+                style = " ".join(style_attr)
+            else:
+                style = str(style_attr or "")
             return (
                 "page-break-before" in style.lower()
                 or "page-break-after" in style.lower()
             )
 
         for div in soup.find_all(is_page_break_div):
-            style = div.get("style", "").lower()
+            if not isinstance(div, Tag):
+                continue
+            style_attr = div.get("style")
+            if isinstance(style_attr, list):
+                style = " ".join(style_attr).lower()
+            else:
+                style = str(style_attr or "").lower()
             has_hr = div.find("hr") is not None
             if "page-break-before" in style and not has_hr:
                 hr = soup.new_tag("hr")
@@ -403,7 +493,14 @@ def split_to_pages(
 
         # Mark every other <hr> outside of tables
         for hr in soup.find_all("hr"):
-            if hr.get("data-page-break") != "true" and hr.find_parent("table") is None:
+            if not isinstance(hr, Tag):
+                continue
+            attr_val = hr.get("data-page-break")
+            if isinstance(attr_val, list):
+                data_break = " ".join(attr_val)
+            else:
+                data_break = str(attr_val or "")
+            if data_break != "true" and hr.find_parent("table") is None:
                 hr["data-page-break"] = "true"
 
         # Regex-split on those data-page-break HRs (catches nested ones)
@@ -417,7 +514,7 @@ def split_to_pages(
         raise RuntimeError("Unknown page source type.")
 
 
-def _format_page(page, is_txt, is_html):
+def _format_page(page: PageFragment, is_txt: bool, is_html: bool) -> str:
     return format_content(page["content"], is_txt, is_html)
 
 
@@ -426,24 +523,34 @@ def _count_alpha_tokens(text: str) -> int:
 
 
 def _attach_preds_to_pages(
-    page_objs: List[PageMetadata], preds: List[List[Dict[str, Any]]]
+    page_objs: list[PageMetadata], preds: ClassifierPredsRaw
 ) -> None:
-    # Flatten preds (list of lists) into a single list
-    flat_preds = [item for sublist in preds for item in sublist]
+    # Flatten preds (supports list or list-of-lists) into a single list
+    if preds and isinstance(preds[0], dict):
+        flat_preds = list(cast(Sequence[ClassifierPredRaw], preds))
+    else:
+        flat_preds = [
+            item
+            for sublist in cast(Sequence[Sequence[ClassifierPredRaw]], preds)
+            for item in sublist
+        ]
     for po, pc in zip(page_objs, flat_preds):
-        po.source_page_type = pc["pred_class"]
-        pp = pc["pred_probs"]
+        pred = cast(ClassifierPrediction, cast(object, pc))
+        po.source_page_type = pred["pred_class"]
+        pp = pred["pred_probs"]
         po.page_type_prob_front_matter = pp["front_matter"]
         po.page_type_prob_toc = pp["toc"]
         po.page_type_prob_body = pp["body"]
         po.page_type_prob_sig = pp["sig"]
         po.page_type_prob_back_matter = pp["back_matter"]
-        po.postprocess_modified = pc["postprocess_modified"]
+        po.postprocess_modified = pred["postprocess_modified"]
 
 
 def pre_process(
-    context: Any, rows: List[Dict[str, Any]], classifier_model: Any
-) -> Optional[List[PageMetadata]]:
+    context: _Context | None,
+    rows: list[AgreementRow],
+    classifier_model: ClassifierModelProtocol,
+) -> list[PageMetadata] | None:
     """
     Split agreements into pages, classify page type, and process HTML into formatted text.
 
@@ -455,8 +562,8 @@ def pre_process(
     Returns:
         List of processed PageMetadata objects, or None if processing should be skipped.
     """
-    staged_pages: List[PageMetadata] = []
-    all_page_objs: List[PageMetadata] = []
+    staged_pages: list[PageMetadata] = []
+    all_page_objs: list[PageMetadata] = []
 
     for agreement in rows:
         raw_url = agreement["url"]
@@ -495,7 +602,7 @@ def pre_process(
             continue
 
         # Format and classify
-        page_objs: List[PageMetadata] = []
+        page_objs: list[PageMetadata] = []
         page_order = 0
         for page in pages:
             formatted = _format_page(page, is_txt, is_html)
@@ -539,8 +646,10 @@ def pre_process(
 
 
 def cleanup(
-    rows: List[Dict[str, Any]], classifier_model: Any, context: Any = None
-) -> Optional[List[PageMetadata]]:
+    rows: list[CleanupRow],
+    classifier_model: ClassifierModelProtocol,
+    context: _Context | None = None,
+) -> list[PageMetadata]:
     """
     Clean up and reprocess existing page data.
 
@@ -555,7 +664,7 @@ def cleanup(
     if not rows:
         return []
 
-    all_page_objs: List[PageMetadata] = []
+    all_page_objs: list[PageMetadata] = []
     for agreement in set(r["agreement_uuid"] for r in rows):
         pages = [r for r in rows if r["agreement_uuid"] == agreement]
         is_txt = pages[0]["is_txt"]
