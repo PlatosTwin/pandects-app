@@ -11,7 +11,7 @@ import pprint
 import time
 import argparse
 import sys
-from typing import TypedDict
+from typing import TypedDict, cast
 
 # Disable Tokenizers parallelism before loading any HF/Lightning modules
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -258,7 +258,10 @@ class ClassifierTrainer:
 
         accuracy = accuracy_score(y_true, y_pred)
         precision, recall, f1, _ = precision_recall_fscore_support(
-            y_true, y_pred, average="macro", zero_division=0
+            y_true,
+            y_pred,
+            average="macro",
+            zero_division=cast(str, cast(object, 0)),
         )
         print(f"{tag}  Acc: {accuracy:.4f}  P/R/F1: {precision:.4f}/{recall:.4f}/{f1:.4f}")
 
@@ -272,7 +275,7 @@ class ClassifierTrainer:
             y_pred,
             labels=np.arange(num_classes),
             average=None,
-            zero_division=0,
+            zero_division=cast(str, cast(object, 0)),
         )
         per_prec = np.asarray(per_prec_arr)
         per_rec = np.asarray(per_rec_arr)
@@ -330,7 +333,7 @@ class ClassifierTrainer:
         )
         trainer.fit(model, datamodule=data_module)
 
-        val_f1 = trainer.callback_metrics["val_f1"].item()
+        val_f1 = float(trainer.callback_metrics["val_f1"])
 
         # Clean up to avoid memory leaks
         del (
@@ -480,7 +483,7 @@ class ClassifierInference:
 
     def classify(
         self, df: pd.DataFrame
-    ) -> list[list[dict[str, str | float | bool]]]:
+    ) -> list[dict[str, object]]:
         """
         Run inference on a DataFrame of pages.
 
@@ -507,7 +510,7 @@ class ClassifierInference:
         if outputs is None:
             raise RuntimeError("Prediction returned no outputs.")
 
-        flattened: list[list[dict[str, str | float | bool]]] = []
+        flattened: list[dict[str, object]] = []
         for batch_out in outputs:
             if isinstance(batch_out, list):
                 flattened.extend(batch_out)
