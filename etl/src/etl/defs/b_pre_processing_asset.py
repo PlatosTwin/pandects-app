@@ -4,14 +4,14 @@ Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
 """
 
-from typing import Any, Dict, List
+from typing import Any, cast
 
 import dagster as dg
 from sqlalchemy import text
 
 from etl.defs.a_staging_asset import staging_asset
 from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
-from etl.domain.b_pre_processing import cleanup, pre_process
+from etl.domain.b_pre_processing import AgreementRow, CleanupRow, cleanup, pre_process
 from etl.utils.db_utils import upsert_pages
 from etl.utils.run_config import is_cleanup_mode
 
@@ -78,7 +78,7 @@ def pre_processing_asset(
                     break
 
                 # Split agreements into pages
-                agreements: List[Dict[str, str]] = [
+                agreements: list[AgreementRow] = [
                     {"agreement_uuid": r[0], "url": r[1]} for r in rows
                 ]
 
@@ -127,6 +127,7 @@ def pre_processing_asset(
                         p.agreement_uuid,
                         p.page_uuid,
                         p.raw_page_content,
+                        p.page_order,
                         p.source_is_txt,
                         p.source_is_html
                     FROM
@@ -147,14 +148,21 @@ def pre_processing_asset(
                 last_uuid = max(r[0] for r in rows)
 
                 # Process existing pages
-                pages: List[Dict[str, Any]] = [
-                    {
-                        "agreement_uuid": r[0],
-                        "page_uuid": r[1],
-                        "content": r[2],
-                        "is_txt": r[3],
-                        "is_html": r[4],
-                    }
+                pages = [
+                    cast(
+                        CleanupRow,
+                        cast(
+                            object,
+                            {
+                                "agreement_uuid": cast(str, r[0]),
+                                "page_uuid": cast(str | None, r[1]),
+                                "content": cast(str, r[2]),
+                                "page_order": cast(int, r[3]),
+                                "is_txt": cast(bool, r[4]),
+                                "is_html": cast(bool, r[5]),
+                            },
+                        ),
+                    )
                     for r in rows
                 ]
                 staged_pages = cleanup(pages, inference_model)
