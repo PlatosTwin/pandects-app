@@ -118,3 +118,11 @@ export async function resetPassword(token: string, password: string) {
     body: JSON.stringify({ token, password }),
   });
 }
+
+export async function verifyEmail(token: string) {
+  return authFetchJson<{ status: "ok" }>(apiUrl("api/auth/email/verify"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+}

@@ -27,6 +27,7 @@ const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Terms = lazy(() => import("./pages/Terms"));
 const License = lazy(() => import("./pages/License"));
 
@@ -62,6 +63,7 @@ const App = () => {
                 <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/verify-email" element={<VerifyEmail />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/license" element={<License />} />
                 <Route

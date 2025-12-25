@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
@@ -11,10 +11,24 @@ import { resetPassword } from "@/lib/auth-api";
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const token = useMemo(() => params.get("token")?.trim() ?? "", [params]);
+  const token = useMemo(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const fromHash = hashParams.get("token");
+    if (fromHash && fromHash.trim()) return fromHash.trim();
+    return params.get("token")?.trim() ?? "";
+  }, [params]);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!window.location.hash) return;
+    window.history.replaceState(
+      null,
+      document.title,
+      window.location.pathname + window.location.search,
+    );
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
