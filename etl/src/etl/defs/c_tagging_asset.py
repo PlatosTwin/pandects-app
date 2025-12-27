@@ -1,20 +1,26 @@
 """Apply NER tagging to processed pages and persist outputs."""
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
-from typing import Any, Dict, List
+from typing import cast
 
 import dagster as dg
 from sqlalchemy import text
 
 from etl.defs.b_pre_processing_asset import pre_processing_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
-from etl.domain.c_tagging import tag
+from etl.domain.c_tagging import (
+    TaggingModelProtocol,
+    TaggingRow,
+    ContextProtocol as TaggingContext,
+    tag,
+)
 from etl.utils.db_utils import upsert_tags
 from etl.utils.run_config import is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
 def tagging_asset(
-    context,
+    context: dg.AssetExecutionContext,
     db: DBResource,
     tagging_model: TaggingModel,
     pipeline_config: PipelineConfig,
@@ -29,7 +35,9 @@ def tagging_asset(
         tagging_model: Model for page tagging.
         pipeline_config: Pipeline configuration for mode.
     """
-    inference_model = tagging_model.model()
+    inference_model = cast(
+        TaggingModelProtocol, cast(object, tagging_model.model())
+    )
 
     # batching controls
     agreement_batch_size = pipeline_config.tagging_agreement_batch_size
@@ -199,8 +207,12 @@ def tagging_asset(
                 continue
 
             # Apply tagging to pages
-            rows: List[Dict[str, Any]] = [dict(r) for r in rows_mapping]
-            tagged_pages = tag(rows, inference_model, context)
+            rows: list[TaggingRow] = [
+                cast(TaggingRow, cast(object, dict(r))) for r in rows_mapping
+            ]
+            tagged_pages = tag(
+                rows, inference_model, cast(TaggingContext, cast(object, context))
+            )
 
             try:
                 upsert_tags(tagged_pages, conn)

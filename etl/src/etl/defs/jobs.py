@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
 from etl.defs.a_staging_asset import staging_asset
 from etl.defs.b_pre_processing_asset import pre_processing_asset

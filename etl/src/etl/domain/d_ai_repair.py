@@ -5,6 +5,7 @@ Domain logic for AI repair of NER tags:
 - JSONL line builders for OpenAI Batch
 - Strict output parsing (no fallback/massage)
 """
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
 from __future__ import annotations
 

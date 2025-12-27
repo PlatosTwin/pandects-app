@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import re
 import xml.etree.ElementTree as ET
 from typing import Dict, NotRequired, Protocol, TypedDict
@@ -26,12 +27,12 @@ class TaxonomyPredictor(Protocol):
     def predict(self, rows: list[TaxonomyInput]) -> list[TaxonomyPrediction]: ...
 
 
-class _Logger(Protocol):
+class LoggerProtocol(Protocol):
     def info(self, msg: str) -> None: ...
 
 
-class _Context(Protocol):
-    log: _Logger
+class ContextProtocol(Protocol):
+    log: LoggerProtocol
 
 
 class TaxonomyRow(TypedDict):
@@ -57,7 +58,7 @@ def strip_xml_tags_to_text(xml_fragment: str) -> str:
 def predict_taxonomy(
     rows: list[TaxonomyRow],
     model: TaxonomyPredictor,
-    context: _Context,
+    context: ContextProtocol,
 ) -> tuple[list[SectionIndex], list[TaxonomyPrediction]]:
     """Prepare inputs and run taxonomy prediction for a set of sections."""
     inputs: list[TaxonomyInput] = []

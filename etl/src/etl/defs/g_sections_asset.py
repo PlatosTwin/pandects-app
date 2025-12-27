@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
 from sqlalchemy import text
 
@@ -9,7 +10,11 @@ from etl.utils.run_config import is_batched
 
 
 @dg.asset(deps=[xml_asset], name="7_sections_asset")
-def sections_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
+def sections_asset(
+    context: dg.AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> None:
     # batching controls
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     batched = is_batched(context, pipeline_config)
@@ -68,6 +73,5 @@ def sections_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> 
 
             last_uuid = rows[-1]["agreement_uuid"]
 
-        if is_batched:
+        if batched:
             break
-

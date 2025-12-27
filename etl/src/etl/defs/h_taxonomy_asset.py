@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
 from sqlalchemy import text
 from typing import cast
@@ -7,6 +8,7 @@ from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel
 from etl.domain.h_taxonomy import (
     TaxonomyPredictor,
     TaxonomyRow,
+    ContextProtocol as TaxonomyContext,
     apply_standard_ids_to_xml,
     predict_taxonomy,
 )
@@ -87,16 +89,18 @@ def taxonomy_asset(
                 continue
 
             # 3) Prepare model inputs + predict
-            rows: list[TaxonomyRow] = [dict(r) for r in sec_rows]
-            sec_idx, preds = predict_taxonomy(rows, model, context)
+            rows: list[TaxonomyRow] = [
+                cast(TaxonomyRow, cast(object, dict(r))) for r in sec_rows
+            ]
+            sec_idx, preds = predict_taxonomy(
+                rows, model, cast(TaxonomyContext, cast(object, context))
+            )
 
             # 4) Update pdx.sections with labels and alt probabilities
             upd_rows: list[dict[str, object]] = []
             for meta, pred in zip(sec_idx, preds):
                 label = cast(str, cast(object, pred.get("label")))
-                alt_probs = cast(
-                    list[float], pred.get("alt_probs") or [0.0, 0.0, 0.0]
-                )
+                alt_probs = pred.get("alt_probs") or [0.0, 0.0, 0.0]
                 upd_rows.append(
                     {
                         "section_uuid": meta["section_uuid"],
@@ -119,7 +123,7 @@ def taxonomy_asset(
             )
             for i in range(0, len(upd_rows), 250):
                 batch = upd_rows[i : i + 250]
-                conn.execute(upd_sql, batch)
+                _ = conn.execute(upd_sql, batch)
 
             # 5) Update pdx.xml documents in place with section standardId
             # Build per-agreement mapping of section_uuid -> label
@@ -159,9 +163,7 @@ def taxonomy_asset(
             if staged_xml:
                 upsert_xml(staged_xml, conn)
             context.log.info(
-                "taxonomy_asset: batch updated "
-                f"{len(upd_rows)} sections across {len(agr_list)} agreements; "
-                f"upserted {len(staged_xml)} XMLs"
+                f"taxonomy_asset: batch updated {len(upd_rows)} sections across {len(agr_list)} agreements; upserted {len(staged_xml)} XMLs"
             )
 
             last_uuid = agr_rows[-1]["agreement_uuid"]

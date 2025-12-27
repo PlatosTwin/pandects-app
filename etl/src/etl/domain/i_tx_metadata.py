@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 from __future__ import annotations
 
 import json
@@ -186,7 +187,7 @@ def map_consideration_type_to_db(value: Optional[str]) -> Optional[str]:
     raise ValueError(f"Unexpected consideration_type: {value}")
 
 
-def map_public_flag_to_type(value: Optional[bool]) -> Optional[str]:
+def map_public_flag_to_type(value: object | None) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, bool):

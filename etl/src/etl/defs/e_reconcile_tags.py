@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 from __future__ import annotations
 
 import re
@@ -248,7 +249,11 @@ def _merge_with_rulings(
 
 
 @dg.asset(deps=[ai_repair_poll_asset], name="5_reconcile_tags")
-def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
+def reconcile_tags(
+    context: dg.AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> None:
     """
     Merge LLM outputs into corrected tagged text per page and update
     pdx.tagged_outputs.tagged_text_corrected.
@@ -340,7 +345,7 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
                 # Full-page output wins
                 full = conn.execute(sel_full, {"pid": pid}).scalar()
                 if full:
-                    conn.execute(update_corrected, {"pid": pid, "txt": full})
+                    _ = conn.execute(update_corrected, {"pid": pid, "txt": full})
                     continue
 
                 # Else overlay excerpt rulings
@@ -366,11 +371,11 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
 
                 try:
                     corrected = _merge_with_rulings(base_raw, base_spans, rulings)
-                except Exception as e:
+                except Exception:
                     # context.log.error(f"Reconciliation conflict for page {pid}: {e}")
                     # Flag the page as having a label error, but do not abort the run
                     try:
-                        conn.execute(update_label_error, {"pid": pid})
+                        _ = conn.execute(update_label_error, {"pid": pid})
                     except Exception as db_err:
                         context.log.warning(
                             f"Failed to set label_error for page {pid}: {db_err}"
@@ -379,7 +384,7 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
                     rulings_fail_count += rulings_count_for_page
                     pages_fail_count += 1
                     continue
-                conn.execute(update_corrected, {"pid": pid, "txt": corrected})
+                _ = conn.execute(update_corrected, {"pid": pid, "txt": corrected})
                 rulings_success_count += rulings_count_for_page
                 pages_success_count += 1
 
@@ -390,8 +395,7 @@ def reconcile_tags(context, db: DBResource, pipeline_config: PipelineConfig) -> 
                 page_err_pct = int((pages_fail_count / total_pages) * 100) if total_pages else 0
                 rul_err_pct = int((rulings_fail_count / total_rulings) * 100) if total_rulings else 0
                 context.log.info(
-                    f"Batch statistics: pages success={pages_success_count}, failed={pages_fail_count}, total={total_pages}, error rate={page_err_pct}% ; "
-                    f"rulings success={rulings_success_count}, failed={rulings_fail_count}, total={total_rulings}, error rate={rul_err_pct}%"
+                    f"Batch statistics: pages success={pages_success_count}, failed={pages_fail_count}, total={total_pages}, error rate={page_err_pct}% ; rulings success={rulings_success_count}, failed={rulings_fail_count}, total={total_rulings}, error rate={rul_err_pct}%"
                 )
         ran_batches += 1
         if is_batched:

@@ -8,6 +8,7 @@ setting metadata=1 for successfully parsed rows (even if values are unknown/null
 Runs in batched mode only; in non-batched mode it logs a warning and exits.
 Default batch size is configured via `PipelineConfig.tx_metadata_agreement_batch_size`.
 """
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ def _oai_client() -> OpenAI:
 
 @dg.asset(deps=[], name="9_tx_metadata_asset")
 def tx_metadata_asset(
-    context,
+    context: dg.AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:
@@ -139,7 +140,7 @@ def tx_metadata_asset(
     if param_rows:
         with engine.begin() as conn:
             for params in param_rows:
-                conn.execute(update_q, params)
+                _ = conn.execute(update_q, params)
                 updated += 1
 
     parsed_ok = len(success_data)

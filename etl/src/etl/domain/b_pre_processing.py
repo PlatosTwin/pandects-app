@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 # Standard library
 import os
 import re
@@ -44,12 +45,12 @@ class ClassifierModelProtocol(Protocol):
     def classify(self, df: pd.DataFrame) -> ClassifierPredsRaw: ...
 
 
-class _Logger(Protocol):
+class LoggerProtocol(Protocol):
     def info(self, msg: str) -> None: ...
 
 
-class _Context(Protocol):
-    log: _Logger
+class ContextProtocol(Protocol):
+    log: LoggerProtocol
 
 
 class AgreementRow(TypedDict):
@@ -216,7 +217,7 @@ def strip_formatting_tags(
     """
     # Remove HTML comments
     for c in soup.find_all(string=lambda text: isinstance(text, Comment)):
-        c.extract()
+        _ = c.extract()
 
     def _style_value(style: str, prop: str) -> str | None:
         for part in style.split(";"):
@@ -236,6 +237,8 @@ def strip_formatting_tags(
         return str(style_attr)
 
     def _is_hidden_self(tag: Tag) -> bool:
+        if getattr(tag, "attrs", None) is None:
+            return False
         if tag.has_attr("hidden"):
             return True
         aria_attr = tag.get("aria-hidden")
@@ -291,20 +294,20 @@ def strip_formatting_tags(
     for tag in soup.find_all(True):
         if not isinstance(tag, Tag):
             continue
-        tag.attrs.pop("style", None)
+        _ = tag.attrs.pop("style", None)
 
     # Unwrap every formatting tag (don't strip its inner whitespace)
     for tag_name in remove_tags:
         for tag in soup.find_all(tag_name):
             if not isinstance(tag, Tag):
                 continue
-            tag.unwrap()
+            _ = tag.unwrap()
 
     # Normalize any non-breaking spaces into real spaces
     for node in soup.find_all(string=True):
         if isinstance(node, NavigableString):
             text = str(node).replace("\u00a0", " ").replace("\xa0", " ")
-            node.replace_with(NavigableString(text))
+            _ = node.replace_with(NavigableString(text))
 
     return soup
 
@@ -345,14 +348,14 @@ def block_level_soup(
         if isinstance(child, NavigableString) and child.strip():
             p = new_soup.new_tag("p")
             p.string = str(child)
-            new_soup.append(p)
+            _ = new_soup.append(p)
         elif isinstance(child, Tag) and child.name not in block_tags:
             if child.get_text(strip=True):
                 p = new_soup.new_tag("p")
                 fragment = BeautifulSoup(str(child), "html.parser")
                 for node in fragment.contents:
-                    p.append(node)
-                new_soup.append(p)
+                    _ = p.append(node)
+                _ = new_soup.append(p)
     for tag in soup.find_all(block_tags):
         if not isinstance(tag, Tag):
             continue
@@ -363,7 +366,7 @@ def block_level_soup(
         fragment = BeautifulSoup(str(tag), "html.parser")
         # If fragment has multiple roots, append each; otherwise append the single root
         for child in fragment.contents:
-            new_soup.append(child)
+            _ = new_soup.append(child)
     return new_soup
 
 
@@ -385,12 +388,12 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     for table in soup.find_all("table"):
         if not isinstance(table, Tag):
             continue
-        rows = []
+        rows: list[str] = []
         for tr in table.find_all("tr"):
             if not isinstance(tr, Tag):
                 continue
             cells = tr.find_all(["td", "th"])
-            texts = []
+            texts: list[str] = []
             for cell in cells:
                 if not isinstance(cell, Tag):
                     continue
@@ -403,7 +406,7 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
                 rows.append(" ".join(texts))
         new_p = soup.new_tag("p")
         new_p.string = "\n".join(rows)
-        table.replace_with(new_p)
+        _ = table.replace_with(new_p)
     return soup
 
 
@@ -457,7 +460,7 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
 
         # Remove HTML comments
         for c in soup.find_all(string=lambda t: isinstance(t, Comment)):
-            c.extract()
+            _ = c.extract()
 
         # Convert div-based page-breaks to <hr data-page-break>
         def is_page_break_div(tag: Tag) -> bool:
@@ -485,11 +488,11 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
             if "page-break-before" in style and not has_hr:
                 hr = soup.new_tag("hr")
                 hr["data-page-break"] = "true"
-                div.insert_before(hr)
+                _ = div.insert_before(hr)
             if "page-break-after" in style and not has_hr:
                 hr = soup.new_tag("hr")
                 hr["data-page-break"] = "true"
-                div.insert_after(hr)
+                _ = div.insert_after(hr)
 
         # Mark every other <hr> outside of tables
         for hr in soup.find_all("hr"):
@@ -547,7 +550,7 @@ def _attach_preds_to_pages(
 
 
 def pre_process(
-    context: _Context | None,
+    context: ContextProtocol | None,
     rows: list[AgreementRow],
     classifier_model: ClassifierModelProtocol,
 ) -> list[PageMetadata] | None:
@@ -591,13 +594,11 @@ def pre_process(
         if len(pages) <= 10:
             if context:
                 context.log.info(
-                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. "
-                    "Skipping page upload."
+                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload."
                 )
             else:
                 print(
-                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. "
-                    "Skipping page upload."
+                    f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload."
                 )
             continue
 
@@ -611,13 +612,11 @@ def pre_process(
             if _count_alpha_tokens(formatted) > 2000:
                 if context:
                     context.log.info(
-                        f"Agreement {agreement['agreement_uuid']} has a long page. "
-                        "Skipping page upload."
+                        f"Agreement {agreement['agreement_uuid']} has a long page. Skipping page upload."
                     )
                 else:
                     print(
-                        f"Agreement {agreement['agreement_uuid']} has a long page. "
-                        "Skipping page upload."
+                        f"Agreement {agreement['agreement_uuid']} has a long page. Skipping page upload."
                     )
                 page_objs = []
                 break
@@ -648,7 +647,7 @@ def pre_process(
 def cleanup(
     rows: list[CleanupRow],
     classifier_model: ClassifierModelProtocol,
-    context: _Context | None = None,
+    context: ContextProtocol | None = None,
 ) -> list[PageMetadata]:
     """
     Clean up and reprocess existing page data.
@@ -661,6 +660,7 @@ def cleanup(
     Returns:
         List of reprocessed PageMetadata objects.
     """
+    _ = context
     if not rows:
         return []
 
@@ -704,7 +704,7 @@ if __name__ == "__main__":
 
     clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 
-    pre_process(
+    _ = pre_process(
         None,
         [
             {

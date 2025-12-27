@@ -3,22 +3,29 @@
 Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
 """
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
-from typing import Any, cast
+from typing import cast
 
 import dagster as dg
 from sqlalchemy import text
 
 from etl.defs.a_staging_asset import staging_asset
 from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
-from etl.domain.b_pre_processing import AgreementRow, CleanupRow, cleanup, pre_process
+from etl.domain.b_pre_processing import (
+    AgreementRow,
+    CleanupRow,
+    ContextProtocol as PreProcessContext,
+    cleanup,
+    pre_process,
+)
 from etl.utils.db_utils import upsert_pages
 from etl.utils.run_config import is_cleanup_mode
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
 def pre_processing_asset(
-    context,
+    context: dg.AssetExecutionContext,
     db: DBResource,
     classifier_model: ClassifierModel,
     pipeline_config: PipelineConfig,
@@ -83,7 +90,11 @@ def pre_processing_asset(
                 ]
 
                 # Process (tag and format) agreements
-                staged_pages = pre_process(context, agreements, inference_model)
+                staged_pages = pre_process(
+                    cast(PreProcessContext, cast(object, context)),
+                    agreements,
+                    inference_model,
+                )
 
                 if staged_pages:
                     try:
@@ -177,8 +188,7 @@ def pre_processing_asset(
                         totals_dict["pages"] += num_pages
 
                         context.log.info(
-                            f"Successfully updated {num_pages} pages from {num_agr} agreements. "
-                            f"Total pages: {totals_dict['pages']}. Total agreements: {totals_dict['agreements']}"
+                            f"Successfully updated {num_pages} pages from {num_agr} agreements. Total pages: {totals_dict['pages']}. Total agreements: {totals_dict['agreements']}"
                         )
                         
                     except Exception as e:

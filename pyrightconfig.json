@@ -1,5 +1,9 @@
 {
   "venvPath": "etl",
   "venv": ".venv",
-  "pythonVersion": "3.11"
+  "pythonVersion": "3.11",
+  "useLibraryCodeForTypes": true,
+  "reportMissingTypeStubs": "none",
+  "reportImplicitOverride": "none",
+  "reportUnannotatedClassAttribute": "none"
 }

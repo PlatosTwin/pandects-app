@@ -1,5 +1,6 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Protocol, TypedDict
 
 
 @dataclass
@@ -8,11 +9,39 @@ class TagData:
     page_uuid: str
     tagged_text: str
     low_count: int
-    spans: list
-    tokens: dict
+    spans: list[dict[str, object]]
+    tokens: list[dict[str, object]]
 
 
-def tag(rows: List[Dict[str, Any]], tagging_model: Any, context: Any) -> List[TagData]:
+class TaggingRow(TypedDict):
+    page_uuid: str
+    processed_page_content: str
+
+
+class TaggedOutput(TypedDict):
+    tagged: str
+    low_count: int
+    spans: list[dict[str, object]]
+    tokens: list[dict[str, object]]
+
+
+class TaggingModelProtocol(Protocol):
+    def label(self, texts: list[str]) -> list[TaggedOutput]: ...
+
+
+class LoggerProtocol(Protocol):
+    def info(self, msg: str) -> None: ...
+
+
+class ContextProtocol(Protocol):
+    log: LoggerProtocol
+
+
+def tag(
+    rows: list[TaggingRow],
+    tagging_model: TaggingModelProtocol,
+    context: ContextProtocol,
+) -> list[TagData]:
     """
     Tag text content using the provided tagging model.
 
@@ -23,8 +52,8 @@ def tag(rows: List[Dict[str, Any]], tagging_model: Any, context: Any) -> List[Ta
     Returns:
         List of TagData objects containing tagged text and metadata.
     """
-    texts = []
-    page_uuids = []
+    texts: list[str] = []
+    page_uuids: list[str] = []
     for r in rows:
         if len(r["processed_page_content"].split()) > 4096:
             context.log.info(f"Skipping page {r['page_uuid']} because it is too long")
@@ -35,7 +64,7 @@ def tag(rows: List[Dict[str, Any]], tagging_model: Any, context: Any) -> List[Ta
 
     tagged_texts = tagging_model.label(texts)
 
-    staged_tagged = []
+    staged_tagged: list[TagData] = []
     for page_uuid, tagged in zip(page_uuids, tagged_texts):
         staged_tagged.append(
             TagData(

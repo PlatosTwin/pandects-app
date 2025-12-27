@@ -3,13 +3,17 @@
 This module defines the configurable resources used throughout the ETL pipeline,
 including database connections, ML models, and pipeline configuration.
 """
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
+
+from enum import Enum
 
 import dagster as dg
+from pydantic import PrivateAttr
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+
 from etl.models.code.classifier import ClassifierInference
 from etl.models.code.ner import NERInference
-from pathlib import Path
 from etl.models.code.shared_constants import (
     NER_LABEL_LIST,
     NER_CKPT_PATH,
@@ -17,9 +21,6 @@ from etl.models.code.shared_constants import (
     CLASSIFIER_XGB_PATH,
     TAXONOMY_LABEL_LIST,
 )
-from enum import Enum
-from typing import Dict, Any, Optional, List
-from pydantic import PrivateAttr
 
 
 class PipelineMode(Enum):
@@ -36,7 +37,7 @@ class ProcessingScope(Enum):
     FULL = "full"
 
 
-class PipelineConfig(dg.ConfigurableResource):
+class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pipeline execution mode and batching behavior."""
 
     mode: PipelineMode = PipelineMode.FROM_SCRATCH
@@ -46,6 +47,7 @@ class PipelineConfig(dg.ConfigurableResource):
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
+    staging_days_to_fetch: int = 2  # used in staging_asset alt flow
 
     def is_cleanup_mode(self) -> bool:
         """Check if the pipeline is running in cleanup mode."""
@@ -56,7 +58,7 @@ class PipelineConfig(dg.ConfigurableResource):
         return self.scope == ProcessingScope.BATCHED
 
 
-class DBResource(dg.ConfigurableResource):
+class DBResource(dg.ConfigurableResource[object]):
     """Database connection resource."""
 
     host: str
@@ -74,10 +76,10 @@ class DBResource(dg.ConfigurableResource):
         return create_engine(url)
 
 
-class ClassifierModel(dg.ConfigurableResource):
+class ClassifierModel(dg.ConfigurableResource[object]):
     """Resource for the page classification model."""
 
-    _inf: Optional[ClassifierInference] = PrivateAttr(default=None)
+    _inf: ClassifierInference | None = PrivateAttr(default=None)
 
     def model(self):
         if self._inf is None:
@@ -89,7 +91,7 @@ class ClassifierModel(dg.ConfigurableResource):
         return self._inf
 
 
-class TaggingModel(dg.ConfigurableResource):
+class TaggingModel(dg.ConfigurableResource[object]):
     """Resource for the NER tagging model."""
 
     def model(self) -> NERInference:
@@ -100,7 +102,7 @@ class TaggingModel(dg.ConfigurableResource):
         return model
 
 
-class TaxonomyModel(dg.ConfigurableResource):
+class TaxonomyModel(dg.ConfigurableResource[object]):
     """Placeholder resource for section taxonomy classification.
 
     The real model will return a primary label and probabilities for the next
@@ -110,12 +112,12 @@ class TaxonomyModel(dg.ConfigurableResource):
 
     def model(self):
         class _DummyTaxonomyModel:
-            def __init__(self, label_list: List[str]):
+            def __init__(self, label_list: list[str]):
                 self.label_list = label_list
 
-            def predict(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            def predict(self, rows: list[dict[str, object]]) -> list[dict[str, object]]:
                 # rows items may contain article_title, section_title, section_text
-                out: List[Dict[str, Any]] = []
+                out: list[dict[str, object]] = []
                 primary = (
                     "other"
                     if "other" in self.label_list
@@ -133,7 +135,7 @@ class TaxonomyModel(dg.ConfigurableResource):
         return _DummyTaxonomyModel(TAXONOMY_LABEL_LIST)
 
 
-def get_resources() -> Dict[str, Any]:
+def get_resources() -> dict[str, object]:
     """Get the base resource configuration for the pipeline.
 
     Returns:

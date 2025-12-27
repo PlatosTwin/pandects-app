@@ -1,9 +1,10 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import re
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 from datetime import date
 
 
@@ -76,9 +77,9 @@ def convert_to_xml(
         # Definition: starts with "…some text…" means …
         definition_re_a = re.compile(
             r'^[\u201C\u201D"]'  # opening curly or straight quote
-            r'[^"\u201C\u201D]+'  # the term itself
-            r'[\u201C\u201D"]\s+'  # closing quote + space
-            r"(?:mean|means|shall have the meaning|shall mean)\b",
+            + r'[^"\u201C\u201D]+'  # the term itself
+            + r'[\u201C\u201D"]\s+'  # closing quote + space
+            + r"(?:mean|means|shall have the meaning|shall mean)\b",
             re.IGNORECASE,
         )
         term_re = re.compile(r'^[\u201C\u201D"]([^"\u201C\u201D]+)[\u201C\u201D"]')
@@ -159,7 +160,7 @@ def convert_to_xml(
         raw_title = m.group(2).strip()
         title = " ".join(raw_title.split())
 
-        start, end = m.span()
+        _, end = m.span()
         next_start = matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
         content = tagged_text[end:next_start].strip()
 
@@ -284,7 +285,7 @@ def collapse_text_into_definitions(xml_str: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
-def generate_xml(df: Any) -> List[XMLData]:
+def generate_xml(df: Any) -> list[XMLData]:
     """
     Generate XML data from a DataFrame.
 

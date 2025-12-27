@@ -1,4 +1,5 @@
 """Assemble tagged sections into XML documents for each agreement."""
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
 import pandas as pd
 
@@ -14,7 +15,11 @@ from etl.utils.run_config import is_batched, is_cleanup_mode
 
 
 @dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
-def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
+def xml_asset(
+    context: dg.AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> None:
     """
     Assemble tagged sections into XML documents.
 
@@ -126,5 +131,5 @@ def xml_asset(context, db: DBResource, pipeline_config: PipelineConfig) -> None:
             
             last_uuid = agreement_uuids[-1]
         ran_batches += 1
-        if is_batched:
+        if batched:
             break
