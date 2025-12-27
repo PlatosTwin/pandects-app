@@ -14,6 +14,7 @@ interface XMLRendererProps {
   className?: string;
   mode?: "search" | "agreement";
   highlightedSection?: string | null;
+  isMobile?: boolean;
 }
 
 const XML_TAG_COLORS = {
@@ -25,12 +26,18 @@ const XML_TAG_COLORS = {
 
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
 const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
+const NON_BREAKING_CHARS_RE = /[\u00a0\u2007\u202f\u2060\ufeff]/g;
+
+export function normalizeXmlText(content: string) {
+  return content.replace(NON_BREAKING_CHARS_RE, " ");
+}
 
 export function XMLRenderer({
   xmlContent,
   className,
   mode = "search",
   highlightedSection,
+  isMobile = false,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
@@ -86,9 +93,17 @@ export function XMLRenderer({
     depth: number = 0,
   ): React.ReactNode => {
     if (node.type === "text") {
+      const normalizedContent = normalizeXmlText(node.content);
       return (
-        <span key={index} className="whitespace-pre-wrap">
-          {node.content}
+        <span
+          key={`${depth}-${index}-text`}
+          className={cn(
+            isMobile
+              ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
+              : "whitespace-pre-wrap",
+          )}
+        >
+          {normalizedContent}
         </span>
       );
     }
@@ -175,7 +190,11 @@ export function XMLRenderer({
         return (
           <span
             key={tagId}
-            className={cn("text-xs font-light inline", colorClass)}
+            className={cn(
+              "text-xs font-light inline",
+              colorClass,
+              isMobile && "break-words [overflow-wrap:anywhere]",
+            )}
           >
             &lt;{node.tagName}&gt;{content}&lt;/{node.tagName}&gt;
           </span>
@@ -205,28 +224,67 @@ export function XMLRenderer({
         const additionalAttributes =
           node.tagName === "article" ? { "data-article-header": "true" } : {};
 
-        return (
+        const containerProps = {
+          className: cn(
+            "my-4 scroll-mt-3 relative",
+            showHighlight && "z-10",
+          ),
+          ...dataAttributes,
+          ...additionalAttributes,
+        };
+
+        const highlightOverlay = showHighlight ? (
           <div
-            key={tagId}
-            className={cn("my-4 scroll-mt-3 relative", showHighlight && "z-10")}
-            {...dataAttributes}
-            {...additionalAttributes}
-          >
-            {/* Highlight overlay that doesn't affect layout */}
-            {showHighlight && (
-              <div
-                className={cn(
-                  "absolute bg-primary/10 border-2 border-primary/30 rounded-lg shadow-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
-                  isHighlighted ? "opacity-100" : "opacity-0",
-                )}
-                style={{
-                  top: "-8px",
-                  left: "-12px",
-                  right: "-20px",
-                  bottom: "-8px",
-                }}
-              />
+            className={cn(
+              "absolute inset-0 bg-primary/10 border border-primary/30 rounded-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+              isHighlighted ? "opacity-100" : "opacity-0",
             )}
+          />
+        ) : null;
+
+        if (isMobile) {
+          return (
+            <div key={tagId} {...containerProps}>
+              {highlightOverlay}
+              <div className="flex items-start gap-2">
+                {isCollapsible && (
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(tagId)}
+                    data-collapse-toggle="true"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    aria-expanded={!isCollapsed}
+                    aria-label={
+                      isCollapsed ? "Expand section" : "Collapse section"
+                    }
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
+                )}
+
+                <h3 className={cn(headerLevel, "text-foreground min-w-0 flex-1")}>
+                  {title}
+                </h3>
+              </div>
+
+              {!isCollapsed && node.children && node.children.length > 0 && (
+                <div className="agreement-children mt-2">
+                  {node.children.map((child, childIndex) =>
+                    renderNode(child, childIndex, depth + 1),
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div key={tagId} {...containerProps}>
+            {highlightOverlay}
             <div className="flex items-start gap-1.5">
               <div className="flex-shrink-0">
                 {isCollapsible && (
@@ -255,7 +313,7 @@ export function XMLRenderer({
                 </h3>
 
                 {!isCollapsed && node.children && node.children.length > 0 && (
-                  <div className="ml-2">
+                  <div className="agreement-children ml-2">
                     {node.children.map((child, childIndex) =>
                       renderNode(child, childIndex, depth + 1),
                     )}

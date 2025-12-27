@@ -150,7 +150,8 @@ export function AgreementModal({
       if (collapseButton) {
         // Check if it's collapsed by looking for the content div that should be visible when expanded
         // In the XMLRenderer, collapsed content has children that are hidden/not rendered
-        const contentContainer = sectionElement.querySelector(".ml-2");
+        const contentContainer =
+          sectionElement.querySelector(".agreement-children");
         const isCollapsed =
           !contentContainer || contentContainer.children.length === 0;
 
@@ -471,7 +472,7 @@ export function AgreementModal({
                     "hsl(var(--border)) hsl(var(--background))",
                 }}
               >
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto min-w-0">
                   {agreement.isRedacted ? (
                     <div className="mb-4">
                       <Alert>
@@ -486,8 +487,12 @@ export function AgreementModal({
                   <XMLRenderer
                     xmlContent={agreement.xml}
                     mode="agreement"
-                    className="text-sm leading-relaxed"
+                    className={cn(
+                      "text-sm leading-relaxed",
+                      isMobile && "hyphens-auto",
+                    )}
                     highlightedSection={highlightedSection}
+                    isMobile={isMobile}
                   />
                 </div>
               </div>

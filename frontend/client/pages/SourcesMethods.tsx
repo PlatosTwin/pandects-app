@@ -163,23 +163,23 @@ export default function SourcesMethods() {
   ];
   const classifierAbbreviations = ["FM", "TOC", "BDY", "SIG", "BM"];
   const pageClassifierMatrix = [
-    [25, 0, 0, 0, 0],
-    [0, 94, 2, 0, 0],
-    [0, 2, 1506, 3, 35],
-    [0, 0, 0, 32, 1],
-    [0, 0, 19, 3, 174],
+    [43, 0, 2, 0, 0],
+    [0, 144, 0, 0, 0],
+    [0, 2, 2282, 1, 216],
+    [0, 0, 0, 46, 2],
+    [0, 0, 32, 2, 323],
   ];
   const pageClassifierMetrics = [
-    { label: "front_matter", acc: 1.0, p: 1.0, r: 1.0, f1: 1.0 },
-    { label: "toc", acc: 0.9792, p: 0.9792, r: 0.9792, f1: 0.9792 },
-    { label: "body", acc: 0.9741, p: 0.9862, r: 0.9741, f1: 0.9801 },
-    { label: "sig", acc: 0.9697, p: 0.8421, r: 0.9697, f1: 0.9014 },
+    { label: "front_matter", acc: 0.9556, p: 1.0, r: 0.9556, f1: 0.9773 },
+    { label: "toc", acc: 1.0, p: 0.9863, r: 1.0, f1: 0.9931 },
+    { label: "body", acc: 0.9124, p: 0.9853, r: 0.9124, f1: 0.9475 },
+    { label: "sig", acc: 0.9583, p: 0.9388, r: 0.9583, f1: 0.9485 },
     {
       label: "back_matter",
-      acc: 0.8878,
-      p: 0.8286,
-      r: 0.8878,
-      f1: 0.8571,
+      acc: 0.9048,
+      p: 0.597,
+      r: 0.9048,
+      f1: 0.7194,
     },
   ];
   const finalClassifierLabels = classifierLabels;
@@ -815,7 +815,7 @@ export default function SourcesMethods() {
               still made too many mistakes for us to be comfortable using them
               at scale. Our solution: use the latest and greatest LLMs to
               generate high-quality training data from a limited sample of
-              agreements—<strong>137</strong> in total, sampled roughly evenly
+              agreements—<strong>367</strong> in total, sampled roughly evenly
               from 2000 to 2020—and then train up more routine machine learning
               models to do the work we'd otherwise outsource to LLMs.
             </div>
@@ -840,15 +840,19 @@ export default function SourcesMethods() {
                 Page Classifier Model
               </h3>
               <div className="text-muted-foreground">
-                The Page Classifier Model combines two layers: 1) an XGBoost
+                The Page Classifier Model combines three layers: 1) an XGBoost
                 model that scores each page <em>individually</em>, using
-                engineered text/HTML/layout features; and 2) a BiLSTM +
-                constrained CRF that refines those scores into a coherent,
-                document-level page sequence. The CRF encodes ordering rules
-                (including a single contiguous signature block), while learned
-                positional priors and auxiliary onset losses help place key
-                transitions reliably. We trained both models on 80% random
-                splits of the full set of{" "}
+                engineered text/HTML/layout features; 2) a BiLSTM + constrained
+                CRF that refines those scores into a coherent, document-level
+                page sequence; and 3) a post-processing step that sets all pages
+                after the first high-confidence{" "}
+                <span className="font-mono text-sm text-foreground">sig</span>{" "}
+                block to{" "}
+                <span className="font-mono text-sm text-foreground">
+                  back_matter
+                </span>
+                . We trained both models on an 80% random split of the full set
+                of{" "}
                 {isCoarsePointer ? (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -856,17 +860,17 @@ export default function SourcesMethods() {
                         type="button"
                         className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
                       >
-                        <strong>11,854</strong>
+                        <strong>31,864</strong>
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
                       side="top"
                       className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                     >
-                      Did we really label 11,854 pages by hand? Yes—but it wasn't
-                      that bad. We had GPT build us a custom labeling interface
-                      that allowed us to select all body pages in a single go, so
-                      the whole process took less than three hours.
+                      Did we really label 32,241 pages by hand? Yes—but it
+                      wasn't that bad. We had GPT build us a custom labeling
+                      interface that allowed us to select all body pages in a
+                      single go, so the whole process took less than five hours.
                     </PopoverContent>
                   </Popover>
                 ) : (
@@ -876,43 +880,42 @@ export default function SourcesMethods() {
                         type="button"
                         className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
                       >
-                        <strong>11,854</strong>
+                        <strong>32,241</strong>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent
                       side="top"
                       className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                     >
-                      Did we really label 11,854 pages by hand? Yes—but it wasn't
-                      that bad. We had GPT build us a custom labeling interface
-                      that allowed us to select all body pages in a single go, so
-                      the whole process took less than three hours.
+                      Did we really label 32,241 pages by hand? Yes—but it
+                      wasn't that bad. We had GPT build us a custom labeling
+                      interface that allowed us to select all body pages in a
+                      single go, so the whole process took less than three
+                      hours.
                     </TooltipContent>
                   </Tooltip>
                 )}{" "}
-                manually labeled pages. The full training code is available on{" "}
+                manually labeled pages, stratified with distributional matching
+                by five-year window, overall length, and length of backmatter.
+                The full training code is available on{" "}
                 <a
                   href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                GitHub
-              </a>
-              .
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  GitHub
+                </a>
+                .
               </div>
               <p className="text-muted-foreground">
-                Below are model performance metrics for both the baseline XGB
-                model and the full BiLSTM model. While the XGB model does
-                reasonably well on its own, taking into account and enforcing
+                Below are model performance metrics for the baseline XGB model,
+                the full BiLSTM model, and the BiLSTM with post-processing, all
+                as run on a holdout set of 36 agreements. While the XGB model is
+                somewhat midling on its own, taking into account and enforcing
                 page order substantially improves performance, bringing the F1
-                score up from <strong>94.36%</strong> to <strong>99.69%</strong>
+                score up from <strong>91.71%</strong> to <strong>99.69%</strong>
                 .{" "}
-                <em>
-                  Note that both sets of metrics are based on validation
-                  splits—16% for the baseline model and 20% for the final
-                  model—rather than a true test split.
-                </em>
               </p>
               <div className="space-y-6">
                 <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
@@ -932,7 +935,7 @@ export default function SourcesMethods() {
                             Accuracy
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9657)}
+                            {formatMetric(0.917)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -940,7 +943,7 @@ export default function SourcesMethods() {
                             Precision
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9272)}
+                            {formatMetric(0.9015)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -948,7 +951,7 @@ export default function SourcesMethods() {
                             Recall
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9621)}
+                            {formatMetric(0.9462)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -956,7 +959,7 @@ export default function SourcesMethods() {
                             F1 Score
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9436)}
+                            {formatMetric(0.9171)}
                           </div>
                         </div>
                       </div>
@@ -1313,7 +1316,7 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
-              <p>
+              <p className="text-muted-foreground">
                 The Tagging Model fine-tunes{" "}
                 <a
                   href="https://huggingface.co/blog/modernbert"
@@ -1359,14 +1362,84 @@ export default function SourcesMethods() {
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Gaps and Other Call Outs
             </h2>
-            <ComingSoon title="Known limitations and edge cases" />
+            <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+              <li>
+                We force each agreement into our five-class structure—
+                <span className="font-mono text-sm text-foreground">
+                  front_matter
+                </span>{" "}
+                , <span className="font-mono text-sm text-foreground">toc</span>{" "}
+                ,{" "}
+                <span className="font-mono text-sm text-foreground">body</span>{" "}
+                , <span className="font-mono text-sm text-foreground">sig</span>{" "}
+                ,{" "}
+                <span className="font-mono text-sm text-foreground">
+                  back_matter
+                </span>
+                —but this structure is not the best fit for some agreements. For
+                instance, some agreements place definitions into the exhibits.
+              </li>
+              <li>
+                At the moment, we do not process agreements that are not
+                paginated. In our training set of 399 agreements, 31 are not
+                paginated.
+              </li>
+            </ul>
           </section>
 
           <section id="validations" className="scroll-mt-24 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Validations
             </h2>
-            <ComingSoon title="Accuracy checks and evaluation results" />
+            <p className="text-muted-foreground">
+              Although the vast majority of agreements sail through our pipeline
+              without issue, some do require manual validation. We have two
+              validations in place:
+            </p>
+            <ol className="list-decimal ml-6 space-y-4 text-muted-foreground">
+              <li className="space-y-2">
+                <div>
+                  <strong>Page label validation:</strong> We manually review
+                  labels for agreements where either:
+                </div>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    At least one page label is out of order—for example, a{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      back_matter
+                    </span>{" "}
+                    label before a{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      sig
+                    </span>{" "}
+                    label.
+                  </li>
+                  <li>
+                    At least one page has a prediction confidence between 30%
+                    and 70%; where there is a high-confidence signature page (
+                    {">"}= 95%), this condition applies only to pages prior to
+                    that signature page.
+                  </li>
+                </ul>
+              </li>
+              <li className="space-y-2">
+                <div>
+                  <strong>Tag reconciliation:</strong> We manually review
+                  uncertain spans when LLM rulings cannot be reconciled with
+                  existing tags and we flag the page with a label error:
+                </div>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    A ruling intersects more than one tagged span or only
+                    partially overlaps a span.
+                  </li>
+                  <li>
+                    A ruling sits entirely within a tagged span but assigns a
+                    different label.
+                  </li>
+                </ul>
+              </li>
+            </ol>
           </section>
         </div>
       </div>
