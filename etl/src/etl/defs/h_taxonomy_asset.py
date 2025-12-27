@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 from typing import cast
 
@@ -18,7 +19,7 @@ from etl.utils.run_config import is_batched, is_cleanup_mode
 
 @dg.asset(deps=[sections_asset], name="8_taxonomy_asset")
 def taxonomy_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,

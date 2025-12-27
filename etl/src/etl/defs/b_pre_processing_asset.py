@@ -8,6 +8,7 @@ Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
 from typing import cast
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 
 from etl.defs.a_staging_asset import staging_asset
@@ -25,7 +26,7 @@ from etl.utils.run_config import is_cleanup_mode
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
 def pre_processing_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     classifier_model: ClassifierModel,
     pipeline_config: PipelineConfig,

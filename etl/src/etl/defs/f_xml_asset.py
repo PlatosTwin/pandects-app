@@ -4,6 +4,7 @@
 import pandas as pd
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 
 from etl.defs.c_tagging_asset import tagging_asset
@@ -16,7 +17,7 @@ from etl.utils.run_config import is_batched, is_cleanup_mode
 
 @dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
 def xml_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:

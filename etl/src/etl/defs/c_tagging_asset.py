@@ -4,6 +4,7 @@
 from typing import cast
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 
 from etl.defs.b_pre_processing_asset import pre_processing_asset
@@ -20,7 +21,7 @@ from etl.utils.run_config import is_batched, is_cleanup_mode
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
 def tagging_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     tagging_model: TaggingModel,
     pipeline_config: PipelineConfig,

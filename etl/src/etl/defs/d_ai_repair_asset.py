@@ -11,14 +11,13 @@ Tables created if missing (MariaDB):
 """
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
-from __future__ import annotations
-
 import io
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Set, Optional
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text, bindparam
 from sqlalchemy.engine import Connection
 from openai import OpenAI
@@ -284,7 +283,7 @@ def _mark_completed(conn: Connection, request_ids: Set[str]) -> None:
 
 @dg.asset(deps=[], name="4-1_ai_repair_enqueue_asset")
 def ai_repair_enqueue_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:
@@ -504,7 +503,7 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
 
 
 @dg.asset(deps=[ai_repair_enqueue_asset], name="4-2_ai_repair_poll_asset")
-def ai_repair_poll_asset(context: dg.AssetExecutionContext, db: DBResource) -> None:
+def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None:
     """
     Poll terminal batches, read output/error JSONL, persist parsed entities strictly.
 

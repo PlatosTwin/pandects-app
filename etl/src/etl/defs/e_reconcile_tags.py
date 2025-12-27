@@ -1,10 +1,9 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
-from __future__ import annotations
-
 import re
 from typing import List, Tuple
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 
 from etl.defs.d_ai_repair_asset import ai_repair_poll_asset
@@ -250,7 +249,7 @@ def _merge_with_rulings(
 
 @dg.asset(deps=[ai_repair_poll_asset], name="5_reconcile_tags")
 def reconcile_tags(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:

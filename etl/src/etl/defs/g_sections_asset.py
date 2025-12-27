@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 
 from etl.defs.f_xml_asset import xml_asset
@@ -11,7 +12,7 @@ from etl.utils.run_config import is_batched
 
 @dg.asset(deps=[xml_asset], name="7_sections_asset")
 def sections_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:

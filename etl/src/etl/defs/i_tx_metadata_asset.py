@@ -10,12 +10,11 @@ Default batch size is configured via `PipelineConfig.tx_metadata_agreement_batch
 """
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
-from __future__ import annotations
-
 import os
 from typing import Any, Dict, List, Tuple
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
 from openai import OpenAI
 
@@ -37,7 +36,7 @@ def _oai_client() -> OpenAI:
 
 @dg.asset(deps=[], name="9_tx_metadata_asset")
 def tx_metadata_asset(
-    context: dg.AssetExecutionContext,
+    context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:
