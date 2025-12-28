@@ -17,6 +17,7 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
+  SheetDescription,
   SheetTitle,
   SheetTrigger,
   SheetClose,
@@ -204,7 +205,10 @@ export default function Navigation() {
                 <Menu className="h-5 w-5" aria-hidden="true" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[320px] p-0">
+            <SheetContent
+              side="right"
+              className="w-[min(320px,100vw)] max-w-full p-0"
+            >
               <div className="flex h-full flex-col">
                 <SheetHeader className="border-b p-4 text-left">
                   <SheetTitle className="flex items-center gap-3">
@@ -220,6 +224,9 @@ export default function Navigation() {
                       Pandects
                     </span>
                   </SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Primary navigation links and account access.
+                  </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 overflow-auto p-2">

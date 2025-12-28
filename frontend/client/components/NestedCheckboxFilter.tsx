@@ -50,6 +50,8 @@ export function NestedCheckboxFilter({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   // Search through leaf values (sub-sub-categories)
   const searchLeafValues = (
@@ -203,16 +205,26 @@ export function NestedCheckboxFilter({
       setShowSearchResults(false);
       setHighlightedSearchIndex(-1);
     } else if (useModal) {
+      lastFocusedElementRef.current =
+        document.activeElement as HTMLElement | null;
       // Auto-focus modal container first, then search input
       setTimeout(() => {
         if (modalRef.current) {
           modalRef.current.focus();
         }
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
+        const focusTarget =
+          searchInputRef.current ?? closeButtonRef.current ?? modalRef.current;
+        focusTarget?.focus();
       }, DROPDOWN_ANIMATION_DELAY);
     }
+  }, [isExpanded, useModal]);
+
+  useEffect(() => {
+    if (!isExpanded || !useModal) return;
+    return () => {
+      lastFocusedElementRef.current?.focus?.();
+      lastFocusedElementRef.current = null;
+    };
   }, [isExpanded, useModal]);
 
   // Get all leaf values (final clause types) from nested structure
@@ -422,7 +434,12 @@ export function NestedCheckboxFilter({
                 return needsTooltip ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="truncate">{truncated}</span>
+                      <span
+                        tabIndex={0}
+                        className="truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      >
+                        {truncated}
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">{selectedValues[0]}</p>
@@ -480,6 +497,29 @@ export function NestedCheckboxFilter({
             aria-labelledby={modalTitleId}
             className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-background text-foreground shadow-xl"
             onKeyDown={(e) => {
+              if (e.key === "Tab") {
+                const container = modalRef.current;
+                if (!container) return;
+                const focusable = Array.from(
+                  container.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+                  ),
+                ).filter((el) => el.getClientRects().length > 0);
+                if (focusable.length === 0) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                const active = document.activeElement as HTMLElement | null;
+                if (e.shiftKey && active === first) {
+                  e.preventDefault();
+                  last.focus();
+                  return;
+                }
+                if (!e.shiftKey && active === last) {
+                  e.preventDefault();
+                  first.focus();
+                  return;
+                }
+              }
               // Handle Enter and Escape keys to close modal
               if (e.key === "Enter" || e.key === "Escape") {
                 const target = e.target as HTMLElement;
@@ -514,6 +554,7 @@ export function NestedCheckboxFilter({
                   size="icon"
                   onClick={() => setIsExpanded(false)}
                   className="h-8 w-8"
+                  ref={closeButtonRef}
                 >
                   <X className="w-5 h-5" aria-hidden="true" />
                   <span className="sr-only">Close</span>

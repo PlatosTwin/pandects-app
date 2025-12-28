@@ -337,7 +337,10 @@ export function SearchResultsTable({
                           {clauseTypeLabel ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+                                <span
+                                  tabIndex={0}
+                                  className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                >
                                   <TruncatedText text={clauseTypeLabel} />
                                 </span>
                               </TooltipTrigger>
@@ -354,7 +357,10 @@ export function SearchResultsTable({
                           ) : showDevFallbackPill ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+                                <span
+                                  tabIndex={0}
+                                  className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                >
                                   <TruncatedText text="Clause type unavailable" />
                                 </span>
                               </TooltipTrigger>
@@ -395,7 +401,10 @@ export function SearchResultsTable({
                             {targetText.needsTooltip ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help break-words font-medium">
+                                  <span
+                                    tabIndex={0}
+                                    className="cursor-help break-words font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  >
                                     {targetText.truncated}
                                   </span>
                                 </TooltipTrigger>
@@ -416,7 +425,10 @@ export function SearchResultsTable({
                             {acquirerText.needsTooltip ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help break-words font-medium">
+                                  <span
+                                    tabIndex={0}
+                                    className="cursor-help break-words font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  >
                                     {acquirerText.truncated}
                                   </span>
                                 </TooltipTrigger>

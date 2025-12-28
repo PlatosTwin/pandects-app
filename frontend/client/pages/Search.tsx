@@ -18,7 +18,13 @@ import { SearchSidebar } from "@/components/SearchSidebar";
 import { SearchResultsTable } from "@/components/SearchResultsTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
@@ -383,7 +389,14 @@ export default function Search() {
                       Filters
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-[340px] p-0">
+                  <SheetContent
+                    side="left"
+                    className="w-[min(340px,100vw)] max-w-full p-0"
+                  >
+                    <SheetTitle className="sr-only">Search filters</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      Filter agreement clause results.
+                    </SheetDescription>
                     <SearchSidebar
                       variant="sheet"
                       filters={filters}

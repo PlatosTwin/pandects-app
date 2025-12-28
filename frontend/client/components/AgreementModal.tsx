@@ -13,7 +13,13 @@ import { XMLRenderer } from "./XMLRenderer";
 import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   animateScrollTop,
@@ -283,7 +289,16 @@ export function AgreementModal({
                       Contents
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-[340px] p-0">
+                  <SheetContent
+                    side="left"
+                    className="w-[min(340px,100vw)] max-w-full p-0"
+                  >
+                    <SheetTitle className="sr-only">
+                      Agreement contents
+                    </SheetTitle>
+                    <SheetDescription className="sr-only">
+                      Browse agreement sections and jump to a clause.
+                    </SheetDescription>
                     {agreement ? (
                       <TableOfContents
                         xmlContent={agreement.xml}

@@ -235,7 +235,12 @@ export function CheckboxFilter({
                 return needsTooltip ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="truncate">{truncated}</span>
+                      <span
+                        tabIndex={0}
+                        className="truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      >
+                        {truncated}
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">{selectedValues[0]}</p>
