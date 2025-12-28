@@ -1,23 +1,31 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
+# pyright: reportMissingTypeStubs=false
 """Stage new filings and record pipeline run metadata.
 
 Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Returns the number of new filings processed.
 """
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Callable, cast
 
 import dagster as dg
+from dagster import AssetExecutionContext
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.a_staging import fetch_new_filings
-from etl.utils.db_utils import upsert_agreements
+from etl.domain.a_staging import FilingMetadata, fetch_new_filings
+from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.run_config import is_cleanup_mode
 
+UpsertAgreements = Callable[[Sequence[FilingMetadata], Connection], None]
+upsert_agreements = cast(UpsertAgreements, _upsert_agreements)
 
 @dg.asset(name="1_staging_asset")
 def staging_asset(
-    context: dg.AssetExecutionContext, 
+    context: AssetExecutionContext, 
     db: DBResource, 
     pipeline_config: PipelineConfig
 ) -> int:
@@ -45,13 +53,17 @@ def staging_asset(
 
     # Get last pull timestamp
     with engine.begin() as conn:
-        last_run: datetime = conn.execute(
+        last_run: datetime | None = conn.execute(
             text(
-                "SELECT last_pulled_to "
-                "FROM pdx.pipeline_runs "
-                "ORDER BY run_time DESC LIMIT 1"
+                """
+                SELECT last_pulled_to
+                FROM pdx.pipeline_runs
+                ORDER BY run_time DESC LIMIT 1
+                """
             )
-        ).scalar_one_or_none() or datetime(1970, 1, 1)
+        ).scalar_one_or_none()
+        if last_run is None:
+            last_run = datetime(1970, 1, 1)
 
     now = datetime.now(timezone.utc)
 
@@ -60,17 +72,19 @@ def staging_asset(
     count = len(filings)
 
     # Use now as pulled_to_ts if no filings, else use max filing date
-    pulled_to_ts = max([f.filing_date for f in filings]) if filings else now
+    pulled_to_ts = max((f.filing_date for f in filings)) if filings else now
     context.log.info(f"FROM_SCRATCH mode: Fetched {count} new filings")
 
     # Transactional run
     with engine.begin() as conn:
         # Insert STARTED record
-        conn.execute(
+        _ = conn.execute(
             text(
-                "INSERT INTO pdx.pipeline_runs "
-                "(run_time, last_pulled_from, last_pulled_to, status, rows_inserted) "
-                "VALUES (:run_time, :from_ts, :to_ts, 'STARTED', :count)"
+                """
+                INSERT INTO pdx.pipeline_runs
+                (run_time, last_pulled_from, last_pulled_to, status, rows_inserted)
+                VALUES (:run_time, :from_ts, :to_ts, 'STARTED', :count)
+                """
             ),
             {
                 "run_time": now,
@@ -89,11 +103,13 @@ def staging_asset(
             raise RuntimeError(e)
 
         # Mark as SUCCEEDED
-        conn.execute(
+        _ = conn.execute(
             text(
-                "UPDATE pdx.pipeline_runs "
-                "SET status = 'SUCCEEDED' "
-                "WHERE run_time = :run_time"
+                """
+                UPDATE pdx.pipeline_runs
+                SET status = 'SUCCEEDED'
+                WHERE run_time = :run_time
+                """
             ),
             {"run_time": now},
         )
