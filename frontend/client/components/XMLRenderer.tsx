@@ -228,6 +228,8 @@ export function XMLRenderer({
           className: cn(
             "my-4 scroll-mt-3 relative",
             showHighlight && "z-10",
+            showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
+            showHighlight && !isMobile && "pr-2 -mr-2",
           ),
           ...dataAttributes,
           ...additionalAttributes,
