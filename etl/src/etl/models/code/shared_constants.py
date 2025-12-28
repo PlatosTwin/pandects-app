@@ -28,7 +28,7 @@ NER_LABEL_LIST = [
     "S-PAGE",  # single PAGE span
 ]
 
-SPECIAL_TOKENS_TO_ADD = []
+SPECIAL_TOKENS_TO_ADD: list[str] = []
 
 # Classifier model configuration
 CLASSIFIER_LABEL_LIST = ["front_matter", "toc", "body", "sig", "back_matter"]
