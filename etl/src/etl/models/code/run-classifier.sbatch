@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ner
+#SBATCH --job-name=crf-classifier
 #SBATCH --output=/scratch/nmb9729/mna/logs/%j-classifier-run.log
 #SBATCH --ntasks=1
 #SBATCH --mem=8gb
