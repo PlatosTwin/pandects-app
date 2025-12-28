@@ -280,8 +280,25 @@ app.config.update(
         "OPENAPI_URL_PREFIX": "/",
         "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
         "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+        "MAX_CONTENT_LENGTH": None,
     }
 )
+
+
+def _max_content_length() -> int:
+    raw = os.environ.get("MAX_CONTENT_LENGTH_BYTES", "").strip()
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise RuntimeError("MAX_CONTENT_LENGTH_BYTES must be an integer.") from exc
+        if value <= 0:
+            raise RuntimeError("MAX_CONTENT_LENGTH_BYTES must be positive.")
+        return value
+    return 1 * 1024 * 1024
+
+
+app.config["MAX_CONTENT_LENGTH"] = _max_content_length()
 
 api = Api(app)
 
@@ -1170,7 +1187,7 @@ _UUID_RE = re.compile(
 def _is_email_like(value: str) -> bool:
     if not value or value.strip() != value:
         return False
-    if " " in value:
+    if any(ch.isspace() for ch in value):
         return False
     if value.count("@") != 1:
         return False
@@ -3140,44 +3157,6 @@ def auth_verify_email():
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
-
-@app.route("/api/auth/email/verify", methods=["GET"])
-def auth_verify_email_get():
-    _require_auth_db()
-    token = request.args.get("token")
-    if not isinstance(token, str) or not token.strip():
-        abort(400, description="Missing verification token.")
-    parsed = _load_email_verification_token(token.strip())
-    if parsed is None:
-        abort(400, description="Invalid or expired verification token.")
-    user_id, email = parsed
-
-    if _auth_is_mocked():
-        user = _mock_auth.get_user(user_id)
-        if user is None or user.email != email:
-            abort(400, description="Invalid verification token.")
-        _mock_auth.mark_email_verified(user_id)
-    else:
-        try:
-            user = db.session.get(AuthUser, user_id)
-            if user is None or user.email != email:
-                abort(400, description="Invalid verification token.")
-            if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-                abort(400, description="Invalid verification token.")
-            if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
-                db.session.commit()
-        except HTTPException:
-            db.session.rollback()
-            raise
-        except SQLAlchemyError:
-            db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-
-    dest = f"{_frontend_base_url()}/account?emailVerified=1"
-    resp = redirect(dest, code=303)
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
 
 
 @app.route("/api/auth/me", methods=["GET"])

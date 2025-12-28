@@ -118,9 +118,6 @@ class AuthFlowTests(unittest.TestCase):
         res = client.post("/api/auth/email/verify", json={"token": token})
         self.assertEqual(res.status_code, 200)
 
-        res = client.get(f"/api/auth/email/verify?token={token}")
-        self.assertEqual(res.status_code, 303)
-
         res = client.get("/api/auth/csrf")
         csrf = self._csrf_cookie_value(client)
 
