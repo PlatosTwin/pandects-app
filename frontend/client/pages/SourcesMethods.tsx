@@ -171,9 +171,9 @@ export default function SourcesMethods() {
   const pageClassifierMatrix = [
     [40, 1, 1, 1, 0],
     [0, 130, 1, 0, 0],
-    [1, 0, 2173, 0, 30],
+    [1, 0, 2168, 0, 35],
     [0, 0, 1, 49, 1],
-    [0, 0, 79, 13, 386],
+    [0, 0, 77, 13, 388],
   ];
   const pageClassifierMetrics = [
     {
@@ -184,14 +184,14 @@ export default function SourcesMethods() {
       f1: 0.9524,
     },
     { label: "toc", acc: 0.9924, p: 0.9924, r: 0.9924, f1: 0.9924 },
-    { label: "body", acc: 0.9859, p: 0.9636, r: 0.9859, f1: 0.9747 },
+    { label: "body", acc: 0.9837, p: 0.9644, r: 0.9837, f1: 0.9739 },
     { label: "sig", acc: 0.9608, p: 0.7778, r: 0.9608, f1: 0.8596 },
     {
       label: "back_matter",
-      acc: 0.8075,
-      p: 0.9257,
-      r: 0.8075,
-      f1: 0.8626,
+      acc: 0.8117,
+      p: 0.9151,
+      r: 0.8117,
+      f1: 0.8603,
     },
   ];
   const finalClassifierLabels = classifierLabels;
@@ -1051,7 +1051,7 @@ export default function SourcesMethods() {
                 as run on a holdout set of 36 agreements. While the XGB model is
                 somewhat midling on its own, taking into account and enforcing
                 page order substantially improves performance, bringing the F1
-                score up from <strong>92.83%</strong> to <strong>97.21%</strong>
+                score up from <strong>92.77%</strong> to <strong>97.21%</strong>
                 .{" "}
               </p>
               <div className="space-y-6">
@@ -1079,7 +1079,7 @@ export default function SourcesMethods() {
                                 Accuracy
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9556)}
+                                {formatMetric(0.9546)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1087,7 +1087,7 @@ export default function SourcesMethods() {
                                 Precision
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.927)}
+                                {formatMetric(0.9251)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1095,7 +1095,7 @@ export default function SourcesMethods() {
                                 Recall
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9354)}
+                                {formatMetric(0.9358)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1103,7 +1103,7 @@ export default function SourcesMethods() {
                                 F1 Score
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9283)}
+                                {formatMetric(0.9277)}
                               </div>
                             </div>
                           </div>
