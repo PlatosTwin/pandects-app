@@ -185,6 +185,14 @@ export default function About() {
               </a>{" "}
               for details.
             </p>
+            <p className="text-muted-foreground">
+              We are especially thankful for focused contributions to:
+            </p>
+            <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+              <li>Security hardening, including OAuth flow reviews.</li>
+              <li>Accessibility improvements (keyboard, focus, contrast).</li>
+              <li>ML model optimization.</li>
+            </ul>
           </section>
 
           <section id="credits" className="scroll-mt-24 space-y-4">
