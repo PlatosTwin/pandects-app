@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -29,7 +35,7 @@ export default function SourcesMethods() {
       { id: "ml-models", label: "ML Models" },
       {
         id: "agreement-identification",
-        label: "Agreement Model",
+        label: "Exhibit Model",
         indent: true,
       },
       {
@@ -163,45 +169,119 @@ export default function SourcesMethods() {
   ];
   const classifierAbbreviations = ["FM", "TOC", "BDY", "SIG", "BM"];
   const pageClassifierMatrix = [
-    [43, 0, 2, 0, 0],
-    [0, 144, 0, 0, 0],
-    [0, 2, 2282, 1, 216],
-    [0, 0, 0, 46, 2],
-    [0, 0, 32, 2, 323],
+    [40, 1, 1, 1, 0],
+    [0, 130, 1, 0, 0],
+    [1, 0, 2173, 0, 30],
+    [0, 0, 1, 49, 1],
+    [0, 0, 79, 13, 386],
   ];
   const pageClassifierMetrics = [
-    { label: "front_matter", acc: 0.9556, p: 1.0, r: 0.9556, f1: 0.9773 },
-    { label: "toc", acc: 1.0, p: 0.9863, r: 1.0, f1: 0.9931 },
-    { label: "body", acc: 0.9124, p: 0.9853, r: 0.9124, f1: 0.9475 },
-    { label: "sig", acc: 0.9583, p: 0.9388, r: 0.9583, f1: 0.9485 },
+    {
+      label: "front_matter",
+      acc: 0.9302,
+      p: 0.9756,
+      r: 0.9302,
+      f1: 0.9524,
+    },
+    { label: "toc", acc: 0.9924, p: 0.9924, r: 0.9924, f1: 0.9924 },
+    { label: "body", acc: 0.9859, p: 0.9636, r: 0.9859, f1: 0.9747 },
+    { label: "sig", acc: 0.9608, p: 0.7778, r: 0.9608, f1: 0.8596 },
     {
       label: "back_matter",
-      acc: 0.9048,
-      p: 0.597,
-      r: 0.9048,
-      f1: 0.7194,
+      acc: 0.8075,
+      p: 0.9257,
+      r: 0.8075,
+      f1: 0.8626,
     },
   ];
   const finalClassifierLabels = classifierLabels;
   const finalClassifierAbbreviations = classifierAbbreviations;
   const finalClassifierMatrix = [
-    [31, 0, 0, 0, 0],
-    [0, 115, 0, 0, 0],
-    [0, 0, 1879, 0, 0],
-    [0, 0, 0, 38, 1],
-    [0, 0, 0, 0, 195],
+    [41, 2, 0, 0, 0],
+    [0, 131, 0, 0, 0],
+    [1, 0, 2188, 0, 15],
+    [0, 0, 2, 44, 5],
+    [0, 0, 24, 0, 454],
   ];
   const finalClassifierMetrics = [
-    { label: "front_matter", acc: 1.0, p: 1.0, r: 1.0, f1: 1.0 },
-    { label: "toc", acc: 1.0, p: 1.0, r: 1.0, f1: 1.0 },
-    { label: "body", acc: 1.0, p: 1.0, r: 1.0, f1: 1.0 },
-    { label: "sig", acc: 0.9744, p: 1.0, r: 0.9744, f1: 0.987 },
+    {
+      label: "front_matter",
+      acc: 0.9534883720930233,
+      p: 0.9761904761904762,
+      r: 0.9534883720930233,
+      f1: 0.9647058823529412,
+    },
+    {
+      label: "toc",
+      acc: 1.0,
+      p: 0.9849624060150376,
+      r: 1.0,
+      f1: 0.9924242424242424,
+    },
+    {
+      label: "body",
+      acc: 0.9927404718693285,
+      p: 0.988256549232159,
+      r: 0.9927404718693285,
+      f1: 0.990493435943866,
+    },
+    {
+      label: "sig",
+      acc: 0.8627450980392157,
+      p: 1.0,
+      r: 0.8627450980392157,
+      f1: 0.9263157894736842,
+    },
     {
       label: "back_matter",
+      acc: 0.9497907949790795,
+      p: 0.9578059071729957,
+      r: 0.9497907949790795,
+      f1: 0.9537815126050421,
+    },
+  ];
+  const postProcessingMatrix = [
+    [41, 2, 0, 0, 0],
+    [0, 131, 0, 0, 0],
+    [1, 0, 2188, 0, 15],
+    [0, 0, 1, 49, 1],
+    [0, 0, 11, 4, 463],
+  ];
+  const postProcessingMetrics = [
+    {
+      label: "front_matter",
+      acc: 0.9534883720930233,
+      p: 0.9761904761904762,
+      r: 0.9534883720930233,
+      f1: 0.9647058823529412,
+    },
+    {
+      label: "toc",
       acc: 1.0,
-      p: 0.9949,
+      p: 0.9849624060150376,
       r: 1.0,
-      f1: 0.9974,
+      f1: 0.9924242424242424,
+    },
+    {
+      label: "body",
+      acc: 0.9927404718693285,
+      p: 0.9945454545454545,
+      r: 0.9927404718693285,
+      f1: 0.9936421435059037,
+    },
+    {
+      label: "sig",
+      acc: 0.9607843137254902,
+      p: 0.9245283018867925,
+      r: 0.9607843137254902,
+      f1: 0.9423076923076923,
+    },
+    {
+      label: "back_matter",
+      acc: 0.9686192468619247,
+      p: 0.9665970772442589,
+      r: 0.9686192468619247,
+      f1: 0.96760710553814,
     },
   ];
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
@@ -352,7 +432,8 @@ export default function SourcesMethods() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Whether working with raw or structured text, it's
-                        challenging to classify clauses at scale.
+                        challenging to classify clauses at scale, and existing
+                        datasets don't offer taxonomies.
                       </p>
                     </div>
                     <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
@@ -383,7 +464,8 @@ export default function SourcesMethods() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Structured text is of limited use without metadata on
-                        deal value, industry codes, and buyer types.
+                        deal value, industry codes, and buyer types, and
+                        existing datasets don't provide this metadata.
                       </p>
                     </div>
                     <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
@@ -491,7 +573,7 @@ export default function SourcesMethods() {
                         href="#agreement-identification"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
                       >
-                        Agreement Model
+                        Exhibit Model
                       </a>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -509,6 +591,59 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Normalization
                       </span>
+                      {isCoarsePointer ? (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                              aria-label="Why we split and classify pages"
+                            >
+                              ?
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            side="top"
+                            className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+                          >
+                            Why split agreements into pages? Because our NER
+                            model has a limited context window, meaning we'd
+                            have to chunk agreement text regardless, and page
+                            markers are built-in split points. Why categorize
+                            pages into classes? Primarily to identify body
+                            pages, which form the core of agreements, and to
+                            increase the accuracy of our Tagging Model, which
+                            likely would struggle with the structural variety of
+                            appendices and exhibit sections.
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <Tooltip delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                              aria-label="Why we split and classify pages"
+                            >
+                              ?
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+                          >
+                            Why split agreements into pages? Because our NER
+                            model has a limited context window, meaning we'd
+                            have to chunk agreement text regardless, and page
+                            markers are built-in split points. Why categorize
+                            pages into classes? Primarily to identify body
+                            pages, which form the core of agreements, and to
+                            increase the accuracy of our Tagging Model, which
+                            likely would struggle with the structural variety of
+                            appendices and exhibit sections.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       <a
                         href="#page-classification"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
@@ -828,7 +963,7 @@ export default function SourcesMethods() {
               className="scroll-mt-24 pt-2 space-y-4"
             >
               <h3 className="text-lg font-semibold text-foreground">
-                Agreement Model
+                Exhibit Model
               </h3>
               <ComingSoon title="Matching and deduplication logic" />
             </div>
@@ -867,7 +1002,7 @@ export default function SourcesMethods() {
                       side="top"
                       className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                     >
-                      Did we really label 32,241 pages by hand? Yes—but it
+                      Did we really label 31,864 pages by hand? Yes—but it
                       wasn't that bad. We had GPT build us a custom labeling
                       interface that allowed us to select all body pages in a
                       single go, so the whole process took less than five hours.
@@ -880,14 +1015,14 @@ export default function SourcesMethods() {
                         type="button"
                         className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
                       >
-                        <strong>32,241</strong>
+                        <strong>31,864</strong>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent
                       side="top"
                       className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
                     >
-                      Did we really label 32,241 pages by hand? Yes—but it
+                      Did we really label 31,864 pages by hand? Yes—but it
                       wasn't that bad. We had GPT build us a custom labeling
                       interface that allowed us to select all body pages in a
                       single go, so the whole process took less than three
@@ -895,9 +1030,11 @@ export default function SourcesMethods() {
                     </TooltipContent>
                   </Tooltip>
                 )}{" "}
-                manually labeled pages, stratified with distributional matching
-                by five-year window, overall length, and length of backmatter.
-                The full training code is available on{" "}
+                manually labeled pages, stratified (with distributional
+                matching) by length of backmatter section (bucketed into 4
+                buckets), overal length (bucketed into 4 buckets), and year
+                (bucketed into 5-year windows). The full training code is
+                available on{" "}
                 <a
                   href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
                   target="_blank"
@@ -910,21 +1047,465 @@ export default function SourcesMethods() {
               </div>
               <p className="text-muted-foreground">
                 Below are model performance metrics for the baseline XGB model,
-                the full BiLSTM model, and the BiLSTM with post-processing, all
+                the BiLSTM + CRF model, and the BiLSTM + CRF with post-processing, all
                 as run on a holdout set of 36 agreements. While the XGB model is
                 somewhat midling on its own, taking into account and enforcing
                 page order substantially improves performance, bringing the F1
-                score up from <strong>91.71%</strong> to <strong>99.69%</strong>
+                score up from <strong>92.83%</strong> to <strong>97.21%</strong>
                 .{" "}
               </p>
               <div className="space-y-6">
+                <Accordion type="multiple" className="space-y-4">
+                  <AccordionItem
+                    value="xgb-baseline"
+                    className="rounded-2xl border border-border/70 bg-card/60"
+                  >
+                    <AccordionTrigger className="px-5 py-4 text-left">
+                      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-foreground">
+                          Model Metrics
+                        </div>
+                        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                          XGB Baseline
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-5 pb-5">
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
+                          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Accuracy
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9556)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Precision
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.927)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Recall
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9354)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                F1 Score
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9283)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Confusion Matrix
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Predicted
+                            </div>
+                            <div className="w-full max-w-full overflow-x-auto">
+                              <div className="flex items-stretch gap-0">
+                                <div className="relative w-0">
+                                  <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Actual
+                                  </span>
+                                </div>
+                                <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
+                                  <colgroup>
+                                    <col className="w-8" />
+                                    {classifierAbbreviations.map((label) => (
+                                      <col key={label} className="w-12" />
+                                    ))}
+                                  </colgroup>
+                                  <caption className="sr-only">
+                                    XGB baseline confusion matrix
+                                  </caption>
+                                  <thead>
+                                    <tr>
+                                      <th
+                                        aria-hidden="true"
+                                        className="p-1 text-left text-muted-foreground"
+                                      />
+                                      {classifierAbbreviations.map((label) => (
+                                        <th
+                                          key={label}
+                                          scope="col"
+                                          className="p-1 text-center font-mono text-muted-foreground"
+                                        >
+                                          {label}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pageClassifierMatrix.map(
+                                      (row, rowIndex) => (
+                                        <tr
+                                          key={classifierLabels[rowIndex]}
+                                        >
+                                          <th
+                                            scope="row"
+                                            className="p-1 pl-0 text-left font-mono text-muted-foreground"
+                                          >
+                                            {classifierAbbreviations[rowIndex]}
+                                          </th>
+                                          {row.map((value, colIndex) => {
+                                            const isDiagonal =
+                                              rowIndex === colIndex;
+                                            const hasValue = value > 0;
+                                            const cellClass = isDiagonal
+                                              ? "bg-emerald-500/20 text-foreground"
+                                              : hasValue
+                                                ? "bg-rose-500/15 text-foreground"
+                                                : "bg-muted/40 text-muted-foreground/60";
+                                            return (
+                                              <td
+                                                key={`${rowIndex}-${colIndex}`}
+                                                className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
+                                              >
+                                                {value}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      )
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Per-class Metrics
+                          </div>
+                          <div className="mt-3 w-full overflow-x-auto">
+                            <table className="w-full min-w-[320px] text-xs">
+                              <caption className="sr-only">
+                                XGB baseline per-class metrics
+                              </caption>
+                              <thead>
+                                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  <th scope="col" className="pb-2 pr-3">
+                                    Class
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    Acc
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    P
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    R
+                                  </th>
+                                  <th scope="col" className="pb-2 text-right">
+                                    F1
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="font-mono text-muted-foreground">
+                                {pageClassifierMetrics.map((metric) => {
+                                  const statusClass =
+                                    metric.f1 >= 0.95
+                                      ? "bg-emerald-500"
+                                      : metric.f1 < 0.9
+                                        ? "bg-amber-400"
+                                        : "bg-muted-foreground/40";
+                                  return (
+                                    <tr
+                                      key={metric.label}
+                                      className="border-b border-border/40"
+                                    >
+                                      <th
+                                        scope="row"
+                                        className="py-2 pr-3 text-left text-foreground font-normal"
+                                      >
+                                        <span
+                                          className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
+                                        />
+                                        {classifierAbbreviations[
+                                          classifierLabels.indexOf(
+                                            metric.label
+                                          )
+                                        ] ?? metric.label}
+                                      </th>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.acc)}
+                                      </td>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.p)}
+                                      </td>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.r)}
+                                      </td>
+                                      <td className="py-2 text-right">
+                                        {formatMetric(metric.f1)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem
+                    value="crf-final"
+                    className="rounded-2xl border border-border/70 bg-card/60"
+                  >
+                    <AccordionTrigger className="px-5 py-4 text-left">
+                      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-foreground">
+                          BiLSTM + CRF Metrics
+                        </div>
+                        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                          BiLSTM + CRF
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-5 pb-5">
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
+                          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Accuracy
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9831441348469212)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Precision
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9814430677221336)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                Recall
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9517529473961293)}
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-left">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                                F1 Score
+                              </div>
+                              <div className="mt-1 text-2xl font-semibold text-foreground">
+                                {formatMetric(0.9655441725599552)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Confusion Matrix
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Predicted
+                            </div>
+                            <div className="w-full max-w-full overflow-x-auto">
+                              <div className="flex items-stretch gap-0">
+                                <div className="relative w-0">
+                                  <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Actual
+                                  </span>
+                                </div>
+                                <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
+                                  <colgroup>
+                                    <col className="w-8" />
+                                    {finalClassifierAbbreviations.map(
+                                      (label) => (
+                                        <col key={label} className="w-12" />
+                                      )
+                                    )}
+                                  </colgroup>
+                                  <caption className="sr-only">
+                                    Final classifier confusion matrix
+                                  </caption>
+                                  <thead>
+                                    <tr>
+                                      <th
+                                        aria-hidden="true"
+                                        className="p-1 text-left text-muted-foreground"
+                                      />
+                                      {finalClassifierAbbreviations.map(
+                                        (label) => (
+                                          <th
+                                            key={label}
+                                            scope="col"
+                                            className="p-1 text-center font-mono text-muted-foreground"
+                                          >
+                                            {label}
+                                          </th>
+                                        )
+                                      )}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {finalClassifierMatrix.map(
+                                      (row, rowIndex) => (
+                                        <tr
+                                          key={finalClassifierLabels[rowIndex]}
+                                        >
+                                          <th
+                                            scope="row"
+                                            className="p-1 pl-0 text-left font-mono text-muted-foreground"
+                                          >
+                                            {finalClassifierAbbreviations[
+                                              rowIndex
+                                            ]}
+                                          </th>
+                                          {row.map((value, colIndex) => {
+                                            const isDiagonal =
+                                              rowIndex === colIndex;
+                                            const hasValue = value > 0;
+                                            const cellClass = isDiagonal
+                                              ? "bg-emerald-500/20 text-foreground"
+                                              : hasValue
+                                                ? "bg-rose-500/15 text-foreground"
+                                                : "bg-muted/40 text-muted-foreground/60";
+                                            return (
+                                              <td
+                                                key={`${rowIndex}-${colIndex}`}
+                                                className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
+                                              >
+                                                {value}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      )
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Per-class Metrics
+                          </div>
+                          <div className="mt-3 w-full overflow-x-auto">
+                            <table className="w-full min-w-[320px] text-xs">
+                              <caption className="sr-only">
+                                Final classifier per-class metrics
+                              </caption>
+                              <thead>
+                                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  <th scope="col" className="pb-2 pr-3">
+                                    Class
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    Acc
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    P
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="pb-2 pr-3 text-right"
+                                  >
+                                    R
+                                  </th>
+                                  <th scope="col" className="pb-2 text-right">
+                                    F1
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="font-mono text-muted-foreground">
+                                {finalClassifierMetrics.map((metric) => {
+                                  const statusClass =
+                                    metric.f1 >= 0.95
+                                      ? "bg-emerald-500"
+                                      : metric.f1 < 0.9
+                                        ? "bg-amber-400"
+                                        : "bg-muted-foreground/40";
+                                  return (
+                                    <tr
+                                      key={metric.label}
+                                      className="border-b border-border/40"
+                                    >
+                                      <th
+                                        scope="row"
+                                        className="py-2 pr-3 text-left text-foreground font-normal"
+                                      >
+                                        <span
+                                          className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
+                                        />
+                                        {finalClassifierAbbreviations[
+                                          finalClassifierLabels.indexOf(
+                                            metric.label
+                                          )
+                                        ] ?? metric.label}
+                                      </th>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.acc)}
+                                      </td>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.p)}
+                                      </td>
+                                      <td className="py-2 pr-3 text-right">
+                                        {formatMetric(metric.r)}
+                                      </td>
+                                      <td className="py-2 text-right">
+                                        {formatMetric(metric.f1)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
                 <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-foreground">
-                      Model Metrics
+                      Post-processing Metrics
                     </div>
                     <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                      XGB Baseline
+                      Post-processing
                     </span>
                   </div>
                   <div className="mt-4 grid gap-6 lg:grid-cols-2">
@@ -935,7 +1516,7 @@ export default function SourcesMethods() {
                             Accuracy
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.917)}
+                            {formatMetric(0.9879600963192294)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -943,7 +1524,7 @@ export default function SourcesMethods() {
                             Precision
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9015)}
+                            {formatMetric(0.969364743176404)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -951,7 +1532,7 @@ export default function SourcesMethods() {
                             Recall
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9462)}
+                            {formatMetric(0.9751264809099534)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -959,7 +1540,7 @@ export default function SourcesMethods() {
                             F1 Score
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9171)}
+                            {formatMetric(0.972137413225784)}
                           </div>
                         </div>
                       </div>
@@ -987,7 +1568,7 @@ export default function SourcesMethods() {
                                 ))}
                               </colgroup>
                               <caption className="sr-only">
-                                XGB baseline confusion matrix
+                                Post-processing confusion matrix
                               </caption>
                               <thead>
                                 <tr>
@@ -1007,7 +1588,7 @@ export default function SourcesMethods() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {pageClassifierMatrix.map((row, rowIndex) => (
+                                {postProcessingMatrix.map((row, rowIndex) => (
                                   <tr key={classifierLabels[rowIndex]}>
                                     <th
                                       scope="row"
@@ -1047,7 +1628,7 @@ export default function SourcesMethods() {
                       <div className="mt-3 w-full overflow-x-auto">
                         <table className="w-full min-w-[320px] text-xs">
                           <caption className="sr-only">
-                            XGB baseline per-class metrics
+                            Post-processing per-class metrics
                           </caption>
                           <thead>
                             <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -1069,7 +1650,7 @@ export default function SourcesMethods() {
                             </tr>
                           </thead>
                           <tbody className="font-mono text-muted-foreground">
-                            {pageClassifierMetrics.map((metric) => {
+                            {postProcessingMetrics.map((metric) => {
                               const statusClass =
                                 metric.f1 >= 0.95
                                   ? "bg-emerald-500"
@@ -1090,203 +1671,6 @@ export default function SourcesMethods() {
                                     />
                                     {classifierAbbreviations[
                                       classifierLabels.indexOf(metric.label)
-                                    ] ?? metric.label}
-                                  </th>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.acc)}
-                                  </td>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.p)}
-                                  </td>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.r)}
-                                  </td>
-                                  <td className="py-2 text-right">
-                                    {formatMetric(metric.f1)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-foreground">
-                      Final Classifier Metrics
-                    </div>
-                    <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                      CRF Final
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
-                      <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Accuracy
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9996)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Precision
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.999)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Recall
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9949)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            F1 Score
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9969)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Confusion Matrix
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Predicted
-                        </div>
-                        <div className="w-full max-w-full overflow-x-auto">
-                          <div className="flex items-stretch gap-0">
-                            <div className="relative w-0">
-                              <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Actual
-                              </span>
-                            </div>
-                            <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
-                              <colgroup>
-                                <col className="w-8" />
-                                {finalClassifierAbbreviations.map((label) => (
-                                  <col key={label} className="w-12" />
-                                ))}
-                              </colgroup>
-                              <caption className="sr-only">
-                                Final classifier confusion matrix
-                              </caption>
-                              <thead>
-                                <tr>
-                                  <th
-                                    aria-hidden="true"
-                                    className="p-1 text-left text-muted-foreground"
-                                  />
-                                  {finalClassifierAbbreviations.map((label) => (
-                                    <th
-                                      key={label}
-                                      scope="col"
-                                      className="p-1 text-center font-mono text-muted-foreground"
-                                    >
-                                      {label}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {finalClassifierMatrix.map((row, rowIndex) => (
-                                  <tr key={finalClassifierLabels[rowIndex]}>
-                                    <th
-                                      scope="row"
-                                      className="p-1 pl-0 text-left font-mono text-muted-foreground"
-                                    >
-                                      {finalClassifierAbbreviations[rowIndex]}
-                                    </th>
-                                    {row.map((value, colIndex) => {
-                                      const isDiagonal = rowIndex === colIndex;
-                                      const hasValue = value > 0;
-                                      const cellClass = isDiagonal
-                                        ? "bg-emerald-500/20 text-foreground"
-                                        : hasValue
-                                          ? "bg-rose-500/15 text-foreground"
-                                          : "bg-muted/40 text-muted-foreground/60";
-                                      return (
-                                        <td
-                                          key={`${rowIndex}-${colIndex}`}
-                                          className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
-                                        >
-                                          {value}
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Per-class Metrics
-                      </div>
-                      <div className="mt-3 w-full overflow-x-auto">
-                        <table className="w-full min-w-[320px] text-xs">
-                          <caption className="sr-only">
-                            Final classifier per-class metrics
-                          </caption>
-                          <thead>
-                            <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                              <th scope="col" className="pb-2 pr-3">
-                                Class
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                Acc
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                P
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                R
-                              </th>
-                              <th scope="col" className="pb-2 text-right">
-                                F1
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="font-mono text-muted-foreground">
-                            {finalClassifierMetrics.map((metric) => {
-                              const statusClass =
-                                metric.f1 >= 0.95
-                                  ? "bg-emerald-500"
-                                  : metric.f1 < 0.9
-                                    ? "bg-amber-400"
-                                    : "bg-muted-foreground/40";
-                              return (
-                                <tr
-                                  key={metric.label}
-                                  className="border-b border-border/40"
-                                >
-                                  <th
-                                    scope="row"
-                                    className="py-2 pr-3 text-left text-foreground font-normal"
-                                  >
-                                    <span
-                                      className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
-                                    />
-                                    {finalClassifierAbbreviations[
-                                      finalClassifierLabels.indexOf(
-                                        metric.label
-                                      )
                                     ] ?? metric.label}
                                   </th>
                                   <td className="py-2 pr-3 text-right">
@@ -1367,17 +1751,16 @@ export default function SourcesMethods() {
                 We force each agreement into our five-class structure—
                 <span className="font-mono text-sm text-foreground">
                   front_matter
-                </span>{" "}
-                , <span className="font-mono text-sm text-foreground">toc</span>{" "}
+                </span>
+                , <span className="font-mono text-sm text-foreground">toc</span>
                 ,{" "}
-                <span className="font-mono text-sm text-foreground">body</span>{" "}
-                , <span className="font-mono text-sm text-foreground">sig</span>{" "}
-                ,{" "}
+                <span className="font-mono text-sm text-foreground">body</span>,{" "}
+                <span className="font-mono text-sm text-foreground">sig</span>,{" "}
                 <span className="font-mono text-sm text-foreground">
                   back_matter
                 </span>
                 —but this structure is not the best fit for some agreements. For
-                instance, some agreements place definitions into the exhibits.
+                instance, some agreements place definition sections into appendices.
               </li>
               <li>
                 At the moment, we do not process agreements that are not
