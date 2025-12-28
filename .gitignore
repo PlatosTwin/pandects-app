@@ -30,6 +30,7 @@ _t.*
 *.csv
 
 **/data/*
+**/eval_metrics/*
 
 **/*.tmp_dagster*
 
