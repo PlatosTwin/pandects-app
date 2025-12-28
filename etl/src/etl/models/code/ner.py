@@ -4,12 +4,13 @@ Main NER training and inference module.
 This module provides the main entry points for training and testing the NER model
 using PyTorch Lightning with hyperparameter optimization via Optuna.
 """
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
 # Standard library
 import os
 import time
 import yaml
-from typing import Optional, Dict, Any, List, Tuple, cast
+from typing import Callable, Literal, TYPE_CHECKING, TypeAlias, cast
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -34,28 +35,48 @@ from lightning.pytorch.callbacks import (
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from transformers import AutoTokenizer
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from optuna import create_study, Trial
 from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
-try:
-    from .shared_constants import NER_LABEL_LIST, NER_CKPT_PATH, SPECIAL_TOKENS_TO_ADD
-    from .ner_classes import NERTagger, NERDataModule, ascii_lower
-except ImportError:  # pragma: no cover - supports running as a script
-    from shared_constants import (  # pyright: ignore[reportMissingImports]
+if TYPE_CHECKING:
+    from .shared_constants import (
         NER_LABEL_LIST,
         NER_CKPT_PATH,
         SPECIAL_TOKENS_TO_ADD,
     )
-    from ner_classes import (  # pyright: ignore[reportMissingImports]
-        NERTagger,
-        NERDataModule,
-        ascii_lower,
-    )
+    from .ner_classes import NERTagger, NERDataModule, ascii_lower
+else:
+    try:
+        from .shared_constants import (
+            NER_LABEL_LIST,
+            NER_CKPT_PATH,
+            SPECIAL_TOKENS_TO_ADD,
+        )
+        from .ner_classes import NERTagger, NERDataModule, ascii_lower
+    except ImportError:  # pragma: no cover - supports running as a script
+        from shared_constants import (
+            NER_LABEL_LIST,
+            NER_CKPT_PATH,
+            SPECIAL_TOKENS_TO_ADD,
+        )
+        from ner_classes import (
+            NERTagger,
+            NERDataModule,
+            ascii_lower,
+        )
+
+PrecisionInput = Literal["bf16-mixed", "32-true"]
+WindowItem: TypeAlias = dict[str, list[int]]
 
 # Reproducibility
-seed_everything(42, workers=True, verbose=False)
+_ = seed_everything(42, workers=True, verbose=False)
+
+NER_LABELS: list[str] = [str(label) for label in NER_LABEL_LIST]
+NER_CKPT: str = str(NER_CKPT_PATH)
+SPECIAL_TOKENS: list[str] = [str(token) for token in SPECIAL_TOKENS_TO_ADD]
 
 
 class NERTrainer:
@@ -69,7 +90,7 @@ class NERTrainer:
         self,
         data_csv: str,
         model_name: str,
-        label_list: list,
+        label_list: list[str],
         num_trials: int,
         max_epochs: int,
     ):
@@ -97,37 +118,76 @@ class NERTrainer:
         else:
             self.device = "cpu"
 
-        self.train_data = []
-        self.val_data = []
+        self.train_data: list[str] = []
+        self.val_data: list[str] = []
+        self.test_data: list[str] = []
+        self.metrics_output_dir = os.path.dirname(self.data_csv) or "."
 
     def _load_data(self) -> None:
         """
-        Load and split data, stratified by presence of tags.
+        Load and split data, stratified by announcement year.
         """
-        df: pd.DataFrame = pd.read_csv(self.data_csv)
-        df["tagged"] = df["llm_output"].apply(
-            lambda x: 1 if "<section>" in x or "<article>" in x else 0
-        )
+        df = pd.read_csv(self.data_csv)
+
+        def _has_tags(text: str) -> int:
+            return 1 if "<section>" in text or "<article>" in text else 0
+
+        df["tagged"] = df["tagged_text"].apply(_has_tags)
+        df["year"] = df["date_announcement"].str.slice(0, 4)
+        df["year_tagged"] = df["year"].astype(str) + "_" + df["tagged"].astype(str)
 
         print(f"Loaded data shape: {df.shape}")
         print(df.head(2))
         print(f"Tagged value counts:\n{df['tagged'].value_counts()}")
+        print(f"Year value counts:\n{df['year'].value_counts()}")
 
         # For now, remove untagged pages
         # df = df[df["tagged"] == 1]
 
-        train_df_raw, val_df_raw = train_test_split(
-            df, test_size=0.2, stratify=df["tagged"], random_state=42
+        train_df_raw, holdout_df_raw = cast(
+            tuple[pd.DataFrame, pd.DataFrame],
+            cast(
+                object,
+                train_test_split(
+                    df, test_size=0.2, stratify=df["year_tagged"], random_state=42
+                ),
+            ),
         )
-        train_df = cast(pd.DataFrame, train_df_raw)
-        val_df = cast(pd.DataFrame, val_df_raw)
+        train_df = train_df_raw
+        holdout_df = holdout_df_raw
 
-        print(f"Train shape: {train_df.shape}, Validation shape: {val_df.shape}")
+        val_df_raw, test_df_raw = cast(
+            tuple[pd.DataFrame, pd.DataFrame],
+            cast(
+                object,
+                train_test_split(
+                    holdout_df,
+                    test_size=0.5,
+                    stratify=holdout_df["year_tagged"],
+                    random_state=42,
+                ),
+            ),
+        )
+        val_df = val_df_raw
+        test_df = test_df_raw
 
-        self.train_data = train_df["llm_output"].to_list()
-        self.val_data = val_df["llm_output"].to_list()
+        print(
+            f"Splits -> train: {train_df.shape}, val: {val_df.shape}, test: {test_df.shape}"
+        )
 
-    def _get_callbacks(self, trial: Optional[Trial] = None) -> tuple:
+        self.train_data = train_df["tagged_text"].to_list()
+        self.val_data = val_df["tagged_text"].to_list()
+        self.test_data = test_df["tagged_text"].to_list()
+
+    def _get_callbacks(
+        self, trial: Trial | None = None, ckpt: str | None = None
+    ) -> tuple[
+        ModelCheckpoint,
+        EarlyStopping,
+        LearningRateMonitor,
+        TQDMProgressBar,
+        list[PyTorchLightningPruningCallback],
+    ]:
         """
         Instantiate Lightning callbacks.
 
@@ -138,18 +198,25 @@ class NERTrainer:
             Tuple of callbacks
         """
         # Single checkpoint callback for best val_loss
+        if ckpt:
+            dirpath = os.path.dirname(ckpt)
+            filename = os.path.splitext(os.path.basename(ckpt))[0]
+        else:
+            dirpath = None
+            filename = "best-{epoch:02d}-{val_ent_f1:.4f}"
         checkpoint_callback = ModelCheckpoint(
             monitor="val_ent_f1",
             mode="max",
             save_top_k=1,
-            filename="best-{epoch:02d}-{val_ent_f1:.4f}",
+            filename=filename,
+            dirpath=dirpath,
         )
         early_stop_callback = EarlyStopping(
             monitor="val_ent_f1", patience=3, mode="max"
         )
         lr_monitor = LearningRateMonitor(logging_interval="step")
         pruning_callback = (
-            [PyTorchLightningPruningCallback(cast(Trial, trial), monitor="val_ent_f1")]
+            [PyTorchLightningPruningCallback(trial, monitor="val_ent_f1")]
             if trial is not None
             else []
         )
@@ -163,7 +230,11 @@ class NERTrainer:
             pruning_callback,
         )
 
-    def _build(self, params: dict) -> tuple["NERDataModule", "NERTagger"]:
+    def _build(
+        self,
+        params: dict[str, float | int],
+        metrics_output_name: str | None = None,
+    ) -> tuple["NERDataModule", "NERTagger"]:
         """
         Instantiate DataModule and Model from hyperparameters.
 
@@ -176,10 +247,11 @@ class NERTrainer:
         data_module = NERDataModule(
             train_data=self.train_data,
             val_data=self.val_data,
+            test_data=self.test_data,
             tokenizer_name=self.model_name,
             label_list=self.label_list,
-            batch_size=params["batch_size"],
-            train_subsample_window=params["train_subsample_window"],
+            batch_size=int(params["batch_size"]),
+            train_subsample_window=int(params["train_subsample_window"]),
             num_workers=7,
         )
         model = NERTagger(
@@ -189,6 +261,8 @@ class NERTrainer:
             learning_rate=params["lr"],
             weight_decay=params["weight_decay"],
             warmup_steps_pct=params["warmup_steps_pct"],
+            metrics_output_dir=self.metrics_output_dir,
+            metrics_output_name=metrics_output_name or "ner_test_metrics.yaml",
         )
         return data_module, model
 
@@ -224,9 +298,9 @@ class NERTrainer:
         trainer = pl.Trainer(
             max_epochs=self.max_epochs,
             accelerator=self.device,
-            precision="bf16-mixed",
+            precision=self._trainer_precision(),
             devices=1,
-            logger=TensorBoardLogger("tb_logs", name="optuna"),
+            logger=TensorBoardLogger("tb_logs", name="ner/optuna"),
             callbacks=[
                 checkpoint_callback,
                 early_stop_callback,
@@ -238,8 +312,18 @@ class NERTrainer:
             deterministic=True,
         )
         trainer.fit(model, datamodule=data_module)
+        val_ent_f1 = float(trainer.callback_metrics["val_ent_f1"].item())
 
-        val_ent_f1 = trainer.callback_metrics["val_ent_f1"].item()
+        trial_metrics = {
+            "trial": trial.number,
+            "val_ent_f1": val_ent_f1,
+            "params": params,
+        }
+        trial_dir = os.path.join(self.metrics_output_dir, "ner_trial_metrics")
+        os.makedirs(trial_dir, exist_ok=True)
+        trial_path = os.path.join(trial_dir, f"trial_{trial.number:03d}.yaml")
+        with open(trial_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(trial_metrics, f, sort_keys=False)
 
         # Clean up to avoid memory leaks
         del (
@@ -265,25 +349,27 @@ class NERTrainer:
         print("Finished hyperparameter optimization 👉")
         print(f"  Best val_ent_f1: {study.best_value:.4f}")
         print("  Best hyperparameters:")
-        for key, value in study.best_trial.params.items():
+        best_params = cast(dict[str, float | int], study.best_trial.params)
+        for key, value in best_params.items():
             print(f"    • {key}: {value}")
 
         # Retrain best model to get its checkpoint on disk
-        best_params = study.best_trial.params
-        data_module, model = self._build(best_params)
+        data_module, model = self._build(
+            best_params, metrics_output_name="ner_test_metrics_final.yaml"
+        )
         (
             checkpoint_callback,
             early_stop_callback,
             lr_monitor,
             progress_bar_callback,
             _,
-        ) = self._get_callbacks()
+        ) = self._get_callbacks(ckpt=NER_CKPT)
 
         trainer = pl.Trainer(
             max_epochs=self.max_epochs,
             accelerator=self.device,
             devices=1,
-            logger=TensorBoardLogger("tb_logs", name="final"),
+            logger=TensorBoardLogger("tb_logs", name="ner/final"),
             callbacks=[
                 checkpoint_callback,
                 early_stop_callback,
@@ -293,6 +379,12 @@ class NERTrainer:
             log_every_n_steps=10,
         )
         trainer.fit(model, datamodule=data_module)
+        _ = trainer.test(model, datamodule=data_module, ckpt_path=NER_CKPT)
+
+    def _trainer_precision(self) -> PrecisionInput:
+        if self.device in ("cuda", "mps"):
+            return "bf16-mixed"
+        return "32-true"
 
 
 class NERInference:
@@ -324,45 +416,48 @@ class NERInference:
         self.model: NERTagger = NERTagger.load_from_checkpoint(
             ckpt_path, map_location=self.device
         )
-        self.model.to(self.device)
-        self.model.eval()
+        _ = self.model.to(self.device)
+        _ = self.model.eval()
 
         # tokenizer consistent with training (special tokens added, no resize needed at inference)
-        model_name = cast(str, getattr(self.model.hparams, "model_name"))
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-        self.tokenizer.add_special_tokens(
-            {"additional_special_tokens": SPECIAL_TOKENS_TO_ADD}
+        hparams = cast(object, self.model.hparams)
+        model_name = cast(str, getattr(hparams, "model_name"))
+        self.tokenizer: PreTrainedTokenizerBase = cast(
+            PreTrainedTokenizerBase,
+            AutoTokenizer.from_pretrained(model_name, use_fast=True),
+        )
+        _ = self.tokenizer.add_special_tokens(
+            {"additional_special_tokens": SPECIAL_TOKENS}
         )
 
         # Fallbacks for essential token IDs (safe-guards)
-        if self.tokenizer.pad_token_id is None:
-            self.tokenizer.pad_token = (
-                self.tokenizer.eos_token or self.tokenizer.unk_token or "[PAD]"
-            )
-        if self.tokenizer.cls_token_id is None:
-            self.tokenizer.cls_token = (
-                self.tokenizer.bos_token or self.tokenizer.unk_token or "[CLS]"
-            )
-        if self.tokenizer.sep_token_id is None:
-            self.tokenizer.sep_token = (
-                self.tokenizer.eos_token or self.tokenizer.unk_token or "[SEP]"
-            )
+        pad_token_id = cast(int | None, self.tokenizer.pad_token_id)
+        if pad_token_id is None:
+            eos_token = cast(str | None, self.tokenizer.eos_token)
+            unk_token = cast(str | None, self.tokenizer.unk_token)
+            self.tokenizer.pad_token = eos_token or unk_token or "[PAD]"
+        cls_token_id = cast(int | None, self.tokenizer.cls_token_id)
+        if cls_token_id is None:
+            bos_token = cast(str | None, self.tokenizer.bos_token)
+            unk_token = cast(str | None, self.tokenizer.unk_token)
+            self.tokenizer.cls_token = bos_token or unk_token or "[CLS]"
+        sep_token_id = cast(int | None, self.tokenizer.sep_token_id)
+        if sep_token_id is None:
+            eos_token = cast(str | None, self.tokenizer.eos_token)
+            unk_token = cast(str | None, self.tokenizer.unk_token)
+            self.tokenizer.sep_token = eos_token or unk_token or "[SEP]"
 
         # >>> Use id2label/label2id from checkpoint to avoid order drift
-        ckpt_id2label = dict(
-            getattr(self.model.hparams, "id2label")
-        )  # keys are ints in training
-        self.id2label = {int(k): cast(str, v) for k, v in ckpt_id2label.items()}
+        ckpt_id2label = cast(dict[int, str], getattr(hparams, "id2label"))
+        self.id2label = {int(k): str(v) for k, v in ckpt_id2label.items()}
         self.label2id = {v: k for k, v in self.id2label.items()}
         self.label_list = [self.id2label[i] for i in range(len(self.id2label))]
 
         # Optional: validate if user passes label_list
         if label_list is not None:
             if list(label_list) != self.label_list:
-                raise ValueError(
-                    "label_list provided to NERInference does not match the checkpoint label order.\n"
-                    f"Checkpoint: {self.label_list}\nProvided:   {list(label_list)}"
-                )
+                message = f"label_list provided to NERInference does not match the checkpoint label order.\nCheckpoint: {self.label_list}\nProvided:   {list(label_list)}"
+                raise ValueError(message)
 
         self.C = len(self.label_list)
         self.review_threshold = review_threshold
@@ -387,17 +482,29 @@ class NERInference:
             avg_logits   : torch.Tensor         # [T, C] averaged logits on CPU
         """
         norm = ascii_lower(text)
-        enc_full = self.tokenizer(
-            norm,
-            return_tensors="pt",
-            return_offsets_mapping=True,
-            truncation=False,
-            add_special_tokens=False,
+        enc_full = cast(
+            dict[str, torch.Tensor],
+            cast(
+                object,
+                self.tokenizer(
+                    norm,
+                    return_tensors="pt",
+                    return_offsets_mapping=True,
+                    truncation=False,
+                    add_special_tokens=False,
+                ),
+            ),
         )
         input_ids = enc_full["input_ids"][0]  # [T]
-        offsets = enc_full["offset_mapping"][0].tolist()  # [(s,e)] * T
-        toks = self.tokenizer.convert_ids_to_tokens(input_ids.tolist())
-        T = len(input_ids)
+        offsets_tensor = enc_full["offset_mapping"][0]
+        offsets_raw = cast(list[list[int]], offsets_tensor.tolist())
+        offsets = [(int(s), int(e)) for s, e in offsets_raw]
+        convert_ids = cast(
+            Callable[[list[int]], list[str]],
+            getattr(self.tokenizer, "convert_ids_to_tokens"),
+        )
+        toks = convert_ids(cast(list[int], input_ids.tolist()))
+        T = int(input_ids.numel())
 
         if T == 0:
             empty_logits = torch.zeros((0, self.C), dtype=torch.float32)
@@ -408,17 +515,17 @@ class NERInference:
         counts = torch.zeros(T, device="cpu")
 
         # Build token windows; add CLS/SEP per chunk
-        windows: list[dict] = []
+        windows: list[WindowItem] = []
         bounds: list[tuple[int, int]] = []  # (start_tok, end_tok)
         i = 0
         while i < T:
             j = min(i + self.window, T)
-            chunk_ids = input_ids[i:j].tolist()
+            chunk_ids = cast(list[int], input_ids[i:j].tolist())
+            cls_id = cast(int, self.tokenizer.cls_token_id)
+            sep_id = cast(int, self.tokenizer.sep_token_id)
             windows.append(
                 {
-                    "input_ids": [self.tokenizer.cls_token_id]
-                    + chunk_ids
-                    + [self.tokenizer.sep_token_id],
+                    "input_ids": [cls_id] + chunk_ids + [sep_id],
                     "attention_mask": [1] * (len(chunk_ids) + 2),
                 }
             )
@@ -428,15 +535,15 @@ class NERInference:
             i += self.stride
 
         # Batched inference -> return LOGITS with CLS/SEP removed
-        def _infer_logits(batch_items: list[dict]) -> list[torch.Tensor]:
+        def _infer_logits(batch_items: list[WindowItem]) -> list[torch.Tensor]:
             max_len = max(len(x["input_ids"]) for x in batch_items)
-            pad_id = self.tokenizer.pad_token_id
+            pad_id = cast(int, self.tokenizer.pad_token_id)
 
-            ids = [
+            ids: list[list[int]] = [
                 x["input_ids"] + [pad_id] * (max_len - len(x["input_ids"]))
                 for x in batch_items
             ]
-            mask = [
+            mask: list[list[int]] = [
                 x["attention_mask"] + [0] * (max_len - len(x["attention_mask"]))
                 for x in batch_items
             ]
@@ -444,9 +551,10 @@ class NERInference:
             ids_t = torch.tensor(ids, device=self.device)
             mask_t = torch.tensor(mask, device=self.device)
             with torch.no_grad():
-                logits = self.model(
-                    input_ids=ids_t, attention_mask=mask_t
-                ).logits  # [B,L,C]
+                logits = cast(
+                    torch.Tensor,
+                    self.model(input_ids=ids_t, attention_mask=mask_t).logits,
+                )  # [B,L,C]
 
             outs: list[torch.Tensor] = []
             for lg, m in zip(logits, mask_t):
@@ -472,8 +580,8 @@ class NERInference:
         # Average logits like validation; then derive probs/confidence/preds
         avg_logits = sum_logits / counts.unsqueeze(-1).clamp(min=1.0)
         probs = torch.softmax(avg_logits, dim=-1)
-        confidences = probs.max(dim=-1)[0].tolist()
-        preds = avg_logits.argmax(dim=-1).tolist()
+        confidences = cast(list[float], probs.max(dim=-1)[0].tolist())
+        preds = cast(list[int], avg_logits.argmax(dim=-1).tolist())
 
         # --- Light BIOES repair on the predicted sequence ---
         def _repair_bioes(seq: list[int]) -> list[int]:
@@ -537,10 +645,10 @@ class NERInference:
     # ---------------- Low-confidence spans over tokens ----------------
     def _token_spans(
         self, preds: list[int], confs: list[float], offsets: list[tuple[int, int]]
-    ) -> tuple[int, list[dict]]:
+    ) -> tuple[int, list[dict[str, object]]]:
         low_idxs = [i for i, c in enumerate(confs) if c < self.review_threshold]
         low_count = len(low_idxs)
-        spans: list[dict] = []
+        spans: list[dict[str, object]] = []
         if not low_idxs:
             return low_count, spans
 
@@ -605,14 +713,14 @@ class NERInference:
         texts: list[str],
         verbose: bool = False,
         return_token_probs: bool = False,  # <— new flag
-    ) -> list[dict]:
-        results = []
+    ) -> list[dict[str, object]]:
+        results: list[dict[str, object]] = []
         for idx, text in enumerate(texts):
             preds, confs, offsets, _, avg_logits = self._predict_tokens(text)
             tagged = self._pretty_print_from_tokens(text, preds, offsets)
             low_count, spans = self._token_spans(preds, confs, offsets)
 
-            tokens_below = []
+            tokens_below: list[dict[str, object]] = []
             for i, ((s, e), conf, lid) in enumerate(zip(offsets, confs, preds)):
                 if e == 0 or s >= e:
                     continue
@@ -633,7 +741,7 @@ class NERInference:
                         }
                     )
 
-            out = {
+            out: dict[str, object] = {
                 "tagged": tagged,
                 "low_count": low_count,
                 "spans": spans,
@@ -642,7 +750,9 @@ class NERInference:
 
             if return_token_probs:
                 # Build full per-token probability vectors (from stitched avg_logits)
-                probs_full = torch.softmax(avg_logits, dim=-1).tolist()
+                probs_full = cast(
+                    list[list[float]], torch.softmax(avg_logits, dim=-1).tolist()
+                )
                 token_probs = []
                 for i, ((s, e), lid, pv) in enumerate(zip(offsets, preds, probs_full)):
                     if e == 0 or s >= e:
@@ -690,7 +800,7 @@ def main(mode: str = "test") -> None:
         ner_trainer = NERTrainer(
             data_csv="../data/ner-data.csv",
             model_name="answerdotai/ModernBERT-base",
-            label_list=NER_LABEL_LIST,
+            label_list=NER_LABELS,
             num_trials=10,
             max_epochs=10,
         )
@@ -707,7 +817,7 @@ def main(mode: str = "test") -> None:
 
         # Initialize inference model
         inference_model = NERInference(
-            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.99
+            ckpt_path=NER_CKPT, label_list=NER_LABELS, review_threshold=0.99
         )
 
         # Run inference
@@ -723,4 +833,4 @@ def main(mode: str = "test") -> None:
 
 
 if __name__ == "__main__":
-    main(mode="test")
+    main(mode="train")

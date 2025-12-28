@@ -4,11 +4,13 @@ NER (Named Entity Recognition) models and datasets.
 This module contains PyTorch Lightning modules and datasets for NER tasks
 using transformer models with BIO tagging scheme.
 """
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false, reportUnnecessaryComparison=false
 
 # Standard library
 import os
 import re
-from typing import Any, Dict, List, Tuple, cast, Optional
+from typing import Protocol, cast
+import yaml
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
 import numpy as np
@@ -22,7 +24,7 @@ import lightning.pytorch as pl
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
-from torchmetrics import F1Score as F1, Precision, Recall
+from torchmetrics import F1Score as F1
 
 torch.set_float32_matmul_precision("high")
 
@@ -44,13 +46,17 @@ except ImportError:  # pragma: no cover - supports running as a script
 _ASCII_LOWER_TBL = str.maketrans({chr(i): chr(i + 32) for i in range(65, 91)})
 
 
+class _LogitsOutput(Protocol):
+    logits: torch.Tensor
+
+
 def ascii_lower(s: str) -> str:
     return s.translate(_ASCII_LOWER_TBL)
 
 
 def _upgrade_token_head(
-    model, num_labels: int, p_drop: float = 0.1, hidden_mult: float = 1.0
-):
+    model: nn.Module, num_labels: int, p_drop: float = 0.1, hidden_mult: float = 1.0
+) -> nn.Module:
     # Works for most HF token classifiers (including ModernBERT variants)
     if hasattr(model, "classifier") and isinstance(model.classifier, nn.Linear):
         in_dim = model.classifier.in_features
@@ -66,13 +72,13 @@ def _upgrade_token_head(
 
 
 def _process_document(
-    raw: str, tokenizer: PreTrainedTokenizerBase, label2id: Dict[str, int]
-) -> Dict[str, Any]:
+    raw: str, tokenizer: PreTrainedTokenizerBase, label2id: dict[str, int]
+) -> dict[str, object]:
     tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
 
     # 1) Build cleaned_text while tracking spans in cleaned-text coordinates
-    parts: List[str] = []
-    spans: List[Tuple[int, int, str]] = []  # (start_in_cleaned, end_in_cleaned, tag)
+    parts: list[str] = []
+    spans: list[tuple[int, int, str]] = []  # (start_in_cleaned, end_in_cleaned, tag)
     src_pos = 0
     out_len = 0
 
@@ -106,11 +112,17 @@ def _process_document(
         truncation=False,
         add_special_tokens=False,
     )
-    offsets = encoding["offset_mapping"]
+    offsets = cast(list[tuple[int, int]], encoding["offset_mapping"])
     word_ids = encoding.word_ids()
+    if word_ids is None:
+        raise RuntimeError(
+            "Tokenizer did not return word_ids; ensure a fast tokenizer is used."
+        )
+
+    encoding_dict = cast(dict[str, object], cast(object, encoding))
 
     # 3) Locate first token of each word (for word-level labeling & later span logic)
-    first_token_idx: List[int] = []
+    first_token_idx: list[int] = []
     seen_words = set()
     for i, wid in enumerate(word_ids):
         if wid is None:
@@ -125,7 +137,7 @@ def _process_document(
 
     # 5) Apply BIOES to the FIRST token of each word overlapping each char span
     for c0, c1, tag in spans:
-        wid_to_first_tok: Dict[int, int] = {}
+        wid_to_first_tok: dict[int, int] = {}
         for i, wid in enumerate(word_ids):
             if wid is None:
                 continue
@@ -147,7 +159,7 @@ def _process_document(
                 labels[idx] = label2id[f"I-{tag.upper()}"]
 
     # 6) Mask non-first-subword tokens as -100; keep track of first-token indices
-    final_labels: List[int] = []
+    final_labels: list[int] = []
     last_wid = None
     for i, wid in enumerate(word_ids):
         if wid is None:
@@ -158,13 +170,13 @@ def _process_document(
             final_labels.append(-100)
         last_wid = wid
 
-    encoding["labels"] = final_labels
-    encoding["cleaned_text"] = cleaned_text
-    encoding["first_token_idx"] = first_token_idx
-    return encoding
+    encoding_dict["labels"] = final_labels
+    encoding_dict["cleaned_text"] = cleaned_text
+    encoding_dict["first_token_idx"] = first_token_idx
+    return encoding_dict
 
 
-def repair_bioes(tags: List[str]) -> List[str]:
+def repair_bioes(tags: list[str]) -> list[str]:
     """
     Make a best-effort repair of illegal BIOES sequences.
     - Lone I-* without a preceding B-*: -> B-*
@@ -234,7 +246,7 @@ def repair_bioes(tags: List[str]) -> List[str]:
     return repaired
 
 
-def tags_to_spans(tags: List[str]) -> List[Tuple[int, int, str]]:
+def tags_to_spans(tags: list[str]) -> list[tuple[int, int, str]]:
     """
     Convert BIOES tags to spans as (start_idx, end_idx, type), inclusive.
     Assumes tags have been repaired (legal BIOES).
@@ -264,8 +276,9 @@ def tags_to_spans(tags: List[str]) -> List[Tuple[int, int, str]]:
 
 
 def prf1_from_spans(
-    pred_spans: List[Tuple[int, int, str]], gold_spans: List[Tuple[int, int, str]]
-) -> Tuple[int, int, int]:
+    pred_spans: list[tuple[int, int, str]],
+    gold_spans: list[tuple[int, int, str]],
+) -> tuple[int, int, int]:
     """
     Exact-match micro: returns (tp, fp, fn).
     """
@@ -274,6 +287,43 @@ def prf1_from_spans(
     tp = len(pred_set & gold_set)
     fp = len(pred_set - gold_set)
     fn = len(gold_set - pred_set)
+    return tp, fp, fn
+
+
+def prf1_from_spans_lenient(
+    pred_spans: list[tuple[int, int, str]],
+    gold_spans: list[tuple[int, int, str]],
+) -> tuple[int, int, int]:
+    """
+    Lenient micro: overlap match within same entity type, greedy 1-to-1.
+    """
+    pred_by_type: dict[str, list[tuple[int, int]]] = {}
+    gold_by_type: dict[str, list[tuple[int, int]]] = {}
+    for s, e, t in pred_spans:
+        pred_by_type.setdefault(t, []).append((s, e))
+    for s, e, t in gold_spans:
+        gold_by_type.setdefault(t, []).append((s, e))
+
+    def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
+        return not (a[1] < b[0] or b[1] < a[0])
+
+    tp = fp = fn = 0
+    for ent_type in set(pred_by_type) | set(gold_by_type):
+        preds = pred_by_type.get(ent_type, [])
+        golds = gold_by_type.get(ent_type, [])
+        unmatched = golds[:]
+        for p in preds:
+            match_idx = None
+            for i, g in enumerate(unmatched):
+                if _overlaps(p, g):
+                    match_idx = i
+                    break
+            if match_idx is None:
+                fp += 1
+            else:
+                tp += 1
+                unmatched.pop(match_idx)
+        fn += len(unmatched)
     return tp, fp, fn
 
 
@@ -346,7 +396,7 @@ def build_bioes_constraints(
     return trans, start, end
 
 
-class TrainDataset(Dataset):
+class TrainDataset(Dataset[dict[str, object]]):
     """
     Training dataset for NER with token-based sub-sampling strategies.
     This version includes the fix for the off-by-one error in span collection.
@@ -354,23 +404,23 @@ class TrainDataset(Dataset):
 
     def __init__(
         self,
-        data: List[str],
+        data: list[str],
         tokenizer: PreTrainedTokenizerBase,
-        label2id: Dict[str, int],
+        label2id: dict[str, int],
         subsample_window: int,
     ):
         self.tokenizer = tokenizer
         self.label2id = label2id
         self.subsample_window = subsample_window
-        self.examples = []
+        self.examples: list[dict[str, object]] = []
 
         for raw in data:
             processed_doc = _process_document(raw, self.tokenizer, self.label2id)
             self._create_samples_from_doc(processed_doc)
 
-    def _create_samples_from_doc(self, processed_doc: Dict[str, Any]):
-        input_ids = processed_doc["input_ids"]
-        labels = processed_doc["labels"]
+    def _create_samples_from_doc(self, processed_doc: dict[str, object]) -> None:
+        input_ids = cast(list[int], processed_doc["input_ids"])
+        labels = cast(list[int], processed_doc["labels"])
         num_tokens = len(input_ids)
         o_id = self.label2id["O"]
 
@@ -437,8 +487,10 @@ class TrainDataset(Dataset):
                         input_ids[mid : mid + half], labels[mid : mid + half]
                     )
 
-    def _store_chunk(self, id_chunk: List[int], label_chunk: List[int]):
+    def _store_chunk(self, id_chunk: list[int], label_chunk: list[int]) -> None:
         """Adds special tokens and stores a training example."""
+        if self.tokenizer.cls_token_id is None or self.tokenizer.sep_token_id is None:
+            raise RuntimeError("Tokenizer is missing CLS/SEP token ids.")
         input_ids = (
             [self.tokenizer.cls_token_id] + id_chunk + [self.tokenizer.sep_token_id]
         )
@@ -456,20 +508,20 @@ class TrainDataset(Dataset):
     def __len__(self) -> int:
         return len(self.examples)
 
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> dict[str, object]:
         return self.examples[idx]
 
 
-class ValWindowedDataset(Dataset):
+class ValWindowedDataset(Dataset[dict[str, object]]):
     """
     Sliding-window NER dataset for validation, operating on tokens.
     """
 
     def __init__(
         self,
-        data: List[str],
+        data: list[str],
         tokenizer: PreTrainedTokenizerBase,
-        label2id: Dict[str, int],
+        label2id: dict[str, int],
         data_collator: DataCollatorForTokenClassification,
         window: int = 510,
         stride: int = 256,
@@ -479,15 +531,15 @@ class ValWindowedDataset(Dataset):
         self.collator = data_collator
         self.window = window
         self.stride = stride
-        self.examples: List[Dict[str, Any]] = []
+        self.examples: list[dict[str, object]] = []
 
         for doc_id, raw in enumerate(data):
             processed_doc = _process_document(raw, self.tokenizer, self.label2id)
 
-            input_ids = processed_doc["input_ids"]
-            labels = processed_doc["labels"]
-            offset_mapping = processed_doc["offset_mapping"]
-            cleaned_text = processed_doc["cleaned_text"]
+            input_ids = cast(list[int], processed_doc["input_ids"])
+            labels = cast(list[int], processed_doc["labels"])
+            offset_mapping = cast(list[tuple[int, int]], processed_doc["offset_mapping"])
+            cleaned_text = cast(str, processed_doc["cleaned_text"])
             num_tokens = len(input_ids)
 
             for start in range(0, num_tokens, self.stride):
@@ -497,6 +549,8 @@ class ValWindowedDataset(Dataset):
                 label_chunk = labels[start:end]
                 offset_chunk = offset_mapping[start:end]
 
+                if self.tokenizer.cls_token_id is None or self.tokenizer.sep_token_id is None:
+                    raise RuntimeError("Tokenizer is missing CLS/SEP token ids.")
                 final_ids = (
                     [self.tokenizer.cls_token_id]
                     + id_chunk
@@ -523,10 +577,10 @@ class ValWindowedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.examples)
 
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> dict[str, object]:
         return self.examples[idx]
 
-    def collate_fn(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def collate_fn(self, features: list[dict[str, object]]) -> dict[str, object]:
         doc_ids = [f.pop("doc_id") for f in features]
         starts = [f.pop("window_start") for f in features]
         offsets = [f.pop("offset_mapping") for f in features]
@@ -551,10 +605,11 @@ class NERDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        train_data: List[str],
-        val_data: List[str],
+        train_data: list[str],
+        val_data: list[str],
+        test_data: list[str] | None,
         tokenizer_name: str,
-        label_list: List[str],
+        label_list: list[str],
         batch_size: int,
         train_subsample_window: int,
         num_workers: int,
@@ -578,8 +633,12 @@ class NERDataModule(pl.LightningDataModule):
         super().__init__()
         self.train_data = train_data
         self.val_data = val_data
+        self.test_data = test_data
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.train_dataset: TrainDataset | None = None
+        self.val_dataset: ValWindowedDataset | None = None
+        self.test_dataset: ValWindowedDataset | None = None
 
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
         self.tokenizer.add_special_tokens(
@@ -597,7 +656,7 @@ class NERDataModule(pl.LightningDataModule):
             tokenizer=self.tokenizer, label_pad_token_id=-100
         )
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         """
         Set up datasets for training and validation.
 
@@ -618,9 +677,20 @@ class NERDataModule(pl.LightningDataModule):
             window=self.val_window,
             stride=self.val_stride,
         )
+        if self.test_data is not None:
+            self.test_dataset = ValWindowedDataset(
+                data=self.test_data,
+                tokenizer=self.tokenizer,
+                label2id=self.label2id,
+                data_collator=self.data_collator,
+                window=self.val_window,
+                stride=self.val_stride,
+            )
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> DataLoader[dict[str, object]]:
         """Returns DataLoader for training set."""
+        if self.train_dataset is None:
+            raise RuntimeError("Train dataset not initialized. Call setup() first.")
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -629,14 +699,28 @@ class NERDataModule(pl.LightningDataModule):
             collate_fn=self.data_collator,
         )
 
-    def val_dataloader(self) -> DataLoader:
+    def val_dataloader(self) -> DataLoader[dict[str, object]]:
         """Returns DataLoader for validation set."""
+        if self.val_dataset is None:
+            raise RuntimeError("Validation dataset not initialized. Call setup() first.")
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=self.val_dataset.collate_fn,
+        )
+
+    def test_dataloader(self) -> DataLoader[dict[str, object]]:
+        """Returns DataLoader for test set."""
+        if self.test_dataset is None:
+            raise RuntimeError("Test dataset not initialized. Call setup() first.")
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            collate_fn=self.test_dataset.collate_fn,
         )
 
 
@@ -690,10 +774,12 @@ class NERTagger(pl.LightningModule):
         self,
         model_name: str,
         num_labels: int,
-        id2label: Dict[int, str],
+        id2label: dict[int, str],
         learning_rate: float,
         weight_decay: float,
         warmup_steps_pct: float,
+        metrics_output_dir: str | None = None,
+        metrics_output_name: str = "ner_test_metrics.yaml",
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -714,13 +800,16 @@ class NERTagger(pl.LightningModule):
         )
         self.model.resize_token_embeddings(len(self.tokenizer))
         self.model.train()
-        _upgrade_token_head(self.model, self.num_labels, p_drop=0.1, hidden_mult=1.0)
+        _ = _upgrade_token_head(self.model, self.num_labels, p_drop=0.1, hidden_mult=1.0)
 
         self.loss_fn = FocalLoss()
         self.ignore_index = -100
 
         # CRF-style constraints (buffers, move with .to(device), saved in state_dict)
         _trans, _start, _end = build_bioes_constraints(self.id2label)
+        self._crf_trans: torch.Tensor
+        self._crf_start: torch.Tensor
+        self._crf_end: torch.Tensor
         self.register_buffer("_crf_trans", _trans)  # [C,C]
         self.register_buffer("_crf_start", _start)  # [C]
         self.register_buffer("_crf_end", _end)  # [C]
@@ -750,21 +839,113 @@ class NERTagger(pl.LightningModule):
         )
 
         # >>> Token-level stitching buffers (per doc)
-        self._tok_sum: Dict[int, torch.Tensor] = {}  # [T_doc, C]
-        self._tok_cnt: Dict[int, torch.Tensor] = {}  # [T_doc]
-        self._tok_gold: Dict[int, torch.Tensor] = (
+        self._tok_sum: dict[int, torch.Tensor] = {}  # [T_doc, C]
+        self._tok_cnt: dict[int, torch.Tensor] = {}  # [T_doc]
+        self._tok_gold: dict[int, torch.Tensor] = (
             {}
         )  # [T_doc] (label ids, -100 for unknown)
-        self._doc_raw: Dict[int, str] = {}  # Optional: original/clean text
+        self._doc_raw: dict[int, str] = {}  # Optional: original/clean text
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> Any:
-        return self.model(input_ids=input_ids, attention_mask=attention_mask)
+    def _reset_eval_buffers(self) -> None:
+        self._tok_sum.clear()
+        self._tok_cnt.clear()
+        self._tok_gold.clear()
+        self._doc_raw.clear()
+
+    def _accumulate_windows(self, batch: dict[str, object], logits: torch.Tensor) -> None:
+        doc_ids = cast(torch.Tensor, batch["doc_id"])
+        window_starts = cast(torch.Tensor, batch["window_start"])
+        attention_mask = cast(torch.Tensor, batch["attention_mask"])
+        labels = cast(torch.Tensor, batch["labels"])
+        offset_mapping = cast(list[list[tuple[int, int]]], batch["offset_mapping"])
+        raw = cast(list[str], batch["raw"])
+
+        B = logits.size(0)
+        for i in range(B):
+            doc_id = int(doc_ids[i])
+            window_start = int(window_starts[i])
+            offsets = offset_mapping[i]
+            attn = attention_mask[i]
+            logits_win = logits[i]
+            labels_win = labels[i]
+
+            if doc_id not in self._doc_raw:
+                self._doc_raw[doc_id] = raw[i]
+
+            non_special_tok_count = 0
+            for (o0, o1), a in zip(offsets, attn):
+                if a == 0:
+                    continue
+                if o0 == 0 and o1 == 0:
+                    continue
+                non_special_tok_count += 1
+
+            required_len = window_start + non_special_tok_count
+            if doc_id not in self._tok_sum:
+                device = logits_win.device
+                self._tok_sum[doc_id] = torch.zeros(
+                    (required_len, self.num_labels), device=device
+                )
+                self._tok_cnt[doc_id] = torch.zeros(required_len, device=device)
+                self._tok_gold[doc_id] = torch.full(
+                    (required_len,), self.ignore_index, dtype=torch.long, device=device
+                )
+            elif required_len > self._tok_sum[doc_id].size(0):
+                device = logits_win.device
+                old = self._tok_sum[doc_id].size(0)
+                pad = required_len - old
+                self._tok_sum[doc_id] = torch.cat(
+                    [
+                        self._tok_sum[doc_id],
+                        torch.zeros((pad, self.num_labels), device=device),
+                    ],
+                    dim=0,
+                )
+                self._tok_cnt[doc_id] = torch.cat(
+                    [self._tok_cnt[doc_id], torch.zeros(pad, device=device)], dim=0
+                )
+                self._tok_gold[doc_id] = torch.cat(
+                    [
+                        self._tok_gold[doc_id],
+                        torch.full(
+                            (pad,), self.ignore_index, dtype=torch.long, device=device
+                        ),
+                    ],
+                    dim=0,
+                )
+
+            abs_tok = window_start
+            for t_idx, ((o0, o1), a) in enumerate(zip(offsets, attn)):
+                if a == 0:
+                    continue
+                if o0 == 0 and o1 == 0:
+                    continue
+
+                self._tok_sum[doc_id][abs_tok] += logits_win[t_idx]
+                self._tok_cnt[doc_id][abs_tok] += 1
+
+                lab = int(labels_win[t_idx].item())
+                if (
+                    lab != self.ignore_index
+                    and self._tok_gold[doc_id][abs_tok].item() == self.ignore_index
+                ):
+                    self._tok_gold[doc_id][abs_tok] = lab
+
+                abs_tok += 1
+
+    def forward(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
+    ) -> _LogitsOutput:
+        return cast(
+            _LogitsOutput,
+            self.model(input_ids=input_ids, attention_mask=attention_mask),
+        )
 
     # ----------------- TRAIN -----------------
     def training_step(
-        self, batch: Dict[str, torch.Tensor], batch_idx: int
+        self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
-        outputs = self(batch["input_ids"], batch["attention_mask"])
+        outputs = self.forward(batch["input_ids"], batch["attention_mask"])
         logits = outputs.logits
         loss = self.loss_fn(logits.view(-1, self.num_labels), batch["labels"].view(-1))
 
@@ -823,20 +1004,18 @@ class NERTagger(pl.LightningModule):
 
     # ----------------- VAL -----------------
     def on_validation_epoch_start(self) -> None:
-        # >>> Clear token-level buffers
-        self._tok_sum.clear()
-        self._tok_cnt.clear()
-        self._tok_gold.clear()
-        self._doc_raw.clear()
+        self._reset_eval_buffers()
 
     def validation_step(
-        self, batch: Dict[str, torch.Tensor], batch_idx: int
+        self, batch: dict[str, object], batch_idx: int
     ) -> torch.Tensor:
-        outputs = self(batch["input_ids"], batch["attention_mask"])
-        logits = outputs.logits
-        loss = self.loss_fn(logits.view(-1, self.num_labels), batch["labels"].view(-1))
+        input_ids = cast(torch.Tensor, batch["input_ids"])
+        attention_mask = cast(torch.Tensor, batch["attention_mask"])
+        labels = cast(torch.Tensor, batch["labels"])
 
-        labels = batch["labels"]
+        outputs = self.forward(input_ids, attention_mask)
+        logits = outputs.logits
+        loss = self.loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
         preds = torch.argmax(logits, dim=-1)
         mask = labels != self.ignore_index
 
@@ -850,93 +1029,10 @@ class NERTagger(pl.LightningModule):
             prog_bar=True,
             on_step=False,
             on_epoch=True,
-            batch_size=batch["input_ids"].shape[0],
+            batch_size=input_ids.shape[0],
         )
 
-        # >>> Stitch at token level across overlapping windows
-        # batch contains: doc_id [B], window_start [B], offset_mapping (list of lists), raw (list[str])
-        B = logits.size(0)
-        for i in range(B):
-            doc_id = int(batch["doc_id"][i])
-            window_start = int(
-                batch["window_start"][i]
-            )  # token start index in full doc
-            offsets = batch["offset_mapping"][i]  # len == T_win, (0,0) at CLS/SEP
-            attn = batch["attention_mask"][i]  # [T_win]
-            logits_win = logits[i]  # [T_win, C]
-            labels_win = labels[i]  # [T_win]
-
-            # Store raw once (optional)
-            if doc_id not in self._doc_raw:
-                # NOTE: ValWindowedDataset currently stores cleaned_text; if you want original, change it there.
-                self._doc_raw[doc_id] = batch["raw"][i]
-
-            # Count real tokens in this window (exclude specials with (0,0) offsets)
-            non_special_tok_count = 0
-            for (o0, o1), a in zip(offsets, attn):
-                if a == 0:
-                    continue
-                if o0 == 0 and o1 == 0:
-                    continue
-                non_special_tok_count += 1
-
-            # Grow buffers
-            required_len = window_start + non_special_tok_count
-            if doc_id not in self._tok_sum:
-                device = logits_win.device
-                self._tok_sum[doc_id] = torch.zeros(
-                    (required_len, self.num_labels), device=device
-                )
-                self._tok_cnt[doc_id] = torch.zeros(required_len, device=device)
-                self._tok_gold[doc_id] = torch.full(
-                    (required_len,), self.ignore_index, dtype=torch.long, device=device
-                )
-            elif required_len > self._tok_sum[doc_id].size(0):
-                device = logits_win.device
-                old = self._tok_sum[doc_id].size(0)
-                pad = required_len - old
-                self._tok_sum[doc_id] = torch.cat(
-                    [
-                        self._tok_sum[doc_id],
-                        torch.zeros((pad, self.num_labels), device=device),
-                    ],
-                    dim=0,
-                )
-                self._tok_cnt[doc_id] = torch.cat(
-                    [self._tok_cnt[doc_id], torch.zeros(pad, device=device)], dim=0
-                )
-                self._tok_gold[doc_id] = torch.cat(
-                    [
-                        self._tok_gold[doc_id],
-                        torch.full(
-                            (pad,), self.ignore_index, dtype=torch.long, device=device
-                        ),
-                    ],
-                    dim=0,
-                )
-
-            # Walk the window tokens and map to absolute token indices in doc
-            abs_tok = window_start
-            for t_idx, ((o0, o1), a) in enumerate(zip(offsets, attn)):
-                if a == 0:
-                    continue
-                if o0 == 0 and o1 == 0:
-                    # CLS/SEP we added in dataset
-                    continue
-
-                # accumulate logits/count
-                self._tok_sum[doc_id][abs_tok] += logits_win[t_idx]
-                self._tok_cnt[doc_id][abs_tok] += 1
-
-                # set gold once (windows agree, but be safe)
-                lab = int(labels_win[t_idx].item())
-                if (
-                    lab != self.ignore_index
-                    and self._tok_gold[doc_id][abs_tok].item() == self.ignore_index
-                ):
-                    self._tok_gold[doc_id][abs_tok] = lab
-
-                abs_tok += 1
+        self._accumulate_windows(batch, logits)
 
         return loss
 
@@ -981,12 +1077,387 @@ class NERTagger(pl.LightningModule):
             prec = tp / (tp + fp) if (tp + fp) else 0.0
             rec = tp / (tp + fn) if (tp + fn) else 0.0
             f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
-            self.log("val_ent_precision", prec)
-            self.log("val_ent_recall", rec)
-            self.log("val_ent_f1", f1, prog_bar=True)
+        else:
+            prec = rec = f1 = 0.0
+        self.log("val_ent_precision", prec)
+        self.log("val_ent_recall", rec)
+        self.log("val_ent_f1", f1, prog_bar=True)
+
+    def on_test_epoch_start(self) -> None:
+        self._reset_eval_buffers()
+
+    def test_step(self, batch: dict[str, object], batch_idx: int) -> torch.Tensor:
+        input_ids = cast(torch.Tensor, batch["input_ids"])
+        attention_mask = cast(torch.Tensor, batch["attention_mask"])
+        labels = cast(torch.Tensor, batch["labels"])
+
+        outputs = self.forward(input_ids, attention_mask)
+        logits = outputs.logits
+        loss = self.loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+
+        self.log(
+            "test_loss",
+            loss,
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+            batch_size=input_ids.shape[0],
+        )
+
+        self._accumulate_windows(batch, logits)
+        return loss
+
+    def _compute_token_metrics(
+        self, pred_ids: list[int], gold_ids: list[int]
+    ) -> dict[str, object]:
+        labels = [self.id2label[i] for i in range(self.num_labels)]
+        counts = {
+            label: {"tp": 0, "fp": 0, "fn": 0, "support": 0} for label in labels
+        }
+        correct = 0
+        total = 0
+        for p, g in zip(pred_ids, gold_ids):
+            g_label = self.id2label[g]
+            p_label = self.id2label[p]
+            total += 1
+            if p == g:
+                correct += 1
+                counts[g_label]["tp"] += 1
+            else:
+                counts[p_label]["fp"] += 1
+                counts[g_label]["fn"] += 1
+            counts[g_label]["support"] += 1
+
+        def _prf(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
+            prec = tp / (tp + fp) if (tp + fp) else 0.0
+            rec = tp / (tp + fn) if (tp + fn) else 0.0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+            return prec, rec, f1
+
+        per_label = {}
+        for label, c in counts.items():
+            prec, rec, f1 = _prf(c["tp"], c["fp"], c["fn"])
+            per_label[label] = {
+                "precision": prec,
+                "recall": rec,
+                "f1": f1,
+                "support": c["support"],
+            }
+
+        def _aggregate(label_names: list[str]) -> dict[str, float]:
+            tp = sum(counts[l]["tp"] for l in label_names)
+            fp = sum(counts[l]["fp"] for l in label_names)
+            fn = sum(counts[l]["fn"] for l in label_names)
+            prec, rec, f1 = _prf(tp, fp, fn)
+            return {"precision": prec, "recall": rec, "f1": f1}
+
+        def _macro(label_names: list[str]) -> dict[str, float]:
+            vals = [
+                per_label[l]["f1"]
+                for l in label_names
+                if per_label[l]["support"] > 0
+            ]
+            if not vals:
+                return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+            precs = [
+                per_label[l]["precision"]
+                for l in label_names
+                if per_label[l]["support"] > 0
+            ]
+            recs = [
+                per_label[l]["recall"]
+                for l in label_names
+                if per_label[l]["support"] > 0
+            ]
+            return {
+                "precision": sum(precs) / len(precs),
+                "recall": sum(recs) / len(recs),
+                "f1": sum(vals) / len(vals),
+            }
+
+        no_o_labels = [l for l in labels if l != "O"]
+        metrics = {
+            "accuracy": (correct / total) if total else 0.0,
+            "micro": _aggregate(labels),
+            "macro": _macro(labels),
+            "micro_no_o": _aggregate(no_o_labels),
+            "macro_no_o": _macro(no_o_labels),
+            "per_label": per_label,
+            "total_tokens": total,
+        }
+        return cast(dict[str, object], metrics)
+
+    def _compute_entity_metrics(
+        self,
+        pred_tags: list[str],
+        gold_tags: list[str],
+        counts: dict[str, dict[str, int]],
+    ) -> None:
+        pred_spans = tags_to_spans(pred_tags)
+        gold_spans = tags_to_spans(gold_tags)
+
+        pred_by_type: dict[str, set[tuple[int, int]]] = {}
+        gold_by_type: dict[str, set[tuple[int, int]]] = {}
+        for s, e, t in pred_spans:
+            pred_by_type.setdefault(t, set()).add((s, e))
+        for s, e, t in gold_spans:
+            gold_by_type.setdefault(t, set()).add((s, e))
+
+        types = set(pred_by_type) | set(gold_by_type)
+        for t in types:
+            pred_set = pred_by_type.get(t, set())
+            gold_set = gold_by_type.get(t, set())
+            tp = len(pred_set & gold_set)
+            fp = len(pred_set - gold_set)
+            fn = len(gold_set - pred_set)
+            _ = counts.setdefault(t, {"tp": 0, "fp": 0, "fn": 0, "support": 0})
+            counts[t]["tp"] += tp
+            counts[t]["fp"] += fp
+            counts[t]["fn"] += fn
+            counts[t]["support"] += len(gold_set)
+
+    def _compute_entity_metrics_lenient(
+        self,
+        pred_tags: list[str],
+        gold_tags: list[str],
+        counts: dict[str, dict[str, int]],
+    ) -> None:
+        pred_spans = tags_to_spans(pred_tags)
+        gold_spans = tags_to_spans(gold_tags)
+
+        pred_by_type: dict[str, list[tuple[int, int]]] = {}
+        gold_by_type: dict[str, list[tuple[int, int]]] = {}
+        for s, e, t in pred_spans:
+            pred_by_type.setdefault(t, []).append((s, e))
+        for s, e, t in gold_spans:
+            gold_by_type.setdefault(t, []).append((s, e))
+
+        def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
+            return not (a[1] < b[0] or b[1] < a[0])
+
+        types = set(pred_by_type) | set(gold_by_type)
+        for t in types:
+            preds = pred_by_type.get(t, [])
+            golds = gold_by_type.get(t, [])
+            unmatched = golds[:]
+            tp = fp = 0
+            for p in preds:
+                match_idx = None
+                for i, g in enumerate(unmatched):
+                    if _overlaps(p, g):
+                        match_idx = i
+                        break
+                if match_idx is None:
+                    fp += 1
+                else:
+                    tp += 1
+                    unmatched.pop(match_idx)
+            fn = len(unmatched)
+            _ = counts.setdefault(t, {"tp": 0, "fp": 0, "fn": 0, "support": 0})
+            counts[t]["tp"] += tp
+            counts[t]["fp"] += fp
+            counts[t]["fn"] += fn
+            counts[t]["support"] += len(golds)
+
+    def on_test_epoch_end(self) -> None:
+        all_pred_ids: list[int] = []
+        all_gold_ids: list[int] = []
+        ent_counts: dict[str, dict[str, int]] = {}
+        ent_counts_lenient: dict[str, dict[str, int]] = {}
+        doc_count = 0
+        doc_with_entities = 0
+        tp_nonempty = fp_nonempty = fn_nonempty = 0
+        tp_nonempty_len = fp_nonempty_len = fn_nonempty_len = 0
+
+        for doc_id, sum_logits in self._tok_sum.items():
+            cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
+            avg_logits = sum_logits / cnt
+            pred_ids = self._viterbi_constrained_doc(avg_logits)
+            gold_ids = self._tok_gold[doc_id]
+            mask = gold_ids != self.ignore_index
+            if not mask.any():
+                continue
+
+            pred_ids = pred_ids[mask].tolist()
+            gold_ids = gold_ids[mask].tolist()
+            all_pred_ids.extend(pred_ids)
+            all_gold_ids.extend(gold_ids)
+
+            pred_tags = [self.id2label[i] for i in pred_ids]
+            gold_tags = [self.id2label[i] for i in gold_ids]
+            pred_tags = repair_bioes(pred_tags)
+            doc_count += 1
+            self._compute_entity_metrics(pred_tags, gold_tags, ent_counts)
+            self._compute_entity_metrics_lenient(
+                pred_tags, gold_tags, ent_counts_lenient
+            )
+
+            pred_spans = tags_to_spans(pred_tags)
+            gold_spans = tags_to_spans(gold_tags)
+            if gold_spans:
+                doc_with_entities += 1
+                tpi, fpi, fni = prf1_from_spans(pred_spans, gold_spans)
+                tp_nonempty += tpi
+                fp_nonempty += fpi
+                fn_nonempty += fni
+
+                tpi, fpi, fni = prf1_from_spans_lenient(pred_spans, gold_spans)
+                tp_nonempty_len += tpi
+                fp_nonempty_len += fpi
+                fn_nonempty_len += fni
+
+        if not all_gold_ids:
+            return
+
+        token_metrics = self._compute_token_metrics(all_pred_ids, all_gold_ids)
+
+        def _prf(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
+            prec = tp / (tp + fp) if (tp + fp) else 0.0
+            rec = tp / (tp + fn) if (tp + fn) else 0.0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+            return prec, rec, f1
+
+        per_type = {}
+        types_with_support = []
+        tp_total = fp_total = fn_total = 0
+        for ent_type, c in ent_counts.items():
+            prec, rec, f1 = _prf(c["tp"], c["fp"], c["fn"])
+            per_type[ent_type] = {
+                "precision": prec,
+                "recall": rec,
+                "f1": f1,
+                "support": c["support"],
+            }
+            tp_total += c["tp"]
+            fp_total += c["fp"]
+            fn_total += c["fn"]
+            if c["support"] > 0:
+                types_with_support.append(ent_type)
+
+        micro_prec, micro_rec, micro_f1 = _prf(tp_total, fp_total, fn_total)
+        if types_with_support:
+            macro_prec = (
+                sum(per_type[t]["precision"] for t in types_with_support)
+                / len(types_with_support)
+            )
+            macro_rec = (
+                sum(per_type[t]["recall"] for t in types_with_support)
+                / len(types_with_support)
+            )
+            macro_f1 = (
+                sum(per_type[t]["f1"] for t in types_with_support)
+                / len(types_with_support)
+            )
+        else:
+            macro_prec = macro_rec = macro_f1 = 0.0
+
+        entity_metrics = {
+            "micro": {"precision": micro_prec, "recall": micro_rec, "f1": micro_f1},
+            "macro": {"precision": macro_prec, "recall": macro_rec, "f1": macro_f1},
+            "per_type": per_type,
+            "total_entities": sum(c["support"] for c in ent_counts.values()),
+        }
+
+        per_type_len = {}
+        types_with_support_len = []
+        tp_total_len = fp_total_len = fn_total_len = 0
+        for ent_type, c in ent_counts_lenient.items():
+            prec, rec, f1 = _prf(c["tp"], c["fp"], c["fn"])
+            per_type_len[ent_type] = {
+                "precision": prec,
+                "recall": rec,
+                "f1": f1,
+                "support": c["support"],
+            }
+            tp_total_len += c["tp"]
+            fp_total_len += c["fp"]
+            fn_total_len += c["fn"]
+            if c["support"] > 0:
+                types_with_support_len.append(ent_type)
+
+        micro_prec_len, micro_rec_len, micro_f1_len = _prf(
+            tp_total_len, fp_total_len, fn_total_len
+        )
+        if types_with_support_len:
+            macro_prec_len = (
+                sum(per_type_len[t]["precision"] for t in types_with_support_len)
+                / len(types_with_support_len)
+            )
+            macro_rec_len = (
+                sum(per_type_len[t]["recall"] for t in types_with_support_len)
+                / len(types_with_support_len)
+            )
+            macro_f1_len = (
+                sum(per_type_len[t]["f1"] for t in types_with_support_len)
+                / len(types_with_support_len)
+            )
+        else:
+            macro_prec_len = macro_rec_len = macro_f1_len = 0.0
+
+        entity_metrics["lenient"] = {
+            "micro": {
+                "precision": micro_prec_len,
+                "recall": micro_rec_len,
+                "f1": micro_f1_len,
+            },
+            "macro": {
+                "precision": macro_prec_len,
+                "recall": macro_rec_len,
+                "f1": macro_f1_len,
+            },
+            "per_type": per_type_len,
+            "total_entities": sum(c["support"] for c in ent_counts_lenient.values()),
+        }
+
+        empty_docs = doc_count - doc_with_entities
+        empty_pct = (empty_docs / doc_count) if doc_count else 0.0
+        entity_metrics["docs"] = {
+            "total": doc_count,
+            "with_entities": doc_with_entities,
+            "empty": empty_docs,
+            "empty_pct": empty_pct,
+        }
+
+        nonempty_prec, nonempty_rec, nonempty_f1 = _prf(
+            tp_nonempty, fp_nonempty, fn_nonempty
+        )
+        nonempty_prec_len, nonempty_rec_len, nonempty_f1_len = _prf(
+            tp_nonempty_len, fp_nonempty_len, fn_nonempty_len
+        )
+        entity_metrics["nonempty_micro"] = {
+            "precision": nonempty_prec,
+            "recall": nonempty_rec,
+            "f1": nonempty_f1,
+        }
+        entity_metrics["nonempty_micro_lenient"] = {
+            "precision": nonempty_prec_len,
+            "recall": nonempty_rec_len,
+            "f1": nonempty_f1_len,
+        }
+
+        self.log("test_ent_f1", micro_f1, prog_bar=True)
+        self.log("test_ent_f1_lenient", micro_f1_len, prog_bar=True)
+        self.log("test_ent_f1_nonempty", nonempty_f1, prog_bar=True)
+        self.log("test_ent_f1_nonempty_lenient", nonempty_f1_len, prog_bar=True)
+
+        metrics = {
+            "token_level": token_metrics,
+            "entity_level": entity_metrics,
+        }
+
+        metrics_dir = cast(str | None, getattr(self.hparams, "metrics_output_dir", None))
+        if metrics_dir is None:
+            return
+        if metrics_dir == "":
+            metrics_dir = "."
+        metrics_name = cast(str, getattr(self.hparams, "metrics_output_name", "ner_test_metrics.yaml"))
+        path = os.path.join(metrics_dir, metrics_name)
+        os.makedirs(metrics_dir, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(metrics, f, sort_keys=False)
 
     # ----------------- OPTIM -----------------
-    def configure_optimizers(self) -> Tuple[List[Optimizer], List[LRSchedulerConfig]]:
+    def configure_optimizers(self) -> tuple[list[Optimizer], list[LRSchedulerConfig]]:
         no_decay = ["bias", "LayerNorm.weight"]
         params = [
             {
@@ -1015,6 +1486,6 @@ class NERTagger(pl.LightningModule):
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
         )
         scheduler_dict = cast(
-            LRSchedulerConfig, {"scheduler": scheduler, "interval": "step"}
+            LRSchedulerConfig, cast(object, {"scheduler": scheduler, "interval": "step"})
         )
         return [optimizer], [scheduler_dict]
