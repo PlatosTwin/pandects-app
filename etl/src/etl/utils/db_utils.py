@@ -1,10 +1,49 @@
 from sqlalchemy.engine import Connection
 from sqlalchemy import text
-from typing import Sequence
+from collections.abc import Sequence, Mapping
+from typing import Protocol
 import json
 
 
-def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
+class AgreementRow(Protocol):
+    agreement_uuid: str
+    url: str
+    target: str
+    acquirer: str
+    filing_date: object
+
+
+class PageRow(Protocol):
+    agreement_uuid: str | None
+    page_uuid: str | None
+    page_order: int | None
+    raw_page_content: str | None
+    processed_page_content: str | None
+    source_is_txt: bool | None
+    source_is_html: bool | None
+    source_page_type: str | None
+    page_type_prob_front_matter: float | None
+    page_type_prob_toc: float | None
+    page_type_prob_body: float | None
+    page_type_prob_sig: float | None
+    page_type_prob_back_matter: float | None
+    postprocess_modified: bool | None
+
+
+class TagRow(Protocol):
+    page_uuid: str
+    tagged_text: str
+    low_count: int
+    spans: list[dict[str, object]]
+    tokens: list[dict[str, object]]
+
+
+class XmlRow(Protocol):
+    agreement_uuid: str
+    xml: str
+
+
+def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connection) -> None:
     upsert_sql = text(
         """
             INSERT INTO pdx.agreements (
@@ -29,7 +68,7 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
     )
 
     count = len(staged_agreements)
-    rows = []
+    rows: list[dict[str, object]] = []
     for f in staged_agreements:
         rows.append(
             {
@@ -44,10 +83,10 @@ def upsert_agreements(staged_agreements: Sequence, conn: Connection) -> None:
     # execute in batches of 250
     for i in range(0, count, 250):
         batch = rows[i : i + 250]
-        conn.execute(upsert_sql, batch)
+        _ = conn.execute(upsert_sql, batch)
 
 
-def upsert_pages(staged_pages: Sequence, operation_type: str, conn: Connection) -> None:
+def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Connection) -> None:
     """
     Upserts a batch of PageMetadata objects into the pdx.pages table.
     Args:
@@ -126,17 +165,17 @@ def upsert_pages(staged_pages: Sequence, operation_type: str, conn: Connection) 
             f"Unknown value provided for 'operation_type': {operation_type}"
         )
 
-    rows = [
+    rows: list[dict[str, object]] = [
         {col: getattr(page, col) for col in operation_cols} for page in staged_pages
     ]
 
     # execute in batches of 250
     for i in range(0, len(rows), 250):
         batch = rows[i : i + 250]
-        conn.execute(upsert_sql, batch)
+        _ = conn.execute(upsert_sql, batch)
 
 
-def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
+def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
     """
     Upserts a batch of TagData objects into the pdx.tagged_outputs table.
     Args:
@@ -167,8 +206,8 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
         """
     )
 
-    rows_tags = []
-    rows_pages = []
+    rows_tags: list[dict[str, object]] = []
+    rows_pages: list[dict[str, object]] = []
     for tag in staged_tags:
         rows_tags.append(
             {
@@ -185,10 +224,10 @@ def upsert_tags(staged_tags: Sequence, conn: Connection) -> None:
     # execute in batches of 250
     for i in range(0, len(rows_tags), 250):
         batch_tags = rows_tags[i : i + 250]
-        conn.execute(upsert_sql_tags, batch_tags)
+        _ = conn.execute(upsert_sql_tags, batch_tags)
 
 
-def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
+def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
     """
     Upserts a batch of XML objects into the pdx.xml table.
     Args:
@@ -210,7 +249,7 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
         """
     )
 
-    rows_xmls = []
+    rows_xmls: list[dict[str, object]] = []
     for xml in staged_xml:
         rows_xmls.append(
             {
@@ -223,10 +262,10 @@ def upsert_xml(staged_xml: Sequence, conn: Connection) -> None:
 
     for i in range(0, len(rows_xmls), 250):
         batch_tags = rows_xmls[i : i + 250]
-        conn.execute(upsert_sql_xml, batch_tags)
+        _ = conn.execute(upsert_sql_xml, batch_tags)
 
 
-def upsert_sections(staged_sections: Sequence, conn: Connection) -> None:
+def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Connection) -> None:
     """
     Upsert section rows into pdx.sections.
 
@@ -268,7 +307,7 @@ def upsert_sections(staged_sections: Sequence, conn: Connection) -> None:
         """
     )
 
-    rows = list(staged_sections)
+    rows: list[Mapping[str, object]] = list(staged_sections)
     for i in range(0, len(rows), 250):
         batch = rows[i : i + 250]
-        conn.execute(upsert_sql, batch)
+        _ = conn.execute(upsert_sql, batch)
