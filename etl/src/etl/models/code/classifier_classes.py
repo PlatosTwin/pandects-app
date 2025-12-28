@@ -4,18 +4,18 @@ Page classification models and datasets.
 This module contains PyTorch Lightning modules and datasets for page classification
 using CRF (Conditional Random Fields) on top of XGBoost emissions.
 """
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false
 
 from functools import lru_cache
 from typing import cast
 
 import lightning.pytorch as pl
 import numpy as np
-import os
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import torch
 from torch import Tensor
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import F1Score, Precision, Recall, Metric
@@ -25,9 +25,11 @@ from joblib import Parallel, delayed
 try:
     from .classifier_utils import extract_features
     from .shared_constants import CLASSIFIER_LABEL_LIST
+    from .split_utils import build_agreement_split, load_split_manifest
 except ImportError:  # pragma: no cover - supports running as a script
     from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
     from shared_constants import CLASSIFIER_LABEL_LIST  # pyright: ignore[reportMissingImports]
+    from split_utils import build_agreement_split, load_split_manifest  # pyright: ignore[reportMissingImports]
 
 
 Prediction = dict[str, str | dict[str, float] | bool]
@@ -53,30 +55,6 @@ def load_xgb_model(xgb_path: str) -> xgb.Booster:
     return model
 
 
-@lru_cache(maxsize=2)
-def load_temperature_calibration(calib_path: str) -> float:
-    """
-    Load temperature calibration parameter with caching.
-    
-    Args:
-        calib_path: Path to the calibration JSON file
-        
-    Returns:
-        Temperature parameter for probability calibration (typically 0.5-3.0)
-        
-    Note:
-        Returns 1.0 if calibration file doesn't exist or can't be loaded.
-    """
-    try:
-        if os.path.exists(calib_path):
-            import json
-            with open(calib_path, "r") as f:
-                return float(json.load(f).get("temperature", 1.0))
-    except Exception:
-        pass
-    return 1.0
-
-
 class PageDataset(Dataset[dict[str, Tensor]]):
     """
     Dataset for individual page classification.
@@ -90,7 +68,6 @@ class PageDataset(Dataset[dict[str, Tensor]]):
         label2idx: dict[str, int],
         model: xgb.Booster,
         inference: bool = False,
-        temperature: float = 1.0,
     ):
         """
         Initialize the page dataset.
@@ -100,7 +77,6 @@ class PageDataset(Dataset[dict[str, Tensor]]):
             label2idx: Mapping from label strings to indices
             model: Pre-trained XGBoost model for feature extraction
             inference: If True, skip label loading for inference
-            temperature: Temperature for calibrating XGBoost probabilities
         """
         # Handle missing values safely
         df = df.fillna({"text": "", "html": "", "order": 0})
@@ -118,16 +94,6 @@ class PageDataset(Dataset[dict[str, Tensor]]):
         features = np.vstack(features_list)
         dmatrix = xgb.DMatrix(features)
         probabilities = model.predict(dmatrix)  # Shape: (N, C)
-
-        # Apply temperature scaling if needed
-        if abs(temperature - 1.0) > 1e-6:
-            # Scale logits by temperature
-            logits = np.log(np.clip(probabilities, 1e-12, 1.0))
-            logits = logits / temperature
-            # Re-normalize
-            logits = logits - logits.max(axis=1, keepdims=True)
-            probabilities = np.exp(logits)
-            probabilities = probabilities / probabilities.sum(axis=1, keepdims=True)
 
         # Convert to log probabilities, avoiding log(0) → -inf
         probs_tensor = torch.tensor(np.clip(probabilities, 1e-12, 1.0), dtype=torch.float)
@@ -164,7 +130,6 @@ class DocumentDataset(Dataset[dict[str, Tensor]]):
         label2idx: dict[str, int],
         model: xgb.Booster,
         inference: bool = False,
-        temperature: float = 1.0
     ):
         """
         Initialize the document dataset.
@@ -174,10 +139,9 @@ class DocumentDataset(Dataset[dict[str, Tensor]]):
             label2idx: Mapping from label strings to indices
             model: Pre-trained XGBoost model
             inference: If True, skip label loading for inference
-            temperature: Temperature for calibrating XGBoost probabilities
         """
         self.page_dataset: PageDataset = PageDataset(
-            df, label2idx, model, inference=inference, temperature=temperature
+            df, label2idx, model, inference=inference
         )
         self.document_indices: list[list[int]] = []
 
@@ -226,7 +190,6 @@ def collate_pages(
     Returns:
         Tuple of (padded_emissions, padded_labels)
     """
-    batch_size = len(batch)
     max_seq_len = max(b["labels"].size(0) for b in batch)
     num_classes = batch[0]["emissions"].size(-1)
 
@@ -290,6 +253,7 @@ class PageDataModule(pl.LightningDataModule):
     PyTorch Lightning DataModule for page classification.
 
     Handles data loading, deterministic year-stratified splits, and XGBoost model loading.
+    If split_path is provided, uses the shared agreement split manifest.
     """
 
     def __init__(
@@ -300,6 +264,9 @@ class PageDataModule(pl.LightningDataModule):
         val_split: float = 0.2,
         test_split: float = 0.0,
         num_workers: int = 0,
+        split_path: str | None = None,
+        length_bucket_edges: list[float] | None = None,
+        back_matter_bucket_edges: list[float] | None = None,
     ):
         """
         Initialize the data module.
@@ -311,6 +278,9 @@ class PageDataModule(pl.LightningDataModule):
             val_split: Fraction of data to use for validation
             test_split: Fraction of data to use for test
             num_workers: Number of workers for data loading
+            split_path: Optional path to agreement split manifest
+            length_bucket_edges: Fixed edges for agreement length buckets
+            back_matter_bucket_edges: Fixed edges for back matter page buckets
         """
         super().__init__()
         required_columns = {"text", "html", "order", "agreement_uuid"}
@@ -330,9 +300,11 @@ class PageDataModule(pl.LightningDataModule):
         self.val_split = val_split
         self.test_split = test_split
         self.num_workers = num_workers
+        self.split_path = split_path
+        self.length_bucket_edges = length_bucket_edges
+        self.back_matter_bucket_edges = back_matter_bucket_edges
         self.label2idx: dict[str, int] = {}
         self.xgb_model: xgb.Booster | None = None
-        self.temperature: float = 1.0
         self.train_dataset: DocumentDataset | None = None
         self.val_dataset: DocumentDataset | None = None
         self.test_dataset: DocumentDataset | None = None
@@ -353,62 +325,30 @@ class PageDataModule(pl.LightningDataModule):
             and (self.val_split > 0 or self.test_split > 0)
         )
         if needs_split:
-            if "date_announcement" not in self.df.columns:
-                raise ValueError("Missing required column for splits: 'date_announcement'.")
-            announcement_dates = pd.to_datetime(self.df["date_announcement"], errors="raise")
-            if announcement_dates.isna().any():
-                raise ValueError("Found missing or invalid date_announcement values.")
-            self.df["announcement_year"] = announcement_dates.dt.year
-
-            year_counts = (
-                self.df.groupby("agreement_uuid")["announcement_year"]
-                .nunique()
-                .astype(int)
-            )
-            inconsistent = year_counts[year_counts > 1]
-            if not inconsistent.empty:
-                raise ValueError(
-                    "Found agreements spanning multiple announcement years; cannot stratify by year."
-                )
-            agreement_years = (
-                self.df.drop_duplicates("agreement_uuid")
-                .set_index("agreement_uuid")["announcement_year"]
-                .reindex(agreement_ids)
-                .to_numpy()
-            )
-
-            total_split = self.val_split + self.test_split
-            if total_split >= 1.0:
-                raise ValueError("val_split + test_split must be < 1.0")
-
-            if total_split > 0:
-                train_ids, temp_ids, years_train, years_temp = train_test_split(
-                    agreement_ids,
-                    agreement_years,
-                    test_size=total_split,
-                    random_state=42,
-                    stratify=agreement_years,
-                )
-                _ = years_train
-
-                if self.test_split > 0 and self.val_split > 0:
-                    test_ratio = self.test_split / total_split
-                    val_ids, test_ids = train_test_split(
-                        temp_ids,
-                        test_size=test_ratio,
-                        random_state=42,
-                        stratify=years_temp,
-                    )
-                elif self.test_split > 0:
-                    val_ids = []
-                    test_ids = temp_ids
-                else:
-                    val_ids = temp_ids
-                    test_ids = []
+            if self.split_path:
+                split = load_split_manifest(self.split_path)
+                train_ids = split.get("train", [])
+                val_ids = split.get("val", [])
+                test_ids = split.get("test", [])
             else:
-                train_ids = agreement_ids
-                val_ids = []
-                test_ids = []
+                split = build_agreement_split(
+                    self.df,
+                    val_split=self.val_split,
+                    test_split=self.test_split,
+                    agreement_col="agreement_uuid",
+                    date_col="date_announcement",
+                    length_bucket_edges=self.length_bucket_edges,
+                    back_matter_bucket_edges=self.back_matter_bucket_edges,
+                )
+                train_ids = split.get("train", [])
+                val_ids = split.get("val", [])
+                test_ids = split.get("test", [])
+
+            df_agreement_ids = set(map(str, agreement_ids))
+            split_ids = set(map(str, train_ids)) | set(map(str, val_ids)) | set(map(str, test_ids))
+            missing_ids = split_ids - df_agreement_ids
+            if missing_ids:
+                raise ValueError("Split manifest contains unknown agreement_uuid values.")
 
             train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
             val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
@@ -416,6 +356,16 @@ class PageDataModule(pl.LightningDataModule):
 
             # Use only labels present in training data
             present_labels = set(train_df["label"])
+            extra_labels: set[str] = set()
+            if self.val_split > 0:
+                extra_labels |= set(val_df["label"]) - present_labels
+            if self.test_split > 0:
+                extra_labels |= set(test_df["label"]) - present_labels
+            if extra_labels:
+                raise ValueError(
+                    "Validation/test labels missing from training split: "
+                    f"{sorted(extra_labels)}"
+                )
             labels = [
                 label for label in CLASSIFIER_LABEL_LIST if label in present_labels
             ]
@@ -431,27 +381,23 @@ class PageDataModule(pl.LightningDataModule):
         # Load pre-trained XGBoost model using cached loader
         self.xgb_model = load_xgb_model(self.xgb_path)
 
-        # Load temperature calibration using cached loader
-        calib_path = self.xgb_path + ".calib.json"
-        self.temperature = load_temperature_calibration(calib_path)
-            
         if stage in ("fit", "validate", "test", None) and (
             self.val_split > 0 or self.test_split > 0
         ):
             self.train_dataset = DocumentDataset(
-                train_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
+                train_df, self.label2idx, self.xgb_model, inference=False
             )
             if self.val_split > 0:
                 self.val_dataset = DocumentDataset(
-                    val_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
+                    val_df, self.label2idx, self.xgb_model, inference=False
                 )
             if self.test_split > 0:
                 self.test_dataset = DocumentDataset(
-                    test_df, self.label2idx, self.xgb_model, inference=False, temperature=self.temperature
+                    test_df, self.label2idx, self.xgb_model, inference=False
                 )
 
         self.predict_dataset = DocumentDataset(
-            self.df, self.label2idx, self.xgb_model, inference=True, temperature=self.temperature
+            self.df, self.label2idx, self.xgb_model, inference=True
         )
 
         self.num_classes = len(labels)
@@ -527,6 +473,8 @@ class PageClassifier(pl.LightningModule):
         lstm_hidden: int = 64,
         lstm_num_layers: int = 1,
         lstm_dropout: float = 0.0,
+        use_lstm: bool = True,
+        use_crf: bool = True,
         *,
         label_names: list[str] | None = None,
         sig_label: str = "sig",
@@ -564,6 +512,8 @@ class PageClassifier(pl.LightningModule):
             lstm_hidden: Hidden dimension for LSTM (must be > 0)
             lstm_num_layers: Number of LSTM layers (must be > 0)
             lstm_dropout: Dropout probability for LSTM (must be in [0, 1])
+            use_lstm: Whether to apply the MLP+LSTM residual branch
+            use_crf: Whether to use CRF decoding (otherwise per-page argmax)
             label_names: List of label names corresponding to class indices
             sig_label: Name of signature label for CRF constraints
             back_label: Name of back matter label for CRF constraints
@@ -638,6 +588,8 @@ class PageClassifier(pl.LightningModule):
         
         lstm_out_dim = lstm_hidden * 2  # bidirectional
         self.proj = torch.nn.Linear(lstm_out_dim, num_classes)
+        self.use_lstm = bool(use_lstm)
+        self.use_crf = bool(use_crf)
         
         # Handle special labels and constraints
         self.label_names = label_names or CLASSIFIER_LABEL_LIST
@@ -682,13 +634,17 @@ class PageClassifier(pl.LightningModule):
         self.first_sig_threshold = float(first_sig_threshold)
         
         # Extended state space for CRF
-        self.ext_C = 2 * self.C if enforce_single_sig_block else self.C
+        self.ext_C = 2 * self.C if (enforce_single_sig_block and self.use_crf) else self.C
         trans_mask, start_mask = self._build_ext_masks()
         
         # Register buffers for CRF (important: these persist and move to the right device)
         self.register_buffer("trans_mask", trans_mask)
         self.register_buffer("start_mask", start_mask)
         self._last_lstm: torch.Tensor | None = None
+
+        # Trainable transition and start scores (masked by constraints)
+        self.trans_scores = torch.nn.Parameter(torch.zeros(self.ext_C, self.ext_C))
+        self.start_scores = torch.nn.Parameter(torch.zeros(self.ext_C))
 
     def _metric(self, name: str) -> Metric:
         return cast(Metric, self.metrics[name])
@@ -768,7 +724,7 @@ class PageClassifier(pl.LightningModule):
         Returns:
             Adjusted emissions tensor with same shape as input.
         """
-        if self.sig_idx is None or mask is None:
+        if self.sig_idx is None:
             return emissions
 
         B, S, D = emissions.shape
@@ -865,36 +821,53 @@ class PageClassifier(pl.LightningModule):
         # Convert to extended indices
         return labels + flags * self.C
 
-    def forward(self, emissions: Tensor) -> Tensor:
+    def forward(self, emissions: Tensor, mask: torch.Tensor | None = None) -> Tensor:
         """
         Forward pass through the neural networks and CRF.
         
         Args:
             emissions: XGBoost emission logits (B, S, C)
+            mask: Optional boolean mask for valid positions (B, S)
             
         Returns:
             Modified emission logits (B, S, C) or (B, S, 2C) if using extended state space
         """
         batch_size, seq_len, _ = emissions.shape
-        
-        # Transform through MLP
-        x = emissions.view(-1, self.C)  # (B*S, C)
-        x = self.hidden(x)              # (B*S, H)
-        x = x.view(batch_size, seq_len, -1)  # (B, S, H)
-        
-        # Process through LSTM
-        x, _ = self.lstm(x)  # (B, S, 2H) due to bidirectional
-        # Cache LSTM features for auxiliary losses
-        self._last_lstm = x
-        
-        # Project back to class space
-        x = self.proj(x)  # (B, S, C)
-        
-        # Add residual connection from original emissions
-        out = x + emissions
+        if not self.use_lstm:
+            out = emissions
+            self._last_lstm = None
+        else:
+            if mask is not None:
+                emissions = emissions.masked_fill(~mask.unsqueeze(-1), 0.0)
+            
+            # Transform through MLP
+            x = emissions.view(-1, self.C)  # (B*S, C)
+            x = self.hidden(x)              # (B*S, H)
+            x = x.view(batch_size, seq_len, -1)  # (B, S, H)
+            
+            # Process through LSTM
+            if mask is not None:
+                lengths = mask.sum(dim=1).to(torch.int64).clamp(min=1)
+                packed = pack_padded_sequence(
+                    x, lengths.cpu(), batch_first=True, enforce_sorted=False
+                )
+                packed_out, _ = self.lstm(packed)
+                x, _ = pad_packed_sequence(
+                    packed_out, batch_first=True, total_length=seq_len
+                )
+            else:
+                x, _ = self.lstm(x)  # (B, S, 2H) due to bidirectional
+            # Cache LSTM features for auxiliary losses
+            self._last_lstm = x
+            
+            # Project back to class space
+            x = self.proj(x)  # (B, S, C)
+            
+            # Add residual connection from original emissions
+            out = x + emissions
         
         # Extend state space if using single-sig block
-        if self.enforce_single_sig_block:
+        if self.use_crf and self.enforce_single_sig_block:
             out = self._extend_emissions(out)
             
         return out
@@ -915,7 +888,7 @@ class PageClassifier(pl.LightningModule):
         if feats is None:
             return torch.tensor(0.0, device=labels.device)
 
-        B, S, _ = feats.shape
+        B, _, _ = feats.shape
         scores = self.sig_start_head(feats).squeeze(-1)  # (B, S)
 
         losses = []
@@ -947,7 +920,7 @@ class PageClassifier(pl.LightningModule):
         feats = getattr(self, "_last_lstm", None)
         if feats is None:
             return torch.tensor(0.0, device=labels.device)
-        B, S, _ = feats.shape
+        B, _, _ = feats.shape
         scores = self.back_start_head(feats).squeeze(-1)  # (B, S)
         losses = []
         for b in range(B):
@@ -1008,13 +981,13 @@ class PageClassifier(pl.LightningModule):
         # Forward recursion
         alphas = emissions.new_full((batch_size, seq_len, self.ext_C), -1e9)  # log space
         
-        # Initialize with start constraints
-        alphas[:, 0] = emissions[:, 0]  # (B, C) or (B, 2C)
-        alphas[:, 0] = torch.where(
-            start_mask,  # (C,) or (2C,)
-            alphas[:, 0],
-            torch.tensor(-1e9, device=alphas.device)
+        # Initialize with start constraints and learned start scores
+        masked_start_scores = torch.where(
+            start_mask,
+            cast(torch.Tensor, self.start_scores),
+            torch.tensor(-1e9, device=alphas.device),
         )
+        alphas[:, 0] = emissions[:, 0] + masked_start_scores  # (B, C) or (B, 2C)
         
         # Iterate through sequence
         for t in range(1, seq_len):
@@ -1028,8 +1001,8 @@ class PageClassifier(pl.LightningModule):
             # trans_mask: (C, C) or (2C, 2C) boolean
             trans_scores = torch.where(
                 trans_mask,
-                torch.tensor(0.0, device=prev_alpha.device),
-                torch.tensor(-1e9, device=prev_alpha.device)
+                cast(torch.Tensor, self.trans_scores),
+                torch.tensor(-1e9, device=prev_alpha.device),
             )
             
             # Add everything up in log-space
@@ -1050,31 +1023,31 @@ class PageClassifier(pl.LightningModule):
         gold_emit = torch.gather(emissions, 2, ext_labels.unsqueeze(-1)).squeeze(-1)  # (B, S)
         gold_emit = (gold_emit * mask.float()).sum(dim=1)  # (B,)
         
-        # Start constraint penalty (0 if allowed, -1e9 if not)
-        start_ok = start_mask[ext_labels[:, 0]]  # (B,)
-        start_pen = torch.where(
-            start_ok,
-            torch.tensor(0.0, device=emissions.device),
+        # Start scores (masked by constraints)
+        masked_start_scores = torch.where(
+            start_mask,
+            cast(torch.Tensor, self.start_scores),
             torch.tensor(-1e9, device=emissions.device),
         )
-        start_pen = start_pen * mask[:, 0].float()
+        start_score = masked_start_scores[ext_labels[:, 0]]
+        start_score = start_score * mask[:, 0].float()
         
         # Transition penalties across gold path
         if emissions.size(1) > 1:
             prev_tags = ext_labels[:, :-1]
             curr_tags = ext_labels[:, 1:]
-            allowed = trans_mask[prev_tags, curr_tags]  # (B, S-1)
-            trans_pen = torch.where(
-                allowed,
-                torch.tensor(0.0, device=emissions.device),
+            masked_trans_scores = torch.where(
+                trans_mask,
+                cast(torch.Tensor, self.trans_scores),
                 torch.tensor(-1e9, device=emissions.device),
             )
+            trans_pen = masked_trans_scores[prev_tags, curr_tags]  # (B, S-1)
             valid_pairs = (mask[:, :-1] & mask[:, 1:]).float()
             trans_pen = (trans_pen * valid_pairs).sum(dim=1)
         else:
             trans_pen = torch.zeros_like(gold_emit)
         
-        gold_score = gold_emit + trans_pen + start_pen  # (B,)
+        gold_score = gold_emit + trans_pen + start_score  # (B,)
         
         # Log-partition function from terminal alphas
         batch_idx = torch.arange(batch_size, device=emissions.device)
@@ -1109,13 +1082,13 @@ class PageClassifier(pl.LightningModule):
             (batch_size, seq_len, num_tags), dtype=torch.long
         )
         
-        # First timestep uses start constraints
-        scores[:, 0] = emissions[:, 0]  # (B, C) or (B, 2C)
-        scores[:, 0] = torch.where(
+        # First timestep uses start constraints and learned start scores
+        masked_start_scores = torch.where(
             start_mask,
-            scores[:, 0],
-            torch.tensor(-1e9, device=device)
+            cast(torch.Tensor, self.start_scores),
+            torch.tensor(-1e9, device=device),
         )
+        scores[:, 0] = emissions[:, 0] + masked_start_scores  # (B, C) or (B, 2C)
         
         # Iterate through sequence
         for t in range(1, seq_len):
@@ -1128,8 +1101,8 @@ class PageClassifier(pl.LightningModule):
             # Transition scores with constraints
             trans_scores = torch.where(
                 trans_mask,
-                torch.tensor(0.0, device=device),
-                torch.tensor(-1e9, device=device)
+                cast(torch.Tensor, self.trans_scores),
+                torch.tensor(-1e9, device=device),
             )
             
             # Add up scores and track best previous tag
@@ -1175,26 +1148,35 @@ class PageClassifier(pl.LightningModule):
         labels = torch.where(mask, labels, torch.zeros_like(labels))  # replace pad with 0
         
         # Forward pass through neural networks
-        emissions = self(emissions)  # (B, S, C) or (B, S, 2C)
+        emissions = self(emissions, mask=mask)  # (B, S, C) or (B, S, 2C)
         # Apply learned positional prior and small decoding bias
         emissions = self._apply_learned_positional_prior(emissions, mask)
         emissions = self._apply_sig_position_bias(emissions, mask)
         
-        # Compute CRF loss
-        log_likelihood = self._compute_log_likelihood(emissions, labels, mask)
-        loss = -log_likelihood  # maximize likelihood = minimize negative log likelihood
+        if self.use_crf:
+            # Compute CRF loss
+            log_likelihood = self._compute_log_likelihood(emissions, labels, mask)
+            loss = -log_likelihood  # maximize likelihood = minimize negative log likelihood
+        else:
+            # Per-page softmax loss (no CRF)
+            logits = emissions[mask]
+            targets = labels[mask]
+            loss = F.cross_entropy(logits, targets)
 
         # Auxiliary earliest-sig loss (training signal)
         aux_sig_loss = self._aux_sig_start_loss(labels, mask)
         if aux_sig_loss.requires_grad and self.aux_sig_start_loss_weight > 0:
             loss = loss + self.aux_sig_start_loss_weight * aux_sig_loss
         # Auxiliary back-matter onset loss (training signal)
-        aux_back_loss = getattr(self, "_aux_back_start_loss", lambda l, m: torch.tensor(0.0, device=labels.device))(labels, mask)
+        aux_back_loss = self._aux_back_start_loss(labels, mask)
         if aux_back_loss.requires_grad and self.aux_back_start_loss_weight > 0:
             loss = loss + self.aux_back_start_loss_weight * aux_back_loss
         
         # Compute predictions (in original label space)
-        predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        if self.use_crf:
+            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        else:
+            predictions = emissions.argmax(dim=-1)
         
         # Compute metrics only on non-padded positions
         true_labels = labels[mask]
@@ -1225,21 +1207,30 @@ class PageClassifier(pl.LightningModule):
         labels = torch.where(mask, labels, torch.zeros_like(labels))  # replace pad with 0
         
         # Forward pass through neural networks
-        emissions = self(emissions)  # (B, S, C) or (B, S, 2C)
+        emissions = self(emissions, mask=mask)  # (B, S, C) or (B, S, 2C)
         # Apply learned positional prior and small decoding bias
         emissions = self._apply_learned_positional_prior(emissions, mask)
         emissions = self._apply_sig_position_bias(emissions, mask)
         
-        # Compute CRF loss
-        log_likelihood = self._compute_log_likelihood(emissions, labels, mask)
-        loss = -log_likelihood  # maximize likelihood = minimize negative log likelihood
+        if self.use_crf:
+            # Compute CRF loss
+            log_likelihood = self._compute_log_likelihood(emissions, labels, mask)
+            loss = -log_likelihood  # maximize likelihood = minimize negative log likelihood
+        else:
+            # Per-page softmax loss (no CRF)
+            logits = emissions[mask]
+            targets = labels[mask]
+            loss = F.cross_entropy(logits, targets)
 
         # Auxiliary earliest-sig loss (report only)
         aux_sig_loss = self._aux_sig_start_loss(labels, mask)
-        aux_back_loss = getattr(self, "_aux_back_start_loss", lambda l, m: torch.tensor(0.0, device=labels.device))(labels, mask)
+        aux_back_loss = self._aux_back_start_loss(labels, mask)
         
         # Compute predictions (in original label space)
-        predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        if self.use_crf:
+            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        else:
+            predictions = emissions.argmax(dim=-1)
         
         # Compute metrics only on non-padded positions
         true_labels = labels[mask]
@@ -1290,55 +1281,15 @@ class PageClassifier(pl.LightningModule):
         self._metric("val_precision").reset()
         self._metric("val_recall").reset()
 
-    def shared_step(self, batch: tuple[Tensor, Tensor], prefix: str) -> Tensor:
-        """
-        Shared logic for training and validation steps.
-        
-        Args:
-            batch: Tuple of (emissions, labels)
-            prefix: 'train' or 'val'
-            
-        Returns:
-            Loss value
-        """
-        emissions, labels = batch
-        
-        # Create mask for padding
-        mask = (labels != -100)  # (B, S)
-        labels = torch.where(mask, labels, torch.zeros_like(labels))  # replace pad with 0
-        
-        # Forward pass through neural networks
-        emissions = self(emissions)  # (B, S, C) or (B, S, 2C)
-        
-        # Compute CRF loss
-        log_likelihood = self._compute_log_likelihood(emissions, labels, mask)
-        loss = -log_likelihood  # maximize likelihood = minimize negative log likelihood
-        
-        # Compute predictions (in original label space)
-        predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
-        
-        # Compute metrics only on non-padded positions
-        true_labels = labels[mask]
-        pred_labels = predictions[mask]
-        
-        # Update metrics
-        self._metric(f"{prefix}_precision").update(pred_labels, true_labels)
-        self._metric(f"{prefix}_recall").update(pred_labels, true_labels)
-        self._metric(f"{prefix}_f1").update(pred_labels, true_labels)
-        
-        # Log step loss
-        self.log(f"{prefix}_loss", loss, prog_bar=True)
-        
-        return loss
-
     def _apply_first_sig_block_postprocessing(
         self,
         seq_preds: list[Prediction],
         sig_threshold: float = 0.3,
     ) -> tuple[list[Prediction], bool]:
         """
-        Apply decode-time fix: find first continuous signature block based on sig probability 
-        threshold, convert those pages to 'sig', and everything after to 'back_matter'.
+        Apply decode-time fix: find the first continuous signature block and convert those
+        pages to 'sig', then everything after to 'back_matter'. Uses predicted signature
+        classes when present; otherwise falls back to a probability threshold.
         
         This addresses the case where real signature pages are incorrectly predicted as 'body' 
         or 'back_matter' because exhibit signature pages later in the document confuse the model.
@@ -1356,34 +1307,49 @@ class PageClassifier(pl.LightningModule):
                 pred["postprocess_modified"] = False
             return seq_preds, False
             
-        # Find the first continuous block of pages with sig probability > threshold
+        # Find the first continuous block of signature pages
         sig_label_name = self.label_names[self.sig_idx]
+        back_label_name = (
+            self.label_names[self.back_idx] if self.back_idx is not None else "back_matter"
+        )
         first_sig_idx = None
         last_sig_idx = None
-        
-        # Find first page with sig probability above threshold
+
+        # Prefer predicted signature block if present
         for i, pred in enumerate(seq_preds):
-            pred_probs = cast(dict[str, float], pred["pred_probs"])
-            sig_prob = pred_probs.get(sig_label_name, 0.0)
-            if sig_prob >= sig_threshold:
+            if pred.get("pred_class") == sig_label_name:
                 first_sig_idx = i
                 break
-        
-        # If no signature block found above threshold, return unchanged
-        if first_sig_idx is None:
-            for pred in seq_preds:
-                pred["postprocess_modified"] = False
-            return seq_preds, False
-        
-        # Find the end of the continuous signature block
-        last_sig_idx = first_sig_idx
-        for i in range(first_sig_idx + 1, len(seq_preds)):
-            pred_probs = cast(dict[str, float], seq_preds[i]["pred_probs"])
-            sig_prob = pred_probs.get(sig_label_name, 0.0)
-            if sig_prob >= sig_threshold:
-                last_sig_idx = i
-            else:
-                break  # End of continuous block
+
+        if first_sig_idx is not None:
+            last_sig_idx = first_sig_idx
+            for i in range(first_sig_idx + 1, len(seq_preds)):
+                if seq_preds[i].get("pred_class") == sig_label_name:
+                    last_sig_idx = i
+                else:
+                    break
+        else:
+            # Fall back to probability threshold if no signature predicted
+            for i, pred in enumerate(seq_preds):
+                pred_probs = cast(dict[str, float], pred["pred_probs"])
+                sig_prob = pred_probs.get(sig_label_name, 0.0)
+                if sig_prob >= sig_threshold:
+                    first_sig_idx = i
+                    break
+
+            if first_sig_idx is None:
+                for pred in seq_preds:
+                    pred["postprocess_modified"] = False
+                return seq_preds, False
+
+            last_sig_idx = first_sig_idx
+            for i in range(first_sig_idx + 1, len(seq_preds)):
+                pred_probs = cast(dict[str, float], seq_preds[i]["pred_probs"])
+                sig_prob = pred_probs.get(sig_label_name, 0.0)
+                if sig_prob >= sig_threshold:
+                    last_sig_idx = i
+                else:
+                    break  # End of continuous block
         
         # Create modified predictions
         modified_preds = []
@@ -1395,16 +1361,16 @@ class PageClassifier(pl.LightningModule):
             
             if first_sig_idx <= i <= last_sig_idx:
                 # Pages in the signature block: convert to 'sig'
-                if pred["pred_class"] != "sig":
-                    new_pred["pred_class"] = "sig"
+                if pred["pred_class"] != sig_label_name:
+                    new_pred["pred_class"] = sig_label_name
                     new_pred["postprocess_modified"] = True
                     was_modified = True
                 else:
                     new_pred["postprocess_modified"] = False
             elif i > last_sig_idx:
                 # Pages after signature block: convert to 'back_matter'
-                if pred["pred_class"] != "back_matter":
-                    new_pred["pred_class"] = "back_matter"
+                if self.back_idx is not None and pred["pred_class"] != back_label_name:
+                    new_pred["pred_class"] = back_label_name
                     new_pred["postprocess_modified"] = True
                     was_modified = True
                 else:
@@ -1438,16 +1404,19 @@ class PageClassifier(pl.LightningModule):
             emissions_in, mask = batch, torch.ones_like(batch[:, :, 0], dtype=torch.bool)
         
         # Forward pass
-        emissions = self(emissions_in)  # (B, S, C) or (B, S, 2C)
+        emissions = self(emissions_in, mask=mask)  # (B, S, C) or (B, S, 2C)
         emissions = self._apply_learned_positional_prior(emissions, mask)
         emissions = self._apply_sig_position_bias(emissions, mask)
         
         # Viterbi decoding
-        predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        if self.use_crf:
+            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
+        else:
+            predictions = emissions.argmax(dim=-1)
         
         # Convert to probabilities (optional, since we're using hard Viterbi decoding)
         class_probs = torch.softmax(emissions, dim=-1)  # (B, S, C) or (B, S, 2C)
-        if self.enforce_single_sig_block:
+        if self.use_crf and self.enforce_single_sig_block:
             class_probs = class_probs.view(class_probs.shape[0], class_probs.shape[1], 2, -1).sum(2)
         
         # Convert to list of dictionaries (respect true sequence lengths)

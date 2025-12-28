@@ -39,6 +39,65 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         sum(c in string.punctuation for c in text) / num_chars if num_chars > 0 else 0.0
     )
 
+    # Line-structure stats
+    lines = text.split("\n")
+    num_lines = len(lines)
+    line_lengths = [len(line.strip()) for line in lines]
+    avg_line_len = sum(line_lengths) / num_lines if num_lines > 0 else 0.0
+    very_short_lines = sum(1 for length in line_lengths if length <= 3)
+    empty_lines = sum(1 for length in line_lengths if length == 0)
+    frac_short_lines = very_short_lines / num_lines if num_lines > 0 else 0.0
+    frac_empty_lines = empty_lines / num_lines if num_lines > 0 else 0.0
+
+    # Signature block line cues
+    sig_line_re = re.compile(r"^(by|name|title)\s*:", re.IGNORECASE)
+    sig_line_count = sum(1 for line in lines if sig_line_re.match(line.strip()))
+
+    # Title/heading density
+    non_empty_lines = [line for line in lines if line.strip()]
+    non_empty_count = len(non_empty_lines)
+
+    def _is_all_caps(line: str) -> bool:
+        letters = [c for c in line if c.isalpha()]
+        if not letters:
+            return False
+        return all(c.isupper() for c in letters)
+
+    def _is_title_case(line: str) -> bool:
+        tokens = [tok for tok in re.split(r"\s+", line.strip()) if tok]
+        if not tokens:
+            return False
+        alpha_tokens = [tok for tok in tokens if any(c.isalpha() for c in tok)]
+        if not alpha_tokens:
+            return False
+        for tok in alpha_tokens:
+            letters = [c for c in tok if c.isalpha()]
+            if not letters:
+                continue
+            if not letters[0].isupper():
+                return False
+            if any(c.isupper() for c in letters[1:]):
+                return False
+        return True
+
+    all_caps_count = sum(1 for line in non_empty_lines if _is_all_caps(line))
+    title_case_count = sum(1 for line in non_empty_lines if _is_title_case(line))
+    frac_heading_lines = (
+        (all_caps_count + title_case_count) / non_empty_count
+        if non_empty_count > 0
+        else 0.0
+    )
+
+    first_10_lines = lines[:10]
+    count_article_10 = sum(
+        len(re.findall(r"\\barticle\\b", line, flags=re.IGNORECASE))
+        for line in first_10_lines
+    )
+    count_section_10 = sum(
+        len(re.findall(r"\\bsection\\b", line, flags=re.IGNORECASE))
+        for line in first_10_lines
+    )
+
     # Page number detection
     _DIGIT_RE = re.compile(r"^[\-\s—]*(\d+)[\-\s—]*$")
     s = text.rsplit("\\n", 1)[-1]
@@ -158,6 +217,14 @@ def extract_features(text: str, html: str, order: float) -> np.ndarray:
         prop_digits,
         prop_newlines,
         prop_punct,
+        num_lines,
+        avg_line_len,
+        frac_short_lines,
+        frac_empty_lines,
+        sig_line_count,
+        frac_heading_lines,
+        count_article_10,
+        count_section_10,
         flag_is_all_digits,
         flag_is_less_than_order,
         count_section,

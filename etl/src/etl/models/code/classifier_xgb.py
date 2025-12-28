@@ -2,11 +2,13 @@
 XGBoost-based page classifier training script.
 
 This module trains an XGBoost model for initial page classification using
-hand-crafted features extracted from text and HTML content. Splits are
-deterministic and stratified by announcement year.
+hand-crafted features extracted from text and HTML content. Agreement splits
+are loaded from a shared manifest to prevent leakage.
 """
+# pyright: reportMissingTypeStubs=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
-import json
+import os
+from collections.abc import Sequence
 from typing import cast
 
 import numpy as np
@@ -20,23 +22,32 @@ from sklearn.metrics import (
     f1_score,
     precision_recall_fscore_support,
 )
-from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
 try:
     from .classifier_utils import extract_features
     from .shared_constants import CLASSIFIER_LABEL_LIST, CLASSIFIER_XGB_PATH
+    from .split_utils import (
+        build_agreement_split,
+        load_split_manifest,
+        write_split_manifest,
+    )
 except ImportError:  # pragma: no cover - supports running as a script
     from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
     from shared_constants import (  # pyright: ignore[reportMissingImports]
         CLASSIFIER_LABEL_LIST,
         CLASSIFIER_XGB_PATH,
     )
+    from split_utils import (  # pyright: ignore[reportMissingImports]
+        build_agreement_split,
+        load_split_manifest,
+        write_split_manifest,
+    )
 
 
 def load_and_prepare_data(
     data_path: str,
-) -> tuple[np.ndarray, np.ndarray, dict[str, int], np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pd.DataFrame]:
     """
     Load and prepare data for XGBoost training.
 
@@ -44,11 +55,18 @@ def load_and_prepare_data(
         data_path: Path to the parquet file containing page data
 
     Returns:
-        Tuple of (features, labels, label_mapping, announcement_years)
+        Tuple of (features, labels, agreement_uuids, announcement_years, split_df)
     """
     df = pd.read_parquet(data_path)
 
-    required_cols = {"html", "text", "label", "order", "date_announcement"}
+    required_cols = {
+        "html",
+        "text",
+        "label",
+        "order",
+        "date_announcement",
+        "agreement_uuid",
+    }
     if not required_cols.issubset(df.columns):
         missing = required_cols - set(df.columns)
         raise ValueError(f"Data must contain columns: {sorted(required_cols)}. Missing: {sorted(missing)}")
@@ -60,11 +78,28 @@ def load_and_prepare_data(
     if announcement_dates.isna().any():
         raise ValueError("Found missing or invalid date_announcement values.")
     announcement_years = announcement_dates.dt.year.to_numpy()
+    agreement_uuids = df["agreement_uuid"].astype(str).to_numpy()
+    year_counts = (
+        pd.DataFrame(
+            {"agreement_uuid": agreement_uuids, "announcement_year": announcement_years}
+        )
+        .groupby("agreement_uuid")["announcement_year"]
+        .nunique()
+        .astype(int)
+    )
+    inconsistent = year_counts[year_counts > 1]
+    if not inconsistent.empty:
+        raise ValueError(
+            "Found agreements spanning multiple announcement years; cannot stratify by year."
+        )
 
     # Map labels to integers
-    labels = CLASSIFIER_LABEL_LIST
+    labels = cast(list[str], CLASSIFIER_LABEL_LIST)
     label2idx = {label: idx for idx, label in enumerate(labels)}
-    y = df["label"].map(label2idx).to_numpy()
+    y_series = df["label"].map(label2idx)
+    if y_series.isna().any():
+        raise ValueError("Found labels missing from CLASSIFIER_LABEL_LIST.")
+    y = y_series.astype(int).to_numpy()
 
     # Build feature matrix using parallel processing
     print(f"[data] extracting features in parallel...")
@@ -79,7 +114,8 @@ def load_and_prepare_data(
     )
     features = np.vstack(features_list)
 
-    return features, y, label2idx, announcement_years
+    split_df = df[["agreement_uuid", "date_announcement", "label"]].copy()
+    return features, y, agreement_uuids, announcement_years, split_df
 
 
 def macro_f1_eval(preds: np.ndarray, dmatrix: xgb.DMatrix) -> tuple[str, float]:
@@ -166,100 +202,140 @@ def objective(
     return f1
 
 
-def _nll_with_temperature(
-    probs: np.ndarray, y_true: np.ndarray, temperature: float
-) -> float:
-    # probs shape: (N, C), valid probs in (0,1); y_true: (N,)
-    p = np.clip(probs, 1e-12, 1.0)
-    # treat log-probs as logits; apply temperature scaling in log space
-    logits = np.log(p)  # already clipped away from 0
-    scaled_logits = logits / temperature
-    # subtract max for numerical stability
-    logits_max = scaled_logits.max(axis=1, keepdims=True)
-    exp_logits = np.exp(scaled_logits - logits_max)
-    # normalize
-    probs_T = exp_logits / exp_logits.sum(axis=1, keepdims=True)
-    # compute NLL
-    idx = (np.arange(y_true.size), y_true)
-    return float(-np.log(probs_T[idx]).mean())
-
-
-def _fit_temperature(probs: np.ndarray, y_true: np.ndarray) -> float:
-    # simple coarse-to-fine search over T in [0.5, 3.0]
-    grid = np.linspace(0.5, 3.0, 26)
-    bestT, bestLoss = 1.0, 1e18
-    for temperature in grid:
-        loss = _nll_with_temperature(probs, y_true, temperature)
-        if loss < bestLoss:
-            bestLoss, bestT = loss, temperature
-    # local refine around bestT
-    for step in [0.2, 0.1, 0.05]:
-        lo, hi = max(0.1, bestT - step), bestT + step
-        cand = np.linspace(lo, hi, 11)
-        for temperature in cand:
-            loss = _nll_with_temperature(probs, y_true, temperature)
-            if loss < bestLoss:
-                bestLoss, bestT = loss, temperature
-    return float(bestT)
-
-
 def main() -> None:
     """Main training function for XGBoost classifier."""
+    year_window = 5
+    length_bucket_edges = [0.0, 120, 130, 200, float("inf")]
+    back_matter_bucket_edges = [0.0, 35, 60, 105, float("inf")]
     # Load and prepare data
     data_path = "etl/src/etl/models/data/page-data.parquet"
-    features, y, label2idx, years = load_and_prepare_data(data_path)
-    _ = label2idx
+    features, y, agreement_uuids, years, split_df = load_and_prepare_data(
+        data_path
+    )
+    split_path = "etl/src/etl/models/data/agreement-splits.json"
+    if os.path.exists(split_path):
+        split = load_split_manifest(split_path)
+    else:
+        split = build_agreement_split(
+            split_df,
+            val_split=0.1,
+            test_split=0.1,
+            year_window=year_window,
+            length_bucket_edges=length_bucket_edges,
+            back_matter_bucket_edges=back_matter_bucket_edges,
+        )
+        _ = write_split_manifest(split_path, split)
+        print(f"[split] wrote agreement split manifest to {split_path}")
     features = features.astype(np.float32, copy=False)
 
-    # Train/val/test split (70/15/15), stratified by announcement year
-    (
-        X_train,
-        X_temp,
-        y_train,
-        y_temp,
-        years_train,
-        years_temp,
-    ) = train_test_split(
-        features,
-        y,
-        years,
-        test_size=0.3,
-        random_state=42,
-        stratify=years,
-    )
-    (
-        X_val,
-        X_test,
-        y_val,
-        y_test,
-        years_val,
-        years_test,
-    ) = train_test_split(
-        X_temp,
-        y_temp,
-        years_temp,
-        test_size=0.5,
-        random_state=42,
-        stratify=years_temp,
-    )
-    _ = years_train, years_test
-    X_train = np.asarray(X_train)
-    X_val = np.asarray(X_val)
-    X_test = np.asarray(X_test)
-    y_train = np.asarray(y_train)
-    y_val = np.asarray(y_val)
-    y_test = np.asarray(y_test)
+    # Train/val/test split from shared manifest (agreement-level, year-stratified)
+    agreement_ids = pd.unique(agreement_uuids).astype(str)
+    if "train" not in split or "val" not in split or "test" not in split:
+        raise ValueError("Split manifest missing required keys: train/val/test.")
+    train_ids = [str(x) for x in split["train"]]
+    val_ids = [str(x) for x in split["val"]]
+    test_ids = [str(x) for x in split["test"]]
 
-    # Split validation into model-validation and calibration
-    X_val_model, X_cal, y_val_model, y_cal = train_test_split(
-        X_val, y_val, test_size=0.2, random_state=42, stratify=years_val
+    df_agreement_ids = {str(x) for x in agreement_ids}
+    split_ids = set(train_ids) | set(val_ids) | set(test_ids)
+    missing_ids = split_ids - df_agreement_ids
+    if missing_ids:
+        raise ValueError("Split manifest contains unknown agreement_uuid values.")
+
+    agreement_windows = (
+        pd.DataFrame(
+            {"agreement_uuid": agreement_uuids, "announcement_year": years}
+        )
+        .drop_duplicates("agreement_uuid")
+        .set_index("agreement_uuid")["announcement_year"]
+        .loc[agreement_ids]
     )
-    X_val_model = np.asarray(X_val_model)
-    X_cal = np.asarray(X_cal)
-    y_val_model = np.asarray(y_val_model)
-    y_cal = np.asarray(y_cal)
+    agreement_window_map = (
+        (agreement_windows.astype(int) // year_window) * year_window
+    ).astype(int)
+
+    train_mask = np.isin(agreement_uuids, train_ids)
+    val_model_mask = np.isin(agreement_uuids, val_ids)
+    test_mask = np.isin(agreement_uuids, test_ids)
+
+    split_meta = split.get("meta")
+    length_edges_raw = split_meta["length_bucket_edges"] if split_meta else None
+    back_edges_raw = split_meta["back_matter_bucket_edges"] if split_meta else None
+    length_edges = (
+        [float(x) for x in length_edges_raw]
+        if isinstance(length_edges_raw, list)
+        else None
+    )
+    back_edges = (
+        [float(x) for x in back_edges_raw]
+        if isinstance(back_edges_raw, list)
+        else None
+    )
+    agreement_stats = (
+        split_df.assign(
+            agreement_uuid=split_df["agreement_uuid"].astype(str),
+            announcement_year=pd.to_datetime(
+                split_df["date_announcement"], errors="raise"
+            ).dt.year,
+            is_back=split_df["label"].astype(str).eq("back_matter"),
+        )
+        .groupby("agreement_uuid")
+        .agg(
+            page_count=("agreement_uuid", "size"),
+            back_count=("is_back", "sum"),
+            announcement_year=("announcement_year", "first"),
+        )
+    )
+    agreement_stats["announcement_window"] = (
+        (agreement_stats["announcement_year"].astype(int) // year_window) * year_window
+    )
+
+    def _bucket_counts(values: pd.Series, edges: list[float]) -> dict[int, int]:
+        buckets = pd.cut(values, bins=edges, include_lowest=True, labels=False)
+        if buckets.isna().any():
+            raise ValueError("Failed to bucketize split metric values.")
+        return buckets.astype(int).value_counts().sort_index().to_dict()
+
+    def _split_report(name: str, ids: Sequence[str]) -> None:
+        split_pages = np.isin(agreement_uuids, list(ids))
+        page_count = int(split_pages.sum())
+        window_counts = (
+            agreement_window_map.loc[list(ids)]
+            .astype(int)
+            .value_counts()
+            .sort_index()
+            .to_dict()
+        )
+        length_counts: dict[int, int] | None = None
+        back_counts: dict[int, int] | None = None
+        if length_edges:
+            length_counts = _bucket_counts(
+                agreement_stats.loc[list(ids), "page_count"], length_edges
+            )
+        if back_edges:
+            back_counts = _bucket_counts(
+                agreement_stats.loc[list(ids), "back_count"], back_edges
+            )
+        print(
+            f"[split] {name:<8} agreements={len(ids):>4} pages={page_count:>6} windows={window_counts}"
+        )
+        if length_counts is not None:
+            print(f"[split] {name:<8} length_bucket_counts={length_counts}")
+        if back_counts is not None:
+            print(f"[split] {name:<8} back_bucket_counts={back_counts}")
+
+    print(f"[split] using agreement manifest: {split_path}")
+    _split_report("train", train_ids)
+    _split_report("val", val_ids)
+    _split_report("test", test_ids)
+
+    X_train = np.asarray(features[train_mask])
+    y_train = np.asarray(y[train_mask])
+    X_val_model = np.asarray(features[val_model_mask])
+    y_val_model = np.asarray(y[val_model_mask])
+    X_test = np.asarray(features[test_mask])
+    y_test = np.asarray(y[test_mask])
     dval_model = xgb.DMatrix(X_val_model, label=y_val_model)
-    dcal = xgb.DMatrix(X_cal, label=y_cal)
     dtest = xgb.DMatrix(X_test, label=y_test)
 
     # Create XGBoost datasets (weights from TRAIN ONLY)
@@ -278,10 +354,10 @@ def main() -> None:
         """Wrapper for objective function with fixed data."""
         return objective(trial, dtrain, dval_model, y_val_model)
 
-    study.optimize(objective_wrapper, n_trials=500)
+    study.optimize(objective_wrapper, n_trials=600)
     print("Best hyperparameters:", study.best_params)
 
-    best_it = int(study.best_trial.user_attrs.get("best_iteration", 500))
+    best_it = int(study.best_trial.user_attrs.get("best_iteration", 600))
     best_params = study.best_params.copy()
     best_params.update(
         {
@@ -292,25 +368,22 @@ def main() -> None:
         }
     )
 
-    final_model = xgb.train(best_params, dtrain, num_boost_round=best_it)
-    final_model.save_model(CLASSIFIER_XGB_PATH)
-    print(f"Model saved to {CLASSIFIER_XGB_PATH}")
+    train_full_mask = train_mask | val_model_mask
+    X_train_full = np.asarray(features[train_full_mask])
+    y_train_full = np.asarray(y[train_full_mask])
+    counts_train_full = np.bincount(y_train_full, minlength=num_classes).astype(float)
+    class_w_full = counts_train_full.sum() / np.maximum(counts_train_full, 1.0)
+    class_w_full = class_w_full * (num_classes / class_w_full.sum())
+    dtrain_full = xgb.DMatrix(
+        X_train_full, label=y_train_full, weight=class_w_full[y_train_full]
+    )
 
-    # ---- Temperature scaling on calibration slice; save calibrator ----
-    y_prob_calib = final_model.predict(dcal)  # probs on calib set
-    temperature = _fit_temperature(y_prob_calib, y_cal)
-    calib_path = CLASSIFIER_XGB_PATH + ".calib.json"
-    with open(calib_path, "w") as f:
-        json.dump({"temperature": float(temperature)}, f)
-    print(f"Saved temperature T={temperature:.3f} to {calib_path}")
+    final_model = xgb.train(best_params, dtrain_full, num_boost_round=best_it)
+    model_path = cast(str, CLASSIFIER_XGB_PATH)
+    final_model.save_model(model_path)
+    print(f"Model saved to {model_path}")
 
-    # Evaluate on TEST (raw & calibrated)
-    def _apply_T(probs: np.ndarray, temperature: float) -> np.ndarray:
-        p = np.clip(probs, 1e-12, 1.0)
-        logp = np.log(p) / temperature
-        logp = logp - np.logaddexp.reduce(logp, axis=1, keepdims=True)
-        return np.exp(logp)
-
+    # Evaluate on TEST
     y_prob_test = final_model.predict(dtest)
     y_hat_raw = np.argmax(y_prob_test, axis=1)
     accuracy = accuracy_score(y_test, y_hat_raw)
@@ -333,33 +406,8 @@ def main() -> None:
     print("Test (raw) Per-class metrics:")
     for i, label in enumerate(CLASSIFIER_LABEL_LIST):
         print(
-            f"  {label}: Acc={class_acc[i]:.4f} "
-            f"P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
+            f"  {label}: Acc={class_acc[i]:.4f} P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
         )
-
-    y_prob_test_cal = _apply_T(y_prob_test, temperature)
-    y_hat_cal = np.argmax(y_prob_test_cal, axis=1)
-    precision_c, recall_c, f1_c, _ = precision_recall_fscore_support(
-        y_test, y_hat_cal, average="macro"
-    )
-    print(f"Test (cal)   P/R/F1: {precision_c:.4f}/{recall_c:.4f}/{f1_c:.4f}")
-    cm_cal = confusion_matrix(y_test, y_hat_cal, labels=np.arange(num_classes))
-    print("Test (cal) Confusion Matrix:")
-    print(cm_cal)
-    class_acc_c = cm_cal.diagonal() / np.maximum(cm_cal.sum(axis=1), 1)
-    per_prec_c_arr, per_rec_c_arr, per_f1_c_arr, _ = precision_recall_fscore_support(
-        y_test, y_hat_cal, labels=np.arange(num_classes), average=None
-    )
-    per_prec_c = np.asarray(per_prec_c_arr)
-    per_rec_c = np.asarray(per_rec_c_arr)
-    per_f1_c = np.asarray(per_f1_c_arr)
-    print("Test (cal) Per-class metrics:")
-    for i, label in enumerate(CLASSIFIER_LABEL_LIST):
-        print(
-            f"  {label}: Acc={class_acc_c[i]:.4f} "
-            f"P={per_prec_c[i]:.4f} R={per_rec_c[i]:.4f} F1={per_f1_c[i]:.4f}"
-        )
-
 
 if __name__ == "__main__":
     main()
