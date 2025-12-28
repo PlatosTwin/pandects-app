@@ -100,7 +100,7 @@ export default function Feedback() {
             .
           </p>
           <p className="font-medium text-foreground">
-            Thanks for helping to make Pandects better!
+            Thanks for helping make Pandects better!
           </p>
         </div>
       </div>
