@@ -52,8 +52,8 @@ export default function SiteBanner() {
             <p className="text-sm text-muted-foreground text-justify sm:text-left">
               <span className="font-semibold text-foreground">Notice</span>:{" "}
               Pandects is in early development. Layout, API schema, and data
-              organization may change. Currently, the public site exposes 45
-              sample agreements as a proof-of-concept.
+              organization may change. Currently, the public site includes 45
+              sample agreements as a proof of concept.
             </p>
           </div>
           <div className="ml-4 flex-shrink-0">

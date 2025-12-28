@@ -67,16 +67,14 @@ export default function Feedback() {
       <div className="mb-8">
         <div className="prose max-w-none text-muted-foreground space-y-4 mb-8">
           <p>
-            We're currently soliciting input from our end users on all things
-            data. How are you planning to access Pandects data? Do you have
-            comments on the proposed XML schema or the taxonomy? Are there
-            other things we should be taking into consideration? Let us know by
-            submitting the survey form below!
+            We're collecting feedback from end users on the data and tooling.
+            How do you plan to access Pandects data? Do you have comments on the
+            proposed XML schema or taxonomy? Anything else we should consider?
+            Let us know by submitting the survey below.
           </p>
           <p>
-            We also have a form for general feedback, where you can flag
-            issues, submit questions, or propose improvements. Alternatively,
-            you can{" "}
+            We also have a general feedback form for issues, questions, or
+            improvements. You can also{" "}
             <a
               href="https://github.com/PlatosTwin/pandects-app/issues"
               target="_blank"

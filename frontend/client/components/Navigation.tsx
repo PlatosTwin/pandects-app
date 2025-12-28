@@ -149,9 +149,7 @@ export default function Navigation() {
                         })
                       }
                       aria-current={isActive(link.to) ? "page" : undefined}
-                      className={cn(
-                        isActive(link.to) ? "text-foreground" : "text-foreground",
-                      )}
+                      className="text-foreground"
                     >
                       {link.label}
                     </Link>

@@ -18,15 +18,15 @@ export default function Donate() {
             pipeline runs that ingest and process new agreements.
           </p>
           <p>
-            If you find the project useful and you’d like to support development
-            and operating expenses, you can contribute via Buy Me A Coffee. 
+            If you find the project useful and you want to support development
+            and operating expenses, you can contribute via Buy Me a Coffee.
             Every contribution helps keep the site fast, reliable, and free to
             use.
           </p>
           <p className="italic">
-            Disclaimer: Although the navigation text says "Donate," Pandects is 
-            not actually a registered non-profit, so any contributions via Buy Me A Coffee 
-            are not tax-deductible.
+            Disclaimer: Although the navigation says "Donate," Pandects is not
+            a registered nonprofit, so contributions via Buy Me a Coffee are
+            not tax-deductible.
           </p>
         </div>
       </div>
@@ -37,7 +37,7 @@ export default function Donate() {
             href="https://www.buymeacoffee.com/nmbogdan"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Buy me a coffee (opens in a new tab)"
+            aria-label="Buy Me a Coffee (opens in a new tab)"
             onClick={() =>
               trackEvent("buy_me_a_coffee_click", {
                 href: "https://www.buymeacoffee.com/nmbogdan",
@@ -45,7 +45,7 @@ export default function Donate() {
             }
           >
             <Coffee className="h-4 w-4" aria-hidden="true" />
-            Buy me a coffee
+            Buy Me a Coffee
           </a>
         </Button>
         <div className="text-xs text-muted-foreground">Opens in a new tab.</div>
