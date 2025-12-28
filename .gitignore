@@ -29,6 +29,8 @@ _t.*
 
 *.csv
 
+**/data/*
+
 **/*.tmp_dagster*
 
 **/tb_logs
