@@ -50,6 +50,7 @@ from sklearn.metrics import (
 
 CODE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "../data"))
+EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
 DEFAULT_SPLIT_PATH = os.path.join(DATA_DIR, "agreement-splits.json")
 
 try:
@@ -71,6 +72,13 @@ except ImportError:  # pragma: no cover - supports running as a script
 
 # Reproducibility
 _ = pl.seed_everything(42, workers=True, verbose=False)
+
+
+def _metrics_dir_for_job(base_dir: str) -> str:
+    job_id = os.environ.get("SLURM_JOB_ID")
+    if not job_id:
+        raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
+    return os.path.join(base_dir, job_id)
 
 
 class HyperParams(TypedDict):
@@ -160,7 +168,7 @@ class ClassifierTrainer:
         self.use_crf: bool = bool(use_crf)
         self.device: str = "mps"
         self.df: pd.DataFrame | None = None
-        self.metrics_output_dir = os.path.dirname(self.data_file) or "."
+        self.metrics_output_dir = _metrics_dir_for_job(EVAL_METRICS_DIR)
 
         # Device selection
         if torch.backends.mps.is_available():

@@ -14,6 +14,7 @@ from typing import cast
 import numpy as np
 import optuna
 from optuna.integration import XGBoostPruningCallback
+from optuna.samplers import TPESampler
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import (
@@ -23,6 +24,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
 )
 from joblib import Parallel, delayed
+import yaml
 
 try:
     from .classifier_utils import extract_features
@@ -43,6 +45,10 @@ except ImportError:  # pragma: no cover - supports running as a script
         load_split_manifest,
         write_split_manifest,
     )
+
+CODE_DIR = os.path.dirname(__file__)
+EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
+SEED = 42
 
 
 def load_and_prepare_data(
@@ -164,6 +170,8 @@ def objective(
         "num_class": len(CLASSIFIER_LABEL_LIST),
         "eval_metric": "mlogloss",
         "tree_method": "hist",
+        "seed": SEED,
+        "nthread": 1,
         "max_depth": trial.suggest_int("max_depth", 3, 10),
         "eta": trial.suggest_float("eta", 1e-3, 1e-1, log=True),
         "subsample": trial.suggest_float("subsample", 0.5, 1.0),
@@ -204,6 +212,7 @@ def objective(
 
 def main() -> None:
     """Main training function for XGBoost classifier."""
+    np.random.seed(SEED)
     year_window = 5
     length_bucket_edges = [0.0, 120, 130, 200, float("inf")]
     back_matter_bucket_edges = [0.0, 35, 60, 105, float("inf")]
@@ -296,7 +305,7 @@ def main() -> None:
             raise ValueError("Failed to bucketize split metric values.")
         return buckets.astype(int).value_counts().sort_index().to_dict()
 
-    def _split_report(name: str, ids: Sequence[str]) -> None:
+    def _split_report(name: str, ids: Sequence[str]) -> dict[str, object]:
         split_pages = np.isin(agreement_uuids, list(ids))
         page_count = int(split_pages.sum())
         window_counts = (
@@ -323,11 +332,24 @@ def main() -> None:
             print(f"[split] {name:<8} length_bucket_counts={length_counts}")
         if back_counts is not None:
             print(f"[split] {name:<8} back_bucket_counts={back_counts}")
+        return {
+            "agreements": int(len(ids)),
+            "pages": page_count,
+            "announcement_window_counts": {int(k): int(v) for k, v in window_counts.items()},
+            "length_bucket_counts": (
+                {int(k): int(v) for k, v in length_counts.items()} if length_counts is not None else None
+            ),
+            "back_bucket_counts": (
+                {int(k): int(v) for k, v in back_counts.items()} if back_counts is not None else None
+            ),
+        }
 
     print(f"[split] using agreement manifest: {split_path}")
-    _split_report("train", train_ids)
-    _split_report("val", val_ids)
-    _split_report("test", test_ids)
+    split_reports = {
+        "train": _split_report("train", train_ids),
+        "val": _split_report("val", val_ids),
+        "test": _split_report("test", test_ids),
+    }
 
     X_train = np.asarray(features[train_mask])
     y_train = np.asarray(y[train_mask])
@@ -347,7 +369,7 @@ def main() -> None:
 
     # Hyperparameter optimization
     print("Starting hyperparameter optimization...")
-    study = optuna.create_study(direction="maximize")
+    study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=SEED))
 
     # Define objective with fixed data
     def objective_wrapper(trial: optuna.Trial) -> float:
@@ -365,6 +387,8 @@ def main() -> None:
             "num_class": len(CLASSIFIER_LABEL_LIST),
             "eval_metric": "mlogloss",
             "tree_method": "hist",
+            "seed": SEED,
+            "nthread": 1,
         }
     )
 
@@ -408,6 +432,37 @@ def main() -> None:
         print(
             f"  {label}: Acc={class_acc[i]:.4f} P={per_prec[i]:.4f} R={per_rec[i]:.4f} F1={per_f1[i]:.4f}"
         )
+
+    metrics = {
+        "split": {
+            "path": split_path,
+            "year_window": int(year_window),
+            "length_bucket_edges": length_edges,
+            "back_matter_bucket_edges": back_edges,
+            "summary": split_reports,
+        },
+        "overall": {
+            "accuracy": float(accuracy),
+            "precision_macro": float(precision),
+            "recall_macro": float(recall),
+            "f1_macro": float(f1),
+        },
+        "confusion_matrix": cm_raw.astype(int).tolist(),
+        "per_class": {
+            label: {
+                "accuracy": float(class_acc[i]),
+                "precision": float(per_prec[i]),
+                "recall": float(per_rec[i]),
+                "f1": float(per_f1[i]),
+            }
+            for i, label in enumerate(CLASSIFIER_LABEL_LIST)
+        },
+    }
+    os.makedirs(EVAL_METRICS_DIR, exist_ok=True)
+    metrics_path = os.path.join(EVAL_METRICS_DIR, "classifier_xgb_test_metrics.yaml")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(metrics, f, sort_keys=False)
+    print(f"Test metrics written to {metrics_path}")
 
 if __name__ == "__main__":
     main()

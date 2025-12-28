@@ -74,9 +74,19 @@ WindowItem: TypeAlias = dict[str, list[int]]
 # Reproducibility
 _ = seed_everything(42, workers=True, verbose=False)
 
+CODE_DIR = os.path.dirname(__file__)
+EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
+
 NER_LABELS: list[str] = [str(label) for label in NER_LABEL_LIST]
 NER_CKPT: str = str(NER_CKPT_PATH)
 SPECIAL_TOKENS: list[str] = [str(token) for token in SPECIAL_TOKENS_TO_ADD]
+
+
+def _metrics_dir_for_job(base_dir: str) -> str:
+    job_id = os.environ.get("SLURM_JOB_ID")
+    if not job_id:
+        raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
+    return os.path.join(base_dir, job_id)
 
 
 class NERTrainer:
@@ -121,7 +131,7 @@ class NERTrainer:
         self.train_data: list[str] = []
         self.val_data: list[str] = []
         self.test_data: list[str] = []
-        self.metrics_output_dir = os.path.dirname(self.data_csv) or "."
+        self.metrics_output_dir = _metrics_dir_for_job(EVAL_METRICS_DIR)
 
     def _load_data(self) -> None:
         """
