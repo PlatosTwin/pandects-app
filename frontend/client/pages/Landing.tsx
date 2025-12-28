@@ -1,4 +1,7 @@
 import logo from "../../assets/logo.png";
+import sponsorLogoOne from "../../assets/sponsors/pandects-placeholder-1.png";
+import sponsorLogoTwo from "../../assets/sponsors/pandects-placeholder-2.png";
+import sponsorLogoThree from "../../assets/sponsors/pandects-placeholder-3.png";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
@@ -6,8 +9,11 @@ import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
 
 export default function Landing() {
+  const showSponsors = false;
+  const sponsorLogos = [sponsorLogoOne, sponsorLogoTwo, sponsorLogoThree];
+
   return (
-    <div className="relative isolate min-h-[80vh] overflow-hidden px-4 py-10 sm:py-12">
+    <div className="relative isolate min-h-[80vh] overflow-hidden px-4 py-8 sm:py-10">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
@@ -17,7 +23,8 @@ export default function Landing() {
       </div>
 
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
-        <div className="w-full max-w-[860px] animate-fade-in-up rounded-2xl border border-border/70 bg-background/75 px-6 py-12 text-center shadow-sm backdrop-blur sm:rounded-3xl sm:px-10 sm:py-16">
+        <div className="flex w-full max-w-[860px] flex-col items-center">
+          <div className="w-full animate-fade-in-up rounded-2xl border border-border/70 bg-background/75 px-6 py-12 text-center shadow-sm backdrop-blur sm:rounded-3xl sm:px-10 sm:py-16">
           <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
             Sourced from EDGAR • Updated{"\u00A0"}Weekly
           </div>
@@ -117,6 +124,26 @@ export default function Landing() {
             </Button>
           </div>
 
+          </div>
+          {showSponsors ? (
+            <section className="mt-20 text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Sponsors &amp; Supporters
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+                {sponsorLogos.map((sponsorLogo, index) => (
+                  <img
+                    key={`${sponsorLogo}-${index}`}
+                    src={sponsorLogo}
+                    alt="Pandects placeholder sponsor logo"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-10 w-10 rounded-lg object-cover opacity-50 grayscale"
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
     </div>
