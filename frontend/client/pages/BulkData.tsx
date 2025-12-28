@@ -387,14 +387,14 @@ export default function BulkData() {
                         </span>
                         {dump.timestamp === "latest" && (
                           <span className="text-xs text-green-600 font-medium">
-                            Latest Version
+                            Latest version
                           </span>
                         )}
                         {dump.timestamp !== "latest" &&
                           latestSha256 &&
                           dump.sha256 === latestSha256 && (
                             <span className="text-xs text-green-600 font-medium">
-                              Same as Latest
+                              Same as latest
                             </span>
                           )}
                       </div>

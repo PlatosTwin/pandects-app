@@ -64,7 +64,7 @@ export default function Account() {
     if (params.get("emailVerified") !== "1") return;
     toast({
       title: "Email verified!",
-      description: "Login to create API keys and access full search results.",
+      description: "Sign in to create API keys and access full search results.",
     });
     params.delete("emailVerified");
     const nextQuery = params.toString();
@@ -581,7 +581,7 @@ export default function Account() {
                         ),
                       });
                     } else {
-                      toast({ title: "Sign-in failed", description: message });
+                      toast({ title: "Sign in failed", description: message });
                     }
                   } finally {
                     setBusy(false);

@@ -215,7 +215,7 @@ export default function About() {
                 at NYU has also provided support, including a commitment to
                 substantially all of the funding. We are also thankful to NYU
                 Law professor Chris Sprigman. The concept and design for this
-                site borrows heavily from the{" "}
+                site borrow heavily from the{" "}
                 <a
                   href="https://case.law"
                   target="_blank"

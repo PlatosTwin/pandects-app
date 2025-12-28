@@ -907,7 +907,7 @@ export default function SourcesMethods() {
             </h2>
             <div className="text-muted-foreground">
               While we'd prefer to outsource all inference tasks to an LLM,
-              Pandects is a small-scale operation run on a shoe-string budget,
+              Pandects is a small-scale operation run on a shoestring budget,
               meaning we don't have the resources to send hundreds of thousands
               of pages of agreements to proprietary LLMs—and as of October 2025,{" "}
               {isCoarsePointer ? (
