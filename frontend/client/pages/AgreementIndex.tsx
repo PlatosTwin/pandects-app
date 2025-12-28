@@ -433,10 +433,10 @@ export default function AgreementIndex() {
                     </Button>
                   </TableHead>
                   <TableHead scope="col" className="hidden lg:table-cell">
-                    Consideration Type
+                    Consideration type
                   </TableHead>
                   <TableHead scope="col" className="hidden xl:table-cell">
-                    Total Consideration
+                    Total consideration
                   </TableHead>
                   <TableHead scope="col" className="w-28 text-right">
                     Verified

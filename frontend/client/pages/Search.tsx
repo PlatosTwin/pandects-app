@@ -507,7 +507,7 @@ export default function Search() {
                     ["year", "Year", filters.year],
                     ["target", "Target", filters.target],
                     ["acquirer", "Acquirer", filters.acquirer],
-                    ["clauseType", "Clause Type", filters.clauseType],
+                    ["clauseType", "Clause type", filters.clauseType],
                   ] as const
                 ).flatMap(([field, label, values]) =>
                   values.map((value) => (
