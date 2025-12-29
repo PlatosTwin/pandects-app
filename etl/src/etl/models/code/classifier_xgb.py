@@ -48,7 +48,7 @@ except ImportError:  # pragma: no cover - supports running as a script
 
 CODE_DIR = os.path.dirname(__file__)
 EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
-SEED = 42
+SEED = 2718
 
 
 def load_and_prepare_data(

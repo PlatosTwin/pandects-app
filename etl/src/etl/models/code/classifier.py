@@ -71,7 +71,7 @@ except ImportError:  # pragma: no cover - supports running as a script
     from split_utils import build_agreement_split, write_split_manifest  # pyright: ignore[reportMissingImports]
 
 # Reproducibility
-_ = pl.seed_everything(42, workers=True, verbose=False)
+_ = pl.seed_everything(2718, workers=True, verbose=False)
 
 
 def _metrics_dir_for_job(base_dir: str) -> str:

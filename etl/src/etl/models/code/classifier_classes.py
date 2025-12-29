@@ -669,8 +669,9 @@ class PageClassifier(pl.LightningModule):
         allowed = torch.zeros((ext_C, ext_C), dtype=torch.bool)
         start_allowed = torch.zeros((ext_C,), dtype=torch.bool)
 
+        flag_values = (0, 1) if ext_C == 2 * C else (0,)
         for y0 in range(C):
-            for f0 in (0, 1):
+            for f0 in flag_values:
                 i0 = self._ext_index(y0, f0)
                 for y1 in range(C):
                     # Basic monotonicity constraint
