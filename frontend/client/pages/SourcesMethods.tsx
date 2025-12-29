@@ -170,28 +170,46 @@ export default function SourcesMethods() {
   const classifierAbbreviations = ["FM", "TOC", "BDY", "SIG", "BM"];
   const pageClassifierMatrix = [
     [40, 1, 1, 1, 0],
-    [0, 130, 1, 0, 0],
-    [1, 0, 2168, 0, 35],
+    [0, 129, 2, 0, 0],
+    [0, 0, 2171, 0, 33],
     [0, 0, 1, 49, 1],
-    [0, 0, 77, 13, 388],
+    [0, 0, 86, 13, 379],
   ];
   const pageClassifierMetrics = [
     {
       label: "front_matter",
-      acc: 0.9302,
-      p: 0.9756,
-      r: 0.9302,
-      f1: 0.9524,
+      acc: 0.9302325581395349,
+      p: 1.0,
+      r: 0.9302325581395349,
+      f1: 0.963855421686747,
     },
-    { label: "toc", acc: 0.9924, p: 0.9924, r: 0.9924, f1: 0.9924 },
-    { label: "body", acc: 0.9837, p: 0.9644, r: 0.9837, f1: 0.9739 },
-    { label: "sig", acc: 0.9608, p: 0.7778, r: 0.9608, f1: 0.8596 },
+    {
+      label: "toc",
+      acc: 0.9847328244274809,
+      p: 0.9923076923076923,
+      r: 0.9847328244274809,
+      f1: 0.9885057471264368,
+    },
+    {
+      label: "body",
+      acc: 0.98502722323049,
+      p: 0.9601946041574525,
+      r: 0.98502722323049,
+      f1: 0.9724524076147817,
+    },
+    {
+      label: "sig",
+      acc: 0.9607843137254902,
+      p: 0.7777777777777778,
+      r: 0.9607843137254902,
+      f1: 0.8596491228070176,
+    },
     {
       label: "back_matter",
-      acc: 0.8117,
-      p: 0.9151,
-      r: 0.8117,
-      f1: 0.8603,
+      acc: 0.7928870292887029,
+      p: 0.9176755447941889,
+      r: 0.7928870292887029,
+      f1: 0.8507295173961841,
     },
   ];
   const finalClassifierLabels = classifierLabels;
@@ -199,17 +217,17 @@ export default function SourcesMethods() {
   const finalClassifierMatrix = [
     [41, 2, 0, 0, 0],
     [0, 131, 0, 0, 0],
-    [1, 0, 2188, 0, 15],
-    [0, 0, 2, 44, 5],
-    [0, 0, 24, 0, 454],
+    [0, 0, 2189, 0, 15],
+    [0, 0, 3, 43, 5],
+    [0, 0, 65, 3, 410],
   ];
   const finalClassifierMetrics = [
     {
       label: "front_matter",
       acc: 0.9534883720930233,
-      p: 0.9761904761904762,
+      p: 1.0,
       r: 0.9534883720930233,
-      f1: 0.9647058823529412,
+      f1: 0.9761904761904762,
     },
     {
       label: "toc",
@@ -220,40 +238,40 @@ export default function SourcesMethods() {
     },
     {
       label: "body",
-      acc: 0.9927404718693285,
-      p: 0.988256549232159,
-      r: 0.9927404718693285,
-      f1: 0.990493435943866,
+      acc: 0.9931941923774955,
+      p: 0.9698715108551174,
+      r: 0.9931941923774955,
+      f1: 0.9813943062093701,
     },
     {
       label: "sig",
-      acc: 0.8627450980392157,
-      p: 1.0,
-      r: 0.8627450980392157,
-      f1: 0.9263157894736842,
+      acc: 0.8431372549019608,
+      p: 0.9347826086956522,
+      r: 0.8431372549019608,
+      f1: 0.8865979381443299,
     },
     {
       label: "back_matter",
-      acc: 0.9497907949790795,
-      p: 0.9578059071729957,
-      r: 0.9497907949790795,
-      f1: 0.9537815126050421,
+      acc: 0.8577405857740585,
+      p: 0.9534883720930233,
+      r: 0.8577405857740585,
+      f1: 0.9030837004405287,
     },
   ];
   const postProcessingMatrix = [
     [41, 2, 0, 0, 0],
     [0, 131, 0, 0, 0],
-    [1, 0, 2188, 0, 15],
-    [0, 0, 1, 49, 1],
-    [0, 0, 11, 4, 463],
+    [0, 0, 2189, 0, 15],
+    [0, 0, 2, 48, 1],
+    [0, 0, 52, 7, 419],
   ];
   const postProcessingMetrics = [
     {
       label: "front_matter",
       acc: 0.9534883720930233,
-      p: 0.9761904761904762,
+      p: 1.0,
       r: 0.9534883720930233,
-      f1: 0.9647058823529412,
+      f1: 0.9761904761904762,
     },
     {
       label: "toc",
@@ -264,24 +282,24 @@ export default function SourcesMethods() {
     },
     {
       label: "body",
-      acc: 0.9927404718693285,
-      p: 0.9945454545454545,
-      r: 0.9927404718693285,
-      f1: 0.9936421435059037,
+      acc: 0.9931941923774955,
+      p: 0.975925100312082,
+      r: 0.9931941923774955,
+      f1: 0.9844839217449967,
     },
     {
       label: "sig",
-      acc: 0.9607843137254902,
-      p: 0.9245283018867925,
-      r: 0.9607843137254902,
-      f1: 0.9423076923076923,
+      acc: 0.9411764705882353,
+      p: 0.8727272727272727,
+      r: 0.9411764705882353,
+      f1: 0.9056603773584906,
     },
     {
       label: "back_matter",
-      acc: 0.9686192468619247,
-      p: 0.9665970772442589,
-      r: 0.9686192468619247,
-      f1: 0.96760710553814,
+      acc: 0.8765690376569037,
+      p: 0.9632183908045977,
+      r: 0.8765690376569037,
+      f1: 0.9178532311062432,
     },
   ];
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
@@ -1050,8 +1068,8 @@ export default function SourcesMethods() {
                 the BiLSTM + CRF model, and the BiLSTM + CRF with post-processing, all
                 as run on a holdout set of 36 agreements. While the XGB model is
                 somewhat midling on its own, taking into account and enforcing
-                page order substantially improves performance, bringing the F1
-                score up from <strong>92.77%</strong> to <strong>97.21%</strong>
+                page order improves performance not insubstantially, bringing the F1
+                score up from <strong>92.70%</strong> to <strong>95.53%</strong>
                 .{" "}
               </p>
               <div className="space-y-6">
@@ -1079,7 +1097,7 @@ export default function SourcesMethods() {
                                 Accuracy
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9546)}
+                                {formatMetric(0.9521843825249398)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1087,7 +1105,7 @@ export default function SourcesMethods() {
                                 Precision
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9251)}
+                                {formatMetric(0.9295911238074221)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1095,7 +1113,7 @@ export default function SourcesMethods() {
                                 Recall
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9358)}
+                                {formatMetric(0.9307327897623399)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1103,7 +1121,7 @@ export default function SourcesMethods() {
                                 F1 Score
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9277)}
+                                {formatMetric(0.9270384433262334)}
                               </div>
                             </div>
                           </div>
@@ -1297,7 +1315,7 @@ export default function SourcesMethods() {
                                 Accuracy
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9831441348469212)}
+                                {formatMetric(0.9680082559339526)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1305,7 +1323,7 @@ export default function SourcesMethods() {
                                 Precision
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9814430677221336)}
+                                {formatMetric(0.9686209795317661)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1313,7 +1331,7 @@ export default function SourcesMethods() {
                                 Recall
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9517529473961293)}
+                                {formatMetric(0.9295120810293076)}
                               </div>
                             </div>
                             <div className="text-center sm:text-left">
@@ -1321,7 +1339,7 @@ export default function SourcesMethods() {
                                 F1 Score
                               </div>
                               <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9655441725599552)}
+                                {formatMetric(0.9479381326817894)}
                               </div>
                             </div>
                           </div>
@@ -1516,7 +1534,7 @@ export default function SourcesMethods() {
                             Accuracy
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9879600963192294)}
+                            {formatMetric(0.9728242174062608)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -1524,7 +1542,7 @@ export default function SourcesMethods() {
                             Precision
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.969364743176404)}
+                            {formatMetric(0.9593666339717979)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -1532,7 +1550,7 @@ export default function SourcesMethods() {
                             Recall
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9751264809099534)}
+                            {formatMetric(0.9528856145431316)}
                           </div>
                         </div>
                         <div className="text-center sm:text-left">
@@ -1540,7 +1558,7 @@ export default function SourcesMethods() {
                             F1 Score
                           </div>
                           <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.972137413225784)}
+                            {formatMetric(0.9553224497648898)}
                           </div>
                         </div>
                       </div>
