@@ -77,7 +77,9 @@ _ = pl.seed_everything(2718, workers=True, verbose=False)
 def _metrics_dir_for_job(base_dir: str) -> str:
     job_id = os.environ.get("SLURM_JOB_ID")
     if not job_id:
-        raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
+        job_id = '##local##'
+        # raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
+        print('Running local and using dummy value for SLURM_JOB_ID.')
     return os.path.join(base_dir, job_id)
 
 
@@ -316,9 +318,12 @@ class ClassifierTrainer:
         data_module.setup()
 
         label_names = self._label_names(data_module)
-        merged_overrides = dict(model_overrides)
-        merged_overrides.setdefault("use_lstm", self.use_lstm)
-        merged_overrides.setdefault("use_crf", self.use_crf)
+        merged_overrides: ModelOverrides = {}
+        merged_overrides.update(model_overrides)
+        if "use_lstm" not in merged_overrides:
+            merged_overrides["use_lstm"] = self.use_lstm
+        if "use_crf" not in merged_overrides:
+            merged_overrides["use_crf"] = self.use_crf
         model = PageClassifier(
             num_classes=data_module.num_classes,
             lr=params["lr"],
@@ -428,6 +433,9 @@ class ClassifierTrainer:
                 average=None,
                 zero_division=cast(str, cast(object, 0)),
             )
+            per_prec_arr = np.asarray(per_prec_arr)
+            per_rec_arr = np.asarray(per_rec_arr)
+            per_f1_arr = np.asarray(per_f1_arr)
             per_class = {
                 label: {
                     "accuracy": float(class_acc[i]),
@@ -987,8 +995,7 @@ def main(
 
         if classifier_trainer.split_path and not os.path.exists(classifier_trainer.split_path):
             raise FileNotFoundError(
-                f"Split manifest not found at {classifier_trainer.split_path}. "
-                "Create it during training so sweep matches the trained split."
+                f"Split manifest not found at {classifier_trainer.split_path}. Create it during training so sweep matches the trained split."
             )
 
         sig_thresholds = [0.3, 0.4, 0.5]
@@ -1023,11 +1030,9 @@ def main(
         ckpt_label_names = list(getattr(eval_model, "label_names", []))
         if ckpt_label_names and ckpt_label_names != label_names:
             raise ValueError(
-                "Checkpoint label order does not match sweep label order. "
-                f"Checkpoint: {ckpt_label_names} "
-                f"Sweep: {label_names}"
+                f"Checkpoint label order does not match sweep label order. Checkpoint: {ckpt_label_names} Sweep: {label_names}"
             )
-        sweep_csv_path = os.path.join(DATA_DIR, "crf_sweep_metrics.csv")
+        sweep_csv_path = os.path.join(EVAL_METRICS_DIR, "crf_sweep_metrics.csv")
         os.makedirs(os.path.dirname(sweep_csv_path), exist_ok=True)
         csv_file = open(sweep_csv_path, "w", newline="")
         csv_file.write(f"# checkpoint={CLASSIFIER_CKPT_PATH}\n")
@@ -1041,13 +1046,9 @@ def main(
         best_post_f1: float | None = None
 
         for sig_thr in sig_thresholds:
-            tag = (
-                "Model-Val (crf) sweep "
-                f"sig_thr={sig_thr}"
-            )
+            tag = f"Model-Val (crf) sweep sig_thr={sig_thr}"
             print(
-                ">> Sweep run: "
-                f"sig_thr={sig_thr}"
+                f">> Sweep run: sig_thr={sig_thr}"
             )
             eval_model.enable_first_sig_postprocessing = True
             eval_model.first_sig_threshold = sig_thr
@@ -1160,8 +1161,7 @@ def main(
 
         if best_sig_threshold is not None and best_post_f1 is not None:
             print(
-                ">> Sweep best first_sig_threshold: "
-                f"{best_sig_threshold} (post_overall_f1={best_post_f1:.4f})"
+                f">> Sweep best first_sig_threshold: {best_sig_threshold} (post_overall_f1={best_post_f1:.4f})"
             )
         csv_file.close()
 

@@ -363,8 +363,7 @@ class PageDataModule(pl.LightningDataModule):
                 extra_labels |= set(test_df["label"]) - present_labels
             if extra_labels:
                 raise ValueError(
-                    "Validation/test labels missing from training split: "
-                    f"{sorted(extra_labels)}"
+                    f"Validation/test labels missing from training split: {sorted(extra_labels)}"
                 )
             labels = [
                 label for label in CLASSIFIER_LABEL_LIST if label in present_labels
