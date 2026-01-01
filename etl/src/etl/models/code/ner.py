@@ -7,6 +7,7 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
 # Standard library
+import json
 import os
 import time
 import yaml
@@ -76,6 +77,8 @@ _ = seed_everything(42, workers=True, verbose=False)
 
 CODE_DIR = os.path.dirname(__file__)
 EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
+DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "../data"))
+NER_SPLIT_PATH = os.path.join(DATA_DIR, "ner-page-splits.json")
 
 NER_LABELS: list[str] = [str(label) for label in NER_LABEL_LIST]
 NER_CKPT: str = str(NER_CKPT_PATH)
@@ -139,47 +142,55 @@ class NERTrainer:
         """
         df = pd.read_csv(self.data_csv)
 
+        required_cols = {
+            "tagged_text",
+            "date_announcement",
+            "page_uuid",
+            "tagged_section",
+            "tagged_article",
+            "article_upsample",
+        }
+        if not required_cols.issubset(df.columns):
+            missing = required_cols - set(df.columns)
+            raise ValueError(
+                f"Data must contain columns: {sorted(required_cols)}. Missing: {sorted(missing)}"
+            )
+
         def _has_tags(text: str) -> int:
             return 1 if "<section>" in text or "<article>" in text else 0
 
         df["tagged"] = df["tagged_text"].apply(_has_tags)
-        df["year"] = df["date_announcement"].str.slice(0, 4)
-        df["year_tagged"] = df["year"].astype(str) + "_" + df["tagged"].astype(str)
+        announcement_dates = pd.to_datetime(df["date_announcement"], errors="raise")
+        if announcement_dates.isna().any():
+            raise ValueError("Found missing or invalid date_announcement values.")
+        df["announcement_year"] = announcement_dates.dt.year.astype(int)
+        df["tagged_section"] = df["tagged_section"].astype(int)
+        df["tagged_article"] = df["tagged_article"].astype(int)
+        df["article_upsample"] = df["article_upsample"].astype(bool)
 
         print(f"Loaded data shape: {df.shape}")
         print(df.head(2))
         print(f"Tagged value counts:\n{df['tagged'].value_counts()}")
-        print(f"Year value counts:\n{df['year'].value_counts()}")
+        print(f"Year value counts:\n{df['announcement_year'].value_counts()}")
 
         # For now, remove untagged pages
         # df = df[df["tagged"] == 1]
 
-        train_df_raw, holdout_df_raw = cast(
-            tuple[pd.DataFrame, pd.DataFrame],
-            cast(
-                object,
-                train_test_split(
-                    df, test_size=0.2, stratify=df["year_tagged"], random_state=42
-                ),
-            ),
-        )
-        train_df = train_df_raw
-        holdout_df = holdout_df_raw
+        split = self._load_or_build_split(df)
+        train_ids = set(cast(list[str], split["train"]))
+        val_ids = set(cast(list[str], split["val"]))
+        test_ids = set(cast(list[str], split["test"]))
 
-        val_df_raw, test_df_raw = cast(
-            tuple[pd.DataFrame, pd.DataFrame],
-            cast(
-                object,
-                train_test_split(
-                    holdout_df,
-                    test_size=0.5,
-                    stratify=holdout_df["year_tagged"],
-                    random_state=42,
-                ),
-            ),
-        )
-        val_df = val_df_raw
-        test_df = test_df_raw
+        train_df = df[df["page_uuid"].astype(str).isin(train_ids)]
+        val_df = df[df["page_uuid"].astype(str).isin(val_ids)]
+        test_df = df[df["page_uuid"].astype(str).isin(test_ids)]
+
+        if train_ids & val_ids or train_ids & test_ids or val_ids & test_ids:
+            raise ValueError("Split manifest has overlapping page_uuid values.")
+        if not train_df["article_upsample"].any():
+            print("[split] warning: no article_upsample rows in train split.")
+        if val_df["article_upsample"].any() or test_df["article_upsample"].any():
+            raise ValueError("Split manifest contains article_upsample rows in val/test.")
 
         print(
             f"Splits -> train: {train_df.shape}, val: {val_df.shape}, test: {test_df.shape}"
@@ -188,6 +199,82 @@ class NERTrainer:
         self.train_data = train_df["tagged_text"].to_list()
         self.val_data = val_df["tagged_text"].to_list()
         self.test_data = test_df["tagged_text"].to_list()
+
+    def _load_or_build_split(self, df: pd.DataFrame) -> dict[str, object]:
+        if os.path.exists(NER_SPLIT_PATH):
+            with open(NER_SPLIT_PATH, "r", encoding="utf-8") as f:
+                split = cast(dict[str, object], json.load(f))
+            for key in ("train", "val", "test"):
+                if key not in split:
+                    raise ValueError("Split manifest missing required keys: train/val/test.")
+            df_ids = set(df["page_uuid"].astype(str).tolist())
+            split_ids = set(cast(list[str], split["train"])) | set(
+                cast(list[str], split["val"])
+            ) | set(cast(list[str], split["test"]))
+            missing = split_ids - df_ids
+            if missing:
+                raise ValueError("Split manifest contains unknown page_uuid values.")
+            return split
+
+        val_split = 0.1
+        test_split = 0.1
+        total_split = val_split + test_split
+        if total_split >= 1.0:
+            raise ValueError("val_split + test_split must be < 1.0")
+
+        base_df = df[~df["article_upsample"]].copy()
+        if base_df.empty:
+            raise ValueError("No base rows (article_upsample=False) available for val/test.")
+
+        strat_cols = ["announcement_year", "tagged_section", "tagged_article"]
+        base_strat = base_df[strat_cols].astype(str).agg("_".join, axis=1)
+        train_base_df, holdout_df = cast(
+            tuple[pd.DataFrame, pd.DataFrame],
+            cast(
+                object,
+                train_test_split(
+                    base_df,
+                    test_size=total_split,
+                    stratify=base_strat,
+                    random_state=42,
+                ),
+            ),
+        )
+        holdout_strat = holdout_df[strat_cols].astype(str).agg("_".join, axis=1)
+        val_df, test_df = cast(
+            tuple[pd.DataFrame, pd.DataFrame],
+            cast(
+                object,
+                train_test_split(
+                    holdout_df,
+                    test_size=test_split / total_split,
+                    stratify=holdout_strat,
+                    random_state=42,
+                ),
+            ),
+        )
+
+        upsample_df = df[df["article_upsample"]].copy()
+        train_df = pd.concat([train_base_df, upsample_df], ignore_index=True)
+
+        split = {
+            "train": train_df["page_uuid"].astype(str).tolist(),
+            "val": val_df["page_uuid"].astype(str).tolist(),
+            "test": test_df["page_uuid"].astype(str).tolist(),
+            "meta": {
+                "val_split": val_split,
+                "test_split": test_split,
+                "seed": 42,
+                "stratify_cols": strat_cols,
+                "page_uuid_col": "page_uuid",
+                "article_upsample_col": "article_upsample",
+            },
+        }
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(NER_SPLIT_PATH, "w", encoding="utf-8") as f:
+            json.dump(split, f, indent=2, sort_keys=True)
+        print(f"[split] wrote NER split manifest to {NER_SPLIT_PATH}")
+        return cast(dict[str, object], split)
 
     def _get_callbacks(
         self, trial: Trial | None = None, ckpt: str | None = None

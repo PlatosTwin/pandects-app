@@ -151,6 +151,10 @@ def _process_document(
 
         ordered_first_toks = sorted(wid_to_first_tok.values())
         if len(ordered_first_toks) == 1:
+            if tag in {"section", "article"}:
+                raise ValueError(
+                    f"Single-token {tag} span found; S-{tag.upper()} is not supported."
+                )
             labels[ordered_first_toks[0]] = label2id[f"S-{tag.upper()}"]
         else:
             labels[ordered_first_toks[0]] = label2id[f"B-{tag.upper()}"]
@@ -322,7 +326,7 @@ def prf1_from_spans_lenient(
                 fp += 1
             else:
                 tp += 1
-                unmatched.pop(match_idx)
+                _ = unmatched.pop(match_idx)
         fn += len(unmatched)
     return tp, fp, fn
 
@@ -731,18 +735,27 @@ class FocalLoss(torch.nn.Module):
     Addresses class imbalance by down-weighting easy examples.
     """
 
-    def __init__(self, gamma: float = 2.0, ignore_index: int = -100):
+    def __init__(
+        self,
+        gamma: float = 2.0,
+        ignore_index: int = -100,
+        class_weights: torch.Tensor | None = None,
+    ):
         """
         Initialize focal loss.
 
         Args:
             gamma: Focusing parameter
             ignore_index: Index to ignore in loss computation
+            class_weights: Optional per-class weights aligned to label ids
         """
         super().__init__()
         self.gamma = gamma
         self.ignore = ignore_index
         self.ce = torch.nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
+        self.class_weights: torch.Tensor | None = None
+        if class_weights is not None:
+            self.register_buffer("class_weights", class_weights)
 
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """
@@ -760,6 +773,15 @@ class FocalLoss(torch.nn.Module):
             labels = labels.view(-1)
 
         loss = self.ce(logits, labels)
+        if self.class_weights is not None:
+            weights = self.class_weights
+            if weights.device != labels.device:
+                weights = weights.to(labels.device)
+            mask = labels != self.ignore
+            if mask.any():
+                per_label = torch.ones_like(loss)
+                per_label[mask] = weights[labels[mask]]
+                loss = loss * per_label
         pt = torch.exp(-loss)
         focal = (1 - pt) ** self.gamma * loss
         return focal.mean()
@@ -778,6 +800,8 @@ class NERTagger(pl.LightningModule):
         learning_rate: float,
         weight_decay: float,
         warmup_steps_pct: float,
+        article_class_weight: float = 3.0,
+        default_class_weight: float = 1.0,
         metrics_output_dir: str | None = None,
         metrics_output_name: str = "ner_test_metrics.yaml",
     ):
@@ -802,8 +826,29 @@ class NERTagger(pl.LightningModule):
         self.model.train()
         _ = _upgrade_token_head(self.model, self.num_labels, p_drop=0.1, hidden_mult=1.0)
 
-        self.loss_fn = FocalLoss()
         self.ignore_index = -100
+        class_weight_map: dict[str, float] = {}
+        class_weights: list[float] = []
+        for idx in range(self.num_labels):
+            label_name = self.id2label[idx]
+            weight = (
+                float(article_class_weight)
+                if "ARTICLE" in label_name
+                else float(default_class_weight)
+            )
+            class_weight_map[label_name] = weight
+            class_weights.append(weight)
+        class_weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
+        print(
+            "NER class weights: "
+            + ", ".join(f"{label} -> {weight:g}" for label, weight in class_weight_map.items())
+        )
+        self.class_weight_map = class_weight_map
+        self.loss_fn = FocalLoss(
+            gamma=2.0,
+            ignore_index=self.ignore_index,
+            class_weights=class_weight_tensor,
+        )
 
         # CRF-style constraints (buffers, move with .to(device), saved in state_dict)
         _trans, _start, _end = build_bioes_constraints(self.id2label)
@@ -1251,7 +1296,7 @@ class NERTagger(pl.LightningModule):
                     fp += 1
                 else:
                     tp += 1
-                    unmatched.pop(match_idx)
+                    _ = unmatched.pop(match_idx)
             fn = len(unmatched)
             _ = counts.setdefault(t, {"tp": 0, "fp": 0, "fn": 0, "support": 0})
             counts[t]["tp"] += tp
@@ -1351,7 +1396,7 @@ class NERTagger(pl.LightningModule):
         else:
             macro_prec = macro_rec = macro_f1 = 0.0
 
-        entity_metrics = {
+        entity_metrics: dict[str, object] = {
             "micro": {"precision": micro_prec, "recall": micro_rec, "f1": micro_f1},
             "macro": {"precision": macro_prec, "recall": macro_rec, "f1": macro_f1},
             "per_type": per_type,
@@ -1443,6 +1488,11 @@ class NERTagger(pl.LightningModule):
         metrics = {
             "token_level": token_metrics,
             "entity_level": entity_metrics,
+            "class_weights": {
+                "article": float(getattr(self.hparams, "article_class_weight", 3.0)),
+                "default": float(getattr(self.hparams, "default_class_weight", 1.0)),
+                "by_label": self.class_weight_map,
+            },
         }
 
         metrics_dir = cast(str | None, getattr(self.hparams, "metrics_output_dir", None))

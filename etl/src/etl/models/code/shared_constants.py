@@ -17,11 +17,9 @@ NER_LABEL_LIST = [
     "B-SECTION",  # begin a SECTION span
     "I-SECTION",  # inside a SECTION span
     "E-SECTION",  # end of a SECTION span
-    "S-SECTION",  # single SECTION span
     "B-ARTICLE",  # begin an ARTICLE span
     "I-ARTICLE",  # inside an ARTICLE span
     "E-ARTICLE",  # end of a ARTICLE span
-    "S-ARTICLE",  # single ARTICLE span
     "B-PAGE",  # begin a PAGE span
     "I-PAGE",  # inside a PAGE span
     "E-PAGE",  # end of a PAGE span
