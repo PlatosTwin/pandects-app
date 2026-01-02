@@ -59,6 +59,26 @@ export default {
         },
         cream: "hsl(var(--cream))",
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            a: {
+              color: "hsl(var(--primary))",
+              textDecoration: "none",
+              fontWeight: "400",
+              textUnderlineOffset: "4px",
+              borderRadius: "0.125rem",
+            },
+            "a:hover": {
+              textDecoration: "underline",
+            },
+            "a:focus-visible": {
+              outline: "2px solid hsl(var(--ring))",
+              outlineOffset: "2px",
+            },
+          },
+        },
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

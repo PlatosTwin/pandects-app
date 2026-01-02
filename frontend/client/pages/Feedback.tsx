@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/accordion";
 import { PageShell } from "@/components/PageShell";
 import { trackEvent } from "@/lib/analytics";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function Feedback() {
   const [openSection, setOpenSection] = useState<string>("");
@@ -22,6 +22,12 @@ export default function Feedback() {
     survey: false,
     "general-feedback": false,
   });
+  const [loadTimeouts, setLoadTimeouts] = useState<
+    Record<"survey" | "general-feedback", boolean>
+  >({
+    survey: false,
+    "general-feedback": false,
+  });
 
   const handleSectionChange = (value: string) => {
     setOpenSection(value);
@@ -29,6 +35,29 @@ export default function Feedback() {
       setMountedSections((prev) => ({ ...prev, [value]: true }));
     }
   };
+
+  useEffect(() => {
+    if (!mountedSections.survey || loadedSections.survey) return;
+    const timer = window.setTimeout(
+      () => setLoadTimeouts((prev) => ({ ...prev, survey: true })),
+      10000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [mountedSections.survey, loadedSections.survey]);
+
+  useEffect(() => {
+    if (!mountedSections["general-feedback"] || loadedSections["general-feedback"]) return;
+    const timer = window.setTimeout(
+      () => setLoadTimeouts((prev) => ({ ...prev, "general-feedback": true })),
+      10000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [mountedSections["general-feedback"], loadedSections["general-feedback"]]);
+
+  const surveyUrl =
+    "https://airtable.com/embed/appsaasOdbK3k0JIR/pagNFOMrP8gZLyEl3/form";
+  const generalFeedbackUrl =
+    "https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form";
 
   const skeletonBySection = useMemo(
     () => ({
@@ -144,7 +173,7 @@ export default function Feedback() {
                       border: "1px solid #ccc",
                       opacity: loadedSections.survey ? 1 : 0,
                     }}
-                    src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagNFOMrP8gZLyEl3/form"
+                    src={surveyUrl}
                     title="Pandects user survey form"
                     width="100%"
                     height="895"
@@ -152,6 +181,20 @@ export default function Feedback() {
                       setLoadedSections((prev) => ({ ...prev, survey: true }))
                     }
                   />
+                  {loadTimeouts.survey && !loadedSections.survey && (
+                    <div className="mt-4 rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                      The survey is taking longer than expected to load.{" "}
+                      <a
+                        href={surveyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Open the survey in a new tab
+                      </a>
+                      .
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -194,7 +237,7 @@ export default function Feedback() {
                       border: "1px solid #ccc",
                       opacity: loadedSections["general-feedback"] ? 1 : 0,
                     }}
-                    src="https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form"
+                    src={generalFeedbackUrl}
                     title="Pandects general feedback form"
                     width="100%"
                     height="895"
@@ -205,6 +248,21 @@ export default function Feedback() {
                       }))
                     }
                   />
+                  {loadTimeouts["general-feedback"] &&
+                    !loadedSections["general-feedback"] && (
+                      <div className="mt-4 rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                        The form is taking longer than expected to load.{" "}
+                        <a
+                          href={generalFeedbackUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Open the form in a new tab
+                        </a>
+                        .
+                      </div>
+                    )}
                 </div>
               )}
             </div>

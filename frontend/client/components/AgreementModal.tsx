@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useId } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   ArrowLeft,
@@ -60,6 +61,7 @@ export function AgreementModal({
   const modalTitleId = useId();
   const modalDescriptionId = useId();
   const isMobile = useIsMobile();
+  const canUseDOM = typeof document !== "undefined";
   const year = agreementMetadata?.year ?? agreement?.year;
   const target = agreementMetadata?.target ?? agreement?.target;
   const acquirer = agreementMetadata?.acquirer ?? agreement?.acquirer;
@@ -110,6 +112,28 @@ export function AgreementModal({
       lastFocusedElementRef.current = null;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !canUseDOM) return;
+    const body = document.body;
+    const currentCount = Number(body.dataset.modalCount ?? "0");
+    const nextCount = currentCount + 1;
+    body.dataset.modalCount = String(nextCount);
+    const root = document.getElementById("root");
+    if (root) {
+      root.setAttribute("aria-hidden", "true");
+      root.setAttribute("inert", "");
+    }
+    return () => {
+      const updatedCount = Number(body.dataset.modalCount ?? "1") - 1;
+      const safeCount = Math.max(0, updatedCount);
+      body.dataset.modalCount = String(safeCount);
+      if (safeCount === 0 && root) {
+        root.removeAttribute("aria-hidden");
+        root.removeAttribute("inert");
+      }
+    };
+  }, [isOpen, canUseDOM]);
 
   const handleTrapFocus = (event: React.KeyboardEvent) => {
     if (event.key !== "Tab") return;
@@ -216,9 +240,9 @@ export function AgreementModal({
     }
   }, [agreement, targetSectionUuid]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !canUseDOM) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-0 sm:p-4"
       onClick={onClose}
@@ -470,7 +494,7 @@ export function AgreementModal({
 
             {error && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-red-600" role="alert">
+                <div className="text-center text-destructive" role="alert">
                   <p className="mb-2">Failed to load agreement</p>
                   <p className="text-sm text-muted-foreground">{error}</p>
                 </div>
@@ -515,6 +539,7 @@ export function AgreementModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

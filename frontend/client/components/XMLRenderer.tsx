@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,26 +49,29 @@ export function XMLRenderer({
     string | null
   >(null);
 
-  useMemo(() => {
+  useEffect(() => {
     if (
       previousHighlightedSection &&
       previousHighlightedSection !== highlightedSection
     ) {
-      // Start fading the previous highlight
       setFadingHighlights((prev) =>
         new Set(prev).add(previousHighlightedSection),
       );
 
-      // Remove from fading set after transition completes
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setFadingHighlights((prev) => {
           const newSet = new Set(prev);
           newSet.delete(previousHighlightedSection);
           return newSet;
         });
-      }, 1000); // Match the transition duration
+      }, 1000);
+
+      setPreviousHighlightedSection(highlightedSection);
+      return () => clearTimeout(timer);
     }
+
     setPreviousHighlightedSection(highlightedSection);
+    return undefined;
   }, [highlightedSection, previousHighlightedSection]);
 
   const parsedXML = useMemo(() => {

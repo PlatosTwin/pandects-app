@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Link } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 export default function Landing() {
   const showSponsors = false;
@@ -24,22 +25,27 @@ export default function Landing() {
 
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="flex w-full max-w-[860px] flex-col items-center">
-          <div className="w-full animate-fade-in-up rounded-2xl border border-border/70 bg-background/75 px-6 py-12 text-center shadow-sm backdrop-blur sm:rounded-3xl sm:px-10 sm:py-16">
+          <Card className="w-full animate-fade-in-up border-border/70 bg-background/75 px-6 py-12 text-center backdrop-blur sm:px-10 sm:py-16">
             <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
               Sourced from EDGAR • Updated{"\u00A0"}weekly
             </div>
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <img
-                  src={logo}
-                  alt="Pandects Logo"
-                  width={128}
-                  height={128}
-                  decoding="async"
-                  tabIndex={0}
-                  className="mx-auto mb-8 h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
-                />
+                <button
+                  type="button"
+                  aria-label="About the Pandects name"
+                  className="mx-auto mb-8 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <img
+                    src={logo}
+                    alt="Pandects Logo"
+                    width={128}
+                    height={128}
+                    decoding="async"
+                    className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
+                  />
+                </button>
               </TooltipTrigger>
               <TooltipContent
                 side="top"
@@ -126,7 +132,7 @@ export default function Landing() {
                 </Link>
               </Button>
             </div>
-          </div>
+          </Card>
           {showSponsors ? (
             <section className="mt-20 text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">

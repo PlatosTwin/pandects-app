@@ -1,0 +1,135 @@
+.swagger-ui {
+  color: hsl(var(--foreground));
+  font-family: inherit;
+}
+
+.swagger-ui .topbar {
+  display: none;
+}
+
+.swagger-ui .wrapper {
+  padding: 0;
+}
+
+.swagger-ui .opblock {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.swagger-ui .opblock .opblock-summary {
+  background: hsl(var(--muted));
+  border-radius: 0.75rem 0.75rem 0 0;
+  box-shadow: none;
+}
+
+.swagger-ui .opblock-summary-control {
+  background: hsl(var(--muted));
+  border: 0;
+  box-shadow: none;
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+
+.swagger-ui .opblock-summary-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+.swagger-ui .opblock .opblock-summary-method {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+
+.swagger-ui .opblock .opblock-summary-path {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.swagger-ui .opblock .opblock-summary-description {
+  color: hsl(var(--muted-foreground));
+}
+
+.swagger-ui .opblock .opblock-section-header {
+  background: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border));
+}
+
+.swagger-ui .opblock .opblock-section-header h4,
+.swagger-ui .opblock .opblock-section-header label {
+  color: hsl(var(--foreground));
+}
+
+.swagger-ui .opblock-body {
+  background: hsl(var(--background));
+  border-radius: 0 0 0.75rem 0.75rem;
+  overflow: hidden;
+}
+
+.swagger-ui .opblock-body .opblock-description-wrapper,
+.swagger-ui .opblock-body .responses-wrapper {
+  background: hsl(var(--background));
+  border-radius: 0 0 0.75rem 0.75rem;
+  overflow: hidden;
+}
+
+.swagger-ui .responses-inner h4,
+.swagger-ui .responses-inner h5 {
+  color: hsl(var(--foreground));
+}
+
+.swagger-ui .response-col_status {
+  color: hsl(var(--muted-foreground));
+}
+
+.swagger-ui .btn {
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: none;
+}
+
+.swagger-ui .btn:hover {
+  background: hsl(var(--accent));
+}
+
+.swagger-ui input,
+.swagger-ui select,
+.swagger-ui textarea {
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: none;
+}
+
+.swagger-ui .table-container {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.swagger-ui table thead tr th {
+  color: hsl(var(--muted-foreground));
+}
+
+.swagger-ui .model-box {
+  background: hsl(var(--muted));
+  border-radius: 0.75rem;
+}
+
+.swagger-ui .opblock-tag {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.swagger-ui a {
+  color: hsl(var(--primary));
+}
+
+.swagger-ui a:hover {
+  color: hsl(var(--foreground));
+}

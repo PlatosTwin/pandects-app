@@ -74,7 +74,7 @@ export function LegalMarkdownPage({ title, markdownPath, relatedLinks }: LegalMa
           {!isLoading && !error && (
             <>
               <div
-                className="prose prose-slate dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-a:underline-offset-4 prose-a:focus-visible:outline-none prose-a:focus-visible:ring-2 prose-a:focus-visible:ring-ring prose-a:focus-visible:ring-offset-2 prose-a:focus-visible:ring-offset-background prose-a:rounded-sm"
+                className="prose prose-slate dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
               <p className="not-prose mt-6 text-sm text-muted-foreground">

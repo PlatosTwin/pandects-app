@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TOCItem } from "@shared/agreement";
@@ -19,15 +19,15 @@ export function TableOfContents({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   const tocItems = useMemo(() => {
-    const items = extractTOCFromXML(xmlContent);
-    // Auto-expand items that contain the target section
-    if (targetSectionUuid) {
-      const expandedSet = new Set<string>();
-      findAndExpandParents(items, targetSectionUuid, expandedSet);
-      setExpandedItems(expandedSet);
-    }
-    return items;
-  }, [xmlContent, targetSectionUuid]);
+    return extractTOCFromXML(xmlContent);
+  }, [xmlContent]);
+
+  useEffect(() => {
+    if (!targetSectionUuid) return;
+    const expandedSet = new Set<string>();
+    findAndExpandParents(tocItems, targetSectionUuid, expandedSet);
+    setExpandedItems(expandedSet);
+  }, [tocItems, targetSectionUuid]);
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems((prev) => {

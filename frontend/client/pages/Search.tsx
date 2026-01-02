@@ -477,7 +477,7 @@ export default function Search() {
                   variant="ghost"
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Clear filters
+                  Reset filters
                 </Button>
               </div>
 
@@ -521,7 +521,7 @@ export default function Search() {
                       <button
                         type="button"
                         onClick={() => toggleFilterValue(field, value)}
-                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         aria-label={`Remove ${label} filter: ${value}`}
                       >
                         <X className="h-3 w-3" aria-hidden="true" />
@@ -537,7 +537,7 @@ export default function Search() {
                     onClick={clearFilters}
                     className="h-8 px-2 text-muted-foreground hover:text-foreground"
                   >
-                    Clear all
+                    Clear all filters
                   </Button>
                 </div>
               </div>

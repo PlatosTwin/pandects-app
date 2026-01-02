@@ -56,13 +56,12 @@ export default function About() {
   const ComingSoon = ({ title }: { title: string }) => (
     <Card className="border-border/70 bg-card/70 p-5">
       <div className="text-sm font-medium text-foreground">{title}</div>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-muted-foreground prose max-w-none">
         This section is being written. If you’d like to help,{" "}
         <a
           href="https://github.com/PlatosTwin/pandects-app/issues"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-primary hover:underline"
           aria-label="Open an issue (opens in a new tab)"
         >
           open an issue
@@ -144,8 +143,8 @@ export default function About() {
                   <dt className="font-semibold text-foreground">
                     Aug – Nov ’25
                   </dt>
-                  <dd className="text-muted-foreground">
-                    <Link to="/feedback" className="text-primary hover:underline">
+                  <dd className="text-muted-foreground prose max-w-none">
+                    <Link to="/feedback">
                       End‑user surveys
                     </Link>{" "}
                     and pipeline development
@@ -171,14 +170,13 @@ export default function About() {
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Contributing
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground prose max-w-none">
               This is an open-source project, and contributions are welcome.
               See the{" "}
               <a
                 href="https://github.com/PlatosTwin/pandects-app"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
                 aria-label="GitHub repository (opens in a new tab)"
               >
                 GitHub repository
@@ -200,14 +198,13 @@ export default function About() {
               Credits
             </h2>
             <div className="space-y-6 text-muted-foreground">
-              <p>
+              <p className="prose max-w-none">
                 Professor Emiliano Catan at NYU Law has been an active advisor
                 to this project from the beginning. The{" "}
                 <a
                   href="https://www.law.nyu.edu/leadershipprogram"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
                   aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
                 >
                   Jacobson Leadership Program in Law and Business
@@ -220,7 +217,6 @@ export default function About() {
                   href="https://case.law"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
                   aria-label="Caselaw Access Project (opens in a new tab)"
                 >
                   Caselaw Access Project
@@ -230,7 +226,6 @@ export default function About() {
                   href="https://lil.law.harvard.edu/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
                   aria-label="Library Innovation Lab (opens in a new tab)"
                 >
                   Library Innovation Lab
@@ -239,7 +234,7 @@ export default function About() {
                 advice early on in this project. Josh Carty provided technical
                 assistance early on, and helped brainstorm.
               </p>
-              <p>
+              <p className="prose max-w-none">
                 This project would not have gotten off the ground without the
                 prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
                 and Eric Talley, whose{" "}
@@ -247,7 +242,6 @@ export default function About() {
                   href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
                   aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
                 >
                   <em>
@@ -262,7 +256,6 @@ export default function About() {
                   href="https://github.com/padelson/dma_corpus/tree/main"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
                   aria-label="here (opens in a new tab)"
                 >
                   here

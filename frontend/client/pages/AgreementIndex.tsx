@@ -120,7 +120,8 @@ export default function AgreementIndex() {
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState<SortColumn>("year");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
-  const [filter, setFilter] = useState("");
+  const [filterInput, setFilterInput] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
   const [selectedAgreement, setSelectedAgreement] = useState<{
     agreementUuid: string;
     year: string;
@@ -176,8 +177,8 @@ export default function AgreementIndex() {
         params.set("pageSize", String(pageSize));
         params.set("sortBy", sortBy);
         params.set("sortDir", sortDir);
-        if (filter.trim()) {
-          params.set("query", filter.trim());
+        if (filterQuery.trim()) {
+          params.set("query", filterQuery.trim());
         }
 
         const res = await authFetch(
@@ -213,7 +214,15 @@ export default function AgreementIndex() {
       cancelled = true;
       controller.abort();
     };
-  }, [page, pageSize, sortBy, sortDir, filter]);
+  }, [page, pageSize, sortBy, sortDir, filterQuery]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setFilterQuery(filterInput);
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [filterInput]);
 
   const handleSort = (column: SortColumn) => {
     if (column === sortBy) {
@@ -244,8 +253,8 @@ export default function AgreementIndex() {
     return items;
   }, [page, totalPages]);
 
-  const filteredLabel = filter.trim()
-    ? `Filtered by "${filter.trim()}"`
+  const filteredLabel = filterQuery.trim()
+    ? `Filtered by "${filterQuery.trim()}"`
     : "Showing all agreements";
 
   return (
@@ -320,10 +329,9 @@ export default function AgreementIndex() {
                 />
                 <Input
                   id="agreement-filter"
-                  value={filter}
+                  value={filterInput}
                   onChange={(event) => {
-                    setFilter(event.target.value);
-                    setPage(1);
+                    setFilterInput(event.target.value);
                   }}
                   placeholder="Filter by year, target, or acquirer"
                   className="pl-9"
@@ -335,7 +343,7 @@ export default function AgreementIndex() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-lg border border-border/60 bg-background/60">
+          <div className="mt-6 hidden lg:block rounded-lg border border-border/60 bg-background/60">
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 bg-background/95 backdrop-blur">
                 <TableRow>
@@ -528,6 +536,104 @@ export default function AgreementIndex() {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          <div className="mt-6 space-y-4 lg:hidden">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <Card key={`mobile-skeleton-${index}`} className="border-border/60">
+                  <CardContent className="p-4">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="mt-3 h-4 w-full" />
+                    <Skeleton className="mt-2 h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : error ? (
+              <Card className="border-border/60">
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground" role="alert">
+                    {error}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : agreements.length === 0 ? (
+              <Card className="border-border/60">
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground" role="status">
+                    No agreements match this filter.
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              agreements.map((agreement) => (
+                <Card
+                  key={`mobile-${agreement.agreementUuid}`}
+                  className="border-border/60"
+                >
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">
+                        {formatYear(agreement.year)}
+                      </Badge>
+                      {agreement.verified ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
+                          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                          Verified
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Target
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedAgreement({
+                              agreementUuid: agreement.agreementUuid,
+                              year: agreement.year ?? "",
+                              target: agreement.target ?? "",
+                              acquirer: agreement.acquirer ?? "",
+                            })
+                          }
+                          className="mt-1 text-left font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        >
+                          {formatValue(agreement.target)}
+                        </button>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Acquirer
+                        </div>
+                        <div className="mt-1 text-muted-foreground">
+                          {formatValue(agreement.acquirer)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Consideration type
+                        </div>
+                        <div className="mt-1 text-muted-foreground">
+                          {formatValue(agreement.considerationType)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Total consideration
+                        </div>
+                        <div className="mt-1 text-muted-foreground">
+                          {formatValue(agreement.totalConsideration)}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
 
           <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">

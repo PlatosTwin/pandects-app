@@ -3,6 +3,17 @@ import { Copy, Check } from "lucide-react";
 import { API_BASE_URL, apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { PageShell } from "@/components/PageShell";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 async function showToast(kind: "success" | "error", message: string) {
   if (typeof window === "undefined") return;
@@ -166,11 +177,11 @@ export default function BulkData() {
   };
 
   return (
-    <PageShell
+      <PageShell
       size="xl"
       title="Bulk Data Downloads"
       subtitle={
-        <>
+        <span className="prose max-w-none">
           Download complete database dumps of the Pandects dataset. All dumps
           are compressed MariaDB SQL files containing the full structured data.
           For database documentation, see{" "}
@@ -178,13 +189,12 @@ export default function BulkData() {
             href="https://dbdocs.io/nmbogdan/Pandects"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
             aria-label="dbdocs (opens in a new tab)"
           >
             dbdocs
           </a>
           .
-        </>
+        </span>
       }
     >
       {/* Demo Code Blocks */}
@@ -209,7 +219,7 @@ export default function BulkData() {
               aria-label="Copy API curl command"
             >
               {copiedStates["api-call"] ? (
-                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
+                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
               ) : (
                 <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
@@ -245,7 +255,7 @@ export default function BulkData() {
               aria-label="Copy wget command for latest SQL"
             >
               {copiedStates["wget-download"] ? (
-                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
+                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
               ) : (
                 <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
@@ -286,7 +296,7 @@ export default function BulkData() {
               aria-label="Copy checksum verification command"
             >
               {copiedStates["checksum-verify"] ? (
-                <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
+                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
               ) : (
                 <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
               )}
@@ -310,14 +320,13 @@ export default function BulkData() {
         <h3 className="text-lg font-semibold text-primary mb-2">
           About the SQL Dump
         </h3>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground prose max-w-none">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
             href="https://mariadb.org/documentation/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
             aria-label="MariaDB Documentation (opens in a new tab)"
           >
             MariaDB Documentation
@@ -344,146 +353,240 @@ export default function BulkData() {
           </div>
         ) : error ? (
           <div className="p-8 text-center" role="alert">
-            <p className="text-red-600">{error}</p>
+            <p className="text-destructive">{error}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                  >
-                    Version
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                  >
-                    SHA256 hash
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                  >
-                    Download size
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {dumps.map((dump, index) => (
-                  <tr key={index} className="hover:bg-muted/40">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">
-                          {formatTimestamp(dump.timestamp)}
-                        </span>
-                        {dump.timestamp === "latest" && (
-                          <span className="text-xs text-green-600 font-medium">
-                            Latest version
+          <>
+            <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted">
+                  <TableRow>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Version
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      SHA256 hash
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Download size
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
+                  {dumps.map((dump, index) => (
+                    <TableRow key={index} className="hover:bg-muted/40">
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">
+                            {formatTimestamp(dump.timestamp)}
                           </span>
-                        )}
-                        {dump.timestamp !== "latest" &&
-                          latestSha256 &&
-                          dump.sha256 === latestSha256 && (
-                            <span className="text-xs text-green-600 font-medium">
-                              Same as latest
+                          {dump.timestamp === "latest" && (
+                            <span className="text-xs text-primary font-medium">
+                              Latest version
                             </span>
                           )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
-                          <span title={dump.sha256} aria-label={dump.sha256}>
-                            {formatSha256(dump.sha256)}
+                          {dump.timestamp !== "latest" &&
+                            latestSha256 &&
+                            dump.sha256 === latestSha256 && (
+                              <span className="text-xs text-primary font-medium">
+                                Same as latest
+                              </span>
+                            )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
+                            <span title={dump.sha256} aria-label={dump.sha256}>
+                              {formatSha256(dump.sha256)}
+                            </span>
                           </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              copyToClipboard(dump.sha256, `sha-${index}`)
+                            }
+                            className="h-7 w-7"
+                            title="Copy SHA256"
+                            aria-label="Copy SHA256"
+                          >
+                            {copiedStates[`sha-${index}`] ? (
+                              <Check className="w-3 h-3 text-primary" aria-hidden="true" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-muted-foreground">
+                          {formatSize(dump.size_bytes)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            copyToClipboard(dump.sha256, `sha-${index}`)
-                          }
-                          className="p-1 rounded hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                          title="Copy SHA256"
-                          aria-label="Copy SHA256"
-                        >
-                          {copiedStates[`sha-${index}`] ? (
-                            <Check className="w-3 h-3 text-green-600" aria-hidden="true" />
-                          ) : (
-                            <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-muted-foreground">
-                        {formatSize(dump.size_bytes)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        {/* direct SQL download (R2.dev supports cross‑origin downloads) */}
-                        <a
-                          href={dump.sql}
-                          onClick={() =>
-                            {
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <Button asChild variant="outline" size="sm">
+                            <a
+                              href={dump.sql}
+                              onClick={() => {
+                                trackEvent("bulk_download_click", {
+                                  download_type: "sql",
+                                  dump_version: dump.timestamp,
+                                  is_latest: dump.timestamp === "latest",
+                                });
+                                if (dump.timestamp !== "latest") {
+                                  trackEvent("bulk_dated_download_click", {
+                                    download_type: "sql",
+                                    dump_version: dump.timestamp,
+                                  });
+                                }
+                              }}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Download SQL (opens in a new tab)"
+                            >
+                              Download SQL
+                            </a>
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
                               trackEvent("bulk_download_click", {
-                                download_type: "sql",
+                                download_type: "manifest",
                                 dump_version: dump.timestamp,
                                 is_latest: dump.timestamp === "latest",
                               });
                               if (dump.timestamp !== "latest") {
                                 trackEvent("bulk_dated_download_click", {
-                                  download_type: "sql",
+                                  download_type: "manifest",
                                   dump_version: dump.timestamp,
                                 });
                               }
-                            }
+                              void downloadManifest(dump.manifest);
+                            }}
+                          >
+                            Manifest
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="lg:hidden p-4 space-y-4">
+              {dumps.map((dump, index) => (
+                <Card key={`mobile-${index}`} className="border-border/60">
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">
+                          {formatTimestamp(dump.timestamp)}
+                        </div>
+                        {dump.timestamp === "latest" && (
+                          <Badge variant="secondary" className="mt-1">
+                            Latest version
+                          </Badge>
+                        )}
+                        {dump.timestamp !== "latest" &&
+                          latestSha256 &&
+                          dump.sha256 === latestSha256 && (
+                            <Badge variant="secondary" className="mt-1">
+                              Same as latest
+                            </Badge>
+                          )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatSize(dump.size_bytes)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        SHA256 hash
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {formatSha256(dump.sha256)}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            copyToClipboard(dump.sha256, `sha-${index}`)
                           }
-                          className="inline-flex items-center px-3 py-1 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          className="h-7 w-7"
+                          title="Copy SHA256"
+                          aria-label="Copy SHA256"
+                        >
+                          {copiedStates[`sha-${index}`] ? (
+                            <Check className="w-3 h-3 text-primary" aria-hidden="true" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <a
+                          href={dump.sql}
+                          onClick={() => {
+                            trackEvent("bulk_download_click", {
+                              download_type: "sql",
+                              dump_version: dump.timestamp,
+                              is_latest: dump.timestamp === "latest",
+                            });
+                            if (dump.timestamp !== "latest") {
+                              trackEvent("bulk_dated_download_click", {
+                                download_type: "sql",
+                                dump_version: dump.timestamp,
+                              });
+                            }
+                          }}
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label="Download SQL (opens in a new tab)"
                         >
                           Download SQL
                         </a>
-
-                        {/* manifest: fetch+trigger download */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            trackEvent("bulk_download_click", {
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          trackEvent("bulk_download_click", {
+                            download_type: "manifest",
+                            dump_version: dump.timestamp,
+                            is_latest: dump.timestamp === "latest",
+                          });
+                          if (dump.timestamp !== "latest") {
+                            trackEvent("bulk_dated_download_click", {
                               download_type: "manifest",
                               dump_version: dump.timestamp,
-                              is_latest: dump.timestamp === "latest",
                             });
-                            if (dump.timestamp !== "latest") {
-                              trackEvent("bulk_dated_download_click", {
-                                download_type: "manifest",
-                                dump_version: dump.timestamp,
-                              });
-                            }
-                            void downloadManifest(dump.manifest);
-                          }}
-                          className="inline-flex items-center px-3 py-1 border border-border text-foreground hover:bg-accent rounded text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        >
-                          Manifest
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          }
+                          void downloadManifest(dump.manifest);
+                        }}
+                      >
+                        Manifest
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </PageShell>

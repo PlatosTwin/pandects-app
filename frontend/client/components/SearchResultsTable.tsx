@@ -11,92 +11,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { SearchResult } from "@shared/search";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-
-function TruncatedText({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
-  const containerRef = useRef<HTMLSpanElement | null>(null);
-  const measureRef = useRef<HTMLSpanElement | null>(null);
-  const [displayText, setDisplayText] = useState(text);
-
-  const measureText = useCallback((value: string) => {
-    const el = measureRef.current;
-    if (!el) return 0;
-    el.textContent = value;
-    return el.scrollWidth;
-  }, []);
-
-  const recompute = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const availableWidth = container.clientWidth;
-    if (!availableWidth) {
-      setDisplayText(text);
-      return;
-    }
-
-    if (measureText(text) <= availableWidth) {
-      setDisplayText(text);
-      return;
-    }
-
-    const suffix = "...";
-    let low = 0;
-    let high = text.length;
-    while (low < high) {
-      const mid = Math.ceil((low + high) / 2);
-      const candidate = text.slice(0, mid).trimEnd();
-      if (measureText(candidate + suffix) <= availableWidth) {
-        low = mid;
-      } else {
-        high = mid - 1;
-      }
-    }
-
-    let truncated = text.slice(0, low).trimEnd();
-    truncated = truncated.replace(/[•·,:;|-]+$/u, "").trimEnd();
-    setDisplayText(truncated ? truncated + suffix : suffix);
-  }, [measureText, text]);
-
-  useEffect(() => {
-    recompute();
-  }, [recompute]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const ro = new ResizeObserver(recompute);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [recompute]);
-
-  return (
-    <span
-      ref={containerRef}
-      aria-label={displayText !== text ? text : undefined}
-      title={displayText !== text ? text : undefined}
-      className={cn(
-        "relative block max-w-full min-w-0 overflow-hidden whitespace-nowrap",
-        className,
-      )}
-    >
-      <span
-        ref={measureRef}
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 whitespace-nowrap opacity-0"
-      />
-      {displayText}
-    </span>
-  );
-}
+import { useState } from "react";
 
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
@@ -216,25 +140,24 @@ export function SearchResultsTable({
 
             {/* Sort */}
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="search-sort-by"
-                className="hidden text-sm text-muted-foreground sm:inline"
-              >
+              <label className="hidden text-sm text-muted-foreground sm:inline">
                 Sort by:
               </label>
-              <select
-                id="search-sort-by"
-                className="h-9 w-full rounded border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:w-auto"
-                onChange={(e) =>
-                  onSortResults(e.target.value as "year" | "target" | "acquirer")
-                }
+              <Select
                 value={sortBy}
-                aria-label="Sort by"
+                onValueChange={(value) =>
+                  onSortResults(value as "year" | "target" | "acquirer")
+                }
               >
-                <option value="year">Year</option>
-                <option value="target">Target</option>
-                <option value="acquirer">Acquirer</option>
-              </select>
+                <SelectTrigger className="h-9 w-full sm:w-[160px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="year">Year</SelectItem>
+                  <SelectItem value="target">Target</SelectItem>
+                  <SelectItem value="acquirer">Acquirer</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 variant="ghost"
                 size="sm"
@@ -272,11 +195,16 @@ export function SearchResultsTable({
 	            const clauseTypePath = standardId
 	              ? clauseTypePathByStandardId[standardId]
 	              : undefined;
-	            const clauseTypeLabel = clauseTypePath
-	              ?.map((part) => part.trim())
-	              .join("\u2022 ");
-	            const showDevFallbackPill =
-	              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
+            const clauseTypeLabel = clauseTypePath
+              ?.map((part) => part.trim())
+              .join("\u2022 ");
+            const clauseTypeText = clauseTypeLabel
+              ? truncateText(clauseTypeLabel, 75)
+              : null;
+            const sectionSummary = `${result.articleTitle} \u2192 ${result.sectionTitle}`;
+            const sectionSummaryText = truncateText(sectionSummary, 120);
+            const showDevFallbackPill =
+              import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 	
 		            return (
 	              <div
@@ -341,7 +269,9 @@ export function SearchResultsTable({
                                   tabIndex={0}
                                   className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                 >
-                                  <TruncatedText text={clauseTypeLabel} />
+                                  <span title={clauseTypeLabel}>
+                                    {clauseTypeText?.truncated}
+                                  </span>
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm">
@@ -361,7 +291,7 @@ export function SearchResultsTable({
                                   tabIndex={0}
                                   className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                 >
-                                  <TruncatedText text="Clause type unavailable" />
+                                  <span>Clause type unavailable</span>
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm">
@@ -446,10 +376,12 @@ export function SearchResultsTable({
                             className="inline-flex w-full min-w-0 max-w-full items-center rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border sm:w-auto"
                             title={`${result.articleTitle} >> ${result.sectionTitle}`}
                           >
-                            <TruncatedText
-                              text={`${result.articleTitle} \u2192 ${result.sectionTitle}`}
-                              className="max-w-full sm:max-w-[22rem]"
-                            />
+                            <span
+                              className="block max-w-full min-w-0 truncate sm:max-w-[22rem]"
+                              title={sectionSummary}
+                            >
+                              {sectionSummaryText.truncated}
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -458,10 +390,10 @@ export function SearchResultsTable({
                     {/* Open Agreement Button */}
                     <div className="sm:ml-4">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => onOpenAgreement(result, resultNumber)}
-                        className="flex items-center gap-2 text-primary hover:bg-primary/10"
+                        className="flex items-center gap-2 border-primary/40 text-primary hover:bg-primary/10"
                       >
                         <ExternalLink className="w-4 h-4" aria-hidden="true" />
                         <span className="hidden sm:inline">Open Agreement</span>

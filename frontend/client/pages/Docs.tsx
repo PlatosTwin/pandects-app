@@ -1,5 +1,6 @@
 import SwaggerUI from "swagger-ui-react";
 import "swagger-ui-react/swagger-ui.css";
+import "./docs.css";
 import { API_BASE_URL } from "@/lib/api-config";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
