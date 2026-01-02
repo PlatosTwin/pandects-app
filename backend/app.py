@@ -13,16 +13,15 @@ import click
 import json
 import html as _html
 import math
-from flask import Flask, jsonify, request, abort, Response, g
+from flask import Flask, jsonify, request, abort, Response, g, current_app, has_app_context
 from flask import redirect
 from flask import make_response
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from flask_smorest import Api, Blueprint
+from flask_smorest import Blueprint
 from flask.views import MethodView
 import boto3
 from collections import defaultdict
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, ValidationError, EXCLUDE
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException, InternalServerError
@@ -39,6 +38,7 @@ from sqlalchemy import (
     TEXT,
     text,
     or_,
+    func,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
@@ -46,6 +46,33 @@ from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import secrets
+
+from backend.extensions import db, api
+from backend.models import (
+    ApiKey,
+    ApiRequestEvent,
+    ApiUsageDaily,
+    ApiUsageDailyIp,
+    ApiUsageHourly,
+    AuthPasswordResetToken,
+    AuthSession,
+    AuthSignonEvent,
+    AuthUser,
+    LegalAcceptance,
+)
+from backend.schemas.auth import (
+    AuthApiKeySchema,
+    AuthDeleteAccountSchema,
+    AuthEmailSchema,
+    AuthGoogleCredentialSchema,
+    AuthLoginSchema,
+    AuthPasswordResetSchema,
+    AuthRegisterSchema,
+    AuthTokenSchema,
+)
+from backend.routes.auth import register_auth_routes
+from backend.services.async_tasks import AsyncTaskRunner
+from backend.services.usage import UsageBuffer, record_api_key_usage
 
 # Load env vars from `backend/.env` regardless of the process working directory.
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -62,15 +89,60 @@ _rate_limit_lock = Lock()
 _rate_limit_state: dict[str, dict[str, float | int]] = {}
 _endpoint_rate_limit_state: dict[str, dict[str, float | int]] = {}
 
+# ── Simple in-process caching for dumps ───────────────────────────────────
+_DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
+_dumps_cache = {"ts": 0.0, "payload": None}
+_dumps_cache_lock = Lock()
+_DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
+    os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
+)
+_dumps_manifest_cache: dict[str, dict[str, object]] = {}
+_dumps_manifest_cache_lock = Lock()
+
 # ── API usage logging ─────────────────────────────────────────────────────
 _USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
 _USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "0.05"))
 _LATENCY_BUCKET_BOUNDS_MS = (25, 50, 100, 250, 500, 1000, 2000, 5000, 10000)
 _API_KEY_MIN_HASH_CHECKS = 5
 _DUMMY_API_KEY_HASH = generate_password_hash("pdcts_dummy_api_key")
+_USAGE_BUFFER_ENABLED = os.environ.get("USAGE_LOG_BUFFER_ENABLED", "1").strip() != "0"
+_USAGE_BUFFER_FLUSH_SECONDS = float(os.environ.get("USAGE_LOG_BUFFER_FLUSH_SECONDS", "1"))
+_USAGE_BUFFER_MAX_EVENTS = int(os.environ.get("USAGE_LOG_BUFFER_MAX_EVENTS", "200"))
+_ASYNC_SIDE_EFFECTS_ENABLED = os.environ.get("ASYNC_SIDE_EFFECTS_ENABLED", "1").strip() != "0"
+_ASYNC_SIDE_EFFECTS_MAX_QUEUE = int(os.environ.get("ASYNC_SIDE_EFFECTS_MAX_QUEUE", "100"))
 
-# ── Flask setup ───────────────────────────────────────────────────────────
-app = Flask(__name__)
+
+def _usage_buffer() -> UsageBuffer | None:
+    if not _USAGE_BUFFER_ENABLED:
+        return None
+    buffer = current_app.extensions.get("usage_buffer")
+    if buffer is None:
+        buffer = UsageBuffer(
+            app=current_app._get_current_object(),
+            db=db,
+            ApiUsageDaily=ApiUsageDaily,
+            ApiUsageHourly=ApiUsageHourly,
+            ApiUsageDailyIp=ApiUsageDailyIp,
+            ApiRequestEvent=ApiRequestEvent,
+            latency_bucket_bounds=_LATENCY_BUCKET_BOUNDS_MS,
+            flush_interval_seconds=_USAGE_BUFFER_FLUSH_SECONDS,
+            max_pending_events=_USAGE_BUFFER_MAX_EVENTS,
+        )
+        current_app.extensions["usage_buffer"] = buffer
+    return buffer
+
+
+def _async_task_runner() -> AsyncTaskRunner | None:
+    if not _ASYNC_SIDE_EFFECTS_ENABLED:
+        return None
+    runner = current_app.extensions.get("async_task_runner")
+    if runner is None:
+        runner = AsyncTaskRunner(
+            app=current_app._get_current_object(),
+            max_queue_size=_ASYNC_SIDE_EFFECTS_MAX_QUEUE,
+        )
+        current_app.extensions["async_task_runner"] = runner
+    return runner
 
 # ── CORS origins ──────────────────────────────────────────────────────────
 _DEFAULT_CORS_ORIGINS = (
@@ -236,7 +308,7 @@ def _csrf_required(path: str) -> bool:
 
 
 def _auth_is_mocked() -> bool:
-    return AUTH_MODE == "mock" and bool(app.debug)
+    return AUTH_MODE == "mock" and bool(current_app.debug)
 
 
 # ── Auth DB configuration (separate DB; local sqlite placeholder by default) ──
@@ -264,25 +336,30 @@ def _effective_auth_database_uri() -> str | None:
 
 
 AUTH_DATABASE_URI = _effective_auth_database_uri()
-if AUTH_DATABASE_URI is not None:
-    app.config["SQLALCHEMY_BINDS"] = {"auth": AUTH_DATABASE_URI}
-else:
-    app.config["SQLALCHEMY_BINDS"] = {
-        "auth": f"sqlite:///{Path(__file__).with_name('auth_dev.sqlite')}"
-    }
+
+
+def _configure_auth_bind(target_app: Flask) -> None:
+    if AUTH_DATABASE_URI is not None:
+        target_app.config["SQLALCHEMY_BINDS"] = {"auth": AUTH_DATABASE_URI}
+    else:
+        target_app.config["SQLALCHEMY_BINDS"] = {
+            "auth": f"sqlite:///{Path(__file__).with_name('auth_dev.sqlite')}"
+        }
 
 # ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
-app.config.update(
-    {
-        "API_TITLE": "Pandects API",
-        "API_VERSION": "v1",
-        "OPENAPI_VERSION": "3.0.2",
-        "OPENAPI_URL_PREFIX": "/",
-        "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
-        "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
-        "MAX_CONTENT_LENGTH": None,
-    }
-)
+def _configure_openapi(target_app: Flask) -> None:
+    target_app.config.update(
+        {
+            "API_TITLE": "Pandects API",
+            "API_VERSION": "v1",
+            "OPENAPI_VERSION": "3.0.2",
+            "OPENAPI_URL_PREFIX": "/",
+            "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
+            "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+            "MAX_CONTENT_LENGTH": None,
+        }
+    )
+    target_app.config["MAX_CONTENT_LENGTH"] = _max_content_length()
 
 
 def _max_content_length() -> int:
@@ -298,42 +375,133 @@ def _max_content_length() -> int:
     return 1 * 1024 * 1024
 
 
-app.config["MAX_CONTENT_LENGTH"] = _max_content_length()
+_MAIN_SCHEMA_TOKEN = "__main_schema__"
 
-api = Api(app)
+
+def _main_db_schema_from_env() -> str:
+    return os.environ.get("MAIN_DB_SCHEMA", "mna").strip()
+
+
+def _main_db_uri_from_env() -> str:
+    raw = os.environ.get("MAIN_DATABASE_URI", "").strip()
+    if raw:
+        return raw
+    db_user = os.environ["MARIADB_USER"]
+    db_pass = os.environ["MARIADB_PASSWORD"]
+    db_host = os.environ["MARIADB_HOST"]
+    db_name = os.environ["MARIADB_DATABASE"]
+    return f"mysql+pymysql://{db_user}:{db_pass}@{db_host}:3306/{db_name}"
+
+
+def _schema_translate_map(schema: str | None) -> dict[str, str | None]:
+    value = schema.strip() if isinstance(schema, str) else ""
+    return {_MAIN_SCHEMA_TOKEN: value or None}
+
+
+def _schema_prefix() -> str:
+    if has_app_context():
+        raw = current_app.config.get("MAIN_DB_SCHEMA", "")
+        value = raw.strip() if isinstance(raw, str) else ""
+    else:
+        value = _main_db_schema_from_env()
+    return f"{value}." if value else ""
+
+
+def _configure_main_db(target_app: Flask) -> None:
+    if "SQLALCHEMY_DATABASE_URI" not in target_app.config:
+        target_app.config["SQLALCHEMY_DATABASE_URI"] = _main_db_uri_from_env()
+    target_app.config.setdefault("MAIN_DB_SCHEMA", _main_db_schema_from_env())
+    target_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    engine_options = dict(target_app.config.get("SQLALCHEMY_ENGINE_OPTIONS", {}) or {})
+    execution_options = dict(engine_options.get("execution_options", {}) or {})
+    execution_options.setdefault(
+        "schema_translate_map",
+        _schema_translate_map(target_app.config.get("MAIN_DB_SCHEMA")),
+    )
+    engine_options["execution_options"] = execution_options
+    target_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+
+
+def _configure_extensions(target_app: Flask) -> None:
+    api.init_app(target_app)
+    db.init_app(target_app)
+
+
+def _configure_cors(target_app: Flask) -> None:
+    CORS(
+        target_app,
+        resources={
+            r"/api/*": {
+                "origins": _cors_origins()
+            }
+        },
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-CSRF-Token"],
+        supports_credentials=True,
+    )
+
+
+def _configure_app(
+    target_app: Flask, *, config_overrides: dict[str, object] | None = None
+) -> None:
+    _configure_auth_bind(target_app)
+    _configure_openapi(target_app)
+    if config_overrides:
+        target_app.config.update(config_overrides)
+    _configure_main_db(target_app)
+    _configure_extensions(target_app)
+    _configure_cors(target_app)
+
+
 
 # ── JSON error responses for API routes ──────────────────────────────────
 
 
-@app.errorhandler(HTTPException)
 def _handle_http_exception(err: HTTPException):
     if request.path.startswith("/api/"):
         return jsonify({"error": err.name, "message": err.description}), err.code
     return err
 
 
-@app.errorhandler(InternalServerError)
 def _handle_internal_server_error(err: InternalServerError):
     if request.path.startswith("/api/"):
-        app.logger.exception("Unhandled API exception: %s", err)
+        current_app.logger.exception("Unhandled API exception: %s", err)
         return (
             jsonify({"error": "Internal Server Error", "message": "Unexpected server error."}),
             500,
         )
     return err
 
-# ── CORS setup ────────────────────────────────────────────────────────────
-CORS(
-    app,
-    resources={
-        r"/api/*": {
-            "origins": _cors_origins()
-        }
-    },
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-CSRF-Token"],
-    supports_credentials=True,
-)
+
+def _handle_sqlalchemy_error(err: SQLAlchemyError):
+    if request.path.startswith("/api/"):
+        current_app.logger.exception("Database error: %s", err)
+        return (
+            jsonify({"error": "Service Unavailable", "message": "Database is unavailable."}),
+            503,
+        )
+    raise err
+
+
+def _register_error_handlers(target_app: Flask) -> None:
+    target_app.register_error_handler(HTTPException, _handle_http_exception)
+    target_app.register_error_handler(InternalServerError, _handle_internal_server_error)
+    target_app.register_error_handler(SQLAlchemyError, _handle_sqlalchemy_error)
+
+
+def _json_error(
+    status: int, *, error: str, message: str, headers: dict[str, str] | None = None
+) -> Response:
+    """Build a consistent JSON error response for API handlers."""
+    resp = make_response(jsonify({"error": error, "message": message}), status)
+    if headers:
+        resp.headers.update(headers)
+    return resp
+
+
+def _status_response(status: str, *, code: int = 200) -> Response:
+    """Build a standard status JSON response."""
+    return make_response(jsonify({"status": status}), code)
 
 # —— Bulk data setup ——————��———————————————————————————————————————————————
 R2_BUCKET_NAME = "pandects-bulk"
@@ -351,163 +519,6 @@ if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY")
     )
 
 # ── Database configuration ───────────────────────────────────────────────
-DB_USER = os.environ["MARIADB_USER"]
-DB_PASS = os.environ["MARIADB_PASSWORD"]
-DB_HOST = os.environ["MARIADB_HOST"]
-DB_NAME = os.environ["MARIADB_DATABASE"]
-
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:3306/{DB_NAME}"
-)
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-db = SQLAlchemy(app)
-
-# ── Auth models (bind: "auth") ───────────────────────────────────────────
-
-
-class AuthUser(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "auth_users"
-
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email = db.Column(db.String(320), unique=True, index=True, nullable=False)
-    password_hash = db.Column(db.Text, nullable=True)
-    email_verified_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-
-class AuthSession(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "auth_sessions"
-
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(
-        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
-    )
-    token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime, nullable=False)
-    revoked_at = db.Column(db.DateTime, nullable=True)
-    last_used_at = db.Column(db.DateTime, nullable=True)
-    ip_address = db.Column(db.String(64), nullable=True)
-    user_agent = db.Column(db.String(512), nullable=True)
-
-
-class AuthPasswordResetToken(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "auth_password_reset_tokens"
-
-    id = db.Column(db.String(36), primary_key=True)
-    user_id = db.Column(
-        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
-    )
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime, nullable=False)
-    used_at = db.Column(db.DateTime, nullable=True)
-    ip_address = db.Column(db.String(64), nullable=True)
-    user_agent = db.Column(db.String(512), nullable=True)
-
-
-class ApiKey(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "api_keys"
-
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(
-        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
-    )
-    name = db.Column(db.String(120), nullable=True)
-    prefix = db.Column(db.String(18), index=True, nullable=False)
-    key_hash = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_used_at = db.Column(db.DateTime, nullable=True)
-    revoked_at = db.Column(db.DateTime, nullable=True)
-
-
-class ApiUsageDaily(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "api_usage_daily"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    api_key_id = db.Column(
-        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
-    )
-    day = db.Column(db.Date, index=True, nullable=False)
-    count = db.Column(db.Integer, nullable=False, default=0)
-
-    __table_args__ = (db.UniqueConstraint("api_key_id", "day"),)
-
-
-class ApiUsageHourly(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "api_usage_hourly"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    api_key_id = db.Column(
-        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
-    )
-    hour = db.Column(db.DateTime, index=True, nullable=False)
-    route = db.Column(db.String(256), nullable=False)
-    method = db.Column(db.String(8), nullable=False)
-    status_class = db.Column(db.Integer, nullable=False)
-    count = db.Column(db.Integer, nullable=False, default=0)
-    total_ms = db.Column(db.Integer, nullable=False, default=0)
-    max_ms = db.Column(db.Integer, nullable=False, default=0)
-    latency_buckets = db.Column(db.JSON, nullable=True)
-    request_bytes = db.Column(db.Integer, nullable=False, default=0)
-    response_bytes = db.Column(db.Integer, nullable=False, default=0)
-
-    __table_args__ = (
-        db.UniqueConstraint(
-            "api_key_id", "hour", "route", "method", "status_class"
-        ),
-        db.Index("ix_api_usage_hourly_route_method", "route", "method"),
-    )
-
-
-class ApiRequestEvent(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "api_request_events"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    api_key_id = db.Column(
-        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
-    )
-    occurred_at = db.Column(db.DateTime, index=True, nullable=False)
-    route = db.Column(db.String(256), nullable=False)
-    method = db.Column(db.String(8), nullable=False)
-    status_code = db.Column(db.Integer, nullable=False)
-    status_class = db.Column(db.Integer, nullable=False)
-    latency_ms = db.Column(db.Integer, nullable=False)
-    request_bytes = db.Column(db.Integer, nullable=True)
-    response_bytes = db.Column(db.Integer, nullable=True)
-    ip_hash = db.Column(db.String(64), nullable=True)
-    user_agent = db.Column(db.String(512), nullable=True)
-
-    __table_args__ = (
-        db.Index("ix_api_request_events_key_time", "api_key_id", "occurred_at"),
-        db.Index("ix_api_request_events_ip_time", "ip_hash", "occurred_at"),
-    )
-
-
-class ApiUsageDailyIp(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "api_usage_daily_ips"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    api_key_id = db.Column(
-        db.String(36), db.ForeignKey("api_keys.id"), index=True, nullable=False
-    )
-    day = db.Column(db.Date, index=True, nullable=False)
-    ip_hash = db.Column(db.String(64), nullable=False)
-    first_seen_at = db.Column(db.DateTime, nullable=False)
-
-    __table_args__ = (
-        db.UniqueConstraint("api_key_id", "day", "ip_hash"),
-        db.Index("ix_api_usage_daily_ips_key_day", "api_key_id", "day"),
-    )
-
 
 _LEGAL_DOCS: dict[str, dict[str, str]] = {
     "tos": {
@@ -521,53 +532,11 @@ _LEGAL_DOCS: dict[str, dict[str, str]] = {
 }
 
 
-class LegalAcceptance(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "legal_acceptances"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
-    )
-    document = db.Column(db.String(24), nullable=False)
-    version = db.Column(db.String(64), nullable=False)
-    # Nullable for legacy rows created before document hashing existed (or if policy
-    # intentionally omits hashing for certain documents), but always populated for
-    # new Terms/Privacy acceptances.
-    document_hash = db.Column(db.String(64), nullable=True)
-    checked_at = db.Column(db.DateTime, nullable=False)
-    submitted_at = db.Column(db.DateTime, nullable=False)
-    ip_address = db.Column(db.String(64), nullable=True)
-    user_agent = db.Column(db.String(512), nullable=True)
-
-    __table_args__ = (
-        db.Index("ix_legal_acceptances_user_doc_ver", "user_id", "document", "version"),
-    )
-
-
-class AuthSignonEvent(db.Model):
-    __bind_key__ = "auth"
-    __tablename__ = "auth_signon_events"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
-    )
-    provider = db.Column(db.String(32), nullable=False)  # "email" | "google"
-    action = db.Column(db.String(32), nullable=False)  # "register" | "login"
-    occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    ip_address = db.Column(db.String(64), nullable=True)
-    user_agent = db.Column(db.String(512), nullable=True)
-
-
-def _ensure_auth_tables_exist() -> None:
-    if AUTH_DATABASE_URI is not None or _auth_is_mocked():
-        return
-    with app.app_context():
+def _ensure_auth_tables_exist(target_app: Flask) -> None:
+    with target_app.app_context():
+        if AUTH_DATABASE_URI is not None or _auth_is_mocked():
+            return
         db.create_all(bind_key="auth")
-
-
-_ensure_auth_tables_exist()
 
 def _auth_db_is_configured() -> bool:
     if _auth_is_mocked():
@@ -978,12 +947,14 @@ def _send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
     api_key = _resend_api_key()
     sender = _resend_from_email()
     if api_key is None or sender is None:
-        if app.testing:
+        if current_app.testing:
             return
-        app.logger.warning("Signup notification skipped (missing RESEND_API_KEY/RESEND_FROM_EMAIL).")
+        current_app.logger.warning(
+            "Signup notification skipped (missing RESEND_API_KEY/RESEND_FROM_EMAIL)."
+        )
         return
 
-    if app.testing:
+    if current_app.testing:
         return
 
     payload: dict[str, object] = {
@@ -1013,15 +984,26 @@ def _send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
             details = e.read().decode("utf-8", errors="replace")
         except Exception:
             details = ""
-        app.logger.error("Resend signup notification failed (HTTP %s): %s", e.code, details)
+        current_app.logger.error(
+            "Resend signup notification failed (HTTP %s): %s", e.code, details
+        )
     except URLError as e:
-        app.logger.error("Resend signup notification failed (network error): %s", e)
+        current_app.logger.error("Resend signup notification failed (network error): %s", e)
 
 
 def _send_signup_notification_email(*, new_user_email: str) -> None:
     subject = "New Pandects signup"
     text = f"{new_user_email} just signed up as a new user on Pandects."
-    _send_resend_text_email(to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text)
+    runner = _async_task_runner()
+    if runner is None:
+        _send_resend_text_email(to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text)
+        return
+    if not runner.enqueue(
+        lambda: _send_resend_text_email(
+            to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text
+        )
+    ):
+        _send_resend_text_email(to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text)
 
 
 def _send_resend_template_email(
@@ -1039,11 +1021,11 @@ def _send_resend_template_email(
             missing.append("RESEND_API_KEY")
         if sender is None:
             missing.append("RESEND_FROM_EMAIL")
-        if app.testing:
+        if current_app.testing:
             return
         abort(503, description=f"Email is not configured (missing {', '.join(missing)}).")
 
-    if app.testing:
+    if current_app.testing:
         return
 
     if not template_id:
@@ -1079,10 +1061,10 @@ def _send_resend_template_email(
             details = e.read().decode("utf-8", errors="replace")
         except Exception:
             details = ""
-        app.logger.error("Resend email failed (HTTP %s): %s", e.code, details)
+        current_app.logger.error("Resend email failed (HTTP %s): %s", e.code, details)
         abort(503, description="Email delivery failed.")
     except URLError as e:
-        app.logger.error("Resend email failed (network error): %s", e)
+        current_app.logger.error("Resend email failed (network error): %s", e)
         abort(503, description="Email delivery failed.")
 
 
@@ -1205,7 +1187,7 @@ def _frontend_base_url() -> str:
     base = os.environ.get("PUBLIC_FRONTEND_BASE_URL", "").strip().rstrip("/")
     if base:
         return base
-    if app.debug:
+    if current_app.debug:
         return "http://localhost:8080"
     abort(503, description="Google auth is not configured (missing PUBLIC_FRONTEND_BASE_URL).")
 
@@ -1214,7 +1196,7 @@ def _public_api_base_url() -> str:
     base = os.environ.get("PUBLIC_API_BASE_URL", "").strip().rstrip("/")
     if base:
         return base
-    if app.debug:
+    if current_app.debug:
         return "http://127.0.0.1:5113"
     abort(503, description="Google auth is not configured (missing PUBLIC_API_BASE_URL).")
 
@@ -1358,15 +1340,10 @@ def _require_captcha_token(data: dict) -> str:
     token = data.get("captchaToken")
     if not isinstance(token, str) or not token.strip():
         abort(
-            Response(
-                response=json.dumps(
-                    {
-                        "error": "captcha_required",
-                        "message": "Captcha is required to create an account.",
-                    }
-                ),
-                status=412,
-                mimetype="application/json",
+            _json_error(
+                412,
+                error="captcha_required",
+                message="Captcha is required to create an account.",
             )
         )
     return token.strip()
@@ -1395,15 +1372,10 @@ def _verify_turnstile_token(*, token: str) -> None:
         abort(503, description="Captcha verification returned invalid data.")
     if not isinstance(result, dict) or result.get("success") is not True:
         abort(
-            Response(
-                response=json.dumps(
-                    {
-                        "error": "captcha_failed",
-                        "message": "Captcha verification failed. Please retry.",
-                    }
-                ),
-                status=412,
-                mimetype="application/json",
+            _json_error(
+                412,
+                error="captcha_failed",
+                message="Captcha verification failed. Please retry.",
             )
         )
 
@@ -1556,10 +1528,48 @@ def _normalize_email(email: str) -> str:
 
 
 def _require_json() -> dict:
+    """Read a JSON object body or abort with a 400 error."""
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         abort(400, description="Expected JSON object body.")
     return data
+
+
+def _load_json(schema: Schema) -> dict:
+    """Validate a JSON body against a Marshmallow schema."""
+    data = _require_json()
+    try:
+        return schema.load(data, unknown=EXCLUDE)
+    except ValidationError as exc:
+        current_app.logger.debug("Validation error: %s", exc.messages)
+        abort(_json_error(400, error="validation_error", message="Invalid request body."))
+
+
+def _load_query(schema: Schema) -> dict:
+    """Validate query args against a Marshmallow schema."""
+    try:
+        return schema.load(request.args, unknown=EXCLUDE)
+    except ValidationError as exc:
+        current_app.logger.debug("Validation error: %s", exc.messages)
+        abort(_json_error(400, error="validation_error", message="Invalid query parameters."))
+
+
+def _pagination_metadata(*, total_count: int, page: int, page_size: int) -> dict[str, object]:
+    total_pages = math.ceil(total_count / page_size) if total_count else 0
+    has_prev = page > 1
+    has_next = page < total_pages
+    prev_num = page - 1 if has_prev else None
+    next_num = page + 1 if has_next else None
+    return {
+        "page": page,
+        "pageSize": page_size,
+        "totalCount": total_count,
+        "totalPages": total_pages,
+        "hasNext": has_next,
+        "hasPrev": has_prev,
+        "nextNum": next_num,
+        "prevNum": prev_num,
+    }
 
 
 def _auth_enumeration_delay() -> None:
@@ -1603,62 +1613,20 @@ def _request_user_agent() -> str | None:
     return ua[:512]
 
 
-def _api_route_template() -> str | None:
-    rule = request.url_rule
-    if rule is not None and isinstance(rule.rule, str) and rule.rule:
-        return rule.rule
-    path = request.path
-    if isinstance(path, str) and path:
-        return path
-    return None
-
-
-def _ip_hash(value: str | None) -> str | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not isinstance(secret, str) or not secret.strip():
-        return None
-    digest = hmac.new(secret.encode("utf-8"), value.strip().encode("utf-8"), hashlib.sha256)
-    return digest.hexdigest()
-
-
-def _usage_event_sample_rate(status_code: int) -> float:
-    if status_code >= 400:
-        return 1.0
-    if 300 <= status_code <= 399:
-        return _USAGE_SAMPLE_RATE_3XX
-    return _USAGE_SAMPLE_RATE_2XX
-
-
 def _utc_today() -> date:
     return datetime.utcnow().date()
 
 
-def _init_latency_buckets() -> list[int]:
-    return [0] * (len(_LATENCY_BUCKET_BOUNDS_MS) + 1)
-
-
-def _latency_bucket_index(elapsed_ms: int) -> int:
-    for idx, bound in enumerate(_LATENCY_BUCKET_BOUNDS_MS):
-        if elapsed_ms <= bound:
-            return idx
-    return len(_LATENCY_BUCKET_BOUNDS_MS)
 
 
 def _require_legal_acceptance(data: dict) -> datetime:
     legal = data.get("legal")
     if not isinstance(legal, dict):
         abort(
-            Response(
-                response=json.dumps(
-                    {
-                        "error": "legal_required",
-                        "message": "Legal acceptance required to create an account.",
-                    }
-                ),
-                status=412,
-                mimetype="application/json",
+            _json_error(
+                412,
+                error="legal_required",
+                message="Legal acceptance required to create an account.",
             )
         )
     checked_at_ms = legal.get("checkedAtMs")
@@ -1939,15 +1907,10 @@ def _check_rate_limit(ctx: AccessContext) -> None:
 
         retry_after = max(1, int(window - (now - float(state["ts"]))))
     abort(
-        Response(
-            response=json.dumps(
-                {
-                    "error": "rate_limited",
-                    "message": "Too many requests. Please retry shortly.",
-                }
-            ),
-            status=429,
-            mimetype="application/json",
+        _json_error(
+            429,
+            error="rate_limited",
+            message="Too many requests. Please retry shortly.",
             headers={"Retry-After": str(retry_after)},
         )
     )
@@ -1976,26 +1939,19 @@ def _check_endpoint_rate_limit() -> None:
 
         retry_after = max(1, int(window - (now - float(state["ts"]))))
     abort(
-        Response(
-            response=json.dumps(
-                {
-                    "error": "rate_limited",
-                    "message": "Too many requests. Please retry shortly.",
-                }
-            ),
-            status=429,
-            mimetype="application/json",
+        _json_error(
+            429,
+            error="rate_limited",
+            message="Too many requests. Please retry shortly.",
             headers={"Retry-After": str(retry_after)},
         )
     )
 
 
-@app.before_request
 def _capture_request_start() -> None:
     g.request_start = time.perf_counter()
 
 
-@app.before_request
 def _auth_rate_limit_guard():
     ctx = _current_access_context()
     g.access_ctx = ctx
@@ -2013,121 +1969,27 @@ def _auth_rate_limit_guard():
     _check_endpoint_rate_limit()
 
 
-@app.after_request
 def _record_api_key_usage(response):
     ctx = _current_access_context()
-    if ctx.tier != "api_key" or not ctx.api_key_id:
-        return response
-    if not request.path.startswith("/api/"):
-        return response
-    if request.path.startswith("/api/auth/"):
-        return response
-
-    if _auth_is_mocked():
-        _mock_auth.record_usage(api_key_id=ctx.api_key_id)
-        return response
-    try:
-        route = _api_route_template()
-        if route is None:
-            return response
-        now = datetime.utcnow()
-        today = now.date()
-        hour = now.replace(minute=0, second=0, microsecond=0)
-        status_code = int(response.status_code)
-        status_class = status_code // 100
-        elapsed_ms = 0
-        start = getattr(g, "request_start", None)
-        if isinstance(start, (int, float)):
-            elapsed_ms = max(0, int((time.perf_counter() - start) * 1000))
-        req_bytes = request.content_length
-        req_bytes_int = int(req_bytes) if isinstance(req_bytes, int) else 0
-        resp_bytes = response.content_length
-        resp_bytes_int = int(resp_bytes) if isinstance(resp_bytes, int) else 0
-
-        row = ApiUsageDaily.query.filter_by(api_key_id=ctx.api_key_id, day=today).first()
-        if row is None:
-            row = ApiUsageDaily(api_key_id=ctx.api_key_id, day=today, count=1)
-            db.session.add(row)
-        else:
-            row.count = int(row.count) + 1
-
-        hourly = ApiUsageHourly.query.filter_by(
-            api_key_id=ctx.api_key_id,
-            hour=hour,
-            route=route,
-            method=request.method,
-            status_class=status_class,
-        ).first()
-        bucket_index = _latency_bucket_index(elapsed_ms)
-        if hourly is None:
-            buckets = _init_latency_buckets()
-            buckets[bucket_index] = 1
-            hourly = ApiUsageHourly(
-                api_key_id=ctx.api_key_id,
-                hour=hour,
-                route=route,
-                method=request.method,
-                status_class=status_class,
-                count=1,
-                total_ms=elapsed_ms,
-                max_ms=elapsed_ms,
-                latency_buckets=buckets,
-                request_bytes=req_bytes_int,
-                response_bytes=resp_bytes_int,
-            )
-            db.session.add(hourly)
-        else:
-            hourly.count = int(hourly.count) + 1
-            hourly.total_ms = int(hourly.total_ms) + elapsed_ms
-            hourly.max_ms = max(int(hourly.max_ms), elapsed_ms)
-            buckets = hourly.latency_buckets
-            if not isinstance(buckets, list) or len(buckets) != len(_LATENCY_BUCKET_BOUNDS_MS) + 1:
-                buckets = _init_latency_buckets()
-            buckets[bucket_index] = int(buckets[bucket_index]) + 1
-            hourly.latency_buckets = buckets
-            hourly.request_bytes = int(hourly.request_bytes) + req_bytes_int
-            hourly.response_bytes = int(hourly.response_bytes) + resp_bytes_int
-
-        ip_hash = _ip_hash(_request_ip_address())
-        if ip_hash is not None:
-            existing_ip = ApiUsageDailyIp.query.filter_by(
-                api_key_id=ctx.api_key_id, day=today, ip_hash=ip_hash
-            ).first()
-            if existing_ip is None:
-                db.session.add(
-                    ApiUsageDailyIp(
-                        api_key_id=ctx.api_key_id,
-                        day=today,
-                        ip_hash=ip_hash,
-                        first_seen_at=now,
-                    )
-                )
-
-        sample_rate = _usage_event_sample_rate(status_code)
-        if random.random() < sample_rate:
-            user_agent = _request_user_agent()
-            db.session.add(
-                ApiRequestEvent(
-                    api_key_id=ctx.api_key_id,
-                    occurred_at=now,
-                    route=route,
-                    method=request.method,
-                    status_code=status_code,
-                    status_class=status_class,
-                    latency_ms=elapsed_ms,
-                    request_bytes=req_bytes if isinstance(req_bytes, int) else None,
-                    response_bytes=resp_bytes if isinstance(resp_bytes, int) else None,
-                    ip_hash=ip_hash,
-                    user_agent=user_agent,
-                )
-            )
-        db.session.commit()
-    except SQLAlchemyError:
-        return response
-    return response
+    return record_api_key_usage(
+        ctx=ctx,
+        response=response,
+        db=db,
+        ApiUsageDaily=ApiUsageDaily,
+        ApiUsageHourly=ApiUsageHourly,
+        ApiUsageDailyIp=ApiUsageDailyIp,
+        ApiRequestEvent=ApiRequestEvent,
+        auth_is_mocked=_auth_is_mocked,
+        mock_auth=_mock_auth,
+        request_ip_address=_request_ip_address,
+        request_user_agent=_request_user_agent,
+        sample_rate_2xx=_USAGE_SAMPLE_RATE_2XX,
+        sample_rate_3xx=_USAGE_SAMPLE_RATE_3XX,
+        latency_bucket_bounds=_LATENCY_BUCKET_BOUNDS_MS,
+        usage_buffer=_usage_buffer(),
+    )
 
 
-@app.after_request
 def _set_security_headers(response: Response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -2152,26 +2014,41 @@ def _set_security_headers(response: Response):
         )
     return response
 
+
+def _register_request_hooks(target_app: Flask) -> None:
+    target_app.before_request(_capture_request_start)
+    target_app.before_request(_auth_rate_limit_guard)
+    target_app.after_request(_record_api_key_usage)
+    target_app.after_request(_set_security_headers)
+
 # ── Reflect existing tables via standalone engine ─────────────────────────
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
 metadata = MetaData()
 
 if not _SKIP_MAIN_DB_REFLECTION:
-    engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+    engine = create_engine(
+        _main_db_uri_from_env(),
+        execution_options={
+            "schema_translate_map": _schema_translate_map(_main_db_schema_from_env())
+        },
+    )
 
     agreements_table = Table(
         "agreements",
         metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
     xml_table = Table(
         "xml",
         metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
     taxonomy_table = Table(
         "taxonomy",
         metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
 else:
@@ -2181,13 +2058,35 @@ else:
         "agreements",
         metadata,
         Column("uuid", CHAR(36), primary_key=True),
+        Column("year", Integer, nullable=True),
+        Column("target", TEXT, nullable=True),
+        Column("acquirer", TEXT, nullable=True),
+        Column("verified", Integer, nullable=True),
+        Column("transaction_size", Integer, nullable=True),
+        Column("transaction_type", TEXT, nullable=True),
+        Column("consideration_type", TEXT, nullable=True),
+        Column("target_type", TEXT, nullable=True),
+        Column("url", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
     )
     xml_table = Table(
         "xml",
         metadata,
         Column("agreement_uuid", CHAR(36), primary_key=True),
+        Column("xml", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
     )
-    taxonomy_table = Table("taxonomy", metadata, Column("id", Integer, primary_key=True))
+    taxonomy_table = Table(
+        "taxonomy",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("standard_id", TEXT, nullable=True),
+        Column("type", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+
+_SECTION_TEXT_TYPE = LONGTEXT if not _SKIP_MAIN_DB_REFLECTION else TEXT
+_SECTION_ID_TYPE = TINYTEXT if not _SKIP_MAIN_DB_REFLECTION else TEXT
 
 sections_table = Table(
     "sections",
@@ -2196,10 +2095,10 @@ sections_table = Table(
     Column("section_uuid", CHAR(36), primary_key=True),
     Column("article_title", TEXT, nullable=False),
     Column("section_title", TEXT, nullable=False),
-    Column("xml_content", LONGTEXT, nullable=False),
-    Column("article_standard_id", TINYTEXT, nullable=False),
-    Column("section_standard_id", TINYTEXT, nullable=False),
-    schema="mna",
+    Column("xml_content", _SECTION_TEXT_TYPE, nullable=False),
+    Column("article_standard_id", _SECTION_ID_TYPE, nullable=False),
+    Column("section_standard_id", _SECTION_ID_TYPE, nullable=False),
+    schema=_MAIN_SCHEMA_TOKEN,
 )
 
 
@@ -2303,6 +2202,14 @@ class AgreementArgsSchema(Schema):
     neighborSections = fields.Int(load_default=1)
 
 
+class AgreementsIndexArgsSchema(Schema):
+    page = fields.Int(load_default=1)
+    pageSize = fields.Int(load_default=25)
+    sortBy = fields.Str(load_default="year")
+    sortDir = fields.Str(load_default="desc")
+    query = fields.Str(load_default="")
+
+
 class AgreementResponseSchema(Schema):
     year = fields.Int()
     target = fields.Str()
@@ -2312,13 +2219,14 @@ class AgreementResponseSchema(Schema):
     isRedacted = fields.Bool(required=False)
 
 
+# ── Auth request schemas ──────────────────────────────────────────────────
 # ── Route definitions ───────────────────────────────────────
 
 @agreements_blp.route("/<string:agreement_uuid>")
 class AgreementResource(MethodView):
     @agreements_blp.arguments(AgreementArgsSchema, location="query")
     @agreements_blp.response(200, AgreementResponseSchema)
-    def get(self, args, agreement_uuid):
+    def get(self, args, agreement_uuid) -> dict[str, object]:
         ctx = _current_access_context()
         focus_section_uuid = args.get("focusSectionUuid")
         if focus_section_uuid is not None:
@@ -2368,14 +2276,14 @@ class AgreementResource(MethodView):
         }
 
 
-@app.route("/api/agreements-index", methods=["GET"])
-def get_agreements_index():
+def get_agreements_index() -> dict[str, object]:
     ctx = _current_access_context()
-    page = request.args.get("page", default=1, type=int)
-    page_size = request.args.get("pageSize", default=25, type=int)
-    sort_by = request.args.get("sortBy", default="year", type=str)
-    sort_dir = request.args.get("sortDir", default="desc", type=str)
-    query = (request.args.get("query") or "").strip()
+    args = _load_query(AgreementsIndexArgsSchema())
+    page = int(args["page"])
+    page_size = int(args["pageSize"])
+    sort_by = str(args["sortBy"] or "year")
+    sort_dir = str(args["sortDir"] or "desc")
+    query = str(args.get("query") or "").strip()
 
     if page < 1:
         page = 1
@@ -2413,10 +2321,12 @@ def get_agreements_index():
 
     q = q.order_by(order_by, Agreements.uuid)
 
-    try:
-        paginated = q.paginate(page=page, per_page=page_size, error_out=False)
-    except Exception:
-        abort(400, description="Invalid pagination request.")
+    count_subquery = q.order_by(None).with_entities(Agreements.uuid).subquery()
+    total_count = db.session.query(func.count()).select_from(count_subquery).scalar()
+    total_count = int(total_count or 0)
+    offset = (page - 1) * page_size
+    items = q.offset(offset).limit(page_size).all()
+    meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
     results = [
         {
@@ -2430,32 +2340,21 @@ def get_agreements_index():
             "acquirerIndustry": None,
             "verified": bool(row.verified) if row.verified is not None else False,
         }
-        for row in paginated.items
+        for row in items
     ]
 
-    return {
-        "results": results,
-        "page": paginated.page,
-        "pageSize": paginated.per_page,
-        "totalCount": paginated.total,
-        "totalPages": paginated.pages,
-        "hasNext": paginated.has_next,
-        "hasPrev": paginated.has_prev,
-        "nextNum": paginated.next_num,
-        "prevNum": paginated.prev_num,
-    }
+    return {"results": results, **meta}
 
 
-@app.route("/api/agreements-summary", methods=["GET"])
-def get_agreements_summary():
+def get_agreements_summary() -> dict[str, int]:
     agreements_count = db.session.execute(
-        text("SELECT COUNT(*) FROM mna.agreements")
+        text(f"SELECT COUNT(*) FROM {_schema_prefix()}agreements")
     ).scalar()
     sections_count = db.session.execute(
-        text("SELECT COUNT(*) FROM mna.sections")
+        text(f"SELECT COUNT(*) FROM {_schema_prefix()}sections")
     ).scalar()
     pages_count = db.session.execute(
-        text("SELECT COUNT(*) FROM mna.pages")
+        text(f"SELECT COUNT(*) FROM {_schema_prefix()}pages")
     ).scalar()
 
     return {
@@ -2465,8 +2364,7 @@ def get_agreements_summary():
     }
 
 
-@app.route("/api/filter-options", methods=["GET"])
-def get_filter_options():
+def get_filter_options() -> tuple[Response, int] | Response:
     """Fetch distinct targets and acquirers from the database"""
     now = time.time()
     with _filter_options_lock:
@@ -2488,12 +2386,12 @@ def get_filter_options():
             text(
                 """
                 SELECT DISTINCT a.target
-                FROM mna.agreements a
+                FROM {_schema_prefix()}agreements a
                 WHERE a.target IS NOT NULL
                   AND a.target <> ''
                   AND EXISTS (
                     SELECT 1
-                    FROM mna.sections s
+                    FROM {_schema_prefix()}sections s
                     WHERE s.agreement_uuid = a.uuid
                   )
                 ORDER BY a.target
@@ -2507,12 +2405,12 @@ def get_filter_options():
             text(
                 """
                 SELECT DISTINCT a.acquirer
-                FROM mna.agreements a
+                FROM {_schema_prefix()}agreements a
                 WHERE a.acquirer IS NOT NULL
                   AND a.acquirer <> ''
                   AND EXISTS (
                     SELECT 1
-                    FROM mna.sections s
+                    FROM {_schema_prefix()}sections s
                     WHERE s.agreement_uuid = a.uuid
                   )
                 ORDER BY a.acquirer
@@ -2531,11 +2429,23 @@ def get_filter_options():
     return resp, 200
 
 
+def _register_main_routes(target_app: Flask) -> None:
+    target_app.add_url_rule(
+        "/api/agreements-index", view_func=get_agreements_index, methods=["GET"]
+    )
+    target_app.add_url_rule(
+        "/api/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
+    )
+    target_app.add_url_rule(
+        "/api/filter-options", view_func=get_filter_options, methods=["GET"]
+    )
+
+
 @search_blp.route("")
 class SearchResource(MethodView):
     @search_blp.arguments(SearchArgsSchema, location="query")
     @search_blp.response(200, SearchResponseSchema)
-    def get(self, args):
+    def get(self, args) -> dict[str, object]:
         ctx = _current_access_context()
         # @app.route("/api/search", methods=["GET"])
         # def search_sections():
@@ -2687,11 +2597,17 @@ class SearchResource(MethodView):
             if db_target_types:
                 q = q.filter(Agreements.target_type.in_(db_target_types))
 
-        # Use SQLAlchemy's paginate() method
-        try:
-            paginated = q.paginate(page=page, per_page=page_size, error_out=False)
-        except Exception:
-            abort(400, description="Invalid pagination request.")
+        count_subquery = (
+            q.order_by(None)
+            .with_entities(Sections.section_uuid)
+            .distinct()
+            .subquery()
+        )
+        total_count = db.session.query(func.count()).select_from(count_subquery).scalar()
+        total_count = int(total_count or 0)
+        offset = (page - 1) * page_size
+        items = q.offset(offset).limit(page_size).all()
+        meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
         # marshal into JSON with pagination metadata
         results = [
@@ -2708,7 +2624,7 @@ class SearchResource(MethodView):
                 "year": r.year,
                 "verified": r.verified,
             }
-            for r in paginated.items
+            for r in items
         ]
 
         # Return results with pagination metadata
@@ -2720,25 +2636,23 @@ class SearchResource(MethodView):
                 if ctx.is_authenticated
                 else "Limited mode: sign in to view clause text and unlock full pagination.",
             },
-            "page": paginated.page,
-            "pageSize": paginated.per_page,
-            "totalCount": paginated.total,
-            "totalPages": paginated.pages,
-            "hasNext": paginated.has_next,
-            "hasPrev": paginated.has_prev,
-            "nextNum": paginated.next_num,
-            "prevNum": paginated.prev_num,
+            **meta,
         }
-
-
-# Register search blueprint
-api.register_blueprint(search_blp)
 
 
 @dumps_blp.route("")  # blueprint already has url_prefix="/api/dumps"
 class DumpListResource(MethodView):
     @dumps_blp.response(200, DumpEntrySchema(many=True))
-    def get(self):
+    def get(self) -> list[dict[str, object]]:
+        now = time.time()
+        with _dumps_cache_lock:
+            cached_payload = _dumps_cache["payload"]
+            cached_ts = _dumps_cache["ts"]
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < _DUMPS_CACHE_TTL_SECONDS
+            )
+        if cache_is_valid:
+            return cached_payload
         if client is None:
             return []
         paginator = client.get_paginator("list_objects_v2")
@@ -2748,11 +2662,14 @@ class DumpListResource(MethodView):
         for page in pages:
             for obj in page.get("Contents", []):
                 key = obj["Key"]
+                etag = obj.get("ETag")
                 filename = key.rsplit("/", 1)[-1]
 
                 if filename.endswith(".sql.gz.manifest.json"):
                     prefix = filename[: -len(".sql.gz.manifest.json")]
                     dumps_map[prefix]["manifest"] = key
+                    if isinstance(etag, str):
+                        dumps_map[prefix]["manifest_etag"] = etag.strip('"')
 
                 elif filename.endswith(".sql.gz.sha256"):
                     prefix = filename[: -len(".sql.gz.sha256")]
@@ -2779,917 +2696,81 @@ class DumpListResource(MethodView):
 
             if "manifest" in files:
                 entry["manifest"] = f"{PUBLIC_DEV_BASE}/{files['manifest']}"
-                try:
-                    body = client.get_object(
-                        Bucket=R2_BUCKET_NAME, Key=files["manifest"]
-                    )["Body"].read()
-                    data = json.loads(body)
-                    if "size_bytes" in data:
-                        entry["size_bytes"] = data["size_bytes"]
-                    if "sha256" in data:
-                        entry["sha256"] = data["sha256"]
-                except Exception as e:
-                    entry["warning"] = f"couldn't read manifest: {e}"
+                manifest_key = files["manifest"]
+                manifest_etag = files.get("manifest_etag")
+                cached_manifest = None
+                now = time.time()
+                if manifest_key and isinstance(manifest_etag, str):
+                    with _dumps_manifest_cache_lock:
+                        cached_manifest = _dumps_manifest_cache.get(manifest_key)
+                        if cached_manifest is not None:
+                            cache_age = now - float(cached_manifest.get("ts", 0.0))
+                            if (
+                                cached_manifest.get("etag") != manifest_etag
+                                or cache_age >= _DUMPS_MANIFEST_CACHE_TTL_SECONDS
+                            ):
+                                cached_manifest = None
+                if cached_manifest is not None:
+                    data = cached_manifest.get("payload") or {}
+                else:
+                    try:
+                        body = client.get_object(
+                            Bucket=R2_BUCKET_NAME, Key=files["manifest"]
+                        )["Body"].read()
+                        data = json.loads(body)
+                        if manifest_key and isinstance(manifest_etag, str):
+                            with _dumps_manifest_cache_lock:
+                                _dumps_manifest_cache[manifest_key] = {
+                                    "etag": manifest_etag,
+                                    "payload": data,
+                                    "ts": now,
+                                }
+                    except Exception as e:
+                        entry["warning"] = f"couldn't read manifest: {e}"
+                        data = {}
+                if "size_bytes" in data:
+                    entry["size_bytes"] = data["size_bytes"]
+                if "sha256" in data:
+                    entry["sha256"] = data["sha256"]
 
             dump_list.append(entry)
+
+        with _dumps_cache_lock:
+            _dumps_cache["payload"] = dump_list
+            _dumps_cache["ts"] = now
 
         return dump_list
 
 
-# Register dumps blueprint
-api.register_blueprint(dumps_blp)
+def _register_blueprints() -> None:
+    api.register_blueprint(search_blp)
+    api.register_blueprint(dumps_blp)
+    api.register_blueprint(agreements_blp)
 
-# Register agreements blueprint
-api.register_blueprint(agreements_blp)
 
-# ── Auth routes ──────────────────────────────────────────────────────────
+def _register_app(target_app: Flask) -> None:
+    _register_error_handlers(target_app)
+    _register_request_hooks(target_app)
+    _register_blueprints()
+    _register_main_routes(target_app)
+    register_auth_routes(target_app)
 
 
-@app.route("/api/auth/register", methods=["POST"])
-def auth_register():
-    _require_auth_db()
-    data = _require_json()
-    checked_at = _require_legal_acceptance(data)
-    if _turnstile_enabled():
-        captcha_token = _require_captcha_token(data)
-        _verify_turnstile_token(token=captcha_token)
-    email_raw = data.get("email")
-    password = data.get("password")
-    if not isinstance(email_raw, str) or not isinstance(password, str):
-        abort(400, description="Email and password are required.")
-    email = _normalize_email(email_raw)
-    if not _is_email_like(email):
-        abort(400, description="Invalid email address.")
-    if len(password) < 8:
-        abort(400, description="Password must be at least 8 characters.")
+def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
+    target_app = Flask(__name__)
+    _configure_app(target_app, config_overrides=config_overrides)
+    _register_app(target_app)
+    _ensure_auth_tables_exist(target_app)
+    return target_app
 
-    if _auth_is_mocked():
-        existing = _mock_auth.get_user_by_email(email)
-        user = existing or _mock_auth.create_user(email=email, password=password)
-        verify_token = None
-        if user.email_verified_at is None:
-            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
-        payload: dict[str, object] = {
-            "status": "verification_required",
-            "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
-        }
-        if (
-            verify_token
-            and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
-            and app.debug
-        ):
-            payload["debugToken"] = verify_token
-        resp = make_response(jsonify(payload), 201)
-        resp.headers["Cache-Control"] = "no-store"
-        _clear_auth_cookies(resp)
-        return resp
 
-    try:
-        existing = AuthUser.query.filter_by(email=email).first()
-        if existing is not None:
-            verify_token = None
-            if existing.email_verified_at is None:
-                verify_token = _issue_email_verification_token(
-                    user_id=existing.id, email=existing.email
-                )
-                _send_email_verification_email(to_email=existing.email, token=verify_token)
-            payload: dict[str, object] = {
-                "status": "verification_required",
-                "user": {
-                    "id": existing.id,
-                    "email": existing.email,
-                    "createdAt": existing.created_at.isoformat(),
-                },
-            }
-            if (
-                verify_token
-                and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
-                and app.debug
-            ):
-                payload["debugToken"] = verify_token
-            _auth_enumeration_delay()
-            resp = make_response(jsonify(payload), 201)
-            resp.headers["Cache-Control"] = "no-store"
-            _clear_auth_cookies(resp)
-            return resp
+def create_test_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
+    test_app = create_app(config_overrides=config_overrides)
+    test_app.testing = True
+    return test_app
 
-        now = datetime.utcnow()
-        ip_address = _request_ip_address()
-        user_agent = _request_user_agent()
-        user = AuthUser(
-            email=email,
-            password_hash=generate_password_hash(password),
-            email_verified_at=None,
-        )
-        db.session.add(user)
-        db.session.flush()
-        for doc, meta in _LEGAL_DOCS.items():
-            db.session.add(
-                LegalAcceptance(
-                    user_id=user.id,
-                    document=doc,
-                    version=meta["version"],
-                    document_hash=meta["sha256"],
-                    checked_at=checked_at,
-                    submitted_at=now,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                )
-            )
-        _record_signon_event(user_id=user.id, provider="email", action="register")
-        verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
-        _send_email_verification_email(to_email=user.email, token=verify_token)
-        _send_signup_notification_email(new_user_email=user.email)
-        db.session.commit()
-    except HTTPException:
-        db.session.rollback()
-        raise
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(503, description="Auth backend is unavailable right now.")
 
-    payload: dict[str, object] = {
-        "status": "verification_required",
-        "user": {"id": user.id, "email": user.email, "createdAt": user.created_at.isoformat()},
-    }
-    if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and app.debug:
-        payload["debugToken"] = verify_token
-    resp = make_response(jsonify(payload), 201)
-    resp.headers["Cache-Control"] = "no-store"
-    _clear_auth_cookies(resp)
-    return resp
-
-
-@app.route("/api/auth/login", methods=["POST"])
-def auth_login():
-    _require_auth_db()
-    data = _require_json()
-    email_raw = data.get("email")
-    password = data.get("password")
-    if not isinstance(email_raw, str) or not isinstance(password, str):
-        abort(400, description="Email and password are required.")
-    email = _normalize_email(email_raw)
-
-    if _auth_is_mocked():
-        user = _mock_auth.authenticate(email=email, password=password)
-        if user is None:
-            _auth_enumeration_delay()
-            abort(401, description="Invalid credentials.")
-        if user.email_verified_at is None:
-            abort(403, description="Email address not verified.")
-        token = _issue_session_token(user.id)
-        payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-        if _auth_session_transport() == "bearer":
-            payload["sessionToken"] = token
-        resp = make_response(jsonify(payload))
-        resp.headers["Cache-Control"] = "no-store"
-        if _auth_session_transport() == "cookie":
-            _set_auth_cookies(resp, session_token=token)
-        return resp
-
-    try:
-        user = AuthUser.query.filter_by(email=email).first()
-        if user is None or not user.password_hash:
-            _auth_enumeration_delay()
-            abort(401, description="Invalid credentials.")
-        if not check_password_hash(user.password_hash, password):
-            _auth_enumeration_delay()
-            abort(401, description="Invalid credentials.")
-        if user.email_verified_at is None:
-            abort(403, description="Email address not verified.")
-
-        _record_signon_event(user_id=user.id, provider="email", action="login")
-        db.session.commit()
-        token = _issue_session_token(user.id)
-        payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-        if _auth_session_transport() == "bearer":
-            payload["sessionToken"] = token
-        resp = make_response(jsonify(payload))
-        resp.headers["Cache-Control"] = "no-store"
-        if _auth_session_transport() == "cookie":
-            _set_auth_cookies(resp, session_token=token)
-        return resp
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-
-@app.route("/api/auth/email/resend", methods=["POST"])
-def auth_resend_email_verification():
-    _require_auth_db()
-    data = _require_json()
-    email_raw = data.get("email")
-    if not isinstance(email_raw, str) or not email_raw.strip():
-        abort(400, description="Email is required.")
-    email = _normalize_email(email_raw)
-    if not _is_email_like(email):
-        abort(400, description="Invalid email address.")
-
-    if _auth_is_mocked():
-        user = _mock_auth.get_user_by_email(email)
-        if user is not None and user.email_verified_at is None:
-            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
-            _send_email_verification_email(to_email=user.email, token=verify_token)
-        _auth_enumeration_delay()
-        resp = make_response(jsonify({"status": "sent"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-
-    try:
-        user = AuthUser.query.filter_by(email=email).first()
-        if user is not None and user.email_verified_at is None:
-            verify_token = _issue_email_verification_token(user_id=user.id, email=user.email)
-            _send_email_verification_email(to_email=user.email, token=verify_token)
-    except HTTPException:
-        db.session.rollback()
-        raise
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(503, description="Auth backend is unavailable right now.")
-
-    _auth_enumeration_delay()
-    resp = make_response(jsonify({"status": "sent"}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/password/forgot", methods=["POST"])
-def auth_password_forgot():
-    _require_auth_db()
-    data = _require_json()
-    email_raw = data.get("email")
-    if not isinstance(email_raw, str) or not email_raw.strip():
-        abort(400, description="Email is required.")
-    email = _normalize_email(email_raw)
-    if not _is_email_like(email):
-        abort(400, description="Invalid email address.")
-
-    if _auth_is_mocked():
-        user = _mock_auth.get_user_by_email(email)
-        if user is not None and not (
-            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
-        ):
-            token = _issue_password_reset_token(user_id=user.id, email=user.email)
-            _send_password_reset_email(to_email=user.email, token=token)
-        _auth_enumeration_delay()
-        resp = make_response(jsonify({"status": "sent"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-
-    try:
-        user = AuthUser.query.filter_by(email=email).first()
-        if user is not None and not (
-            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
-        ):
-            token = _issue_password_reset_token(user_id=user.id, email=user.email)
-            _send_password_reset_email(to_email=user.email, token=token)
-    except HTTPException:
-        db.session.rollback()
-        raise
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(503, description="Auth backend is unavailable right now.")
-
-    _auth_enumeration_delay()
-    resp = make_response(jsonify({"status": "sent"}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/password/reset", methods=["POST"])
-def auth_password_reset():
-    _require_auth_db()
-    data = _require_json()
-    token = data.get("token")
-    password = data.get("password")
-    if not isinstance(token, str) or not token.strip():
-        abort(400, description="Missing reset token.")
-    if not isinstance(password, str):
-        abort(400, description="Password is required.")
-    if len(password) < 8:
-        abort(400, description="Password must be at least 8 characters.")
-
-    if _auth_is_mocked():
-        parsed = _load_password_reset_token(token.strip())
-        if parsed is None:
-            abort(400, description="Invalid or expired reset token.")
-        user_id, email, _row = parsed
-        user = _mock_auth.get_user(user_id)
-        if user is None or user.email != email:
-            abort(400, description="Invalid or expired reset token.")
-        if not _mock_auth.set_user_password(user_id=user_id, password=password):
-            abort(400, description="Invalid or expired reset token.")
-        resp = make_response(jsonify({"status": "ok"}))
-        resp.headers["Cache-Control"] = "no-store"
-        _clear_auth_cookies(resp)
-        return resp
-
-    try:
-        parsed = _load_password_reset_token(token.strip())
-        if parsed is None:
-            abort(400, description="Invalid or expired reset token.")
-        user_id, email, row = parsed
-        user = db.session.get(AuthUser, user_id)
-        if user is None or user.email != email:
-            abort(400, description="Invalid or expired reset token.")
-        if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-            abort(400, description="Invalid or expired reset token.")
-        user.password_hash = generate_password_hash(password)
-        if user.email_verified_at is None:
-            user.email_verified_at = datetime.utcnow()
-        now = datetime.utcnow()
-        if row is not None:
-            row.used_at = now
-        AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
-            {"revoked_at": now}, synchronize_session=False
-        )
-        db.session.commit()
-    except HTTPException:
-        db.session.rollback()
-        raise
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(503, description="Auth backend is unavailable right now.")
-
-    resp = make_response(jsonify({"status": "ok"}))
-    resp.headers["Cache-Control"] = "no-store"
-    _clear_auth_cookies(resp)
-    return resp
-
-
-@app.route("/api/auth/email/verify", methods=["POST"])
-def auth_verify_email():
-    _require_auth_db()
-    data = _require_json()
-    token = data.get("token")
-    if not isinstance(token, str) or not token.strip():
-        abort(400, description="Missing verification token.")
-    parsed = _load_email_verification_token(token.strip())
-    if parsed is None:
-        abort(400, description="Invalid or expired verification token.")
-    user_id, email = parsed
-
-    if _auth_is_mocked():
-        user = _mock_auth.get_user(user_id)
-        if user is None or user.email != email:
-            abort(400, description="Invalid verification token.")
-        _mock_auth.mark_email_verified(user_id)
-        resp = make_response(jsonify({"status": "ok"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-
-    try:
-        user = db.session.get(AuthUser, user_id)
-        if user is None or user.email != email:
-            abort(400, description="Invalid verification token.")
-        if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-            abort(400, description="Invalid verification token.")
-        if user.email_verified_at is None:
-            user.email_verified_at = datetime.utcnow()
-            db.session.commit()
-    except HTTPException:
-        db.session.rollback()
-        raise
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(503, description="Auth backend is unavailable right now.")
-
-    resp = make_response(jsonify({"status": "ok"}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-
-@app.route("/api/auth/me", methods=["GET"])
-def auth_me():
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    resp = make_response(jsonify({"user": {"id": user.id, "email": user.email}}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/csrf", methods=["GET"])
-def auth_csrf():
-    _require_auth_db()
-    if _auth_session_transport() == "cookie":
-        existing = _csrf_cookie_value()
-        token = existing or secrets.token_urlsafe(32)
-        resp = make_response(jsonify({"status": "ok", "csrfToken": token}))
-        resp.headers["Cache-Control"] = "no-store"
-        if existing is None:
-            _set_csrf_cookie(resp, token, max_age=60 * 60 * 24 * 14)
-        return resp
-    resp = make_response(jsonify({"status": "ok"}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/health", methods=["GET"])
-def auth_health():
-    if _auth_is_mocked():
-        resp = make_response(jsonify({"status": "ok"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    if not _auth_db_is_configured():
-        abort(
-            503,
-            description=(
-                "Auth is not configured (missing AUTH_DATABASE_URI / DATABASE_URL). "
-                "Search is available in limited mode."
-            ),
-        )
-    engine = db.engines.get("auth")
-    if engine is None:
-        abort(503, description="Auth backend is unavailable right now.")
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    resp = make_response(jsonify({"status": "ok"}))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/api-keys", methods=["GET"])
-def auth_list_api_keys():
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    if _auth_is_mocked():
-        keys = _mock_auth.list_api_keys(user_id=user.id)
-        resp = make_response(
-            jsonify(
-            {
-                "keys": [
-                    {
-                        "id": k.id,
-                        "name": k.name,
-                        "prefix": k.prefix,
-                        "createdAt": k.created_at.isoformat(),
-                        "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
-                        "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
-                    }
-                    for k in keys
-                ]
-            }
-            )
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    try:
-        keys = (
-            ApiKey.query.filter_by(user_id=user.id)
-            .order_by(ApiKey.created_at.desc())
-            .all()
-        )
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    resp = make_response(
-        jsonify(
-            {
-                "keys": [
-                    {
-                        "id": k.id,
-                        "name": k.name,
-                        "prefix": k.prefix,
-                        "createdAt": k.created_at.isoformat(),
-                        "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
-                        "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
-                    }
-                    for k in keys
-                ]
-            }
-        )
-    )
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/api-keys", methods=["POST"])
-def auth_create_api_key():
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    data = _require_json()
-    name = data.get("name")
-    if name is not None and not isinstance(name, str):
-        abort(400, description="Key name must be a string.")
-    if isinstance(name, str):
-        name = name.strip() or None
-        if name is not None and len(name) > 120:
-            abort(400, description="Key name is too long.")
-    if _auth_is_mocked():
-        key, plaintext = _mock_auth.create_api_key(user_id=user.id, name=name)
-        resp = make_response(
-            jsonify(
-            {
-                "apiKey": {
-                    "id": key.id,
-                    "name": key.name,
-                    "prefix": key.prefix,
-                    "createdAt": key.created_at.isoformat(),
-                },
-                "apiKeyPlaintext": plaintext,
-            }
-            )
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    try:
-        key, plaintext = _create_api_key(user_id=user.id, name=name)
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    resp = make_response(
-        jsonify(
-            {
-                "apiKey": {
-                    "id": key.id,
-                    "name": key.name,
-                    "prefix": key.prefix,
-                    "createdAt": key.created_at.isoformat(),
-                },
-                "apiKeyPlaintext": plaintext,
-            }
-        )
-    )
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/api-keys/<string:key_id>", methods=["DELETE"])
-def auth_revoke_api_key(key_id: str):
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    if not _UUID_RE.match(key_id):
-        abort(404)
-    if _auth_is_mocked():
-        if not _mock_auth.revoke_api_key(user_id=user.id, key_id=key_id):
-            abort(404)
-        resp = make_response(jsonify({"status": "revoked"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    try:
-        key = ApiKey.query.filter_by(id=key_id, user_id=user.id).first()
-        if key is None:
-            abort(404)
-        if key.revoked_at is None:
-            key.revoked_at = datetime.utcnow()
-            db.session.commit()
-        resp = make_response(jsonify({"status": "revoked"}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-
-@app.route("/api/auth/usage", methods=["GET"])
-def auth_usage():
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    if _auth_is_mocked():
-        by_day, total = _mock_auth.usage_for_user(user_id=user.id)
-        resp = make_response(jsonify({"byDay": by_day, "total": total}))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    cutoff = _utc_today() - timedelta(days=29)
-    try:
-        key_ids = [k.id for k in ApiKey.query.filter_by(user_id=user.id).all()]
-        if not key_ids:
-            return jsonify({"byDay": [], "total": 0})
-
-        rows = (
-            ApiUsageDaily.query.filter(ApiUsageDaily.api_key_id.in_(key_ids))
-            .filter(ApiUsageDaily.day >= cutoff)
-            .order_by(ApiUsageDaily.day.asc())
-            .all()
-        )
-        by_day: dict[str, int] = defaultdict(int)
-        total = 0
-        for row in rows:
-            day_str = row.day.isoformat()
-            by_day[day_str] += int(row.count)
-            total += int(row.count)
-
-        resp = make_response(
-            jsonify(
-                {
-                    "byDay": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
-                    "total": total,
-                }
-            )
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-
-@app.route("/api/auth/account/delete", methods=["POST"])
-def auth_delete_account():
-    _require_auth_db()
-    user, _ctx = _require_verified_user()
-    data = _require_json()
-    confirm = data.get("confirm")
-    if confirm != "Delete":
-        abort(400, description='Type "Delete" to confirm.')
-
-    if _auth_is_mocked():
-        abort(501, description="Account deletion is unavailable in mock auth mode.")
-
-    try:
-        now = datetime.utcnow()
-        tombstone = f"deleted+{uuid.uuid4().hex}@deleted.invalid"
-        user.email = tombstone
-        user.password_hash = None
-        AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
-            {"revoked_at": now}, synchronize_session=False
-        )
-        ApiKey.query.filter_by(user_id=user.id, revoked_at=None).update(
-            {"revoked_at": now}, synchronize_session=False
-        )
-        db.session.commit()
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-    resp = make_response(jsonify({"status": "deleted"}))
-    resp.headers["Cache-Control"] = "no-store"
-    _clear_auth_cookies(resp)
-    return resp
-
-
-@app.route("/api/auth/google/start", methods=["GET"])
-def auth_google_start():
-    _require_auth_db()
-    if _auth_is_mocked():
-        abort(501, description="Google auth is unavailable in mock auth mode.")
-    if not _google_oauth_flow_enabled():
-        abort(404)
-
-    client_id = _google_oauth_client_id()
-    redirect_uri = _google_oauth_redirect_uri()
-
-    next_path = _safe_next_path(request.args.get("next")) or "/account"
-    state = secrets.token_urlsafe(32)
-    code_verifier, code_challenge = _google_oauth_pkce_pair()
-    nonce = secrets.token_urlsafe(32)
-    cookie_payload = {
-        "state": state,
-        "code_verifier": code_verifier,
-        "nonce": nonce,
-        "next": next_path,
-    }
-
-    params = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "state": state,
-        "prompt": "select_account",
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-        "nonce": nonce,
-    }
-    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-    resp = redirect(auth_url)
-    resp.headers["Cache-Control"] = "no-store"
-    _set_google_oauth_cookie(resp, cookie_payload)
-    return resp
-
-
-@app.route("/api/auth/google/client-id", methods=["GET"])
-def auth_google_client_id():
-    _require_auth_db()
-    if _auth_is_mocked():
-        abort(501, description="Google auth is unavailable in mock auth mode.")
-    nonce = secrets.token_urlsafe(32)
-    resp = make_response(jsonify({"clientId": _google_oauth_client_id(), "nonce": nonce}))
-    resp.headers["Cache-Control"] = "no-store"
-    _set_google_nonce_cookie(resp, nonce)
-    return resp
-
-
-@app.route("/api/auth/captcha/site-key", methods=["GET"])
-def auth_captcha_site_key():
-    _require_auth_db()
-    if not _turnstile_enabled():
-        payload: dict[str, object] = {"enabled": False}
-        if app.debug:
-            payload["debug"] = {
-                "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
-                "has_site_key": bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()),
-                "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
-            }
-        resp = make_response(jsonify(payload))
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    payload: dict[str, object] = {"enabled": True, "siteKey": _turnstile_site_key()}
-    if app.debug:
-        payload["debug"] = {
-            "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
-            "has_site_key": True,
-            "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
-        }
-    resp = make_response(jsonify(payload))
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
-
-
-@app.route("/api/auth/google/callback", methods=["GET"])
-def auth_google_callback():
-    _require_auth_db()
-    if _auth_is_mocked():
-        abort(501, description="Google auth is unavailable in mock auth mode.")
-    if not _google_oauth_flow_enabled():
-        abort(404)
-
-    error = request.args.get("error")
-    if isinstance(error, str) and error.strip():
-        return _frontend_google_callback_redirect(token=None, next_path="/account", error=error)
-
-    state = request.args.get("state")
-    code = request.args.get("code")
-    if not isinstance(state, str) or not state.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path="/account", error="missing_state"
-        )
-    if not isinstance(code, str) or not code.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path="/account", error="missing_code"
-        )
-
-    cookie_payload = _load_google_oauth_cookie()
-    if not cookie_payload:
-        return _frontend_google_callback_redirect(
-            token=None, next_path="/account", error="invalid_state"
-        )
-
-    expected_state = cookie_payload.get("state")
-    if not isinstance(expected_state, str) or not expected_state.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path="/account", error="invalid_state"
-        )
-    if not secrets.compare_digest(expected_state, state):
-        return _frontend_google_callback_redirect(
-            token=None, next_path="/account", error="invalid_state"
-        )
-
-    code_verifier = cookie_payload.get("code_verifier")
-    nonce = cookie_payload.get("nonce")
-    next_path = _safe_next_path(cookie_payload.get("next")) if cookie_payload else None
-    if not isinstance(code_verifier, str) or not code_verifier.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path=next_path or "/account", error="invalid_state"
-        )
-    if not isinstance(nonce, str) or not nonce.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path=next_path or "/account", error="invalid_state"
-        )
-
-    token_payload = _google_fetch_json(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code": code,
-            "client_id": _google_oauth_client_id(),
-            "client_secret": _google_oauth_client_secret(),
-            "redirect_uri": _google_oauth_redirect_uri(),
-            "grant_type": "authorization_code",
-            "code_verifier": code_verifier,
-        },
-    )
-
-    id_token = token_payload.get("id_token")
-    if not isinstance(id_token, str) or not id_token.strip():
-        return _frontend_google_callback_redirect(
-            token=None, next_path=next_path or "/account", error="missing_id_token"
-        )
-
-    try:
-        normalized = _google_verify_id_token(id_token, expected_nonce=nonce)
-    except HTTPException as e:
-        return _frontend_google_callback_redirect(
-            token=None, next_path=next_path or "/account", error=f"google_{e.code}"
-        )
-
-    try:
-        user = AuthUser.query.filter_by(email=normalized).first()
-        if user is None:
-            return _frontend_google_callback_redirect(
-                token=None,
-                next_path=next_path or "/account",
-                error="legal_required",
-            )
-        if not _user_has_current_legal_acceptances(user_id=user.id):
-            return _frontend_google_callback_redirect(
-                token=None,
-                next_path=next_path or "/account",
-                error="legal_required",
-            )
-        if user.email_verified_at is None:
-            user.email_verified_at = datetime.utcnow()
-        _record_signon_event(user_id=user.id, provider="google", action="login")
-        db.session.commit()
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-    token = _issue_session_token(user.id)
-    if _auth_session_transport() == "cookie":
-        dest = f"{_frontend_base_url()}{(next_path or '/account')}"
-        resp = redirect(dest)
-        resp.headers["Cache-Control"] = "no-store"
-        _set_auth_cookies(resp, session_token=token)
-        _clear_google_oauth_cookie(resp)
-        return resp
-    return _frontend_google_callback_redirect(
-        token=token, next_path=next_path or "/account", error=None
-    )
-
-
-@app.route("/api/auth/google/credential", methods=["POST"])
-def auth_google_credential():
-    _require_auth_db()
-    if _auth_is_mocked():
-        abort(501, description="Google auth is unavailable in mock auth mode.")
-    data = _require_json()
-    credential = data.get("credential")
-    if not isinstance(credential, str) or not credential.strip():
-        abort(400, description="Missing Google credential.")
-
-    expected_nonce = _google_nonce_cookie_value()
-    if not expected_nonce:
-        abort(400, description="Missing Google nonce.")
-    normalized = _google_verify_id_token(credential, expected_nonce=expected_nonce)
-
-    try:
-        user = AuthUser.query.filter_by(email=normalized).first()
-        if user is None:
-            checked_at = _require_legal_acceptance(data)
-            now = datetime.utcnow()
-            ip_address = _request_ip_address()
-            user_agent = _request_user_agent()
-            user = AuthUser(email=normalized, password_hash=None, email_verified_at=now)
-            db.session.add(user)
-            db.session.flush()
-            for doc, meta in _LEGAL_DOCS.items():
-                db.session.add(
-                    LegalAcceptance(
-                        user_id=user.id,
-                        document=doc,
-                        version=meta["version"],
-                        document_hash=meta["sha256"],
-                        checked_at=checked_at,
-                        submitted_at=now,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                    )
-                )
-            _record_signon_event(user_id=user.id, provider="google", action="register")
-            _send_signup_notification_email(new_user_email=user.email)
-            db.session.commit()
-        elif not _user_has_current_legal_acceptances(user_id=user.id):
-            checked_at = _require_legal_acceptance(data)
-            _ensure_current_legal_acceptances(user_id=user.id, checked_at=checked_at)
-            if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
-            _record_signon_event(user_id=user.id, provider="google", action="login")
-            db.session.commit()
-        else:
-            if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
-            _record_signon_event(user_id=user.id, provider="google", action="login")
-            db.session.commit()
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-
-    token = _issue_session_token(user.id)
-    payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-    if _auth_session_transport() == "bearer":
-        payload["sessionToken"] = token
-    resp = make_response(jsonify(payload))
-    resp.headers["Cache-Control"] = "no-store"
-    if _auth_session_transport() == "cookie":
-        _set_auth_cookies(resp, session_token=token)
-    _clear_google_nonce_cookie(resp)
-    return resp
-
-
-@app.route("/api/auth/logout", methods=["POST"])
-def auth_logout():
-    _require_auth_db()
-    resp = make_response(jsonify({"status": "ok"}))
-    resp.headers["Cache-Control"] = "no-store"
-    token = None
-    if _auth_session_transport() == "cookie":
-        cookie_token = request.cookies.get(_SESSION_COOKIE_NAME)
-        token = cookie_token.strip() if isinstance(cookie_token, str) else None
-    else:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header.removeprefix("Bearer ").strip()
-    if token:
-        _revoke_session_token(token)
-    _clear_auth_cookies(resp)
-    return resp
-
+app = create_app()
 
 # ── CLI command for auth DB initialization ───────────────────────────────
 @app.cli.command("init-auth-db")

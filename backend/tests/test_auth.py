@@ -27,19 +27,23 @@ _AUTH_DB_TEMP.close()
 os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 
-from backend.app import app, db, ApiKey, AuthUser  # noqa: E402
+from backend.app import create_test_app, db, ApiKey, AuthUser  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 
 
 class AuthFlowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        app.testing = True
-        with app.app_context():
+        cls.app = create_test_app(
+            config_overrides={
+                "SQLALCHEMY_BINDS": {"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+            }
+        )
+        with cls.app.app_context():
             db.create_all(bind_key="auth")
 
     def setUp(self) -> None:
-        with app.app_context():
+        with self.app.app_context():
             engine = db.engines["auth"]
             with engine.begin() as conn:
                 conn.execute(text("DELETE FROM auth_sessions"))
@@ -71,7 +75,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_cookie_transport_register_login_csrf_and_logout(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.get("/api/auth/csrf")
         self.assertEqual(res.status_code, 200)
@@ -108,7 +112,7 @@ class AuthFlowTests(unittest.TestCase):
         if "pdcts_session=" in set_cookie:
             self.assertIn("Expires=Thu, 01 Jan 1970", set_cookie)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="a@example.com").first()
             self.assertIsNotNone(user)
             token = backend_app._issue_email_verification_token(
@@ -163,7 +167,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_register_and_login_record_signon_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post(
             "/api/auth/register",
@@ -178,7 +182,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="events@example.com").first()
             self.assertIsNotNone(user)
             token = backend_app._issue_email_verification_token(
@@ -197,7 +201,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
 
-        with app.app_context():
+        with self.app.app_context():
             engine = db.engines["auth"]
             with engine.begin() as conn:
                 rows = conn.execute(
@@ -209,7 +213,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_logout_revokes_bearer_session(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post(
             "/api/auth/register",
@@ -224,7 +228,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="bearer@example.com").first()
             self.assertIsNotNone(user)
             token = backend_app._issue_email_verification_token(
@@ -261,7 +265,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_password_reset_flow(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post(
             "/api/auth/register",
@@ -276,7 +280,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="reset@example.com").first()
             self.assertIsNotNone(user)
             token = backend_app._issue_email_verification_token(
@@ -313,7 +317,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
         self._set_google_nonce_cookie(client)
 
         original_verify = backend_app._google_verify_id_token
@@ -338,7 +342,7 @@ class AuthFlowTests(unittest.TestCase):
             )
             self.assertEqual(res.status_code, 200)
 
-            with app.app_context():
+            with self.app.app_context():
                 engine = db.engines["auth"]
                 with engine.begin() as conn:
                     rows = conn.execute(
@@ -355,7 +359,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_google_credential_requires_nonce_cookie(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post("/api/auth/google/credential", json={"credential": "fake"})
         self.assertEqual(res.status_code, 400)
@@ -365,7 +369,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_google_credential_passes_nonce_from_cookie(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
         expected = self._set_google_nonce_cookie(client)
 
         captured: dict[str, str | None] = {"nonce": None}
@@ -385,7 +389,7 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["TURNSTILE_ENABLED"] = "1"
         os.environ["TURNSTILE_SITE_KEY"] = "test-site-key"
         os.environ["TURNSTILE_SECRET_KEY"] = "test-secret-key"
-        client = app.test_client()
+        client = self.app.test_client()
 
         original_verify = backend_app._verify_turnstile_token
         backend_app._verify_turnstile_token = lambda *, token: None
@@ -427,7 +431,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_bearer_transport_issues_session_tokens(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post(
             "/api/auth/register",
@@ -444,7 +448,7 @@ class AuthFlowTests(unittest.TestCase):
         res = client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"})
         self.assertEqual(res.status_code, 403)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="b@example.com").first()
             self.assertIsNotNone(user)
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
@@ -465,7 +469,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_google_credential_invalid_token_is_401_without_network(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
         self._set_google_nonce_cookie(client)
 
         import jwt
@@ -481,7 +485,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_google_credential_jwks_outage_returns_503(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
         self._set_google_nonce_cookie(client)
 
         import jwt
@@ -497,7 +501,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_cors_allows_credentials_for_localhost(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.get("/api/auth/csrf", headers={"Origin": "http://localhost:8080"})
         self.assertEqual(res.status_code, 200)
@@ -505,7 +509,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_delete_account_requires_confirmation_and_revokes_keys(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.get("/api/auth/csrf")
         csrf = self._csrf_cookie_value(client)
@@ -524,7 +528,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
 
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="delete-me@example.com").first()
             self.assertIsNotNone(user)
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
@@ -561,7 +565,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_api_key_whitespace_is_ignored_for_last_used(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = app.test_client()
+        client = self.app.test_client()
 
         res = client.post(
             "/api/auth/register",
@@ -575,7 +579,7 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 201)
-        with app.app_context():
+        with self.app.app_context():
             user = AuthUser.query.filter_by(email="keyuser@example.com").first()
             self.assertIsNotNone(user)
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
@@ -601,7 +605,7 @@ class AuthFlowTests(unittest.TestCase):
         api_key = created.get("apiKeyPlaintext")
         self.assertIsInstance(api_key, str)
 
-        with app.app_context():
+        with self.app.app_context():
             key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
             self.assertIsNotNone(key_row)
             self.assertIsNone(key_row.last_used_at)
@@ -609,7 +613,7 @@ class AuthFlowTests(unittest.TestCase):
         res = client.get("/api/auth/me", headers={"X-API-Key": f"  {api_key}  "})
         self.assertEqual(res.status_code, 401)
 
-        with app.app_context():
+        with self.app.app_context():
             key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
             self.assertIsNotNone(key_row)
             self.assertIsNotNone(key_row.last_used_at)
