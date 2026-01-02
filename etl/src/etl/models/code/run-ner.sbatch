@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem=8gb
 #SBATCH --gres=gpu:1
-#SBATCH --time=05:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=nmb9729@nyu.edu
 

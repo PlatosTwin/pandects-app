@@ -36,9 +36,17 @@ from transformers.optimization import get_linear_schedule_with_warmup
 
 try:
     from .shared_constants import SPECIAL_TOKENS_TO_ADD
+    from .postprocess_article import (
+        apply_article_line_snapping,
+        apply_article_regex_gating,
+    )
 except ImportError:  # pragma: no cover - supports running as a script
     from shared_constants import (  # pyright: ignore[reportMissingImports]
         SPECIAL_TOKENS_TO_ADD,
+    )
+    from postprocess_article import (  # pyright: ignore[reportMissingImports]
+        apply_article_line_snapping,
+        apply_article_regex_gating,
     )
 
 
@@ -277,6 +285,65 @@ def tags_to_spans(tags: list[str]) -> list[tuple[int, int, str]]:
                 spans.append((cur_start, i, typ))
             cur_start, cur_type = None, None
     return spans
+
+
+def spans_to_tags(spans: list[tuple[int, int, str]], length: int) -> list[str]:
+    """
+    Convert spans back into BIOES tags of the requested length.
+    """
+    tags = ["O"] * length
+    for start, end, typ in spans:
+        if start < 0 or end >= length or end < start:
+            raise ValueError("Span bounds are invalid for tag conversion.")
+        if start == end:
+            tags[start] = f"S-{typ}"
+            continue
+        tags[start] = f"B-{typ}"
+        for i in range(start + 1, end):
+            tags[i] = f"I-{typ}"
+        tags[end] = f"E-{typ}"
+    return tags
+
+
+def apply_spans_to_tags(
+    tags: list[str],
+    spans: list[tuple[int, int, str]],
+    *,
+    allow_overwrite: bool = True,
+) -> list[str]:
+    """
+    Apply spans onto an existing tag list, optionally preserving existing labels.
+    """
+    updated = tags[:]
+    for start, end, typ in spans:
+        if start < 0 or end >= len(updated) or end < start:
+            raise ValueError("Span bounds are invalid for tag conversion.")
+        if not allow_overwrite:
+            i = start
+            while i <= end:
+                if updated[i] != "O":
+                    i += 1
+                    continue
+                seg_start = i
+                while i <= end and updated[i] == "O":
+                    i += 1
+                seg_end = i - 1
+                if seg_start == seg_end:
+                    updated[seg_start] = f"S-{typ}"
+                else:
+                    updated[seg_start] = f"B-{typ}"
+                    for j in range(seg_start + 1, seg_end):
+                        updated[j] = f"I-{typ}"
+                    updated[seg_end] = f"E-{typ}"
+            continue
+        if start == end:
+            updated[start] = f"S-{typ}"
+            continue
+        updated[start] = f"B-{typ}"
+        for i in range(start + 1, end):
+            updated[i] = f"I-{typ}"
+        updated[end] = f"E-{typ}"
+    return updated
 
 
 def prf1_from_spans(
@@ -753,9 +820,11 @@ class FocalLoss(torch.nn.Module):
         self.gamma = gamma
         self.ignore = ignore_index
         self.ce = torch.nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
-        self.class_weights: torch.Tensor | None = None
+        self.class_weights: torch.Tensor | None
         if class_weights is not None:
             self.register_buffer("class_weights", class_weights)
+        else:
+            self.class_weights = None
 
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """
@@ -802,6 +871,7 @@ class NERTagger(pl.LightningModule):
         warmup_steps_pct: float,
         article_class_weight: float = 3.0,
         default_class_weight: float = 1.0,
+        gating_mode: str = "raw",
         metrics_output_dir: str | None = None,
         metrics_output_name: str = "ner_test_metrics.yaml",
     ):
@@ -890,12 +960,15 @@ class NERTagger(pl.LightningModule):
             {}
         )  # [T_doc] (label ids, -100 for unknown)
         self._doc_raw: dict[int, str] = {}  # Optional: original/clean text
+        self._tok_offsets: dict[int, list[tuple[int, int]]] = {}
+        self.test_metrics: dict[str, object] | None = None
 
     def _reset_eval_buffers(self) -> None:
         self._tok_sum.clear()
         self._tok_cnt.clear()
         self._tok_gold.clear()
         self._doc_raw.clear()
+        self._tok_offsets.clear()
 
     def _accumulate_windows(self, batch: dict[str, object], logits: torch.Tensor) -> None:
         doc_ids = cast(torch.Tensor, batch["doc_id"])
@@ -935,6 +1008,7 @@ class NERTagger(pl.LightningModule):
                 self._tok_gold[doc_id] = torch.full(
                     (required_len,), self.ignore_index, dtype=torch.long, device=device
                 )
+                self._tok_offsets[doc_id] = [(0, 0)] * required_len
             elif required_len > self._tok_sum[doc_id].size(0):
                 device = logits_win.device
                 old = self._tok_sum[doc_id].size(0)
@@ -958,6 +1032,7 @@ class NERTagger(pl.LightningModule):
                     ],
                     dim=0,
                 )
+                self._tok_offsets[doc_id].extend([(0, 0)] * pad)
 
             abs_tok = window_start
             for t_idx, ((o0, o1), a) in enumerate(zip(offsets, attn)):
@@ -975,6 +1050,9 @@ class NERTagger(pl.LightningModule):
                     and self._tok_gold[doc_id][abs_tok].item() == self.ignore_index
                 ):
                     self._tok_gold[doc_id][abs_tok] = lab
+
+                if self._tok_offsets[doc_id][abs_tok] == (0, 0) and (o0, o1) != (0, 0):
+                    self._tok_offsets[doc_id][abs_tok] = (int(o0), int(o1))
 
                 abs_tok += 1
 
@@ -1304,7 +1382,37 @@ class NERTagger(pl.LightningModule):
             counts[t]["fn"] += fn
             counts[t]["support"] += len(golds)
 
-    def on_test_epoch_end(self) -> None:
+    def _build_article_variants(
+        self,
+        pred_tags: list[str],
+        raw_text: str,
+        token_offsets: list[tuple[int, int]],
+    ) -> tuple[list[str], list[str]]:
+        """
+        Build regex-gated and regex+snap tag sequences for a document.
+        """
+        pred_spans = tags_to_spans(pred_tags)
+        spans_regex = apply_article_regex_gating(pred_spans, raw_text, token_offsets)
+        spans_snap = apply_article_line_snapping(spans_regex, raw_text, token_offsets)
+
+        tags_regex = spans_to_tags(spans_regex, len(pred_tags))
+
+        non_article_spans = [s for s in spans_snap if s[2] != "ARTICLE"]
+        article_spans = [s for s in spans_snap if s[2] == "ARTICLE"]
+        tags_snap = spans_to_tags(non_article_spans, len(pred_tags))
+        tags_snap = apply_spans_to_tags(
+            tags_snap, article_spans, allow_overwrite=False
+        )
+        return tags_regex, tags_snap
+
+    def _compute_eval_metrics(
+        self,
+        pred_tags_by_doc: dict[int, list[str]],
+        gold_tags_by_doc: dict[int, list[str]],
+    ) -> dict[str, object]:
+        """
+        Compute token and entity metrics for a set of document-level tags.
+        """
         all_pred_ids: list[int] = []
         all_gold_ids: list[int] = []
         ent_counts: dict[str, dict[str, int]] = {}
@@ -1314,31 +1422,19 @@ class NERTagger(pl.LightningModule):
         tp_nonempty = fp_nonempty = fn_nonempty = 0
         tp_nonempty_len = fp_nonempty_len = fn_nonempty_len = 0
 
-        for doc_id, sum_logits in self._tok_sum.items():
-            cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
-            avg_logits = sum_logits / cnt
-            pred_ids = self._viterbi_constrained_doc(avg_logits)
-            gold_ids = self._tok_gold[doc_id]
-            mask = gold_ids != self.ignore_index
-            if not mask.any():
-                continue
-
-            pred_ids = pred_ids[mask].tolist()
-            gold_ids = gold_ids[mask].tolist()
-            all_pred_ids.extend(pred_ids)
-            all_gold_ids.extend(gold_ids)
-
-            pred_tags = [self.id2label[i] for i in pred_ids]
-            gold_tags = [self.id2label[i] for i in gold_ids]
-            pred_tags = repair_bioes(pred_tags)
+        for doc_id, gold_tags in gold_tags_by_doc.items():
+            pred_tags = pred_tags_by_doc[doc_id]
+            if len(pred_tags) != len(gold_tags):
+                raise ValueError("Predicted and gold tag lengths do not match.")
             doc_count += 1
+
+            pred_spans = tags_to_spans(pred_tags)
+            gold_spans = tags_to_spans(gold_tags)
             self._compute_entity_metrics(pred_tags, gold_tags, ent_counts)
             self._compute_entity_metrics_lenient(
                 pred_tags, gold_tags, ent_counts_lenient
             )
 
-            pred_spans = tags_to_spans(pred_tags)
-            gold_spans = tags_to_spans(gold_tags)
             if gold_spans:
                 doc_with_entities += 1
                 tpi, fpi, fni = prf1_from_spans(pred_spans, gold_spans)
@@ -1351,8 +1447,13 @@ class NERTagger(pl.LightningModule):
                 fp_nonempty_len += fpi
                 fn_nonempty_len += fni
 
+            for tag in pred_tags:
+                all_pred_ids.append(self.label2id[tag])
+            for tag in gold_tags:
+                all_gold_ids.append(self.label2id[tag])
+
         if not all_gold_ids:
-            return
+            return {}
 
         token_metrics = self._compute_token_metrics(all_pred_ids, all_gold_ids)
 
@@ -1480,14 +1581,89 @@ class NERTagger(pl.LightningModule):
             "f1": nonempty_f1_len,
         }
 
-        self.log("test_ent_f1", micro_f1, prog_bar=True)
-        self.log("test_ent_f1_lenient", micro_f1_len, prog_bar=True)
-        self.log("test_ent_f1_nonempty", nonempty_f1, prog_bar=True)
-        self.log("test_ent_f1_nonempty_lenient", nonempty_f1_len, prog_bar=True)
+        return {"token_level": token_metrics, "entity_level": entity_metrics}
 
+    def on_test_epoch_end(self) -> None:
+        pred_tags_by_doc_raw: dict[int, list[str]] = {}
+        pred_tags_by_doc_regex: dict[int, list[str]] = {}
+        pred_tags_by_doc_snap: dict[int, list[str]] = {}
+        gold_tags_by_doc: dict[int, list[str]] = {}
+
+        for doc_id, sum_logits in self._tok_sum.items():
+            cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
+            avg_logits = sum_logits / cnt
+            pred_ids = self._viterbi_constrained_doc(avg_logits)
+            gold_ids = self._tok_gold[doc_id]
+            mask = gold_ids != self.ignore_index
+            if not mask.any():
+                continue
+
+            pred_ids = pred_ids[mask].tolist()
+            gold_ids = gold_ids[mask].tolist()
+
+            pred_tags = [self.id2label[i] for i in pred_ids]
+            gold_tags = [self.id2label[i] for i in gold_ids]
+            pred_tags = repair_bioes(pred_tags)
+
+            offsets_full = self._tok_offsets.get(doc_id)
+            if offsets_full is None:
+                raise RuntimeError("Missing token offsets for test evaluation.")
+            mask_list = cast(list[bool], mask.tolist())
+            offsets_masked = [
+                off for off, keep in zip(offsets_full, mask_list) if keep
+            ]
+            if len(offsets_masked) != len(pred_tags):
+                raise RuntimeError("Token offsets do not align with tag sequence.")
+
+            raw_text = self._doc_raw.get(doc_id)
+            if raw_text is None:
+                raise RuntimeError("Missing raw text for test evaluation.")
+
+            tags_regex, tags_snap = self._build_article_variants(
+                pred_tags, raw_text, offsets_masked
+            )
+
+            pred_tags_by_doc_raw[doc_id] = pred_tags
+            pred_tags_by_doc_regex[doc_id] = tags_regex
+            pred_tags_by_doc_snap[doc_id] = tags_snap
+            gold_tags_by_doc[doc_id] = gold_tags
+
+        metrics_raw = self._compute_eval_metrics(
+            pred_tags_by_doc_raw, gold_tags_by_doc
+        )
+        if not metrics_raw:
+            return
+        metrics_regex = self._compute_eval_metrics(
+            pred_tags_by_doc_regex, gold_tags_by_doc
+        )
+        metrics_snap = self._compute_eval_metrics(
+            pred_tags_by_doc_snap, gold_tags_by_doc
+        )
+
+        entity_raw = cast(dict[str, object], metrics_raw["entity_level"])
+        micro_raw = cast(dict[str, float], entity_raw["micro"])
+        lenient_raw = cast(dict[str, object], entity_raw["lenient"])
+        micro_lenient_raw = cast(dict[str, float], lenient_raw["micro"])
+        nonempty_raw = cast(dict[str, float], entity_raw["nonempty_micro"])
+        nonempty_len_raw = cast(dict[str, float], entity_raw["nonempty_micro_lenient"])
+
+        self.log("test_ent_f1", micro_raw["f1"], prog_bar=True)
+        self.log("test_ent_f1_lenient", micro_lenient_raw["f1"], prog_bar=True)
+        self.log("test_ent_f1_nonempty", nonempty_raw["f1"], prog_bar=True)
+        self.log("test_ent_f1_nonempty_lenient", nonempty_len_raw["f1"], prog_bar=True)
+
+        gating_mode = cast(str, getattr(self.hparams, "gating_mode", "raw"))
+        if gating_mode == "regex+snap":
+            gating_mode = "snap"
+        variants = {
+            "raw": metrics_raw,
+            "regex": metrics_regex,
+            "snap": metrics_snap,
+        }
         metrics = {
-            "token_level": token_metrics,
-            "entity_level": entity_metrics,
+            "variants": variants,
+            "primary_variant": gating_mode,
+            "primary": variants.get(gating_mode, metrics_raw),
             "class_weights": {
                 "article": float(getattr(self.hparams, "article_class_weight", 3.0)),
                 "default": float(getattr(self.hparams, "default_class_weight", 1.0)),
@@ -1505,6 +1681,7 @@ class NERTagger(pl.LightningModule):
         os.makedirs(metrics_dir, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             yaml.safe_dump(metrics, f, sort_keys=False)
+        self.test_metrics = cast(dict[str, object], metrics)
 
     # ----------------- OPTIM -----------------
     def configure_optimizers(self) -> tuple[list[Optimizer], list[LRSchedulerConfig]]:

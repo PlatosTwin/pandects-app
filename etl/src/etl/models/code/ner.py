@@ -7,6 +7,8 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
 # Standard library
+import csv
+import hashlib
 import json
 import os
 import time
@@ -43,6 +45,11 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
 if TYPE_CHECKING:
+    from .config import (
+        NERExperimentConfig,
+        OPTUNA_BEST_CONFIG_PATH,
+        config_to_dict,
+    )
     from .shared_constants import (
         NER_LABEL_LIST,
         NER_CKPT_PATH,
@@ -51,6 +58,11 @@ if TYPE_CHECKING:
     from .ner_classes import NERTagger, NERDataModule, ascii_lower
 else:
     try:
+        from .config import (
+            NERExperimentConfig,
+            OPTUNA_BEST_CONFIG_PATH,
+            config_to_dict,
+        )
         from .shared_constants import (
             NER_LABEL_LIST,
             NER_CKPT_PATH,
@@ -58,6 +70,11 @@ else:
         )
         from .ner_classes import NERTagger, NERDataModule, ascii_lower
     except ImportError:  # pragma: no cover - supports running as a script
+        from config import (
+            NERExperimentConfig,
+            OPTUNA_BEST_CONFIG_PATH,
+            config_to_dict,
+        )
         from shared_constants import (
             NER_LABEL_LIST,
             NER_CKPT_PATH,
@@ -76,13 +93,32 @@ WindowItem: TypeAlias = dict[str, list[int]]
 _ = seed_everything(42, workers=True, verbose=False)
 
 CODE_DIR = os.path.dirname(__file__)
+REPO_ROOT = os.path.normpath(os.path.join(CODE_DIR, "../../../../.."))
 EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
 DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "../data"))
+CONFIGS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../configs"))
+MODEL_FILES_DIR = os.path.normpath(os.path.join(CODE_DIR, "../model_files"))
 NER_SPLIT_PATH = os.path.join(DATA_DIR, "ner-page-splits.json")
 
 NER_LABELS: list[str] = [str(label) for label in NER_LABEL_LIST]
 NER_CKPT: str = str(NER_CKPT_PATH)
 SPECIAL_TOKENS: list[str] = [str(token) for token in SPECIAL_TOKENS_TO_ADD]
+YEAR_WINDOW = 5
+
+
+def _split_path_for_version(split_version: str) -> str:
+    if split_version in ("", "default"):
+        return NER_SPLIT_PATH
+    return os.path.join(DATA_DIR, f"ner-page-splits-{split_version}.json")
+
+
+def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
+    keyed: list[tuple[str, str]] = []
+    for pid in ids:
+        digest = hashlib.sha1(f"{seed}:{pid}".encode("utf-8")).hexdigest()
+        keyed.append((digest, pid))
+    keyed.sort()
+    return [pid for _, pid in keyed]
 
 
 def _metrics_dir_for_job(base_dir: str) -> str:
@@ -90,6 +126,31 @@ def _metrics_dir_for_job(base_dir: str) -> str:
     if not job_id:
         raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
     return os.path.join(base_dir, job_id)
+
+
+def _write_optuna_best_config(
+    best_params: dict[str, float | int],
+    model_name: str,
+    max_epochs: int,
+    val_window: int,
+    val_stride: int,
+) -> None:
+    payload = {
+        "batch_size": int(best_params["batch_size"]),
+        "learning_rate": float(best_params["lr"]),
+        "train_subsample_window": int(best_params["train_subsample_window"]),
+        "val_window": int(val_window),
+        "val_stride": int(val_stride),
+        "weight_decay": float(best_params["weight_decay"]),
+        "warmup_steps_pct": float(best_params["warmup_steps_pct"]),
+        "max_epochs": int(max_epochs),
+        "model_name": model_name,
+    }
+    path = str(OPTUNA_BEST_CONFIG_PATH)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, sort_keys=False)
+    print(f"[optuna] wrote best hyperparameters to {path}")
 
 
 class NERTrainer:
@@ -106,6 +167,13 @@ class NERTrainer:
         label_list: list[str],
         num_trials: int,
         max_epochs: int,
+        split_version: str = "default",
+        train_docs: int | None = None,
+        seed: int = 42,
+        article_class_weight: float = 3.0,
+        gating_mode: str = "raw",
+        val_window: int = 510,
+        val_stride: int = 256,
     ):
         """
         Initialize the NER trainer.
@@ -116,12 +184,27 @@ class NERTrainer:
             label_list: List of label names
             num_trials: Number of Optuna trials
             max_epochs: Maximum training epochs per trial
+            split_version: Named split manifest to use
+            train_docs: Optional number of training documents to include
+            seed: Seed for split creation and training
+            article_class_weight: Weight for ARTICLE class in loss
+            gating_mode: Postprocessing mode for evaluation
+            val_window: Validation window size for evaluation
+            val_stride: Validation stride size for evaluation
         """
         self.data_csv = data_csv
         self.model_name = model_name
         self.num_trials = num_trials
         self.max_epochs = max_epochs
         self.label_list = label_list
+        self.split_version = split_version
+        self.train_docs = train_docs
+        self.seed = seed
+        self.article_class_weight = article_class_weight
+        self.gating_mode = gating_mode
+        self.val_window = val_window
+        self.val_stride = val_stride
+        self.split_path = _split_path_for_version(split_version)
 
         # Device selection
         if torch.backends.mps.is_available():
@@ -138,7 +221,7 @@ class NERTrainer:
 
     def _load_data(self) -> None:
         """
-        Load and split data, stratified by announcement year.
+        Load and split data, stratified by announcement window.
         """
         df = pd.read_csv(self.data_csv)
 
@@ -164,6 +247,9 @@ class NERTrainer:
         if announcement_dates.isna().any():
             raise ValueError("Found missing or invalid date_announcement values.")
         df["announcement_year"] = announcement_dates.dt.year.astype(int)
+        df["announcement_window"] = (
+            (df["announcement_year"] // YEAR_WINDOW) * YEAR_WINDOW
+        ).astype(int)
         df["tagged_section"] = df["tagged_section"].astype(int)
         df["tagged_article"] = df["tagged_article"].astype(int)
         df["article_upsample"] = df["article_upsample"].astype(bool)
@@ -172,16 +258,27 @@ class NERTrainer:
         print(df.head(2))
         print(f"Tagged value counts:\n{df['tagged'].value_counts()}")
         print(f"Year value counts:\n{df['announcement_year'].value_counts()}")
+        print(f"Year window value counts:\n{df['announcement_window'].value_counts()}")
 
         # For now, remove untagged pages
         # df = df[df["tagged"] == 1]
 
-        split = self._load_or_build_split(df)
-        train_ids = set(cast(list[str], split["train"]))
-        val_ids = set(cast(list[str], split["val"]))
-        test_ids = set(cast(list[str], split["test"]))
+        split = self._load_or_build_split(df, self.split_path, self.seed)
+        train_ids_list = [str(x) for x in cast(list[str], split["train"])]
+        val_ids_list = [str(x) for x in cast(list[str], split["val"])]
+        test_ids_list = [str(x) for x in cast(list[str], split["test"])]
+        train_ids = set(train_ids_list)
+        val_ids = set(val_ids_list)
+        test_ids = set(test_ids_list)
 
-        train_df = df[df["page_uuid"].astype(str).isin(train_ids)]
+        train_ids_sorted = _hash_sorted_ids(sorted(set(train_ids_list)), self.seed)
+        if self.train_docs and self.train_docs > 0:
+            if self.train_docs > len(train_ids_sorted):
+                raise ValueError(
+                    f"train_docs={self.train_docs} exceeds available train ids ({len(train_ids_sorted)})."
+                )
+            train_ids_sorted = train_ids_sorted[: self.train_docs]
+        train_df = df[df["page_uuid"].astype(str).isin(set(train_ids_sorted))]
         val_df = df[df["page_uuid"].astype(str).isin(val_ids)]
         test_df = df[df["page_uuid"].astype(str).isin(test_ids)]
 
@@ -200,9 +297,11 @@ class NERTrainer:
         self.val_data = val_df["tagged_text"].to_list()
         self.test_data = test_df["tagged_text"].to_list()
 
-    def _load_or_build_split(self, df: pd.DataFrame) -> dict[str, object]:
-        if os.path.exists(NER_SPLIT_PATH):
-            with open(NER_SPLIT_PATH, "r", encoding="utf-8") as f:
+    def _load_or_build_split(
+        self, df: pd.DataFrame, split_path: str, seed: int
+    ) -> dict[str, object]:
+        if os.path.exists(split_path):
+            with open(split_path, "r", encoding="utf-8") as f:
                 split = cast(dict[str, object], json.load(f))
             for key in ("train", "val", "test"):
                 if key not in split:
@@ -226,33 +325,83 @@ class NERTrainer:
         if base_df.empty:
             raise ValueError("No base rows (article_upsample=False) available for val/test.")
 
-        strat_cols = ["announcement_year", "tagged_section", "tagged_article"]
-        base_strat = base_df[strat_cols].astype(str).agg("_".join, axis=1)
-        train_base_df, holdout_df = cast(
-            tuple[pd.DataFrame, pd.DataFrame],
-            cast(
-                object,
-                train_test_split(
-                    base_df,
-                    test_size=total_split,
-                    stratify=base_strat,
-                    random_state=42,
+        strat_cols = ["announcement_window", "tagged_section", "tagged_article"]
+        rare_mask = (base_df["tagged_article"] == 1) & (base_df["tagged_section"] == 0)
+        rare_df = base_df[rare_mask].copy()
+        main_df = base_df[~rare_mask].copy()
+
+        empty_df = base_df.iloc[0:0].copy()
+        if main_df.empty:
+            train_main_df, holdout_main_df = empty_df, empty_df
+        else:
+            main_strat = main_df[strat_cols].astype(str).agg("_".join, axis=1)
+            train_main_df, holdout_main_df = cast(
+                tuple[pd.DataFrame, pd.DataFrame],
+                cast(
+                    object,
+                    train_test_split(
+                        main_df,
+                        test_size=total_split,
+                        stratify=main_strat,
+                        random_state=seed,
+                    ),
                 ),
-            ),
-        )
-        holdout_strat = holdout_df[strat_cols].astype(str).agg("_".join, axis=1)
-        val_df, test_df = cast(
-            tuple[pd.DataFrame, pd.DataFrame],
-            cast(
-                object,
-                train_test_split(
-                    holdout_df,
-                    test_size=test_split / total_split,
-                    stratify=holdout_strat,
-                    random_state=42,
+            )
+
+        if rare_df.empty:
+            rare_train_df, rare_holdout_df = empty_df, empty_df
+        else:
+            rare_train_df, rare_holdout_df = cast(
+                tuple[pd.DataFrame, pd.DataFrame],
+                cast(
+                    object,
+                    train_test_split(
+                        rare_df,
+                        test_size=total_split,
+                        stratify=None,
+                        random_state=seed,
+                    ),
                 ),
-            ),
+            )
+
+        train_base_df = pd.concat(
+            [train_main_df, rare_train_df], ignore_index=True
         )
+        if holdout_main_df.empty:
+            val_main_df, test_main_df = empty_df, empty_df
+        else:
+            holdout_strat = holdout_main_df[strat_cols].astype(str).agg("_".join, axis=1)
+            val_main_df, test_main_df = cast(
+                tuple[pd.DataFrame, pd.DataFrame],
+                cast(
+                    object,
+                    train_test_split(
+                        holdout_main_df,
+                        test_size=test_split / total_split,
+                        stratify=holdout_strat,
+                        random_state=seed,
+                    ),
+                ),
+            )
+
+        if rare_holdout_df.empty:
+            rare_val_df, rare_test_df = empty_df, empty_df
+        else:
+            rare_val_df, rare_test_df = cast(
+                tuple[pd.DataFrame, pd.DataFrame],
+                cast(
+                    object,
+                    train_test_split(
+                        rare_holdout_df,
+                        test_size=test_split / total_split,
+                        stratify=None,
+                        random_state=seed,
+                    ),
+                ),
+            )
+
+        val_df = pd.concat([val_main_df, rare_val_df], ignore_index=True)
+        test_df = pd.concat([test_main_df, rare_test_df], ignore_index=True)
 
         upsample_df = df[df["article_upsample"]].copy()
         train_df = pd.concat([train_base_df, upsample_df], ignore_index=True)
@@ -264,16 +413,17 @@ class NERTrainer:
             "meta": {
                 "val_split": val_split,
                 "test_split": test_split,
-                "seed": 42,
+                "seed": seed,
                 "stratify_cols": strat_cols,
                 "page_uuid_col": "page_uuid",
                 "article_upsample_col": "article_upsample",
+                "year_window": YEAR_WINDOW,
             },
         }
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(NER_SPLIT_PATH, "w", encoding="utf-8") as f:
+        with open(split_path, "w", encoding="utf-8") as f:
             json.dump(split, f, indent=2, sort_keys=True)
-        print(f"[split] wrote NER split manifest to {NER_SPLIT_PATH}")
+        print(f"[split] wrote NER split manifest to {split_path}")
         return cast(dict[str, object], split)
 
     def _get_callbacks(
@@ -327,6 +477,30 @@ class NERTrainer:
             pruning_callback,
         )
 
+    def load_data(self) -> None:
+        """Public wrapper for data loading."""
+        self._load_data()
+
+    def build(
+        self,
+        params: dict[str, float | int],
+        metrics_output_name: str | None = None,
+    ) -> tuple["NERDataModule", "NERTagger"]:
+        """Public wrapper for model/datamodule creation."""
+        return self._build(params, metrics_output_name=metrics_output_name)
+
+    def get_callbacks(
+        self, trial: Trial | None = None, ckpt: str | None = None
+    ) -> tuple[
+        ModelCheckpoint,
+        EarlyStopping,
+        LearningRateMonitor,
+        TQDMProgressBar,
+        list[PyTorchLightningPruningCallback],
+    ]:
+        """Public wrapper for callback creation."""
+        return self._get_callbacks(trial=trial, ckpt=ckpt)
+
     def _build(
         self,
         params: dict[str, float | int],
@@ -350,6 +524,8 @@ class NERTrainer:
             batch_size=int(params["batch_size"]),
             train_subsample_window=int(params["train_subsample_window"]),
             num_workers=7,
+            val_window=int(params.get("val_window", self.val_window)),
+            val_stride=int(params.get("val_stride", self.val_stride)),
         )
         model = NERTagger(
             model_name=self.model_name,
@@ -358,6 +534,8 @@ class NERTrainer:
             learning_rate=params["lr"],
             weight_decay=params["weight_decay"],
             warmup_steps_pct=params["warmup_steps_pct"],
+            article_class_weight=self.article_class_weight,
+            gating_mode=self.gating_mode,
             metrics_output_dir=self.metrics_output_dir,
             metrics_output_name=metrics_output_name or "ner_test_metrics.yaml",
         )
@@ -416,9 +594,10 @@ class NERTrainer:
             "val_ent_f1": val_ent_f1,
             "params": params,
         }
-        trial_dir = os.path.join(self.metrics_output_dir, "ner_trial_metrics")
-        os.makedirs(trial_dir, exist_ok=True)
-        trial_path = os.path.join(trial_dir, f"trial_{trial.number:03d}.yaml")
+        os.makedirs(self.metrics_output_dir, exist_ok=True)
+        trial_path = os.path.join(
+            self.metrics_output_dir, f"trial_{trial.number:03d}.yaml"
+        )
         with open(trial_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(trial_metrics, f, sort_keys=False)
 
@@ -438,6 +617,7 @@ class NERTrainer:
 
     def run(self) -> None:
         """Execute hyperparameter optimization and final training."""
+        _ = seed_everything(self.seed, workers=True, verbose=False)
         self._load_data()
 
         study = create_study(direction="maximize")
@@ -449,6 +629,13 @@ class NERTrainer:
         best_params = cast(dict[str, float | int], study.best_trial.params)
         for key, value in best_params.items():
             print(f"    • {key}: {value}")
+        _write_optuna_best_config(
+            best_params,
+            self.model_name,
+            self.max_epochs,
+            self.val_window,
+            self.val_stride,
+        )
 
         # Retrain best model to get its checkpoint on disk
         data_module, model = self._build(
@@ -482,6 +669,10 @@ class NERTrainer:
         if self.device in ("cuda", "mps"):
             return "bf16-mixed"
         return "32-true"
+
+    def trainer_precision(self) -> PrecisionInput:
+        """Public wrapper for trainer precision."""
+        return self._trainer_precision()
 
 
 class NERInference:
@@ -523,9 +714,11 @@ class NERInference:
             PreTrainedTokenizerBase,
             AutoTokenizer.from_pretrained(model_name, use_fast=True),
         )
-        _ = self.tokenizer.add_special_tokens(
+        added_tokens = self.tokenizer.add_special_tokens(
             {"additional_special_tokens": SPECIAL_TOKENS}
         )
+        if added_tokens > 0:
+            _ = self.model.model.resize_token_embeddings(len(self.tokenizer))
 
         # Fallbacks for essential token IDs (safe-guards)
         pad_token_id = cast(int | None, self.tokenizer.pad_token_id)
@@ -886,6 +1079,154 @@ class NERInference:
         return results
 
 
+def _flatten_metrics(
+    metrics: dict[str, object], prefix: str = ""
+) -> dict[str, float]:
+    flat: dict[str, float] = {}
+    for key, value in metrics.items():
+        name = f"{prefix}{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            flat.update(_flatten_metrics(value, f"{name}_"))
+        elif isinstance(value, (int, float)):
+            flat[name] = float(value)
+    return flat
+
+
+def _metrics_with_suffix(
+    metrics: dict[str, object], suffix: str
+) -> dict[str, float]:
+    flat = _flatten_metrics(metrics)
+    return {f"{key}_{suffix}": value for key, value in flat.items()}
+
+
+def _append_experiment_row(csv_path: str, row: dict[str, object]) -> None:
+    file_exists = os.path.exists(csv_path)
+    fieldnames = list(row.keys())
+    if file_exists:
+        with open(csv_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+        if header:
+            fieldnames = header
+            if set(header) != set(row.keys()):
+                raise RuntimeError("experiments.csv header does not match row keys.")
+
+    with open(csv_path, "a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def run_experiment(config: "NERExperimentConfig") -> dict[str, object]:
+    """
+    Train and evaluate a single NER experiment configuration.
+    """
+    slurm_job_id = os.environ.get("SLURM_JOB_ID")
+    if not slurm_job_id:
+        raise RuntimeError("SLURM_JOB_ID is required for experiment logging.")
+
+    _ = seed_everything(config.seed, workers=True, verbose=False)
+
+    ner_trainer = NERTrainer(
+        data_csv=config.data_csv,
+        model_name=config.model_name,
+        label_list=NER_LABELS,
+        num_trials=0,
+        max_epochs=config.max_epochs,
+        split_version=config.split_version,
+        train_docs=config.train_docs,
+        seed=config.seed,
+        article_class_weight=config.article_weight,
+        gating_mode=config.gating_mode,
+        val_window=config.val_window,
+        val_stride=config.val_stride,
+    )
+    ner_trainer.load_data()
+
+    run_dir = os.path.join(ner_trainer.metrics_output_dir, config.run_id)
+    os.makedirs(run_dir, exist_ok=True)
+    ner_trainer.metrics_output_dir = run_dir
+
+    ckpt_dir = os.path.join(MODEL_FILES_DIR, "ner_experiments", config.run_id)
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    params = {
+        "lr": config.learning_rate,
+        "batch_size": config.batch_size,
+        "train_subsample_window": config.train_subsample_window,
+        "val_window": config.val_window,
+        "val_stride": config.val_stride,
+        "weight_decay": config.weight_decay,
+        "warmup_steps_pct": config.warmup_steps_pct,
+    }
+    data_module, model = ner_trainer.build(params, metrics_output_name="metrics.yaml")
+    ckpt_path = os.path.join(ckpt_dir, "best.ckpt")
+    (
+        checkpoint_callback,
+        early_stop_callback,
+        lr_monitor,
+        progress_bar_callback,
+        _,
+    ) = ner_trainer.get_callbacks(ckpt=ckpt_path)
+
+    trainer = pl.Trainer(
+        max_epochs=config.max_epochs,
+        accelerator=ner_trainer.device,
+        precision=ner_trainer.trainer_precision(),
+        devices=1,
+        logger=TensorBoardLogger("tb_logs", name="ner/experiments", version=config.run_id),
+        callbacks=[
+            checkpoint_callback,
+            early_stop_callback,
+            lr_monitor,
+            progress_bar_callback,
+        ],
+        log_every_n_steps=10,
+        deterministic=True,
+    )
+    trainer.fit(model, datamodule=data_module)
+    _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
+
+    metrics = cast(dict[str, object], getattr(model, "test_metrics", None))
+    if not metrics:
+        raise RuntimeError("Test metrics were not captured from the model.")
+
+    config_dir = os.path.join(CONFIGS_DIR, "ner_experiments", config.run_id)
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = os.path.join(config_dir, "config.yaml")
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(config_to_dict(config), f, sort_keys=False)
+
+    metrics_path = os.path.join(run_dir, "metrics.json")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2, sort_keys=False)
+
+    variants = cast(dict[str, dict[str, object]], metrics.get("variants", {}))
+    flat_metrics: dict[str, float] = {}
+    for variant_key in ("raw", "regex", "snap"):
+        if variant_key in variants:
+            flat_metrics.update(_metrics_with_suffix(variants[variant_key], variant_key))
+
+    row: dict[str, object] = {
+        "run_id": config.run_id,
+        "slurm_job_id": slurm_job_id,
+        "git_commit": config.git_commit,
+        "split_version": config.split_version,
+        "train_docs": config.train_docs,
+        "article_weight": config.article_weight,
+        "gating_mode": config.gating_mode,
+        "seed": config.seed,
+        "run_dir": run_dir,
+        **flat_metrics,
+    }
+    os.makedirs(EVAL_METRICS_DIR, exist_ok=True)
+    experiments_csv = os.path.join(EVAL_METRICS_DIR, "experiments.csv")
+    _append_experiment_row(experiments_csv, row)
+
+    return metrics
+
+
 def main(mode: str = "test") -> None:
     """
     Main entry point for NER training and testing.
@@ -900,14 +1241,14 @@ def main(mode: str = "test") -> None:
             label_list=NER_LABELS,
             num_trials=10,
             max_epochs=10,
+            article_class_weight=1.0,
+            gating_mode="raw",
         )
         ner_trainer.run()
 
     elif mode == "test":
         # Load test samples
-        with open(
-            "etl/src/etl/models/data/ner_samples.yaml", "r", encoding="utf-8"
-        ) as f:
+        with open(os.path.join(DATA_DIR, "ner_samples.yaml"), "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         samples = data["samples"]
