@@ -1,47 +1,84 @@
-frontend/node_modules/
-frontend/.cert/
-backend/venv/
-etl/.venv/
-emails/node_modules
-emails/.react-email
+############################
+# Dependencies & Environments
+############################
 
-# Env / secrets
+# Node / Python environments
+**/node_modules/
+**/venv/
+**/.venv/
+
+# Frontend / email tooling
+frontend/.cert/
+emails/.react-email/
+
+
+############################
+# Environment & Secrets
+############################
+
 **/*.env
 **/.env.local
 **/.env.*.local
 **/pipeline.yaml
-*.sqlite
 client_secret*.json
 fly-wg*.conf
 
-# Build outputs
+
+############################
+# Build Artifacts
+############################
+
 frontend/dist/
 backend/build/
+
+
+############################
+# Data & Generated Outputs
+############################
+
+*.sqlite
+*.sql
+*.csv
+*.parquet
+
+**/data/*
+**/eval_metrics/*
+**/model_files/
+
+_t.*
+
+
+############################
+# ML / Experiment Logs
+############################
+
+**/tb_logs/
+**/lightning_logs/
+**/*.tmp_dagster*
+
+
+############################
+# Python / Jupyter
+############################
+
+*.pyc
+**/.ipynb_checkpoints/
+__pycache__/
+
+
+############################
+# Notes & Local Docs
+############################
 
 TODO.md
 NOTES.md
 AGENTS.md
-*.sql
-*.pyc
-*.parquet
 
-_t.*
 
-*.csv
+############################
+# Editor / OS Files
+############################
 
-**/data/*
-**/eval_metrics/*
-
-**/*.tmp_dagster*
-
-**/tb_logs
-**/lightning_logs
-**/model_files
-
-**/.ipynb_checkpoints
-
-.vscode
-
+.vscode/
+.cursor/
 .DS_Store
-
-.cursor
