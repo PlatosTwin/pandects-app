@@ -9,7 +9,7 @@ using transformer models with BIO tagging scheme.
 # Standard library
 import os
 import re
-from typing import Protocol, cast
+from typing import Protocol, TypedDict, cast
 import yaml
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
@@ -710,6 +710,8 @@ class NERDataModule(pl.LightningDataModule):
         self.train_dataset: TrainDataset | None = None
         self.val_dataset: ValWindowedDataset | None = None
         self.test_dataset: ValWindowedDataset | None = None
+        self.pin_memory = torch.cuda.is_available()
+        self.persistent_workers = num_workers > 0
 
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
         self.tokenizer.add_special_tokens(
@@ -726,6 +728,22 @@ class NERDataModule(pl.LightningDataModule):
         self.data_collator = DataCollatorForTokenClassification(
             tokenizer=self.tokenizer, label_pad_token_id=-100
         )
+
+    class _LoaderKwargs(TypedDict, total=False):
+        num_workers: int
+        pin_memory: bool
+        persistent_workers: bool
+        prefetch_factor: int
+
+    def _loader_kwargs(self) -> _LoaderKwargs:
+        kwargs: NERDataModule._LoaderKwargs = {
+            "num_workers": self.num_workers,
+            "pin_memory": self.pin_memory,
+            "persistent_workers": self.persistent_workers,
+        }
+        if self.num_workers > 0:
+            kwargs["prefetch_factor"] = 2
+        return kwargs
 
     def setup(self, stage: str | None = None) -> None:
         """
@@ -766,8 +784,8 @@ class NERDataModule(pl.LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=self.num_workers,
             collate_fn=self.data_collator,
+            **self._loader_kwargs(),
         )
 
     def val_dataloader(self) -> DataLoader[dict[str, object]]:
@@ -778,8 +796,8 @@ class NERDataModule(pl.LightningDataModule):
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=self.num_workers,
             collate_fn=self.val_dataset.collate_fn,
+            **self._loader_kwargs(),
         )
 
     def test_dataloader(self) -> DataLoader[dict[str, object]]:
@@ -790,8 +808,8 @@ class NERDataModule(pl.LightningDataModule):
             self.test_dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=self.num_workers,
             collate_fn=self.test_dataset.collate_fn,
+            **self._loader_kwargs(),
         )
 
 

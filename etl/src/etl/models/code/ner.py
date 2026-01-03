@@ -26,6 +26,9 @@ from sklearn.model_selection import train_test_split
 import torch
 
 torch.set_float32_matmul_precision("high")
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
 import lightning.pytorch as pl
 from lightning.pytorch import seed_everything
@@ -467,7 +470,7 @@ class NERTrainer:
             if trial is not None
             else []
         )
-        progress_bar_callback = TQDMProgressBar(refresh_rate=100)
+        progress_bar_callback = TQDMProgressBar(refresh_rate=200)
 
         return (
             checkpoint_callback,
@@ -523,7 +526,7 @@ class NERTrainer:
             label_list=self.label_list,
             batch_size=int(params["batch_size"]),
             train_subsample_window=int(params["train_subsample_window"]),
-            num_workers=7,
+            num_workers=3,
             val_window=int(params.get("val_window", self.val_window)),
             val_stride=int(params.get("val_stride", self.val_stride)),
         )
@@ -653,6 +656,7 @@ class NERTrainer:
             max_epochs=self.max_epochs,
             accelerator=self.device,
             devices=1,
+            precision=self._trainer_precision(),
             logger=TensorBoardLogger("tb_logs", name="ner/final"),
             callbacks=[
                 checkpoint_callback,
