@@ -415,7 +415,7 @@ export default function Search() {
 
             {authStatus === "anonymous" && (
               <div className="mt-4">
-                <Alert>
+                <Alert className="py-3 sm:py-4">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
                   <AlertTitle>Limited mode</AlertTitle>
                   <AlertDescription>
@@ -441,11 +441,11 @@ export default function Search() {
 
           <div className="border-b border-border bg-background/60 px-4 py-4 backdrop-blur sm:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
                   onClick={() => performSearch(true, clauseTypesNested)}
                   disabled={isSearching}
-                  className="gap-2"
+                  className="w-full gap-2 sm:w-auto"
                 >
                   <SearchIcon
                     className={cn(
@@ -457,28 +457,32 @@ export default function Search() {
                   <span>{isSearching ? "Searching..." : "Search"}</span>
                 </Button>
 
-                <Button
-                  onClick={() => downloadCSV(clauseTypesNested)}
-                  disabled={
-                    searchResults.length === 0 && selectedResults.size === 0
-                  }
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  <span>
-                    Download CSV
-                    {selectedResults.size > 0 && ` (${selectedResults.size})`}
-                  </span>
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => downloadCSV(clauseTypesNested)}
+                    disabled={
+                      searchResults.length === 0 && selectedResults.size === 0
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    <span>
+                      Download CSV
+                      {selectedResults.size > 0 && ` (${selectedResults.size})`}
+                    </span>
+                  </Button>
 
-                <Button
-                  onClick={clearFilters}
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Reset filters
-                </Button>
+                  <Button
+                    onClick={clearFilters}
+                    variant="ghost"
+                    size="sm"
+                    className="px-0 text-muted-foreground hover:text-foreground sm:px-3"
+                  >
+                    Reset filters
+                  </Button>
+                </div>
               </div>
 
               <Button

@@ -78,7 +78,7 @@ export function SearchPagination({
       aria-label="Search results pagination"
     >
       {/* Results per page selector */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
         <span id="results-per-page-label">Results per page:</span>
         <Select
           value={pageSize.toString()}
@@ -108,69 +108,96 @@ export function SearchPagination({
       </div>
 
       {/* Pagination controls */}
-      <div className="flex items-center gap-1">
-        {/* Previous button */}
-        <Button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1 || navigationDisabled}
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Previous</span>
-        </Button>
-
-        {/* Page numbers */}
-        <div className="flex items-center gap-1">
-          {visiblePages.map((page, index) => {
-            if (page === "...") {
-              return (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="px-2 py-1 text-sm text-muted-foreground"
-                >
-                  ...
-                </span>
-              );
-            }
-
-            const pageNumber = page as number;
-            const isActive = pageNumber === currentPage;
-
-            return (
-              <Button
-                key={pageNumber}
-                onClick={() => onPageChange(pageNumber)}
-                disabled={navigationDisabled}
-                variant={isActive ? "default" : "ghost"}
-                size="icon"
-                className={cn(
-                  "h-8 w-8",
-                  !isActive && "text-muted-foreground hover:text-foreground",
-                )}
-                aria-label={`Page ${pageNumber}`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {pageNumber}
-              </Button>
-            );
-          })}
+      <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-1">
+        {/* Mobile buttons */}
+        <div className="flex w-full gap-2 sm:hidden">
+          <Button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1 || navigationDisabled}
+            variant="outline"
+            size="sm"
+            className="h-11 flex-1"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+            Previous
+          </Button>
+          <Button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || navigationDisabled}
+            variant="outline"
+            size="sm"
+            className="h-11 flex-1"
+            aria-label="Next page"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
+          </Button>
         </div>
 
-        {/* Next button */}
-        <Button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages || navigationDisabled}
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
-          aria-label="Next page"
-        >
-          <span className="hidden sm:inline">Next</span>
-          <ChevronRight className="w-4 h-4" aria-hidden="true" />
-        </Button>
+        {/* Desktop buttons */}
+        <div className="hidden items-center gap-1 sm:flex">
+          <Button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1 || navigationDisabled}
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Previous</span>
+          </Button>
+
+          {/* Page numbers */}
+          <div className="hidden items-center gap-1 sm:flex">
+            {visiblePages.map((page, index) => {
+              if (page === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-2 py-1 text-sm text-muted-foreground"
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const pageNumber = page as number;
+              const isActive = pageNumber === currentPage;
+
+              return (
+                <Button
+                  key={pageNumber}
+                  onClick={() => onPageChange(pageNumber)}
+                  disabled={navigationDisabled}
+                  variant={isActive ? "default" : "ghost"}
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8",
+                    !isActive && "text-muted-foreground hover:text-foreground",
+                  )}
+                  aria-label={`Page ${pageNumber}`}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {pageNumber}
+                </Button>
+              );
+            })}
+          </div>
+
+          <Button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || navigationDisabled}
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+            aria-label="Next page"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </nav>
   );

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import type { SearchResult } from "@shared/search";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
@@ -68,6 +68,13 @@ export function SearchResultsTable({
   pageSize = 25,
   className,
 }: SearchResultsTableProps) {
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [expandableResults, setExpandableResults] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const snippetRefs = useRef(new Map<string, HTMLDivElement | null>());
   const allSelected =
     searchResults.length > 0 &&
     searchResults.every((result) => selectedResults.has(result.id));
@@ -75,11 +82,79 @@ export function SearchResultsTable({
     searchResults.some((result) => selectedResults.has(result.id)) &&
     !allSelected;
 
+  const toggleExpandedResult = (resultId: string) => {
+    setExpandedResults((prev) => {
+      const next = new Set(prev);
+      if (next.has(resultId)) {
+        next.delete(resultId);
+      } else {
+        next.add(resultId);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    if (!isMobile) {
+      setExpandableResults(new Set());
+      return;
+    }
+
+    const recalculateExpandableResults = () => {
+      const currentIds = new Set(searchResults.map((result) => result.id));
+      setExpandableResults((prev) => {
+        const next = new Set<string>();
+        currentIds.forEach((id) => {
+          if (prev.has(id)) {
+            next.add(id);
+          }
+        });
+
+        searchResults.forEach((result) => {
+          const el = snippetRefs.current.get(result.id);
+          if (el && el.scrollHeight > el.clientHeight + 1) {
+            next.add(result.id);
+          }
+        });
+
+        return next;
+      });
+    };
+
+    const rafId = window.requestAnimationFrame(recalculateExpandableResults);
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(recalculateExpandableResults);
+    });
+
+    snippetRefs.current.forEach((node) => {
+      if (node) {
+        resizeObserver.observe(node);
+      }
+    });
+
+    const handleResize = () => {
+      window.requestAnimationFrame(recalculateExpandableResults);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [searchResults, density]);
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Header with Select All and Sort Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-3 sm:flex">
           <div className="flex items-center gap-2">
             <Checkbox
               checked={allSelected ? true : someSelected ? "indeterminate" : false}
@@ -97,15 +172,9 @@ export function SearchResultsTable({
 
         {/* Sort Controls */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex items-center justify-between gap-2 sm:justify-end">
-            <span className="text-sm text-muted-foreground sm:hidden">
-              Sort & density
-            </span>
-          </div>
-
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             {/* Density */}
-            <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 sm:flex">
               <span className="hidden text-sm text-muted-foreground sm:inline">
                 Density:
               </span>
@@ -162,7 +231,7 @@ export function SearchResultsTable({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleSortDirection}
-                className="p-1 h-8 w-8"
+                className="h-10 w-10 p-1 sm:h-8 sm:w-8"
                 title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
                 aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
               >
@@ -178,23 +247,28 @@ export function SearchResultsTable({
       </div>
 
       {/* Results Grid */}
-	      <TooltipProvider>
+      <TooltipProvider>
         <div
           role="list"
-          className={cn("grid", density === "compact" ? "gap-2" : "gap-4")}
+          className={cn(
+            "grid gap-4",
+            density === "compact" ? "sm:gap-2" : "sm:gap-4",
+          )}
         >
-	          {searchResults.map((result, index) => {
-	            const targetText = truncateText(result.target, 75);
-	            const acquirerText = truncateText(result.acquirer, 75);
-	            const isSelected = selectedResults.has(result.id);
-	            const resultNumber = (currentPage - 1) * pageSize + index + 1;
-	            const standardId =
-	              typeof result.standardId === "string"
-	                ? result.standardId.trim()
-	                : null;
-	            const clauseTypePath = standardId
-	              ? clauseTypePathByStandardId[standardId]
-	              : undefined;
+          {searchResults.map((result, index) => {
+            const targetText = truncateText(result.target, 75);
+            const acquirerText = truncateText(result.acquirer, 75);
+            const isSelected = selectedResults.has(result.id);
+            const isExpanded = expandedResults.has(result.id);
+            const canExpand = expandableResults.has(result.id) || isExpanded;
+            const resultNumber = (currentPage - 1) * pageSize + index + 1;
+            const standardId =
+              typeof result.standardId === "string"
+                ? result.standardId.trim()
+                : null;
+            const clauseTypePath = standardId
+              ? clauseTypePathByStandardId[standardId]
+              : undefined;
             const clauseTypeLabel = clauseTypePath
               ?.map((part) => part.trim())
               .join("\u2022 ");
@@ -205,27 +279,27 @@ export function SearchResultsTable({
             const sectionSummaryText = truncateText(sectionSummary, 120);
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
-	
-		            return (
-	              <div
-                  role="listitem"
-		                key={result.id}
+
+            return (
+              <div
+                role="listitem"
+                key={result.id}
                 className={cn(
-	                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-colors",
-	                  isSelected
-	                    ? "border-primary/40 bg-primary/5"
-	                    : "border-border hover:bg-muted/10",
-	                )}
-	              >
-	                {/* Header with metadata and checkbox */}
-	                <div
-	                  className={cn(
-	                    density === "compact" ? "px-3 py-2" : "px-4 py-3",
-	                    "border-b",
-	                    isSelected
-	                      ? "bg-primary/10 border-primary/20"
-	                      : "bg-muted/40 border-border",
-	                  )}
+                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-colors",
+                  isSelected
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border hover:bg-muted/10",
+                )}
+              >
+                {/* Header with metadata and checkbox */}
+                <div
+                  className={cn(
+                    "border-b px-4 py-3",
+                    density === "compact" ? "sm:px-3 sm:py-2" : "sm:px-4 sm:py-3",
+                    isSelected
+                      ? "bg-primary/10 border-primary/20"
+                      : "bg-muted/40 border-border",
+                  )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3">
@@ -234,7 +308,7 @@ export function SearchResultsTable({
                         onCheckedChange={() =>
                           onToggleResultSelection(result.id)
                         }
-                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                        className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
                         aria-label={`Select result ${resultNumber}`}
                       />
                       <div className="min-w-0 flex-1">
@@ -320,8 +394,8 @@ export function SearchResultsTable({
 
                         <div
                           className={cn(
-                            "grid text-sm text-foreground",
-                            density === "compact" ? "mt-1 gap-1" : "mt-2 gap-1.5",
+                            "mt-2 flex flex-col gap-1.5 text-sm text-foreground sm:grid",
+                            density === "compact" ? "sm:mt-1 sm:gap-1" : "sm:mt-2 sm:gap-1.5",
                           )}
                         >
                           <div className="min-w-0 break-words">
@@ -393,7 +467,7 @@ export function SearchResultsTable({
                         variant="outline"
                         size="sm"
                         onClick={() => onOpenAgreement(result, resultNumber)}
-                        className="flex items-center gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                        className="flex h-11 items-center gap-2 border-primary/40 px-4 text-primary hover:bg-primary/10 sm:h-9 sm:px-3"
                       >
                         <ExternalLink className="w-4 h-4" aria-hidden="true" />
                         <span className="hidden sm:inline">Open Agreement</span>
@@ -404,27 +478,56 @@ export function SearchResultsTable({
                 </div>
 
                 {/* Clause text */}
-                <div className={cn(density === "compact" ? "p-3" : "p-4")}>
+                <div className={cn("p-4", density === "compact" ? "sm:p-3" : "sm:p-4")}>
                   {result.xml ? (
-                    <div
-                      className={cn(
-                        "rounded-md border border-border bg-muted/20",
-                        density === "compact" ? "h-28 p-2" : "h-36 p-3",
-                      )}
-                    >
+                    <>
                       <div
-                        className="h-full overflow-y-auto text-sm leading-relaxed text-foreground"
-                        style={{
-                          scrollbarWidth: "thin",
-                          scrollbarColor:
-                            "hsl(var(--border)) hsl(var(--background))",
-                        }}
+                        className={cn(
+                          "rounded-md border border-border bg-muted/20 p-3",
+                          density === "compact"
+                            ? "sm:h-28 sm:p-2"
+                            : "sm:h-36 sm:p-3",
+                        )}
                       >
-                        <XMLRenderer xmlContent={result.xml} mode="search" />
+                        <div
+                          ref={(node) => {
+                            if (node) {
+                              snippetRefs.current.set(result.id, node);
+                            } else {
+                              snippetRefs.current.delete(result.id);
+                            }
+                          }}
+                          className={cn(
+                            "text-sm leading-relaxed text-foreground",
+                            "overflow-hidden sm:h-full sm:overflow-y-auto",
+                            isExpanded ? "line-clamp-none" : "line-clamp-3",
+                            "sm:line-clamp-none",
+                          )}
+                          style={{
+                            scrollbarWidth: "thin",
+                            scrollbarColor:
+                              "hsl(var(--border)) hsl(var(--background))",
+                          }}
+                        >
+                          <XMLRenderer xmlContent={result.xml} mode="search" />
+                        </div>
                       </div>
-                    </div>
+                      {canExpand ? (
+                        <div className="mt-2 sm:hidden">
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            onClick={() => toggleExpandedResult(result.id)}
+                            className="h-8 px-0"
+                          >
+                            {isExpanded ? "Show less" : "Show more"}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
                   ) : (
-                    <div className={cn(density === "compact" ? "h-28" : "h-36")}>
+                    <div className={cn(density === "compact" ? "sm:h-28" : "sm:h-36")}>
                       <Alert className="h-full">
                         <AlertTitle>Sign in to view clause text</AlertTitle>
                         <AlertDescription>
