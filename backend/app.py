@@ -2141,6 +2141,13 @@ agreements_blp = Blueprint(
     description="Retrieve full text for a given agreement",
 )
 
+sections_blp = Blueprint(
+    "sections",
+    "sections",
+    url_prefix="/api/sections",
+    description="Retrieve full text for a given section",
+)
+
 
 class SearchArgsSchema(Schema):
     year = fields.List(fields.Int(), load_default=[])
@@ -2219,6 +2226,16 @@ class AgreementResponseSchema(Schema):
     isRedacted = fields.Bool(required=False)
 
 
+class SectionResponseSchema(Schema):
+    agreementUuid = fields.Str()
+    sectionUuid = fields.Str()
+    articleStandardId = fields.Str()
+    sectionStandardId = fields.Str()
+    xml = fields.Str()
+    articleTitle = fields.Str()
+    sectionTitle = fields.Str()
+
+
 # ── Auth request schemas ──────────────────────────────────────────────────
 # ── Route definitions ───────────────────────────────────────
 
@@ -2273,6 +2290,52 @@ class AgreementResource(MethodView):
             "acquirer": acquirer,
             "url": url,
             "xml": xml_content,
+        }
+
+
+@sections_blp.route("/<string:section_uuid>")
+class SectionResource(MethodView):
+    @sections_blp.response(200, SectionResponseSchema)
+    def get(self, section_uuid: str) -> dict[str, object]:
+        section_uuid = section_uuid.strip()
+        if not _UUID_RE.match(section_uuid):
+            abort(400, description="Invalid sectionUuid.")
+
+        row = (
+            db.session.query(
+                Sections.agreement_uuid,
+                Sections.section_uuid,
+                Sections.article_standard_id,
+                Sections.section_standard_id,
+                Sections.xml_content,
+                Sections.article_title,
+                Sections.section_title,
+            )
+            .filter(Sections.section_uuid == section_uuid)
+            .first()
+        )
+
+        if row is None:
+            abort(404)
+
+        (
+            agreement_uuid,
+            section_uuid,
+            article_standard_id,
+            section_standard_id,
+            xml_content,
+            article_title,
+            section_title,
+        ) = row
+
+        return {
+            "agreementUuid": agreement_uuid,
+            "sectionUuid": section_uuid,
+            "articleStandardId": article_standard_id,
+            "sectionStandardId": section_standard_id,
+            "xml": xml_content,
+            "articleTitle": article_title,
+            "sectionTitle": section_title,
         }
 
 
@@ -2384,7 +2447,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         row[0]
         for row in db.session.execute(
             text(
-                """
+                f"""
                 SELECT DISTINCT a.target
                 FROM {_schema_prefix()}agreements a
                 WHERE a.target IS NOT NULL
@@ -2403,7 +2466,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         row[0]
         for row in db.session.execute(
             text(
-                """
+                f"""
                 SELECT DISTINCT a.acquirer
                 FROM {_schema_prefix()}agreements a
                 WHERE a.acquirer IS NOT NULL
@@ -2746,6 +2809,7 @@ def _register_blueprints() -> None:
     api.register_blueprint(search_blp)
     api.register_blueprint(dumps_blp)
     api.register_blueprint(agreements_blp)
+    api.register_blueprint(sections_blp)
 
 
 def _register_app(target_app: Flask) -> None:
