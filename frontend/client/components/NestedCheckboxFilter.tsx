@@ -283,6 +283,7 @@ export function NestedCheckboxFilter({
                   value={`${result.key} ${result.path.join(" ")}`}
                   onSelect={() => onToggle(result.key)}
                   className={cn(
+                    "min-w-0",
                     index === highlightedSearchIndex && "bg-accent",
                   )}
                 >
@@ -291,10 +292,10 @@ export function NestedCheckboxFilter({
                   ) : (
                     <span className="mr-2 h-4 w-4" aria-hidden="true" />
                   )}
-                  <div className="flex flex-col">
-                    <span>{result.key}</span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="break-words">{result.key}</span>
                     {result.path.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="break-words text-xs text-muted-foreground">
                         {result.path.join(" 92 ")}
                       </span>
                     )}
@@ -322,7 +323,7 @@ export function NestedCheckboxFilter({
           onKeyDown={handleSearchKeyDown}
           aria-label={`Search ${label}`}
           placeholder="Search clause types..."
-          className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-sm leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+          className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-base leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:text-sm"
         />
       </div>
 
@@ -394,7 +395,7 @@ export function NestedCheckboxFilter({
               />
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90dvh] gap-4 overflow-hidden">
+          <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] gap-4 overflow-hidden sm:w-full sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Select {label}s</DialogTitle>
               <DialogDescription>
