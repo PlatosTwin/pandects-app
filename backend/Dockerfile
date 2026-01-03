@@ -17,11 +17,12 @@ LABEL fly_launch_runtime="flask"
 
 WORKDIR /code
 
-COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN mkdir -p /code/backend
+COPY requirements.txt /code/backend/requirements.txt
+RUN pip3 install -r /code/backend/requirements.txt
 
-COPY . .
+COPY . /code/backend
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "60", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "60", "backend.app:app"]

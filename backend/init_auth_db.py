@@ -5,7 +5,7 @@ from sqlalchemy.engine.url import make_url
 
 os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
 
-from app import app, db  # noqa: E402
+from backend.app import app, db  # noqa: E402
 
 
 def main() -> None:

@@ -22,7 +22,7 @@ primary_region = 'iad'
   processes = ['app']
 
 [deploy]
-  release_command = "python3 init_auth_db.py"
+  release_command = "python3 -m backend.init_auth_db"
 
 [[vm]]
   memory = '1gb'

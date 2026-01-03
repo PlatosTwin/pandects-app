@@ -65,9 +65,9 @@ To undo that resolver later:
 
    `AUTH_DATABASE_URI=postgresql://<user>:<password>@pandects-pg.internal:5432/<db>?sslmode=disable`
 
-4. Initialize tables once:
+4. Initialize tables once (from the repo root):
 
-   `cd backend && python3 init_auth_db.py`
+   `python3 -m backend.init_auth_db`
 
 5. Tear the tunnel down when done:
 
@@ -80,9 +80,9 @@ If you don’t want to set up WireGuard, you can still connect via a local proxy
 
 1. `fly proxy 15432:5432 -a pandects-pg`
 2. `AUTH_DATABASE_URI=postgresql://<user>:<password>@127.0.0.1:15432/<db>`
-3. `cd backend && python3 init_auth_db.py`
+3. `python3 -m backend.init_auth_db`
 
 ## Fly deployment
 
 - Ensure the app has a Postgres URL available as either `AUTH_DATABASE_URI` (preferred) or `DATABASE_URL` (common default when attaching).
-- Deploy will run `python3 init_auth_db.py` via `backend/fly.toml` release command.
+- Deploy will run `python3 -m backend.init_auth_db` via `backend/fly.toml` release command.

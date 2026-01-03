@@ -29,7 +29,8 @@ cp .env.example .env  # fill in values (never commit secrets)
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-flask run
+cd ..
+FLASK_APP=backend.app flask run
 ```
 
 ##### Optional: Google sign-in
