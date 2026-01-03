@@ -27,6 +27,8 @@ export default function Navigation() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
+  const betaDisclaimer =
+    "Pandects is in early development. Layout, API schema, and data organization may change. Currently, the public site includes 45 sample agreements as a proof of concept.";
 
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
@@ -66,32 +68,42 @@ export default function Navigation() {
         className="relative z-0 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
       >
         {/* Brand */}
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          onClick={() =>
-            trackEvent("logo_click", {
-              from_path: location.pathname,
-              to_path: "/",
-            })
-          }
-        >
-          <img
-            src={logo}
-            alt="Pandects Logo"
-            data-panda-target="logo"
-            width={36}
-            height={36}
-            decoding="async"
-            className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
-          />
-          <span
-            data-panda-target="brand"
-            className="hidden text-base font-semibold tracking-tight text-foreground sm:block"
+        <div className="flex items-center gap-2">
+          <Link
+            to="/"
+            className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            onClick={() =>
+              trackEvent("logo_click", {
+                from_path: location.pathname,
+                to_path: "/",
+              })
+            }
           >
-            Pandects
-          </span>
-        </Link>
+            <img
+              src={logo}
+              alt="Pandects Logo"
+              data-panda-target="logo"
+              width={36}
+              height={36}
+              decoding="async"
+              className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+            />
+            <span
+              data-panda-target="brand"
+              className="hidden text-base font-semibold tracking-tight text-foreground sm:block"
+            >
+              Pandects
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.alert(betaDisclaimer)}
+            className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label="Read beta notice"
+          >
+            BETA
+          </button>
+        </div>
 
         {/* Desktop navigation */}
         <div className="hidden items-center gap-1 md:flex">

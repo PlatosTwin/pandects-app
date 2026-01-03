@@ -45,7 +45,7 @@ export default function SiteBanner() {
   }
 
   return (
-    <div className="border-b border-border bg-muted/40">
+    <div className="hidden border-b border-border bg-muted/40 md:block">
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
