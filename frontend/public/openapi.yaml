@@ -157,6 +157,26 @@ paths:
       schema:
         type: string
         minLength: 1
+  /api/sections/{section_uuid}:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - sections
+    parameters:
+    - in: path
+      name: section_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
 info:
   title: Pandects API
   version: v1
@@ -167,6 +187,8 @@ tags:
   description: Access metadata about bulk data on Cloudflare
 - name: agreements
   description: Retrieve full text for a given agreement
+- name: sections
+  description: Retrieve full text for a given section
 openapi: 3.0.2
 components:
   schemas:
@@ -309,6 +331,23 @@ components:
           type: string
         isRedacted:
           type: boolean
+    SectionResponse:
+      type: object
+      properties:
+        agreementUuid:
+          type: string
+        sectionUuid:
+          type: string
+        articleStandardId:
+          type: string
+        sectionStandardId:
+          type: string
+        xml:
+          type: string
+        articleTitle:
+          type: string
+        sectionTitle:
+          type: string
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity
