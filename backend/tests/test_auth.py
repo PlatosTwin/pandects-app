@@ -530,7 +530,8 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             user = AuthUser.query.filter_by(email="delete-me@example.com").first()
-            self.assertIsNotNone(user)
+            if user is None:
+                self.fail("Expected user to be created for delete-account flow.")
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
         res = client.post("/api/auth/email/verify", json={"token": verify})
@@ -581,7 +582,8 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 201)
         with self.app.app_context():
             user = AuthUser.query.filter_by(email="keyuser@example.com").first()
-            self.assertIsNotNone(user)
+            if user is None:
+                self.fail("Expected user to be created for api-key flow.")
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
         res = client.post("/api/auth/email/verify", json={"token": verify})
@@ -607,7 +609,8 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
-            self.assertIsNotNone(key_row)
+            if key_row is None:
+                self.fail("Expected api key row to exist before usage update.")
             self.assertIsNone(key_row.last_used_at)
 
         res = client.get("/api/auth/me", headers={"X-API-Key": f"  {api_key}  "})
@@ -615,7 +618,8 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
-            self.assertIsNotNone(key_row)
+            if key_row is None:
+                self.fail("Expected api key row to exist after usage update.")
             self.assertIsNotNone(key_row.last_used_at)
 
 

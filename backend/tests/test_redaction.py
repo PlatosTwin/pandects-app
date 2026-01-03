@@ -29,7 +29,8 @@ class TestXmlRedaction(unittest.TestCase):
         self.assertNotIn("HIDE", ET.tostring(s2, encoding="unicode"))
 
         placeholder = next(iter(s2), None)
-        self.assertIsNotNone(placeholder)
+        if placeholder is None:
+            self.fail("Expected a redaction placeholder node.")
         self.assertEqual(placeholder.tag, "text")
         self.assertEqual(placeholder.attrib.get("redacted"), "true")
         self.assertEqual((placeholder.text or "").strip(), "[REDACTED]")
@@ -68,4 +69,3 @@ class TestXmlRedaction(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

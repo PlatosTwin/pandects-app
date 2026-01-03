@@ -11,9 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
 
-def register_auth_routes(app) -> Blueprint:
-    from backend import app as app_module
-
+def register_auth_routes(app, *, app_module) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/api/auth")
 
     @auth_blp.route("/register", methods=["POST"])

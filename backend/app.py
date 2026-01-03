@@ -1,4 +1,6 @@
 import os
+import sys
+from typing import cast
 from pathlib import Path
 import time
 import random
@@ -11,7 +13,6 @@ import uuid
 import re
 import click
 import json
-import html as _html
 import math
 from flask import Flask, jsonify, request, abort, Response, g, current_app, has_app_context
 from flask import redirect
@@ -19,7 +20,7 @@ from flask import make_response
 from flask_cors import CORS
 from flask_smorest import Blueprint
 from flask.views import MethodView
-import boto3
+from boto3.session import Session
 from collections import defaultdict
 from marshmallow import Schema, fields, ValidationError, EXCLUDE
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -70,7 +71,6 @@ from backend.schemas.auth import (
     AuthRegisterSchema,
     AuthTokenSchema,
 )
-from backend.routes.auth import register_auth_routes
 from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.usage import UsageBuffer, record_api_key_usage
 
@@ -117,8 +117,9 @@ def _usage_buffer() -> UsageBuffer | None:
         return None
     buffer = current_app.extensions.get("usage_buffer")
     if buffer is None:
+        app_obj = cast(Flask, current_app._get_current_object())  # pyright: ignore[reportAttributeAccessIssue]
         buffer = UsageBuffer(
-            app=current_app._get_current_object(),
+            app=app_obj,
             db=db,
             ApiUsageDaily=ApiUsageDaily,
             ApiUsageHourly=ApiUsageHourly,
@@ -137,8 +138,9 @@ def _async_task_runner() -> AsyncTaskRunner | None:
         return None
     runner = current_app.extensions.get("async_task_runner")
     if runner is None:
+        app_obj = cast(Flask, current_app._get_current_object())  # pyright: ignore[reportAttributeAccessIssue]
         runner = AsyncTaskRunner(
-            app=current_app._get_current_object(),
+            app=app_obj,
             max_queue_size=_ASYNC_SIDE_EFFECTS_MAX_QUEUE,
         )
         current_app.extensions["async_task_runner"] = runner
@@ -459,27 +461,31 @@ def _configure_app(
 
 def _handle_http_exception(err: HTTPException):
     if request.path.startswith("/api/"):
-        return jsonify({"error": err.name, "message": err.description}), err.code
+        resp = jsonify({"error": err.name, "message": err.description})
+        resp.status_code = err.code or 500
+        return resp
     return err
 
 
 def _handle_internal_server_error(err: InternalServerError):
     if request.path.startswith("/api/"):
         current_app.logger.exception("Unhandled API exception: %s", err)
-        return (
-            jsonify({"error": "Internal Server Error", "message": "Unexpected server error."}),
-            500,
+        resp = jsonify(
+            {"error": "Internal Server Error", "message": "Unexpected server error."}
         )
+        resp.status_code = 500
+        return resp
     return err
 
 
 def _handle_sqlalchemy_error(err: SQLAlchemyError):
     if request.path.startswith("/api/"):
         current_app.logger.exception("Database error: %s", err)
-        return (
-            jsonify({"error": "Service Unavailable", "message": "Database is unavailable."}),
-            503,
+        resp = jsonify(
+            {"error": "Service Unavailable", "message": "Database is unavailable."}
         )
+        resp.status_code = 503
+        return resp
     raise err
 
 
@@ -510,7 +516,7 @@ PUBLIC_DEV_BASE = "https://bulk.pandects.org"
 
 client = None
 if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY"):
-    session = boto3.session.Session()
+    session = Session()
     client = session.client(
         service_name="s3",
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
@@ -868,16 +874,14 @@ def _issue_password_reset_token(*, user_id: str, email: str) -> str:
     reset_id = str(uuid.uuid4())
     now = datetime.utcnow()
     expires_at = now + timedelta(seconds=_password_reset_max_age_seconds())
-    db.session.add(
-        AuthPasswordResetToken(
-            id=reset_id,
-            user_id=user_id,
-            created_at=now,
-            expires_at=expires_at,
-            ip_address=_request_ip_address(),
-            user_agent=_request_user_agent(),
-        )
-    )
+    reset_token = AuthPasswordResetToken()
+    reset_token.id = reset_id
+    reset_token.user_id = user_id
+    reset_token.created_at = now
+    reset_token.expires_at = expires_at
+    reset_token.ip_address = _request_ip_address()
+    reset_token.user_agent = _request_user_agent()
+    db.session.add(reset_token)
     db.session.commit()
     return serializer.dumps({"user_id": user_id, "email": email, "reset_id": reset_id})
 
@@ -1111,14 +1115,13 @@ def _issue_session_token(user_id: str) -> str:
     expires_at = now + timedelta(days=14)
     ip_address = _request_ip_address()
     user_agent = _request_user_agent()
-    session = AuthSession(
-        user_id=user_id,
-        token_hash=_session_token_hash(token),
-        created_at=now,
-        expires_at=expires_at,
-        ip_address=ip_address,
-        user_agent=user_agent,
-    )
+    session = AuthSession()
+    session.user_id = user_id
+    session.token_hash = _session_token_hash(token)
+    session.created_at = now
+    session.expires_at = expires_at
+    session.ip_address = ip_address
+    session.user_agent = user_agent
     db.session.add(session)
     db.session.commit()
     return token
@@ -2813,11 +2816,13 @@ def _register_blueprints() -> None:
 
 
 def _register_app(target_app: Flask) -> None:
+    from backend.routes.auth import register_auth_routes
+
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)
     _register_blueprints()
     _register_main_routes(target_app)
-    register_auth_routes(target_app)
+    register_auth_routes(target_app, app_module=sys.modules[__name__])
 
 
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
