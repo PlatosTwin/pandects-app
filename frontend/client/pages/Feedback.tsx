@@ -29,6 +29,25 @@ export default function Feedback() {
     "general-feedback": false,
   });
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.querySelector("script[data-airtable-embed]")) return;
+
+    const loadScript = () => {
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://static.airtable.com/js/embed/embed_snippet_v1.js";
+      script.dataset.airtableEmbed = "true";
+      document.head.appendChild(script);
+    };
+
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(loadScript);
+    } else {
+      window.setTimeout(loadScript, 500);
+    }
+  }, []);
+
   const handleSectionChange = (value: string) => {
     setOpenSection(value);
     if (value === "survey" || value === "general-feedback") {
@@ -108,7 +127,7 @@ export default function Feedback() {
               href="https://github.com/PlatosTwin/pandects-app/issues"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-2 hover:underline"
               aria-label="Open an issue (opens in a new tab)"
             >
               open an issue
@@ -119,7 +138,7 @@ export default function Feedback() {
               href="https://github.com/PlatosTwin/pandects-app"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-2 hover:underline"
               aria-label="Main GitHub repository (opens in a new tab)"
             >
               main GitHub repository
@@ -144,6 +163,7 @@ export default function Feedback() {
           className="bg-card rounded-lg shadow-sm border border-border"
         >
           <AccordionTrigger
+            headingLevel="h2"
             className="px-6 py-4 text-lg font-semibold text-foreground"
             onClick={() =>
               trackEvent("feedback_section_click", { section: "survey" })
@@ -188,7 +208,7 @@ export default function Feedback() {
                         href={surveyUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline"
+                        className="text-primary underline underline-offset-2 hover:underline"
                       >
                         Open the survey in a new tab
                       </a>
@@ -206,6 +226,7 @@ export default function Feedback() {
           className="bg-card rounded-lg shadow-sm border border-border"
         >
           <AccordionTrigger
+            headingLevel="h2"
             className="px-6 py-4 text-lg font-semibold text-foreground"
             onClick={() =>
               trackEvent("feedback_section_click", {
@@ -256,7 +277,7 @@ export default function Feedback() {
                           href={generalFeedbackUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline"
+                          className="text-primary underline underline-offset-2 hover:underline"
                         >
                           Open the form in a new tab
                         </a>

@@ -7,14 +7,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
-import { installGlobalErrorTracking } from "@/lib/analytics";
+import { bootstrapAnalytics, installGlobalErrorTracking, loadAnalyticsScript } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
-import Search from "./pages/Search";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 const Docs = lazy(() => import("./pages/Docs"));
+const Search = lazy(() => import("./pages/Search"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
 const About = lazy(() => import("./pages/About"));
@@ -34,10 +34,25 @@ const License = lazy(() => import("./pages/License"));
 
 const queryClient = new QueryClient();
 
+bootstrapAnalytics();
+
 const App = () => {
   // on first mount, fire a lightweight ping to warm up the Fly.io db machine
   useEffect(() => {
     void fetch(apiUrl("api/dumps")).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const schedule = window.requestIdleCallback
+      ? window.requestIdleCallback(() => loadAnalyticsScript())
+      : window.setTimeout(() => loadAnalyticsScript(), 1500);
+    return () => {
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(schedule as number);
+      } else {
+        window.clearTimeout(schedule as number);
+      }
+    };
   }, []);
 
   useEffect(() => installGlobalErrorTracking(), []);

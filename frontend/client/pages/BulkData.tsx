@@ -190,6 +190,7 @@ export default function BulkData() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="dbdocs (opens in a new tab)"
+            className="underline underline-offset-2"
           >
             dbdocs
           </a>
@@ -201,9 +202,9 @@ export default function BulkData() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* API Call Example */}
         <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h3 className="text-lg font-semibold text-foreground mb-3">
+          <h2 className="text-lg font-semibold text-foreground mb-3">
             Pull metadata for all dumps via API
-          </h3>
+          </h2>
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
@@ -239,9 +240,9 @@ export default function BulkData() {
 
         {/* Download with wget */}
         <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h3 className="text-lg font-semibold text-foreground mb-3">
+          <h2 className="text-lg font-semibold text-foreground mb-3">
             Download latest version with wget
-          </h3>
+          </h2>
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
@@ -275,9 +276,9 @@ export default function BulkData() {
 
         {/* Verify the checksum */}
         <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h3 className="text-lg font-semibold text-foreground mb-3">
+          <h2 className="text-lg font-semibold text-foreground mb-3">
             Verify the checksum
-          </h3>
+          </h2>
           <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
@@ -317,10 +318,10 @@ export default function BulkData() {
 
       {/* Database Info */}
       <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-8">
-        <h3 className="text-lg font-semibold text-primary mb-2">
+        <h2 className="text-lg font-semibold text-foreground mb-2">
           About the SQL Dump
-        </h3>
-        <p className="text-muted-foreground prose max-w-none">
+        </h2>
+        <p className="text-foreground prose max-w-none">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
@@ -328,6 +329,7 @@ export default function BulkData() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="MariaDB Documentation (opens in a new tab)"
+            className="underline underline-offset-2"
           >
             MariaDB Documentation
           </a>
@@ -336,7 +338,7 @@ export default function BulkData() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="bg-card rounded-lg border border-border overflow-hidden bulk-table-shell">
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads
@@ -361,18 +363,18 @@ export default function BulkData() {
               <Table>
                 <TableHeader className="bg-muted">
                   <TableRow>
-                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Version
-                    </TableHead>
-                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      SHA256 hash
-                    </TableHead>
-                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Download size
-                    </TableHead>
-                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Actions
-                    </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
+                    Version
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
+                    SHA256 hash
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
+                    Download size
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
+                    Actions
+                  </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">

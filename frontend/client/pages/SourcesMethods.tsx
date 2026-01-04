@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +13,9 @@ import {
 } from "@/components/ui/popover";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
+import { NerEvalMetrics } from "@/components/NerEvalMetrics";
+import { ClassifierEvalMetrics } from "@/components/ClassifierEvalMetrics";
+import type { NerEvalData, ClassifierEvalData } from "@/lib/model-metrics-types";
 
 export default function SourcesMethods() {
   const [activeSection, setActiveSection] = useState("");
@@ -27,6 +25,12 @@ export default function SourcesMethods() {
   const [pipelineProgress, setPipelineProgress] = useState(0);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const pipelineMetricsRef = useRef<{
+    firstCenter: number;
+    lastCenter: number;
+    lineTop: number;
+    lineHeight: number;
+  } | null>(null);
 
   const navItems = useMemo(
     () => [
@@ -91,6 +95,18 @@ export default function SourcesMethods() {
 
   useEffect(() => {
     const updateProgress = () => {
+      const metrics = pipelineMetricsRef.current;
+      if (!metrics) return;
+      const denom = metrics.lastCenter - metrics.firstCenter;
+      if (!denom) return;
+      const viewportHeight = window.innerHeight || 1;
+      const viewportMid = window.scrollY + viewportHeight / 2;
+      const rawProgress = (viewportMid - metrics.firstCenter) / denom;
+      const clamped = Math.min(1, Math.max(0, rawProgress));
+      setPipelineProgress(clamped);
+    };
+
+    const updateMetrics = () => {
       const firstEl = firstStepRef.current;
       const lastEl = lastStepRef.current;
       if (!firstEl || !lastEl) return;
@@ -98,24 +114,29 @@ export default function SourcesMethods() {
       const lastRect = lastEl.getBoundingClientRect();
       if (!firstRect.height || !lastRect.height) return;
       const containerRect = pipelineRef.current?.getBoundingClientRect();
+      const scrollY = window.scrollY;
+      const firstCenter = firstRect.top + scrollY + firstRect.height / 2;
+      const lastCenter = lastRect.top + scrollY + lastRect.height / 2;
+      let lineTop = 0;
+      let lineHeight = 0;
       if (containerRect) {
-        const top = firstRect.top - containerRect.top + firstRect.height / 2;
+        lineTop = firstRect.top - containerRect.top + firstRect.height / 2;
         const bottom = lastRect.top - containerRect.top + lastRect.height / 2;
-        const height = Math.max(0, bottom - top);
+        lineHeight = Math.max(0, bottom - lineTop);
         setPipelineLine((prev) =>
-          Math.abs(prev.top - top) > 0.5 || Math.abs(prev.height - height) > 0.5
-            ? { top, height }
+          Math.abs(prev.top - lineTop) > 0.5 ||
+          Math.abs(prev.height - lineHeight) > 0.5
+            ? { top: lineTop, height: lineHeight }
             : prev
         );
       }
-      const viewportHeight = window.innerHeight || 1;
-      const viewportMid = window.scrollY + viewportHeight / 2;
-      const firstCenter = firstRect.top + window.scrollY + firstRect.height / 2;
-      const lastCenter = lastRect.top + window.scrollY + lastRect.height / 2;
-      const rawProgress =
-        (viewportMid - firstCenter) / (lastCenter - firstCenter);
-      const clamped = Math.min(1, Math.max(0, rawProgress));
-      setPipelineProgress(clamped);
+      pipelineMetricsRef.current = {
+        firstCenter,
+        lastCenter,
+        lineTop,
+        lineHeight,
+      };
+      updateProgress();
     };
 
     let raf = 0;
@@ -127,13 +148,34 @@ export default function SourcesMethods() {
       });
     };
 
-    updateProgress();
+    let metricsRaf = 0;
+    const scheduleMetrics = () => {
+      if (metricsRaf) return;
+      metricsRaf = window.requestAnimationFrame(() => {
+        metricsRaf = 0;
+        updateMetrics();
+      });
+    };
+
+    updateMetrics();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", scheduleMetrics);
+    const Observer =
+      typeof ResizeObserver !== "undefined"
+        ? ResizeObserver
+        : ResizeObserverPolyfill;
+    const observer = new Observer(scheduleMetrics);
+    if (observer) {
+      if (pipelineRef.current) observer.observe(pipelineRef.current);
+      if (firstStepRef.current) observer.observe(firstStepRef.current);
+      if (lastStepRef.current) observer.observe(lastStepRef.current);
+    }
     return () => {
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", scheduleMetrics);
+      if (observer) observer.disconnect();
       if (raf) window.cancelAnimationFrame(raf);
+      if (metricsRaf) window.cancelAnimationFrame(metricsRaf);
     };
   }, []);
 
@@ -160,149 +202,301 @@ export default function SourcesMethods() {
     </Card>
   );
 
-  const classifierLabels = [
-    "front_matter",
-    "toc",
-    "body",
-    "sig",
-    "back_matter",
-  ];
-  const classifierAbbreviations = ["FM", "TOC", "BDY", "SIG", "BM"];
-  const pageClassifierMatrix = [
-    [40, 1, 1, 1, 0],
-    [0, 129, 2, 0, 0],
-    [0, 0, 2171, 0, 33],
-    [0, 0, 1, 49, 1],
-    [0, 0, 86, 13, 379],
-  ];
-  const pageClassifierMetrics = [
-    {
-      label: "front_matter",
-      acc: 0.9302325581395349,
-      p: 1.0,
-      r: 0.9302325581395349,
-      f1: 0.963855421686747,
-    },
-    {
-      label: "toc",
-      acc: 0.9847328244274809,
-      p: 0.9923076923076923,
-      r: 0.9847328244274809,
-      f1: 0.9885057471264368,
-    },
-    {
-      label: "body",
-      acc: 0.98502722323049,
-      p: 0.9601946041574525,
-      r: 0.98502722323049,
-      f1: 0.9724524076147817,
-    },
-    {
-      label: "sig",
-      acc: 0.9607843137254902,
-      p: 0.7777777777777778,
-      r: 0.9607843137254902,
-      f1: 0.8596491228070176,
-    },
-    {
-      label: "back_matter",
-      acc: 0.7928870292887029,
-      p: 0.9176755447941889,
-      r: 0.7928870292887029,
-      f1: 0.8507295173961841,
-    },
-  ];
-  const finalClassifierLabels = classifierLabels;
-  const finalClassifierAbbreviations = classifierAbbreviations;
-  const finalClassifierMatrix = [
-    [41, 2, 0, 0, 0],
-    [0, 131, 0, 0, 0],
-    [0, 0, 2189, 0, 15],
-    [0, 0, 3, 43, 5],
-    [0, 0, 65, 3, 410],
-  ];
-  const finalClassifierMetrics = [
-    {
-      label: "front_matter",
-      acc: 0.9534883720930233,
-      p: 1.0,
-      r: 0.9534883720930233,
-      f1: 0.9761904761904762,
-    },
-    {
-      label: "toc",
-      acc: 1.0,
-      p: 0.9849624060150376,
-      r: 1.0,
-      f1: 0.9924242424242424,
-    },
-    {
-      label: "body",
-      acc: 0.9931941923774955,
-      p: 0.9698715108551174,
-      r: 0.9931941923774955,
-      f1: 0.9813943062093701,
-    },
-    {
-      label: "sig",
-      acc: 0.8431372549019608,
-      p: 0.9347826086956522,
-      r: 0.8431372549019608,
-      f1: 0.8865979381443299,
-    },
-    {
-      label: "back_matter",
-      acc: 0.8577405857740585,
-      p: 0.9534883720930233,
-      r: 0.8577405857740585,
-      f1: 0.9030837004405287,
-    },
-  ];
-  const postProcessingMatrix = [
-    [41, 2, 0, 0, 0],
-    [0, 131, 0, 0, 0],
-    [0, 0, 2189, 0, 15],
-    [0, 0, 2, 48, 1],
-    [0, 0, 52, 7, 419],
-  ];
-  const postProcessingMetrics = [
-    {
-      label: "front_matter",
-      acc: 0.9534883720930233,
-      p: 1.0,
-      r: 0.9534883720930233,
-      f1: 0.9761904761904762,
-    },
-    {
-      label: "toc",
-      acc: 1.0,
-      p: 0.9849624060150376,
-      r: 1.0,
-      f1: 0.9924242424242424,
-    },
-    {
-      label: "body",
-      acc: 0.9931941923774955,
-      p: 0.975925100312082,
-      r: 0.9931941923774955,
-      f1: 0.9844839217449967,
-    },
-    {
-      label: "sig",
-      acc: 0.9411764705882353,
-      p: 0.8727272727272727,
-      r: 0.9411764705882353,
-      f1: 0.9056603773584906,
-    },
-    {
-      label: "back_matter",
-      acc: 0.8765690376569037,
-      p: 0.9632183908045977,
-      r: 0.8765690376569037,
-      f1: 0.9178532311062432,
-    },
-  ];
+  const mockClassifierEvalData: ClassifierEvalData = {
+    labels: ["front_matter", "toc", "body", "sig", "back_matter"],
+    abbreviations: ["FM", "TOC", "BDY", "SIG", "BM"],
+    models: [
+      {
+        id: "xgb-baseline",
+        title: "Model Metrics",
+        badge: "XGB Baseline",
+        layout: "accordion",
+        summary: {
+          accuracy: 0.9521843825249398,
+          precision: 0.9295911238074221,
+          recall: 0.9307327897623399,
+          f1: 0.9270384433262334,
+        },
+        confusionMatrix: [
+          [40, 1, 1, 1, 0],
+          [0, 129, 2, 0, 0],
+          [0, 0, 2171, 0, 33],
+          [0, 0, 1, 49, 1],
+          [0, 0, 86, 13, 379],
+        ],
+        perClass: [
+          {
+            label: "front_matter",
+            acc: 0.9302325581395349,
+            p: 1.0,
+            r: 0.9302325581395349,
+            f1: 0.963855421686747,
+          },
+          {
+            label: "toc",
+            acc: 0.9847328244274809,
+            p: 0.9923076923076923,
+            r: 0.9847328244274809,
+            f1: 0.9885057471264368,
+          },
+          {
+            label: "body",
+            acc: 0.98502722323049,
+            p: 0.9601946041574525,
+            r: 0.98502722323049,
+            f1: 0.9724524076147817,
+          },
+          {
+            label: "sig",
+            acc: 0.9607843137254902,
+            p: 0.7777777777777778,
+            r: 0.9607843137254902,
+            f1: 0.8596491228070176,
+          },
+          {
+            label: "back_matter",
+            acc: 0.7928870292887029,
+            p: 0.9176755447941889,
+            r: 0.7928870292887029,
+            f1: 0.8507295173961841,
+          },
+        ],
+        matrixCaption: "XGB baseline confusion matrix",
+        perClassCaption: "XGB baseline per-class metrics",
+      },
+      {
+        id: "crf-final",
+        title: "BiLSTM + CRF Metrics",
+        badge: "BiLSTM + CRF",
+        layout: "accordion",
+        summary: {
+          accuracy: 0.9680082559339526,
+          precision: 0.9686209795317661,
+          recall: 0.9295120810293076,
+          f1: 0.9479381326817894,
+        },
+        confusionMatrix: [
+          [41, 2, 0, 0, 0],
+          [0, 131, 0, 0, 0],
+          [0, 0, 2189, 0, 15],
+          [0, 0, 3, 43, 5],
+          [0, 0, 65, 3, 410],
+        ],
+        perClass: [
+          {
+            label: "front_matter",
+            acc: 0.9534883720930233,
+            p: 1.0,
+            r: 0.9534883720930233,
+            f1: 0.9761904761904762,
+          },
+          {
+            label: "toc",
+            acc: 1.0,
+            p: 0.9849624060150376,
+            r: 1.0,
+            f1: 0.9924242424242424,
+          },
+          {
+            label: "body",
+            acc: 0.9931941923774955,
+            p: 0.9698715108551174,
+            r: 0.9931941923774955,
+            f1: 0.9813943062093701,
+          },
+          {
+            label: "sig",
+            acc: 0.8431372549019608,
+            p: 0.9347826086956522,
+            r: 0.8431372549019608,
+            f1: 0.8865979381443299,
+          },
+          {
+            label: "back_matter",
+            acc: 0.8577405857740585,
+            p: 0.9534883720930233,
+            r: 0.8577405857740585,
+            f1: 0.9030837004405287,
+          },
+        ],
+        matrixCaption: "Final classifier confusion matrix",
+        perClassCaption: "Final classifier per-class metrics",
+      },
+      {
+        id: "post-processing",
+        title: "Post-processing Metrics",
+        badge: "Post-processing",
+        layout: "card",
+        summary: {
+          accuracy: 0.9728242174062608,
+          precision: 0.9593666339717979,
+          recall: 0.9528856145431316,
+          f1: 0.9553224497648898,
+        },
+        confusionMatrix: [
+          [41, 2, 0, 0, 0],
+          [0, 131, 0, 0, 0],
+          [0, 0, 2189, 0, 15],
+          [0, 0, 2, 48, 1],
+          [0, 0, 52, 7, 419],
+        ],
+        perClass: [
+          {
+            label: "front_matter",
+            acc: 0.9534883720930233,
+            p: 1.0,
+            r: 0.9534883720930233,
+            f1: 0.9761904761904762,
+          },
+          {
+            label: "toc",
+            acc: 1.0,
+            p: 0.9849624060150376,
+            r: 1.0,
+            f1: 0.9924242424242424,
+          },
+          {
+            label: "body",
+            acc: 0.9931941923774955,
+            p: 0.975925100312082,
+            r: 0.9931941923774955,
+            f1: 0.9844839217449967,
+          },
+          {
+            label: "sig",
+            acc: 0.9411764705882353,
+            p: 0.8727272727272727,
+            r: 0.9411764705882353,
+            f1: 0.9056603773584906,
+          },
+          {
+            label: "back_matter",
+            acc: 0.8765690376569037,
+            p: 0.9632183908045977,
+            r: 0.8765690376569037,
+            f1: 0.9178532311062432,
+          },
+        ],
+        matrixCaption: "Post-processing confusion matrix",
+        perClassCaption: "Post-processing per-class metrics",
+      },
+    ],
+  };
+  const baselineClassifierF1 = mockClassifierEvalData.models.find(
+    (model) => model.id === "xgb-baseline",
+  )!.summary.f1;
+  const postProcessingF1 = mockClassifierEvalData.models.find(
+    (model) => model.id === "post-processing",
+  )!.summary.f1;
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
+  const mockNerEvalData: NerEvalData = {
+    meta: {
+      splitVersion: "v1.2",
+      labelScheme: "BIOE",
+      finalTrainDocs: 7000,
+      finalArticleWeight: 3,
+      finalGatingMode: "regex+snap",
+    },
+    finalTest: {
+      primaryMode: "regex+snap",
+      summaryByMode: {
+        raw: {
+          entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
+          entityLenient: { f1: 0.94 },
+          articleStrict: { precision: 0.86, recall: 0.82, f1: 0.84 },
+          accuracy: 0.93,
+        },
+        regex: {
+          entityStrict: { precision: 0.93, recall: 0.9, f1: 0.915 },
+          entityLenient: { f1: 0.95 },
+          articleStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
+          accuracy: 0.94,
+        },
+        "regex+snap": {
+          entityStrict: { precision: 0.95, recall: 0.92, f1: 0.935 },
+          entityLenient: { f1: 0.965 },
+          articleStrict: { precision: 0.9, recall: 0.87, f1: 0.885 },
+          accuracy: 0.956,
+        },
+      },
+      perTypeStrict: [
+        { type: "PAGE", precision: 0.96, recall: 0.93, f1: 0.945, support: 3200 },
+        { type: "SECTION", precision: 0.93, recall: 0.9, f1: 0.915, support: 1800 },
+        { type: "ARTICLE", precision: 0.9, recall: 0.86, f1: 0.88, support: 740 },
+      ],
+    },
+    baselineVal: {
+      byMode: {
+        raw: {
+          entityStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
+          entityLenient: { f1: 0.91 },
+          articleStrict: { precision: 0.8, recall: 0.75, f1: 0.775 },
+        },
+        regex: {
+          entityStrict: { precision: 0.9, recall: 0.86, f1: 0.88 },
+          entityLenient: { f1: 0.925 },
+          articleStrict: { precision: 0.82, recall: 0.78, f1: 0.8 },
+        },
+        "regex+snap": {
+          entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
+          entityLenient: { f1: 0.935 },
+          articleStrict: { precision: 0.84, recall: 0.8, f1: 0.82 },
+        },
+      },
+    },
+    learningCurveVal: [
+      {
+        trainDocs: 1500,
+        byMode: {
+          raw: { entityStrictF1: 0.78, articleStrictF1: 0.62 },
+          regex: { entityStrictF1: 0.81, articleStrictF1: 0.66 },
+          "regex+snap": { entityStrictF1: 0.83, articleStrictF1: 0.68 },
+        },
+      },
+      {
+        trainDocs: 3500,
+        byMode: {
+          raw: { entityStrictF1: 0.82, articleStrictF1: 0.68 },
+          regex: { entityStrictF1: 0.85, articleStrictF1: 0.71 },
+          "regex+snap": { entityStrictF1: 0.88, articleStrictF1: 0.74 },
+        },
+      },
+      {
+        trainDocs: 7000,
+        byMode: {
+          raw: { entityStrictF1: 0.86, articleStrictF1: 0.73 },
+          regex: { entityStrictF1: 0.89, articleStrictF1: 0.76 },
+          "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.79 },
+        },
+      },
+    ],
+    weightSweepVal: [
+      {
+        articleWeight: 1,
+        byMode: {
+          raw: { entityStrictF1: 0.86, articleStrictF1: 0.74 },
+          regex: { entityStrictF1: 0.88, articleStrictF1: 0.76 },
+          "regex+snap": { entityStrictF1: 0.9, articleStrictF1: 0.78 },
+        },
+      },
+      {
+        articleWeight: 2,
+        byMode: {
+          raw: { entityStrictF1: 0.87, articleStrictF1: 0.76 },
+          regex: { entityStrictF1: 0.89, articleStrictF1: 0.79 },
+          "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.82 },
+        },
+      },
+      {
+        articleWeight: 3,
+        byMode: {
+          raw: { entityStrictF1: 0.88, articleStrictF1: 0.78 },
+          regex: { entityStrictF1: 0.91, articleStrictF1: 0.83 },
+          "regex+snap": { entityStrictF1: 0.935, articleStrictF1: 0.86 },
+        },
+      },
+    ],
+  };
 
   return (
     <PageShell
@@ -345,10 +539,10 @@ export default function SourcesMethods() {
           </div>
         </aside>
 
-        <div className="space-y-12">
+        <div className="space-y-12 min-w-0">
           <section id="overview" className="scroll-mt-24 space-y-4">
             <h2 className="sr-only">Overview</h2>
-            <p className="max-w-3xl text-muted-foreground">
+            <p className="max-w-3xl text-muted-foreground sources-methods-intro">
               Pandects sources agreements from the SEC's EDGAR database, then
               runs each agreement through a purpose-built pipeline that turns
               text and messy HTML into clean XML. Conceptually, our pipeline
@@ -393,7 +587,7 @@ export default function SourcesMethods() {
                           href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4731282"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline"
+                          className="text-primary underline underline-offset-2 hover:underline"
                         >
                           DMA Corpus
                         </a>{" "}
@@ -547,7 +741,7 @@ export default function SourcesMethods() {
                 href="https://dagster.io/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary underline underline-offset-2 hover:underline"
               >
                 Dagster
               </a>{" "}
@@ -556,7 +750,7 @@ export default function SourcesMethods() {
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/etl/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary underline underline-offset-2 hover:underline"
               >
                 GitHub
               </a>
@@ -589,7 +783,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#agreement-identification"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
+                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Exhibit Model
                       </a>
@@ -664,7 +858,7 @@ export default function SourcesMethods() {
                       )}
                       <a
                         href="#page-classification"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
+                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Page Classifier Model
                       </a>
@@ -765,7 +959,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#page-tagging"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
+                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Tagging Model
                       </a>
@@ -887,7 +1081,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#section-classification"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground"
+                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Taxonomy Model
                       </a>
@@ -1057,7 +1251,7 @@ export default function SourcesMethods() {
                   href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-2 hover:underline"
                 >
                   GitHub
                 </a>
@@ -1069,650 +1263,11 @@ export default function SourcesMethods() {
                 as run on a holdout set of 36 agreements. While the XGB model is
                 somewhat midling on its own, taking into account and enforcing
                 page order improves performance not insubstantially, bringing the F1
-                score up from <strong>92.70%</strong> to <strong>95.53%</strong>
+                score up from <strong>{formatMetric(baselineClassifierF1)}</strong>{" "}
+                to <strong>{formatMetric(postProcessingF1)}</strong>
                 .{" "}
               </p>
-              <div className="space-y-6">
-                <Accordion type="multiple" className="space-y-4">
-                  <AccordionItem
-                    value="xgb-baseline"
-                    className="rounded-2xl border border-border/70 bg-card/60"
-                  >
-                    <AccordionTrigger className="px-5 py-4 text-left">
-                      <div className="flex w-full flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-foreground">
-                          Model Metrics
-                        </div>
-                        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                          XGB Baseline
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-5">
-                      <div className="grid gap-6 lg:grid-cols-2">
-                        <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
-                          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Accuracy
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9521843825249398)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Precision
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9295911238074221)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Recall
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9307327897623399)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                F1 Score
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9270384433262334)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Confusion Matrix
-                          </div>
-                          <div className="mt-3 space-y-2">
-                            <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Predicted
-                            </div>
-                            <div className="w-full max-w-full overflow-x-auto">
-                              <div className="flex items-stretch gap-0">
-                                <div className="relative w-0">
-                                  <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Actual
-                                  </span>
-                                </div>
-                                <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
-                                  <colgroup>
-                                    <col className="w-8" />
-                                    {classifierAbbreviations.map((label) => (
-                                      <col key={label} className="w-12" />
-                                    ))}
-                                  </colgroup>
-                                  <caption className="sr-only">
-                                    XGB baseline confusion matrix
-                                  </caption>
-                                  <thead>
-                                    <tr>
-                                      <th
-                                        aria-hidden="true"
-                                        className="p-1 text-left text-muted-foreground"
-                                      />
-                                      {classifierAbbreviations.map((label) => (
-                                        <th
-                                          key={label}
-                                          scope="col"
-                                          className="p-1 text-center font-mono text-muted-foreground"
-                                        >
-                                          {label}
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {pageClassifierMatrix.map(
-                                      (row, rowIndex) => (
-                                        <tr
-                                          key={classifierLabels[rowIndex]}
-                                        >
-                                          <th
-                                            scope="row"
-                                            className="p-1 pl-0 text-left font-mono text-muted-foreground"
-                                          >
-                                            {classifierAbbreviations[rowIndex]}
-                                          </th>
-                                          {row.map((value, colIndex) => {
-                                            const isDiagonal =
-                                              rowIndex === colIndex;
-                                            const hasValue = value > 0;
-                                            const cellClass = isDiagonal
-                                              ? "bg-emerald-500/20 text-foreground"
-                                              : hasValue
-                                                ? "bg-rose-500/15 text-foreground"
-                                                : "bg-muted/40 text-muted-foreground/60";
-                                            return (
-                                              <td
-                                                key={`${rowIndex}-${colIndex}`}
-                                                className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
-                                              >
-                                                {value}
-                                              </td>
-                                            );
-                                          })}
-                                        </tr>
-                                      )
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Per-class Metrics
-                          </div>
-                          <div className="mt-3 w-full overflow-x-auto">
-                            <table className="w-full min-w-[320px] text-xs">
-                              <caption className="sr-only">
-                                XGB baseline per-class metrics
-                              </caption>
-                              <thead>
-                                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  <th scope="col" className="pb-2 pr-3">
-                                    Class
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    Acc
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    P
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    R
-                                  </th>
-                                  <th scope="col" className="pb-2 text-right">
-                                    F1
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="font-mono text-muted-foreground">
-                                {pageClassifierMetrics.map((metric) => {
-                                  const statusClass =
-                                    metric.f1 >= 0.95
-                                      ? "bg-emerald-500"
-                                      : metric.f1 < 0.9
-                                        ? "bg-amber-400"
-                                        : "bg-muted-foreground/40";
-                                  return (
-                                    <tr
-                                      key={metric.label}
-                                      className="border-b border-border/40"
-                                    >
-                                      <th
-                                        scope="row"
-                                        className="py-2 pr-3 text-left text-foreground font-normal"
-                                      >
-                                        <span
-                                          className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
-                                        />
-                                        {classifierAbbreviations[
-                                          classifierLabels.indexOf(
-                                            metric.label
-                                          )
-                                        ] ?? metric.label}
-                                      </th>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.acc)}
-                                      </td>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.p)}
-                                      </td>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.r)}
-                                      </td>
-                                      <td className="py-2 text-right">
-                                        {formatMetric(metric.f1)}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem
-                    value="crf-final"
-                    className="rounded-2xl border border-border/70 bg-card/60"
-                  >
-                    <AccordionTrigger className="px-5 py-4 text-left">
-                      <div className="flex w-full flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-foreground">
-                          BiLSTM + CRF Metrics
-                        </div>
-                        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                          BiLSTM + CRF
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-5">
-                      <div className="grid gap-6 lg:grid-cols-2">
-                        <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
-                          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Accuracy
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9680082559339526)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Precision
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9686209795317661)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                Recall
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9295120810293076)}
-                              </div>
-                            </div>
-                            <div className="text-center sm:text-left">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                                F1 Score
-                              </div>
-                              <div className="mt-1 text-2xl font-semibold text-foreground">
-                                {formatMetric(0.9479381326817894)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Confusion Matrix
-                          </div>
-                          <div className="mt-3 space-y-2">
-                            <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Predicted
-                            </div>
-                            <div className="w-full max-w-full overflow-x-auto">
-                              <div className="flex items-stretch gap-0">
-                                <div className="relative w-0">
-                                  <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Actual
-                                  </span>
-                                </div>
-                                <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
-                                  <colgroup>
-                                    <col className="w-8" />
-                                    {finalClassifierAbbreviations.map(
-                                      (label) => (
-                                        <col key={label} className="w-12" />
-                                      )
-                                    )}
-                                  </colgroup>
-                                  <caption className="sr-only">
-                                    Final classifier confusion matrix
-                                  </caption>
-                                  <thead>
-                                    <tr>
-                                      <th
-                                        aria-hidden="true"
-                                        className="p-1 text-left text-muted-foreground"
-                                      />
-                                      {finalClassifierAbbreviations.map(
-                                        (label) => (
-                                          <th
-                                            key={label}
-                                            scope="col"
-                                            className="p-1 text-center font-mono text-muted-foreground"
-                                          >
-                                            {label}
-                                          </th>
-                                        )
-                                      )}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {finalClassifierMatrix.map(
-                                      (row, rowIndex) => (
-                                        <tr
-                                          key={finalClassifierLabels[rowIndex]}
-                                        >
-                                          <th
-                                            scope="row"
-                                            className="p-1 pl-0 text-left font-mono text-muted-foreground"
-                                          >
-                                            {finalClassifierAbbreviations[
-                                              rowIndex
-                                            ]}
-                                          </th>
-                                          {row.map((value, colIndex) => {
-                                            const isDiagonal =
-                                              rowIndex === colIndex;
-                                            const hasValue = value > 0;
-                                            const cellClass = isDiagonal
-                                              ? "bg-emerald-500/20 text-foreground"
-                                              : hasValue
-                                                ? "bg-rose-500/15 text-foreground"
-                                                : "bg-muted/40 text-muted-foreground/60";
-                                            return (
-                                              <td
-                                                key={`${rowIndex}-${colIndex}`}
-                                                className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
-                                              >
-                                                {value}
-                                              </td>
-                                            );
-                                          })}
-                                        </tr>
-                                      )
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Per-class Metrics
-                          </div>
-                          <div className="mt-3 w-full overflow-x-auto">
-                            <table className="w-full min-w-[320px] text-xs">
-                              <caption className="sr-only">
-                                Final classifier per-class metrics
-                              </caption>
-                              <thead>
-                                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  <th scope="col" className="pb-2 pr-3">
-                                    Class
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    Acc
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    P
-                                  </th>
-                                  <th
-                                    scope="col"
-                                    className="pb-2 pr-3 text-right"
-                                  >
-                                    R
-                                  </th>
-                                  <th scope="col" className="pb-2 text-right">
-                                    F1
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="font-mono text-muted-foreground">
-                                {finalClassifierMetrics.map((metric) => {
-                                  const statusClass =
-                                    metric.f1 >= 0.95
-                                      ? "bg-emerald-500"
-                                      : metric.f1 < 0.9
-                                        ? "bg-amber-400"
-                                        : "bg-muted-foreground/40";
-                                  return (
-                                    <tr
-                                      key={metric.label}
-                                      className="border-b border-border/40"
-                                    >
-                                      <th
-                                        scope="row"
-                                        className="py-2 pr-3 text-left text-foreground font-normal"
-                                      >
-                                        <span
-                                          className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
-                                        />
-                                        {finalClassifierAbbreviations[
-                                          finalClassifierLabels.indexOf(
-                                            metric.label
-                                          )
-                                        ] ?? metric.label}
-                                      </th>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.acc)}
-                                      </td>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.p)}
-                                      </td>
-                                      <td className="py-2 pr-3 text-right">
-                                        {formatMetric(metric.r)}
-                                      </td>
-                                      <td className="py-2 text-right">
-                                        {formatMetric(metric.f1)}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-                <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-foreground">
-                      Post-processing Metrics
-                    </div>
-                    <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                      Post-processing
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
-                      <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Accuracy
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9728242174062608)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Precision
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9593666339717979)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            Recall
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9528856145431316)}
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-left">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                            F1 Score
-                          </div>
-                          <div className="mt-1 text-2xl font-semibold text-foreground">
-                            {formatMetric(0.9553224497648898)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Confusion Matrix
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        <div className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Predicted
-                        </div>
-                        <div className="w-full max-w-full overflow-x-auto">
-                          <div className="flex items-stretch gap-0">
-                            <div className="relative w-0">
-                              <span className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Actual
-                              </span>
-                            </div>
-                            <table className="w-full min-w-[320px] table-fixed border-separate border-spacing-1 text-[11px]">
-                              <colgroup>
-                                <col className="w-8" />
-                                {classifierAbbreviations.map((label) => (
-                                  <col key={label} className="w-12" />
-                                ))}
-                              </colgroup>
-                              <caption className="sr-only">
-                                Post-processing confusion matrix
-                              </caption>
-                              <thead>
-                                <tr>
-                                  <th
-                                    aria-hidden="true"
-                                    className="p-1 text-left text-muted-foreground"
-                                  />
-                                  {classifierAbbreviations.map((label) => (
-                                    <th
-                                      key={label}
-                                      scope="col"
-                                      className="p-1 text-center font-mono text-muted-foreground"
-                                    >
-                                      {label}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {postProcessingMatrix.map((row, rowIndex) => (
-                                  <tr key={classifierLabels[rowIndex]}>
-                                    <th
-                                      scope="row"
-                                      className="p-1 pl-0 text-left font-mono text-muted-foreground"
-                                    >
-                                      {classifierAbbreviations[rowIndex]}
-                                    </th>
-                                    {row.map((value, colIndex) => {
-                                      const isDiagonal = rowIndex === colIndex;
-                                      const hasValue = value > 0;
-                                      const cellClass = isDiagonal
-                                        ? "bg-emerald-500/20 text-foreground"
-                                        : hasValue
-                                          ? "bg-rose-500/15 text-foreground"
-                                          : "bg-muted/40 text-muted-foreground/60";
-                                      return (
-                                        <td
-                                          key={`${rowIndex}-${colIndex}`}
-                                          className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
-                                        >
-                                          {value}
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Per-class Metrics
-                      </div>
-                      <div className="mt-3 w-full overflow-x-auto">
-                        <table className="w-full min-w-[320px] text-xs">
-                          <caption className="sr-only">
-                            Post-processing per-class metrics
-                          </caption>
-                          <thead>
-                            <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                              <th scope="col" className="pb-2 pr-3">
-                                Class
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                Acc
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                P
-                              </th>
-                              <th scope="col" className="pb-2 pr-3 text-right">
-                                R
-                              </th>
-                              <th scope="col" className="pb-2 text-right">
-                                F1
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="font-mono text-muted-foreground">
-                            {postProcessingMetrics.map((metric) => {
-                              const statusClass =
-                                metric.f1 >= 0.95
-                                  ? "bg-emerald-500"
-                                  : metric.f1 < 0.9
-                                    ? "bg-amber-400"
-                                    : "bg-muted-foreground/40";
-                              return (
-                                <tr
-                                  key={metric.label}
-                                  className="border-b border-border/40"
-                                >
-                                  <th
-                                    scope="row"
-                                    className="py-2 pr-3 text-left text-foreground font-normal"
-                                  >
-                                    <span
-                                      className={`mr-2 inline-flex h-2 w-2 rounded-full ${statusClass}`}
-                                    />
-                                    {classifierAbbreviations[
-                                      classifierLabels.indexOf(metric.label)
-                                    ] ?? metric.label}
-                                  </th>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.acc)}
-                                  </td>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.p)}
-                                  </td>
-                                  <td className="py-2 pr-3 text-right">
-                                    {formatMetric(metric.r)}
-                                  </td>
-                                  <td className="py-2 text-right">
-                                    {formatMetric(metric.f1)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ClassifierEvalMetrics data={mockClassifierEvalData} />
             </div>
             <div id="page-tagging" className="scroll-mt-24 pt-2 space-y-4">
               <h3 className="text-lg font-semibold text-foreground">
@@ -1724,7 +1279,7 @@ export default function SourcesMethods() {
                   href="https://huggingface.co/blog/modernbert"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-2 hover:underline"
                 >
                   <span className="font-mono text-sm text-foreground">
                     ModernBERT-base
@@ -1742,12 +1297,16 @@ export default function SourcesMethods() {
                   href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/ner.py"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-2 hover:underline"
                 >
                   GitHub
                 </a>
                 .
               </p>
+              <NerEvalMetrics
+                data={mockNerEvalData}
+                showValidationBlocks={false}
+              />
             </div>
             <div
               id="section-classification"

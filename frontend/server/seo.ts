@@ -1,5 +1,11 @@
 import type { Request } from "express";
-import { buildJsonLd, getSeoConfigForPath } from "../shared/seo-helpers.mjs";
+import {
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_TYPE,
+  OG_IMAGE_WIDTH,
+  buildJsonLd,
+  getSeoConfigForPath,
+} from "../shared/seo-helpers.mjs";
 
 export type SeoPage = {
   title: string;
@@ -23,6 +29,7 @@ const KNOWN_ROUTES = new Set([
   "/agreement-index",
   "/about",
   "/sources-methods",
+  "/xml-schema",
   "/feedback",
   "/donate",
   "/privacy-policy",
@@ -31,6 +38,7 @@ const KNOWN_ROUTES = new Set([
   "/account",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/auth/verify-email",
   "/auth/google/callback",
 ]);
 
@@ -150,6 +158,9 @@ function buildSeoBlock(seo: SeoPage): string {
   const robots = escapeHtmlAttribute(seo.robots);
   const ogImage = escapeHtmlAttribute(seo.ogImage);
   const imageAlt = escapeHtmlAttribute("Pandects");
+  const ogImageWidth = escapeHtmlAttribute(String(OG_IMAGE_WIDTH));
+  const ogImageHeight = escapeHtmlAttribute(String(OG_IMAGE_HEIGHT));
+  const ogImageType = escapeHtmlAttribute(OG_IMAGE_TYPE);
   const jsonLd = escapeJsonForHtmlScript(seo.jsonLd);
 
   return `<!-- SEO:BEGIN -->
@@ -164,6 +175,9 @@ function buildSeoBlock(seo: SeoPage): string {
   <meta property="og:description" content="${description}" />
   <meta property="og:url" content="${canonical}" />
   <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:width" content="${ogImageWidth}" />
+  <meta property="og:image:height" content="${ogImageHeight}" />
+  <meta property="og:image:type" content="${ogImageType}" />
   <meta property="og:image:alt" content="${imageAlt}" />
 
   <meta name="twitter:card" content="summary_large_image" />

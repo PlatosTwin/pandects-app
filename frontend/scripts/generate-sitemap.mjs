@@ -12,6 +12,7 @@ const routes = [
   "/agreement-index",
   "/about",
   "/sources-methods",
+  "/xml-schema",
   "/feedback",
   "/donate",
   "/privacy-policy",

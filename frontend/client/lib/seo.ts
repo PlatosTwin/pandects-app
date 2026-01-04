@@ -1,6 +1,9 @@
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_TITLE,
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_TYPE,
+  OG_IMAGE_WIDTH,
   buildJsonLd,
   getSeoConfigForPath,
 } from "@shared/seo-helpers.mjs";
@@ -59,6 +62,9 @@ export function applySeo(seo: SeoPage): void {
   setMetaByProperty("og:description", seo.description);
   setMetaByProperty("og:url", seo.canonical);
   setMetaByProperty("og:image", seo.ogImage);
+  setMetaByProperty("og:image:width", String(OG_IMAGE_WIDTH));
+  setMetaByProperty("og:image:height", String(OG_IMAGE_HEIGHT));
+  setMetaByProperty("og:image:type", OG_IMAGE_TYPE);
   setMetaByProperty("og:image:alt", "Pandects");
 
   const canonicalLink = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');

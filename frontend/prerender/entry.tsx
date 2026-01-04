@@ -10,6 +10,7 @@ import Donate from "@/pages/Donate";
 import Feedback from "@/pages/Feedback";
 import Landing from "@/pages/Landing";
 import SourcesMethods from "@/pages/SourcesMethods";
+import XmlSchema from "@/pages/XmlSchema";
 
 export type PrerenderPath =
   | "/"
@@ -17,7 +18,8 @@ export type PrerenderPath =
   | "/bulk-data"
   | "/donate"
   | "/feedback"
-  | "/sources-methods";
+  | "/sources-methods"
+  | "/xml-schema";
 
 export function renderPage(pathname: PrerenderPath): string {
   const app = (
@@ -31,6 +33,7 @@ export function renderPage(pathname: PrerenderPath): string {
             <Route path="/donate" element={<Donate />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/sources-methods" element={<SourcesMethods />} />
+            <Route path="/xml-schema" element={<XmlSchema />} />
           </Route>
         </Routes>
       </StaticRouter>

@@ -358,7 +358,11 @@ export default function Account() {
   return (
     <PageShell
       title="Account"
-      subtitle="Sign in to unlock full access, manage API keys, and view API usage."
+      subtitle={
+        <span className="account-subtitle">
+          Sign in to unlock full access, manage API keys, and view API usage.
+        </span>
+      }
       size="md"
       actions={
         user ? (
@@ -535,7 +539,7 @@ export default function Account() {
           </div>
 
             <Tabs defaultValue="signin" className="mt-6">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-2 text-foreground">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
                 <TabsTrigger value="register">Create account</TabsTrigger>
               </TabsList>

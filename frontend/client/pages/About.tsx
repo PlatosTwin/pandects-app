@@ -144,7 +144,7 @@ export default function About() {
                     Aug – Nov ’25
                   </dt>
                   <dd className="text-muted-foreground prose max-w-none">
-                    <Link to="/feedback">
+                    <Link to="/feedback" className="underline underline-offset-2">
                       End‑user surveys
                     </Link>{" "}
                     and pipeline development
@@ -178,6 +178,7 @@ export default function About() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="GitHub repository (opens in a new tab)"
+                className="underline underline-offset-2"
               >
                 GitHub repository
               </a>{" "}
@@ -206,6 +207,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
+                  className="underline underline-offset-2"
                 >
                   Jacobson Leadership Program in Law and Business
                 </a>{" "}
@@ -218,6 +220,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Caselaw Access Project (opens in a new tab)"
+                  className="underline underline-offset-2"
                 >
                   Caselaw Access Project
                 </a>
@@ -227,6 +230,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Library Innovation Lab (opens in a new tab)"
+                  className="underline underline-offset-2"
                 >
                   Library Innovation Lab
                 </a>{" "}
@@ -243,6 +247,7 @@ export default function About() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
+                  className="underline underline-offset-2"
                 >
                   <em>
                     Introducing a New Corpus of Definitive M&A Agreements,
@@ -256,9 +261,10 @@ export default function About() {
                   href="https://github.com/padelson/dma_corpus/tree/main"
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="here (opens in a new tab)"
+                  aria-label="DMA corpus repository (opens in a new tab)"
+                  className="underline underline-offset-2"
                 >
-                  here
+                  DMA corpus repository
                 </a>
                 .
               </p>

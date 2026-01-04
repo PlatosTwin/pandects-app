@@ -4,7 +4,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 
 export default function XmlSchema() {
@@ -21,9 +20,12 @@ export default function XmlSchema() {
         >
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle id="xml-schema-overview" className="text-xl">
+              <h2
+                id="xml-schema-overview"
+                className="text-xl font-semibold leading-none tracking-tight"
+              >
                 Overview
-              </CardTitle>
+              </h2>
               <CardDescription id="xml-schema-overview-desc">
                 The XML output is a single document tree per agreement. It
                 contains metadata, optional page-type containers, and a
@@ -66,9 +68,12 @@ export default function XmlSchema() {
         >
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle id="xml-schema-definition" className="text-xl">
+              <h2
+                id="xml-schema-definition"
+                className="text-xl font-semibold leading-none tracking-tight"
+              >
                 Element Tree
-              </CardTitle>
+              </h2>
               <CardDescription id="xml-schema-definition-desc">
                 The tree below mirrors the current generator behavior.
               </CardDescription>
@@ -118,9 +123,12 @@ export default function XmlSchema() {
         >
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle id="xml-schema-elements" className="text-xl">
+              <h2
+                id="xml-schema-elements"
+                className="text-xl font-semibold leading-none tracking-tight"
+              >
                 Element Notes
-              </CardTitle>
+              </h2>
               <CardDescription id="xml-schema-elements-desc">
                 Textual content is normalized into a small set of node types.
               </CardDescription>

@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { buildJsonLd, getSeoConfigForPath } from "../shared/seo-helpers.mjs";
+import {
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_TYPE,
+  OG_IMAGE_WIDTH,
+  buildJsonLd,
+  getSeoConfigForPath,
+} from "../shared/seo-helpers.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +32,7 @@ const routes = [
   { pathname: "/donate", filename: "donate.html" },
   { pathname: "/feedback", filename: "feedback.html" },
   { pathname: "/sources-methods", filename: "sources-methods.html" },
+  { pathname: "/xml-schema", filename: "xml-schema.html" },
 ];
 
 for (const route of routes) {
@@ -72,6 +79,9 @@ function buildSeoBlock(pathname) {
   const canonical = escapeHtml(seo.canonical);
   const ogImage = escapeHtml(seo.ogImage);
   const robots = escapeHtml(seo.robots);
+  const ogImageWidth = escapeHtml(String(OG_IMAGE_WIDTH));
+  const ogImageHeight = escapeHtml(String(OG_IMAGE_HEIGHT));
+  const ogImageType = escapeHtml(OG_IMAGE_TYPE);
 
   return [
     `  <meta name="description" content="${description}" />`,
@@ -85,6 +95,9 @@ function buildSeoBlock(pathname) {
     `  <meta property="og:description" content="${description}" />`,
     `  <meta property="og:url" content="${canonical}" />`,
     `  <meta property="og:image" content="${ogImage}" />`,
+    `  <meta property="og:image:width" content="${ogImageWidth}" />`,
+    `  <meta property="og:image:height" content="${ogImageHeight}" />`,
+    `  <meta property="og:image:type" content="${ogImageType}" />`,
     `  <meta property="og:image:alt" content="Pandects" />`,
     "",
     `  <meta name="twitter:card" content="summary_large_image" />`,

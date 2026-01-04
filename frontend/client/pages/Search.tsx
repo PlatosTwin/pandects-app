@@ -552,7 +552,7 @@ export default function Search() {
             <div className="px-4 py-6 sm:px-8 sm:py-8">
               {!hasSearched && (
                 <div className="mx-auto max-w-3xl">
-                  <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="rounded-2xl border border-border bg-card p-6 shadow-sm search-hero-card">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
                         <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -561,7 +561,7 @@ export default function Search() {
                         <h2 className="text-base font-semibold text-foreground">
                           Start with filters, then search
                         </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="mt-1 text-sm text-muted-foreground search-hero-copy">
                           Pick a year, target/acquirer, and clause types to
                           narrow the corpus. Then run a search to load results
                           (and open full agreements from any result).

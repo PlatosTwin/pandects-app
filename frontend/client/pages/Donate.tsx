@@ -11,7 +11,7 @@ export default function Donate() {
       subtitle="Help keep the project running."
     >
       <div className="mb-8">
-        <div className="prose max-w-none text-muted-foreground space-y-4">
+        <div className="prose max-w-none text-muted-foreground space-y-4 donate-intro">
           <p>
             Pandects is an open-source project with real, ongoing costs: hosting
             and compute for the API, database storage, backups, CI/CD, and the
@@ -48,7 +48,9 @@ export default function Donate() {
             Buy Me a Coffee
           </a>
         </Button>
-        <div className="text-xs text-muted-foreground">Opens in a new tab.</div>
+        <div className="text-xs text-muted-foreground donate-tab-note">
+          Opens in a new tab.
+        </div>
       </div>
     </PageShell>
   );

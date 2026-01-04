@@ -1,5 +1,34 @@
 type AnalyticsParams = Record<string, string | number | boolean | undefined>;
 
+const GA_MEASUREMENT_ID = "G-94X4EVQVHZ";
+let analyticsBootstrapped = false;
+let analyticsScriptLoaded = false;
+
+export function bootstrapAnalytics() {
+  if (typeof window === "undefined" || analyticsBootstrapped) return;
+  analyticsBootstrapped = true;
+
+  window.dataLayer = window.dataLayer || [];
+  window.gtag =
+    window.gtag ||
+    function gtag(...args: unknown[]) {
+      window.dataLayer?.push(args);
+    };
+  window.gtag("js", new Date());
+  window.gtag("config", GA_MEASUREMENT_ID, { send_page_view: false });
+}
+
+export function loadAnalyticsScript() {
+  if (typeof window === "undefined" || analyticsScriptLoaded) return;
+  analyticsScriptLoaded = true;
+  bootstrapAnalytics();
+
+  const script = document.createElement("script");
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+  document.head.appendChild(script);
+}
+
 export function trackEvent(eventName: string, params?: AnalyticsParams) {
   if (typeof window === "undefined") return;
   if (typeof window.gtag !== "function") return;

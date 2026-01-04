@@ -2,7 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Menu } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import logo from "../../assets/logo.png";
+import logo128 from "../../assets/logo-128.png";
+import logo256 from "../../assets/logo-256.png";
 import { Button } from "@/components/ui/button";
 import PandaEasterEgg from "@/components/PandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
@@ -80,11 +81,13 @@ export default function Navigation() {
             }
           >
             <img
-              src={logo}
+              src={logo128}
               alt="Pandects Logo"
               data-panda-target="logo"
               width={36}
               height={36}
+              srcSet={`${logo128} 128w, ${logo256} 256w`}
+              sizes="36px"
               decoding="async"
               className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
             />
@@ -223,10 +226,12 @@ export default function Navigation() {
                 <SheetHeader className="border-b p-4 text-left">
                   <SheetTitle className="flex items-center gap-3">
                     <img
-                      src={logo}
+                      src={logo128}
                       alt="Pandects Logo"
                       width={36}
                       height={36}
+                      srcSet={`${logo128} 128w, ${logo256} 256w`}
+                      sizes="36px"
                       decoding="async"
                       className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
                     />

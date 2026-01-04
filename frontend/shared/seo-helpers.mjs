@@ -1,6 +1,9 @@
 const DEFAULT_TITLE = "Pandects";
 const DEFAULT_DESCRIPTION =
   "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.";
+const OG_IMAGE_WIDTH = 1536;
+const OG_IMAGE_HEIGHT = 806;
+const OG_IMAGE_TYPE = "image/jpeg";
 
 function normalizePathname(pathname) {
   const stripped = pathname.split("?")[0]?.split("#")[0] ?? "/";
@@ -37,14 +40,25 @@ function getSeoConfigForPath(pathname, origin) {
         };
       case "/docs":
         return {
-          title: "Docs | Pandects",
+          title: "API Docs | Pandects",
           description:
-            "Documentation for Pandects: data sources, coverage, methodology, and how to use the platform.",
+            "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
           robots: "index,follow,max-image-preview:large",
           pageType: "WebPage",
-          pageName: "Docs",
+          pageName: "API Docs",
           pageDescription:
-            "Documentation for Pandects: data sources, coverage, methodology, and how to use the platform.",
+            "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
+        };
+      case "/xml-schema":
+        return {
+          title: "XML Schema | Pandects",
+          description:
+            "Reference the Pandects XML schema for agreement exports, including structure and element definitions.",
+          robots: "index,follow,max-image-preview:large",
+          pageType: "WebPage",
+          pageName: "XML Schema",
+          pageDescription:
+            "Reference the Pandects XML schema for agreement exports, including structure and element definitions.",
         };
       case "/bulk-data":
         return {
@@ -175,6 +189,15 @@ function getSeoConfigForPath(pathname, origin) {
           pageName: "Signing In",
           pageDescription: "Completing your Pandects sign-in flow.",
         };
+      case "/auth/verify-email":
+        return {
+          title: "Verify Email | Pandects",
+          description: "Verify your Pandects account email address.",
+          robots: "noindex,nofollow",
+          pageType: "WebPage",
+          pageName: "Verify Email",
+          pageDescription: "Verify your Pandects account email address.",
+        };
       default:
         return {
           title: "Not Found | Pandects",
@@ -273,4 +296,12 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
   };
 }
 
-export { DEFAULT_DESCRIPTION, DEFAULT_TITLE, buildJsonLd, getSeoConfigForPath };
+export {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_TYPE,
+  OG_IMAGE_WIDTH,
+  buildJsonLd,
+  getSeoConfigForPath,
+};

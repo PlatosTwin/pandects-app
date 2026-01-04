@@ -261,7 +261,11 @@ export default function AgreementIndex() {
     <PageShell
       size="xl"
       title="Agreement Index"
-      subtitle="Explore the full agreement universe and drill into deal-level metadata."
+      subtitle={
+        <span className="agreement-index-subtitle">
+          Explore the full agreement universe and drill into deal-level metadata.
+        </span>
+      }
     >
       <div
         className="mb-10 grid gap-4 md:grid-cols-3"
@@ -651,6 +655,7 @@ export default function AgreementIndex() {
                     }}
                     className={cn(
                       page === 1 && "pointer-events-none opacity-50",
+                      "text-foreground",
                     )}
                   />
                 </PaginationItem>
@@ -683,6 +688,7 @@ export default function AgreementIndex() {
                     }}
                     className={cn(
                       page === totalPages && "pointer-events-none opacity-50",
+                      "text-foreground",
                     )}
                   />
                 </PaginationItem>
