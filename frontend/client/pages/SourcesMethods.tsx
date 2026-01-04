@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";
 import {
@@ -13,9 +14,77 @@ import {
 } from "@/components/ui/popover";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
-import { NerEvalMetrics } from "@/components/NerEvalMetrics";
-import { ClassifierEvalMetrics } from "@/components/ClassifierEvalMetrics";
 import type { NerEvalData, ClassifierEvalData } from "@/lib/model-metrics-types";
+
+const LazyClassifierEvalMetrics = lazy(() =>
+  import("@/components/ClassifierEvalMetrics").then((mod) => ({
+    default: mod.ClassifierEvalMetrics,
+  })),
+);
+const LazyNerEvalMetrics = lazy(() =>
+  import("@/components/NerEvalMetrics").then((mod) => ({
+    default: mod.NerEvalMetrics,
+  })),
+);
+
+type MetricsData = {
+  classifier: ClassifierEvalData;
+  ner: NerEvalData;
+};
+
+type InfoDisclosureProps = {
+  isCoarsePointer: boolean;
+  label: ReactNode;
+  ariaLabel?: string;
+  triggerClassName?: string;
+  content: ReactNode;
+};
+
+function InfoDisclosure({
+  isCoarsePointer,
+  label,
+  ariaLabel,
+  triggerClassName,
+  content,
+}: InfoDisclosureProps) {
+  if (isCoarsePointer) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={ariaLabel}
+            className={triggerClassName}
+          >
+            {label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+        >
+          {content}
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <button type="button" aria-label={ariaLabel} className={triggerClassName}>
+          {label}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
+      >
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function SourcesMethods() {
   const [activeSection, setActiveSection] = useState("");
@@ -31,6 +100,9 @@ export default function SourcesMethods() {
     lineTop: number;
     lineHeight: number;
   } | null>(null);
+  const metricsRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoadMetrics, setShouldLoadMetrics] = useState(false);
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null);
 
   const navItems = useMemo(
     () => [
@@ -192,6 +264,59 @@ export default function SourcesMethods() {
     return () => media.removeListener(updatePointer);
   }, []);
 
+  useEffect(() => {
+    if (shouldLoadMetrics) return;
+    if (typeof window === "undefined") return;
+    const target = metricsRef.current;
+    if (!target) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoadMetrics(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadMetrics(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [shouldLoadMetrics]);
+
+  useEffect(() => {
+    if (!shouldLoadMetrics) return;
+    let cancelled = false;
+
+    const load = () => {
+      void import("./sources-methods-metrics").then((mod) => {
+        if (cancelled) return;
+        setMetricsData({
+          classifier: mod.classifierEvalData,
+          ner: mod.nerEvalData,
+        });
+      });
+    };
+
+    const schedule = window.requestIdleCallback
+      ? window.requestIdleCallback(load, { timeout: 1800 })
+      : window.setTimeout(load, 800);
+
+    return () => {
+      cancelled = true;
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(schedule as number);
+      } else {
+        window.clearTimeout(schedule as number);
+      }
+    };
+  }, [shouldLoadMetrics]);
+
   const ComingSoon = ({ title }: { title: string }) => (
     <Card className="border-border/70 bg-card/70 p-5">
       <div className="text-sm font-medium text-foreground">{title}</div>
@@ -202,301 +327,9 @@ export default function SourcesMethods() {
     </Card>
   );
 
-  const mockClassifierEvalData: ClassifierEvalData = {
-    labels: ["front_matter", "toc", "body", "sig", "back_matter"],
-    abbreviations: ["FM", "TOC", "BDY", "SIG", "BM"],
-    models: [
-      {
-        id: "xgb-baseline",
-        title: "Model Metrics",
-        badge: "XGB Baseline",
-        layout: "accordion",
-        summary: {
-          accuracy: 0.9521843825249398,
-          precision: 0.9295911238074221,
-          recall: 0.9307327897623399,
-          f1: 0.9270384433262334,
-        },
-        confusionMatrix: [
-          [40, 1, 1, 1, 0],
-          [0, 129, 2, 0, 0],
-          [0, 0, 2171, 0, 33],
-          [0, 0, 1, 49, 1],
-          [0, 0, 86, 13, 379],
-        ],
-        perClass: [
-          {
-            label: "front_matter",
-            acc: 0.9302325581395349,
-            p: 1.0,
-            r: 0.9302325581395349,
-            f1: 0.963855421686747,
-          },
-          {
-            label: "toc",
-            acc: 0.9847328244274809,
-            p: 0.9923076923076923,
-            r: 0.9847328244274809,
-            f1: 0.9885057471264368,
-          },
-          {
-            label: "body",
-            acc: 0.98502722323049,
-            p: 0.9601946041574525,
-            r: 0.98502722323049,
-            f1: 0.9724524076147817,
-          },
-          {
-            label: "sig",
-            acc: 0.9607843137254902,
-            p: 0.7777777777777778,
-            r: 0.9607843137254902,
-            f1: 0.8596491228070176,
-          },
-          {
-            label: "back_matter",
-            acc: 0.7928870292887029,
-            p: 0.9176755447941889,
-            r: 0.7928870292887029,
-            f1: 0.8507295173961841,
-          },
-        ],
-        matrixCaption: "XGB baseline confusion matrix",
-        perClassCaption: "XGB baseline per-class metrics",
-      },
-      {
-        id: "crf-final",
-        title: "BiLSTM + CRF Metrics",
-        badge: "BiLSTM + CRF",
-        layout: "accordion",
-        summary: {
-          accuracy: 0.9680082559339526,
-          precision: 0.9686209795317661,
-          recall: 0.9295120810293076,
-          f1: 0.9479381326817894,
-        },
-        confusionMatrix: [
-          [41, 2, 0, 0, 0],
-          [0, 131, 0, 0, 0],
-          [0, 0, 2189, 0, 15],
-          [0, 0, 3, 43, 5],
-          [0, 0, 65, 3, 410],
-        ],
-        perClass: [
-          {
-            label: "front_matter",
-            acc: 0.9534883720930233,
-            p: 1.0,
-            r: 0.9534883720930233,
-            f1: 0.9761904761904762,
-          },
-          {
-            label: "toc",
-            acc: 1.0,
-            p: 0.9849624060150376,
-            r: 1.0,
-            f1: 0.9924242424242424,
-          },
-          {
-            label: "body",
-            acc: 0.9931941923774955,
-            p: 0.9698715108551174,
-            r: 0.9931941923774955,
-            f1: 0.9813943062093701,
-          },
-          {
-            label: "sig",
-            acc: 0.8431372549019608,
-            p: 0.9347826086956522,
-            r: 0.8431372549019608,
-            f1: 0.8865979381443299,
-          },
-          {
-            label: "back_matter",
-            acc: 0.8577405857740585,
-            p: 0.9534883720930233,
-            r: 0.8577405857740585,
-            f1: 0.9030837004405287,
-          },
-        ],
-        matrixCaption: "Final classifier confusion matrix",
-        perClassCaption: "Final classifier per-class metrics",
-      },
-      {
-        id: "post-processing",
-        title: "Post-processing Metrics",
-        badge: "Post-processing",
-        layout: "card",
-        summary: {
-          accuracy: 0.9728242174062608,
-          precision: 0.9593666339717979,
-          recall: 0.9528856145431316,
-          f1: 0.9553224497648898,
-        },
-        confusionMatrix: [
-          [41, 2, 0, 0, 0],
-          [0, 131, 0, 0, 0],
-          [0, 0, 2189, 0, 15],
-          [0, 0, 2, 48, 1],
-          [0, 0, 52, 7, 419],
-        ],
-        perClass: [
-          {
-            label: "front_matter",
-            acc: 0.9534883720930233,
-            p: 1.0,
-            r: 0.9534883720930233,
-            f1: 0.9761904761904762,
-          },
-          {
-            label: "toc",
-            acc: 1.0,
-            p: 0.9849624060150376,
-            r: 1.0,
-            f1: 0.9924242424242424,
-          },
-          {
-            label: "body",
-            acc: 0.9931941923774955,
-            p: 0.975925100312082,
-            r: 0.9931941923774955,
-            f1: 0.9844839217449967,
-          },
-          {
-            label: "sig",
-            acc: 0.9411764705882353,
-            p: 0.8727272727272727,
-            r: 0.9411764705882353,
-            f1: 0.9056603773584906,
-          },
-          {
-            label: "back_matter",
-            acc: 0.8765690376569037,
-            p: 0.9632183908045977,
-            r: 0.8765690376569037,
-            f1: 0.9178532311062432,
-          },
-        ],
-        matrixCaption: "Post-processing confusion matrix",
-        perClassCaption: "Post-processing per-class metrics",
-      },
-    ],
-  };
-  const baselineClassifierF1 = mockClassifierEvalData.models.find(
-    (model) => model.id === "xgb-baseline",
-  )!.summary.f1;
-  const postProcessingF1 = mockClassifierEvalData.models.find(
-    (model) => model.id === "post-processing",
-  )!.summary.f1;
+  const baselineClassifierF1 = 0.9270384433262334;
+  const postProcessingF1 = 0.9553224497648898;
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
-  const mockNerEvalData: NerEvalData = {
-    meta: {
-      splitVersion: "v1.2",
-      labelScheme: "BIOE",
-      finalTrainDocs: 7000,
-      finalArticleWeight: 3,
-      finalGatingMode: "regex+snap",
-    },
-    finalTest: {
-      primaryMode: "regex+snap",
-      summaryByMode: {
-        raw: {
-          entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
-          entityLenient: { f1: 0.94 },
-          articleStrict: { precision: 0.86, recall: 0.82, f1: 0.84 },
-          accuracy: 0.93,
-        },
-        regex: {
-          entityStrict: { precision: 0.93, recall: 0.9, f1: 0.915 },
-          entityLenient: { f1: 0.95 },
-          articleStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
-          accuracy: 0.94,
-        },
-        "regex+snap": {
-          entityStrict: { precision: 0.95, recall: 0.92, f1: 0.935 },
-          entityLenient: { f1: 0.965 },
-          articleStrict: { precision: 0.9, recall: 0.87, f1: 0.885 },
-          accuracy: 0.956,
-        },
-      },
-      perTypeStrict: [
-        { type: "PAGE", precision: 0.96, recall: 0.93, f1: 0.945, support: 3200 },
-        { type: "SECTION", precision: 0.93, recall: 0.9, f1: 0.915, support: 1800 },
-        { type: "ARTICLE", precision: 0.9, recall: 0.86, f1: 0.88, support: 740 },
-      ],
-    },
-    baselineVal: {
-      byMode: {
-        raw: {
-          entityStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
-          entityLenient: { f1: 0.91 },
-          articleStrict: { precision: 0.8, recall: 0.75, f1: 0.775 },
-        },
-        regex: {
-          entityStrict: { precision: 0.9, recall: 0.86, f1: 0.88 },
-          entityLenient: { f1: 0.925 },
-          articleStrict: { precision: 0.82, recall: 0.78, f1: 0.8 },
-        },
-        "regex+snap": {
-          entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
-          entityLenient: { f1: 0.935 },
-          articleStrict: { precision: 0.84, recall: 0.8, f1: 0.82 },
-        },
-      },
-    },
-    learningCurveVal: [
-      {
-        trainDocs: 1500,
-        byMode: {
-          raw: { entityStrictF1: 0.78, articleStrictF1: 0.62 },
-          regex: { entityStrictF1: 0.81, articleStrictF1: 0.66 },
-          "regex+snap": { entityStrictF1: 0.83, articleStrictF1: 0.68 },
-        },
-      },
-      {
-        trainDocs: 3500,
-        byMode: {
-          raw: { entityStrictF1: 0.82, articleStrictF1: 0.68 },
-          regex: { entityStrictF1: 0.85, articleStrictF1: 0.71 },
-          "regex+snap": { entityStrictF1: 0.88, articleStrictF1: 0.74 },
-        },
-      },
-      {
-        trainDocs: 7000,
-        byMode: {
-          raw: { entityStrictF1: 0.86, articleStrictF1: 0.73 },
-          regex: { entityStrictF1: 0.89, articleStrictF1: 0.76 },
-          "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.79 },
-        },
-      },
-    ],
-    weightSweepVal: [
-      {
-        articleWeight: 1,
-        byMode: {
-          raw: { entityStrictF1: 0.86, articleStrictF1: 0.74 },
-          regex: { entityStrictF1: 0.88, articleStrictF1: 0.76 },
-          "regex+snap": { entityStrictF1: 0.9, articleStrictF1: 0.78 },
-        },
-      },
-      {
-        articleWeight: 2,
-        byMode: {
-          raw: { entityStrictF1: 0.87, articleStrictF1: 0.76 },
-          regex: { entityStrictF1: 0.89, articleStrictF1: 0.79 },
-          "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.82 },
-        },
-      },
-      {
-        articleWeight: 3,
-        byMode: {
-          raw: { entityStrictF1: 0.88, articleStrictF1: 0.78 },
-          regex: { entityStrictF1: 0.91, articleStrictF1: 0.83 },
-          "regex+snap": { entityStrictF1: 0.935, articleStrictF1: 0.86 },
-        },
-      },
-    ],
-  };
 
   return (
     <PageShell
@@ -803,21 +636,13 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Normalization
                       </span>
-                      {isCoarsePointer ? (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
-                              aria-label="Why we split and classify pages"
-                            >
-                              ?
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            side="top"
-                            className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                          >
+                      <InfoDisclosure
+                        isCoarsePointer={isCoarsePointer}
+                        ariaLabel="Why we split and classify pages"
+                        triggerClassName="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                        label="?"
+                        content={
+                          <>
                             Why split agreements into pages? Because our NER
                             model has a limited context window, meaning we'd
                             have to chunk agreement text regardless, and page
@@ -827,35 +652,9 @@ export default function SourcesMethods() {
                             increase the accuracy of our Tagging Model, which
                             likely would struggle with the structural variety of
                             appendices and exhibit sections.
-                          </PopoverContent>
-                        </Popover>
-                      ) : (
-                        <Tooltip delayDuration={300}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
-                              aria-label="Why we split and classify pages"
-                            >
-                              ?
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                          >
-                            Why split agreements into pages? Because our NER
-                            model has a limited context window, meaning we'd
-                            have to chunk agreement text regardless, and page
-                            markers are built-in split points. Why categorize
-                            pages into classes? Primarily to identify body
-                            pages, which form the core of agreements, and to
-                            increase the accuracy of our Tagging Model, which
-                            likely would struggle with the structural variety of
-                            appendices and exhibit sections.
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                          </>
+                        }
+                      />
                       <a
                         href="#page-classification"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
@@ -1113,7 +912,11 @@ export default function SourcesMethods() {
             </div>
           </section>
 
-          <section id="ml-models" className="scroll-mt-24 space-y-4">
+          <section
+            id="ml-models"
+            ref={metricsRef}
+            className="scroll-mt-24 space-y-4"
+          >
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               ML Models
             </h2>
@@ -1122,43 +925,17 @@ export default function SourcesMethods() {
               Pandects is a small-scale operation run on a shoestring budget,
               meaning we don't have the resources to send hundreds of thousands
               of pages of agreements to proprietary LLMs—and as of October 2025,{" "}
-              {isCoarsePointer ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                    >
-                      open-source models
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    side="top"
-                    className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                  >
+              <InfoDisclosure
+                isCoarsePointer={isCoarsePointer}
+                triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                label="open-source models"
+                content={
+                  <>
                     We tried DeepSeek R1 on NYU's HPC clusters, and the results
                     were less than reliable.
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <Tooltip delayDuration={300}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                    >
-                      open-source models
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                  >
-                    We tried DeepSeek R1 on NYU's HPC clusters, and the results
-                    were less than reliable.
-                  </TooltipContent>
-                </Tooltip>
-              )}{" "}
+                  </>
+                }
+              />{" "}
               still made too many mistakes for us to be comfortable using them
               at scale. Our solution: use the latest and greatest LLMs to
               generate high-quality training data from a limited sample of
@@ -1200,48 +977,20 @@ export default function SourcesMethods() {
                 </span>
                 . We trained both models on an 80% random split of the full set
                 of{" "}
-                {isCoarsePointer ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                      >
-                        <strong>31,864</strong>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="top"
-                      className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                    >
-                      Did we really label 31,864 pages by hand? Yes—but it
-                      wasn't that bad. We had GPT build us a custom labeling
-                      interface that allowed us to select all body pages in a
-                      single go, so the whole process took less than five hours.
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                      >
-                        <strong>31,864</strong>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-                    >
+                <InfoDisclosure
+                  isCoarsePointer={isCoarsePointer}
+                  triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                  label={<strong>31,864</strong>}
+                  content={
+                    <>
                       Did we really label 31,864 pages by hand? Yes—but it
                       wasn't that bad. We had GPT build us a custom labeling
                       interface that allowed us to select all body pages in a
                       single go, so the whole process took less than three
                       hours.
-                    </TooltipContent>
-                  </Tooltip>
-                )}{" "}
+                    </>
+                  }
+                />{" "}
                 manually labeled pages, stratified (with distributional
                 matching) by length of backmatter section (bucketed into 4
                 buckets), overal length (bucketed into 4 buckets), and year
@@ -1267,7 +1016,21 @@ export default function SourcesMethods() {
                 to <strong>{formatMetric(postProcessingF1)}</strong>
                 .{" "}
               </p>
-              <ClassifierEvalMetrics data={mockClassifierEvalData} />
+              {metricsData ? (
+                <Suspense
+                  fallback={
+                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                      Loading model metrics...
+                    </Card>
+                  }
+                >
+                  <LazyClassifierEvalMetrics data={metricsData.classifier} />
+                </Suspense>
+              ) : (
+                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                  Loading model metrics...
+                </Card>
+              )}
             </div>
             <div id="page-tagging" className="scroll-mt-24 pt-2 space-y-4">
               <h3 className="text-lg font-semibold text-foreground">
@@ -1303,10 +1066,24 @@ export default function SourcesMethods() {
                 </a>
                 .
               </p>
-              <NerEvalMetrics
-                data={mockNerEvalData}
-                showValidationBlocks={false}
-              />
+              {metricsData ? (
+                <Suspense
+                  fallback={
+                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                      Loading model metrics...
+                    </Card>
+                  }
+                >
+                  <LazyNerEvalMetrics
+                    data={metricsData.ner}
+                    showValidationBlocks={false}
+                  />
+                </Suspense>
+              ) : (
+                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                  Loading model metrics...
+                </Card>
+              )}
             </div>
             <div
               id="section-classification"

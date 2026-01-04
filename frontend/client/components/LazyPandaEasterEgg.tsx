@@ -23,8 +23,8 @@ export function LazyPandaEasterEgg({ containerRef }: LazyPandaProps) {
     };
 
     const handle = window.requestIdleCallback
-      ? window.requestIdleCallback(load, { timeout: 1500 })
-      : window.setTimeout(load, 1200);
+      ? window.requestIdleCallback(load, { timeout: 3000 })
+      : window.setTimeout(load, 2500);
 
     return () => {
       cancelled = true;

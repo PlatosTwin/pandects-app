@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { AVAILABLE_YEARS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
@@ -12,10 +12,6 @@ import {
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { SearchPagination } from "@/components/SearchPagination";
-import ErrorModal from "@/components/ErrorModal";
-import { AgreementModal } from "@/components/AgreementModal";
-import { SearchSidebar } from "@/components/SearchSidebar";
-import { SearchResultsTable } from "@/components/SearchResultsTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,6 +26,24 @@ import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypePaths } from "@/lib/clause-type-index";
 import { trackEvent } from "@/lib/analytics";
+import { apiUrl } from "@/lib/api-config";
+
+const SearchSidebar = lazy(() =>
+  import("@/components/SearchSidebar").then((mod) => ({
+    default: mod.SearchSidebar,
+  })),
+);
+const SearchResultsTable = lazy(() =>
+  import("@/components/SearchResultsTable").then((mod) => ({
+    default: mod.SearchResultsTable,
+  })),
+);
+const AgreementModal = lazy(() =>
+  import("@/components/AgreementModal").then((mod) => ({
+    default: mod.AgreementModal,
+  })),
+);
+const ErrorModal = lazy(() => import("@/components/ErrorModal"));
 
 export default function Search() {
   const { status: authStatus } = useAuth();
@@ -72,7 +86,7 @@ export default function Search() {
     acquirers,
     isLoading: isLoadingFilterOptions,
     error: filterOptionsError,
-  } = useFilterOptions();
+  } = useFilterOptions({ deferMs: 1200 });
 
   // Agreement modal state
   const [selectedAgreement, setSelectedAgreement] = useState<{
@@ -313,6 +327,22 @@ export default function Search() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [clauseTypesNested, isSearching, performSearch]);
 
+  useEffect(() => {
+    const warmup = () => {
+      void fetch(apiUrl("api/dumps")).catch(() => undefined);
+    };
+    const schedule = window.requestIdleCallback
+      ? window.requestIdleCallback(warmup, { timeout: 2500 })
+      : window.setTimeout(warmup, 1800);
+    return () => {
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(schedule as number);
+      } else {
+        window.clearTimeout(schedule as number);
+      }
+    };
+  }, []);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [resultsDensity, setResultsDensity] = useState<"comfy" | "compact">(
@@ -354,18 +384,24 @@ export default function Search() {
     <div className="w-full">
       <div className="flex min-h-full">
         <div className="hidden lg:block">
-          <SearchSidebar
-            filters={filters}
-            years={years}
-            targets={targets}
-            acquirers={acquirers}
-            clauseTypesNested={clauseTypesNested}
-            isLoadingFilterOptions={isLoadingFilterOptions}
-            onToggleFilterValue={toggleFilterValue}
-            onClearFilters={clearFilters}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            isCollapsed={sidebarCollapsed}
-          />
+          <Suspense
+            fallback={
+              <div className="h-screen w-16 border-r border-border bg-card lg:w-80" />
+            }
+          >
+            <SearchSidebar
+              filters={filters}
+              years={years}
+              targets={targets}
+              acquirers={acquirers}
+              clauseTypesNested={clauseTypesNested}
+              isLoadingFilterOptions={isLoadingFilterOptions}
+              onToggleFilterValue={toggleFilterValue}
+              onClearFilters={clearFilters}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              isCollapsed={sidebarCollapsed}
+            />
+          </Suspense>
         </div>
 
         <div className="flex flex-col flex-1 min-w-0">
@@ -397,17 +433,25 @@ export default function Search() {
                     <SheetDescription className="sr-only">
                       Filter agreement clause results.
                     </SheetDescription>
-                    <SearchSidebar
-                      variant="sheet"
-                      filters={filters}
-                      years={years}
-                      targets={targets}
-                      acquirers={acquirers}
-                      clauseTypesNested={clauseTypesNested}
-                      isLoadingFilterOptions={isLoadingFilterOptions}
-                      onToggleFilterValue={toggleFilterValue}
-                      onClearFilters={clearFilters}
-                    />
+                    <Suspense
+                      fallback={
+                        <div className="p-4 text-sm text-muted-foreground">
+                          Loading filters...
+                        </div>
+                      }
+                    >
+                      <SearchSidebar
+                        variant="sheet"
+                        filters={filters}
+                        years={years}
+                        targets={targets}
+                        acquirers={acquirers}
+                        clauseTypesNested={clauseTypesNested}
+                        isLoadingFilterOptions={isLoadingFilterOptions}
+                        onToggleFilterValue={toggleFilterValue}
+                        onClearFilters={clearFilters}
+                      />
+                    </Suspense>
                   </SheetContent>
                 </Sheet>
               </div>
@@ -608,22 +652,30 @@ export default function Search() {
                         isLimited={(access?.tier ?? "anonymous") === "anonymous"}
                       />
 
-                      <SearchResultsTable
-                        searchResults={searchResults}
-                        selectedResults={selectedResults}
-                        clauseTypePathByStandardId={clauseTypePathByStandardId}
-                        sortBy={currentSort ?? "year"}
-                        sortDirection={sortDirection}
-                        onToggleResultSelection={toggleResultSelection}
-                        onToggleSelectAll={toggleSelectAll}
-                        onOpenAgreement={openAgreement}
-                        onSortResults={sortResults}
-                        onToggleSortDirection={toggleSortDirection}
-                        density={resultsDensity}
-                        onDensityChange={updateResultsDensity}
-                        currentPage={currentPage}
-                        pageSize={pageSize}
-                      />
+                      <Suspense
+                        fallback={
+                          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                            Loading results...
+                          </div>
+                        }
+                      >
+                        <SearchResultsTable
+                          searchResults={searchResults}
+                          selectedResults={selectedResults}
+                          clauseTypePathByStandardId={clauseTypePathByStandardId}
+                          sortBy={currentSort ?? "year"}
+                          sortDirection={sortDirection}
+                          onToggleResultSelection={toggleResultSelection}
+                          onToggleSelectAll={toggleSelectAll}
+                          onOpenAgreement={openAgreement}
+                          onSortResults={sortResults}
+                          onToggleSortDirection={toggleSortDirection}
+                          density={resultsDensity}
+                          onDensityChange={updateResultsDensity}
+                          currentPage={currentPage}
+                          pageSize={pageSize}
+                        />
+                      </Suspense>
 
                       {selectedResults.size > 0 && (
                         <div className="rounded-xl border border-border bg-background/70 p-4 backdrop-blur">
@@ -674,20 +726,26 @@ export default function Search() {
         </div>
       </div>
 
-      <ErrorModal
-        isOpen={showErrorModal}
-        onClose={closeErrorModal}
-        message={errorMessage}
-      />
+      {showErrorModal && (
+        <Suspense fallback={null}>
+          <ErrorModal
+            isOpen={showErrorModal}
+            onClose={closeErrorModal}
+            message={errorMessage}
+          />
+        </Suspense>
+      )}
 
       {selectedAgreement && (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={closeAgreement}
-          agreementUuid={selectedAgreement.agreementUuid}
-          targetSectionUuid={selectedAgreement.sectionUuid}
-          agreementMetadata={selectedAgreement.metadata}
-        />
+        <Suspense fallback={null}>
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={closeAgreement}
+            agreementUuid={selectedAgreement.agreementUuid}
+            targetSectionUuid={selectedAgreement.sectionUuid}
+            agreementMetadata={selectedAgreement.metadata}
+          />
+        </Suspense>
       )}
     </div>
   );

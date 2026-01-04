@@ -8,7 +8,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import { bootstrapAnalytics, installGlobalErrorTracking, loadAnalyticsScript } from "@/lib/analytics";
-import { apiUrl } from "@/lib/api-config";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -37,11 +36,6 @@ const queryClient = new QueryClient();
 bootstrapAnalytics();
 
 const App = () => {
-  // on first mount, fire a lightweight ping to warm up the Fly.io db machine
-  useEffect(() => {
-    void fetch(apiUrl("api/dumps")).catch(() => undefined);
-  }, []);
-
   useEffect(() => {
     const schedule = window.requestIdleCallback
       ? window.requestIdleCallback(() => loadAnalyticsScript())

@@ -11,13 +11,26 @@ interface UseFilterOptionsReturn {
   error: string | null;
 }
 
-export function useFilterOptions(): UseFilterOptionsReturn {
+interface UseFilterOptionsOptions {
+  enabled?: boolean;
+  deferMs?: number;
+}
+
+export function useFilterOptions(
+  options: UseFilterOptionsOptions = {},
+): UseFilterOptionsReturn {
+  const { enabled = true, deferMs = 0 } = options;
   const [targets, setTargets] = useState<string[]>([]);
   const [acquirers, setAcquirers] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     // Check if we already have cached data in sessionStorage
     const cachedData = sessionStorage.getItem("filterOptions");
     if (cachedData) {
@@ -80,8 +93,13 @@ export function useFilterOptions(): UseFilterOptionsReturn {
       }
     };
 
+    if (deferMs > 0) {
+      const timer = window.setTimeout(fetchFilterOptions, deferMs);
+      return () => window.clearTimeout(timer);
+    }
+
     fetchFilterOptions();
-  }, []);
+  }, [deferMs, enabled]);
 
   return {
     targets,
