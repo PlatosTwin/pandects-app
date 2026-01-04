@@ -38,23 +38,23 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Root Node
                   </div>
-                  <p className="mt-2 text-sm text-foreground">
-                    <span className="font-mono text-xs">&lt;document&gt;</span>{" "}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-mono text-xs text-foreground">&lt;document&gt;</span>{" "}
                     with a required{" "}
-                    <span className="font-mono text-xs">uuid</span> attribute.
+                    <span className="font-mono text-xs text-foreground">uuid</span> attribute.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Page Containers
                   </div>
-                  <p className="mt-2 text-sm text-foreground">
+                  <p className="mt-2 text-sm text-muted-foreground">
                     Optional containers split by page type:{" "}
-                    <span className="font-mono text-xs">frontMatter</span>,{" "}
-                    <span className="font-mono text-xs">tableOfContents</span>,{" "}
-                    <span className="font-mono text-xs">body</span>,{" "}
-                    <span className="font-mono text-xs">sigPages</span>,{" "}
-                    <span className="font-mono text-xs">backMatter</span>.
+                    <span className="font-mono text-xs text-foreground">frontMatter</span>,{" "}
+                    <span className="font-mono text-xs text-foreground">tableOfContents</span>,{" "}
+                    <span className="font-mono text-xs text-foreground">body</span>,{" "}
+                    <span className="font-mono text-xs text-foreground">sigPages</span>,{" "}
+                    <span className="font-mono text-xs text-foreground">backMatter</span>.
                   </p>
                 </div>
               </div>
