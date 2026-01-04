@@ -262,7 +262,7 @@ export default function AgreementIndex() {
       size="xl"
       title="Agreement Index"
       subtitle={
-        <span className="agreement-index-subtitle">
+        <span className="text-sm text-muted-foreground">
           Explore the full agreement universe and drill into deal-level metadata.
         </span>
       }

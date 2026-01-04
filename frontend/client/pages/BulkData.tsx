@@ -338,7 +338,7 @@ export default function BulkData() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden bulk-table-shell">
+      <div className="min-h-[420px] overflow-hidden rounded-lg border border-border bg-card lg:min-h-[520px]">
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads

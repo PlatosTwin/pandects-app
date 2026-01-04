@@ -542,7 +542,7 @@ export default function SourcesMethods() {
         <div className="space-y-12 min-w-0">
           <section id="overview" className="scroll-mt-24 space-y-4">
             <h2 className="sr-only">Overview</h2>
-            <p className="max-w-3xl text-muted-foreground sources-methods-intro">
+            <p className="max-w-3xl text-sm text-muted-foreground">
               Pandects sources agreements from the SEC's EDGAR database, then
               runs each agreement through a purpose-built pipeline that turns
               text and messy HTML into clean XML. Conceptually, our pipeline

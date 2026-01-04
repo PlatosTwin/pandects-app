@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 export default function Docs() {
   return (
     <PageShell size="lg" title="API Docs" subtitle="Explore the Pandects API via OpenAPI.">
-      <Card className="p-4 sm:p-6 docs-shell">
+      <Card className="min-h-[640px] p-4 sm:p-6">
         <SwaggerUI
           url="/openapi.yaml"
           requestInterceptor={(req) => {

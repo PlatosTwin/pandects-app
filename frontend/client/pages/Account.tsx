@@ -359,7 +359,7 @@ export default function Account() {
     <PageShell
       title="Account"
       subtitle={
-        <span className="account-subtitle">
+        <span className="text-sm text-muted-foreground">
           Sign in to unlock full access, manage API keys, and view API usage.
         </span>
       }

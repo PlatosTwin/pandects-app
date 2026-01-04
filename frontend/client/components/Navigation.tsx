@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import logo128 from "../../assets/logo-128.png";
 import logo256 from "../../assets/logo-256.png";
 import { Button } from "@/components/ui/button";
-import PandaEasterEgg from "@/components/PandaEasterEgg";
+import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
 import { AuthMenu } from "@/components/AuthMenu";
 import {
@@ -335,7 +335,7 @@ export default function Navigation() {
           </Sheet>
         </div>
 
-        <PandaEasterEgg containerRef={navRef} />
+        <LazyPandaEasterEgg containerRef={navRef} />
       </nav>
     </header>
   );
