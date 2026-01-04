@@ -27,7 +27,7 @@ export default function Landing() {
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="flex w-full max-w-[860px] flex-col items-center">
           <Card className="w-full animate-fade-in-up border-border/70 bg-background/75 px-6 py-12 text-center backdrop-blur sm:px-10 sm:py-16">
-            <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
+            <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
               Sourced from EDGAR • Updated{"\u00A0"}weekly
             </div>
 
