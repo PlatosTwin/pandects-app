@@ -68,6 +68,8 @@ export default defineConfig(({ mode }) => {
                 return `page-${pageName.toLowerCase()}`;
               }
             }
+            // Return undefined for default chunking behavior
+            return undefined;
           },
           chunkFileNames: (chunkInfo) => {
             // Organize chunks by type
@@ -129,7 +131,7 @@ function criticalCssPlugin(): Plugin {
   return {
     name: "critical-css",
     apply: "build",
-    transformIndexHtml(html) {
+    transformIndexHtml(html, ctx) {
       let nextHtml = html;
 
       if (criticalCss) {
@@ -146,12 +148,32 @@ function criticalCssPlugin(): Plugin {
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
-      // Preload critical assets (WebP with PNG fallback)
-      const preloadHints = `
-  <link rel="preload" href="/assets/logo-128.webp" as="image" type="image/webp" />
-  <link rel="preload" href="/assets/logo-128.png" as="image" type="image/png" />`;
-
-      nextHtml = nextHtml.replace("</head>", `${preloadHints}</head>`);
+      // Add preload hints for LCP image using bundle info if available
+      if (ctx?.bundle) {
+        const preloadHints: string[] = [];
+        for (const [fileName, chunk] of Object.entries(ctx.bundle)) {
+          if (chunk.type === "asset") {
+            const assetFileName = chunk.fileName;
+            if (assetFileName.includes("logo-128")) {
+              if (assetFileName.endsWith(".webp")) {
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/webp" />`,
+                );
+              } else if (assetFileName.endsWith(".png")) {
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/png" />`,
+                );
+              }
+            }
+          }
+        }
+        if (preloadHints.length > 0) {
+          nextHtml = nextHtml.replace(
+            "</head>",
+            `\n${preloadHints.join("\n")}\n</head>`,
+          );
+        }
+      }
 
       return nextHtml.replace(/<link\s+[^>]*rel="stylesheet"[^>]*>/g, (match) => {
         const hrefMatch = match.match(/href="([^"]+\.css)"/);
@@ -170,6 +192,39 @@ function criticalCssPlugin(): Plugin {
           `<noscript><link rel="stylesheet" href="${href}"${attrString}></noscript>`,
         ].join("");
       });
+    },
+    writeBundle(options, bundle) {
+      // After bundle is written, inject preload hints into HTML if bundle info wasn't available in transformIndexHtml
+      const htmlPath = path.join(options.dir || "dist/spa", "index.html");
+      if (fs.existsSync(htmlPath)) {
+        let html = fs.readFileSync(htmlPath, "utf-8");
+        const preloadHints: string[] = [];
+        
+        for (const [fileName, chunk] of Object.entries(bundle)) {
+          if (chunk.type === "asset") {
+            const assetFileName = chunk.fileName;
+            if (assetFileName.includes("logo-128")) {
+              if (assetFileName.endsWith(".webp")) {
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/webp" />`,
+                );
+              } else if (assetFileName.endsWith(".png")) {
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/png" />`,
+                );
+              }
+            }
+          }
+        }
+        
+        if (preloadHints.length > 0 && !html.includes('rel="preload" href="/assets/images/logo-128')) {
+          html = html.replace(
+            "</head>",
+            `\n${preloadHints.join("\n")}\n</head>`,
+          );
+          fs.writeFileSync(htmlPath, html, "utf-8");
+        }
+      }
     },
   };
 }
