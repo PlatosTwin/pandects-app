@@ -14,17 +14,20 @@ import {
 } from "@/components/ui/popover";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
-import type { NerEvalData, ClassifierEvalData } from "@/lib/model-metrics-types";
+import type {
+  NerEvalData,
+  ClassifierEvalData,
+} from "@/lib/model-metrics-types";
 
 const LazyClassifierEvalMetrics = lazy(() =>
   import("@/components/ClassifierEvalMetrics").then((mod) => ({
     default: mod.ClassifierEvalMetrics,
-  })),
+  }))
 );
 const LazyNerEvalMetrics = lazy(() =>
   import("@/components/NerEvalMetrics").then((mod) => ({
     default: mod.NerEvalMetrics,
-  })),
+  }))
 );
 
 type MetricsData = {
@@ -72,7 +75,11 @@ function InfoDisclosure({
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>
-        <button type="button" aria-label={ariaLabel} className={triggerClassName}>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className={triggerClassName}
+        >
           {label}
         </button>
       </TooltipTrigger>
@@ -282,7 +289,7 @@ export default function SourcesMethods() {
           observer.disconnect();
         }
       },
-      { rootMargin: "400px" },
+      { rootMargin: "400px" }
     );
 
     observer.observe(target);
@@ -963,58 +970,81 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
               </h3>
-              <div className="text-muted-foreground">
-                The Page Classifier Model combines three layers: 1) an XGBoost
-                model that scores each page <em>individually</em>, using
-                engineered text/HTML/layout features; 2) a BiLSTM + constrained
-                CRF that refines those scores into a coherent, document-level
-                page sequence; and 3) a post-processing step that sets all pages
-                after the first high-confidence{" "}
-                <span className="font-mono text-sm text-foreground">sig</span>{" "}
-                block to{" "}
-                <span className="font-mono text-sm text-foreground">
-                  back_matter
-                </span>
-                . We trained both models on an 80% random split of the full set
-                of{" "}
-                <InfoDisclosure
-                  isCoarsePointer={isCoarsePointer}
-                  triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                  label={<strong>31,864</strong>}
-                  content={
-                    <>
-                      Did we really label 31,864 pages by hand? Yes—but it
-                      wasn't that bad. We had GPT build us a custom labeling
-                      interface that allowed us to select all body pages in a
-                      single go, so the whole process took less than three
-                      hours.
-                    </>
-                  }
-                />{" "}
-                manually labeled pages, stratified (with distributional
-                matching) by length of backmatter section (bucketed into 4
-                buckets), overal length (bucketed into 4 buckets), and year
-                (bucketed into 5-year windows). The full training code is
-                available on{" "}
-                <a
-                  href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline underline-offset-2 hover:underline"
-                >
-                  GitHub
-                </a>
-                .
-              </div>
+
+              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+                <li className="space-y-2">
+                  <div>
+                    <strong>Architecture:</strong> The Page Classifier Model
+                    combines three layers:
+                    <ol className="list-decimal space-y-1 pl-5">
+                      <li>
+                        An XGBoost model that scores each page{" "}
+                        <em>individually</em>, using engineered text/HTML/layout
+                        features
+                      </li>
+                      <li>
+                        A BiLSTM + constrained CRF that refines those scores
+                        into a coherent, document-level page sequence
+                      </li>
+                      <li>
+                        A post-processing step that sets all pages after the
+                        first high-confidence{" "}
+                        <span className="font-mono text-sm text-foreground">
+                          sig
+                        </span>{" "}
+                        block to{" "}
+                        <span className="font-mono text-sm text-foreground">
+                          back_matter
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+                </li>
+                <li className="space-y-2">
+                  <div>
+                    <strong>Training:</strong> We train both models on an 80%
+                    random split of the full set of{" "}
+                    <InfoDisclosure
+                      isCoarsePointer={isCoarsePointer}
+                      triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                      label={<strong>31,864</strong>}
+                      content={
+                        <>
+                          Did we really label 31,864 pages by hand? Yes—but it
+                          wasn't that bad. We had GPT build us a custom labeling
+                          interface that allowed us to select all body pages in
+                          a single go, so the whole process took less than three
+                          hours.
+                        </>
+                      }
+                    />{" "}
+                    manually labeled pages, stratified (with distributional
+                    matching) by length of backmatter section (bucketed into 4
+                    buckets), overal length (bucketed into 4 buckets), and year
+                    (bucketed into 5-year windows). The full training code is
+                    available on{" "}
+                    <a
+                      href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 hover:underline"
+                    >
+                      GitHub
+                    </a>
+                    .
+                  </div>
+                </li>
+              </ul>
+
               <p className="text-muted-foreground">
                 Below are model performance metrics for the baseline XGB model,
-                the BiLSTM + CRF model, and the BiLSTM + CRF with post-processing, all
-                as run on a holdout set of 36 agreements. While the XGB model is
-                somewhat midling on its own, taking into account and enforcing
-                page order improves performance not insubstantially, bringing the F1
-                score up from <strong>{formatMetric(baselineClassifierF1)}</strong>{" "}
-                to <strong>{formatMetric(postProcessingF1)}</strong>
-                .{" "}
+                the BiLSTM + CRF model, and the BiLSTM + CRF with
+                post-processing, all as run on a holdout set of 36 agreements.
+                While the XGB model is somewhat midling on its own, taking into
+                account and enforcing page order improves performance not
+                insubstantially, bringing the F1 score up from{" "}
+                <strong>{formatMetric(baselineClassifierF1)}</strong> to{" "}
+                <strong>{formatMetric(postProcessingF1)}</strong>.{" "}
               </p>
               {metricsData ? (
                 <Suspense
@@ -1036,36 +1066,108 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
-              <p className="text-muted-foreground">
-                The Tagging Model fine-tunes{" "}
-                <a
-                  href="https://huggingface.co/blog/modernbert"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline underline-offset-2 hover:underline"
-                >
-                  <span className="font-mono text-sm text-foreground">
-                    ModernBERT-base
-                  </span>
-                </a>{" "}
-                for token-level labeling using a BIOES tagging scheme, producing
-                structured tags for sections, articles, and pages. It trains
-                with focal loss and warmup scheduling, and evaluates
-                entity-level accuracy by stitching overlapping token windows and
-                averaging logits across them. At inference time, a constrained
-                Viterbi decoder enforces legal BIOES transitions, yielding
-                cleaner, more consistent spans across long documents. The full
-                training code is available on{" "}
-                <a
-                  href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/ner.py"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline underline-offset-2 hover:underline"
-                >
-                  GitHub
-                </a>
-                .
-              </p>
+
+              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+                <li className="space-y-2">
+                  <div>
+                    <strong>Architecture:</strong> The Tagging Model fine-tunes{" "}
+                    <a
+                      href="https://huggingface.co/blog/modernbert"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 hover:underline"
+                    >
+                      <span className="font-mono text-sm text-foreground">
+                        ModernBERT-base
+                      </span>
+                    </a>{" "}
+                    for token-level labeling of Article, Section, and Page
+                    entities. We use a BIOES scheme for Pages and a BIOE scheme
+                    for Articles and Sections.
+                  </div>
+                </li>
+                <li className="space-y-2">
+                  <div>
+                    <strong>Training corpus:</strong> We used{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      gpt-5.1
+                    </span>{" "}
+                    to create a dataset of <strong>7,500</strong> labelled
+                    pages: <strong>6,306</strong> come from a random set of{" "}
+                    <strong>91</strong> complete agreements (
+                    <span className="font-mono text-sm text-foreground">
+                      body
+                    </span>{" "}
+                    pages only) and we selected an additional{" "}
+                    <strong>1,194</strong> to{" "}
+                    <InfoDisclosure
+                      isCoarsePointer={isCoarsePointer}
+                      triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                      label="upsample Article entities"
+                      content={
+                        <>
+                          Because Article entities are relatively less common,
+                          creating training data by ingesting complete
+                          agreements—rather than sampling for specific kinds of
+                          entities—produces a training corpus with fewer
+                          examples of Article entities. So, after ingesting 91
+                          complete agreements, we selected an additional 1,194
+                          pages, filtering to those that mentioned either
+                          "Article" or "ARTICLE".
+                        </>
+                      }
+                    />
+                    . We split this corpus into fixed sets for training (80%),
+                    validation (10%), and testing (10%), reserving the test set
+                    for the final evaluation only. To improve the model's
+                    ability to identify Article entities—and also to ensure that
+                    the distribution of entities in our validation and test sets
+                    is representative of agreements—we send all 1,194 upsampled
+                    pages to the training set. We then stratify the remaining
+                    pages based on 5-year window, the presence of Article
+                    entities, and the presence of Section entities.
+                    <li className="space-y-2">
+                      <div>
+                        <strong>Experiment suite:</strong>
+                        Outside of model hyperparameters, which we tune using
+                        Optuna, we have three performance levers available: 1)
+                        the size of our training data corpus, and the
+                        distribution of entity types within it; 2) the penalties
+                        we assign to incorrect predictions of Articles,
+                        Sections, and Pages; and 3) which post-processing
+                        transformations we perform. To evaluate the impact of
+                        each of these on model performance—always evaluated
+                        against our validation set—we first train a baseline
+                        model to select and freeze hyperparameters, which we
+                        then reuse across our experiment suite.
+                        <ol>
+                          <li>Baseline model</li>
+                          <li>
+                            What is the impact of adding more training data?
+                          </li>
+                          <li>
+                            Which set of weights yields optimal performance?
+                          </li>
+                          <li>Which post-processing regime should we adopt?</li>
+                        </ol>{" "}
+                      </div>
+                    </li>
+                    <p>
+                      The full training code is available on{" "}
+                      <a
+                        href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/ner.py"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline underline-offset-2 hover:underline"
+                      >
+                        GitHub
+                      </a>
+                      .
+                    </p>
+                  </div>
+                </li>
+              </ul>
+
               {metricsData ? (
                 <Suspense
                   fallback={
@@ -1114,7 +1216,8 @@ export default function SourcesMethods() {
                   back_matter
                 </span>
                 —but this structure is not the best fit for some agreements. For
-                instance, some agreements place definition sections into appendices.
+                instance, some agreements place definition sections into
+                appendices.
               </li>
               <li>
                 At the moment, we do not process agreements that are not

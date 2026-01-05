@@ -2,8 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Menu } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import logo128 from "../../assets/logo-128.png";
-import logo256 from "../../assets/logo-256.png";
+import logo128Webp from "../../assets/logo-128.webp";
+import logo256Webp from "../../assets/logo-256.webp";
+import logo128Png from "../../assets/logo-128.png";
+import logo256Png from "../../assets/logo-256.png";
 import { Button } from "@/components/ui/button";
 import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
@@ -80,17 +82,24 @@ export default function Navigation() {
               })
             }
           >
-            <img
-              src={logo128}
-              alt="Pandects Logo"
-              data-panda-target="logo"
-              width={36}
-              height={36}
-              srcSet={`${logo128} 128w, ${logo256} 256w`}
-              sizes="36px"
-              decoding="async"
-              className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
-            />
+            <picture>
+              <source
+                srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
+                sizes="36px"
+                type="image/webp"
+              />
+              <img
+                src={logo128Png}
+                alt="Pandects Logo"
+                data-panda-target="logo"
+                width={36}
+                height={36}
+                srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
+                sizes="36px"
+                decoding="async"
+                className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+              />
+            </picture>
             <span
               data-panda-target="brand"
               className="hidden text-base font-semibold tracking-tight text-foreground sm:block"
@@ -225,16 +234,23 @@ export default function Navigation() {
               <div className="flex h-full flex-col">
                 <SheetHeader className="border-b p-4 text-left">
                   <SheetTitle className="flex items-center gap-3">
-                    <img
-                      src={logo128}
-                      alt="Pandects Logo"
-                      width={36}
-                      height={36}
-                      srcSet={`${logo128} 128w, ${logo256} 256w`}
-                      sizes="36px"
-                      decoding="async"
-                      className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
-                    />
+                    <picture>
+                      <source
+                        srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
+                        sizes="36px"
+                        type="image/webp"
+                      />
+                      <img
+                        src={logo128Png}
+                        alt="Pandects Logo"
+                        width={36}
+                        height={36}
+                        srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
+                        sizes="36px"
+                        decoding="async"
+                        className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+                      />
+                    </picture>
                     <span className="text-base font-semibold tracking-tight">
                       Pandects
                     </span>

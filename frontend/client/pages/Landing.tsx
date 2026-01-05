@@ -1,5 +1,7 @@
-import logo128 from "../../assets/logo-128.png";
-import logo256 from "../../assets/logo-256.png";
+import logo128Webp from "../../assets/logo-128.webp";
+import logo256Webp from "../../assets/logo-256.webp";
+import logo128Png from "../../assets/logo-128.png";
+import logo256Png from "../../assets/logo-256.png";
 import sponsorLogoOne from "../../assets/sponsors/pandects-placeholder-1.png";
 import sponsorLogoTwo from "../../assets/sponsors/pandects-placeholder-2.png";
 import sponsorLogoThree from "../../assets/sponsors/pandects-placeholder-3.png";
@@ -38,17 +40,24 @@ export default function Landing() {
                   aria-label="About the Pandects name"
                   className="mx-auto mb-8 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
-                  <img
-                    src={logo128}
-                    alt="Pandects Logo"
-                    width={128}
-                    height={128}
-                    srcSet={`${logo128} 128w, ${logo256} 256w`}
-                    sizes="(min-width: 640px) 128px, 96px"
-                    fetchPriority="high"
-                    decoding="async"
-                    className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
-                  />
+                  <picture>
+                    <source
+                      srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
+                      sizes="(min-width: 640px) 128px, 96px"
+                      type="image/webp"
+                    />
+                    <img
+                      src={logo128Png}
+                      alt="Pandects Logo"
+                      width={128}
+                      height={128}
+                      srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
+                      sizes="(min-width: 640px) 128px, 96px"
+                      fetchPriority="high"
+                      decoding="async"
+                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
+                    />
+                  </picture>
                 </button>
               </TooltipTrigger>
               <TooltipContent

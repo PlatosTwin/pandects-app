@@ -30,6 +30,72 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "dist/spa",
+      sourcemap: false,
+      minify: "esbuild",
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            // Split vendor chunks for better caching
+            if (id.includes("node_modules")) {
+              // Large icon library - split into its own chunk
+              if (id.includes("lucide-react")) {
+                return "vendor-icons";
+              }
+              // React and React DOM
+              if (id.includes("react") || id.includes("react-dom")) {
+                return "vendor-react";
+              }
+              // React Router
+              if (id.includes("react-router")) {
+                return "vendor-router";
+              }
+              // TanStack Query
+              if (id.includes("@tanstack/react-query")) {
+                return "vendor-query";
+              }
+              // Radix UI components (large library)
+              if (id.includes("@radix-ui")) {
+                return "vendor-radix";
+              }
+              // Other vendor code
+              return "vendor";
+            }
+            // Split large page components
+            if (id.includes("/pages/")) {
+              const pageName = id.split("/pages/")[1]?.split(".")[0];
+              // Keep large pages in separate chunks
+              if (["SourcesMethods", "Search", "Account"].includes(pageName)) {
+                return `page-${pageName.toLowerCase()}`;
+              }
+            }
+          },
+          chunkFileNames: (chunkInfo) => {
+            // Organize chunks by type
+            const facadeModuleId = chunkInfo.facadeModuleId
+              ? chunkInfo.facadeModuleId.split("/").pop()?.replace(/\.[^.]*$/, "")
+              : "chunk";
+            if (chunkInfo.name?.startsWith("vendor")) {
+              return `assets/vendor/${chunkInfo.name}-[hash].js`;
+            }
+            if (chunkInfo.name?.startsWith("page-")) {
+              return `assets/pages/${chunkInfo.name}-[hash].js`;
+            }
+            return `assets/${facadeModuleId}-[hash].js`;
+          },
+          assetFileNames: (assetInfo) => {
+            // Organize assets
+            if (assetInfo.name?.endsWith(".css")) {
+              return "assets/css/[name]-[hash][extname]";
+            }
+            if (assetInfo.name?.match(/\.(png|jpe?g|svg|gif|webp|avif)$/)) {
+              return "assets/images/[name]-[hash][extname]";
+            }
+            return "assets/[name]-[hash][extname]";
+          },
+        },
+      },
+      // Increase chunk size warning limit since we're splitting manually
+      chunkSizeWarningLimit: 1000,
     },
     plugins: [react(), expressPlugin(), criticalCssPlugin()],
     resolve: {
@@ -72,6 +138,20 @@ function criticalCssPlugin(): Plugin {
           `<style>${criticalCss}</style></head>`,
         );
       }
+
+      // Add DNS prefetch for external resources
+      const dnsPrefetch = `
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />`;
+
+      nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
+
+      // Preload critical assets (WebP with PNG fallback)
+      const preloadHints = `
+  <link rel="preload" href="/assets/logo-128.webp" as="image" type="image/webp" />
+  <link rel="preload" href="/assets/logo-128.png" as="image" type="image/png" />`;
+
+      nextHtml = nextHtml.replace("</head>", `${preloadHints}</head>`);
 
       return nextHtml.replace(/<link\s+[^>]*rel="stylesheet"[^>]*>/g, (match) => {
         const hrefMatch = match.match(/href="([^"]+\.css)"/);
