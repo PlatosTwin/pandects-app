@@ -125,7 +125,7 @@ export default function Account() {
   const pingAuthBackend = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetchWithTimeout(
-        apiUrl("api/auth/health"),
+        apiUrl("v1/auth/health"),
         { cache: "no-store" },
         5000,
       );
@@ -226,7 +226,7 @@ export default function Account() {
 
     const resolveClientInfo = async (): Promise<{ clientId: string; nonce: string } | null> => {
       try {
-        const res = await fetch(apiUrl("api/auth/google/client-id"), {
+        const res = await fetch(apiUrl("v1/auth/google/client-id"), {
           credentials: "include",
         });
         if (!res.ok) return null;
@@ -330,7 +330,7 @@ export default function Account() {
       return;
     }
 
-    void fetch(apiUrl("api/auth/captcha/site-key"))
+    void fetch(apiUrl("v1/auth/captcha/site-key"))
       .then(async (res) => {
         if (!res.ok) {
           setCaptchaEnabled(res.status === 503);

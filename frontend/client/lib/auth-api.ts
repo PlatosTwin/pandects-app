@@ -17,7 +17,7 @@ export async function registerWithEmail(
     status: "verification_required";
     user: AuthUser;
     debugToken?: string;
-  }>(apiUrl("api/auth/register"), {
+  }>(apiUrl("v1/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
@@ -28,7 +28,7 @@ export async function registerWithEmail(
 
 export async function loginWithEmail(email: string, password: string) {
   return authFetchJson<{ user: AuthUser; sessionToken?: string }>(
-    apiUrl("api/auth/login"),
+    apiUrl("v1/auth/login"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,7 +38,7 @@ export async function loginWithEmail(email: string, password: string) {
 }
 
 export async function resendVerificationEmail(email: string) {
-  return authFetchJson<{ status: "sent" }>(apiUrl("api/auth/email/resend"), {
+  return authFetchJson<{ status: "sent" }>(apiUrl("v1/auth/email/resend"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -46,22 +46,22 @@ export async function resendVerificationEmail(email: string) {
 }
 
 export async function fetchMe() {
-  return authFetchJson<{ user: AuthUser }>(apiUrl("api/auth/me"));
+  return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
 
 export async function logoutSession() {
-  return authFetchJson<{ status: "ok" }>(apiUrl("api/auth/logout"), { method: "POST" });
+  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/logout"), { method: "POST" });
 }
 
 export async function listApiKeys() {
-  return authFetchJson<{ keys: ApiKeySummary[] }>(apiUrl("api/auth/api-keys"));
+  return authFetchJson<{ keys: ApiKeySummary[] }>(apiUrl("v1/auth/api-keys"));
 }
 
 export async function createApiKey(name?: string) {
   return authFetchJson<{
     apiKey: { id: string; name: string | null; prefix: string; createdAt: string };
     apiKeyPlaintext: string;
-  }>(apiUrl("api/auth/api-keys"), {
+  }>(apiUrl("v1/auth/api-keys"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -69,14 +69,14 @@ export async function createApiKey(name?: string) {
 }
 
 export async function revokeApiKey(id: string) {
-  return authFetchJson<{ status: "revoked" }>(apiUrl(`api/auth/api-keys/${id}`), {
+  return authFetchJson<{ status: "revoked" }>(apiUrl(`v1/auth/api-keys/${id}`), {
     method: "DELETE",
   });
 }
 
 export async function fetchUsage() {
   return authFetchJson<{ byDay: UsageByDay[]; total: number }>(
-    apiUrl("api/auth/usage"),
+    apiUrl("v1/auth/usage"),
   );
 }
 
@@ -85,7 +85,7 @@ export async function loginWithGoogleCredential(
   legal?: LegalAcceptancePayload,
 ) {
   return authFetchJson<{ user: AuthUser; sessionToken?: string }>(
-    apiUrl("api/auth/google/credential"),
+    apiUrl("v1/auth/google/credential"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -96,7 +96,7 @@ export async function loginWithGoogleCredential(
 }
 
 export async function deleteAccount(payload: { confirm: string }) {
-  return authFetchJson<{ status: "deleted" }>(apiUrl("api/auth/account/delete"), {
+  return authFetchJson<{ status: "deleted" }>(apiUrl("v1/auth/account/delete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -104,7 +104,7 @@ export async function deleteAccount(payload: { confirm: string }) {
 }
 
 export async function requestPasswordReset(email: string) {
-  return authFetchJson<{ status: "sent" }>(apiUrl("api/auth/password/forgot"), {
+  return authFetchJson<{ status: "sent" }>(apiUrl("v1/auth/password/forgot"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -112,7 +112,7 @@ export async function requestPasswordReset(email: string) {
 }
 
 export async function resetPassword(token: string, password: string) {
-  return authFetchJson<{ status: "ok" }>(apiUrl("api/auth/password/reset"), {
+  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/password/reset"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, password }),
@@ -120,7 +120,7 @@ export async function resetPassword(token: string, password: string) {
 }
 
 export async function verifyEmail(token: string) {
-  return authFetchJson<{ status: "ok" }>(apiUrl("api/auth/email/verify"), {
+  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/email/verify"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),

@@ -135,7 +135,7 @@ export default function AgreementIndex() {
       try {
         setSummaryLoading(true);
         setSummaryError(null);
-        const res = await authFetch(apiUrl("api/agreements-summary"));
+        const res = await authFetch(apiUrl("v1/agreements-summary"));
         if (!res.ok) {
           throw new Error(`Summary request failed (${res.status})`);
         }
@@ -182,7 +182,7 @@ export default function AgreementIndex() {
         }
 
         const res = await authFetch(
-          apiUrl(`api/agreements-index?${params.toString()}`),
+          apiUrl(`v1/agreements-index?${params.toString()}`),
           { signal: controller.signal },
         );
         if (!res.ok) {

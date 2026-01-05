@@ -21,7 +21,7 @@ export function useAgreement() {
       }
       const suffix = params.toString() ? `?${params.toString()}` : "";
       const response = await authFetch(
-        apiUrl(`api/agreements/${agreementUuid}${suffix}`),
+        apiUrl(`v1/agreements/${agreementUuid}${suffix}`),
       );
 
       if (!response.ok) {

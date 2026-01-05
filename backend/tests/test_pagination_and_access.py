@@ -55,13 +55,13 @@ class PaginationAndAccessTests(unittest.TestCase):
 
     def test_csrf_required_cookie_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
-        with self.app.test_request_context("/api/auth/login", method="POST"):
-            self.assertTrue(backend_app._csrf_required("/api/auth/login"))
+        with self.app.test_request_context("/v1/auth/login", method="POST"):
+            self.assertTrue(backend_app._csrf_required("/v1/auth/login"))
 
     def test_csrf_not_required_bearer_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        with self.app.test_request_context("/api/auth/login", method="POST"):
-            self.assertFalse(backend_app._csrf_required("/api/auth/login"))
+        with self.app.test_request_context("/v1/auth/login", method="POST"):
+            self.assertFalse(backend_app._csrf_required("/v1/auth/login"))
 
 
 if __name__ == "__main__":

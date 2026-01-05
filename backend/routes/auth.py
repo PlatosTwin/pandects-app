@@ -12,7 +12,7 @@ from werkzeug.exceptions import HTTPException
 
 
 def register_auth_routes(app, *, app_module) -> Blueprint:
-    auth_blp = Blueprint("auth", "auth", url_prefix="/api/auth")
+    auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
 
     @auth_blp.route("/register", methods=["POST"])
     def auth_register():

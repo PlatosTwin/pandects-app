@@ -329,7 +329,7 @@ export default function Search() {
 
   useEffect(() => {
     const warmup = () => {
-      void fetch(apiUrl("api/dumps")).catch(() => undefined);
+      void fetch(apiUrl("v1/dumps")).catch(() => undefined);
     };
     const schedule = window.requestIdleCallback
       ? window.requestIdleCallback(warmup, { timeout: 2500 })

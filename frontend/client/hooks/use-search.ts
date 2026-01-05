@@ -161,7 +161,7 @@ export function useSearch() {
         const params = buildSearchParams(searchFilters, clauseTypesNested);
 
         const queryString = params.toString();
-        const res = await authFetch(apiUrl(`api/search?${queryString}`));
+        const res = await authFetch(apiUrl(`v1/search?${queryString}`));
 
         // Check if the response is ok (status 200-299)
         if (!res.ok) {
@@ -293,7 +293,7 @@ export function useSearch() {
           params.append("page", DEFAULT_PAGE.toString());
 
           const queryString = params.toString();
-          const res = await fetch(apiUrl(`api/search?${queryString}`));
+          const res = await fetch(apiUrl(`v1/search?${queryString}`));
 
           if (!res.ok) {
             trackEvent("api_error", {

@@ -49,7 +49,7 @@ export function useFilterOptions(
     // Fetch from API
     const fetchFilterOptions = async () => {
       try {
-        const response = await authFetch(apiUrl("api/filter-options"));
+        const response = await authFetch(apiUrl("v1/filter-options"));
 
         if (!response.ok) {
           trackEvent("api_error", {

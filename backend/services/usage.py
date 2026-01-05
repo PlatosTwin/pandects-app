@@ -321,9 +321,9 @@ def build_usage_event(
 ) -> UsageEvent | None:
     if ctx.tier != "api_key" or not ctx.api_key_id:
         return None
-    if not request.path.startswith("/api/"):
+    if not request.path.startswith("/v1/"):
         return None
-    if request.path.startswith("/api/auth/"):
+    if request.path.startswith("/v1/auth/"):
         return None
 
     route = _api_route_template()

@@ -73,7 +73,7 @@ Google Identity Services button requires the public client ID in the frontend en
 ```bash
 ```
 
-If you omit it, the frontend will fetch the client ID from `GET /api/auth/google/client-id`.
+If you omit it, the frontend will fetch the client ID from `GET /v1/auth/google/client-id`.
 
 Optional: override the API base URL at build/runtime:
 

@@ -291,7 +291,7 @@ def _clear_auth_cookies(resp: Response) -> None:
 def _csrf_required(path: str) -> bool:
     if _auth_session_transport() != "cookie":
         return False
-    if not path.startswith("/api/"):
+    if not path.startswith("/v1/"):
         return False
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return False
@@ -300,12 +300,12 @@ def _csrf_required(path: str) -> bool:
     if request.cookies.get(_SESSION_COOKIE_NAME):
         return True
     return path in (
-        "/api/auth/login",
-        "/api/auth/register",
-        "/api/auth/google/credential",
-        "/api/auth/password/forgot",
-        "/api/auth/password/reset",
-        "/api/auth/logout",
+        "/v1/auth/login",
+        "/v1/auth/register",
+        "/v1/auth/google/credential",
+        "/v1/auth/password/forgot",
+        "/v1/auth/password/reset",
+        "/v1/auth/logout",
     )
 
 
@@ -433,7 +433,7 @@ def _configure_cors(target_app: Flask) -> None:
     CORS(
         target_app,
         resources={
-            r"/api/*": {
+            r"/v1/*": {
                 "origins": _cors_origins()
             }
         },
@@ -460,7 +460,7 @@ def _configure_app(
 
 
 def _handle_http_exception(err: HTTPException):
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/v1/"):
         resp = jsonify({"error": err.name, "message": err.description})
         resp.status_code = err.code or 500
         return resp
@@ -468,7 +468,7 @@ def _handle_http_exception(err: HTTPException):
 
 
 def _handle_internal_server_error(err: InternalServerError):
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/v1/"):
         current_app.logger.exception("Unhandled API exception: %s", err)
         resp = jsonify(
             {"error": "Internal Server Error", "message": "Unexpected server error."}
@@ -479,7 +479,7 @@ def _handle_internal_server_error(err: InternalServerError):
 
 
 def _handle_sqlalchemy_error(err: SQLAlchemyError):
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/v1/"):
         current_app.logger.exception("Database error: %s", err)
         resp = jsonify(
             {"error": "Service Unavailable", "message": "Database is unavailable."}
@@ -1222,7 +1222,7 @@ def _google_oauth_client_secret() -> str:
 
 
 def _google_oauth_redirect_uri() -> str:
-    return f"{_public_api_base_url()}/api/auth/google/callback"
+    return f"{_public_api_base_url()}/v1/auth/google/callback"
 
 
 def _google_oauth_flow_enabled() -> bool:
@@ -1253,7 +1253,7 @@ def _set_google_oauth_cookie(resp: Response, payload: dict[str, str]) -> None:
         httponly=True,
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
-        path="/api/auth/google/callback",
+        path="/v1/auth/google/callback",
     )
 
 
@@ -1276,7 +1276,7 @@ def _clear_google_oauth_cookie(resp: Response) -> None:
     samesite, secure = _cookie_settings()
     resp.delete_cookie(
         _GOOGLE_OAUTH_COOKIE_NAME,
-        path="/api/auth/google/callback",
+        path="/v1/auth/google/callback",
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
     )
@@ -1291,7 +1291,7 @@ def _set_google_nonce_cookie(resp: Response, nonce: str) -> None:
         httponly=True,
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
-        path="/api/auth/google/credential",
+        path="/v1/auth/google/credential",
     )
 
 
@@ -1306,7 +1306,7 @@ def _clear_google_nonce_cookie(resp: Response) -> None:
     samesite, secure = _cookie_settings()
     resp.delete_cookie(
         _GOOGLE_OAUTH_NONCE_COOKIE_NAME,
-        path="/api/auth/google/credential",
+        path="/v1/auth/google/credential",
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
     )
@@ -1873,12 +1873,12 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
 
 
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
-    ("POST", "/api/auth/login"): 10,
-    ("POST", "/api/auth/register"): 5,
-    ("POST", "/api/auth/email/resend"): 5,
-    ("POST", "/api/auth/password/forgot"): 5,
-    ("POST", "/api/auth/password/reset"): 10,
-    ("POST", "/api/auth/google/credential"): 10,
+    ("POST", "/v1/auth/login"): 10,
+    ("POST", "/v1/auth/register"): 5,
+    ("POST", "/v1/auth/email/resend"): 5,
+    ("POST", "/v1/auth/password/forgot"): 5,
+    ("POST", "/v1/auth/password/reset"): 10,
+    ("POST", "/v1/auth/google/credential"): 10,
 }
 
 
@@ -1891,7 +1891,7 @@ def _endpoint_rate_limit_key(method: str, path: str) -> tuple[str, int] | None:
 
 
 def _check_rate_limit(ctx: AccessContext) -> None:
-    if not request.path.startswith("/api/"):
+    if not request.path.startswith("/v1/"):
         return
 
     key, per_minute = _rate_limit_key(ctx)
@@ -1920,7 +1920,7 @@ def _check_rate_limit(ctx: AccessContext) -> None:
 
 
 def _check_endpoint_rate_limit() -> None:
-    if not request.path.startswith("/api/"):
+    if not request.path.startswith("/v1/"):
         return
 
     key_limit = _endpoint_rate_limit_key(request.method, request.path)
@@ -2005,7 +2005,7 @@ def _set_security_headers(response: Response):
                 response.headers["Vary"] = f"{existing}, Origin"
         else:
             response.headers["Vary"] = "Origin"
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/v1/"):
         response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
@@ -2126,28 +2126,28 @@ class Taxonomy(db.Model):
 search_blp = Blueprint(
     "search",
     "search",
-    url_prefix="/api/search",
+    url_prefix="/v1/search",
     description="Search merger agreement sections",
 )
 
 dumps_blp = Blueprint(
     "dumps",
     "dumps",
-    url_prefix="/api/dumps",
+    url_prefix="/v1/dumps",
     description="Access metadata about bulk data on Cloudflare",
 )
 
 agreements_blp = Blueprint(
     "agreements",
     "agreements",
-    url_prefix="/api/agreements",
+    url_prefix="/v1/agreements",
     description="Retrieve full text for a given agreement",
 )
 
 sections_blp = Blueprint(
     "sections",
     "sections",
-    url_prefix="/api/sections",
+    url_prefix="/v1/sections",
     description="Retrieve full text for a given section",
 )
 
@@ -2497,13 +2497,13 @@ def get_filter_options() -> tuple[Response, int] | Response:
 
 def _register_main_routes(target_app: Flask) -> None:
     target_app.add_url_rule(
-        "/api/agreements-index", view_func=get_agreements_index, methods=["GET"]
+        "/v1/agreements-index", view_func=get_agreements_index, methods=["GET"]
     )
     target_app.add_url_rule(
-        "/api/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
+        "/v1/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
     )
     target_app.add_url_rule(
-        "/api/filter-options", view_func=get_filter_options, methods=["GET"]
+        "/v1/filter-options", view_func=get_filter_options, methods=["GET"]
     )
 
 
@@ -2513,7 +2513,7 @@ class SearchResource(MethodView):
     @search_blp.response(200, SearchResponseSchema)
     def get(self, args) -> dict[str, object]:
         ctx = _current_access_context()
-        # @app.route("/api/search", methods=["GET"])
+        # @app.route("/v1/search", methods=["GET"])
         # def search_sections():
         # pull in optional query params - now supporting multiple values
         years = args["year"]
@@ -2706,7 +2706,7 @@ class SearchResource(MethodView):
         }
 
 
-@dumps_blp.route("")  # blueprint already has url_prefix="/api/dumps"
+@dumps_blp.route("")  # blueprint already has url_prefix="/v1/dumps"
 class DumpListResource(MethodView):
     @dumps_blp.response(200, DumpEntrySchema(many=True))
     def get(self) -> list[dict[str, object]]:

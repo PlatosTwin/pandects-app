@@ -69,7 +69,7 @@ class AuthFlowTests(unittest.TestCase):
         client.set_cookie(
             "pdcts_google_nonce",
             nonce,
-            path="/api/auth/google/credential",
+            path="/v1/auth/google/credential",
         )
         return nonce
 
@@ -77,13 +77,13 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
-        res = client.get("/api/auth/csrf")
+        res = client.get("/v1/auth/csrf")
         self.assertEqual(res.status_code, 200)
         csrf = self._csrf_cookie_value(client)
         checked_at_ms = 1700000000000
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "a@example.com",
                 "password": "password123",
@@ -96,7 +96,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 403)
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "a@example.com",
                 "password": "password123",
@@ -119,20 +119,20 @@ class AuthFlowTests(unittest.TestCase):
                 user_id=user.id, email=user.email
             )
 
-        res = client.post("/api/auth/email/verify", json={"token": token})
+        res = client.post("/v1/auth/email/verify", json={"token": token})
         self.assertEqual(res.status_code, 200)
 
-        res = client.get("/api/auth/csrf")
+        res = client.get("/v1/auth/csrf")
         csrf = self._csrf_cookie_value(client)
 
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "a@example.com", "password": "password123"},
         )
         self.assertEqual(res.status_code, 403)
 
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "a@example.com", "password": "password123"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -141,28 +141,28 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIn("pdcts_session=", set_cookie)
         self.assertIn("HttpOnly", set_cookie)
 
-        res = client.get("/api/auth/me")
+        res = client.get("/v1/auth/me")
         self.assertEqual(res.status_code, 200)
 
-        res = client.post("/api/auth/api-keys", json={"name": "x"})
+        res = client.post("/v1/auth/api-keys", json={"name": "x"})
         self.assertEqual(res.status_code, 403)
 
         csrf = self._csrf_cookie_value(client)
         res = client.post(
-            "/api/auth/api-keys",
+            "/v1/auth/api-keys",
             json={"name": "x"},
             headers={"X-CSRF-Token": csrf},
         )
         self.assertEqual(res.status_code, 200)
 
-        res = client.post("/api/auth/logout")
+        res = client.post("/v1/auth/logout")
         self.assertEqual(res.status_code, 403)
-        res = client.post("/api/auth/logout", headers={"X-CSRF-Token": csrf})
+        res = client.post("/v1/auth/logout", headers={"X-CSRF-Token": csrf})
         self.assertEqual(res.status_code, 200)
         set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
         self.assertIn("pdcts_session=;", set_cookie)
 
-        res = client.get("/api/auth/me")
+        res = client.get("/v1/auth/me")
         self.assertEqual(res.status_code, 401)
 
     def test_register_and_login_record_signon_events(self):
@@ -170,7 +170,7 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "events@example.com",
                 "password": "password123",
@@ -189,14 +189,14 @@ class AuthFlowTests(unittest.TestCase):
                 user_id=user.id, email=user.email
             )
 
-        res = client.post("/api/auth/login", json={"email": "events@example.com", "password": "password123"})
+        res = client.post("/v1/auth/login", json={"email": "events@example.com", "password": "password123"})
         self.assertEqual(res.status_code, 403)
 
-        res = client.post("/api/auth/email/verify", json={"token": token})
+        res = client.post("/v1/auth/email/verify", json={"token": token})
         self.assertEqual(res.status_code, 200)
 
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "events@example.com", "password": "password123"},
         )
         self.assertEqual(res.status_code, 200)
@@ -216,7 +216,7 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "bearer@example.com",
                 "password": "password123",
@@ -235,11 +235,11 @@ class AuthFlowTests(unittest.TestCase):
                 user_id=user.id, email=user.email
             )
 
-        res = client.post("/api/auth/email/verify", json={"token": token})
+        res = client.post("/v1/auth/email/verify", json={"token": token})
         self.assertEqual(res.status_code, 200)
 
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "bearer@example.com", "password": "password123"},
         )
         self.assertEqual(res.status_code, 200)
@@ -249,17 +249,17 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIsInstance(session_token, str)
 
         res = client.get(
-            "/api/auth/me", headers={"Authorization": f"Bearer {session_token}"}
+            "/v1/auth/me", headers={"Authorization": f"Bearer {session_token}"}
         )
         self.assertEqual(res.status_code, 200)
 
         res = client.post(
-            "/api/auth/logout", headers={"Authorization": f"Bearer {session_token}"}
+            "/v1/auth/logout", headers={"Authorization": f"Bearer {session_token}"}
         )
         self.assertEqual(res.status_code, 200)
 
         res = client.get(
-            "/api/auth/me", headers={"Authorization": f"Bearer {session_token}"}
+            "/v1/auth/me", headers={"Authorization": f"Bearer {session_token}"}
         )
         self.assertEqual(res.status_code, 401)
 
@@ -268,7 +268,7 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "reset@example.com",
                 "password": "password123",
@@ -287,7 +287,7 @@ class AuthFlowTests(unittest.TestCase):
                 user_id=user.id, email=user.email
             )
 
-        res = client.post("/api/auth/email/verify", json={"token": token})
+        res = client.post("/v1/auth/email/verify", json={"token": token})
         self.assertEqual(res.status_code, 200)
 
         captured: dict[str, str] = {}
@@ -296,13 +296,13 @@ class AuthFlowTests(unittest.TestCase):
             "token", token
         )
         try:
-            res = client.post("/api/auth/password/forgot", json={"email": "reset@example.com"})
+            res = client.post("/v1/auth/password/forgot", json={"email": "reset@example.com"})
             self.assertEqual(res.status_code, 200)
             reset_token = captured.get("token")
             self.assertIsInstance(reset_token, str)
 
             res = client.post(
-                "/api/auth/password/reset",
+                "/v1/auth/password/reset",
                 json={"token": reset_token, "password": "newpassword123"},
             )
             self.assertEqual(res.status_code, 200)
@@ -310,7 +310,7 @@ class AuthFlowTests(unittest.TestCase):
             backend_app._send_password_reset_email = original_send
 
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "reset@example.com", "password": "newpassword123"},
         )
         self.assertEqual(res.status_code, 200)
@@ -324,14 +324,14 @@ class AuthFlowTests(unittest.TestCase):
         backend_app._google_verify_id_token = lambda _token, expected_nonce=None: "google-new@example.com"
 
         try:
-            res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+            res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
             self.assertEqual(res.status_code, 412)
             body = res.get_json()
             self.assertIsInstance(body, dict)
             self.assertEqual(body.get("error"), "legal_required")
 
             res = client.post(
-                "/api/auth/google/credential",
+                "/v1/auth/google/credential",
                 json={
                     "credential": "fake",
                     "legal": {
@@ -361,7 +361,7 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
 
-        res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+        res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
         self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
@@ -378,7 +378,7 @@ class AuthFlowTests(unittest.TestCase):
             lambda _token, expected_nonce=None: captured.__setitem__("nonce", expected_nonce) or "google-new@example.com"
         )
         try:
-            res = client.post("/api/auth/google/credential", json={"credential": "fake"})
+            res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
             self.assertEqual(res.status_code, 412)
             self.assertEqual(captured["nonce"], expected)
         finally:
@@ -395,7 +395,7 @@ class AuthFlowTests(unittest.TestCase):
         backend_app._verify_turnstile_token = lambda *, token: None
         try:
             res = client.post(
-                "/api/auth/register",
+                "/v1/auth/register",
                 json={
                     "email": "captcha@example.com",
                     "password": "password123",
@@ -411,7 +411,7 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(body.get("error"), "captcha_required")
 
             res = client.post(
-                "/api/auth/register",
+                "/v1/auth/register",
                 json={
                     "email": "captcha@example.com",
                     "password": "password123",
@@ -434,7 +434,7 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "b@example.com",
                 "password": "password123",
@@ -445,7 +445,7 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 201)
-        res = client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"})
+        res = client.post("/v1/auth/login", json={"email": "b@example.com", "password": "password123"})
         self.assertEqual(res.status_code, 403)
 
         with self.app.app_context():
@@ -453,10 +453,10 @@ class AuthFlowTests(unittest.TestCase):
             self.assertIsNotNone(user)
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
-        res = client.post("/api/auth/email/verify", json={"token": verify})
+        res = client.post("/v1/auth/email/verify", json={"token": verify})
         self.assertEqual(res.status_code, 200)
 
-        res = client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"})
+        res = client.post("/v1/auth/login", json={"email": "b@example.com", "password": "password123"})
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
@@ -464,7 +464,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIsInstance(token, str)
         self.assertGreater(len(token), 10)
 
-        res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        res = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200)
 
     def test_google_credential_invalid_token_is_401_without_network(self):
@@ -480,7 +480,7 @@ class AuthFlowTests(unittest.TestCase):
 
         backend_app._google_jwk_client = DummyJwkClient()
 
-        res = client.post("/api/auth/google/credential", json={"credential": "nope"})
+        res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
         self.assertEqual(res.status_code, 401)
 
     def test_google_credential_jwks_outage_returns_503(self):
@@ -496,14 +496,14 @@ class AuthFlowTests(unittest.TestCase):
 
         backend_app._google_jwk_client = DummyJwkClient()
 
-        res = client.post("/api/auth/google/credential", json={"credential": "nope"})
+        res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
         self.assertEqual(res.status_code, 503)
 
     def test_cors_allows_credentials_for_localhost(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
-        res = client.get("/api/auth/csrf", headers={"Origin": "http://localhost:8080"})
+        res = client.get("/v1/auth/csrf", headers={"Origin": "http://localhost:8080"})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.headers.get("Access-Control-Allow-Credentials"), "true")
 
@@ -511,11 +511,11 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
-        res = client.get("/api/auth/csrf")
+        res = client.get("/v1/auth/csrf")
         csrf = self._csrf_cookie_value(client)
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "delete-me@example.com",
                 "password": "password123",
@@ -534,13 +534,13 @@ class AuthFlowTests(unittest.TestCase):
                 self.fail("Expected user to be created for delete-account flow.")
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
-        res = client.post("/api/auth/email/verify", json={"token": verify})
+        res = client.post("/v1/auth/email/verify", json={"token": verify})
         self.assertEqual(res.status_code, 200)
 
-        res = client.get("/api/auth/csrf")
+        res = client.get("/v1/auth/csrf")
         csrf = self._csrf_cookie_value(client)
         res = client.post(
-            "/api/auth/login",
+            "/v1/auth/login",
             json={"email": "delete-me@example.com", "password": "password123"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -548,20 +548,20 @@ class AuthFlowTests(unittest.TestCase):
 
         csrf = self._csrf_cookie_value(client)
         res = client.post(
-            "/api/auth/account/delete",
+            "/v1/auth/account/delete",
             json={"confirm": "nope"},
             headers={"X-CSRF-Token": csrf},
         )
         self.assertEqual(res.status_code, 400)
 
         res = client.post(
-            "/api/auth/account/delete",
+            "/v1/auth/account/delete",
             json={"confirm": "Delete"},
             headers={"X-CSRF-Token": csrf},
         )
         self.assertEqual(res.status_code, 200)
 
-        res = client.get("/api/auth/me")
+        res = client.get("/v1/auth/me")
         self.assertEqual(res.status_code, 401)
 
     def test_api_key_whitespace_is_ignored_for_last_used(self):
@@ -569,7 +569,7 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={
                 "email": "keyuser@example.com",
                 "password": "password123",
@@ -586,10 +586,10 @@ class AuthFlowTests(unittest.TestCase):
                 self.fail("Expected user to be created for api-key flow.")
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
-        res = client.post("/api/auth/email/verify", json={"token": verify})
+        res = client.post("/v1/auth/email/verify", json={"token": verify})
         self.assertEqual(res.status_code, 200)
 
-        res = client.post("/api/auth/login", json={"email": "keyuser@example.com", "password": "password123"})
+        res = client.post("/v1/auth/login", json={"email": "keyuser@example.com", "password": "password123"})
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
@@ -597,7 +597,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIsInstance(token, str)
 
         res = client.post(
-            "/api/auth/api-keys",
+            "/v1/auth/api-keys",
             json={"name": "x"},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -613,7 +613,7 @@ class AuthFlowTests(unittest.TestCase):
                 self.fail("Expected api key row to exist before usage update.")
             self.assertIsNone(key_row.last_used_at)
 
-        res = client.get("/api/auth/me", headers={"X-API-Key": f"  {api_key}  "})
+        res = client.get("/v1/auth/me", headers={"X-API-Key": f"  {api_key}  "})
         self.assertEqual(res.status_code, 401)
 
         with self.app.app_context():

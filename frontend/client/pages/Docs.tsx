@@ -13,7 +13,7 @@ export default function Docs() {
           url="/openapi.yaml"
           requestInterceptor={(req) => {
             const u = new URL(req.url, window.location.origin);
-            if (u.pathname.startsWith("/api/")) {
+            if (u.pathname.startsWith("/v1/")) {
               req.url = `${API_BASE_URL}${u.pathname}${u.search}`;
             }
             return req;

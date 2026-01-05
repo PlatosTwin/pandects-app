@@ -26,7 +26,7 @@ async function ensureCsrfToken(): Promise<string | null> {
     return existing;
   }
   if (!csrfInitPromise) {
-    csrfInitPromise = fetch(apiUrl("api/auth/csrf"), { credentials: "include" })
+    csrfInitPromise = fetch(apiUrl("v1/auth/csrf"), { credentials: "include" })
       .then(() => undefined)
       .catch(() => undefined);
   }
@@ -38,7 +38,7 @@ async function ensureCsrfToken(): Promise<string | null> {
   // Fallback: some environments may block cookie access; the endpoint can return the token too.
   // Note: this does not make CSRF work without cookies; the server still requires the cookie.
   try {
-    const res = await fetch(apiUrl("api/auth/csrf"), { credentials: "include" });
+    const res = await fetch(apiUrl("v1/auth/csrf"), { credentials: "include" });
     const data = (await res.json().catch(() => null)) as unknown;
     if (!data || typeof data !== "object") return null;
     const token = (data as { csrfToken?: unknown }).csrfToken;

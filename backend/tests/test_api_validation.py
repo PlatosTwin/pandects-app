@@ -45,7 +45,7 @@ class ApiValidationTests(unittest.TestCase):
 
     def test_register_missing_body_returns_validation_error(self):
         client = self.app.test_client()
-        res = client.post("/api/auth/register", json={})
+        res = client.post("/v1/auth/register", json={})
         self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
@@ -54,7 +54,7 @@ class ApiValidationTests(unittest.TestCase):
     def test_register_requires_legal(self):
         client = self.app.test_client()
         res = client.post(
-            "/api/auth/register",
+            "/v1/auth/register",
             json={"email": "x@example.com", "password": "password123"},
         )
         self.assertEqual(res.status_code, 412)
@@ -70,7 +70,7 @@ class ApiValidationTests(unittest.TestCase):
 
         try:
             res = client.post(
-                "/api/auth/register",
+                "/v1/auth/register",
                 json={
                     "email": "captcha@example.com",
                     "password": "password123",
@@ -95,7 +95,7 @@ class ApiValidationTests(unittest.TestCase):
         backend_app._dumps_cache["ts"] = time.time()
 
         client = self.app.test_client()
-        res = client.get("/api/dumps")
+        res = client.get("/v1/dumps")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body, payload)

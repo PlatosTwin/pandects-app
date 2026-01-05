@@ -48,7 +48,7 @@ export default function BulkData() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(apiUrl("api/dumps"));
+        const response = await fetch(apiUrl("v1/dumps"));
         if (!response.ok) {
           trackEvent("api_error", {
             endpoint: "api/dumps",
@@ -211,7 +211,7 @@ export default function BulkData() {
               onClick={() => {
                 trackEvent("bulk_copy_click", { copy_target: "api_call" });
                 void copyToClipboard(
-                  `curl ${API_BASE_URL}/api/dumps`,
+                  `curl ${API_BASE_URL}/v1/dumps`,
                   "api-call",
                 );
               }}
@@ -231,7 +231,7 @@ export default function BulkData() {
                   # API call to get dumps info
                 </div>
                 <div className="whitespace-nowrap pr-10">
-                  curl {API_BASE_URL}/api/dumps
+                  curl {API_BASE_URL}/v1/dumps
                 </div>
               </div>
             </div>

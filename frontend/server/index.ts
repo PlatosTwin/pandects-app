@@ -59,7 +59,7 @@ export function createServer() {
 
     // SPA fallback - serve index.html for all non-API routes
     app.get("*", (req, res) => {
-      if (req.path.startsWith("/api/")) {
+      if (req.path.startsWith("/v1/")) {
         res.status(404).end();
         return;
       }
