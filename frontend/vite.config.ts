@@ -32,6 +32,10 @@ export default defineConfig(({ mode }) => {
       outDir: "dist/spa",
       sourcemap: false,
       minify: "esbuild",
+      // Target modern browsers to reduce legacy JavaScript
+      // This eliminates the need for polyfills and reduces bundle size
+      target: "esnext",
+      // CSS is automatically minified when minify is set
     },
     plugins: [react(), expressPlugin(), criticalCssPlugin()],
     resolve: {
