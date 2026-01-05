@@ -31,7 +31,20 @@ const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Terms = lazy(() => import("./pages/Terms"));
 const License = lazy(() => import("./pages/License"));
 
-const queryClient = new QueryClient();
+// Optimized QueryClient configuration to reduce initial JavaScript execution
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce refetching on mount/window focus to minimize work
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      // Use staleTime to avoid unnecessary refetches
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      // Reduce retry attempts to fail faster
+      retry: 1,
+    },
+  },
+});
 
 bootstrapAnalytics();
 
