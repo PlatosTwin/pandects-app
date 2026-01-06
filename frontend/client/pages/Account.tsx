@@ -55,6 +55,7 @@ export default function Account() {
   const [googleStatus, setGoogleStatus] = useState<
     "loading" | "ready" | "unavailable"
   >("loading");
+  const [googleButtonVisible, setGoogleButtonVisible] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const refreshRef = useRef(refresh);
   const googleInitRunRef = useRef(0);
@@ -221,6 +222,7 @@ export default function Account() {
     if (authBackendStatus !== "ready") return;
     const runId = ++googleInitRunRef.current;
     setGoogleStatus("loading");
+    setGoogleButtonVisible(false);
     setGooglePendingCredential(null);
     setGoogleNeedsLegal(false);
 
@@ -303,6 +305,7 @@ export default function Account() {
         const width = Math.round(
           Math.min(360, Math.max(240, googleButtonRef.current.getBoundingClientRect().width)),
         );
+        setGoogleButtonVisible(false);
         window.google.accounts.id.renderButton(googleButtonRef.current, {
           theme: "outline",
           size: "large",
@@ -312,6 +315,49 @@ export default function Account() {
         });
 
         setGoogleStatus("ready");
+
+        // Wait for Google's iframe to fully render (including fonts) before showing.
+        // The iframe load event fires before fonts inside it finish loading, so we add
+        // a brief delay after load to let Google Sans/Roboto settle.
+        const container = googleButtonRef.current;
+        const showAfterFontsSettle = () => {
+          setTimeout(() => {
+            if (googleInitRunRef.current === runId) setGoogleButtonVisible(true);
+          }, 80);
+        };
+
+        const iframe = container.querySelector("iframe");
+        if (iframe) {
+          // If iframe exists, wait for it to load + font settle time
+          // Note: contentDocument is null for cross-origin iframes, so this usually falls through to the listener
+          if (iframe.contentDocument?.readyState === "complete") {
+            showAfterFontsSettle();
+          } else {
+            iframe.addEventListener("load", showAfterFontsSettle, { once: true });
+            // Fallback timeout in case load event doesn't fire
+            setTimeout(() => {
+              if (googleInitRunRef.current === runId) setGoogleButtonVisible(true);
+            }, 500);
+          }
+        } else {
+          // No iframe yet, use MutationObserver to detect when it's added
+          const observer = new MutationObserver((_, obs) => {
+            const addedIframe = container.querySelector("iframe");
+            if (addedIframe) {
+              obs.disconnect();
+              addedIframe.addEventListener("load", showAfterFontsSettle, { once: true });
+              setTimeout(() => {
+                if (googleInitRunRef.current === runId) setGoogleButtonVisible(true);
+              }, 500);
+            }
+          });
+          observer.observe(container, { childList: true, subtree: true });
+          // Fallback if observer doesn't catch it
+          setTimeout(() => {
+            observer.disconnect();
+            if (googleInitRunRef.current === runId) setGoogleButtonVisible(true);
+          }, 600);
+        }
       })
       .catch(() => setGoogleStatus("unavailable"));
   }, [authBackendStatus, user]);
@@ -424,7 +470,10 @@ export default function Account() {
             <div className="flex justify-center pt-1">
               <div
                 ref={googleButtonRef}
-                className="flex min-h-[44px] w-full max-w-[360px] items-center justify-center overflow-visible px-1 py-1"
+                className={cn(
+                  "flex min-h-[44px] w-full max-w-[360px] items-center justify-center overflow-visible px-1 py-1 transition-opacity duration-150",
+                  googleStatus === "ready" && googleButtonVisible ? "opacity-100" : "opacity-0",
+                )}
               />
             </div>
             {googleNeedsLegal ? (
