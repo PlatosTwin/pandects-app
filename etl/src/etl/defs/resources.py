@@ -12,15 +12,14 @@ from pydantic import PrivateAttr
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from etl.models.code.classifier import ClassifierInference
-from etl.models.code.ner import NERInference
-from etl.models.code.shared_constants import (
-    NER_LABEL_LIST,
-    NER_CKPT_PATH,
+from etl.models.page_classifier.classifier import ClassifierInference
+from etl.models.ner.ner import NERInference
+from etl.models.ner.ner_constants import NER_CKPT_PATH, NER_LABEL_LIST
+from etl.models.page_classifier.page_classifier_constants import (
     CLASSIFIER_CKPT_PATH,
     CLASSIFIER_XGB_PATH,
-    TAXONOMY_LABEL_LIST,
 )
+from etl.models.taxonomy.taxonomy_constants import TAXONOMY_LABEL_LIST
 
 
 class PipelineMode(Enum):
@@ -48,6 +47,10 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     staging_days_to_fetch: int = 2  # used in staging_asset alt flow
+    staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow
+    staging_rate_limit_window_seconds: float = 1.025  # used in staging_asset alt flow
+    staging_max_workers: int = 8  # used in staging_asset alt flow
+    staging_use_keyword_filter: bool = True  # used in staging_asset alt flow
 
     def is_cleanup_mode(self) -> bool:
         """Check if the pipeline is running in cleanup mode."""

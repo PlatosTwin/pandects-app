@@ -8,3 +8,4 @@ resources:
       taxonomy_agreement_batch_size: 10
       ai_repair_agreement_batch_size: 10
       tx_metadata_agreement_batch_size: 10
+      staging_days_to_fetch: 7

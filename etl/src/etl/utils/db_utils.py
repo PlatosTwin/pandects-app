@@ -8,9 +8,17 @@ import json
 class AgreementRow(Protocol):
     agreement_uuid: str
     url: str
-    target: str
-    acquirer: str
     filing_date: object
+    # Optional fields (DMA corpus flow)
+    target: str | None
+    acquirer: str | None
+    # Optional fields (SEC index flow)
+    prob_filing: float | None
+    filing_company_name: str | None
+    filing_company_cik: str | None
+    form_type: str | None
+    exhibit_type: str | None  # "2" or "10"
+    secondary_filing_url: str | None  # URL of duplicate filing if detected
 
 
 class PageRow(Protocol):
@@ -49,21 +57,39 @@ def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connectio
             INSERT INTO pdx.agreements (
               agreement_uuid,
               url,
+              filing_date,
               target,
               acquirer,
-              filing_date
+              prob_filing,
+              filing_company_name,
+              filing_company_cik,
+              form_type,
+              exhibit_type,
+              secondary_filing_url
             ) VALUES (
               :agreement_uuid,
               :url,
+              :filing_date,
               :target,
               :acquirer,
-              :filing_date
+              :prob_filing,
+              :filing_company_name,
+              :filing_company_cik,
+              :form_type,
+              :exhibit_type,
+              :secondary_filing_url
             )
             ON DUPLICATE KEY UPDATE
               url                      = VALUES(url),
+              filing_date              = VALUES(filing_date),
               target                   = VALUES(target),
               acquirer                 = VALUES(acquirer),
-              filing_date              = VALUES(filing_date)
+              prob_filing              = VALUES(prob_filing),
+              filing_company_name      = VALUES(filing_company_name),
+              filing_company_cik       = VALUES(filing_company_cik),
+              form_type                = VALUES(form_type),
+              exhibit_type             = VALUES(exhibit_type),
+              secondary_filing_url     = VALUES(secondary_filing_url)
         """
     )
 
@@ -74,9 +100,15 @@ def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connectio
             {
                 "agreement_uuid": f.agreement_uuid,
                 "url": f.url,
+                "filing_date": f.filing_date,
                 "target": f.target,
                 "acquirer": f.acquirer,
-                "filing_date": f.filing_date
+                "prob_filing": f.prob_filing,
+                "filing_company_name": f.filing_company_name,
+                "filing_company_cik": f.filing_company_cik,
+                "form_type": f.form_type,
+                "exhibit_type": f.exhibit_type,
+                "secondary_filing_url": f.secondary_filing_url,
             }
         )
 
