@@ -83,3 +83,21 @@ export type ClassifierEvalData = {
     perClassCaption: string;
   }>;
 };
+
+export type ExhibitEvalData = {
+  summary: {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1: number;
+    roc_auc: number;
+  };
+  confusionMatrix: number[][];
+  perClass: Array<{
+    label: string;
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1: number;
+  }>;
+};

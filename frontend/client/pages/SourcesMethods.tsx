@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import type {
   NerEvalData,
   ClassifierEvalData,
+  ExhibitEvalData,
 } from "@/lib/model-metrics-types";
 
 const LazyClassifierEvalMetrics = lazy(() =>
@@ -29,10 +30,16 @@ const LazyNerEvalMetrics = lazy(() =>
     default: mod.NerEvalMetrics,
   }))
 );
+const LazyExhibitEvalMetrics = lazy(() =>
+  import("@/components/ExhibitEvalMetrics").then((mod) => ({
+    default: mod.ExhibitEvalMetrics,
+  }))
+);
 
 type MetricsData = {
   classifier: ClassifierEvalData;
   ner: NerEvalData;
+  exhibit: ExhibitEvalData;
 };
 
 type InfoDisclosureProps = {
@@ -306,6 +313,7 @@ export default function SourcesMethods() {
         setMetricsData({
           classifier: mod.classifierEvalData,
           ner: mod.nerEvalData,
+          exhibit: mod.exhibitEvalData,
         });
       });
     };
@@ -381,12 +389,14 @@ export default function SourcesMethods() {
 
         <div className="space-y-12 min-w-0">
           <section id="overview" className="scroll-mt-24 space-y-4">
-            <h2 className="sr-only">Overview</h2>
-            <p className="max-w-3xl text-sm text-muted-foreground">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Overview
+            </h2>
+            <p className="text-muted-foreground">
               Pandects sources agreements from the SEC's EDGAR database, then
               runs each agreement through a purpose-built pipeline that turns
-              text and messy HTML into clean XML. Conceptually, our pipeline
-              solves five distinct problems.
+              text and messy HTML into clean, taxonomized XML. Conceptually, our
+              pipeline solves five distinct problems.
             </p>
             <div className="max-w-4xl rounded-2xl border border-border/70 bg-card/50 p-5 shadow-sm">
               <div className="grid gap-1 border-b border-border/60 px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
@@ -422,17 +432,9 @@ export default function SourcesMethods() {
                         Automated Identification
                       </div>
                       <p className="text-sm text-foreground">
-                        We anchor our search with the{" "}
-                        <a
-                          href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4731282"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2 hover:underline"
-                        >
-                          DMA Corpus
-                        </a>{" "}
-                        and develop purpose-build models to identify definitive
-                        agreements natively.
+                        We parse through Exhibit 2 and Exhibit 10 filings at
+                        scale and use machine learning to identify those that
+                        represent definitive merger agreements.
                       </p>
                     </div>
                   </div>
@@ -462,9 +464,10 @@ export default function SourcesMethods() {
                         Clean, Normalized XML
                       </div>
                       <p className="text-sm text-foreground">
-                        We normalize every agreement into standardized XML,
-                        stripping away the HTML mess so researchers don't have
-                        to invent their own parsing logic.
+                        We use machine learning to normalize every agreement
+                        into standardized XML, stripping away the HTML mess so
+                        researchers don't have to invent their own parsing
+                        logic.
                       </p>
                     </div>
                   </div>
@@ -494,9 +497,9 @@ export default function SourcesMethods() {
                         Rigorous Taxonomy
                       </div>
                       <p className="text-sm text-foreground">
-                        We classify every section into a specific clause
-                        taxonomy, making it effortless to query specific clause
-                        types across thousands of deals.
+                        We use machine learning to classify every section into a
+                        specific clause taxonomy, making it effortless to query
+                        specific clause types across thousands of deals.
                       </p>
                     </div>
                   </div>
@@ -526,7 +529,7 @@ export default function SourcesMethods() {
                         LLM-Enriched Data
                       </div>
                       <p className="text-sm text-foreground">
-                        We commission LLMs to inject deal-specific
+                        We use LLMs to extract and incorporate deal-specific
                         context—including consideration amounts, NAICS codes,
                         and PE involvement—directly into the dataset.
                       </p>
@@ -946,13 +949,22 @@ export default function SourcesMethods() {
               still made too many mistakes for us to be comfortable using them
               at scale. Our solution: use the latest and greatest LLMs to
               generate high-quality training data from a limited sample of
-              agreements—<strong>367</strong> in total, sampled roughly evenly
-              from 2000 to 2020—and then train up more routine machine learning
-              models to do the work we'd otherwise outsource to LLMs.
+              agreements and then train up more routine machine learning models
+              to do the work we'd otherwise outsource to LLMs.
             </div>
             <p className="text-muted-foreground">
               This section describes the four ML models at the heart of our data
-              processing pipeline.
+              processing pipeline. The full training code for each model is
+              available on{" "}
+              <a
+                href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:underline"
+              >
+                GitHub
+              </a>
+              .
             </p>
             <div
               id="agreement-identification"
@@ -961,7 +973,66 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Exhibit Model
               </h3>
-              <ComingSoon title="Matching and deduplication logic" />
+              <div className="text-muted-foreground">
+                The Exhibit Model takes as inputs filing from the SEC's EDGAR
+                database, and for each filing outputs the probability that that
+                filing represents a definitive merger agreement. To identify
+                filings, we scan the{" "}
+                <a
+                  href="https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data#:~:text=Using%20the%20EDGAR%20index%20files"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-2 hover:underline"
+                >
+                  SEC's daily index files
+                </a>
+                , identify all filings that match target form types (all forms
+                except for S-8 and ABS-EE), filter filings by scanning for
+                keywords indicating "Material Definitive Agreement" entries,
+                scrape each filing's index page to extract Exhibit 10.* and 2.*
+                links, fetch and render the exhibit content as text, and use the
+                Exhibit Model to classify candidates, retaining only those with
+                probability of at least 0.5.
+              </div>
+              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+                <li className="space-y-2">
+                  <div>
+                    <strong>Architecture:</strong> The Exhibit Model is a simple
+                    binary classifier that uses logistic regression. As
+                    features, we use: (1) <em>document-level features</em>{" "}
+                    including structural indicators, legal language patterns,
+                    and M&A-specific vocabulary; (2) <em>TF-IDF features</em>{" "}
+                    from word and character n-grams; and (3){" "}
+                    <em>similarity features</em> measuring cosine similarity to
+                    training examples.
+                  </div>
+                </li>
+                <li className="space-y-2">
+                  <div>
+                    <strong>Training corpus:</strong> We train the Exhibit Model
+                    on an 80/20 random split of <strong>1,392</strong> positive
+                    samples, selected from the DMA corpus, and 250 negatives,
+                    selected from SEC filings under Exhibits 2 and 10, with a
+                    bias toward filings that earlier versions of this model
+                    incorrectly identified as agreements.
+                  </div>
+                </li>
+              </ul>
+              {metricsData ? (
+                <Suspense
+                  fallback={
+                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                      Loading model metrics...
+                    </Card>
+                  }
+                >
+                  <LazyExhibitEvalMetrics data={metricsData.exhibit} />
+                </Suspense>
+              ) : (
+                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                  Loading model metrics...
+                </Card>
+              )}
             </div>
             <div
               id="page-classification"
@@ -970,7 +1041,14 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
               </h3>
-
+              <div className="text-muted-foreground">
+                The Page Classifier takes as inputs pages from filings
+                identified as definitive merger agreements and outputs for each
+                page the probability that that page belongs to each one of five
+                classes, along with the actual predicted class. We retain the
+                probabilities for the classes to enable validation of
+                low-confidence pages.
+              </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
                   <div>
@@ -1002,8 +1080,8 @@ export default function SourcesMethods() {
                 </li>
                 <li className="space-y-2">
                   <div>
-                    <strong>Training:</strong> We train both models on an 80%
-                    random split of the full set of{" "}
+                    <strong>Training corpus:</strong> We train both models on an
+                    80/20 random split of the full set of{" "}
                     <InfoDisclosure
                       isCoarsePointer={isCoarsePointer}
                       triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
@@ -1020,18 +1098,8 @@ export default function SourcesMethods() {
                     />{" "}
                     manually labeled pages, stratified (with distributional
                     matching) by length of backmatter section (bucketed into 4
-                    buckets), overal length (bucketed into 4 buckets), and year
-                    (bucketed into 5-year windows). The full training code is
-                    available on{" "}
-                    <a
-                      href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/classifier.py"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline underline-offset-2 hover:underline"
-                    >
-                      GitHub
-                    </a>
-                    .
+                    buckets), overall length (bucketed into 4 buckets), and year
+                    (bucketed into 5-year windows).
                   </div>
                 </li>
               </ul>
@@ -1040,9 +1108,8 @@ export default function SourcesMethods() {
                 Below are model performance metrics for the baseline XGB model,
                 the BiLSTM + CRF model, and the BiLSTM + CRF with
                 post-processing, all as run on a holdout set of 36 agreements.
-                While the XGB model is somewhat midling on its own, taking into
-                account and enforcing page order improves performance not
-                insubstantially, bringing the F1 score up from{" "}
+                While the XGB model is somewhat middling on its own, taking into
+                account and enforcing page order improves performance, bringing the F1 score up from{" "}
                 <strong>{formatMetric(baselineClassifierF1)}</strong> to{" "}
                 <strong>{formatMetric(postProcessingF1)}</strong>.{" "}
               </p>
@@ -1066,7 +1133,15 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
-
+              <div className="text-muted-foreground">
+                The Tagging Model is the heart of our pipeline. It takes as
+                inputs plain-text body pages—as identified via the Page
+                Classifier model—and outputs text with Article, Section, and
+                Page entities tagged. We then concatenate all pages and use the
+                tags to create XML. We persist into our database all spans where
+                the Tagging Model's confidence fell below the threshold of 0.8;
+                we feed those spans to an LLM for tag reconciliation.
+              </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
                   <div>
@@ -1092,8 +1167,8 @@ export default function SourcesMethods() {
                     <span className="font-mono text-sm text-foreground">
                       gpt-5.1
                     </span>{" "}
-                    to create a dataset of <strong>7,500</strong> labelled
-                    pages: <strong>6,306</strong> come from a random set of{" "}
+                    to create a dataset of <strong>7,500</strong> labeled pages:{" "}
+                    <strong>6,306</strong> come from a random set of{" "}
                     <strong>91</strong> complete agreements (
                     <span className="font-mono text-sm text-foreground">
                       body
@@ -1126,44 +1201,29 @@ export default function SourcesMethods() {
                     pages to the training set. We then stratify the remaining
                     pages based on 5-year window, the presence of Article
                     entities, and the presence of Section entities.
-                    <li className="space-y-2">
-                      <div>
-                        <strong>Experiment suite:</strong>
-                        Outside of model hyperparameters, which we tune using
-                        Optuna, we have three performance levers available: 1)
-                        the size of our training data corpus, and the
-                        distribution of entity types within it; 2) the penalties
-                        we assign to incorrect predictions of Articles,
-                        Sections, and Pages; and 3) which post-processing
-                        transformations we perform. To evaluate the impact of
-                        each of these on model performance—always evaluated
-                        against our validation set—we first train a baseline
-                        model to select and freeze hyperparameters, which we
-                        then reuse across our experiment suite.
-                        <ol>
-                          <li>Baseline model</li>
-                          <li>
-                            What is the impact of adding more training data?
-                          </li>
-                          <li>
-                            Which set of weights yields optimal performance?
-                          </li>
-                          <li>Which post-processing regime should we adopt?</li>
-                        </ol>{" "}
-                      </div>
-                    </li>
-                    <p>
-                      The full training code is available on{" "}
-                      <a
-                        href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/code/ner.py"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline underline-offset-2 hover:underline"
-                      >
-                        GitHub
-                      </a>
-                      .
-                    </p>
+                  </div>
+                </li>
+                <li className="space-y-2">
+                  <div>
+                    <strong>Experiment suite:</strong> Outside of model
+                    hyperparameters, which we tune using Optuna, we have three
+                    performance levers available: 1) the size of our training
+                    data corpus, and the distribution of entity types within it;
+                    2) the penalties we assign to incorrect predictions of
+                    Articles, Sections, and Pages; and 3) which post-processing
+                    transformations we perform. To evaluate the impact of each
+                    of these on model performance—all experiments are evaluated
+                    against our validation set—we first train a baseline model
+                    to select and freeze hyperparameters, which we then reuse
+                    across all experiments.
+                    <div hidden>
+                      <ol className="list-decimal space-y-1 pl-5 mt-2">
+                        <li>Baseline model</li>
+                        <li>What is the impact of adding more training data?</li>
+                        <li>Which set of weights yields optimal performance?</li>
+                        <li>Which post-processing regime should we adopt?</li>
+                      </ol>
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -1224,6 +1284,16 @@ export default function SourcesMethods() {
                 paginated. In our training set of 399 agreements, 31 are not
                 paginated.
               </li>
+              <li>
+                The creators of the DMA Corpus started with merger data from
+                FactSet and then filtered down SEC filings to the FactSet deals.
+                We take a different approach: instead of identifying deals and
+                matching them to filings, our Exhibit Model simply identifies
+                filings that are sufficiently similar to bona fide filings,
+                assumes they are from legitimate M&A deals, and then fills in
+                deal metadata after the fact. This means that we might pull in
+                some filings that are not properly M&A agreements.
+              </li>
             </ul>
           </section>
 
@@ -1256,9 +1326,9 @@ export default function SourcesMethods() {
                   </li>
                   <li>
                     At least one page has a prediction confidence between 30%
-                    and 70%; where there is a high-confidence signature page (
-                    {">"}= 95%), this condition applies only to pages prior to
-                    that signature page.
+                    and 70%; where there is a high-confidence signature page (≥
+                    95%), this condition applies only to pages prior to that
+                    signature page.
                   </li>
                 </ul>
               </li>

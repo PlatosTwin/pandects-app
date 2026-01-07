@@ -1,5 +1,5 @@
 paths:
-  /api/search:
+  /v1/search:
     get:
       parameters:
       - in: query
@@ -107,7 +107,7 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - search
-  /api/dumps:
+  /v1/dumps:
     get:
       responses:
         '200':
@@ -122,7 +122,7 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - dumps
-  /api/agreements/{agreement_uuid}:
+  /v1/agreements/{agreement_uuid}:
     get:
       parameters:
       - in: query
@@ -157,7 +157,7 @@ paths:
       schema:
         type: string
         minLength: 1
-  /api/sections/{section_uuid}:
+  /v1/sections/{section_uuid}:
     get:
       responses:
         '200':

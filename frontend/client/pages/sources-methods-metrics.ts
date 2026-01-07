@@ -1,4 +1,8 @@
-import type { ClassifierEvalData, NerEvalData } from "@/lib/model-metrics-types";
+import type {
+  ClassifierEvalData,
+  NerEvalData,
+  ExhibitEvalData,
+} from "@/lib/model-metrics-types";
 
 export const classifierEvalData: ClassifierEvalData = {
   labels: ["front_matter", "toc", "body", "sig", "back_matter"],
@@ -292,6 +296,36 @@ export const nerEvalData: NerEvalData = {
         regex: { entityStrictF1: 0.91, articleStrictF1: 0.83 },
         "regex+snap": { entityStrictF1: 0.935, articleStrictF1: 0.86 },
       },
+    },
+  ],
+};
+
+export const exhibitEvalData: ExhibitEvalData = {
+  summary: {
+    accuracy: 0.9756838905775076,
+    precision: 0.9927272727272727,
+    recall: 0.978494623655914,
+    f1: 0.9855595667870036,
+    roc_auc: 0.9864516129032258,
+  },
+  confusionMatrix: [
+    [48, 2],
+    [6, 273],
+  ],
+  perClass: [
+    {
+      label: "class_0",
+      accuracy: 0.96,
+      precision: 0.8888888888888888,
+      recall: 0.96,
+      f1: 0.9230769230769231,
+    },
+    {
+      label: "class_1",
+      accuracy: 0.978494623655914,
+      precision: 0.9927272727272727,
+      recall: 0.978494623655914,
+      f1: 0.9855595667870036,
     },
   ],
 };
