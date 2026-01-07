@@ -116,6 +116,12 @@ def tx_metadata_asset(
             acquirer_pe = :acquirer_pe,
             target_industry = :target_industry,
             acquirer_industry = :acquirer_industry,
+            announce_date = :announce_date,
+            close_date = :close_date,
+            deal_status = :deal_status,
+            attitude = :attitude,
+            deal_type = :deal_type,
+            purpose = :purpose,
             sources = :sources,
             metadata = 1
         WHERE agreement_uuid = :uuid
