@@ -24,11 +24,11 @@ from joblib import Parallel, delayed
 
 try:
     from .classifier_utils import extract_features
-    from .shared_constants import CLASSIFIER_LABEL_LIST
+    from .page_classifier_constants import CLASSIFIER_LABEL_LIST
     from .split_utils import build_agreement_split, load_split_manifest
 except ImportError:  # pragma: no cover - supports running as a script
     from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
-    from shared_constants import CLASSIFIER_LABEL_LIST  # pyright: ignore[reportMissingImports]
+    from page_classifier_constants import CLASSIFIER_LABEL_LIST  # pyright: ignore[reportMissingImports]
     from split_utils import build_agreement_split, load_split_manifest  # pyright: ignore[reportMissingImports]
 
 

@@ -1,0 +1,22 @@
+article_class_weight: 1.0
+default_class_weight: 1.0
+gating_mode: raw
+id2label:
+  0: O
+  1: B-SECTION
+  2: I-SECTION
+  3: E-SECTION
+  4: B-ARTICLE
+  5: I-ARTICLE
+  6: E-ARTICLE
+  7: B-PAGE
+  8: I-PAGE
+  9: E-PAGE
+  10: S-PAGE
+learning_rate: 3.0125616185037406e-05
+metrics_output_dir: /Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/etl/src/etl/models/ner/eval_metrics/local/ner_trials
+metrics_output_name: ner_test_metrics.yaml
+model_name: answerdotai/ModernBERT-base
+num_labels: 11
+warmup_steps_pct: 0.2628426398974038
+weight_decay: 0.0025951995582908297

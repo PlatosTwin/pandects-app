@@ -1,0 +1,3 @@
+"""
+NER package root.
+"""

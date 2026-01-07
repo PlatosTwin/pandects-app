@@ -49,13 +49,14 @@ from sklearn.metrics import (
 )
 
 CODE_DIR = os.path.dirname(__file__)
-DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "../data"))
-EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
+DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "./data"))
+EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "./eval_metrics"))
+LOG_DIR = os.path.normpath(os.path.join(CODE_DIR, "./logs"))
 DEFAULT_SPLIT_PATH = os.path.join(DATA_DIR, "agreement-splits.json")
 
 try:
     from .classifier_classes import PageClassifier, PageDataModule
-    from .shared_constants import (
+    from .page_classifier_constants import (
         CLASSIFIER_CKPT_PATH,
         CLASSIFIER_XGB_PATH,
         CLASSIFIER_LABEL_LIST,
@@ -63,7 +64,7 @@ try:
     from .split_utils import build_agreement_split, write_split_manifest
 except ImportError:  # pragma: no cover - supports running as a script
     from classifier_classes import PageClassifier, PageDataModule  # pyright: ignore[reportMissingImports]
-    from shared_constants import (  # pyright: ignore[reportMissingImports]
+    from page_classifier_constants import (  # pyright: ignore[reportMissingImports]
         CLASSIFIER_CKPT_PATH,
         CLASSIFIER_XGB_PATH,
         CLASSIFIER_LABEL_LIST,
@@ -588,7 +589,7 @@ class ClassifierTrainer:
             accelerator=self.device,
             devices=1,
             precision=self._trainer_precision(),
-            logger=TensorBoardLogger("tb_logs", name="classifier/optuna"),
+            logger=TensorBoardLogger(LOG_DIR, name="classifier/optuna"),
             callbacks=[
                 checkpoint,
                 early_stop,
@@ -657,7 +658,7 @@ class ClassifierTrainer:
             accelerator=self.device,
             devices=1,
             precision=self._trainer_precision(),
-            logger=TensorBoardLogger("tb_logs", name="classifier/optuna"),
+            logger=TensorBoardLogger(LOG_DIR, name="classifier/optuna"),
             callbacks=[
                 checkpoint,
                 early_stop,
@@ -807,7 +808,7 @@ class ClassifierTrainer:
             accelerator=self.device,
             devices=1,
             precision=self._trainer_precision(),
-            logger=TensorBoardLogger("tb_logs", name="classifier/final"),
+            logger=TensorBoardLogger(LOG_DIR, name="classifier/final"),
             callbacks=[checkpoint, early_stop, lr_monitor, progress_bar],
             log_every_n_steps=10,
         )

@@ -28,7 +28,7 @@ import yaml
 
 try:
     from .classifier_utils import extract_features
-    from .shared_constants import CLASSIFIER_LABEL_LIST, CLASSIFIER_XGB_PATH
+    from .page_classifier_constants import CLASSIFIER_LABEL_LIST, CLASSIFIER_XGB_PATH
     from .split_utils import (
         build_agreement_split,
         load_split_manifest,
@@ -36,7 +36,7 @@ try:
     )
 except ImportError:  # pragma: no cover - supports running as a script
     from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
-    from shared_constants import (  # pyright: ignore[reportMissingImports]
+    from page_classifier_constants import (  # pyright: ignore[reportMissingImports]
         CLASSIFIER_LABEL_LIST,
         CLASSIFIER_XGB_PATH,
     )
@@ -47,7 +47,8 @@ except ImportError:  # pragma: no cover - supports running as a script
     )
 
 CODE_DIR = os.path.dirname(__file__)
-EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
+DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "./data"))
+EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "./eval_metrics"))
 SEED = 2718
 
 
@@ -217,11 +218,11 @@ def main() -> None:
     length_bucket_edges = [0.0, 120, 130, 200, float("inf")]
     back_matter_bucket_edges = [0.0, 35, 60, 105, float("inf")]
     # Load and prepare data
-    data_path = "etl/src/etl/models/data/page-data.parquet"
+    data_path = os.path.join(DATA_DIR, "page-data.parquet")
     features, y, agreement_uuids, years, split_df = load_and_prepare_data(
         data_path
     )
-    split_path = "etl/src/etl/models/data/agreement-splits.json"
+    split_path = os.path.join(DATA_DIR, "agreement-splits.json")
     if os.path.exists(split_path):
         split = load_split_manifest(split_path)
     else:

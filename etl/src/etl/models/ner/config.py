@@ -5,33 +5,34 @@ NER experiment configuration helpers.
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import hashlib
 import json
-import os
 import time
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import yaml
 
 
-CODE_DIR = Path(__file__).resolve().parent
+if TYPE_CHECKING:
+    from .utils.paths import CONFIG_NER_DIR, DATA_NER_DIR, get_git_root
+else:
+    try:
+        from .utils.paths import CONFIG_NER_DIR, DATA_NER_DIR, get_git_root
+    except ImportError:  # pragma: no cover - supports running as a script
+        from utils.paths import (
+            CONFIG_NER_DIR,
+            DATA_NER_DIR,
+            get_git_root,
+        )
 
 
-def _find_repo_root() -> Path:
-    for parent in [CODE_DIR, *CODE_DIR.parents]:
-        if (parent / "AGENTS.md").exists() or (parent / ".git").exists():
-            return parent
-    return CODE_DIR
+OPTUNA_BEST_CONFIG_PATH = CONFIG_NER_DIR / "optuna_best_config.yaml"
 
-
-REPO_ROOT = _find_repo_root()
-CONFIGS_DIR = Path(__file__).resolve().parent.parent / "configs"
-OPTUNA_BEST_CONFIG_PATH = CONFIGS_DIR / "optuna_best_config.yaml"
-
-DEFAULT_DATA_CSV = os.path.normpath(os.path.join(CODE_DIR, "../data/ner-data.csv"))
+DEFAULT_DATA_CSV = str(DATA_NER_DIR / "ner-data.csv")
 DEFAULT_MODEL_NAME = "answerdotai/ModernBERT-base"
 DEFAULT_BATCH_SIZE = 16
 DEFAULT_TRAIN_SUBSAMPLE_WINDOW = 256
@@ -72,6 +73,18 @@ class NERExperimentConfig:
     git_commit: str
 
 
+class OptunaBestConfig(TypedDict):
+    batch_size: int
+    learning_rate: float
+    train_subsample_window: int
+    val_window: int
+    val_stride: int
+    weight_decay: float
+    warmup_steps_pct: float
+    max_epochs: int
+    model_name: str
+
+
 def _config_fingerprint(payload: Mapping[str, object]) -> str:
     stable = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(stable.encode("utf-8")).hexdigest()[:8]
@@ -86,25 +99,40 @@ def _normalize_gating_mode(gating_mode: str) -> str:
     return _GATING_MODE_ALIASES.get(normalized, normalized)
 
 
-def _resolve_git_commit(explicit: str | None) -> str:
+def _detect_git_commit() -> str | None:
+    git_root = get_git_root()
+    if git_root is None:
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(git_root),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return None
+    if result.returncode != 0:
+        return None
+    commit = result.stdout.strip()
+    return commit or None
+
+
+def resolve_git_commit(explicit: str | None) -> str:
+    """
+    Resolve git commit with optional override, falling back to 'unknown'.
+    """
     if explicit:
         return explicit
-
-    head_path = REPO_ROOT / ".git" / "HEAD"
-    if not head_path.exists():
-        raise RuntimeError(
-            "git_commit is required when .git is unavailable; pass --git-commit."
-        )
-
-    head = head_path.read_text(encoding="utf-8").strip()
-    if head.startswith("ref:"):
-        ref = head.split(" ", 1)[1]
-        ref_path = REPO_ROOT / ".git" / ref
-        if not ref_path.exists():
-            raise RuntimeError("git_commit could not be resolved from .git/HEAD.")
-        return ref_path.read_text(encoding="utf-8").strip()
-
-    return head
+    detected = _detect_git_commit()
+    if detected:
+        return detected
+    print(
+        "[git] warning: unable to detect git commit; using 'unknown'. "
+        + "Pass --git-commit to record it."
+    )
+    return "unknown"
 
 
 def build_config(
@@ -164,7 +192,7 @@ def build_config(
         "weight_decay": weight_decay,
         "warmup_steps_pct": warmup_steps_pct,
         "data_csv": data_csv,
-        "git_commit": _resolve_git_commit(git_commit),
+        "git_commit": resolve_git_commit(git_commit),
     }
     run_id = _build_run_id(payload)
     return NERExperimentConfig(run_id=run_id, **payload)
@@ -231,7 +259,7 @@ def config_to_dict(config: NERExperimentConfig) -> dict[str, object]:
 
 def load_optuna_best_config(
     path: str | None = None,
-) -> dict[str, object]:
+) -> OptunaBestConfig:
     """
     Load frozen hyperparameters for experiment runs.
     """
@@ -277,7 +305,7 @@ def load_optuna_best_config(
             raise TypeError(f"{name} must be str, got {type(value).__name__}")
         return value
 
-    return {
+    payload: OptunaBestConfig = {
         "batch_size": _require_int(data["batch_size"], "batch_size"),
         "learning_rate": _require_float(data["learning_rate"], "learning_rate"),
         "train_subsample_window": _require_int(
@@ -296,3 +324,4 @@ def load_optuna_best_config(
             else DEFAULT_MODEL_NAME
         ),
     }
+    return payload

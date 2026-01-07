@@ -4,12 +4,13 @@ NER (Named Entity Recognition) models and datasets.
 This module contains PyTorch Lightning modules and datasets for NER tasks
 using transformer models with BIO tagging scheme.
 """
+
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false, reportUnnecessaryComparison=false
 
 # Standard library
 import os
 import re
-from typing import Protocol, TypedDict, cast
+from typing import Protocol, TYPE_CHECKING, TypedDict, cast
 import yaml
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
@@ -34,20 +35,25 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollatorForTokenClassification
 from transformers.optimization import get_linear_schedule_with_warmup
 
-try:
-    from .shared_constants import SPECIAL_TOKENS_TO_ADD
+if TYPE_CHECKING:
+    from .ner_constants import SPECIAL_TOKENS_TO_ADD
     from .postprocess_article import (
         apply_article_line_snapping,
         apply_article_regex_gating,
     )
-except ImportError:  # pragma: no cover - supports running as a script
-    from shared_constants import (  # pyright: ignore[reportMissingImports]
-        SPECIAL_TOKENS_TO_ADD,
-    )
-    from postprocess_article import (  # pyright: ignore[reportMissingImports]
-        apply_article_line_snapping,
-        apply_article_regex_gating,
-    )
+else:
+    try:
+        from .ner_constants import SPECIAL_TOKENS_TO_ADD
+        from .postprocess_article import (
+            apply_article_line_snapping,
+            apply_article_regex_gating,
+        )
+    except ImportError:  # pragma: no cover - supports running as a script
+        from ner_constants import SPECIAL_TOKENS_TO_ADD
+        from postprocess_article import (
+            apply_article_line_snapping,
+            apply_article_regex_gating,
+        )
 
 
 # ASCII-only, length-preserving lowercase (A-Z -> a-z)
@@ -188,12 +194,21 @@ def _process_document(
     return encoding_dict
 
 
+def _singleton_tag(typ: str) -> str:
+    # We intentionally do NOT support S-ARTICLE / S-SECTION
+    if typ in {"ARTICLE", "SECTION"}:
+        return f"E-{typ}"  # close immediately
+    return f"S-{typ}"
+
+
 def repair_bioes(tags: list[str]) -> list[str]:
     """
     Make a best-effort repair of illegal BIOES sequences.
     - Lone I-* without a preceding B-*: -> B-*
-    - E-* without open entity: -> S-*
-    - B-* followed directly by O or B-*: -> S-* (close immediately)
+    - E-* without open entity: -> S-*, unless Article or Section,
+        then E (ideally never happens)
+    - B-* followed directly by O or B-*: -> S-* (close immediately),
+        unless Article or Section, then E (ideally never happens)
     - I-* followed by O/B-*: -> E-* (close)
     """
     repaired = tags[:]
@@ -214,7 +229,7 @@ def repair_bioes(tags: list[str]) -> list[str]:
             # peek next
             nxt = repaired[i + 1] if i + 1 < len(repaired) else "O"
             if nxt.startswith(("O", "B", "S")):
-                repaired[i] = f"S-{typ}"
+                repaired[i] = _singleton_tag(typ)
                 open_type = None
             else:
                 open_type = typ
@@ -226,7 +241,7 @@ def repair_bioes(tags: list[str]) -> list[str]:
                 # same logic as B for immediate close
                 nxt = repaired[i + 1] if i + 1 < len(repaired) else "O"
                 if nxt.startswith(("O", "B", "S")):
-                    repaired[i] = f"S-{typ}"
+                    repaired[i] = _singleton_tag(typ)
                     open_type = None
                 else:
                     open_type = typ
@@ -239,7 +254,7 @@ def repair_bioes(tags: list[str]) -> list[str]:
 
         elif pref == "E":
             if open_type is None or typ != open_type:
-                repaired[i] = f"S-{typ}"
+                repaired[i] = _singleton_tag(typ)
                 open_type = None
             else:
                 open_type = None
@@ -296,7 +311,7 @@ def spans_to_tags(spans: list[tuple[int, int, str]], length: int) -> list[str]:
         if start < 0 or end >= length or end < start:
             raise ValueError("Span bounds are invalid for tag conversion.")
         if start == end:
-            tags[start] = f"S-{typ}"
+            tags[start] = _singleton_tag(typ)
             continue
         tags[start] = f"B-{typ}"
         for i in range(start + 1, end):
@@ -329,7 +344,7 @@ def apply_spans_to_tags(
                     i += 1
                 seg_end = i - 1
                 if seg_start == seg_end:
-                    updated[seg_start] = f"S-{typ}"
+                    updated[seg_start] = _singleton_tag(typ)
                 else:
                     updated[seg_start] = f"B-{typ}"
                     for j in range(seg_start + 1, seg_end):
@@ -337,7 +352,7 @@ def apply_spans_to_tags(
                     updated[seg_end] = f"E-{typ}"
             continue
         if start == end:
-            updated[start] = f"S-{typ}"
+            updated[start] = _singleton_tag(typ)
             continue
         updated[start] = f"B-{typ}"
         for i in range(start + 1, end):
@@ -609,7 +624,9 @@ class ValWindowedDataset(Dataset[dict[str, object]]):
 
             input_ids = cast(list[int], processed_doc["input_ids"])
             labels = cast(list[int], processed_doc["labels"])
-            offset_mapping = cast(list[tuple[int, int]], processed_doc["offset_mapping"])
+            offset_mapping = cast(
+                list[tuple[int, int]], processed_doc["offset_mapping"]
+            )
             cleaned_text = cast(str, processed_doc["cleaned_text"])
             num_tokens = len(input_ids)
 
@@ -620,7 +637,10 @@ class ValWindowedDataset(Dataset[dict[str, object]]):
                 label_chunk = labels[start:end]
                 offset_chunk = offset_mapping[start:end]
 
-                if self.tokenizer.cls_token_id is None or self.tokenizer.sep_token_id is None:
+                if (
+                    self.tokenizer.cls_token_id is None
+                    or self.tokenizer.sep_token_id is None
+                ):
                     raise RuntimeError("Tokenizer is missing CLS/SEP token ids.")
                 final_ids = (
                     [self.tokenizer.cls_token_id]
@@ -649,7 +669,7 @@ class ValWindowedDataset(Dataset[dict[str, object]]):
         return len(self.examples)
 
     def __getitem__(self, idx: int) -> dict[str, object]:
-        return self.examples[idx]
+        return dict(self.examples[idx])
 
     def collate_fn(self, features: list[dict[str, object]]) -> dict[str, object]:
         doc_ids = [f.pop("doc_id") for f in features]
@@ -791,7 +811,9 @@ class NERDataModule(pl.LightningDataModule):
     def val_dataloader(self) -> DataLoader[dict[str, object]]:
         """Returns DataLoader for validation set."""
         if self.val_dataset is None:
-            raise RuntimeError("Validation dataset not initialized. Call setup() first.")
+            raise RuntimeError(
+                "Validation dataset not initialized. Call setup() first."
+            )
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
@@ -895,6 +917,9 @@ class NERTagger(pl.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
+        self.learning_rate = float(learning_rate)
+        self.weight_decay = float(weight_decay)
+        self.warmup_steps_pct = float(warmup_steps_pct)
         self.num_labels = num_labels
         self.id2label = id2label
         self.label2id = {v: k for k, v in self.id2label.items()}
@@ -912,7 +937,9 @@ class NERTagger(pl.LightningModule):
         )
         self.model.resize_token_embeddings(len(self.tokenizer))
         self.model.train()
-        _ = _upgrade_token_head(self.model, self.num_labels, p_drop=0.1, hidden_mult=1.0)
+        _ = _upgrade_token_head(
+            self.model, self.num_labels, p_drop=0.1, hidden_mult=1.0
+        )
 
         self.ignore_index = -100
         class_weight_map: dict[str, float] = {}
@@ -929,7 +956,9 @@ class NERTagger(pl.LightningModule):
         class_weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
         print(
             "NER class weights: "
-            + ", ".join(f"{label} -> {weight:g}" for label, weight in class_weight_map.items())
+            + ", ".join(
+                f"{label} -> {weight:g}" for label, weight in class_weight_map.items()
+            )
         )
         self.class_weight_map = class_weight_map
         self.loss_fn = FocalLoss(
@@ -988,7 +1017,9 @@ class NERTagger(pl.LightningModule):
         self._doc_raw.clear()
         self._tok_offsets.clear()
 
-    def _accumulate_windows(self, batch: dict[str, object], logits: torch.Tensor) -> None:
+    def _accumulate_windows(
+        self, batch: dict[str, object], logits: torch.Tensor
+    ) -> None:
         doc_ids = cast(torch.Tensor, batch["doc_id"])
         window_starts = cast(torch.Tensor, batch["window_start"])
         attention_mask = cast(torch.Tensor, batch["attention_mask"])
@@ -1095,13 +1126,14 @@ class NERTagger(pl.LightningModule):
         mask = labels != self.ignore_index
 
         self.log(
-            "train_loss",
+            "train/loss",
             loss,
             prog_bar=True,
             on_step=True,
             on_epoch=True,
             batch_size=batch["input_ids"].shape[0],
         )
+        self._log_lr()
 
         if mask.any():
             self.train_f1(preds[mask], labels[mask])
@@ -1110,9 +1142,6 @@ class NERTagger(pl.LightningModule):
         return loss
 
     def on_train_epoch_end(self) -> None:
-        self.log("train_f1", self.train_f1.compute(), prog_bar=True)
-        self.log("train_f1_no_o", self.train_f1_no_o.compute(), prog_bar=True)
-
         self.train_f1.reset()
         self.train_f1_no_o.reset()
 
@@ -1147,9 +1176,7 @@ class NERTagger(pl.LightningModule):
     def on_validation_epoch_start(self) -> None:
         self._reset_eval_buffers()
 
-    def validation_step(
-        self, batch: dict[str, object], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: dict[str, object], batch_idx: int) -> torch.Tensor:
         input_ids = cast(torch.Tensor, batch["input_ids"])
         attention_mask = cast(torch.Tensor, batch["attention_mask"])
         labels = cast(torch.Tensor, batch["labels"])
@@ -1165,7 +1192,7 @@ class NERTagger(pl.LightningModule):
             self.val_f1_no_o(preds[mask], labels[mask])
 
         self.log(
-            "val_loss",
+            "val/loss",
             loss,
             prog_bar=True,
             on_step=False,
@@ -1178,51 +1205,32 @@ class NERTagger(pl.LightningModule):
         return loss
 
     def on_validation_epoch_end(self) -> None:
-        # Window-level
-        self.log("val_f1_no_o", self.val_f1_no_o.compute(), prog_bar=True)
-
         self.val_f1_no_o.reset()
 
-        # ---- Entity-level (stitched) ----
-        tp = fp = fn = 0
-        for doc_id, sum_logits in self._tok_sum.items():
-            cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
-            avg_logits = sum_logits / cnt
-            # pred_ids = avg_logits.argmax(dim=-1)  # [T]
-            pred_ids = self._viterbi_constrained_doc(avg_logits)  # [T]
-            gold_ids = self._tok_gold[doc_id]  # [T]
-            mask = gold_ids != self.ignore_index
+        metrics_bundle = self._compute_variant_metrics()
+        if metrics_bundle is None:
+            self.log(
+                "val_ent_f1",
+                0.0,
+                logger=False,
+                prog_bar=False,
+                on_step=False,
+                on_epoch=True,
+            )
+            return
+        metrics_raw, metrics_regex, metrics_snap = metrics_bundle
 
-            if not mask.any():
-                continue
-
-            # keep only first-subword positions (gold defined there)
-            pred_ids = pred_ids[mask].tolist()
-            gold_ids = gold_ids[mask].tolist()
-
-            pred_tags = [self.id2label[i] for i in pred_ids]
-            gold_tags = [self.id2label[i] for i in gold_ids]
-
-            # optional repair on predictions
-            pred_tags = repair_bioes(pred_tags)
-
-            pred_spans = tags_to_spans(pred_tags)
-            gold_spans = tags_to_spans(gold_tags)
-
-            tpi, fpi, fni = prf1_from_spans(pred_spans, gold_spans)
-            tp += tpi
-            fp += fpi
-            fn += fni
-
-        if tp + fp + fn > 0:
-            prec = tp / (tp + fp) if (tp + fp) else 0.0
-            rec = tp / (tp + fn) if (tp + fn) else 0.0
-            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
-        else:
-            prec = rec = f1 = 0.0
-        self.log("val_ent_precision", prec)
-        self.log("val_ent_recall", rec)
-        self.log("val_ent_f1", f1, prog_bar=True)
+        val_ent_f1 = self._log_headline_metrics(
+            "val", metrics_raw, metrics_regex, metrics_snap
+        )
+        self.log(
+            "val_ent_f1",
+            val_ent_f1,
+            logger=False,
+            prog_bar=False,
+            on_step=False,
+            on_epoch=True,
+        )
 
     def on_test_epoch_start(self) -> None:
         self._reset_eval_buffers()
@@ -1236,15 +1244,6 @@ class NERTagger(pl.LightningModule):
         logits = outputs.logits
         loss = self.loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
 
-        self.log(
-            "test_loss",
-            loss,
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-            batch_size=input_ids.shape[0],
-        )
-
         self._accumulate_windows(batch, logits)
         return loss
 
@@ -1252,9 +1251,7 @@ class NERTagger(pl.LightningModule):
         self, pred_ids: list[int], gold_ids: list[int]
     ) -> dict[str, object]:
         labels = [self.id2label[i] for i in range(self.num_labels)]
-        counts = {
-            label: {"tp": 0, "fp": 0, "fn": 0, "support": 0} for label in labels
-        }
+        counts = {label: {"tp": 0, "fp": 0, "fn": 0, "support": 0} for label in labels}
         correct = 0
         total = 0
         for p, g in zip(pred_ids, gold_ids):
@@ -1294,9 +1291,7 @@ class NERTagger(pl.LightningModule):
 
         def _macro(label_names: list[str]) -> dict[str, float]:
             vals = [
-                per_label[l]["f1"]
-                for l in label_names
-                if per_label[l]["support"] > 0
+                per_label[l]["f1"] for l in label_names if per_label[l]["support"] > 0
             ]
             if not vals:
                 return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
@@ -1418,9 +1413,7 @@ class NERTagger(pl.LightningModule):
         non_article_spans = [s for s in spans_snap if s[2] != "ARTICLE"]
         article_spans = [s for s in spans_snap if s[2] == "ARTICLE"]
         tags_snap = spans_to_tags(non_article_spans, len(pred_tags))
-        tags_snap = apply_spans_to_tags(
-            tags_snap, article_spans, allow_overwrite=False
-        )
+        tags_snap = apply_spans_to_tags(tags_snap, article_spans, allow_overwrite=False)
         return tags_regex, tags_snap
 
     def _compute_eval_metrics(
@@ -1500,17 +1493,14 @@ class NERTagger(pl.LightningModule):
 
         micro_prec, micro_rec, micro_f1 = _prf(tp_total, fp_total, fn_total)
         if types_with_support:
-            macro_prec = (
-                sum(per_type[t]["precision"] for t in types_with_support)
-                / len(types_with_support)
+            macro_prec = sum(
+                per_type[t]["precision"] for t in types_with_support
+            ) / len(types_with_support)
+            macro_rec = sum(per_type[t]["recall"] for t in types_with_support) / len(
+                types_with_support
             )
-            macro_rec = (
-                sum(per_type[t]["recall"] for t in types_with_support)
-                / len(types_with_support)
-            )
-            macro_f1 = (
-                sum(per_type[t]["f1"] for t in types_with_support)
-                / len(types_with_support)
+            macro_f1 = sum(per_type[t]["f1"] for t in types_with_support) / len(
+                types_with_support
             )
         else:
             macro_prec = macro_rec = macro_f1 = 0.0
@@ -1543,18 +1533,15 @@ class NERTagger(pl.LightningModule):
             tp_total_len, fp_total_len, fn_total_len
         )
         if types_with_support_len:
-            macro_prec_len = (
-                sum(per_type_len[t]["precision"] for t in types_with_support_len)
-                / len(types_with_support_len)
-            )
-            macro_rec_len = (
-                sum(per_type_len[t]["recall"] for t in types_with_support_len)
-                / len(types_with_support_len)
-            )
-            macro_f1_len = (
-                sum(per_type_len[t]["f1"] for t in types_with_support_len)
-                / len(types_with_support_len)
-            )
+            macro_prec_len = sum(
+                per_type_len[t]["precision"] for t in types_with_support_len
+            ) / len(types_with_support_len)
+            macro_rec_len = sum(
+                per_type_len[t]["recall"] for t in types_with_support_len
+            ) / len(types_with_support_len)
+            macro_f1_len = sum(
+                per_type_len[t]["f1"] for t in types_with_support_len
+            ) / len(types_with_support_len)
         else:
             macro_prec_len = macro_rec_len = macro_f1_len = 0.0
 
@@ -1602,6 +1589,59 @@ class NERTagger(pl.LightningModule):
         return {"token_level": token_metrics, "entity_level": entity_metrics}
 
     def on_test_epoch_end(self) -> None:
+        metrics_bundle = self._compute_variant_metrics()
+        if metrics_bundle is None:
+            return
+        metrics_raw, metrics_regex, metrics_snap = metrics_bundle
+        prefix = cast(str, getattr(self, "eval_log_prefix", "test"))
+        _ = self._log_headline_metrics(prefix, metrics_raw, metrics_regex, metrics_snap)
+
+        gating_mode = cast(str, getattr(self.hparams, "gating_mode", "raw"))
+        if gating_mode == "regex+snap":
+            gating_mode = "snap"
+        variants = {
+            "raw": metrics_raw,
+            "regex": metrics_regex,
+            "snap": metrics_snap,
+        }
+        metrics = {
+            "variants": variants,
+            "primary_variant": gating_mode,
+            "primary": variants.get(gating_mode, metrics_raw),
+            "class_weights": {
+                "article": float(getattr(self.hparams, "article_class_weight", 3.0)),
+                "default": float(getattr(self.hparams, "default_class_weight", 1.0)),
+                "by_label": self.class_weight_map,
+            },
+        }
+
+        metrics_dir = cast(
+            str | None, getattr(self.hparams, "metrics_output_dir", None)
+        )
+        if metrics_dir is None:
+            return
+        if metrics_dir == "":
+            metrics_dir = "."
+        metrics_name = cast(
+            str, getattr(self.hparams, "metrics_output_name", "ner_test_metrics.yaml")
+        )
+        path = os.path.join(metrics_dir, metrics_name)
+        os.makedirs(metrics_dir, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(metrics, f, sort_keys=False)
+        self.test_metrics = cast(dict[str, object], metrics)
+
+    def _log_lr(self) -> None:
+        if not self.trainer or not self.trainer.optimizers:
+            return
+        lr = self.trainer.optimizers[0].param_groups[0].get("lr")
+        if lr is None:
+            return
+        self.log("lr", lr, prog_bar=False, on_step=True, on_epoch=False)
+
+    def _compute_variant_metrics(
+        self,
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object]] | None:
         pred_tags_by_doc_raw: dict[int, list[str]] = {}
         pred_tags_by_doc_regex: dict[int, list[str]] = {}
         pred_tags_by_doc_snap: dict[int, list[str]] = {}
@@ -1625,17 +1665,15 @@ class NERTagger(pl.LightningModule):
 
             offsets_full = self._tok_offsets.get(doc_id)
             if offsets_full is None:
-                raise RuntimeError("Missing token offsets for test evaluation.")
+                raise RuntimeError("Missing token offsets for evaluation.")
             mask_list = cast(list[bool], mask.tolist())
-            offsets_masked = [
-                off for off, keep in zip(offsets_full, mask_list) if keep
-            ]
+            offsets_masked = [off for off, keep in zip(offsets_full, mask_list) if keep]
             if len(offsets_masked) != len(pred_tags):
                 raise RuntimeError("Token offsets do not align with tag sequence.")
 
             raw_text = self._doc_raw.get(doc_id)
             if raw_text is None:
-                raise RuntimeError("Missing raw text for test evaluation.")
+                raise RuntimeError("Missing raw text for evaluation.")
 
             tags_regex, tags_snap = self._build_article_variants(
                 pred_tags, raw_text, offsets_masked
@@ -1646,60 +1684,45 @@ class NERTagger(pl.LightningModule):
             pred_tags_by_doc_snap[doc_id] = tags_snap
             gold_tags_by_doc[doc_id] = gold_tags
 
-        metrics_raw = self._compute_eval_metrics(
-            pred_tags_by_doc_raw, gold_tags_by_doc
-        )
+        metrics_raw = self._compute_eval_metrics(pred_tags_by_doc_raw, gold_tags_by_doc)
         if not metrics_raw:
-            return
+            return None
         metrics_regex = self._compute_eval_metrics(
             pred_tags_by_doc_regex, gold_tags_by_doc
         )
         metrics_snap = self._compute_eval_metrics(
             pred_tags_by_doc_snap, gold_tags_by_doc
         )
+        return metrics_raw, metrics_regex, metrics_snap
 
-        entity_raw = cast(dict[str, object], metrics_raw["entity_level"])
-        micro_raw = cast(dict[str, float], entity_raw["micro"])
-        lenient_raw = cast(dict[str, object], entity_raw["lenient"])
-        micro_lenient_raw = cast(dict[str, float], lenient_raw["micro"])
-        nonempty_raw = cast(dict[str, float], entity_raw["nonempty_micro"])
-        nonempty_len_raw = cast(dict[str, float], entity_raw["nonempty_micro_lenient"])
-
-        self.log("test_ent_f1", micro_raw["f1"], prog_bar=True)
-        self.log("test_ent_f1_lenient", micro_lenient_raw["f1"], prog_bar=True)
-        self.log("test_ent_f1_nonempty", nonempty_raw["f1"], prog_bar=True)
-        self.log("test_ent_f1_nonempty_lenient", nonempty_len_raw["f1"], prog_bar=True)
-
-        gating_mode = cast(str, getattr(self.hparams, "gating_mode", "raw"))
-        if gating_mode == "regex+snap":
-            gating_mode = "snap"
+    def _log_headline_metrics(
+        self,
+        prefix: str,
+        metrics_raw: dict[str, object],
+        metrics_regex: dict[str, object],
+        metrics_snap: dict[str, object],
+    ) -> float:
         variants = {
             "raw": metrics_raw,
             "regex": metrics_regex,
             "snap": metrics_snap,
         }
-        metrics = {
-            "variants": variants,
-            "primary_variant": gating_mode,
-            "primary": variants.get(gating_mode, metrics_raw),
-            "class_weights": {
-                "article": float(getattr(self.hparams, "article_class_weight", 3.0)),
-                "default": float(getattr(self.hparams, "default_class_weight", 1.0)),
-                "by_label": self.class_weight_map,
-            },
-        }
+        headline: dict[str, float] = {}
+        for key, metrics in variants.items():
+            entity_level = cast(dict[str, object], metrics["entity_level"])
+            micro = cast(dict[str, float], entity_level["micro"])
+            per_type = cast(dict[str, dict[str, float]], entity_level["per_type"])
+            article_metrics = per_type.get("ARTICLE", {"f1": 0.0, "recall": 0.0})
+            headline[f"{prefix}/entity_strict_f1_{key}"] = float(micro["f1"])
+            headline[f"{prefix}/article_strict_f1_{key}"] = float(article_metrics["f1"])
+            headline[f"{prefix}/article_strict_recall_{key}"] = float(
+                article_metrics["recall"]
+            )
 
-        metrics_dir = cast(str | None, getattr(self.hparams, "metrics_output_dir", None))
-        if metrics_dir is None:
-            return
-        if metrics_dir == "":
-            metrics_dir = "."
-        metrics_name = cast(str, getattr(self.hparams, "metrics_output_name", "ner_test_metrics.yaml"))
-        path = os.path.join(metrics_dir, metrics_name)
-        os.makedirs(metrics_dir, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(metrics, f, sort_keys=False)
-        self.test_metrics = cast(dict[str, object], metrics)
+        for name, value in headline.items():
+            self.log(name, value, prog_bar=True, on_epoch=True)
+
+        return float(headline[f"{prefix}/entity_strict_f1_raw"])
 
     # ----------------- OPTIM -----------------
     def configure_optimizers(self) -> tuple[list[Optimizer], list[LRSchedulerConfig]]:
@@ -1731,6 +1754,7 @@ class NERTagger(pl.LightningModule):
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
         )
         scheduler_dict = cast(
-            LRSchedulerConfig, cast(object, {"scheduler": scheduler, "interval": "step"})
+            LRSchedulerConfig,
+            cast(object, {"scheduler": scheduler, "interval": "step"}),
         )
         return [optimizer], [scheduler_dict]

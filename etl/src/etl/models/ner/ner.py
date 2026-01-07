@@ -7,6 +7,7 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
 # Standard library
+import argparse
 import csv
 import hashlib
 import json
@@ -51,37 +52,67 @@ if TYPE_CHECKING:
     from .config import (
         NERExperimentConfig,
         OPTUNA_BEST_CONFIG_PATH,
+        build_config,
         config_to_dict,
+        load_optuna_best_config,
+        resolve_git_commit,
     )
-    from .shared_constants import (
+    from .ner_constants import (
         NER_LABEL_LIST,
         NER_CKPT_PATH,
         SPECIAL_TOKENS_TO_ADD,
+    )
+    from .utils.paths import (
+        CONFIG_NER_DIR,
+        DATA_NER_DIR,
+        EVAL_NER_DIR,
+        LOG_NER_DIR,
+        get_job_id,
     )
     from .ner_classes import NERTagger, NERDataModule, ascii_lower
 else:
     try:
         from .config import (
-            NERExperimentConfig,
-            OPTUNA_BEST_CONFIG_PATH,
-            config_to_dict,
+        NERExperimentConfig,
+        OPTUNA_BEST_CONFIG_PATH,
+        build_config,
+        config_to_dict,
+        load_optuna_best_config,
+        resolve_git_commit,
         )
-        from .shared_constants import (
+        from .ner_constants import (
             NER_LABEL_LIST,
             NER_CKPT_PATH,
             SPECIAL_TOKENS_TO_ADD,
+        )
+        from .utils.paths import (
+            CONFIG_NER_DIR,
+            DATA_NER_DIR,
+            EVAL_NER_DIR,
+            LOG_NER_DIR,
+            get_job_id,
         )
         from .ner_classes import NERTagger, NERDataModule, ascii_lower
     except ImportError:  # pragma: no cover - supports running as a script
         from config import (
-            NERExperimentConfig,
-            OPTUNA_BEST_CONFIG_PATH,
-            config_to_dict,
+        NERExperimentConfig,
+        OPTUNA_BEST_CONFIG_PATH,
+        build_config,
+        config_to_dict,
+        load_optuna_best_config,
+        resolve_git_commit,
         )
-        from shared_constants import (
+        from ner_constants import (
             NER_LABEL_LIST,
             NER_CKPT_PATH,
             SPECIAL_TOKENS_TO_ADD,
+        )
+        from utils.paths import (
+            CONFIG_NER_DIR,
+            DATA_NER_DIR,
+            EVAL_NER_DIR,
+            LOG_NER_DIR,
+            get_job_id,
         )
         from ner_classes import (
             NERTagger,
@@ -90,18 +121,13 @@ else:
         )
 
 PrecisionInput = Literal["bf16-mixed", "32-true"]
+EvalSplit = Literal["val", "test"]
 WindowItem: TypeAlias = dict[str, list[int]]
 
 # Reproducibility
 _ = seed_everything(42, workers=True, verbose=False)
 
-CODE_DIR = os.path.dirname(__file__)
-REPO_ROOT = os.path.normpath(os.path.join(CODE_DIR, "../../../../.."))
-EVAL_METRICS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../eval_metrics"))
-DATA_DIR = os.path.normpath(os.path.join(CODE_DIR, "../data"))
-CONFIGS_DIR = os.path.normpath(os.path.join(CODE_DIR, "../configs"))
-MODEL_FILES_DIR = os.path.normpath(os.path.join(CODE_DIR, "../model_files"))
-NER_SPLIT_PATH = os.path.join(DATA_DIR, "ner-page-splits.json")
+SPLITS_DIR = CONFIG_NER_DIR / "splits"
 
 NER_LABELS: list[str] = [str(label) for label in NER_LABEL_LIST]
 NER_CKPT: str = str(NER_CKPT_PATH)
@@ -110,9 +136,8 @@ YEAR_WINDOW = 5
 
 
 def _split_path_for_version(split_version: str) -> str:
-    if split_version in ("", "default"):
-        return NER_SPLIT_PATH
-    return os.path.join(DATA_DIR, f"ner-page-splits-{split_version}.json")
+    version = split_version.strip() or "default"
+    return str(SPLITS_DIR / f"ner-page-splits-{version}.json")
 
 
 def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
@@ -124,11 +149,20 @@ def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
     return [pid for _, pid in keyed]
 
 
-def _metrics_dir_for_job(base_dir: str) -> str:
-    job_id = os.environ.get("SLURM_JOB_ID")
-    if not job_id:
-        raise RuntimeError("SLURM_JOB_ID is required to write eval metrics on HPC.")
-    return os.path.join(base_dir, job_id)
+def _eval_job_dir() -> str:
+    return str(EVAL_NER_DIR / get_job_id())
+
+
+def _eval_trials_dir() -> str:
+    return os.path.join(_eval_job_dir(), "ner_trials")
+
+
+def _eval_runs_dir() -> str:
+    return os.path.join(_eval_job_dir(), "runs")
+
+
+def _log_dir(stage: str) -> str:
+    return str(LOG_NER_DIR / stage / get_job_id())
 
 
 def _write_optuna_best_config(
@@ -150,7 +184,9 @@ def _write_optuna_best_config(
         "model_name": model_name,
     }
     path = str(OPTUNA_BEST_CONFIG_PATH)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dirpath = os.path.dirname(path)
+    if dirpath:
+        os.makedirs(dirpath, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(payload, f, sort_keys=False)
     print(f"[optuna] wrote best hyperparameters to {path}")
@@ -220,7 +256,7 @@ class NERTrainer:
         self.train_data: list[str] = []
         self.val_data: list[str] = []
         self.test_data: list[str] = []
-        self.metrics_output_dir = _metrics_dir_for_job(EVAL_METRICS_DIR)
+        self.metrics_output_dir = _eval_trials_dir()
 
     def _load_data(self) -> None:
         """
@@ -281,24 +317,27 @@ class NERTrainer:
                     f"train_docs={self.train_docs} exceeds available train ids ({len(train_ids_sorted)})."
                 )
             train_ids_sorted = train_ids_sorted[: self.train_docs]
-        train_df = df[df["page_uuid"].astype(str).isin(set(train_ids_sorted))]
-        val_df = df[df["page_uuid"].astype(str).isin(val_ids)]
-        test_df = df[df["page_uuid"].astype(str).isin(test_ids)]
+        train_df = df[df["page_uuid"].astype(str).isin(list(train_ids_sorted))]
+        val_df = df[df["page_uuid"].astype(str).isin(list(val_ids))]
+        test_df = df[df["page_uuid"].astype(str).isin(list(test_ids))]
 
         if train_ids & val_ids or train_ids & test_ids or val_ids & test_ids:
             raise ValueError("Split manifest has overlapping page_uuid values.")
-        if not train_df["article_upsample"].any():
+        train_upsample_any = bool(train_df["article_upsample"].any())
+        if not train_upsample_any:
             print("[split] warning: no article_upsample rows in train split.")
-        if val_df["article_upsample"].any() or test_df["article_upsample"].any():
+        val_upsample_any = bool(val_df["article_upsample"].any())
+        test_upsample_any = bool(test_df["article_upsample"].any())
+        if val_upsample_any or test_upsample_any:
             raise ValueError("Split manifest contains article_upsample rows in val/test.")
 
         print(
             f"Splits -> train: {train_df.shape}, val: {val_df.shape}, test: {test_df.shape}"
         )
 
-        self.train_data = train_df["tagged_text"].to_list()
-        self.val_data = val_df["tagged_text"].to_list()
-        self.test_data = test_df["tagged_text"].to_list()
+        self.train_data = train_df["tagged_text"].tolist()
+        self.val_data = val_df["tagged_text"].tolist()
+        self.test_data = test_df["tagged_text"].tolist()
 
     def _load_or_build_split(
         self, df: pd.DataFrame, split_path: str, seed: int
@@ -324,20 +363,21 @@ class NERTrainer:
         if total_split >= 1.0:
             raise ValueError("val_split + test_split must be < 1.0")
 
-        base_df = df[~df["article_upsample"]].copy()
-        if base_df.empty:
+        base_df = cast(pd.DataFrame, df[~df["article_upsample"]].copy())
+        if len(base_df) == 0:
             raise ValueError("No base rows (article_upsample=False) available for val/test.")
 
         strat_cols = ["announcement_window", "tagged_section", "tagged_article"]
         rare_mask = (base_df["tagged_article"] == 1) & (base_df["tagged_section"] == 0)
-        rare_df = base_df[rare_mask].copy()
-        main_df = base_df[~rare_mask].copy()
+        rare_df = cast(pd.DataFrame, base_df[rare_mask].copy())
+        main_df = cast(pd.DataFrame, base_df[~rare_mask].copy())
 
-        empty_df = base_df.iloc[0:0].copy()
-        if main_df.empty:
+        empty_df: pd.DataFrame = base_df.iloc[0:0].copy()
+        if len(main_df) == 0:
             train_main_df, holdout_main_df = empty_df, empty_df
         else:
-            main_strat = main_df[strat_cols].astype(str).agg("_".join, axis=1)
+            main_df_subset = cast(pd.DataFrame, main_df[strat_cols])
+            main_strat = main_df_subset.astype(str).agg("_".join, axis=1)
             train_main_df, holdout_main_df = cast(
                 tuple[pd.DataFrame, pd.DataFrame],
                 cast(
@@ -351,7 +391,7 @@ class NERTrainer:
                 ),
             )
 
-        if rare_df.empty:
+        if len(rare_df) == 0:
             rare_train_df, rare_holdout_df = empty_df, empty_df
         else:
             rare_train_df, rare_holdout_df = cast(
@@ -370,10 +410,12 @@ class NERTrainer:
         train_base_df = pd.concat(
             [train_main_df, rare_train_df], ignore_index=True
         )
-        if holdout_main_df.empty:
+        holdout_main_df: pd.DataFrame = holdout_main_df
+        if len(holdout_main_df) == 0:
             val_main_df, test_main_df = empty_df, empty_df
         else:
-            holdout_strat = holdout_main_df[strat_cols].astype(str).agg("_".join, axis=1)
+            holdout_df_subset = cast(pd.DataFrame, holdout_main_df[strat_cols])
+            holdout_strat = holdout_df_subset.astype(str).agg("_".join, axis=1)
             val_main_df, test_main_df = cast(
                 tuple[pd.DataFrame, pd.DataFrame],
                 cast(
@@ -387,7 +429,8 @@ class NERTrainer:
                 ),
             )
 
-        if rare_holdout_df.empty:
+        rare_holdout_df: pd.DataFrame = rare_holdout_df
+        if len(rare_holdout_df) == 0:
             rare_val_df, rare_test_df = empty_df, empty_df
         else:
             rare_val_df, rare_test_df = cast(
@@ -423,7 +466,7 @@ class NERTrainer:
                 "year_window": YEAR_WINDOW,
             },
         }
-        os.makedirs(DATA_DIR, exist_ok=True)
+        os.makedirs(os.path.dirname(split_path), exist_ok=True)
         with open(split_path, "w", encoding="utf-8") as f:
             json.dump(split, f, indent=2, sort_keys=True)
         print(f"[split] wrote NER split manifest to {split_path}")
@@ -578,11 +621,10 @@ class NERTrainer:
             accelerator=self.device,
             precision=self._trainer_precision(),
             devices=1,
-            logger=TensorBoardLogger("tb_logs", name="ner/optuna"),
+            logger=TensorBoardLogger(_log_dir("optuna"), name="", version=""),
             callbacks=[
                 checkpoint_callback,
                 early_stop_callback,
-                lr_monitor,
                 progress_bar_callback,
                 *pruning_callback,
             ],
@@ -618,6 +660,10 @@ class NERTrainer:
 
         return val_ent_f1
 
+    def objective(self, trial: Trial) -> float:
+        """Public wrapper for Optuna objective."""
+        return self._objective(trial)
+
     def run(self) -> None:
         """Execute hyperparameter optimization and final training."""
         _ = seed_everything(self.seed, workers=True, verbose=False)
@@ -647,7 +693,7 @@ class NERTrainer:
         (
             checkpoint_callback,
             early_stop_callback,
-            lr_monitor,
+            _lr_monitor,
             progress_bar_callback,
             _,
         ) = self._get_callbacks(ckpt=NER_CKPT)
@@ -657,11 +703,10 @@ class NERTrainer:
             accelerator=self.device,
             devices=1,
             precision=self._trainer_precision(),
-            logger=TensorBoardLogger("tb_logs", name="ner/final"),
+            logger=TensorBoardLogger(_log_dir("final"), name="", version=""),
             callbacks=[
                 checkpoint_callback,
                 early_stop_callback,
-                lr_monitor,
                 progress_bar_callback,
             ],
             log_every_n_steps=10,
@@ -1104,6 +1149,7 @@ def _metrics_with_suffix(
 
 
 def _append_experiment_row(csv_path: str, row: dict[str, object]) -> None:
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     file_exists = os.path.exists(csv_path)
     fieldnames = list(row.keys())
     if file_exists:
@@ -1122,13 +1168,110 @@ def _append_experiment_row(csv_path: str, row: dict[str, object]) -> None:
         writer.writerow(row)
 
 
-def run_experiment(config: "NERExperimentConfig") -> dict[str, object]:
+def load_grid_row(row_id: int, grid_path: str | None = None) -> dict[str, str]:
     """
-    Train and evaluate a single NER experiment configuration.
+    Load a single grid row by row_id.
     """
-    slurm_job_id = os.environ.get("SLURM_JOB_ID")
-    if not slurm_job_id:
-        raise RuntimeError("SLURM_JOB_ID is required for experiment logging.")
+    path = grid_path or str(CONFIG_NER_DIR / "grid.csv")
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if int(row["row_id"]) == row_id:
+                return cast(dict[str, str], row)
+    raise ValueError(f"row_id {row_id} not found in {path}")
+
+
+def run_hparam_tuning(
+    *,
+    data_csv: str,
+    model_name: str,
+    num_trials: int,
+    max_epochs: int,
+    split_version: str,
+    seed: int,
+    val_window: int = 510,
+    val_stride: int = 256,
+    git_commit: str | None = None,
+) -> dict[str, float | int]:
+    """
+    Run Optuna tuning on train/val, write optuna_best_config.yaml, and retrain final model.
+    """
+    _ = resolve_git_commit(git_commit)
+    ner_trainer = NERTrainer(
+        data_csv=data_csv,
+        model_name=model_name,
+        label_list=NER_LABELS,
+        num_trials=num_trials,
+        max_epochs=max_epochs,
+        split_version=split_version,
+        seed=seed,
+        article_class_weight=1.0,
+        gating_mode="raw",
+        val_window=val_window,
+        val_stride=val_stride,
+    )
+    ner_trainer.load_data()
+
+    study = create_study(direction="maximize")
+    study.optimize(ner_trainer.objective, n_trials=num_trials, gc_after_trial=True)
+
+    print("Finished hyperparameter optimization 👉")
+    print(f"  Best val_ent_f1: {study.best_value:.4f}")
+    print("  Best hyperparameters:")
+    best_params = cast(dict[str, float | int], study.best_trial.params)
+    for key, value in best_params.items():
+        print(f"    • {key}: {value}")
+    _write_optuna_best_config(
+        best_params, model_name, max_epochs, val_window, val_stride
+    )
+
+    # Retrain best model to get its checkpoint on disk
+    print("\nRetraining final model with best hyperparameters...")
+    data_module, model = ner_trainer.build(
+        best_params, metrics_output_name="ner_test_metrics_final.yaml"
+    )
+    (
+        checkpoint_callback,
+        early_stop_callback,
+        _lr_monitor,
+        progress_bar_callback,
+        _,
+    ) = ner_trainer.get_callbacks(ckpt=NER_CKPT)
+
+    trainer = pl.Trainer(
+        max_epochs=max_epochs,
+        accelerator=ner_trainer.device,
+        devices=1,
+        precision=ner_trainer.trainer_precision(),
+        logger=TensorBoardLogger(_log_dir("final"), name="", version=""),
+        callbacks=[
+            checkpoint_callback,
+            early_stop_callback,
+            progress_bar_callback,
+        ],
+        log_every_n_steps=10,
+    )
+    trainer.fit(model, datamodule=data_module)
+    _ = trainer.test(model, datamodule=data_module, ckpt_path=NER_CKPT)
+
+    return best_params
+
+
+def run_training_and_eval(
+    config: "NERExperimentConfig",
+    *,
+    eval_split: EvalSplit = "val",
+    run_test: bool = True,
+    run_dir: str | None = None,
+    ckpt_path: str | None = None,
+    metrics_output_name: str = "metrics.yaml",
+    log_experiment: bool = True,
+    log_stage: str = "experiments",
+) -> dict[str, object] | None:
+    """
+    Train a model and optionally evaluate on the requested split.
+    """
+    slurm_job_id = get_job_id()
 
     _ = seed_everything(config.seed, workers=True, verbose=False)
 
@@ -1148,12 +1291,20 @@ def run_experiment(config: "NERExperimentConfig") -> dict[str, object]:
     )
     ner_trainer.load_data()
 
-    run_dir = os.path.join(ner_trainer.metrics_output_dir, config.run_id)
+    run_dir = run_dir or os.path.join(_eval_runs_dir(), config.run_id)
     os.makedirs(run_dir, exist_ok=True)
     ner_trainer.metrics_output_dir = run_dir
 
-    ckpt_dir = os.path.join(MODEL_FILES_DIR, "ner_experiments", config.run_id)
-    os.makedirs(ckpt_dir, exist_ok=True)
+    ckpt_path = ckpt_path or os.path.join(run_dir, "best.ckpt")
+    if ckpt_path:
+        os.makedirs(os.path.dirname(ckpt_path), exist_ok=True)
+
+    eval_data = ner_trainer.val_data if eval_split == "val" else ner_trainer.test_data
+    if run_test and not eval_data:
+        raise RuntimeError(f"No {eval_split} data available for evaluation.")
+    original_test_data = ner_trainer.test_data
+    if run_test:
+        ner_trainer.test_data = eval_data
 
     params = {
         "lr": config.learning_rate,
@@ -1164,12 +1315,13 @@ def run_experiment(config: "NERExperimentConfig") -> dict[str, object]:
         "weight_decay": config.weight_decay,
         "warmup_steps_pct": config.warmup_steps_pct,
     }
-    data_module, model = ner_trainer.build(params, metrics_output_name="metrics.yaml")
-    ckpt_path = os.path.join(ckpt_dir, "best.ckpt")
+    data_module, model = ner_trainer.build(
+        params, metrics_output_name=metrics_output_name
+    )
     (
         checkpoint_callback,
         early_stop_callback,
-        lr_monitor,
+        _lr_monitor,
         progress_bar_callback,
         _,
     ) = ner_trainer.get_callbacks(ckpt=ckpt_path)
@@ -1179,100 +1331,304 @@ def run_experiment(config: "NERExperimentConfig") -> dict[str, object]:
         accelerator=ner_trainer.device,
         precision=ner_trainer.trainer_precision(),
         devices=1,
-        logger=TensorBoardLogger("tb_logs", name="ner/experiments", version=config.run_id),
+        logger=TensorBoardLogger(
+            _log_dir(log_stage),
+            name="",
+            version=config.run_id,
+        ),
         callbacks=[
             checkpoint_callback,
             early_stop_callback,
-            lr_monitor,
             progress_bar_callback,
         ],
         log_every_n_steps=10,
         deterministic=True,
     )
     trainer.fit(model, datamodule=data_module)
-    _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
 
-    metrics = cast(dict[str, object], getattr(model, "test_metrics", None))
-    if not metrics:
-        raise RuntimeError("Test metrics were not captured from the model.")
-
-    config_dir = os.path.join(CONFIGS_DIR, "ner_experiments", config.run_id)
-    os.makedirs(config_dir, exist_ok=True)
-    config_path = os.path.join(config_dir, "config.yaml")
+    config_payload = config_to_dict(config)
+    config_payload["eval_split"] = eval_split if run_test else None
+    if log_stage == "final":
+        config_payload["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    config_path = os.path.join(run_dir, "config.yaml")
     with open(config_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(config_to_dict(config), f, sort_keys=False)
+        yaml.safe_dump(config_payload, f, sort_keys=False)
+    if log_stage == "final":
+        run_id_path = os.path.join(run_dir, "run_id.txt")
+        with open(run_id_path, "w", encoding="utf-8") as f:
+            _ = f.write(f"{config.run_id}\n")
 
-    metrics_path = os.path.join(run_dir, "metrics.json")
-    with open(metrics_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2, sort_keys=False)
+    metrics: dict[str, object] | None = None
+    if run_test:
+        setattr(model, "eval_log_prefix", eval_split)
+        _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
+        metrics = cast(dict[str, object], getattr(model, "test_metrics", None))
+        if not metrics:
+            raise RuntimeError("Test metrics were not captured from the model.")
 
-    variants = cast(dict[str, dict[str, object]], metrics.get("variants", {}))
-    flat_metrics: dict[str, float] = {}
-    for variant_key in ("raw", "regex", "snap"):
-        if variant_key in variants:
-            flat_metrics.update(_metrics_with_suffix(variants[variant_key], variant_key))
+        metrics_path = os.path.join(run_dir, "metrics.json")
+        with open(metrics_path, "w", encoding="utf-8") as f:
+            json.dump(metrics, f, indent=2, sort_keys=False)
 
-    row: dict[str, object] = {
-        "run_id": config.run_id,
-        "slurm_job_id": slurm_job_id,
-        "git_commit": config.git_commit,
-        "split_version": config.split_version,
-        "train_docs": config.train_docs,
-        "article_weight": config.article_weight,
-        "gating_mode": config.gating_mode,
-        "seed": config.seed,
-        "run_dir": run_dir,
-        **flat_metrics,
-    }
-    os.makedirs(EVAL_METRICS_DIR, exist_ok=True)
-    experiments_csv = os.path.join(EVAL_METRICS_DIR, "experiments.csv")
-    _append_experiment_row(experiments_csv, row)
+        if log_experiment and trainer.logger is not None:
+            summary_metrics = _extract_headline_metrics(
+                metrics, prefix=f"{eval_split}"
+            )
+            hparams = {
+                "train_docs": config.train_docs,
+                "article_weight": config.article_weight,
+                "gating_mode": config.gating_mode,
+                "split_version": config.split_version,
+                "seed": config.seed,
+                "model_name": config.model_name,
+                "git_commit": config.git_commit,
+            }
+            trainer.logger.log_hyperparams(hparams, summary_metrics)
+            trainer.logger.log_metrics(
+                summary_metrics, step=int(config.train_docs)
+            )
 
+        if log_experiment:
+            variants = cast(dict[str, dict[str, object]], metrics.get("variants", {}))
+            flat_metrics: dict[str, float] = {}
+            for variant_key in ("raw", "regex", "snap"):
+                if variant_key in variants:
+                    flat_metrics.update(
+                        _metrics_with_suffix(variants[variant_key], variant_key)
+                    )
+
+            row: dict[str, object] = {
+                "run_id": config.run_id,
+                "slurm_job_id": slurm_job_id,
+                "git_commit": config.git_commit,
+                "split_version": config.split_version,
+                "train_docs": config.train_docs,
+                "article_weight": config.article_weight,
+                "gating_mode": config.gating_mode,
+                "seed": config.seed,
+                "run_dir": run_dir,
+                **flat_metrics,
+            }
+            experiments_csv = str(EVAL_NER_DIR / "experiments.csv")
+            _append_experiment_row(experiments_csv, row)
+
+    ner_trainer.test_data = original_test_data
     return metrics
 
 
-def main(mode: str = "test") -> None:
-    """
-    Main entry point for NER training and testing.
-
-    Args:
-        mode: Either 'train' or 'test'
-    """
-    if mode == "train":
-        ner_trainer = NERTrainer(
-            data_csv="../data/ner-data.csv",
-            model_name="answerdotai/ModernBERT-base",
-            label_list=NER_LABELS,
-            num_trials=10,
-            max_epochs=10,
-            article_class_weight=1.0,
-            gating_mode="raw",
+def _extract_headline_metrics(
+    metrics: dict[str, object],
+    *,
+    prefix: str,
+) -> dict[str, float]:
+    variants = cast(dict[str, dict[str, object]], metrics["variants"])
+    headline: dict[str, float] = {}
+    for variant_key in ("raw", "regex", "snap"):
+        variant = variants[variant_key]
+        entity_level = cast(dict[str, object], variant["entity_level"])
+        micro = cast(dict[str, float], entity_level["micro"])
+        per_type = cast(dict[str, dict[str, float]], entity_level["per_type"])
+        article_metrics = per_type.get("ARTICLE", {"f1": 0.0, "recall": 0.0})
+        headline[f"{prefix}/entity_strict_f1_{variant_key}"] = float(micro["f1"])
+        headline[f"{prefix}/article_strict_f1_{variant_key}"] = float(
+            article_metrics["f1"]
         )
-        ner_trainer.run()
-
-    elif mode == "test":
-        # Load test samples
-        with open(os.path.join(DATA_DIR, "ner_samples.yaml"), "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-
-        samples = data["samples"]
-
-        # Initialize inference model
-        inference_model = NERInference(
-            ckpt_path=NER_CKPT, label_list=NER_LABELS, review_threshold=0.99
+        headline[f"{prefix}/article_strict_recall_{variant_key}"] = float(
+            article_metrics["recall"]
         )
+    return headline
 
-        # Run inference
-        start = time.time()
-        tagged_result = inference_model.label(samples, verbose=False)
-        inference_time = time.time() - start
 
-        print(f"Inference time: {inference_time:.2f} seconds")
-        print(tagged_result)
+def run_grid_row(
+    *,
+    row_id: int,
+    split_version: str,
+    seed: int,
+    git_commit: str | None,
+    eval_split: EvalSplit = "val",
+) -> dict[str, object] | None:
+    """
+    Run a single grid row experiment using frozen hyperparameters.
+    """
+    row = load_grid_row(row_id)
+    frozen = load_optuna_best_config()
 
-    else:
-        raise RuntimeError(f"Invalid mode: {mode}. Use 'train' or 'test'")
+    config = build_config(
+        train_docs=int(row["train_docs"]),
+        article_weight=float(row["article_weight"]),
+        gating_mode=row["gating_mode"],
+        split_version=split_version,
+        seed=seed,
+        git_commit=git_commit,
+        model_name=str(frozen["model_name"]),
+        batch_size=int(frozen["batch_size"]),
+        train_subsample_window=int(frozen["train_subsample_window"]),
+        val_window=int(frozen["val_window"]),
+        val_stride=int(frozen["val_stride"]),
+        max_epochs=int(frozen["max_epochs"]),
+        learning_rate=float(frozen["learning_rate"]),
+        weight_decay=float(frozen["weight_decay"]),
+        warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+    )
+    return run_training_and_eval(config, eval_split=eval_split, run_test=True)
+
+
+def run_inference_samples(
+    ckpt_path: str,
+    review_threshold: float = 0.99,
+    git_commit: str | None = None,
+) -> None:
+    """
+    Run demo inference on ner_samples.yaml.
+    """
+    _ = resolve_git_commit(git_commit)
+    with open(DATA_NER_DIR / "ner_samples.yaml", "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    samples = data["samples"]
+    inference_model = NERInference(
+        ckpt_path=ckpt_path, label_list=NER_LABELS, review_threshold=review_threshold
+    )
+
+    start = time.time()
+    tagged_result = inference_model.label(samples, verbose=False)
+    inference_time = time.time() - start
+
+    print(f"Inference time: {inference_time:.2f} seconds")
+    print(tagged_result)
+
+
+def _parse_train_docs(value: str) -> int:
+    lowered = value.strip().lower()
+    if lowered == "all":
+        return 0
+    try:
+        parsed = int(lowered)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise argparse.ArgumentTypeError(
+            f"train-docs must be an int or 'all', got {value!r}"
+        ) from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("train-docs must be >= 0")
+    return parsed
+
+
+def _build_cli() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="NER training commands")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    tune_parser = subparsers.add_parser("tune", help="Run Optuna hyperparameter search")
+    _ = tune_parser.add_argument("--num-trials", type=int, default=10)
+    _ = tune_parser.add_argument("--max-epochs", type=int, default=10)
+    _ = tune_parser.add_argument("--split-version", type=str, default="default")
+    _ = tune_parser.add_argument("--seed", type=int, default=42)
+    _ = tune_parser.add_argument(
+        "--data-csv", type=str, default=str(DATA_NER_DIR / "ner-data.csv")
+    )
+    _ = tune_parser.add_argument(
+        "--model-name", type=str, default="answerdotai/ModernBERT-base"
+    )
+    _ = tune_parser.add_argument("--git-commit", type=str, default=None)
+
+    grid_parser = subparsers.add_parser("grid-row", help="Run a single grid row")
+    _ = grid_parser.add_argument("--row-id", type=int, required=True)
+    _ = grid_parser.add_argument(
+        "--split-version", type=str, default="v1_article_stratified"
+    )
+    _ = grid_parser.add_argument("--seed", type=int, default=42)
+    _ = grid_parser.add_argument("--git-commit", type=str, default=None)
+    _ = grid_parser.add_argument(
+        "--eval-split", type=str, choices=["val", "test"], default="val"
+    )
+
+    final_parser = subparsers.add_parser("final-train", help="Train a final model")
+    _ = final_parser.add_argument("--train-docs", type=_parse_train_docs, required=True)
+    _ = final_parser.add_argument("--article-weight", type=float, required=True)
+    _ = final_parser.add_argument(
+        "--gating-mode", type=str, choices=["raw", "regex", "regex+snap"], default="raw"
+    )
+    _ = final_parser.add_argument("--split-version", type=str, default="default")
+    _ = final_parser.add_argument("--seed", type=int, default=42)
+    _ = final_parser.add_argument("--git-commit", type=str, default=None)
+
+    infer_parser = subparsers.add_parser(
+        "infer-samples", help="Run demo inference on sample texts"
+    )
+    _ = infer_parser.add_argument("--ckpt-path", type=str, default=NER_CKPT)
+    _ = infer_parser.add_argument("--review-threshold", type=float, default=0.99)
+    _ = infer_parser.add_argument("--git-commit", type=str, default=None)
+
+    return parser
+
+
+def main() -> None:
+    parser = _build_cli()
+    args = parser.parse_args()
+
+    if args.command == "tune":
+        _ = run_hparam_tuning(
+            data_csv=args.data_csv,
+            model_name=args.model_name,
+            num_trials=args.num_trials,
+            max_epochs=args.max_epochs,
+            split_version=args.split_version,
+            seed=args.seed,
+            git_commit=args.git_commit,
+        )
+        return
+
+    if args.command == "grid-row":
+        _ = run_grid_row(
+            row_id=args.row_id,
+            split_version=args.split_version,
+            seed=args.seed,
+            git_commit=args.git_commit,
+            eval_split=cast(EvalSplit, args.eval_split),
+        )
+        return
+
+    if args.command == "final-train":
+        frozen = load_optuna_best_config()
+        config = build_config(
+            train_docs=args.train_docs,
+            article_weight=args.article_weight,
+            gating_mode=args.gating_mode,
+            split_version=args.split_version,
+            seed=args.seed,
+            git_commit=args.git_commit,
+            model_name=str(frozen["model_name"]),
+            batch_size=int(frozen["batch_size"]),
+            train_subsample_window=int(frozen["train_subsample_window"]),
+            val_window=int(frozen["val_window"]),
+            val_stride=int(frozen["val_stride"]),
+            max_epochs=int(frozen["max_epochs"]),
+            learning_rate=float(frozen["learning_rate"]),
+            weight_decay=float(frozen["weight_decay"]),
+            warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+        )
+        final_run_dir = str(EVAL_NER_DIR / "final")
+        _ = run_training_and_eval(
+            config,
+            eval_split="test",
+            run_test=True,
+            ckpt_path=NER_CKPT,
+            run_dir=final_run_dir,
+            metrics_output_name="metrics.yaml",
+            log_experiment=False,
+            log_stage="final",
+        )
+        return
+
+    if args.command == "infer-samples":
+        run_inference_samples(
+            ckpt_path=args.ckpt_path,
+            review_threshold=args.review_threshold,
+            git_commit=args.git_commit,
+        )
+        return
+
+    raise RuntimeError(f"Unhandled command: {args.command}")
 
 
 if __name__ == "__main__":
-    main(mode="train")
+    main()

@@ -206,7 +206,7 @@ def build_agreement_split(
                 if back_bucket_targets[int(b)][split_name] > 0:
                     back_bucket_targets[int(b)][split_name] -= 1
 
-        length_subset = cast(pd.Series, length_bucket.loc[ids_in_back])
+        length_subset = length_bucket.loc[ids_in_back]
         by_length = length_subset.groupby(length_subset)
         for l, group in by_length:
             group_ids = [gid for gid in group.index.tolist() if gid not in preassigned]
