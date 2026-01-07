@@ -699,8 +699,10 @@ def cleanup(
 
 
 if __name__ == "__main__":
-    from etl.models.code.classifier import ClassifierInference
-    from etl.models.code.shared_constants import CLASSIFIER_CKPT_PATH
+    from etl.models.page_classifier.classifier import ClassifierInference
+    from etl.models.page_classifier.page_classifier_constants import (
+        CLASSIFIER_CKPT_PATH,
+    )
 
     clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 
