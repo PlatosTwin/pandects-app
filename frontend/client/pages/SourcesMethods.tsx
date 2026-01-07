@@ -124,18 +124,18 @@ export default function SourcesMethods() {
       { id: "data-pipeline-architecture", label: "Data Pipeline Architecture" },
       { id: "ml-models", label: "ML Models" },
       {
-        id: "agreement-identification",
+        id: "exhibit-model",
         label: "Exhibit Model",
         indent: true,
       },
       {
-        id: "page-classification",
+        id: "page-classifier-model",
         label: "Page Classifier Model",
         indent: true,
       },
-      { id: "page-tagging", label: "Tagging Model", indent: true },
+      { id: "tagging-model", label: "Tagging Model", indent: true },
       {
-        id: "section-classification",
+        id: "taxonomy-model",
         label: "Taxonomy Model",
         indent: true,
       },
@@ -625,7 +625,7 @@ export default function SourcesMethods() {
                         Ingestion
                       </span>
                       <a
-                        href="#agreement-identification"
+                        href="#exhibit-model"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Exhibit Model
@@ -666,7 +666,7 @@ export default function SourcesMethods() {
                         }
                       />
                       <a
-                        href="#page-classification"
+                        href="#page-classifier-model"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Page Classifier Model
@@ -767,7 +767,7 @@ export default function SourcesMethods() {
                         Tagging
                       </span>
                       <a
-                        href="#page-tagging"
+                        href="#tagging-model"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Tagging Model
@@ -889,7 +889,7 @@ export default function SourcesMethods() {
                         Taxonomy
                       </span>
                       <a
-                        href="#section-classification"
+                        href="#taxonomy-model"
                         className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Taxonomy Model
@@ -967,8 +967,8 @@ export default function SourcesMethods() {
               .
             </p>
             <div
-              id="agreement-identification"
-              className="scroll-mt-24 pt-2 space-y-4"
+              id="exhibit-model"
+              className="scroll-mt-32 pt-2 space-y-4"
             >
               <h3 className="text-lg font-semibold text-foreground">
                 Exhibit Model
@@ -1035,8 +1035,8 @@ export default function SourcesMethods() {
               )}
             </div>
             <div
-              id="page-classification"
-              className="scroll-mt-24 pt-2 space-y-4"
+              id="page-classifier-model"
+              className="scroll-mt-32 pt-2 space-y-4"
             >
               <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
@@ -1129,7 +1129,7 @@ export default function SourcesMethods() {
                 </Card>
               )}
             </div>
-            <div id="page-tagging" className="scroll-mt-24 pt-2 space-y-4">
+            <div id="tagging-model" className="scroll-mt-32 pt-2 space-y-4">
               <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
@@ -1216,14 +1216,6 @@ export default function SourcesMethods() {
                     against our validation set—we first train a baseline model
                     to select and freeze hyperparameters, which we then reuse
                     across all experiments.
-                    <div hidden>
-                      <ol className="list-decimal space-y-1 pl-5 mt-2">
-                        <li>Baseline model</li>
-                        <li>What is the impact of adding more training data?</li>
-                        <li>Which set of weights yields optimal performance?</li>
-                        <li>Which post-processing regime should we adopt?</li>
-                      </ol>
-                    </div>
                   </div>
                 </li>
               </ul>
@@ -1248,8 +1240,8 @@ export default function SourcesMethods() {
               )}
             </div>
             <div
-              id="section-classification"
-              className="scroll-mt-24 pt-2 space-y-4"
+              id="taxonomy-model"
+              className="scroll-mt-32 pt-2 space-y-4"
             >
               <h3 className="text-lg font-semibold text-foreground">
                 Taxonomy Model
