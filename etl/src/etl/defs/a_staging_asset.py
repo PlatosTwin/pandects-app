@@ -58,17 +58,17 @@ class _DagsterContextAdapter:
         return self._log
 
 
-def _update_last_pulled_to(conn: Connection, run_time: datetime, pulled_to: datetime) -> None:
+def _update_last_pulled_to(conn: Connection, run_id: int, pulled_to: datetime) -> None:
     """Update the last_pulled_to timestamp for the current run."""
     _ = conn.execute(
         text(
             """
             UPDATE pdx.pipeline_runs
             SET last_pulled_to = :pulled_to
-            WHERE run_time = :run_time
+            WHERE run_id = :run_id
             """
         ),
-        {"run_time": run_time, "pulled_to": pulled_to},
+        {"run_id": run_id, "pulled_to": pulled_to},
     )
 
 
@@ -129,9 +129,11 @@ def staging_asset(
     # Calculate total days to process
     days_to_fetch = pipeline_config.staging_days_to_fetch
     
-    # Insert STARTED record for this run
+    # Insert STARTED record for this run and get the run_id
+    # Use date-level granularity (midnight) for last_pulled_from/to
+    last_run_date = datetime.combine(last_run.date(), datetime.min.time())
     with engine.begin() as conn:
-        _ = conn.execute(
+        result = conn.execute(
             text(
                 """
                 INSERT INTO pdx.pipeline_runs
@@ -141,10 +143,11 @@ def staging_asset(
             ),
             {
                 "run_time": now,
-                "from_ts": last_run,
-                "to_ts": last_run,  # Will be updated as we process each day
+                "from_ts": last_run_date,
+                "to_ts": last_run_date,  # Will be updated as we process each day
             },
         )
+        run_id = result.lastrowid
 
     total_count = 0
     base_date = last_run.date()
@@ -184,9 +187,9 @@ def staging_asset(
             else:
                 context.log.info(f"  No M&A filings found for {index_date}")
             
-            # Update last_pulled_to to the end of the day we actually processed
-            day_end = datetime.combine(index_date, datetime.max.time())
-            _update_last_pulled_to(conn, now, day_end)
+            # Update last_pulled_to to the date we actually processed (midnight, date-level granularity)
+            pulled_to_date = datetime.combine(index_date, datetime.min.time())
+            _update_last_pulled_to(conn, run_id, pulled_to_date)
             
             # Update rows_inserted count
             _ = conn.execute(
@@ -194,10 +197,10 @@ def staging_asset(
                     """
                     UPDATE pdx.pipeline_runs
                     SET rows_inserted = :count
-                    WHERE run_time = :run_time
+                    WHERE run_id = :run_id
                     """
                 ),
-                {"run_time": now, "count": total_count},
+                {"run_id": run_id, "count": total_count},
             )
 
     # Mark run as SUCCEEDED after all days complete
@@ -207,10 +210,10 @@ def staging_asset(
                 """
                 UPDATE pdx.pipeline_runs
                 SET status = 'SUCCEEDED'
-                WHERE run_time = :run_time
+                WHERE run_id = :run_id
                 """
             ),
-            {"run_time": now},
+            {"run_id": run_id},
         )
 
     context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
