@@ -368,15 +368,40 @@ def fetch_new_filings_sec_index(
     for _, group in groups.items():
         # Sort by filing_date (earliest first), then by original index (idx order = .idx file order)
         group.sort(key=lambda x: (x[1].filing_date, x[0]))
-        _, primary = group[0]
+        
         secondary_url: str | None = None
-
+        
+        # If there are duplicates, prefer the one with valid pagination (10 < pages <= 350)
         if len(group) > 1:
-            _, secondary = group[1]
-            secondary_url = secondary.candidate_url
-            context.log.info(
-                f"De-dup: {primary.candidate_url} (primary) has near-duplicate {secondary_url}"
-            )
+            # Check pagination for each candidate in the group
+            candidates_with_pagination = []
+            
+            for idx, candidate in group:
+                has_pagination = _has_valid_pagination(candidate.candidate_url, SEC_USER_AGENT)
+                if has_pagination:
+                    candidates_with_pagination.append((idx, candidate))
+            
+            # Prefer candidates with pagination; if multiple have pagination, use the first in file order
+            if candidates_with_pagination:
+                # Already sorted by filing_date and index, so first one is earliest
+                _, primary = candidates_with_pagination[0]
+                # Log all other candidates as secondary
+                other_urls = [c.candidate_url for _, c in group if c.candidate_url != primary.candidate_url]
+                secondary_url = other_urls[0] if other_urls else None
+                context.log.info(
+                    f"De-dup: {primary.candidate_url} (primary, has pagination) has near-duplicate(s): {', '.join(other_urls)}"
+                )
+            else:
+                # No candidates have valid pagination, use the first in file order (already sorted)
+                _, primary = group[0]
+                other_urls = [c.candidate_url for _, c in group[1:]]
+                secondary_url = other_urls[0] if other_urls else None
+                context.log.info(
+                    f"De-dup: {primary.candidate_url} (primary, no pagination) has near-duplicate(s): {', '.join(other_urls)}"
+                )
+        else:
+            # No duplicates, use the single candidate
+            _, primary = group[0]
 
         results.append(
             FilingMetadata(
@@ -457,6 +482,30 @@ def _fetch_exhibit_content(
     if last_exception:
         raise last_exception
     return None
+
+
+def _has_valid_pagination(candidate_url: str, user_agent: str) -> bool:
+    """Check if a candidate has valid pagination (between 10 and 350 pages).
+    
+    Args:
+        candidate_url: URL of the candidate to check.
+        user_agent: User agent string for requests.
+        
+    Returns:
+        True if the candidate has between 10 and 350 pages, False otherwise.
+    """
+    try:
+        fetch_result = _fetch_exhibit_content(candidate_url, user_agent)
+        if fetch_result is None:
+            return False
+        content, is_txt, is_html = fetch_result
+        pages = split_to_pages(content, is_txt=is_txt, is_html=is_html)
+        page_count = len(pages)
+        # Valid pagination: more than 10 pages and at most 350 pages
+        return 10 < page_count <= 350
+    except Exception:
+        # If we can't fetch or parse, assume no valid pagination
+        return False
 
 
 def _render_agreement_text(content: str, is_txt: bool, is_html: bool) -> str:
