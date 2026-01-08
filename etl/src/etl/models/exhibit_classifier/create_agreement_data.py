@@ -104,13 +104,13 @@ def main() -> None:
     positives_path = Path(cast(str, args.positives_file))
     negatives_path = Path(cast(str, args.negatives_file))
     output_path = Path(cast(str, args.output_path))
-    positives_only: bool = args.positives_only
-    negatives_only: bool = args.negatives_only
+    positives_only = cast(bool, args.positives_only)
+    negatives_only = cast(bool, args.negatives_only)
 
     # Load existing data if doing partial update
     existing_df: pd.DataFrame | None = None
     if (positives_only or negatives_only) and output_path.exists():
-        existing_df = pd.read_parquet(output_path)
+        existing_df = pd.read_parquet(output_path)  # pyright: ignore[reportUnknownMemberType]
 
     if positives_only:
         positive_links = _load_links(positives_path)
@@ -119,13 +119,13 @@ def main() -> None:
         positive_texts = _fetch_texts_from_links(positive_links, "positive")
         positive_df = pd.DataFrame({"text": positive_texts, "label": [1] * len(positive_texts)})
         if existing_df is not None:
-            negative_df = existing_df[existing_df["label"] == 0]
+            negative_df = existing_df[existing_df["label"] == 0]  # pyright: ignore[reportUnknownVariableType]
         else:
-            negative_df = pd.DataFrame(columns=["text", "label"])
-        combined_df = pd.concat([positive_df, negative_df], ignore_index=True)
-        combined_df.to_parquet(output_path, index=False)
+            negative_df = pd.DataFrame(columns=["text", "label"])  # pyright: ignore[reportArgumentType]
+        combined_df = pd.concat([positive_df, negative_df], ignore_index=True)  # pyright: ignore[reportUnknownArgumentType]
+        _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         print(
-            f"Replaced positives: {len(positive_texts)} positives, {len(negative_df)} negatives "
+            f"Replaced positives: {len(positive_texts)} positives, {len(negative_df)} negatives " +  # pyright: ignore[reportUnknownArgumentType]
             f"({len(combined_df)} total) to {output_path}."
         )
     elif negatives_only:
@@ -135,13 +135,13 @@ def main() -> None:
         negative_texts = _fetch_texts_from_links(negative_links, "negative")
         negative_df = pd.DataFrame({"text": negative_texts, "label": [0] * len(negative_texts)})
         if existing_df is not None:
-            positive_df = existing_df[existing_df["label"] == 1]
+            positive_df = existing_df[existing_df["label"] == 1]  # pyright: ignore[reportUnknownVariableType]
         else:
-            positive_df = pd.DataFrame(columns=["text", "label"])
-        combined_df = pd.concat([positive_df, negative_df], ignore_index=True)
-        combined_df.to_parquet(output_path, index=False)
+            positive_df = pd.DataFrame(columns=["text", "label"])  # pyright: ignore[reportArgumentType]
+        combined_df = pd.concat([positive_df, negative_df], ignore_index=True)  # pyright: ignore[reportUnknownArgumentType]
+        _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         print(
-            f"Replaced negatives: {len(positive_df)} positives, {len(negative_texts)} negatives "
+            f"Replaced negatives: {len(positive_df)} positives, {len(negative_texts)} negatives " +  # pyright: ignore[reportUnknownArgumentType]
             f"({len(combined_df)} total) to {output_path}."
         )
     else:
@@ -154,9 +154,9 @@ def main() -> None:
         positive_df = pd.DataFrame({"text": positive_texts, "label": [1] * len(positive_texts)})
         negative_df = pd.DataFrame({"text": negative_texts, "label": [0] * len(negative_texts)})
         combined_df = pd.concat([positive_df, negative_df], ignore_index=True)
-        combined_df.to_parquet(output_path, index=False)
+        _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType]
         print(
-            f"Wrote {len(positive_texts)} positives and {len(negative_texts)} negatives "
+            f"Wrote {len(positive_texts)} positives and {len(negative_texts)} negatives " +
             f"({len(combined_df)} total) to {output_path}."
         )
 
