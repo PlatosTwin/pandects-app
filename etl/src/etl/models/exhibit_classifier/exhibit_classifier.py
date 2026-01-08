@@ -65,9 +65,9 @@ class ExhibitClassifier:
         self,
         method: str = "isolation_forest",
         contamination: float = 0.1,
-        max_features: int = 1000,
-        char_max_features: int = 2000,
-        svd_components: int = 200,
+        max_features: int = 5000,
+        char_max_features: int = 3000,
+        svd_components: int = 300,
         random_state: int = 42
     ):
         """
@@ -105,7 +105,7 @@ class ExhibitClassifier:
         self.tfidf_vectorizer = TfidfVectorizer(
             max_features=max_features,
             stop_words='english',
-            ngram_range=(1, 2),
+            ngram_range=(1, 3),
             min_df=2,
             max_df=0.9,
             sublinear_tf=True
@@ -162,6 +162,9 @@ class ExhibitClassifier:
         # Normalize text
         text = str(text).lower()
         
+        # Use first 2000 chars as a proxy for the first page/start of document
+        first_chunk = text[:2000]
+        
         # Basic document statistics
         num_chars = len(text)
         words = text.split()
@@ -173,6 +176,13 @@ class ExhibitClassifier:
         num_articles = len(re.findall(r'\barticle\s+[ivx\d]+', text))
         num_exhibits = len(re.findall(r'\bexhibit\s+[a-z\d]+', text))
         num_schedules = len(re.findall(r'\bschedule\s+[a-z\d\.]+', text))
+        
+        # First chunk specific features (replaces first page features)
+        start_has_agreement_title = 1.0 if any(t in first_chunk for t in ['agreement and plan', 'asset purchase agreement', 'stock purchase agreement', 'merger agreement']) else 0.0
+        start_has_dated = 1.0 if 'dated as of' in first_chunk or 'dated' in first_chunk else 0.0
+        start_has_parties = 1.0 if 'by and among' in first_chunk or 'by and between' in first_chunk or 'between' in first_chunk else 0.0
+        start_has_recitals = 1.0 if 'recitals' in first_chunk or 'witnesseth' in first_chunk else 0.0
+        start_length_ratio = len(first_chunk) / num_chars if num_chars > 0 else 1.0
         
         # Legal document indicators
         has_whereas = 1.0 if 'whereas' in text else 0.0
@@ -231,6 +241,11 @@ class ExhibitClassifier:
             num_articles, 
             num_exhibits,
             num_schedules,
+            start_has_agreement_title,
+            start_has_dated,
+            start_has_parties,
+            start_has_recitals,
+            start_length_ratio,
             has_whereas,
             has_witnesseth,
             has_recitals,
@@ -355,13 +370,16 @@ class ExhibitClassifier:
         self.training_texts = texts.copy()
         
         # Fit TF-IDF vectorizers
+        print("- Fitting TF-IDF vectors...")
         _ = self.tfidf_vectorizer.fit(texts)
         _ = self.char_tfidf_vectorizer.fit(texts)
         
         # Extract document-level features
+        print("- Extracting document-level features...")
         doc_features = np.array([self._extract_document_features(text) for text in texts])
         
         # Extract TF-IDF features (use smaller subset for efficiency)
+        print("- Extract TF-IDF features...")
         tfidf_matrix = self._build_text_matrix(texts)
         tfidf_reduced = self.svd.fit_transform(tfidf_matrix)
         self.training_tfidf_matrix = cast(
@@ -374,9 +392,11 @@ class ExhibitClassifier:
         all_features = np.hstack([doc_features, tfidf_reduced, similarity_features])
         
         # Scale features
+        print("- Scale all features...")
         _ = self.feature_scaler.fit(all_features)
         scaled_features = self.feature_scaler.transform(all_features)
 
+        print("Fit model...")
         self.is_supervised = bool(labels) and any(label == 0 for label in labels)
         if self.is_supervised:
             y = np.array(labels, dtype=int)
@@ -564,9 +584,55 @@ class ExhibitClassifier:
         print(f"Classifier loaded from {path}")
         return classifier
     
+    def get_feature_names(self) -> list[str]:
+        """Get the list of feature names used by the classifier."""
+        doc_feature_names = [
+            'num_words', 'num_chars', 'num_sentences', 'num_sections', 'num_articles',
+            'num_exhibits', 'num_schedules',
+            'start_has_agreement_title', 'start_has_dated', 'start_has_parties', 'start_has_recitals', 'start_length_ratio',
+            'has_whereas', 'has_witnesseth', 
+            'has_recitals', 'has_now_therefore', 'ma_keyword_count', 'ma_keyword_density',
+            'has_merger', 'has_acquisition', 'has_purchase', 'has_consideration',
+            'has_closing', 'has_effective_time', 'has_surviving', 'has_subsidiary',
+            'has_stockholder', 'has_board', 'has_hsr', 'has_antitrust', 'has_regulatory',
+            'has_proxy', 'has_price', 'has_fairness', 'has_valuation',
+            'avg_words_per_sentence', 'avg_chars_per_word', 'boilerplate_density',
+            'semicolon_density', 'paren_density'
+        ]
+        
+        # SVD features
+        svd_feature_names = [f"svd_component_{i}" for i in range(self.svd_components)]
+        
+        # Similarity features
+        similarity_feature_names = ['max_similarity', 'mean_similarity', 'median_similarity']
+        
+        return doc_feature_names + svd_feature_names + similarity_feature_names
+
+    def get_model_coefficients(self) -> dict[str, float] | None:
+        """
+        Get the coefficients of the linear model (if supervised).
+        
+        Returns:
+            Dictionary of feature name -> coefficient, or None if not applicable.
+        """
+        if not self.is_fitted or not self.is_supervised or self.binary_classifier is None:
+            return None
+            
+        if hasattr(self.binary_classifier, 'coef_'):
+            coefs = self.binary_classifier.coef_[0]  # pyright: ignore[reportUnknownMemberType]
+            names = self.get_feature_names()
+            
+            if len(coefs) != len(names):
+                # Fallback if dimensions don't match (e.g. SVD components changed)
+                return {f"feature_{i}": float(c) for i, c in enumerate(coefs)}
+                
+            return dict(zip(names, [float(c) for c in coefs]))
+            
+        return None
+
     def get_feature_importance(self, text: str) -> dict[str, float]:
         """
-        Get feature importance for a given text (for interpretation).
+        Get feature values for a given text (for interpretation).
         
         Args:
             text: Text to analyze
@@ -579,30 +645,12 @@ class ExhibitClassifier:
         
         # Extract features
         doc_features = self._extract_document_features(text)
-        tfidf_matrix = cast(Any, self.tfidf_vectorizer.transform([text]))
-        tfidf_features = cast(np.ndarray, tfidf_matrix.toarray())[0]
+        tfidf_matrix = self._build_text_matrix([text])
+        tfidf_features = self.svd.transform(tfidf_matrix)[0]
         similarity_features = self._compute_similarity_features(text)
         
-        # Feature names
-        doc_feature_names = [
-            'num_words', 'num_chars', 'num_sentences', 'num_sections', 'num_articles',
-            'num_exhibits', 'num_schedules', 'has_whereas', 'has_witnesseth', 
-            'has_recitals', 'has_now_therefore', 'ma_keyword_count', 'ma_keyword_density',
-            'has_merger', 'has_acquisition', 'has_purchase', 'has_consideration',
-            'has_closing', 'has_effective_time', 'has_surviving', 'has_subsidiary',
-            'has_stockholder', 'has_board', 'has_hsr', 'has_antitrust', 'has_regulatory',
-            'has_proxy', 'has_price', 'has_fairness', 'has_valuation',
-            'avg_words_per_sentence', 'avg_chars_per_word', 'boilerplate_density',
-            'semicolon_density', 'paren_density'
-        ]
-        
-        tfidf_feature_names = [
-            f"tfidf_{word}" for word in self.tfidf_vectorizer.get_feature_names_out()
-        ]
-        similarity_feature_names = ['max_similarity', 'mean_similarity', 'median_similarity']
-        
-        all_feature_names = doc_feature_names + tfidf_feature_names + similarity_feature_names
         all_feature_values = np.hstack([doc_features, tfidf_features, similarity_features])
+        all_feature_names = self.get_feature_names()
         
         return dict(zip(all_feature_names, all_feature_values))
 

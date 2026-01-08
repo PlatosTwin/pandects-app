@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument(
         "--max-features",
         type=int,
-        default=1000,
+        default=5000,
         help="Maximum number of TF-IDF features.",
     )
     _ = parser.add_argument(
@@ -84,10 +84,16 @@ def main() -> None:
     data_path = Path(cast(str, args.data_path))
     output_path = Path(cast(str, args.output_path))
 
+    print(f"Loading training data from {data_path}...")
     texts, labels = load_training_data(str(data_path))
+    print(f"Loaded {len(texts)} examples.")
 
     if labels and any(label == 0 for label in labels):
         y = np.array(labels, dtype=int)
+        pos_count = int(cast(int, np.sum(y == 1)))  # pyright: ignore[reportAny]
+        neg_count = int(cast(int, np.sum(y == 0)))  # pyright: ignore[reportAny]
+        print(f"Label distribution: {pos_count} positives, {neg_count} negatives")
+        print(f"Splitting data ({1 - cast(float, args.eval_split):.0%} train, {cast(float, args.eval_split):.0%} test)...")
         split = cast(
             tuple[list[str], list[str], np.ndarray, np.ndarray],
             cast(
@@ -102,6 +108,8 @@ def main() -> None:
             ),
         )
         train_texts, test_texts, y_train, y_test = split
+        print(f"Train set: {len(train_texts)} examples, Test set: {len(test_texts)} examples")
+        print("Initializing classifier...")
         classifier = ExhibitClassifier(
             method=cast(str, args.method),
             contamination=cast(float, args.contamination),
@@ -109,12 +117,13 @@ def main() -> None:
             random_state=cast(int, args.random_state),
         )
         y_train_list = cast(list[int], y_train.tolist())
+        print("Fitting classifier on training data...")
         _ = classifier.fit(train_texts, labels=y_train_list)
 
-        probs = np.array([classifier.predict_proba(t) for t in test_texts])
+        print(f"Evaluating on {len(test_texts)} test examples...")
+        probs = np.array(classifier.predict_proba_batch(test_texts))
         preds = (probs >= cast(float, args.threshold)).astype(int)
-        
-        # Calculate overall metrics
+        print("Computing metrics...")
         accuracy = float(accuracy_score(y_test, preds))
         precision, recall, f1, _ = cast(
             tuple[float, float, float, object],
@@ -150,10 +159,10 @@ def main() -> None:
         # Calculate per-class accuracy from confusion matrix
         # For each class, accuracy = correct predictions for that class / total samples of that class
         # This is equivalent to recall, but we'll call it accuracy as requested
-        class_0_total = int(cm[0, :].sum()) if cm.shape[0] > 0 else 0
-        class_1_total = int(cm[1, :].sum()) if cm.shape[0] > 1 else 0
-        accuracy_class_0 = float(cm[0, 0] / class_0_total) if class_0_total > 0 else 0.0
-        accuracy_class_1 = float(cm[1, 1] / class_1_total) if class_1_total > 0 else 0.0
+        class_0_total = int(cast(int, cm[0, :].sum())) if cm.shape[0] > 0 else 0
+        class_1_total = int(cast(int, cm[1, :].sum())) if cm.shape[0] > 1 else 0
+        accuracy_class_0 = float(cast(float, cm[0, 0] / class_0_total)) if class_0_total > 0 else 0.0
+        accuracy_class_1 = float(cast(float, cm[1, 1] / class_1_total)) if class_1_total > 0 else 0.0
         
         # Print metrics
         message = f"Holdout metrics (pos_rate={pos_rate:.3f}, threshold={threshold:.2f}): accuracy={accuracy:.3f} precision={precision:.3f} recall={recall:.3f} f1={f1:.3f} roc_auc={roc_auc:.3f} avg_precision={avg_precision:.3f}"
@@ -174,15 +183,15 @@ def main() -> None:
             "per_class": {
                 "class_0": {
                     "accuracy": accuracy_class_0,
-                    "precision": float(precision_per_class[0]),
-                    "recall": float(recall_per_class[0]),
-                    "f1": float(f1_per_class[0]),
+                    "precision": float(cast(float, precision_per_class[0])),
+                    "recall": float(cast(float, recall_per_class[0])),
+                    "f1": float(cast(float, f1_per_class[0])),
                 },
                 "class_1": {
                     "accuracy": accuracy_class_1,
-                    "precision": float(precision_per_class[1]),
-                    "recall": float(recall_per_class[1]),
-                    "f1": float(f1_per_class[1]),
+                    "precision": float(cast(float, precision_per_class[1])),
+                    "recall": float(cast(float, recall_per_class[1])),
+                    "f1": float(cast(float, f1_per_class[1])),
                 },
             },
             "confusion_matrix": cm.tolist(),
@@ -192,7 +201,19 @@ def main() -> None:
             yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
         
         print(f"Saved evaluation metrics to {metrics_file}")
+        
+        # Save feature importance if available (supervised mode)
+        coefs = classifier.get_model_coefficients()
+        if coefs:
+            importance_file = EVAL_METRICS_DIR / "exhibit_classifier_feature_importance.yaml"
+            # Sort by absolute value of coefficient
+            sorted_coefs = dict(sorted(coefs.items(), key=lambda item: abs(item[1]), reverse=True))
+            
+            with open(importance_file, "w") as f:
+                yaml.dump(sorted_coefs, f, default_flow_style=False, sort_keys=False)
+            print(f"Saved feature importance to {importance_file}")
     else:
+        print("No negative labels found; training unsupervised classifier...")
         classifier = ExhibitClassifier(
             method=cast(str, args.method),
             contamination=cast(float, args.contamination),
@@ -202,7 +223,9 @@ def main() -> None:
         _ = classifier.fit(texts, labels=labels)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Saving model to {output_path}...")
     _ = classifier.save(output_path)
+    print("Done.")
 
 
 if __name__ == "__main__":
