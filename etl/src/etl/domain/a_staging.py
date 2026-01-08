@@ -170,12 +170,21 @@ _MINHASH_NUM_PERM = 128  # Number of permutations (higher = more accurate, slowe
 _MINHASH_SHINGLE_SIZE = 5  # Size of word shingles
 
 
-def _compute_minhash(text: str) -> MinHash:
+def _compute_minhash(content: str, is_txt: bool, is_html: bool) -> MinHash:
     """Compute a MinHash signature for near-duplicate detection.
     
+    Uses only the first 20,000 characters to focus on the main agreement content
+    (roughly the first N pages equivalent) and ignore exhibit sections that may 
+    differ between filings.
     Uses word-level shingles (n-grams) for robustness against minor text differences.
     For very short texts (fewer words than shingle size), falls back to individual words.
     """
+    # Format the entire content into text
+    text = _render_agreement_text(content, is_txt=is_txt, is_html=is_html)
+    
+    # Use only the first 20,000 characters (roughly first N pages equivalent)
+    text = text[:20000]
+    
     mh = MinHash(num_perm=_MINHASH_NUM_PERM)
     words = text.lower().split()
     
@@ -245,7 +254,7 @@ def classify_exhibit_candidates(
         content, is_txt, is_html = fetch_result
         agreement_text = _render_agreement_text(content, is_txt=is_txt, is_html=is_html)
         agreement_texts.append(agreement_text)
-        minhashes.append(_compute_minhash(agreement_text))
+        minhashes.append(_compute_minhash(content, is_txt=is_txt, is_html=is_html))
         valid_candidates.append(candidate)
 
     # Early return if no valid candidates (all fetches failed/skipped)
