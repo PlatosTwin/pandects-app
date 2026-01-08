@@ -105,7 +105,7 @@ export default function SourcesMethods() {
   const firstStepRef = useRef<HTMLDivElement | null>(null);
   const lastStepRef = useRef<HTMLDivElement | null>(null);
   const pipelineRef = useRef<HTMLDivElement | null>(null);
-  const [pipelineProgress, setPipelineProgress] = useState(0);
+  const progressRef = useRef<HTMLDivElement | null>(null);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const pipelineMetricsRef = useRef<{
@@ -153,7 +153,18 @@ export default function SourcesMethods() {
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
-    el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth" });
+    // Calculate target position manually to avoid scrollIntoView inconsistencies
+    // with scroll-margin-top during concurrent re-renders
+    const rect = el.getBoundingClientRect();
+    const scrollMarginTop =
+      parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    const targetY = window.scrollY + rect.top - scrollMarginTop;
+
+    window.scrollTo({
+      top: targetY,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+
     setActiveSection(id);
     window.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
   };
@@ -189,7 +200,18 @@ export default function SourcesMethods() {
       const viewportMid = window.scrollY + viewportHeight / 2;
       const rawProgress = (viewportMid - metrics.firstCenter) / denom;
       const clamped = Math.min(1, Math.max(0, rawProgress));
-      setPipelineProgress(clamped);
+      if (progressRef.current) {
+        progressRef.current.style.transform = `scaleY(${clamped})`;
+      }
+    };
+
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        updateProgress();
+      });
     };
 
     const updateMetrics = () => {
@@ -222,16 +244,8 @@ export default function SourcesMethods() {
         lineTop,
         lineHeight,
       };
-      updateProgress();
-    };
-
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        updateProgress();
-      });
+      // Don't call updateProgress directly inside updateMetrics to avoid potential layout thrashing
+      // Instead, just ensure the next scroll/frame picks up the new metrics
     };
 
     let metricsRaf = 0;
@@ -332,6 +346,33 @@ export default function SourcesMethods() {
     };
   }, [shouldLoadMetrics]);
 
+  useEffect(() => {
+    if (!metricsRef.current) return;
+
+    const handleResize = () => {
+      if (
+        [
+          "exhibit-model",
+          "page-classifier-model",
+          "tagging-model",
+          "taxonomy-model",
+        ].includes(activeSection)
+      ) {
+        scrollToSection(activeSection);
+      }
+    };
+
+    const Observer =
+      typeof ResizeObserver !== "undefined"
+        ? ResizeObserver
+        : ResizeObserverPolyfill;
+
+    const observer = new Observer(handleResize);
+    observer.observe(metricsRef.current);
+
+    return () => observer.disconnect();
+  }, [activeSection]);
+
   const ComingSoon = ({ title }: { title: string }) => (
     <Card className="border-border/70 bg-card/70 p-5">
       <div className="text-sm font-medium text-foreground">{title}</div>
@@ -388,7 +429,7 @@ export default function SourcesMethods() {
         </aside>
 
         <div className="space-y-12 min-w-0">
-          <section id="overview" className="scroll-mt-24 space-y-4">
+          <section id="overview" className="scroll-mt-32 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Overview
             </h2>
@@ -572,7 +613,7 @@ export default function SourcesMethods() {
 
           <section
             id="data-pipeline-architecture"
-            className="scroll-mt-24 space-y-4"
+            className="scroll-mt-32 space-y-4"
           >
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Pipeline Architecture
@@ -607,8 +648,9 @@ export default function SourcesMethods() {
               >
                 <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--border)/0.6)_0,hsl(var(--border)/0.6)_6px,transparent_6px,transparent_12px)] bg-[length:2px_12px] bg-repeat-y" />
                 <div
+                  ref={progressRef}
                   className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-emerald-300 via-emerald-500 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.35)] will-change-transform"
-                  style={{ transform: `scaleY(${pipelineProgress})` }}
+                  style={{ transform: "scaleY(0)", willChange: "transform" }}
                 />
               </div>
               <ol className="space-y-8" aria-label="Pipeline steps">
@@ -925,7 +967,7 @@ export default function SourcesMethods() {
           <section
             id="ml-models"
             ref={metricsRef}
-            className="scroll-mt-24 space-y-4"
+            className="scroll-mt-32 space-y-4"
           >
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               ML Models
@@ -1250,7 +1292,7 @@ export default function SourcesMethods() {
             </div>
           </section>
 
-          <section id="gaps-and-callouts" className="scroll-mt-24 space-y-4">
+          <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Gaps and Other Call Outs
             </h2>
@@ -1289,7 +1331,7 @@ export default function SourcesMethods() {
             </ul>
           </section>
 
-          <section id="validations" className="scroll-mt-24 space-y-4">
+          <section id="validations" className="scroll-mt-32 space-y-4">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               Validations
             </h2>
