@@ -428,9 +428,9 @@ export default function SourcesMethods() {
           </div>
         </aside>
 
-        <div className="space-y-12 min-w-0">
-          <section id="overview" className="scroll-mt-32 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+        <article className="space-y-12 min-w-0">
+          <section id="overview" className="scroll-mt-32 space-y-4" aria-labelledby="overview-heading">
+            <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Overview
             </h2>
             <p className="text-muted-foreground">
@@ -614,8 +614,9 @@ export default function SourcesMethods() {
           <section
             id="data-pipeline-architecture"
             className="scroll-mt-32 space-y-4"
+            aria-labelledby="data-pipeline-architecture-heading"
           >
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="data-pipeline-architecture-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Pipeline Architecture
             </h2>
             <p className="max-w-3xl text-muted-foreground">
@@ -968,8 +969,9 @@ export default function SourcesMethods() {
             id="ml-models"
             ref={metricsRef}
             className="scroll-mt-32 space-y-4"
+            aria-labelledby="ml-models-heading"
           >
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="ml-models-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               ML Models
             </h2>
             <div className="text-muted-foreground">
@@ -1292,8 +1294,8 @@ export default function SourcesMethods() {
             </div>
           </section>
 
-          <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4" aria-labelledby="gaps-and-callouts-heading">
+            <h2 id="gaps-and-callouts-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Gaps and Other Call Outs
             </h2>
             <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
@@ -1331,8 +1333,8 @@ export default function SourcesMethods() {
             </ul>
           </section>
 
-          <section id="validations" className="scroll-mt-32 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <section id="validations" className="scroll-mt-32 space-y-4" aria-labelledby="validations-heading">
+            <h2 id="validations-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Validations
             </h2>
             <p className="text-muted-foreground">
@@ -1385,7 +1387,7 @@ export default function SourcesMethods() {
               </li>
             </ol>
           </section>
-        </div>
+        </article>
       </div>
     </PageShell>
   );

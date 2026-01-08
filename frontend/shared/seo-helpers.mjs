@@ -269,6 +269,31 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
 
   const graph = [organization, website, page];
 
+  // Add Dataset schema for bulk data page
+  if (canonical.includes("/bulk-data")) {
+    graph.push({
+      "@type": "Dataset",
+      "@id": `${canonical}#dataset`,
+      name: "Pandects M&A Agreement Dataset",
+      description:
+        "Structured M&A agreements from SEC EDGAR. Includes tagged clauses, extracted terms, and metadata for research and analysis.",
+      url: canonical,
+      keywords: [
+        "M&A",
+        "merger agreements",
+        "SEC EDGAR",
+        "definitive agreements",
+        "acquisition agreements",
+        "legal research",
+        "contract analysis",
+      ],
+      license: `${origin}/license`,
+      creator: { "@id": organizationId },
+      publisher: { "@id": organizationId },
+      isPartOf: { "@id": websiteId },
+    });
+  }
+
   if (pageType !== "WebSite") {
     graph.push({
       "@type": "BreadcrumbList",

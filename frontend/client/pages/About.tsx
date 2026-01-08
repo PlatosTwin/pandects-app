@@ -110,9 +110,9 @@ export default function About() {
           </div>
         </aside>
 
-        <div className="space-y-12">
-          <section id="overview" className="scroll-mt-24 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+        <article className="space-y-12">
+          <section id="overview" className="scroll-mt-24 space-y-4" aria-labelledby="overview-heading">
+            <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Overview
             </h2>
             <p className="max-w-3xl text-muted-foreground">
@@ -166,8 +166,8 @@ export default function About() {
             </div>
           </section>
 
-          <section id="contributing" className="scroll-mt-24 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <section id="contributing" className="scroll-mt-24 space-y-4" aria-labelledby="contributing-heading">
+            <h2 id="contributing-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Contributing
             </h2>
             <p className="text-muted-foreground prose max-w-none">
@@ -194,8 +194,8 @@ export default function About() {
             </ul>
           </section>
 
-          <section id="credits" className="scroll-mt-24 space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <section id="credits" className="scroll-mt-24 space-y-4" aria-labelledby="credits-heading">
+            <h2 id="credits-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Credits
             </h2>
             <div className="space-y-6 text-muted-foreground">
@@ -270,7 +270,7 @@ export default function About() {
               </p>
             </div>
           </section>
-        </div>
+        </article>
       </div>
     </PageShell>
   );
