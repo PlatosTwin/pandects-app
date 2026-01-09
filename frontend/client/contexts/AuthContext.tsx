@@ -30,13 +30,6 @@ interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-function hasCsrfCookie(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie
-    .split(";")
-    .some((cookie) => cookie.trim().startsWith("pdcts_csrf="));
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const transport = authSessionTransport();
   const initialToken = transport === "bearer" ? getSessionToken() : null;
@@ -49,12 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const token = transport === "bearer" ? getSessionToken() : null;
     setSessionTokenState(token);
-
-    if (transport === "cookie" && !hasCsrfCookie()) {
-      setUser(null);
-      setStatus("anonymous");
-      return;
-    }
 
     try {
       const me = await fetchMe();
