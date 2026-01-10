@@ -7,5 +7,7 @@ resources:
       xml_agreement_batch_size: 10
       taxonomy_agreement_batch_size: 10
       ai_repair_agreement_batch_size: 10
+      ai_repair_entity_focus: o
+      ai_repair_confidence_threshold: 1.0
       tx_metadata_agreement_batch_size: 10
       staging_days_to_fetch: 7
