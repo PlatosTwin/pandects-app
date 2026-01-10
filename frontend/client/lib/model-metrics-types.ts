@@ -1,60 +1,25 @@
 export type NerEvalData = {
-  meta: {
-    splitVersion: string;
-    labelScheme: string;
-    finalTrainDocs: number;
-    finalArticleWeight: number;
-    finalGatingMode: "raw" | "regex" | "regex+snap";
+  summary: {
+    strict: { precision: number; recall: number; f1: number };
+    lenient: { precision: number; recall: number; f1: number };
   };
-  finalTest: {
-    primaryMode: "raw" | "regex" | "regex+snap";
-    summaryByMode: Record<
-      "raw" | "regex" | "regex+snap",
-      {
-        entityStrict: { precision: number; recall: number; f1: number };
-        entityLenient: { f1: number };
-        articleStrict?: { precision: number; recall: number; f1: number };
-        accuracy?: number;
-      }
-    >;
-    perTypeStrict: Array<{
-      type: "PAGE" | "SECTION" | "ARTICLE";
+  perEntity: {
+    strict: Record<"ARTICLE" | "SECTION" | "PAGE", {
       precision: number;
       recall: number;
       f1: number;
-      support: number;
+    }>;
+    lenient: Record<"ARTICLE" | "SECTION" | "PAGE", {
+      precision: number;
+      recall: number;
+      f1: number;
     }>;
   };
-  baselineVal: {
-    byMode: Record<
-      "raw" | "regex" | "regex+snap",
-      {
-        entityStrict: { precision: number; recall: number; f1: number };
-        entityLenient: { f1: number };
-        articleStrict?: { precision: number; recall: number; f1: number };
-      }
-    >;
+  boundaries: {
+    ARTICLE: { B: number; I: number; E: number };
+    SECTION: { B: number; I: number; E: number };
+    PAGE: { B: number; I: number; E: number; S: number };
   };
-  learningCurveVal: Array<{
-    trainDocs: number;
-    byMode: Record<
-      "raw" | "regex" | "regex+snap",
-      {
-        entityStrictF1: number;
-        articleStrictF1?: number;
-      }
-    >;
-  }>;
-  weightSweepVal: Array<{
-    articleWeight: number;
-    byMode: Record<
-      "raw" | "regex" | "regex+snap",
-      {
-        entityStrictF1: number;
-        articleStrictF1: number;
-      }
-    >;
-  }>;
 };
 
 export type ClassifierEvalData = {

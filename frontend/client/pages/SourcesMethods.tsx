@@ -108,6 +108,7 @@ export default function SourcesMethods() {
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const lastScrollToRef = useRef(0);
   const pipelineMetricsRef = useRef<{
     firstCenter: number;
     lastCenter: number;
@@ -165,6 +166,7 @@ export default function SourcesMethods() {
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
 
+    lastScrollToRef.current = Date.now();
     setActiveSection(id);
     window.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
   };
@@ -350,6 +352,9 @@ export default function SourcesMethods() {
     if (!metricsRef.current) return;
 
     const handleResize = () => {
+      if (Date.now() - lastScrollToRef.current > 500) {
+        return;
+      }
       if (
         [
           "exhibit-model",
@@ -1247,21 +1252,6 @@ export default function SourcesMethods() {
                     entities, and the presence of Section entities.
                   </div>
                 </li>
-                <li className="space-y-2">
-                  <div>
-                    <strong>Experiment suite:</strong> Outside of model
-                    hyperparameters, which we tune using Optuna, we have three
-                    performance levers available: 1) the size of our training
-                    data corpus, and the distribution of entity types within it;
-                    2) the penalties we assign to incorrect predictions of
-                    Articles, Sections, and Pages; and 3) which post-processing
-                    transformations we perform. To evaluate the impact of each
-                    of these on model performance—all experiments are evaluated
-                    against our validation set—we first train a baseline model
-                    to select and freeze hyperparameters, which we then reuse
-                    across all experiments.
-                  </div>
-                </li>
               </ul>
 
               {metricsData ? (
@@ -1274,7 +1264,6 @@ export default function SourcesMethods() {
                 >
                   <LazyNerEvalMetrics
                     data={metricsData.ner}
-                    showValidationBlocks={false}
                   />
                 </Suspense>
               ) : (

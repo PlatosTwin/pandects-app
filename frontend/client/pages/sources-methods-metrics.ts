@@ -186,118 +186,72 @@ export const classifierEvalData: ClassifierEvalData = {
 };
 
 export const nerEvalData: NerEvalData = {
-  meta: {
-    splitVersion: "v1.2",
-    labelScheme: "BIOE",
-    finalTrainDocs: 7000,
-    finalArticleWeight: 3,
-    finalGatingMode: "regex+snap",
+  summary: {
+    strict: {
+      precision: 0.9813504823151126,
+      recall: 0.9851517107811492,
+      f1: 0.9832474226804123,
+    },
+    lenient: {
+      precision: 0.992282958199357,
+      recall: 0.9961265332472563,
+      f1: 0.9942010309278351,
+    },
   },
-  finalTest: {
-    primaryMode: "regex+snap",
-    summaryByMode: {
-      raw: {
-        entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
-        entityLenient: { f1: 0.94 },
-        articleStrict: { precision: 0.86, recall: 0.82, f1: 0.84 },
-        accuracy: 0.93,
+  perEntity: {
+    strict: {
+      ARTICLE: {
+        precision: 0.825,
+        recall: 0.8148148148148148,
+        f1: 0.8198757763975155,
       },
-      regex: {
-        entityStrict: { precision: 0.93, recall: 0.9, f1: 0.915 },
-        entityLenient: { f1: 0.95 },
-        articleStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
-        accuracy: 0.94,
+      SECTION: {
+        precision: 0.9845605700712589,
+        recall: 0.9928143712574851,
+        f1: 0.9886702444841979,
       },
-      "regex+snap": {
-        entityStrict: { precision: 0.95, recall: 0.92, f1: 0.935 },
-        entityLenient: { f1: 0.965 },
-        articleStrict: { precision: 0.9, recall: 0.87, f1: 0.885 },
-        accuracy: 0.956,
+      PAGE: {
+        precision: 0.9968404423380727,
+        recall: 0.9968404423380727,
+        f1: 0.9968404423380727,
       },
     },
-    perTypeStrict: [
-      { type: "PAGE", precision: 0.96, recall: 0.93, f1: 0.945, support: 3200 },
-      {
-        type: "SECTION",
-        precision: 0.93,
-        recall: 0.9,
-        f1: 0.915,
-        support: 1800,
+    lenient: {
+      ARTICLE: {
+        precision: 1.0,
+        recall: 0.9876543209876543,
+        f1: 0.9937888198757764,
       },
-      { type: "ARTICLE", precision: 0.9, recall: 0.86, f1: 0.88, support: 740 },
-    ],
-  },
-  baselineVal: {
-    byMode: {
-      raw: {
-        entityStrict: { precision: 0.88, recall: 0.84, f1: 0.86 },
-        entityLenient: { f1: 0.91 },
-        articleStrict: { precision: 0.8, recall: 0.75, f1: 0.775 },
+      SECTION: {
+        precision: 0.9881235154394299,
+        recall: 0.9964071856287425,
+        f1: 0.992248062015504,
       },
-      regex: {
-        entityStrict: { precision: 0.9, recall: 0.86, f1: 0.88 },
-        entityLenient: { f1: 0.925 },
-        articleStrict: { precision: 0.82, recall: 0.78, f1: 0.8 },
-      },
-      "regex+snap": {
-        entityStrict: { precision: 0.91, recall: 0.88, f1: 0.895 },
-        entityLenient: { f1: 0.935 },
-        articleStrict: { precision: 0.84, recall: 0.8, f1: 0.82 },
+      PAGE: {
+        precision: 0.9968404423380727,
+        recall: 0.9968404423380727,
+        f1: 0.9968404423380727,
       },
     },
   },
-  learningCurveVal: [
-    {
-      trainDocs: 1500,
-      byMode: {
-        raw: { entityStrictF1: 0.78, articleStrictF1: 0.62 },
-        regex: { entityStrictF1: 0.81, articleStrictF1: 0.66 },
-        "regex+snap": { entityStrictF1: 0.83, articleStrictF1: 0.68 },
-      },
+  boundaries: {
+    ARTICLE: {
+      B: 0.9937888198757764,
+      I: 0.9796355841371919,
+      E: 0.8198757763975155,
     },
-    {
-      trainDocs: 3500,
-      byMode: {
-        raw: { entityStrictF1: 0.82, articleStrictF1: 0.68 },
-        regex: { entityStrictF1: 0.85, articleStrictF1: 0.71 },
-        "regex+snap": { entityStrictF1: 0.88, articleStrictF1: 0.74 },
-      },
+    SECTION: {
+      B: 0.992248062015504,
+      I: 0.9956439393939395,
+      E: 0.9886702444841979,
     },
-    {
-      trainDocs: 7000,
-      byMode: {
-        raw: { entityStrictF1: 0.86, articleStrictF1: 0.73 },
-        regex: { entityStrictF1: 0.89, articleStrictF1: 0.76 },
-        "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.79 },
-      },
+    PAGE: {
+      B: 0.9965635738831615,
+      I: 0.996415770609319,
+      E: 0.9965635738831615,
+      S: 0.9969230769230769,
     },
-  ],
-  weightSweepVal: [
-    {
-      articleWeight: 1,
-      byMode: {
-        raw: { entityStrictF1: 0.86, articleStrictF1: 0.74 },
-        regex: { entityStrictF1: 0.88, articleStrictF1: 0.76 },
-        "regex+snap": { entityStrictF1: 0.9, articleStrictF1: 0.78 },
-      },
-    },
-    {
-      articleWeight: 2,
-      byMode: {
-        raw: { entityStrictF1: 0.87, articleStrictF1: 0.76 },
-        regex: { entityStrictF1: 0.89, articleStrictF1: 0.79 },
-        "regex+snap": { entityStrictF1: 0.915, articleStrictF1: 0.82 },
-      },
-    },
-    {
-      articleWeight: 3,
-      byMode: {
-        raw: { entityStrictF1: 0.88, articleStrictF1: 0.78 },
-        regex: { entityStrictF1: 0.91, articleStrictF1: 0.83 },
-        "regex+snap": { entityStrictF1: 0.935, articleStrictF1: 0.86 },
-      },
-    },
-  ],
+  },
 };
 
 export const exhibitEvalData: ExhibitEvalData = {

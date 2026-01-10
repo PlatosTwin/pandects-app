@@ -1,9 +1,3 @@
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
 import type { NerEvalData } from "@/lib/model-metrics-types";
 
@@ -12,17 +6,9 @@ type NerEvalMetricsProps = {
   showValidationBlocks?: boolean;
 };
 
-const MODE_LABELS: Record<"raw" | "regex" | "regex+snap", string> = {
-  raw: "Raw",
-  regex: "Regex",
-  "regex+snap": "Regex + Snap",
-};
-
 const formatPercent = (value: number) => `${(value * 100).toFixed(2)}%`;
-const formatCount = (value: number) =>
-  new Intl.NumberFormat("en-US").format(value);
 
-const MetricCard = ({ label, value }: { label: string; value: string }) => (
+const SummaryMetric = ({ label, value }: { label: string; value: string }) => (
   <div className="text-center sm:text-left">
     <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
       {label}
@@ -31,480 +17,234 @@ const MetricCard = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const PerTypeTable = ({
-  rows,
-  caption,
-}: {
-  rows: NerEvalData["finalTest"]["perTypeStrict"];
-  caption: string;
-}) => (
-  <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
-    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      Per-type Metrics
+const MutedMetric = ({ label, value }: { label: string; value: string }) => (
+  <div className="text-center sm:text-left">
+    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {label}
     </div>
-    <div className="mt-3 w-full max-w-full overflow-x-auto">
-      <table className="w-max table-auto text-xs">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-            <th scope="col" className="whitespace-nowrap pb-2 pr-3">
-              Type
-            </th>
-            <th scope="col" className="whitespace-nowrap pb-2 pr-3 text-right">
-              P
-            </th>
-            <th scope="col" className="whitespace-nowrap pb-2 pr-3 text-right">
-              R
-            </th>
-            <th scope="col" className="whitespace-nowrap pb-2 pr-3 text-right">
-              F1
-            </th>
-            <th scope="col" className="whitespace-nowrap pb-2 text-right">
-              Support
-            </th>
-          </tr>
-        </thead>
-        <tbody className="font-mono text-muted-foreground">
-          {rows.map((row) => (
-            <tr key={row.type} className="border-b border-border/40">
-              <th
-                scope="row"
-                className="whitespace-nowrap py-2 pr-3 text-left text-foreground font-normal"
-              >
-                {row.type}
-              </th>
-              <td className="py-2 pr-3 text-right">
-                {formatPercent(row.precision)}
-              </td>
-              <td className="py-2 pr-3 text-right">
-                {formatPercent(row.recall)}
-              </td>
-              <td className="py-2 pr-3 text-right">{formatPercent(row.f1)}</td>
-              <td className="py-2 text-right">{formatCount(row.support)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <div className="mt-1 text-2xl font-semibold text-foreground">{value}</div>
   </div>
 );
 
 export function NerEvalMetrics({
   data,
-  showValidationBlocks = true,
+  showValidationBlocks: _showValidationBlocks = true,
 }: NerEvalMetricsProps) {
-  if (!showValidationBlocks) {
-    return null;
-  }
-  const { meta, finalTest, baselineVal, learningCurveVal, weightSweepVal } =
-    data;
-  const primarySummary = finalTest.summaryByMode[finalTest.primaryMode];
-  const hasBaselineArticle = Object.values(baselineVal.byMode).some(
-    (mode) => mode.articleStrict,
-  );
-  const hasLearningArticle = learningCurveVal.some((row) =>
-    Object.values(row.byMode).some((mode) => mode.articleStrictF1 !== undefined),
-  );
-  const hasWeightEntity = weightSweepVal.some((row) =>
-    Object.values(row.byMode).some((mode) => mode.entityStrictF1 !== undefined),
-  );
+  const { summary, perEntity, boundaries } = data;
+  const summaryMetrics = [
+    { label: "Precision", key: "precision" as const },
+    { label: "Recall", key: "recall" as const },
+    { label: "F1 Score", key: "f1" as const },
+  ];
+  const entityKeyByLabel = {
+    Article: "ARTICLE",
+    Section: "SECTION",
+    Page: "PAGE",
+  } as const;
 
   return (
-    <div className="space-y-8 min-w-0">
-      <Accordion type="multiple" className="space-y-4 min-w-0">
-        <AccordionItem
-          value="baseline-validation"
-          className="rounded-2xl border border-border/70 bg-card/60"
-        >
-          <AccordionTrigger className="px-5 py-4 text-left">
-            <div className="flex w-full flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-foreground">
-                Baseline
-              </div>
-              <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                Validation
-              </span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <div className="w-full">
-                <table className="w-full table-fixed text-xs">
-                  <caption className="sr-only">
-                    Baseline validation metrics by gating mode
-                  </caption>
-                  <colgroup>
-                    <col className="w-[40%]" />
-                    <col className="w-[20%]" />
-                    <col className="w-[20%]" />
-                    <col className="w-[20%]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="pb-2 pr-3">
-                        Metric
-                      </th>
-                      <th scope="col" className="pb-2 pr-3 text-right">
-                        {MODE_LABELS.raw}
-                      </th>
-                      <th scope="col" className="pb-2 pr-3 text-right">
-                        {MODE_LABELS.regex}
-                      </th>
-                      <th scope="col" className="pb-2 text-right">
-                        {MODE_LABELS["regex+snap"]}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-mono text-muted-foreground">
-                    {[
-                      {
-                        label: "Strict P",
-                        get: (mode: typeof baselineVal.byMode.raw) =>
-                          mode.entityStrict.precision,
-                      },
-                      {
-                        label: "Strict R",
-                        get: (mode: typeof baselineVal.byMode.raw) =>
-                          mode.entityStrict.recall,
-                      },
-                      {
-                        label: "Strict F1",
-                        get: (mode: typeof baselineVal.byMode.raw) =>
-                          mode.entityStrict.f1,
-                      },
-                      {
-                        label: "Lenient F1",
-                        get: (mode: typeof baselineVal.byMode.raw) =>
-                          mode.entityLenient.f1,
-                      },
-                      hasBaselineArticle
-                        ? {
-                            label: "ARTICLE strict F1",
-                            get: (mode: typeof baselineVal.byMode.raw) =>
-                              mode.articleStrict?.f1,
-                          }
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .map((row) => (
-                        <tr
-                          key={(row as { label: string }).label}
-                          className="border-b border-border/40"
-                        >
-                          <th
-                            scope="row"
-                            className="py-2 pr-3 text-left text-foreground font-normal"
-                          >
-                            {(row as { label: string }).label}
-                          </th>
-                          {(["raw", "regex", "regex+snap"] as const).map(
-                            (modeKey) => {
-                              const value = (
-                                row as {
-                                  get: (mode: typeof baselineVal.byMode.raw) =>
-                                    | number
-                                    | undefined;
-                                }
-                              ).get(baselineVal.byMode[modeKey]);
-                              return (
-                                <td
-                                  key={modeKey}
-                                  className="py-2 pr-3 text-right last:pr-0"
-                                >
-                                  {value === undefined
-                                    ? "—"
-                                    : formatPercent(value)}
-                                </td>
-                              );
-                            },
-                          )}
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Notes
-                </div>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-                  <li>Baseline uses no post-processing constraints.</li>
-                  <li>Validation scores guide the next-stage comparisons.</li>
-                  <li>All modes share the same val split.</li>
-                </ul>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+    <Card className="rounded-2xl border border-border/70 bg-card/60 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-foreground">
+          Model Metrics
+        </div>
+        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+          Tagging Model
+        </span>
+      </div>
 
-        <AccordionItem
-          value="learning-curve-validation"
-          className="rounded-2xl border border-border/70 bg-card/60 min-w-0"
-        >
-          <AccordionTrigger className="px-5 py-4 text-left">
-            <div className="flex w-full flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-foreground">
-                Learning curve
-              </div>
-              <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                Validation
-              </span>
+      <div className="mt-4 space-y-6">
+        <div className="rounded-lg bg-emerald-500/10 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-emerald-900 dark:text-emerald-100">
+            <div className="text-[11px] font-semibold uppercase tracking-wide">
+              Entity-level micro metrics
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 min-w-0">
-            <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Decision:</span>{" "}
-              Placeholder summary of the selected train set size.
-            </div>
-            <div className="mt-3 w-full max-w-full overflow-x-auto overflow-y-hidden min-w-0">
-              <table className="w-max min-w-[640px] table-auto text-xs">
-                <caption className="sr-only">
-                  Validation learning curve by train set size
-                </caption>
-                <thead>
-                  <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="pb-2 pr-3 leading-tight">
-                      Train docs
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS.raw} strict F1
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS.regex} strict F1
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS["regex+snap"]} strict F1
-                    </th>
-                    {hasLearningArticle && (
-                      <>
-                        <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                          {MODE_LABELS.raw} ARTICLE F1
-                        </th>
-                        <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                          {MODE_LABELS.regex} ARTICLE F1
-                        </th>
-                        <th scope="col" className="pb-2 text-right leading-tight">
-                          {MODE_LABELS["regex+snap"]} ARTICLE F1
-                        </th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-muted-foreground">
-                  {learningCurveVal.map((row) => (
-                    <tr
-                      key={row.trainDocs}
-                      className="border-b border-border/40"
-                    >
-                      <th
-                        scope="row"
-                        className="py-2 pr-3 text-left text-foreground font-normal"
-                      >
-                        {formatCount(row.trainDocs)}
-                      </th>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode.raw.entityStrictF1)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode.regex.entityStrictF1)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode["regex+snap"].entityStrictF1)}
-                      </td>
-                      {hasLearningArticle && (
-                        <>
-                          <td className="py-2 pr-3 text-right">
-                            {row.byMode.raw.articleStrictF1 === undefined
-                              ? "—"
-                              : formatPercent(row.byMode.raw.articleStrictF1)}
-                          </td>
-                          <td className="py-2 pr-3 text-right">
-                            {row.byMode.regex.articleStrictF1 === undefined
-                              ? "—"
-                              : formatPercent(row.byMode.regex.articleStrictF1)}
-                          </td>
-                          <td className="py-2 pr-3 text-right">
-                            {row.byMode["regex+snap"].articleStrictF1 ===
-                            undefined
-                              ? "—"
-                              : formatPercent(
-                                  row.byMode["regex+snap"].articleStrictF1,
-                                )}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="weight-sweep-validation"
-          className="rounded-2xl border border-border/70 bg-card/60 min-w-0"
-        >
-          <AccordionTrigger className="px-5 py-4 text-left">
-            <div className="flex w-full flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-foreground">
-                ARTICLE weighting sweep
-              </div>
-              <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                Validation
-              </span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 min-w-0">
-            <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Decision:</span>{" "}
-              Placeholder summary of the chosen article weight.
-            </div>
-            <div className="mt-3 w-full max-w-full overflow-x-auto overflow-y-hidden min-w-0">
-              <table className="w-max min-w-[640px] table-auto text-xs">
-                <caption className="sr-only">
-                  Validation sweep over article weighting
-                </caption>
-                <thead>
-                  <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="pb-2 pr-3 leading-tight">
-                      Weight
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS.raw} ARTICLE F1
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS.regex} ARTICLE F1
-                    </th>
-                    <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                      {MODE_LABELS["regex+snap"]} ARTICLE F1
-                    </th>
-                    {hasWeightEntity && (
-                      <>
-                        <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                          {MODE_LABELS.raw} strict F1
-                        </th>
-                        <th scope="col" className="pb-2 pr-3 text-right leading-tight">
-                          {MODE_LABELS.regex} strict F1
-                        </th>
-                        <th scope="col" className="pb-2 text-right leading-tight">
-                          {MODE_LABELS["regex+snap"]} strict F1
-                        </th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-muted-foreground">
-                  {weightSweepVal.map((row) => (
-                    <tr
-                      key={row.articleWeight}
-                      className="border-b border-border/40"
-                    >
-                      <th
-                        scope="row"
-                        className="py-2 pr-3 text-left text-foreground font-normal"
-                      >
-                        {row.articleWeight}
-                      </th>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode.raw.articleStrictF1)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode.regex.articleStrictF1)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        {formatPercent(row.byMode["regex+snap"].articleStrictF1)}
-                      </td>
-                      {hasWeightEntity && (
-                        <>
-                          <td className="py-2 pr-3 text-right">
-                            {formatPercent(row.byMode.raw.entityStrictF1)}
-                          </td>
-                          <td className="py-2 pr-3 text-right">
-                            {formatPercent(row.byMode.regex.entityStrictF1)}
-                          </td>
-                          <td className="py-2 pr-3 text-right">
-                            {formatPercent(
-                              row.byMode["regex+snap"].entityStrictF1,
-                            )}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      <Card className="rounded-2xl border-border/70 bg-card/60 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h4 className="text-lg font-semibold text-foreground">
-              NER Model Evaluation
-            </h4>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Model selection is driven by validation splits, with final
-              reporting on a held-out test set.
-            </p>
+            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-100">
+              Strict
+            </span>
           </div>
-          <div className="flex flex-wrap gap-2 text-[11px] font-mono text-muted-foreground">
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">
-              Scheme: {meta.labelScheme}
-            </span>
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">
-              Split: {meta.splitVersion}
-            </span>
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">
-              Train docs: {formatCount(meta.finalTrainDocs)}
-            </span>
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">
-              Article wt: {meta.finalArticleWeight}
-            </span>
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">
-              Gating: {MODE_LABELS[meta.finalGatingMode]}
-            </span>
+          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-3">
+            {summaryMetrics.map((metric) => (
+              <SummaryMetric
+                key={metric.label}
+                label={metric.label}
+                value={formatPercent(summary.strict[metric.key])}
+              />
+            ))}
           </div>
         </div>
-        <div className="mt-5 rounded-lg bg-emerald-500/10 p-3">
-          <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="Entity F1 (strict)"
-              value={formatPercent(primarySummary.entityStrict.f1)}
-            />
-            <MetricCard
-              label="Precision (strict)"
-              value={formatPercent(primarySummary.entityStrict.precision)}
-            />
-            <MetricCard
-              label="Recall (strict)"
-              value={formatPercent(primarySummary.entityStrict.recall)}
-            />
-            <MetricCard
-              label="Lenient F1"
-              value={formatPercent(primarySummary.entityLenient.f1)}
-            />
-          </div>
-        </div>
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <PerTypeTable
-            rows={finalTest.perTypeStrict}
-            caption="NER per-type strict metrics"
-          />
-          <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+
+        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Notes
+              Entity-level micro metrics
             </div>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-              <li>Primary mode selected via validation performance.</li>
-              <li>Support counts reflect strict entity matches.</li>
-              <li>Gating mode applied at inference time.</li>
-            </ul>
+            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Lenient
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {summaryMetrics.map((metric) => (
+              <MutedMetric
+                key={metric.label}
+                label={metric.label}
+                value={formatPercent(summary.lenient[metric.key])}
+              />
+            ))}
           </div>
         </div>
-      </Card>
-    </div>
+
+        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Article, Section, Page metrics
+          </div>
+          <div className="mt-3 w-full overflow-x-auto">
+            <table className="w-full min-w-0 text-xs table-auto sm:min-w-[520px] sm:table-fixed">
+              <caption className="sr-only">
+                Article, Section, and Page metrics for strict and lenient
+                evaluation
+              </caption>
+              <colgroup className="hidden sm:table-column-group">
+                <col className="w-[28%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <th
+                    scope="col"
+                    className="w-[1%] whitespace-nowrap pb-2 pr-2 sm:w-auto sm:pr-3"
+                  >
+                    Entity
+                  </th>
+                  <th scope="col" className="hidden pb-2 pr-2 sm:table-cell sm:pr-3">
+                    Mode
+                  </th>
+                  <th scope="col" className="pb-2 pr-2 text-right sm:pr-3">
+                    P
+                  </th>
+                  <th scope="col" className="pb-2 pr-2 text-right sm:pr-3">
+                    R
+                  </th>
+                  <th scope="col" className="pb-2 text-right">
+                    F1
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-muted-foreground">
+                {(["Article", "Section", "Page"] as const).flatMap((entity) => {
+                  const entityKey = entityKeyByLabel[entity];
+                  return (["Strict", "Lenient"] as const).map((mode) => {
+                    const modeKey = mode === "Strict" ? "strict" : "lenient";
+                    const metrics = perEntity[modeKey][entityKey];
+                    return (
+                      <tr
+                        key={`${entity}-${mode}`}
+                        className="border-b border-border/40"
+                      >
+                        <th
+                          scope="row"
+                          className="w-[1%] whitespace-nowrap py-1.5 pr-2 text-left text-foreground font-normal sm:w-auto sm:py-2 sm:pr-3"
+                        >
+                          <div>{entity}</div>
+                          <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                            {mode}
+                          </div>
+                        </th>
+                        <td className="hidden py-1.5 pr-2 text-left text-muted-foreground sm:table-cell sm:py-2 sm:pr-3">
+                          {mode}
+                        </td>
+                        <td className="py-1.5 pr-2 text-right sm:py-2 sm:pr-3">
+                          {formatPercent(metrics.precision)}
+                        </td>
+                        <td className="py-1.5 pr-2 text-right sm:py-2 sm:pr-3">
+                          {formatPercent(metrics.recall)}
+                        </td>
+                        <td className="py-1.5 text-right sm:py-2">
+                          {formatPercent(metrics.f1)}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Boundary metrics (F1)
+          </div>
+          <div className="mt-3 w-full overflow-x-auto">
+            <table className="w-full min-w-0 text-xs table-auto sm:min-w-[420px] sm:table-fixed">
+              <caption className="sr-only">
+                Boundary F1 scores for Article, Section, and Page entities
+              </caption>
+              <colgroup className="hidden sm:table-column-group">
+                <col className="w-[28%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <th
+                    scope="col"
+                    className="w-[1%] whitespace-nowrap pb-2 pr-2 sm:w-auto sm:pr-3"
+                  >
+                    Entity
+                  </th>
+                  {(["B", "I", "E", "S"] as const).map((metric) => (
+                    <th
+                      key={metric}
+                      scope="col"
+                      className="pb-2 pr-2 text-right last:pr-0 sm:pr-3"
+                    >
+                      {metric}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="font-mono text-muted-foreground">
+                {[
+                  { label: "Article", key: "ARTICLE", showS: false },
+                  { label: "Section", key: "SECTION", showS: false },
+                  { label: "Page", key: "PAGE", showS: true },
+                ].map((row) => (
+                  <tr key={row.label} className="border-b border-border/40">
+                    <th
+                      scope="row"
+                      className="w-[1%] whitespace-nowrap py-1.5 pr-2 text-left text-foreground font-normal sm:w-auto sm:py-2 sm:pr-3"
+                    >
+                      {row.label}
+                    </th>
+                    {(["B", "I", "E", "S"] as const).map((metric) => {
+                      const value =
+                        metric === "S"
+                          ? row.showS
+                            ? boundaries.PAGE.S
+                            : null
+                          : boundaries[row.key][metric];
+                      return (
+                        <td
+                          key={`${row.label}-${metric}`}
+                          className="py-1.5 pr-2 text-right last:pr-0 sm:py-2 sm:pr-3"
+                        >
+                          {value === null ? "N/A" : formatPercent(value)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
