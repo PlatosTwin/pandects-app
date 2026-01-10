@@ -36,6 +36,30 @@ class RepairDecision:
     token_map: List[Tuple[int, int]]
 
 
+_ALLOWED_ENTITY_FOCUS = {"article", "section", "page", "o"}
+
+
+def filter_uncertain_spans(
+    uncertain_spans: List[UncertainSpan],
+    *,
+    entity_focus: str,
+    confidence_threshold: float,
+) -> List[UncertainSpan]:
+    if entity_focus not in _ALLOWED_ENTITY_FOCUS:
+        raise ValueError(
+            f"ai_repair_entity_focus must be one of {sorted(_ALLOWED_ENTITY_FOCUS)}; got {entity_focus!r}."
+        )
+    if not 0 <= confidence_threshold <= 1:
+        raise ValueError(
+            f"ai_repair_confidence_threshold must be between 0 and 1; got {confidence_threshold!r}."
+        )
+    return [
+        s
+        for s in uncertain_spans
+        if s.entity == entity_focus and s.avg_confidence < confidence_threshold
+    ]
+
+
 # ------------------------------
 # Token <-> char mapping
 # ------------------------------

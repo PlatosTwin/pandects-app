@@ -36,6 +36,15 @@ class ProcessingScope(Enum):
     FULL = "full"
 
 
+class AiRepairEntityFocus(Enum):
+    """Entity focus for AI repair filtering."""
+
+    ARTICLE = "article"
+    SECTION = "section"
+    PAGE = "page"
+    O = "o"
+
+
 class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pipeline execution mode and batching behavior."""
 
@@ -45,6 +54,8 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     xml_agreement_batch_size: int = 10  # used in xml_asset
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
+    ai_repair_entity_focus: AiRepairEntityFocus = AiRepairEntityFocus.O
+    ai_repair_confidence_threshold: float = 1.0
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     staging_days_to_fetch: int = 2  # used in staging_asset alt flow
     staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow

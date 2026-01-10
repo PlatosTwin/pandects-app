@@ -30,6 +30,7 @@ from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
     decide_repair_windows,
+    filter_uncertain_spans,
     build_jsonl_lines_for_page,
 )
 
@@ -309,6 +310,8 @@ def ai_repair_enqueue_asset(
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.ai_repair_agreement_batch_size
+        entity_focus = pipeline_config.ai_repair_entity_focus.value
+        confidence_threshold = pipeline_config.ai_repair_confidence_threshold
         batched = is_batched(context, pipeline_config)
 
         if not batched:
@@ -330,10 +333,17 @@ def ai_repair_enqueue_asset(
             page_uuid = row["page_uuid"]
             text = row["text"]
             spans = _parse_uncertain_spans(row["spans"])
+            focused_spans = filter_uncertain_spans(
+                spans,
+                entity_focus=entity_focus,
+                confidence_threshold=confidence_threshold,
+            )
+            if not focused_spans:
+                continue
 
             decision: RepairDecision = decide_repair_windows(
                 text=text,
-                uncertain_spans=spans,
+                uncertain_spans=focused_spans,
             )
 
             if decision.mode == "full":
@@ -342,7 +352,7 @@ def ai_repair_enqueue_asset(
                     text=text,
                     decision=decision,
                     model=full_page_model,
-                    uncertain_spans=spans,
+                    uncertain_spans=focused_spans,
                 )
                 for line in batch_lines:
                     _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -353,7 +363,7 @@ def ai_repair_enqueue_asset(
                     text=text,
                     decision=decision,
                     model=excerpt_model,
-                    uncertain_spans=spans,
+                    uncertain_spans=focused_spans,
                 )
                 for line in batch_lines:
                     _ = jsonl_excerpt_buf.write(
