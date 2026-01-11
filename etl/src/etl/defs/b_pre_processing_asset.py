@@ -72,6 +72,8 @@ def pre_processing_asset(
                             SELECT 1 FROM pdx.pages p
                             WHERE p.agreement_uuid = pdx.agreements.agreement_uuid
                         )
+                        AND (prob_filing > 0.75 or not invalid)
+                        AND (not invalid or invalid is null)
                     ORDER BY
                         agreement_uuid ASC
                     LIMIT

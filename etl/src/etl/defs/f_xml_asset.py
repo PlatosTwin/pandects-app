@@ -62,7 +62,15 @@ def xml_asset(
                             ON t.page_uuid = p.page_uuid
                         WHERE a.agreement_uuid > :last_uuid
                         AND NOT EXISTS (
-                            SELECT 1 FROM pdx.xml x WHERE x.agreement_uuid = a.agreement_uuid
+                            SELECT 1 
+                            FROM pdx.xml x 
+                            WHERE x.agreement_uuid = a.agreement_uuid
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 
+                            FROM pdx.pages join pdx.tagged_outputs using(page_uuid) 
+                            WHERE label error
+                            and pages.agreement_uuid = a.agreement_uuid
                         )
                         GROUP BY a.agreement_uuid
                         HAVING
