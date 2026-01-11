@@ -8,6 +8,7 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.utils.db_utils import upsert_sections
 from etl.utils.run_config import is_batched
+from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[xml_asset], name="7_sections_asset")
@@ -76,3 +77,5 @@ def sections_asset(
 
         if batched:
             break
+
+    refresh_summary_data(context, db)

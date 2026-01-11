@@ -26,6 +26,7 @@ from etl.domain.a_staging import (
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.run_config import is_cleanup_mode
+from etl.utils.summary_data import refresh_summary_data
 
 UpsertAgreements = Callable[[Sequence[FilingMetadata], Connection], None]
 upsert_agreements = cast(UpsertAgreements, _upsert_agreements)
@@ -99,6 +100,7 @@ def staging_asset(
 
     if is_cleanup:
         context.log.info("CLEANUP mode. Skipping staging step.")
+        refresh_summary_data(context, db)
         return 0
 
     engine = db.get_engine()
@@ -217,4 +219,5 @@ def staging_asset(
         )
 
     context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
+    refresh_summary_data(context, db)
     return total_count

@@ -22,6 +22,7 @@ from etl.domain.b_pre_processing import (
 )
 from etl.utils.db_utils import upsert_pages
 from etl.utils.run_config import is_cleanup_mode
+from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -197,3 +198,5 @@ def pre_processing_asset(
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")
                         raise RuntimeError(e)
+
+    refresh_summary_data(context, db)

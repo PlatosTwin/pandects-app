@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from etl.defs.d_ai_repair_asset import ai_repair_poll_asset
 from etl.defs.resources import DBResource, PipelineConfig
+from etl.utils.summary_data import refresh_summary_data
 
 
 def _strip_tags_and_spans(tagged_text: str) -> Tuple[str, List[Tuple[int, int, str]]]:
@@ -399,3 +400,5 @@ def reconcile_tags(
         ran_batches += 1
         if is_batched:
             break
+
+    refresh_summary_data(context, db)

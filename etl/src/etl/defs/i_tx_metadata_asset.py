@@ -25,6 +25,7 @@ from etl.domain.i_tx_metadata import (
     parse_tx_metadata_response,
 )
 from etl.utils.run_config import is_batched
+from etl.utils.summary_data import refresh_summary_data
 
 
 def _oai_client() -> OpenAI:
@@ -43,6 +44,7 @@ def tx_metadata_asset(
     # Enforce batched-only mode
     if not is_batched(context, pipeline_config):
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
+        refresh_summary_data(context, db)
         return
 
     batch_size = pipeline_config.tx_metadata_agreement_batch_size
@@ -75,6 +77,7 @@ def tx_metadata_asset(
 
     if not agreements:
         context.log.info("tx_metadata_asset: no agreements need metadata.")
+        refresh_summary_data(context, db)
         return
 
     context.log.info(f"tx_metadata_asset: selected {len(agreements)} agreements for enrichment")
@@ -152,3 +155,5 @@ def tx_metadata_asset(
     context.log.info(
         f"tx_metadata_asset: attempted={attempted}, parsed={parsed_ok}, updated={updated}, parse_errors={parse_errors}, skipped_due_to_error={skipped_due_to_error}"
     )
+
+    refresh_summary_data(context, db)

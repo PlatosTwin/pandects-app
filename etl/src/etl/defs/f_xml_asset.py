@@ -13,6 +13,7 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
 from etl.utils.run_config import is_batched, is_cleanup_mode
+from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[tagging_asset, reconcile_tags], name="6_xml_asset")
@@ -142,3 +143,5 @@ def xml_asset(
         ran_batches += 1
         if batched:
             break
+
+    refresh_summary_data(context, db)

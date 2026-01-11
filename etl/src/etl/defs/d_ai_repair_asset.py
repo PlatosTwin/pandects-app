@@ -26,6 +26,7 @@ import time
 
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.utils.run_config import is_batched
+from etl.utils.summary_data import refresh_summary_data
 from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
@@ -316,11 +317,13 @@ def ai_repair_enqueue_asset(
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
+            refresh_summary_data(context, db)
             return
 
         candidates = _fetch_candidates(conn, agreement_limit=batch_size)
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
+            refresh_summary_data(context, db)
             return
 
         # 2) build JSONL in-memory, split by mode to keep batch models consistent
@@ -375,6 +378,7 @@ def ai_repair_enqueue_asset(
 
         if not lines_meta_full and not lines_meta_excerpt:
             context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+            refresh_summary_data(context, db)
             return
 
         def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
@@ -401,6 +405,8 @@ def ai_repair_enqueue_asset(
         # 3) upload JSONL + create Batch per mode
         _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
         _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
+
+    refresh_summary_data(context, db)
 
 
 def _read_file_text(client: OpenAI, file_id: str) -> str:
@@ -551,6 +557,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
             )
             if not rows:
                 context.log.info("ai_repair_poll_asset: no batches to poll.")
+                refresh_summary_data(context, db)
                 return
 
             upd_batch = text(

@@ -83,6 +83,11 @@ load_dotenv()
 _FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
 _filter_options_cache = {"ts": 0.0, "payload": None}
 _filter_options_lock = Lock()
+_AGREEMENTS_SUMMARY_TTL_SECONDS = int(
+    os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60")
+)
+_agreements_summary_cache = {"ts": 0.0, "payload": None}
+_agreements_summary_lock = Lock()
 
 # ── Simple in-process rate limiting ──────────────────────────────────────
 _rate_limit_lock = Lock()
@@ -2374,21 +2379,25 @@ def get_agreements_index() -> dict[str, object]:
         Agreements.acquirer,
         Agreements.verified,
     )
+    count_q = db.session.query(func.count(Agreements.uuid))
 
     if query:
-        like = f"%{query}%"
-        q = q.filter(
-            or_(
-                Agreements.year.ilike(like),
+        if query.isdigit():
+            year_value = int(query)
+            q = q.filter(Agreements.year == year_value)
+            count_q = count_q.filter(Agreements.year == year_value)
+        else:
+            like = f"{query}%"
+            filters = or_(
                 Agreements.target.ilike(like),
                 Agreements.acquirer.ilike(like),
             )
-        )
+            q = q.filter(filters)
+            count_q = count_q.filter(filters)
 
     q = q.order_by(order_by, Agreements.uuid)
 
-    count_subquery = q.order_by(None).with_entities(Agreements.uuid).subquery()
-    total_count = db.session.query(func.count()).select_from(count_subquery).scalar()
+    total_count = count_q.scalar()
     total_count = int(total_count or 0)
     offset = (page - 1) * page_size
     items = q.offset(offset).limit(page_size).all()
@@ -2413,21 +2422,38 @@ def get_agreements_index() -> dict[str, object]:
 
 
 def get_agreements_summary() -> dict[str, int]:
-    agreements_count = db.session.execute(
-        text(f"SELECT COUNT(*) FROM {_schema_prefix()}agreements")
-    ).scalar()
-    sections_count = db.session.execute(
-        text(f"SELECT COUNT(*) FROM {_schema_prefix()}sections")
-    ).scalar()
-    pages_count = db.session.execute(
-        text(f"SELECT COUNT(*) FROM {_schema_prefix()}pages")
-    ).scalar()
+    now = time.time()
+    with _agreements_summary_lock:
+        cached_payload = _agreements_summary_cache["payload"]
+        cached_ts = _agreements_summary_cache["ts"]
+        cache_is_valid = cached_payload is not None and (
+            now - cached_ts < _AGREEMENTS_SUMMARY_TTL_SECONDS
+        )
+    if cache_is_valid:
+        return cached_payload
 
-    return {
-        "agreements": int(agreements_count or 0),
-        "sections": int(sections_count or 0),
-        "pages": int(pages_count or 0),
+    row = db.session.execute(
+        text(
+            f"""
+            SELECT
+              COALESCE(SUM(count_agreements), 0) AS agreements,
+              COALESCE(SUM(count_sections), 0) AS sections,
+              COALESCE(SUM(count_pages), 0) AS pages
+            FROM {_schema_prefix()}summary_data
+            """
+        )
+    ).mappings().first()
+
+    payload = {
+        "agreements": int((row or {}).get("agreements", 0) or 0),
+        "sections": int((row or {}).get("sections", 0) or 0),
+        "pages": int((row or {}).get("pages", 0) or 0),
     }
+    with _agreements_summary_lock:
+        _agreements_summary_cache["payload"] = payload
+        _agreements_summary_cache["ts"] = now
+
+    return payload
 
 
 def get_filter_options() -> tuple[Response, int] | Response:

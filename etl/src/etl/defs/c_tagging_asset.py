@@ -17,6 +17,7 @@ from etl.domain.c_tagging import (
 )
 from etl.utils.db_utils import upsert_tags
 from etl.utils.run_config import is_batched, is_cleanup_mode
+from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -227,3 +228,5 @@ def tagging_asset(
         ran_batches += 1
         if batched:
             break
+
+    refresh_summary_data(context, db)
