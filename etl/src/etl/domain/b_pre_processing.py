@@ -350,6 +350,21 @@ def block_level_soup(
             p.string = str(child)
             _ = new_soup.append(p)
         elif isinstance(child, Tag) and child.name not in block_tags:
+            # Avoid capturing non-block wrappers that already contain block tags
+            if child.find(block_tags):
+                block_descendants = child.find_all(block_tags)
+                inline_texts: list[str] = []
+                for text_node in child.find_all(string=True):
+                    if not text_node.strip():
+                        continue
+                    if any(parent in block_descendants for parent in text_node.parents):
+                        continue
+                    inline_texts.append(str(text_node))
+                if inline_texts:
+                    p = new_soup.new_tag("p")
+                    p.string = " ".join(inline_texts)
+                    _ = new_soup.append(p)
+                continue
             if child.get_text(strip=True):
                 p = new_soup.new_tag("p")
                 fragment = BeautifulSoup(str(child), "html.parser")
