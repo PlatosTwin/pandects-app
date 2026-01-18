@@ -50,11 +50,11 @@ class MainRoutesTests(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(
                     text(
-                        "INSERT INTO agreements (uuid, year, target, acquirer, verified, url) "
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
                         "VALUES "
-                        "('a1', 2020, 'Target A', 'Acquirer A', 1, 'http://example.com/a1'), "
-                        "('a2', 2021, 'Target B', 'Acquirer B', 0, 'http://example.com/a2'), "
-                        "('a3', 2022, 'Target C', 'Acquirer C', 1, 'http://example.com/a3')"
+                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1'), "
+                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2'), "
+                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3')"
                     )
                 )
                 conn.execute(
@@ -71,7 +71,7 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
                         "xml_content, article_standard_id, section_standard_id) VALUES "
                         "('a1', '00000000-0000-0000-0000-000000000001', "
-                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', 'a1', 's1')"
+                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', 'a1', '[\"s1\"]')"
                     )
                 )
 
