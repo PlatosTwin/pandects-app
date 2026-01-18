@@ -2,10 +2,12 @@
 
 Effective date: **December 21, 2025**
 
-> **In short**
-> - We use cookies for authentication, security, and site analytics.
-> - We use Google Analytics and basic client-side error telemetry.
-> - We do not sell personal information.
+**In short**
+- We use cookies for authentication, security, and site analytics.
+- We use Google Analytics and basic client-side error telemetry.
+- We do not sell personal information.
+
+---
 
 Pandects is an open-source M&A research platform. We pull text from public filings on the SEC’s EDGAR system, parse it, use AI to tag and classify it, and make the resulting structured data available on this site and (in some cases) as downloadable datasets.
 
