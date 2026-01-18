@@ -233,7 +233,7 @@ export default function Taxonomy() {
       parts.push(
         <span
           key={`highlight-${index}`}
-          className="rounded-sm bg-primary/10 px-0.5 font-semibold text-foreground"
+          className="rounded-sm bg-primary/10 font-semibold text-foreground"
         >
           {label.slice(range.start, range.end)}
         </span>,
