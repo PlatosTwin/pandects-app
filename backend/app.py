@@ -2083,13 +2083,34 @@ else:
         metadata,
         Column("agreement_uuid", CHAR(36), primary_key=True),
         Column("filing_date", TEXT, nullable=True),
+        Column("prob_filing", TEXT, nullable=True),
+        Column("filing_company_name", TEXT, nullable=True),
+        Column("filing_company_cik", TEXT, nullable=True),
+        Column("form_type", TEXT, nullable=True),
+        Column("exhibit_type", TEXT, nullable=True),
         Column("target", TEXT, nullable=True),
         Column("acquirer", TEXT, nullable=True),
+        Column("transaction_price_total", TEXT, nullable=True),
+        Column("transaction_price_stock", TEXT, nullable=True),
+        Column("transaction_price_cash", TEXT, nullable=True),
+        Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_consideration", TEXT, nullable=True),
+        Column("target_type", TEXT, nullable=True),
+        Column("acquirer_type", TEXT, nullable=True),
+        Column("target_industry", TEXT, nullable=True),
+        Column("acquirer_industry", TEXT, nullable=True),
+        Column("announce_date", TEXT, nullable=True),
+        Column("close_date", TEXT, nullable=True),
+        Column("deal_status", TEXT, nullable=True),
+        Column("attitude", TEXT, nullable=True),
+        Column("deal_type", TEXT, nullable=True),
+        Column("purpose", TEXT, nullable=True),
+        Column("target_pe", Integer, nullable=True),
+        Column("acquirer_pe", Integer, nullable=True),
         Column("verified", Integer, nullable=True),
         Column("transaction_size", Integer, nullable=True),
         Column("transaction_type", TEXT, nullable=True),
         Column("consideration_type", TEXT, nullable=True),
-        Column("target_type", TEXT, nullable=True),
         Column("url", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
@@ -2363,6 +2384,29 @@ class AgreementResponseSchema(Schema):
     year = fields.Int()
     target = fields.Str()
     acquirer = fields.Str()
+    filing_date = fields.Str(allow_none=True)
+    prob_filing = fields.Float(allow_none=True)
+    filing_company_name = fields.Str(allow_none=True)
+    filing_company_cik = fields.Str(allow_none=True)
+    form_type = fields.Str(allow_none=True)
+    exhibit_type = fields.Str(allow_none=True)
+    transaction_price_total = fields.Float(allow_none=True)
+    transaction_price_stock = fields.Float(allow_none=True)
+    transaction_price_cash = fields.Float(allow_none=True)
+    transaction_price_assets = fields.Float(allow_none=True)
+    transaction_consideration = fields.Str(allow_none=True)
+    target_type = fields.Str(allow_none=True)
+    acquirer_type = fields.Str(allow_none=True)
+    target_industry = fields.Str(allow_none=True)
+    acquirer_industry = fields.Str(allow_none=True)
+    announce_date = fields.Str(allow_none=True)
+    close_date = fields.Str(allow_none=True)
+    deal_status = fields.Str(allow_none=True)
+    attitude = fields.Str(allow_none=True)
+    deal_type = fields.Str(allow_none=True)
+    purpose = fields.Str(allow_none=True)
+    target_pe = fields.Bool(allow_none=True)
+    acquirer_pe = fields.Bool(allow_none=True)
     url = fields.Str()
     xml = fields.Str()
     isRedacted = fields.Bool(required=False)
@@ -2401,6 +2445,29 @@ class AgreementResource(MethodView):
                 year_expr,
                 Agreements.target,
                 Agreements.acquirer,
+                Agreements.filing_date,
+                Agreements.prob_filing,
+                Agreements.filing_company_name,
+                Agreements.filing_company_cik,
+                Agreements.form_type,
+                Agreements.exhibit_type,
+                Agreements.transaction_price_total,
+                Agreements.transaction_price_stock,
+                Agreements.transaction_price_cash,
+                Agreements.transaction_price_assets,
+                Agreements.transaction_consideration,
+                Agreements.target_type,
+                Agreements.acquirer_type,
+                Agreements.target_industry,
+                Agreements.acquirer_industry,
+                Agreements.announce_date,
+                Agreements.close_date,
+                Agreements.deal_status,
+                Agreements.attitude,
+                Agreements.deal_type,
+                Agreements.purpose,
+                Agreements.target_pe,
+                Agreements.acquirer_pe,
                 Agreements.url,
                 XML.xml,
             )
@@ -2412,28 +2479,47 @@ class AgreementResource(MethodView):
         if row is None:
             abort(404)
 
-        year, target, acquirer, url, xml_content = row
+        xml_content = row.xml
+        payload = {
+            "year": row.year,
+            "target": row.target,
+            "acquirer": row.acquirer,
+            "filing_date": row.filing_date,
+            "prob_filing": row.prob_filing,
+            "filing_company_name": row.filing_company_name,
+            "filing_company_cik": row.filing_company_cik,
+            "form_type": row.form_type,
+            "exhibit_type": row.exhibit_type,
+            "transaction_price_total": row.transaction_price_total,
+            "transaction_price_stock": row.transaction_price_stock,
+            "transaction_price_cash": row.transaction_price_cash,
+            "transaction_price_assets": row.transaction_price_assets,
+            "transaction_consideration": row.transaction_consideration,
+            "target_type": row.target_type,
+            "acquirer_type": row.acquirer_type,
+            "target_industry": row.target_industry,
+            "acquirer_industry": row.acquirer_industry,
+            "announce_date": row.announce_date,
+            "close_date": row.close_date,
+            "deal_status": row.deal_status,
+            "attitude": row.attitude,
+            "deal_type": row.deal_type,
+            "purpose": row.purpose,
+            "target_pe": row.target_pe,
+            "acquirer_pe": row.acquirer_pe,
+            "url": row.url,
+        }
         if not ctx.is_authenticated:
             redacted_xml = _redact_agreement_xml(
                 xml_content,
                 focus_section_uuid=focus_section_uuid,
                 neighbor_sections=neighbor_sections_int,
             )
-            return {
-                "year": year,
-                "target": target,
-                "acquirer": acquirer,
-                "url": url,
-                "xml": redacted_xml,
-                "isRedacted": True,
-            }
-        return {
-            "year": year,
-            "target": target,
-            "acquirer": acquirer,
-            "url": url,
-            "xml": xml_content,
-        }
+            payload["xml"] = redacted_xml
+            payload["isRedacted"] = True
+            return payload
+        payload["xml"] = xml_content
+        return payload
 
 
 @sections_blp.route("/<string:section_uuid>")

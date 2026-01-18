@@ -65,16 +65,187 @@ export function AgreementModal({
   const year = agreementMetadata?.year ?? agreement?.year;
   const target = agreementMetadata?.target ?? agreement?.target;
   const acquirer = agreementMetadata?.acquirer ?? agreement?.acquirer;
+  const yearDisplay =
+    year !== null && year !== undefined && year !== "" ? String(year) : null;
   const modalTitle =
-    [year, target, acquirer].filter(Boolean).join(" - ") || "Agreement details";
+    [yearDisplay, target, acquirer].filter(Boolean).join(" - ") ||
+    "Agreement details";
+  const hasValue = (value: unknown) =>
+    value !== null && value !== undefined && value !== "";
+  const formatEnumValue = (value?: string | null) => {
+    if (!hasValue(value)) return "—";
+    return String(value)
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  };
+  const formatTextValue = (value?: string | null) =>
+    hasValue(value) ? String(value) : "—";
+  const formatDateValue = (value?: string | null) => {
+    if (!hasValue(value)) return "—";
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(new Date(String(value)));
+  };
+  const formatNumberValue = (value?: number | null) => {
+    if (value === null || value === undefined) return "—";
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 3,
+    }).format(value);
+  };
+  const formatCurrencyValue = (value?: number | null) => {
+    if (value === null || value === undefined) return "—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+  const formatBooleanValue = (value?: boolean | null) => {
+    if (value === null || value === undefined) return "—";
+    return value ? "Yes" : "No";
+  };
   const mobileMetadataSummary = (() => {
     const parts: string[] = [];
-    if (year) parts.push(year);
+    if (yearDisplay) parts.push(yearDisplay);
     const counterparties =
       target && acquirer ? `${target} → ${acquirer}` : target ?? acquirer;
     if (counterparties) parts.push(counterparties);
     return parts.join(" · ");
   })();
+  const metadataSections = [
+    {
+      title: "Parties",
+      items: [
+        { label: "Target", value: formatTextValue(target) },
+        { label: "Acquirer", value: formatTextValue(acquirer) },
+        { label: "Target type", value: formatEnumValue(agreement?.target_type) },
+        {
+          label: "Acquirer type",
+          value: formatEnumValue(agreement?.acquirer_type),
+        },
+        {
+          label: "Target industry",
+          value: formatTextValue(agreement?.target_industry),
+        },
+        {
+          label: "Acquirer industry",
+          value: formatTextValue(agreement?.acquirer_industry),
+        },
+        {
+          label: "Target private equity",
+          value: formatBooleanValue(agreement?.target_pe),
+        },
+        {
+          label: "Acquirer private equity",
+          value: formatBooleanValue(agreement?.acquirer_pe),
+        },
+      ],
+    },
+    {
+      title: "Filing",
+      items: [
+        {
+          label: "Filing date",
+          value: formatDateValue(agreement?.filing_date),
+        },
+        {
+          label: "Filing probability",
+          value: formatNumberValue(agreement?.prob_filing),
+        },
+        {
+          label: "Filing company name",
+          value: formatTextValue(agreement?.filing_company_name),
+        },
+        {
+          label: "Filing company CIK",
+          value: formatTextValue(agreement?.filing_company_cik),
+        },
+        { label: "Form type", value: formatTextValue(agreement?.form_type) },
+        {
+          label: "Exhibit type",
+          value: formatTextValue(agreement?.exhibit_type),
+        },
+        {
+          label: "Original filing",
+          value: agreement?.url ? (
+            <a
+              href={agreement.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Original Filing (opens in a new tab)"
+              className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              title="View original SEC filing"
+            >
+              <ExternalLink
+                className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                aria-hidden="true"
+              />
+              <span>Original Filing</span>
+            </a>
+          ) : (
+            "—"
+          ),
+        },
+      ],
+    },
+    {
+      title: "Transaction",
+      items: [
+        {
+          label: "Transaction price total",
+          value: formatCurrencyValue(agreement?.transaction_price_total),
+        },
+        {
+          label: "Transaction price stock",
+          value: formatCurrencyValue(agreement?.transaction_price_stock),
+        },
+        {
+          label: "Transaction price cash",
+          value: formatCurrencyValue(agreement?.transaction_price_cash),
+        },
+        {
+          label: "Transaction price assets",
+          value: formatCurrencyValue(agreement?.transaction_price_assets),
+        },
+        {
+          label: "Consideration",
+          value: formatEnumValue(agreement?.transaction_consideration),
+        },
+        {
+          label: "Deal type",
+          value: formatEnumValue(agreement?.deal_type),
+        },
+        {
+          label: "Purpose",
+          value: formatEnumValue(agreement?.purpose),
+        },
+        {
+          label: "Attitude",
+          value: formatEnumValue(agreement?.attitude),
+        },
+        {
+          label: "Deal status",
+          value: formatEnumValue(agreement?.deal_status),
+        },
+      ],
+    },
+    {
+      title: "Timeline",
+      items: [
+        {
+          label: "Announce date",
+          value: formatDateValue(agreement?.announce_date),
+        },
+        {
+          label: "Close date",
+          value: formatDateValue(agreement?.close_date),
+        },
+      ],
+    },
+  ];
 
   useEffect(() => {
     if (isOpen && agreementUuid) {
@@ -360,108 +531,56 @@ export function AgreementModal({
         {/* Agreement Metadata */}
         {(agreementMetadata || agreement) && (
           <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6 sm:py-4">
-            {isMobile ? (
-              <details className="group">
-                <summary className="flex items-center justify-between gap-3 cursor-pointer select-none">
-                  <div className="min-w-0 flex-1 text-sm font-medium text-foreground truncate">
-                    {mobileMetadataSummary}
+            <details className="group">
+              <summary className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-foreground">
+                    Deal details
                   </div>
+                  {mobileMetadataSummary && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {mobileMetadataSummary}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="group-open:hidden">Show details</span>
+                  <span className="hidden group-open:inline">Hide details</span>
                   <ChevronDown
                     className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
                     aria-hidden="true"
                   />
-                </summary>
+                </div>
+              </summary>
 
-                <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
-                  {year && (
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-medium text-muted-foreground">
-                        Year:
-                      </span>
-                      <span className="text-foreground">{year}</span>
-                    </div>
-                  )}
-                  {target && (
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-medium text-muted-foreground">
-                        Target:
-                      </span>
-                      <span className="text-foreground break-words">
-                        {target}
-                      </span>
-                    </div>
-                  )}
-                  {acquirer && (
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-medium text-muted-foreground">
-                        Acquirer:
-                      </span>
-                      <span className="text-foreground break-words">
-                        {acquirer}
-                      </span>
-                    </div>
-                  )}
-
-                  {agreement?.url && (
-                    <a
-                      href={agreement.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Original Filing (opens in a new tab)"
-                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      title="View original SEC filing"
-                    >
-                      <ExternalLink
-                        className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-                        aria-hidden="true"
-                      />
-                      <span>Original Filing</span>
-                    </a>
-                  )}
-                </div>
-              </details>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-                <div>
-                  <span className="font-medium text-muted-foreground">
-                    Year:
-                  </span>
-                  <div className="text-foreground">{year}</div>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">
-                    Target:
-                  </span>
-                  <div className="text-foreground break-words">{target}</div>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">
-                    Acquirer:
-                  </span>
-                  <div className="text-foreground break-words">{acquirer}</div>
-                </div>
-
-                {/* Original Filing Link */}
-                <div className="flex justify-start lg:justify-end">
-                  {agreement?.url && (
-                    <a
-                      href={agreement.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Original Filing (opens in a new tab)"
-                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      title="View original SEC filing"
-                    >
-                      <ExternalLink
-                        className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-                        aria-hidden="true"
-                      />
-                      <span>Original Filing</span>
-                    </a>
-                  )}
-                </div>
+              <div className="mt-3 hidden sm:grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {metadataSections.map((section) => (
+                  <section
+                    key={section.title}
+                    className="rounded-md border border-border/60 bg-background/70 p-3"
+                  >
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.title}
+                    </h3>
+                    <dl className="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                      {section.items.map((item) => (
+                        <div key={item.label} className="space-y-0.5">
+                          <dt className="text-[11px] font-medium text-muted-foreground">
+                            {item.label}
+                          </dt>
+                          <dd className="text-xs text-foreground break-words">
+                            {item.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                ))}
               </div>
-            )}
+              <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
+                To see deal metadata, view on desktop.
+              </div>
+            </details>
           </div>
         )}
 

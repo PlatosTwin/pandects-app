@@ -352,6 +352,75 @@ components:
           type: string
         acquirer:
           type: string
+        filing_date:
+          type: string
+          nullable: true
+        prob_filing:
+          type: number
+          nullable: true
+        filing_company_name:
+          type: string
+          nullable: true
+        filing_company_cik:
+          type: string
+          nullable: true
+        form_type:
+          type: string
+          nullable: true
+        exhibit_type:
+          type: string
+          nullable: true
+        transaction_price_total:
+          type: number
+          nullable: true
+        transaction_price_stock:
+          type: number
+          nullable: true
+        transaction_price_cash:
+          type: number
+          nullable: true
+        transaction_price_assets:
+          type: number
+          nullable: true
+        transaction_consideration:
+          type: string
+          nullable: true
+        target_type:
+          type: string
+          nullable: true
+        acquirer_type:
+          type: string
+          nullable: true
+        target_industry:
+          type: string
+          nullable: true
+        acquirer_industry:
+          type: string
+          nullable: true
+        announce_date:
+          type: string
+          nullable: true
+        close_date:
+          type: string
+          nullable: true
+        deal_status:
+          type: string
+          nullable: true
+        attitude:
+          type: string
+          nullable: true
+        deal_type:
+          type: string
+          nullable: true
+        purpose:
+          type: string
+          nullable: true
+        target_pe:
+          type: boolean
+          nullable: true
+        acquirer_pe:
+          type: boolean
+          nullable: true
         url:
           type: string
         xml:
