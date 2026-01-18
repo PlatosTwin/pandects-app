@@ -126,11 +126,23 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
+.swagger-ui .info {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .swagger-ui .info .title {
   margin: 0 0 0.5rem;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.3;
+}
+
+.swagger-ui .opblock-tag {
+  border-bottom: 1px solid hsl(var(--border));
+  margin-top: 0;
 }
 
 .swagger-ui a {

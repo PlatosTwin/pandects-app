@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => {
       host,
       port: 8080,
       https,
+      // Enable compression in dev mode for better performance testing
+      middlewareMode: false,
       proxy: {
         "/api": {
           target: "http://localhost:5113",
@@ -36,6 +38,44 @@ export default defineConfig(({ mode }) => {
       // This eliminates the need for polyfills and reduces bundle size
       target: "esnext",
       // CSS is automatically minified when minify is set
+      rollupOptions: {
+        output: {
+          // Better code splitting to reduce unused JavaScript
+          manualChunks: (id) => {
+            // Separate vendor chunks for better caching
+            if (id.includes("node_modules")) {
+              // Large UI libraries
+              if (
+                id.includes("@radix-ui") ||
+                id.includes("lucide-react") ||
+                id.includes("framer-motion")
+              ) {
+                return "vendor-ui";
+              }
+              // React and core dependencies
+              if (
+                id.includes("react") ||
+                id.includes("react-dom") ||
+                id.includes("react-router")
+              ) {
+                return "vendor-react";
+              }
+              // Query and state management
+              if (id.includes("@tanstack/react-query")) {
+                return "vendor-query";
+              }
+              // Other vendor code
+              return "vendor";
+            }
+          },
+          // Optimize chunk file names for better caching
+          chunkFileNames: "assets/js/[name]-[hash].js",
+          entryFileNames: "assets/js/[name]-[hash].js",
+          assetFileNames: "assets/[ext]/[name]-[hash].[ext]",
+        },
+      },
+      // Increase chunk size warning limit since we're doing manual chunking
+      chunkSizeWarningLimit: 1000,
     },
     plugins: [react(), expressPlugin(), criticalCssPlugin()],
     resolve: {

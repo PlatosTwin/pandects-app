@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import compression from "compression";
 import { handleDemo } from "./routes/demo";
 import { getPublicOrigin, getSeoForPath, injectSeoBlock, isKnownRoute } from "./seo";
 
@@ -8,6 +9,22 @@ export function createServer() {
   const app = express();
 
   app.disable("x-powered-by");
+
+  // Enable compression for all responses in production
+  if (process.env.NODE_ENV === "production") {
+    app.use(
+      compression({
+        filter: (req, res) => {
+          // Compress all text-based responses
+          if (req.headers["x-no-compression"]) {
+            return false;
+          }
+          return compression.filter(req, res);
+        },
+        level: 6, // Balance between compression ratio and CPU usage
+      }),
+    );
+  }
 
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");

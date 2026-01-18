@@ -19,6 +19,7 @@ const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
 const About = lazy(() => import("./pages/About"));
 const SourcesMethods = lazy(() => import("./pages/SourcesMethods"));
 const XmlSchema = lazy(() => import("./pages/XmlSchema"));
+const Taxonomy = lazy(() => import("./pages/Taxonomy"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Donate = lazy(() => import("./pages/Donate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -80,6 +81,7 @@ const App = () => {
                 <Route path="/agreement-index" element={<AgreementIndex />} />
                 <Route path="/sources-methods" element={<SourcesMethods />} />
                 <Route path="/xml-schema" element={<XmlSchema />} />
+                <Route path="/taxonomy" element={<Taxonomy />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/feedback" element={<Feedback />} />
                 <Route path="/donate" element={<Donate />} />

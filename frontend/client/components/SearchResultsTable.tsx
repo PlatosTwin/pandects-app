@@ -41,7 +41,10 @@ interface SearchResultsTableProps {
 }
 
 // Utility function to truncate text and determine if tooltip is needed
-const truncateText = (text: string, maxLength: number = 75) => {
+const truncateText = (text: string | null | undefined, maxLength: number = 75) => {
+  if (!text) {
+    return { truncated: "", needsTooltip: false };
+  }
   if (text.length <= maxLength) {
     return { truncated: text, needsTooltip: false };
   }
@@ -262,10 +265,14 @@ export function SearchResultsTable({
             const isExpanded = expandedResults.has(result.id);
             const canExpand = expandableResults.has(result.id) || isExpanded;
             const resultNumber = (currentPage - 1) * pageSize + index + 1;
+            const standardIds = result.standardId
+              .map((value) => value.trim())
+              .filter(Boolean);
+            const matchedStandardId = standardIds.find(
+              (value) => clauseTypePathByStandardId[value],
+            );
             const standardId =
-              typeof result.standardId === "string"
-                ? result.standardId.trim()
-                : null;
+              matchedStandardId ?? standardIds[0] ?? null;
             const clauseTypePath = standardId
               ? clauseTypePathByStandardId[standardId]
               : undefined;

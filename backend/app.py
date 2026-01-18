@@ -40,6 +40,7 @@ from sqlalchemy import (
     text,
     or_,
     func,
+    cast as sql_cast,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
@@ -83,6 +84,9 @@ load_dotenv()
 _FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
 _filter_options_cache = {"ts": 0.0, "payload": None}
 _filter_options_lock = Lock()
+_TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
+_taxonomy_cache = {"ts": 0.0, "payload": None}
+_taxonomy_lock = Lock()
 _AGREEMENTS_SUMMARY_TTL_SECONDS = int(
     os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60")
 )
@@ -2053,8 +2057,20 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
-    taxonomy_table = Table(
-        "taxonomy",
+    taxonomy_l1_table = Table(
+        "taxonomy_l1",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    taxonomy_l2_table = Table(
+        "taxonomy_l2",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    taxonomy_l3_table = Table(
+        "taxonomy_l3",
         metadata,
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
@@ -2065,8 +2081,8 @@ else:
     agreements_table = Table(
         "agreements",
         metadata,
-        Column("uuid", CHAR(36), primary_key=True),
-        Column("year", Integer, nullable=True),
+        Column("agreement_uuid", CHAR(36), primary_key=True),
+        Column("filing_date", TEXT, nullable=True),
         Column("target", TEXT, nullable=True),
         Column("acquirer", TEXT, nullable=True),
         Column("verified", Integer, nullable=True),
@@ -2084,12 +2100,27 @@ else:
         Column("xml", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
-    taxonomy_table = Table(
-        "taxonomy",
+    taxonomy_l1_table = Table(
+        "taxonomy_l1",
         metadata,
-        Column("id", Integer, primary_key=True),
-        Column("standard_id", TEXT, nullable=True),
-        Column("type", TEXT, nullable=True),
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    taxonomy_l2_table = Table(
+        "taxonomy_l2",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        Column("parent_id", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    taxonomy_l3_table = Table(
+        "taxonomy_l3",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        Column("parent_id", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
 
@@ -2106,6 +2137,7 @@ sections_table = Table(
     Column("xml_content", _SECTION_TEXT_TYPE, nullable=False),
     Column("article_standard_id", _SECTION_ID_TYPE, nullable=False),
     Column("section_standard_id", _SECTION_ID_TYPE, nullable=False),
+    Column("section_standard_id_gold_label", _SECTION_ID_TYPE, nullable=True),
     schema=_MAIN_SCHEMA_TOKEN,
 )
 
@@ -2123,8 +2155,103 @@ class XML(db.Model):
     __table__ = xml_table
 
 
-class Taxonomy(db.Model):
-    __table__ = taxonomy_table
+class TaxonomyL1(db.Model):
+    __table__ = taxonomy_l1_table
+
+
+class TaxonomyL2(db.Model):
+    __table__ = taxonomy_l2_table
+
+
+class TaxonomyL3(db.Model):
+    __table__ = taxonomy_l3_table
+
+
+def _coalesced_section_standard_ids():
+    return func.coalesce(
+        Sections.section_standard_id_gold_label,
+        Sections.section_standard_id,
+    )
+
+
+def _agreement_year_expr():
+    bind = db.session.get_bind()
+    if bind is not None and bind.dialect.name == "sqlite":
+        return sql_cast(func.substr(Agreements.filing_date, 1, 4), Integer)
+    return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
+
+
+def _parse_section_standard_ids(raw: object) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        if not all(isinstance(item, str) for item in raw):
+            raise ValueError("section_standard_id must contain string values.")
+        return raw
+    if isinstance(raw, str):
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list) or not all(
+            isinstance(item, str) for item in parsed
+        ):
+            raise ValueError("section_standard_id must be a JSON list of strings.")
+        return parsed
+    raise TypeError(f"Unsupported section_standard_id type: {type(raw)!r}")
+
+
+def _expand_taxonomy_standard_ids(standard_ids: list[str]) -> list[str]:
+    if not standard_ids:
+        return []
+
+    standard_ids_set = {value for value in standard_ids if value}
+    if not standard_ids_set:
+        return []
+
+    l1_ids = {
+        row.standard_id
+        for row in db.session.query(TaxonomyL1.standard_id)
+        .filter(TaxonomyL1.standard_id.in_(standard_ids_set))
+        .all()
+    }
+    l2_ids = {
+        row.standard_id
+        for row in db.session.query(TaxonomyL2.standard_id)
+        .filter(TaxonomyL2.standard_id.in_(standard_ids_set))
+        .all()
+    }
+    l3_ids = {
+        row.standard_id
+        for row in db.session.query(TaxonomyL3.standard_id)
+        .filter(TaxonomyL3.standard_id.in_(standard_ids_set))
+        .all()
+    }
+
+    expanded_l2_ids = set()
+    expanded_l3_ids = set()
+    if l1_ids:
+        expanded_l2_ids.update(
+            row.standard_id
+            for row in db.session.query(TaxonomyL2.standard_id)
+            .filter(TaxonomyL2.parent_id.in_(l1_ids))
+            .all()
+        )
+        expanded_l3_ids.update(
+            row.standard_id
+            for row in db.session.query(TaxonomyL3.standard_id)
+            .join(TaxonomyL2, TaxonomyL3.parent_id == TaxonomyL2.standard_id)
+            .filter(TaxonomyL2.parent_id.in_(l1_ids))
+            .all()
+        )
+    if l2_ids:
+        expanded_l3_ids.update(
+            row.standard_id
+            for row in db.session.query(TaxonomyL3.standard_id)
+            .filter(TaxonomyL3.parent_id.in_(l2_ids))
+            .all()
+        )
+
+    return list(
+        standard_ids_set | l1_ids | l2_ids | l3_ids | expanded_l2_ids | expanded_l3_ids
+    )
 
 
 # ── Define search blueprint and schemas ──────────────────────────────────
@@ -2140,6 +2267,13 @@ dumps_blp = Blueprint(
     "dumps",
     url_prefix="/v1/dumps",
     description="Access metadata about bulk data on Cloudflare",
+)
+
+taxonomy_blp = Blueprint(
+    "taxonomy",
+    "taxonomy",
+    url_prefix="/v1/taxonomy",
+    description="Access the Pandects agreement taxonomy",
 )
 
 agreements_blp = Blueprint(
@@ -2174,7 +2308,7 @@ class SectionItemSchema(Schema):
     id = fields.Str()
     agreementUuid = fields.Str()
     sectionUuid = fields.Str()
-    standardId = fields.Str(allow_none=True)
+    standardId = fields.List(fields.Str())
     xml = fields.Str()
     articleTitle = fields.Str()
     sectionTitle = fields.Str()
@@ -2238,7 +2372,7 @@ class SectionResponseSchema(Schema):
     agreementUuid = fields.Str()
     sectionUuid = fields.Str()
     articleStandardId = fields.Str()
-    sectionStandardId = fields.Str()
+    sectionStandardId = fields.List(fields.Str())
     xml = fields.Str()
     articleTitle = fields.Str()
     sectionTitle = fields.Str()
@@ -2261,16 +2395,17 @@ class AgreementResource(MethodView):
         neighbor_sections_int = args["neighborSections"]
 
         # query year, target, acquirer, xml, url for this agreement_uuid
+        year_expr = _agreement_year_expr().label("year")
         row = (
             db.session.query(
-                Agreements.year,
+                year_expr,
                 Agreements.target,
                 Agreements.acquirer,
                 Agreements.url,
                 XML.xml,
             )
-            .join(XML, XML.agreement_uuid == Agreements.uuid)
-            .filter(Agreements.uuid == agreement_uuid)
+            .join(XML, XML.agreement_uuid == Agreements.agreement_uuid)
+            .filter(Agreements.agreement_uuid == agreement_uuid)
             .first()
         )
 
@@ -2309,12 +2444,15 @@ class SectionResource(MethodView):
         if not _UUID_RE.match(section_uuid):
             abort(400, description="Invalid sectionUuid.")
 
+        section_standard_ids_expr = _coalesced_section_standard_ids().label(
+            "section_standard_ids"
+        )
         row = (
             db.session.query(
                 Sections.agreement_uuid,
                 Sections.section_uuid,
                 Sections.article_standard_id,
-                Sections.section_standard_id,
+                section_standard_ids_expr,
                 Sections.xml_content,
                 Sections.article_title,
                 Sections.section_title,
@@ -2330,17 +2468,19 @@ class SectionResource(MethodView):
             agreement_uuid,
             section_uuid,
             article_standard_id,
-            section_standard_id,
+            section_standard_ids_raw,
             xml_content,
             article_title,
             section_title,
         ) = row
 
+        section_standard_ids = _parse_section_standard_ids(section_standard_ids_raw)
+
         return {
             "agreementUuid": agreement_uuid,
             "sectionUuid": section_uuid,
             "articleStandardId": article_standard_id,
-            "sectionStandardId": section_standard_id,
+            "sectionStandardId": section_standard_ids,
             "xml": xml_content,
             "articleTitle": article_title,
             "sectionTitle": section_title,
@@ -2363,29 +2503,30 @@ def get_agreements_index() -> dict[str, object]:
     if page_size < 1 or page_size > max_page_size:
         page_size = min(25, max_page_size)
 
+    year_expr = _agreement_year_expr()
     sort_map = {
-        "year": Agreements.year,
+        "year": year_expr,
         "target": Agreements.target,
         "acquirer": Agreements.acquirer,
     }
-    sort_column = sort_map.get(sort_by, Agreements.year)
+    sort_column = sort_map.get(sort_by, year_expr)
     sort_direction = sort_dir.lower()
     order_by = sort_column.desc() if sort_direction == "desc" else sort_column.asc()
 
     q = db.session.query(
-        Agreements.uuid,
-        Agreements.year,
+        Agreements.agreement_uuid,
+        year_expr.label("year"),
         Agreements.target,
         Agreements.acquirer,
         Agreements.verified,
     )
-    count_q = db.session.query(func.count(Agreements.uuid))
+    count_q = db.session.query(func.count(Agreements.agreement_uuid))
 
     if query:
         if query.isdigit():
             year_value = int(query)
-            q = q.filter(Agreements.year == year_value)
-            count_q = count_q.filter(Agreements.year == year_value)
+            q = q.filter(year_expr == year_value)
+            count_q = count_q.filter(year_expr == year_value)
         else:
             like = f"{query}%"
             filters = or_(
@@ -2395,7 +2536,7 @@ def get_agreements_index() -> dict[str, object]:
             q = q.filter(filters)
             count_q = count_q.filter(filters)
 
-    q = q.order_by(order_by, Agreements.uuid)
+    q = q.order_by(order_by, Agreements.agreement_uuid)
 
     total_count = count_q.scalar()
     total_count = int(total_count or 0)
@@ -2405,7 +2546,7 @@ def get_agreements_index() -> dict[str, object]:
 
     results = [
         {
-            "agreementUuid": row.uuid,
+            "agreementUuid": row.agreement_uuid,
             "year": row.year,
             "target": row.target,
             "acquirer": row.acquirer,
@@ -2484,7 +2625,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
                   AND EXISTS (
                     SELECT 1
                     FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.uuid
+                    WHERE s.agreement_uuid = a.agreement_uuid
                   )
                 ORDER BY a.target
                 """
@@ -2503,7 +2644,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
                   AND EXISTS (
                     SELECT 1
                     FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.uuid
+                    WHERE s.agreement_uuid = a.agreement_uuid
                   )
                 ORDER BY a.acquirer
                 """
@@ -2519,6 +2660,76 @@ def get_filter_options() -> tuple[Response, int] | Response:
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = f"public, max-age={_FILTER_OPTIONS_TTL_SECONDS}"
     return resp, 200
+
+
+def _taxonomy_tree() -> dict[str, object]:
+    l1_rows = db.session.query(
+        TaxonomyL1.standard_id,
+        TaxonomyL1.label,
+    ).all()
+    l2_rows = db.session.query(
+        TaxonomyL2.standard_id,
+        TaxonomyL2.label,
+        TaxonomyL2.parent_id,
+    ).all()
+    l3_rows = db.session.query(
+        TaxonomyL3.standard_id,
+        TaxonomyL3.label,
+        TaxonomyL3.parent_id,
+    ).all()
+
+    l2_by_parent: dict[str, list[object]] = defaultdict(list)
+    for row in l2_rows:
+        if not isinstance(row.parent_id, str) or not isinstance(row.label, str):
+            raise ValueError("taxonomy_l2 has invalid parent_id or label.")
+        l2_by_parent[row.parent_id].append(row)
+
+    l3_by_parent: dict[str, list[object]] = defaultdict(list)
+    for row in l3_rows:
+        if not isinstance(row.parent_id, str) or not isinstance(row.label, str):
+            raise ValueError("taxonomy_l3 has invalid parent_id or label.")
+        l3_by_parent[row.parent_id].append(row)
+
+    validated_l1_rows = []
+    for l1 in l1_rows:
+        if not isinstance(l1.standard_id, str) or not isinstance(l1.label, str):
+            raise ValueError("taxonomy_l1 has invalid standard_id or label.")
+        validated_l1_rows.append(l1)
+
+    tree: dict[str, object] = {}
+    for l1 in sorted(validated_l1_rows, key=lambda r: r.label):
+        l2_children: dict[str, object] = {}
+        for l2 in sorted(l2_by_parent.get(l1.standard_id, []), key=lambda r: r.label):
+            if not isinstance(l2.standard_id, str) or not isinstance(l2.label, str):
+                raise ValueError("taxonomy_l2 has invalid standard_id or label.")
+            l3_children: dict[str, object] = {}
+            for l3 in sorted(l3_by_parent.get(l2.standard_id, []), key=lambda r: r.label):
+                if not isinstance(l3.standard_id, str) or not isinstance(l3.label, str):
+                    raise ValueError("taxonomy_l3 has invalid standard_id or label.")
+                l3_children[l3.label] = {"id": l3.standard_id}
+            l2_children[l2.label] = {"id": l2.standard_id, "children": l3_children}
+        tree[l1.label] = {"id": l1.standard_id, "children": l2_children}
+
+    return tree
+
+
+def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
+    now = time.time()
+    with _taxonomy_lock:
+        cached_payload = _taxonomy_cache["payload"]
+        cached_ts = _taxonomy_cache["ts"]
+        cache_is_valid = cached_payload is not None and (
+            now - cached_ts < _TAXONOMY_TTL_SECONDS
+        )
+    if cache_is_valid:
+        return cached_payload, True
+
+    payload = _taxonomy_tree()
+    with _taxonomy_lock:
+        _taxonomy_cache["payload"] = payload
+        _taxonomy_cache["ts"] = now
+
+    return payload, False
 
 
 def _register_main_routes(target_app: Flask) -> None:
@@ -2562,23 +2773,27 @@ class SearchResource(MethodView):
         if page_size < 1 or page_size > max_page_size:
             page_size = min(25, max_page_size)
 
+        section_standard_ids_expr = _coalesced_section_standard_ids()
+
+        year_expr = _agreement_year_expr()
+
         # build the base ORM query
         q = db.session.query(
             Sections.section_uuid,
             Sections.agreement_uuid,
-            Sections.section_standard_id,
+            section_standard_ids_expr.label("section_standard_ids"),
             Sections.xml_content,
             Sections.article_title,
             Sections.section_title,
             Agreements.acquirer,
             Agreements.target,
-            Agreements.year,
+            year_expr.label("year"),
             Agreements.verified,
-        ).join(Agreements, Sections.agreement_uuid == Agreements.uuid)
+        ).join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
 
         # apply filters only when provided - now handling multiple values
         if years:
-            q = q.filter(Agreements.year.in_(years))
+            q = q.filter(year_expr.in_(years))
 
         if targets:
             q = q.filter(Agreements.target.in_(targets))
@@ -2587,11 +2802,15 @@ class SearchResource(MethodView):
             q = q.filter(Agreements.acquirer.in_(acquirers))
 
         if standard_ids:
-            q = (
-                q.join(Taxonomy, Sections.section_standard_id == Taxonomy.standard_id)
-                .filter(Taxonomy.type == "section")
-                .filter(Taxonomy.standard_id.in_(standard_ids))
-            )
+            expanded_standard_ids = _expand_taxonomy_standard_ids(standard_ids)
+            if expanded_standard_ids:
+                json_filters = [
+                    func.json_contains(
+                        section_standard_ids_expr, func.json_quote(value)
+                    )
+                    for value in expanded_standard_ids
+                ]
+                q = q.filter(or_(*json_filters))
 
         # Transaction Size filter - convert ranges to DB values
         if transaction_sizes:
@@ -2707,7 +2926,7 @@ class SearchResource(MethodView):
                 "id": r.section_uuid,
                 "agreementUuid": r.agreement_uuid,
                 "sectionUuid": r.section_uuid,
-                "standardId": r.section_standard_id,
+                "standardId": _parse_section_standard_ids(r.section_standard_ids),
                 "xml": r.xml_content,
                 "articleTitle": r.article_title,
                 "sectionTitle": r.section_title,
@@ -2730,6 +2949,40 @@ class SearchResource(MethodView):
             },
             **meta,
         }
+
+
+@taxonomy_blp.route("")
+class TaxonomyResource(MethodView):
+    @taxonomy_blp.doc(
+        responses={
+            200: {
+                "description": "OK",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "required": ["id"],
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "children": {
+                                        "type": "object",
+                                        "additionalProperties": {"type": "object"},
+                                    },
+                                },
+                            },
+                        }
+                    }
+                },
+            }
+        }
+    )
+    def get(self) -> Response:
+        payload, _ = _get_taxonomy_payload_cached()
+        resp = jsonify(payload)
+        resp.headers["Cache-Control"] = f"public, max-age={_TAXONOMY_TTL_SECONDS}"
+        return resp
 
 
 @dumps_blp.route("")  # blueprint already has url_prefix="/v1/dumps"
@@ -2837,6 +3090,7 @@ class DumpListResource(MethodView):
 def _register_blueprints() -> None:
     api.register_blueprint(search_blp)
     api.register_blueprint(dumps_blp)
+    api.register_blueprint(taxonomy_blp)
     api.register_blueprint(agreements_blp)
     api.register_blueprint(sections_blp)
 

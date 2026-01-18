@@ -2,32 +2,6 @@ import { SearchFilters } from "@shared/search";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
 /**
- * Utility function to extract standard IDs from nested clause type structure
- */
-export const extractStandardIds = (
-  clauseTypeTexts: string[],
-  clauseTypesNested: ClauseTypeTree,
-): string[] => {
-  const standardIds: string[] = [];
-
-  const searchInNested = (obj: ClauseTypeTree): void => {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string") {
-        // This is a leaf node - check if the key matches any selected clause type
-        if (clauseTypeTexts.includes(key)) {
-          standardIds.push(value);
-        }
-      } else if (typeof value === "object" && value) {
-        searchInNested(value);
-      }
-    }
-  };
-
-  searchInNested(clauseTypesNested);
-  return standardIds;
-};
-
-/**
  * Build URL search parameters from search filters
  */
 export const buildSearchParams = (
@@ -85,17 +59,10 @@ export const buildSearchParams = (
     );
   }
 
-  // Extract standard IDs from selected clause types and send them instead
-  if (
-    searchFilters.clauseType &&
-    searchFilters.clauseType.length > 0 &&
-    clauseTypesNested
-  ) {
-    const standardIds = extractStandardIds(
-      searchFilters.clauseType,
-      clauseTypesNested,
-    );
-    standardIds.forEach((standardId) =>
+  void clauseTypesNested;
+  // Send selected taxonomy IDs directly.
+  if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
+    searchFilters.clauseType.forEach((standardId) =>
       params.append("standardId", standardId),
     );
   }

@@ -11,7 +11,6 @@ export default function XmlSchema() {
     <PageShell
       size="xl"
       title="XML Schema"
-      subtitle="Structure and element definitions for Pandects agreement XML outputs."
     >
       <div className="grid gap-6">
         <section
@@ -26,7 +25,7 @@ export default function XmlSchema() {
               >
                 Overview
               </h2>
-              <CardDescription id="xml-schema-overview-desc">
+              <CardDescription id="xml-schema-overview-desc" className="text-base">
                 The XML output is a single document tree per agreement. It
                 contains metadata, optional page-type containers, and a
                 structured body with articles and sections.
@@ -38,23 +37,23 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Root Node
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-mono text-xs text-foreground">&lt;document&gt;</span>{" "}
+                  <p className="mt-2 text-muted-foreground">
+                    <span className="font-mono text-sm text-foreground">&lt;document&gt;</span>{" "}
                     with a required{" "}
-                    <span className="font-mono text-xs text-foreground">uuid</span> attribute.
+                    <span className="font-mono text-sm text-foreground">uuid</span> attribute.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Page Containers
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-muted-foreground">
                     Optional containers split by page type:{" "}
-                    <span className="font-mono text-xs text-foreground">frontMatter</span>,{" "}
-                    <span className="font-mono text-xs text-foreground">tableOfContents</span>,{" "}
-                    <span className="font-mono text-xs text-foreground">body</span>,{" "}
-                    <span className="font-mono text-xs text-foreground">sigPages</span>,{" "}
-                    <span className="font-mono text-xs text-foreground">backMatter</span>.
+                    <span className="font-mono text-sm text-foreground">frontMatter</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">tableOfContents</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">body</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">sigPages</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">backMatter</span>.
                   </p>
                 </div>
               </div>
@@ -74,7 +73,7 @@ export default function XmlSchema() {
               >
                 Element Tree
               </h2>
-              <CardDescription id="xml-schema-definition-desc">
+              <CardDescription id="xml-schema-definition-desc" className="text-base">
                 The tree below mirrors the current generator behavior.
               </CardDescription>
             </CardHeader>
@@ -85,7 +84,7 @@ export default function XmlSchema() {
                 tabIndex={0}
                 className="rounded-lg border border-border/70 bg-muted/40 p-4 overflow-x-auto"
               >
-                <pre className="whitespace-pre-wrap text-xs font-mono text-muted-foreground">
+                <pre className="whitespace-pre-wrap text-sm font-mono text-muted-foreground">
                   &lt;document uuid="agreement-uuid"&gt;
                   {"\n"}  &lt;metadata&gt;
                   {"\n"}    &lt;acquirer&gt;...&lt;/acquirer&gt;
@@ -129,7 +128,7 @@ export default function XmlSchema() {
               >
                 Element Notes
               </h2>
-              <CardDescription id="xml-schema-elements-desc">
+              <CardDescription id="xml-schema-elements-desc" className="text-base">
                 Textual content is normalized into a small set of node types.
               </CardDescription>
             </CardHeader>
@@ -139,43 +138,43 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Content Nodes
                   </div>
-                  <p className="mt-2 text-sm text-foreground">
-                    <span className="font-mono text-xs text-foreground">
+                  <p className="mt-2 text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       text
                     </span>
                     ,{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       definition
                     </span>{" "}
                     <span className="text-muted-foreground">(optional)</span>,{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       pageUUID
                     </span>
                     ,{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       page
                     </span>{" "}
                     <span className="text-muted-foreground">(optional)</span>.
                   </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-muted-foreground">
                     Definitions are detected from quoted terms.{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       pageUUID
                     </span>{" "}
                     is typically a sibling of{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       text
                     </span>{" "}
                     and{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       definition
                     </span>{" "}
                     nodes, and only moves inside{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       definition
                     </span>{" "}
                     when a page break lands within a definition.{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       page
                     </span>{" "}
                     appears only when a page number is explicitly tagged.
@@ -185,39 +184,39 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Structural Rules
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-mono text-xs text-foreground">
+                  <p className="mt-2 text-muted-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       article
                     </span>{" "}
                     nodes live under{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       body
                     </span>{" "}
                     and carry{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       title
                     </span>
                     ,{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       uuid
                     </span>
                     ,{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       order
                     </span>
                     , and{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       standardId
                     </span>{" "}
                     attributes.
                   </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    <span className="font-mono text-xs text-foreground">
+                  <p className="mt-2 text-muted-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       section
                     </span>{" "}
                     nodes follow the same attributes and may appear directly
                     under{" "}
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-sm text-foreground">
                       body
                     </span>{" "}
                     if no article precedes them.

@@ -12,6 +12,7 @@ const routeConfig = {
   "/agreement-index": { priority: "0.8", changefreq: "weekly" },
   "/sources-methods": { priority: "0.8", changefreq: "monthly" },
   "/xml-schema": { priority: "0.7", changefreq: "monthly" },
+  "/taxonomy": { priority: "0.7", changefreq: "monthly" },
   "/about": { priority: "0.7", changefreq: "monthly" },
   "/feedback": { priority: "0.6", changefreq: "monthly" },
   "/donate": { priority: "0.6", changefreq: "monthly" },

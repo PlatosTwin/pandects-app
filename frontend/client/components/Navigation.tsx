@@ -58,6 +58,7 @@ export default function Navigation() {
       { to: "/agreement-index", label: "Agreement Index" },
       { to: "/sources-methods", label: "Sources & Methods" },
       { to: "/xml-schema", label: "XML Schema" },
+      { to: "/taxonomy", label: "Taxonomy" },
     ],
     [],
   );

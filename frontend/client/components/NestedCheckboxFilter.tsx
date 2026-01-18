@@ -19,16 +19,14 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-
-interface NestedCategory {
-  [key: string]: NestedCategory | string;
-}
+import type { ClauseTypeNode, ClauseTypeTree } from "@/lib/clause-types";
 
 interface NestedCheckboxFilterProps {
   label: string;
-  data: NestedCategory;
+  data: ClauseTypeTree;
   selectedValues: string[];
   onToggle: (value: string) => void;
+  labelById?: Record<string, string>;
   className?: string;
   useModal?: boolean;
 }
@@ -39,14 +37,18 @@ interface ExpandState {
 
 type SearchResult = {
   key: string;
+  id: string;
   path: string[];
 };
+
+type ClauseTypeValue = ClauseTypeTree[keyof ClauseTypeTree];
 
 export function NestedCheckboxFilter({
   label,
   data,
   selectedValues,
   onToggle,
+  labelById,
   className,
   useModal = false,
 }: NestedCheckboxFilterProps) {
@@ -59,15 +61,48 @@ export function NestedCheckboxFilter({
   const listId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const getAllLeafValues = useMemo(() => {
+  const isClauseTypeNode = (
+    value: ClauseTypeValue,
+  ): value is ClauseTypeNode =>
+    typeof value === "object" &&
+    value !== null &&
+    Object.prototype.hasOwnProperty.call(value, "id");
+
+  const getChildren = (value: ClauseTypeValue): ClauseTypeTree | null => {
+    if (typeof value === "string") return null;
+    if (isClauseTypeNode(value)) {
+      return value.children ?? null;
+    }
+    return value;
+  };
+
+  const getNodeId = (value: ClauseTypeValue): string | null => {
+    if (typeof value === "string") return value;
+    if (isClauseTypeNode(value)) return value.id;
+    return null;
+  };
+
+  const isLeafNode = (value: ClauseTypeValue): boolean => {
+    if (typeof value === "string") return true;
+    const children = getChildren(value);
+    return children === null || Object.keys(children).length === 0;
+  };
+
+  const getLeafIds = (value: ClauseTypeValue): string[] => {
+    if (isLeafNode(value)) {
+      const nodeId = getNodeId(value);
+      return nodeId ? [nodeId] : [];
+    }
+    const children = getChildren(value);
+    if (!children) return [];
+    return Object.values(children).flatMap(getLeafIds);
+  };
+
+  const getAllSelectableIds = useMemo(() => {
     const values: string[] = [];
-    const traverse = (obj: NestedCategory) => {
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === "string") {
-          values.push(key);
-        } else {
-          traverse(value as NestedCategory);
-        }
+    const traverse = (obj: ClauseTypeTree) => {
+      for (const value of Object.values(obj)) {
+        values.push(...getLeafIds(value));
       }
     };
     traverse(data);
@@ -75,28 +110,38 @@ export function NestedCheckboxFilter({
   }, [data]);
 
   const totalSelected = selectedValues.length;
-  const totalOptions = getAllLeafValues.length;
+  const totalOptions = getAllSelectableIds.length;
 
   const selectedLabel = useMemo(() => {
     if (totalSelected === 0) return `All ${label}s`;
     if (totalSelected === 1) {
-      const { truncated } = truncateText(selectedValues[0]);
+      const selected = selectedValues[0];
+      const displayLabel = labelById?.[selected] ?? selected;
+      const { truncated } = truncateText(displayLabel);
       return truncated;
     }
     if (totalSelected === totalOptions) return `All ${label}s`;
     return `${totalSelected} selected`;
-  }, [label, selectedValues, totalSelected, totalOptions]);
+  }, [label, labelById, selectedValues, totalSelected, totalOptions]);
 
   const searchLeafValues = useMemo(
-    () => (obj: NestedCategory, query: string, path: string[] = []) => {
+    () => (obj: ClauseTypeTree, query: string, path: string[] = []) => {
       const results: SearchResult[] = [];
       for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === "string") {
+        if (isLeafNode(value)) {
           if (key.toLowerCase().includes(query.toLowerCase())) {
-            results.push({ key, path: [...path] });
+            const id = getNodeId(value);
+            if (id) {
+              results.push({ key, id, path: [...path] });
+            }
           }
         } else {
-          results.push(...searchLeafValues(value as NestedCategory, query, [...path, key]));
+          const children = getChildren(value);
+          if (children) {
+            results.push(
+              ...searchLeafValues(children, query, [...path, key]),
+            );
+          }
         }
       }
       return results;
@@ -134,7 +179,7 @@ export function NestedCheckboxFilter({
         e.preventDefault();
         if (highlightedSearchIndex >= 0) {
           const selectedResult = searchResults[highlightedSearchIndex];
-          onToggle(selectedResult.key);
+          onToggle(selectedResult.id);
         }
         break;
       case "Escape":
@@ -144,43 +189,66 @@ export function NestedCheckboxFilter({
     }
   };
 
-  const getLeafValuesUnderPath = (obj: NestedCategory, path: string[]): string[] => {
-    let current = obj;
+  const getDescendantIdsUnderPath = (
+    obj: ClauseTypeTree,
+    path: string[],
+  ): string[] => {
+    let current: ClauseTypeTree | null = obj;
     for (const pathPart of path) {
-      if (typeof current[pathPart] === "object") {
-        current = current[pathPart] as NestedCategory;
-      } else {
+      if (!current) {
         return [];
       }
+      const nextValue = current[pathPart];
+      if (!nextValue) {
+        return [];
+      }
+      const nextChildren = getChildren(nextValue);
+      if (!nextChildren) {
+        return [];
+      }
+      current = nextChildren;
     }
     const values: string[] = [];
-    const collect = (node: NestedCategory) => {
-      for (const [key, value] of Object.entries(node)) {
-        if (typeof value === "string") values.push(key);
-        else collect(value as NestedCategory);
+    const collect = (node: ClauseTypeTree) => {
+      for (const value of Object.values(node)) {
+        values.push(...getLeafIds(value));
       }
     };
-    collect(current);
+    if (current) {
+      collect(current);
+    }
     return values;
   };
 
-  const areAllChildrenSelected = (path: string[]) => {
-    const values = getLeafValuesUnderPath(data, path);
-    return values.length > 0 && values.every((value) => selectedValues.includes(value));
-  };
-
-  const areSomeChildrenSelected = (path: string[]) => {
-    const values = getLeafValuesUnderPath(data, path);
-    return values.some((value) => selectedValues.includes(value)) && !areAllChildrenSelected(path);
-  };
+  const selectedLeafIds = useMemo(
+    () => new Set(selectedValues),
+    [selectedValues],
+  );
 
   const handleCategoryToggle = (path: string[]) => {
-    const values = getLeafValuesUnderPath(data, path);
-    const allSelected = values.length > 0 && values.every((value) => selectedValues.includes(value));
-    values.forEach((value) => {
-      const hasValue = selectedValues.includes(value);
-      if (allSelected ? hasValue : !hasValue) {
-        onToggle(value);
+    let current: ClauseTypeTree | null = data;
+    let currentValue: ClauseTypeValue | null = null;
+    for (const pathPart of path) {
+      if (!current) return;
+      currentValue = current[pathPart];
+      if (!currentValue) return;
+      current = getChildren(currentValue);
+    }
+    if (!currentValue) return;
+    const leafIds = getLeafIds(currentValue);
+    if (leafIds.length === 0) return;
+    const allSelected = leafIds.every((id) => selectedLeafIds.has(id));
+    if (allSelected) {
+      leafIds.forEach((id) => {
+        if (selectedLeafIds.has(id)) {
+          onToggle(id);
+        }
+      });
+      return;
+    }
+    leafIds.forEach((id) => {
+      if (!selectedLeafIds.has(id)) {
+        onToggle(id);
       }
     });
   };
@@ -190,7 +258,7 @@ export function NestedCheckboxFilter({
   };
 
   const renderNestedItems = (
-    obj: NestedCategory,
+    obj: ClauseTypeTree,
     level: number = 0,
     path: string[] = [],
   ): JSX.Element[] => {
@@ -201,7 +269,11 @@ export function NestedCheckboxFilter({
       const indentClass = level === 0 ? "" : level === 1 ? "ml-4" : "ml-8";
       const expandKey = currentPath.join(".");
 
-      if (typeof value === "string") {
+      if (isLeafNode(value)) {
+        const leafId = getNodeId(value);
+        if (!leafId) {
+          return null;
+        }
         return (
           <label
             key={key}
@@ -212,8 +284,8 @@ export function NestedCheckboxFilter({
           >
             <input
               type="checkbox"
-              checked={selectedValues.includes(key)}
-              onChange={() => onToggle(key)}
+              checked={selectedLeafIds.has(leafId)}
+              onChange={() => onToggle(leafId)}
               className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
             />
             <span className="text-foreground">{key}</span>
@@ -222,8 +294,14 @@ export function NestedCheckboxFilter({
       }
 
       const isExpanded = expandState[expandKey];
-      const allSelected = areAllChildrenSelected(currentPath);
-      const someSelected = areSomeChildrenSelected(currentPath);
+      const descendantIds = getDescendantIdsUnderPath(data, currentPath);
+      const allSelected =
+        descendantIds.length > 0 &&
+        descendantIds.every((id) => selectedLeafIds.has(id));
+      const someSelected = descendantIds.some((id) =>
+        selectedLeafIds.has(id),
+      );
+      const children = getChildren(value);
 
       return (
         <div key={key} className={indentClass}>
@@ -247,7 +325,7 @@ export function NestedCheckboxFilter({
                 checked={allSelected}
                 ref={(input) => {
                   if (input) {
-                    input.indeterminate = someSelected;
+                    input.indeterminate = someSelected && !allSelected;
                   }
                 }}
                 onChange={() => handleCategoryToggle(currentPath)}
@@ -257,9 +335,9 @@ export function NestedCheckboxFilter({
             </label>
           </div>
 
-          {isExpanded && (
+          {isExpanded && children && (
             <div className="ml-2">
-              {renderNestedItems(value as NestedCategory, level + 1, currentPath)}
+              {renderNestedItems(children, level + 1, currentPath)}
             </div>
           )}
         </div>
@@ -281,13 +359,13 @@ export function NestedCheckboxFilter({
                 <CommandItem
                   key={`${result.path.join(".")}.${result.key}`}
                   value={`${result.key} ${result.path.join(" ")}`}
-                  onSelect={() => onToggle(result.key)}
+                  onSelect={() => onToggle(result.id)}
                   className={cn(
                     "min-w-0",
                     index === highlightedSearchIndex && "bg-accent",
                   )}
                 >
-                  {selectedValues.includes(result.key) ? (
+                  {selectedValues.includes(result.id) ? (
                     <Check className="mr-2 h-4 w-4 text-primary" aria-hidden="true" />
                   ) : (
                     <span className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -352,7 +430,7 @@ export function NestedCheckboxFilter({
                 onClick={() => onToggle(value)}
                 className="h-7"
               >
-                {value}
+                {labelById?.[value] ?? value}
               </Button>
             ))}
           </div>

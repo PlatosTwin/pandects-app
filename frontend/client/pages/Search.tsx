@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { SearchPagination } from "@/components/SearchPagination";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
-import { indexClauseTypePaths } from "@/lib/clause-type-index";
+import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
 import { trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 
@@ -123,176 +124,18 @@ export default function Search() {
   // Static years data (not dynamic for now)
   const years = AVAILABLE_YEARS;
 
-  const clauseTypesNested = useMemo(
-    (): ClauseTypeTree => ({
-      "Conditions, Termination & Closing": {
-        "Closing Conditions": {
-          "Conditions to Closing – Mutual or Each Party": "0d3d3806dc32e929",
-          "Conditions to Closing – Party Specific": "27f3e7771de2bfc4",
-        },
-        "Closing Mechanics": {
-          "Accountant Consents & Comfort Letters": "ba6016031fc0754d",
-          "Appraisal / Dissenters' Rights": "452d682a4fa9b1dc",
-          "Asset Purchase Mechanics": "18bc2f6f399f1fe5",
-          "Basic Merger Mechanics": "7bc3272aa3b778e7",
-          "Closing Deliverables": "56be5748315e41d0",
-          "Effective Time; Closing Filings": "e66e3d365e3b3156",
-          "Effects of the Merger": "d7f5778a35a8dac6",
-          "Exchange & Payment Mechanics (Share Surrender)": "3f0f0f021e26686a",
-          "Offer; Tender Procedures": "655641a8ddf0a5e3",
-          "Shareholder & Stockholder Meetings": "468ae85912916eca",
-          "Stock Purchase Mechanics": "bb235fc028d4b0ff",
-          "Top-Up Options & Short-Form Merger Provisions": "0495fdd6552c9122",
-        },
-        "Termination Rights & Fees": {
-          "Termination Effects": "787011023387144e",
-          "Termination Fees & Break-Up Fees": "5d80283576bffb71",
-          "Termination Rights & Triggers": "b02f7059318d484d",
-        },
-      },
-      "Consideration & Economics": {
-        "Assumption of Liabilities": {
-          "Assumed Liabilities": "4c2aa4862b6dc6ef",
-        },
-        "Purchase Price & Adjustments": {
-          "Contingent Value Rights (CVR) & Earn-Out Agreements":
-            "753cece4c610bcc3",
-          Distributions: "17a1631998eb3cef",
-          "Fairness Opinions & Financial Advisors": "d7ae412fdcc9d956",
-          "Purchase Price and Post-Closing Adjustments": "2b4119d25d6309ee",
-        },
-        "Stock & Equity Consideration": {
-          "Hook Stock & Treasury Shares": "84bfd0173448dd4d",
-          "Stock Issuance & Reservation": "2014181a8401598b",
-        },
-      },
-      Covenants: {
-        "Disclosure Schedule Interpretation": {
-          "Disclosure Schedule Interpretation & Cross-References":
-            "12778ed5811cb2c7",
-        },
-        "Interim Covenants": {
-          "Access to Information / Inspection Rights": "878cd2cffec068a3",
-          "Disclosure Schedule Updates & Notice of Certain Events":
-            "f1b8333aee3d87e6",
-          "Interim Operating Covenants & Forbearances": "a152d97ffdd63fd7",
-          "Merger Sub Covenants": "d5bb9a0288084408",
-          "Multiple Seller Coordination & Relationship Provisions":
-            "5052442de8422063",
-          "No-Shop / Non-Solicitation Covenants": "ed56961095cffa4c",
-          "Pre-Closing Reorganization & Structure Steps": "d00a3fc743aab08f",
-          "Reasonable Best Efforts; Cooperation": "d709883fed7af17c",
-          "Regulatory / Antitrust Covenants": "2002043c983c4b4a",
-          "Tax Covenants": "ae15b97a33b37b1a",
-        },
-        "Post-Closing Covenants": {
-          "Covenant Not to Compete / Non-Compete": "1b0b9e1dffa2e8c4",
-          "Employee Matters & Benefits": "6ee3ede3e3b91063",
-          "Indemnification, Insurance & D&O": "aa3618c9c4c2ad46",
-          "Post-Closing Access to Records": "4e23ea5a68012fc7",
-          "Post-Closing Cooperation & Transition": "c42b21b52aac38a4",
-          "Survival & Statute of Limitations": "6b6fcd8bcbcb8dd0",
-          "Transaction Announcements & Public Relations": "7bf8b47d83b5b24f",
-        },
-      },
-      "Definitions & Miscellaneous": {
-        "Definitions & Defined Terms": {
-          "Definition - Affiliate": "1e1a8e5e4b6b15e3",
-          "Definition - Business Day": "ba57f2a3e2d1b2b6",
-          "Definition - Change in Recommendation": "e8f19e7e5b3a9a4b",
-          "Definition - Confidentiality Agreement": "7f3b5e2c1a8d7e6f",
-          "Definition - Contract": "c9d2f7a8b3e6d9c2",
-          "Definition - Disclosure Letter / Disclosure Schedule":
-            "3e8c9f4b7e6a2d1c",
-          "Definition - Financing": "9a6e7d3c5b4a8f2e",
-          "Definition - GAAP": "6f4a8e2d7c9b5e3a",
-          "Definition - Intellectual Property": "4b2e8a6f3d7c5e9a",
-          "Definition - Knowledge": "2c5f9a3e7b6d4c8a",
-          "Definition - Laws": "9e3a6f2c8b5d7e4a",
-          "Definition - Liens": "7a4e2f8c6b3d9a5e",
-          "Definition - Material Adverse Effect / Change": "5c8a3f7e2b6d4a9c",
-          "Definition - Material Contract": "8f2a6e4c7b9d3a5e",
-          "Definition - Permitted Liens": "1a9e5c8f2b4d7a6c",
-          "Definition - Regulatory Approval": "6d4a9c2e8f5b7c3a",
-          "Definition - Representatives": "3f7a5e8c2b6d9a4c",
-          "Definition - SEC Documents / Filings": "4c9a2f6e8b3d5a7c",
-          "Definition - Securities Act": "8a5c2f9e4b7d6a3c",
-          "Definition - Subsidiary": "2e6a4c9f8b5d3a7e",
-          "Definition - Superior Proposal": "7c3a8e5f2b4d9a6c",
-          "Definition - Takeover Proposal": "5f9a3c6e8b2d7a4c",
-          "Definition - Taxes": "9c6a2e4f8b7d5a3c",
-        },
-        "Miscellaneous Provisions": {
-          "Amendment & Waiver": "a4c8e2f6b9d7a5c3",
-          "Assignment & Successors": "6e9a3c4f8b2d5a7c",
-          "Counterparts & Electronic Signatures": "3c7a9e2f4b8d6a5c",
-          "Entire Agreement": "8f4a6c2e9b5d7a3c",
-          "Expenses & Costs": "2a9c6e4f8b7d3a5c",
-          "Further Assurances": "7e3a5c9f2b4d8a6c",
-          "Governing Law": "4c8a6e2f9b5d7a3c",
-          Headings: "9f2a5c8e4b7d6a3c",
-          "Jurisdiction & Venue": "6a4c9e2f8b3d5a7c",
-          "No Third-Party Beneficiaries": "3e7a4c8f2b9d6a5c",
-          Notices: "8c5a2f9e4b6d7a3c",
-          "Schedules & Exhibits": "5f8a3c6e2b4d9a7c",
-          Severability: "2c9a6e4f8b7d5a3c",
-          "Specific Performance": "7a4c8e2f9b5d6a3c",
-        },
-      },
-      "Parties & Structure": {
-        "Corporate Structure & Entities": {
-          "Merger Sub Formation & Corporate Structure": "9e6a2c4f8b5d7a3c",
-          "Parties to the Agreement": "4a8c6e2f9b3d5a7c",
-        },
-        "Shareholder Matters": {
-          "Board Recommendation & Fiduciary Duties": "6c9a4e2f8b7d5a3c",
-          "Shareholder Approval & Voting": "3f7a5c8e2b4d9a6c",
-          "Voting Agreements & Support Agreements": "8a2c6e4f9b5d7a3c",
-        },
-      },
-      "Representations & Warranties": {
-        "Business & Operations": {
-          "Affiliate Transactions": "5c8a3f6e2b9d4a7c",
-          "Brokers & Financial Advisors": "2e9a4c6f8b3d5a7c",
-          "Business Operations & Conduct": "7f3a6c8e2b5d9a4c",
-          "Contracts & Agreements": "4a8c2e6f9b7d5a3c",
-          "Customer & Supplier Relationships": "9c6a4e2f8b3d7a5c",
-          "Environmental Matters": "6e3a9c4f8b2d5a7c",
-          Insurance: "3f8a5c6e2b9d4a7c",
-          "Intellectual Property": "8c2a6e4f9b7d5a3c",
-          "Labor & Employment": "5a9c3e6f8b4d7a2c",
-          "Litigation & Legal Proceedings": "2f7a4c8e6b9d5a3c",
-          "No Material Adverse Change": "9a5c2e6f8b4d7a3c",
-          "Organization & Authority": "6c8a3e4f2b9d5a7c",
-          "Permits & Compliance": "4e7a9c2f8b6d5a3c",
-          "Properties & Real Estate": "7a3c5e8f2b4d9a6c",
-          "Related Party Transactions": "1c9a6e4f8b2d5a7c",
-          "Taxes & Tax Returns": "8f5a2c6e9b4d7a3c",
-        },
-        "Financial & Accounting": {
-          "Absence of Undisclosed Liabilities": "3a8c6e2f9b5d7a4c",
-          "Accounts Receivable": "6e4a9c2f8b7d5a3c",
-          "Books & Records": "9c7a3e6f2b4d8a5c",
-          "Financial Statements": "4f8a5c2e6b9d7a3c",
-          "Internal Controls": "7e2a6c9f4b8d5a3c",
-        },
-        "Legal & Regulatory": {
-          "Anti-Corruption & FCPA": "2c9a5e6f8b4d7a3c",
-          Capitalization: "8a4c6e2f9b7d5a3c",
-          "Compliance with Laws": "5f7a3c8e2b9d6a4c",
-          "Government Contracts": "9c2a6e4f8b5d7a3c",
-          "Regulatory Matters": "6a8c3e4f2b9d5a7c",
-          "SEC Documents & Exchange Act Compliance": "3e5a9c6f8b2d7a4c",
-          "Securities Law Compliance": "7f2a4c8e6b9d5a3c",
-        },
-      },
-    }),
-    []
-  );
+  const { taxonomyTree, isLoading: isLoadingTaxonomy } = useTaxonomy({
+    deferMs: 1200,
+  });
+  const clauseTypesNested: ClauseTypeTree = taxonomyTree ?? {};
 
   const clauseTypePathByStandardId = useMemo(
     () => indexClauseTypePaths(clauseTypesNested),
     [clauseTypesNested]
+  );
+  const clauseTypeLabelById = useMemo(
+    () => indexClauseTypeLabels(clauseTypesNested),
+    [clauseTypesNested],
   );
 
   // Allow Enter to trigger search when focus isn't inside an input/control.
@@ -395,7 +238,9 @@ export default function Search() {
               targets={targets}
               acquirers={acquirers}
               clauseTypesNested={clauseTypesNested}
+              clauseTypeLabelById={clauseTypeLabelById}
               isLoadingFilterOptions={isLoadingFilterOptions}
+              isLoadingTaxonomy={isLoadingTaxonomy}
               onToggleFilterValue={toggleFilterValue}
               onClearFilters={clearFilters}
               onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -447,7 +292,9 @@ export default function Search() {
                         targets={targets}
                         acquirers={acquirers}
                         clauseTypesNested={clauseTypesNested}
+                        clauseTypeLabelById={clauseTypeLabelById}
                         isLoadingFilterOptions={isLoadingFilterOptions}
+                        isLoadingTaxonomy={isLoadingTaxonomy}
                         onToggleFilterValue={toggleFilterValue}
                         onClearFilters={clearFilters}
                       />
@@ -558,24 +405,30 @@ export default function Search() {
                     ["clauseType", "Clause type", filters.clauseType],
                   ] as const
                 ).flatMap(([field, label, values]) =>
-                  values.map((value) => (
-                    <Badge
-                      key={`${field}:${value}`}
-                      variant="outline"
-                      className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
-                    >
-                      <span className="text-muted-foreground">{label}:</span>
-                      <span className="truncate">{value}</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleFilterValue(field, value)}
-                        className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        aria-label={`Remove ${label} filter: ${value}`}
+                  values.map((value) => {
+                    const displayValue =
+                      field === "clauseType"
+                        ? clauseTypeLabelById[value] ?? value
+                        : value;
+                    return (
+                      <Badge
+                        key={`${field}:${value}`}
+                        variant="outline"
+                        className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
                       >
-                        <X className="h-3 w-3" aria-hidden="true" />
-                      </button>
-                    </Badge>
-                  ))
+                        <span className="text-muted-foreground">{label}:</span>
+                        <span className="truncate">{displayValue}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleFilterValue(field, value)}
+                          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          aria-label={`Remove ${label} filter: ${displayValue}`}
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </Badge>
+                    );
+                  })
                 )}
 
                 <div className="ml-auto">

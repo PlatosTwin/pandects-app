@@ -122,6 +122,30 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - dumps
+  /v1/taxonomy:
+    get:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                  - id
+                  properties:
+                    id:
+                      type: string
+                    children:
+                      type: object
+                      additionalProperties:
+                        type: object
+      tags:
+      - taxonomy
   /v1/agreements/{agreement_uuid}:
     get:
       parameters:
@@ -185,6 +209,8 @@ tags:
   description: Search merger agreement sections
 - name: dumps
   description: Access metadata about bulk data on Cloudflare
+- name: taxonomy
+  description: Access the Pandects agreement taxonomy
 - name: agreements
   description: Retrieve full text for a given agreement
 - name: sections
@@ -235,8 +261,9 @@ components:
         sectionUuid:
           type: string
         standardId:
-          type: string
-          nullable: true
+          type: array
+          items:
+            type: string
         xml:
           type: string
         articleTitle:
@@ -341,7 +368,9 @@ components:
         articleStandardId:
           type: string
         sectionStandardId:
-          type: string
+          type: array
+          items:
+            type: string
         xml:
           type: string
         articleTitle:

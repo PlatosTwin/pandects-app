@@ -8,10 +8,9 @@ export default function Donate() {
     <PageShell
       size="xl"
       title="Donate"
-      subtitle="Help keep the project running."
     >
       <div className="mb-8">
-        <div className="prose max-w-none space-y-4 text-sm text-muted-foreground">
+        <div className="prose max-w-none space-y-4 text-muted-foreground">
           <p>
             Pandects is an open-source project with real, ongoing costs: hosting
             and compute for the API, database storage, backups, CI/CD, and the

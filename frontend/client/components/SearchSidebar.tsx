@@ -28,7 +28,9 @@ interface SearchSidebarProps {
   targets: string[];
   acquirers: string[];
   clauseTypesNested: ClauseTypeTree;
+  clauseTypeLabelById: Record<string, string>;
   isLoadingFilterOptions: boolean;
+  isLoadingTaxonomy: boolean;
   onToggleFilterValue: (field: string, value: string) => void;
   onClearFilters: () => void;
   onToggleCollapse?: () => void;
@@ -43,7 +45,9 @@ export function SearchSidebar({
   targets,
   acquirers,
   clauseTypesNested,
+  clauseTypeLabelById,
   isLoadingFilterOptions,
+  isLoadingTaxonomy,
   onToggleFilterValue,
   onClearFilters,
   onToggleCollapse,
@@ -133,14 +137,25 @@ export function SearchSidebar({
       </div>
 
       {/* Clause Type Filter */}
-      <div>
+      <div className="relative">
         <NestedCheckboxFilter
           label="Clause Type"
           data={clauseTypesNested}
           selectedValues={filters.clauseType || []}
           onToggle={(value) => onToggleFilterValue("clauseType", value)}
+          labelById={clauseTypeLabelById}
           useModal={true}
         />
+        {isLoadingTaxonomy && (
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="sr-only">Loading taxonomy</span>
+          </div>
+        )}
       </div>
 
       {/* Transaction Size Filter */}

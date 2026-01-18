@@ -261,11 +261,6 @@ export default function AgreementIndex() {
     <PageShell
       size="xl"
       title="Agreement Index"
-      subtitle={
-        <span className="text-sm text-muted-foreground">
-          Explore the full agreement universe and drill into deal-level metadata.
-        </span>
-      }
     >
       <div
         className="mb-10 grid gap-4 md:grid-cols-3"

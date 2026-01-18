@@ -75,7 +75,6 @@ export default function About() {
     <PageShell
       size="xl"
       title="About"
-      subtitle="Project background, data sources, and how the dataset is assembled."
     >
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">

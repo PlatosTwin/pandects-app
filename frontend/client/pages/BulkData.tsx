@@ -180,23 +180,6 @@ export default function BulkData() {
       <PageShell
       size="xl"
       title="Bulk Data Downloads"
-      subtitle={
-        <span className="prose max-w-none">
-          Download complete database dumps of the Pandects dataset. All dumps
-          are compressed MariaDB SQL files containing the full structured data.
-          For database documentation, see{" "}
-          <a
-            href="https://dbdocs.io/nmbogdan/Pandects"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="dbdocs (opens in a new tab)"
-            className="underline underline-offset-2"
-          >
-            dbdocs
-          </a>
-          .
-        </span>
-      }
     >
       {/* Demo Code Blocks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -321,7 +304,7 @@ export default function BulkData() {
         <h2 className="text-lg font-semibold text-foreground mb-2">
           About the SQL Dump
         </h2>
-        <p className="text-foreground prose max-w-none">
+        <p className="text-muted-foreground prose max-w-none">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
@@ -338,7 +321,7 @@ export default function BulkData() {
       </div>
 
       {/* Data Table */}
-      <div className="min-h-[420px] overflow-hidden rounded-lg border border-border bg-card lg:min-h-[520px]">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads

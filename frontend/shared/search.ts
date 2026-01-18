@@ -21,7 +21,7 @@ export interface SearchResult {
   acquirer: string;
   articleTitle: string;
   sectionTitle: string;
-  standardId: string | null;
+  standardId: string[];
   xml: string;
   sectionUuid: string;
   agreementUuid: string;

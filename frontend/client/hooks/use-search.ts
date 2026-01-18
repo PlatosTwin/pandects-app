@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
-import { buildSearchParams, extractStandardIds } from "@/lib/url-params";
+import { buildSearchParams } from "@/lib/url-params";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";

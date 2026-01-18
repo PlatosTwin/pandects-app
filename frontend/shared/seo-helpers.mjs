@@ -60,6 +60,17 @@ function getSeoConfigForPath(pathname, origin) {
           pageDescription:
             "Reference the Pandects XML schema for agreement exports, including structure and element definitions.",
         };
+      case "/taxonomy":
+        return {
+          title: "Taxonomy | Pandects",
+          description:
+            "Explore the Pandects clause taxonomy with standard IDs across three levels.",
+          robots: "index,follow,max-image-preview:large",
+          pageType: "WebPage",
+          pageName: "Taxonomy",
+          pageDescription:
+            "Explore the Pandects clause taxonomy with standard IDs across three levels.",
+        };
       case "/bulk-data":
         return {
           title: "Bulk Data | Pandects",

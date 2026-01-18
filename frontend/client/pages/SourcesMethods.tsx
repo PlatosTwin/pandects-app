@@ -396,7 +396,6 @@ export default function SourcesMethods() {
     <PageShell
       size="xl"
       title="Sources & Methods"
-      subtitle="Where the data comes from, and how we turn text and HTML into XML."
     >
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
