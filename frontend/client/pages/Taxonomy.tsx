@@ -334,26 +334,18 @@ export default function Taxonomy() {
   };
 
   const renderCopyControl = (value: string, label: string) => (
-    <span
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={(event) => {
         event.stopPropagation();
         void copyToClipboard(value);
       }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          event.stopPropagation();
-          void copyToClipboard(value);
-        }
-      }}
-      className="cursor-pointer rounded-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="cursor-pointer rounded-sm border-0 bg-transparent p-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={label}
       title={label}
     >
       <Copy className="h-3 w-3" aria-hidden="true" />
-    </span>
+    </button>
   );
 
   return (

@@ -507,7 +507,11 @@ export default function Search() {
 
                       <Suspense
                         fallback={
-                          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                          <div
+                            className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground"
+                            role="status"
+                            aria-live="polite"
+                          >
                             Loading results...
                           </div>
                         }

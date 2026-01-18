@@ -517,10 +517,14 @@ export default function AgreementIndex() {
                         {agreement.verified ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
+                              <button
+                                type="button"
+                                aria-label="Verified agreement"
+                                className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
+                              >
                                 <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                 <span className="hidden sm:inline">Verified</span>
-                              </span>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent side="left">
                               <p>This agreement has been verified by hand.</p>
