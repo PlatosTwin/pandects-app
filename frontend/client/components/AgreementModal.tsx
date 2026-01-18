@@ -140,27 +140,6 @@ export function AgreementModal({
           label: "Exhibit type",
           value: formatTextValue(agreement?.exhibit_type),
         },
-        {
-          label: "Original filing",
-          value: agreement?.url ? (
-            <a
-              href={agreement.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Original Filing (opens in a new tab)"
-              className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 group w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title="View original SEC filing"
-            >
-              <ExternalLink
-                className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
-                aria-hidden="true"
-              />
-              <span>Original Filing</span>
-            </a>
-          ) : (
-            "—"
-          ),
-        },
       ],
     },
     {
@@ -504,7 +483,7 @@ export function AgreementModal({
         {(agreementMetadata || agreement) && (
           <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6 sm:py-4">
             {/* Key metadata always visible */}
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               {yearDisplay && (
                 <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
                   {yearDisplay}
@@ -528,17 +507,33 @@ export function AgreementModal({
                   <span className="font-medium">{formatCurrencyValue(agreement.transaction_price_total)}</span>
                 </span>
               )}
+              {agreement?.url && (
+                <a
+                  href={agreement.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Original Filing (opens in a new tab)"
+                  className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:ml-auto"
+                  title="View original SEC filing"
+                >
+                  <ExternalLink
+                    className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                    aria-hidden="true"
+                  />
+                  <span>Original Filing</span>
+                </a>
+              )}
             </div>
             <details className="group">
               <summary className="flex items-center justify-between gap-3 cursor-pointer select-none">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-foreground">
-                    Full deal details
+                    Click to view deal metadata
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="group-open:hidden">Show all details</span>
-                  <span className="hidden group-open:inline">Hide details</span>
+                  <span className="group-open:hidden">Expand metadata</span>
+                  <span className="hidden group-open:inline">Collapse metadata</span>
                   <ChevronDown
                     className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
                     aria-hidden="true"
