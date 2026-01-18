@@ -138,7 +138,7 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Content Nodes
                   </div>
-                  <p className="mt-2 text-foreground">
+                  <p className="mt-2 text-muted-foreground">
                     <span className="font-mono text-sm text-foreground">
                       text
                     </span>
