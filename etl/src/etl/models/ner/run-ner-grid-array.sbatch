@@ -3,9 +3,12 @@
 #SBATCH --output=/scratch/nmb9729/mna/ner/logs/%A_%a-ner-grid.out
 #SBATCH --error=/scratch/nmb9729/mna/ner/logs/%A_%a-ner-grid.err
 #SBATCH --ntasks=1
+#SBATCH --cpus-per-task=3
 #SBATCH --mem=8gb
 #SBATCH --gres=gpu:1
 #SBATCH --time=20:00:00
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=nmb9729@nyu.edu
 #SBATCH --array=0-10
 
 export PYTHONUNBUFFERED=1

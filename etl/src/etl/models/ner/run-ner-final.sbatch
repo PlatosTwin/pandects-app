@@ -1,6 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ner
+#SBATCH --job-name=ner-final
 #SBATCH --output=/scratch/nmb9729/mna/ner/logs/%j-ner-run.log
+#SBATCH --error=/scratch/nmb9729/mna/ner/logs/%A_%a-ner-final.err
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
 #SBATCH --mem=8gb
