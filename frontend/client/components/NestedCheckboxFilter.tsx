@@ -27,6 +27,7 @@ interface NestedCheckboxFilterProps {
   selectedValues: string[];
   onToggle: (value: string) => void;
   labelById?: Record<string, string>;
+  labelAddon?: React.ReactNode;
   className?: string;
   useModal?: boolean;
 }
@@ -49,6 +50,7 @@ export function NestedCheckboxFilter({
   selectedValues,
   onToggle,
   labelById,
+  labelAddon,
   className,
   useModal = false,
 }: NestedCheckboxFilterProps) {
@@ -441,12 +443,15 @@ export function NestedCheckboxFilter({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <label
-        id={labelId}
-        className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
-      >
-        {label}
-      </label>
+      <div className="flex items-center justify-between gap-2">
+        <span
+          id={labelId}
+          className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
+        >
+          {label}
+        </span>
+        {labelAddon ? <div className="flex items-center">{labelAddon}</div> : null}
+      </div>
 
       {useModal ? (
         <Dialog open={isExpanded} onOpenChange={setIsExpanded}>

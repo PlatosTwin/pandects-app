@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import type { SearchResult } from "@shared/search";
 
+import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 interface SearchResultsTableProps {
@@ -54,6 +56,38 @@ const truncateText = (text: string | null | undefined, maxLength: number = 75) =
   };
 };
 
+type InfoOverlayProps = {
+  isCoarsePointer: boolean;
+  trigger: ReactNode;
+  content: ReactNode;
+  tooltipProps?: ComponentProps<typeof TooltipContent>;
+  popoverProps?: ComponentProps<typeof PopoverContent>;
+};
+
+function InfoOverlay({
+  isCoarsePointer,
+  trigger,
+  content,
+  tooltipProps,
+  popoverProps,
+}: InfoOverlayProps) {
+  if (isCoarsePointer) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent {...popoverProps}>{content}</PopoverContent>
+      </Popover>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipContent {...tooltipProps}>{content}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function SearchResultsTable({
   searchResults,
   selectedResults,
@@ -77,6 +111,7 @@ export function SearchResultsTable({
   const [expandableResults, setExpandableResults] = useState<Set<string>>(
     () => new Set(),
   );
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const snippetRefs = useRef(new Map<string, HTMLDivElement | null>());
   const allSelected =
     searchResults.length > 0 &&
@@ -96,6 +131,19 @@ export function SearchResultsTable({
       return next;
     });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(pointer: coarse)");
+    const update = () => setIsCoarsePointer(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -183,6 +231,7 @@ export function SearchResultsTable({
               </span>
               <ToggleGroup
                 type="single"
+                aria-label="Results density"
                 value={density}
                 onValueChange={(value) => {
                   if (value === "comfy" || value === "compact") {
@@ -221,7 +270,7 @@ export function SearchResultsTable({
                   onSortResults(value as "year" | "target" | "acquirer")
                 }
               >
-                <SelectTrigger className="h-9 w-full sm:w-[160px]">
+                <SelectTrigger className="h-9 w-full sm:w-[160px]" aria-label="Sort results by">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,8 +376,9 @@ export function SearchResultsTable({
                             {result.year}
                           </span>
                           {result.verified ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                            <InfoOverlay
+                              isCoarsePointer={isCoarsePointer}
+                              trigger={
                                 <button
                                   type="button"
                                   aria-label="Verified agreement"
@@ -337,46 +387,57 @@ export function SearchResultsTable({
                                   <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                   <span className="hidden sm:inline">Verified</span>
                                 </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom">
-                                <p>This agreement has been verified by hand.</p>
-                              </TooltipContent>
-                            </Tooltip>
+                              }
+                              content={<p>This agreement has been verified by hand.</p>}
+                              tooltipProps={{ side: "bottom" }}
+                              popoverProps={{
+                                side: "bottom",
+                                className: "w-auto max-w-sm p-2 text-sm",
+                              }}
+                            />
                           ) : null}
                           {clauseTypeLabel ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  tabIndex={0}
+                            <InfoOverlay
+                              isCoarsePointer={isCoarsePointer}
+                              trigger={
+                                <button
+                                  type="button"
+                                  aria-label={`Clause type: ${clauseTypeLabel}`}
                                   className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                 >
                                   <span title={clauseTypeLabel}>
                                     {clauseTypeText?.truncated}
                                   </span>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-sm">
-                                {clauseTypePath ? (
+                                </button>
+                              }
+                              content={
+                                clauseTypePath ? (
                                   <div className="space-y-1">
                                     {clauseTypePath.map((part, partIndex) => (
                                       <p key={`${partIndex}-${part}`}>{part}</p>
                                     ))}
                                   </div>
-                                ) : null}
-                              </TooltipContent>
-                            </Tooltip>
+                                ) : null
+                              }
+                              tooltipProps={{ className: "max-w-sm" }}
+                              popoverProps={{
+                                className: "w-auto max-w-sm p-2 text-sm",
+                              }}
+                            />
                           ) : showDevFallbackPill ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  tabIndex={0}
+                            <InfoOverlay
+                              isCoarsePointer={isCoarsePointer}
+                              trigger={
+                                <button
+                                  type="button"
+                                  aria-label="Clause type unavailable"
                                   className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                 >
                                   <span>Clause type unavailable</span>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-sm">
-                                {standardId ? (
+                                </button>
+                              }
+                              content={
+                                standardId ? (
                                   <>
                                     <p>standardId: {standardId}</p>
                                     <p>
@@ -393,9 +454,13 @@ export function SearchResultsTable({
                                       `standardId`.
                                     </p>
                                   </>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
+                                )
+                              }
+                              tooltipProps={{ className: "max-w-sm" }}
+                              popoverProps={{
+                                className: "w-auto max-w-sm p-2 text-sm",
+                              }}
+                            />
                           ) : null}
                         </div>
 
@@ -410,19 +475,22 @@ export function SearchResultsTable({
                               Target
                             </span>{" "}
                             {targetText.needsTooltip ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    tabIndex={0}
-                                    className="cursor-help break-words font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                                  >
-                                    {targetText.truncated}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{result.target}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <InfoOverlay
+                                isCoarsePointer={isCoarsePointer}
+                              trigger={
+                                <button
+                                  type="button"
+                                  aria-label={`Target: ${result.target}`}
+                                  className="cursor-help break-words bg-transparent p-0 text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                >
+                                  {targetText.truncated}
+                                </button>
+                                }
+                                content={<p>{result.target}</p>}
+                                popoverProps={{
+                                  className: "w-auto max-w-sm p-2 text-sm",
+                                }}
+                              />
                             ) : (
                               <span className="break-words font-medium">
                                 {targetText.truncated}
@@ -434,19 +502,22 @@ export function SearchResultsTable({
                               Acquirer
                             </span>{" "}
                             {acquirerText.needsTooltip ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    tabIndex={0}
-                                    className="cursor-help break-words font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                                  >
-                                    {acquirerText.truncated}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{result.acquirer}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <InfoOverlay
+                                isCoarsePointer={isCoarsePointer}
+                              trigger={
+                                <button
+                                  type="button"
+                                  aria-label={`Acquirer: ${result.acquirer}`}
+                                  className="cursor-help break-words bg-transparent p-0 text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                >
+                                  {acquirerText.truncated}
+                                </button>
+                                }
+                                content={<p>{result.acquirer}</p>}
+                                popoverProps={{
+                                  className: "w-auto max-w-sm p-2 text-sm",
+                                }}
+                              />
                             ) : (
                               <span className="break-words font-medium">
                                 {acquirerText.truncated}

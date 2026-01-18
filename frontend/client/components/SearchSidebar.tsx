@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
 interface SearchSidebarProps {
@@ -56,6 +58,7 @@ export function SearchSidebar({
   className,
 }: SearchSidebarProps) {
   const [showContent, setShowContent] = useState(false);
+  const [usePopoverForTooltip, setUsePopoverForTooltip] = useState(false);
   const toggleCollapse = onToggleCollapse ?? (() => {});
 
   // Control content visibility with proper timing
@@ -83,6 +86,19 @@ export function SearchSidebar({
       setShowContent(true);
     }
   }, [isCollapsed, variant]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(pointer: coarse)");
+    const update = () => setUsePopoverForTooltip(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   const filtersContent = (
     <div className="space-y-8">
@@ -140,6 +156,53 @@ export function SearchSidebar({
       <div className="relative">
         <NestedCheckboxFilter
           label="Clause Type"
+          labelAddon={
+            usePopoverForTooltip ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    aria-label="Learn more about the taxonomy"
+                  >
+                    ?
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-auto max-w-[220px] p-2 text-xs">
+                  Learn more about the taxonomy on the{" "}
+                  <a
+                    href="/taxonomy"
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    Taxonomy page
+                  </a>
+                  .
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    aria-label="Learn more about the taxonomy"
+                  >
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px] text-xs">
+                  Learn more about the taxonomy on the{" "}
+                  <a
+                    href="/taxonomy"
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    Taxonomy page
+                  </a>
+                  .
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
           data={clauseTypesNested}
           selectedValues={filters.clauseType || []}
           onToggle={(value) => onToggleFilterValue("clauseType", value)}
