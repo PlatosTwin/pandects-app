@@ -17,6 +17,7 @@ def refresh_summary_data(
 
     summary_table = f"{schema}.summary_data"
     agreements_table = f"{schema}.agreements"
+    xml_table = f"{schema}.xml"
     pages_table = f"{schema}.pages"
     sections_table = f"{schema}.sections"
 
@@ -25,6 +26,11 @@ def refresh_summary_data(
         _ = conn.execute(
             text(
                 f"""
+                -- Deduplicate XML rows per agreement to avoid double-counting.
+                WITH xml_agreements AS (
+                    SELECT DISTINCT agreement_uuid
+                    FROM {xml_table}
+                )
                 INSERT INTO {summary_table} (
                     year,
                     form_type,
@@ -58,17 +64,23 @@ def refresh_summary_data(
                     COUNT(DISTINCT a.target) AS count_distinct_target,
                     COALESCE(SUM(a.transaction_price_total), 0) AS sum_transaction_value_total,
                     SUM(CASE WHEN a.verified THEN 1 ELSE 0 END) AS count_verified
-                FROM {agreements_table} AS a
+                FROM xml_agreements AS x
+                JOIN {agreements_table} AS a
+                    ON a.agreement_uuid = x.agreement_uuid
                 LEFT JOIN (
-                    SELECT agreement_uuid, COUNT(*) AS page_count
-                    FROM {pages_table}
-                    GROUP BY agreement_uuid
+                    SELECT p.agreement_uuid, COUNT(*) AS page_count
+                    FROM {pages_table} AS p
+                    JOIN xml_agreements AS x
+                        ON x.agreement_uuid = p.agreement_uuid
+                    GROUP BY p.agreement_uuid
                 ) AS p
                     ON p.agreement_uuid = a.agreement_uuid
                 LEFT JOIN (
-                    SELECT agreement_uuid, COUNT(*) AS section_count
-                    FROM {sections_table}
-                    GROUP BY agreement_uuid
+                    SELECT s.agreement_uuid, COUNT(*) AS section_count
+                    FROM {sections_table} AS s
+                    JOIN xml_agreements AS x
+                        ON x.agreement_uuid = s.agreement_uuid
+                    GROUP BY s.agreement_uuid
                 ) AS s
                     ON s.agreement_uuid = a.agreement_uuid
                 GROUP BY
