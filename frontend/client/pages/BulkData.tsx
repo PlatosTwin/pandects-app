@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { API_BASE_URL, apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
+import { logger } from "@/lib/logger";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 async function showToast(kind: "success" | "error", message: string) {
   if (typeof window === "undefined") return;
@@ -79,7 +81,7 @@ export default function BulkData() {
         setDumps(sortedData);
       } catch (err) {
         if (import.meta.env.DEV) {
-          console.error("Error fetching dumps:", err);
+          logger.error("Error fetching dumps:", err);
         }
         trackEvent("api_error", {
           endpoint: "api/dumps",
@@ -164,7 +166,7 @@ export default function BulkData() {
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     } catch (e) {
       if (import.meta.env.DEV) {
-        console.error("Failed to download manifest", e);
+        logger.error("Failed to download manifest", e);
       }
       trackEvent("api_error", {
         endpoint: "bulk/manifest",
@@ -333,7 +335,7 @@ export default function BulkData() {
 
         {loading ? (
           <div className="p-8 text-center" role="status" aria-live="polite">
-            <div className="animate-spin inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
+            <LoadingSpinner size="lg" aria-label="Loading dumps" className="mx-auto" />
             <p className="text-muted-foreground mt-2">Loading dumps...</p>
           </div>
         ) : error ? (

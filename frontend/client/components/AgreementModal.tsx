@@ -22,10 +22,19 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   animateScrollTop,
   getScrollTopForElementInContainer,
 } from "@/lib/scroll";
+import {
+  formatDateValue,
+  formatNumberValue,
+  formatCurrencyValue,
+  formatEnumValue,
+  formatTextValue,
+  formatBooleanValue,
+} from "@/lib/format-utils";
 
 interface AgreementModalProps {
   isOpen: boolean;
@@ -70,43 +79,6 @@ export function AgreementModal({
   const modalTitle =
     [yearDisplay, target, acquirer].filter(Boolean).join(" - ") ||
     "Agreement details";
-  const hasValue = (value: unknown) =>
-    value !== null && value !== undefined && value !== "";
-  const formatEnumValue = (value?: string | null) => {
-    if (!hasValue(value)) return "—";
-    return String(value)
-      .split("_")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-  };
-  const formatTextValue = (value?: string | null) =>
-    hasValue(value) ? String(value) : "—";
-  const formatDateValue = (value?: string | null) => {
-    if (!hasValue(value)) return "—";
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }).format(new Date(String(value)));
-  };
-  const formatNumberValue = (value?: number | null) => {
-    if (value === null || value === undefined) return "—";
-    return new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: 3,
-    }).format(value);
-  };
-  const formatCurrencyValue = (value?: number | null) => {
-    if (value === null || value === undefined) return "—";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-  const formatBooleanValue = (value?: boolean | null) => {
-    if (value === null || value === undefined) return "—";
-    return value ? "Yes" : "No";
-  };
   const mobileMetadataSummary = (() => {
     const parts: string[] = [];
     if (yearDisplay) parts.push(yearDisplay);
@@ -415,7 +387,7 @@ export function AgreementModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-[1px] flex items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
@@ -442,7 +414,7 @@ export function AgreementModal({
         </p>
 
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70 supports-[backdrop-filter]:backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-3 py-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Button
@@ -531,20 +503,41 @@ export function AgreementModal({
         {/* Agreement Metadata */}
         {(agreementMetadata || agreement) && (
           <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6 sm:py-4">
+            {/* Key metadata always visible */}
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              {yearDisplay && (
+                <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
+                  {yearDisplay}
+                </span>
+              )}
+              {target && (
+                <span className="text-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target:</span>{" "}
+                  <span className="font-medium">{target}</span>
+                </span>
+              )}
+              {acquirer && (
+                <span className="text-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Acquirer:</span>{" "}
+                  <span className="font-medium">{acquirer}</span>
+                </span>
+              )}
+              {agreement?.transaction_price_total && (
+                <span className="text-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Price:</span>{" "}
+                  <span className="font-medium">{formatCurrencyValue(agreement.transaction_price_total)}</span>
+                </span>
+              )}
+            </div>
             <details className="group">
               <summary className="flex items-center justify-between gap-3 cursor-pointer select-none">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-foreground">
-                    Deal details
+                    Full deal details
                   </div>
-                  {mobileMetadataSummary && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      {mobileMetadataSummary}
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="group-open:hidden">Show details</span>
+                  <span className="group-open:hidden">Show all details</span>
                   <span className="hidden group-open:inline">Hide details</span>
                   <ChevronDown
                     className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
@@ -605,7 +598,7 @@ export function AgreementModal({
             {isLoading && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center" role="status" aria-live="polite">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <LoadingSpinner size="lg" aria-label="Loading agreement" className="mx-auto mb-4" />
                   <p className="text-muted-foreground">Loading agreement...</p>
                 </div>
               </div>

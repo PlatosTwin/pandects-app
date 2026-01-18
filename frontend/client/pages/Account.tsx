@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -38,12 +39,8 @@ import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const dt = new Date(value);
-  return Number.isNaN(dt.getTime()) ? value : dt.toLocaleString();
-}
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { formatDate } from "@/lib/format-utils";
 
 export default function Account() {
   const { status, user, login, register, logout, refresh } = useAuth();
@@ -147,7 +144,7 @@ export default function Account() {
     const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const poll = async (): Promise<void> => {
       if (Date.now() >= deadline) {
-        throw new Error("Auth database is still waking up. Please retry in a moment.");
+        throw new Error("Authentication service is still initializing. Please retry in a moment.");
       }
       await delay(1000);
       if (await pingAuthBackend()) {
@@ -449,9 +446,9 @@ export default function Account() {
                 </>
               ) : (
                 <>
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <LoadingSpinner size="md" aria-label="Initializing authentication service" />
                   <div className="text-sm font-medium">
-                    Waking up the auth database…
+                    Initializing authentication service…
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Sign-in and account creation will be available shortly.
@@ -595,7 +592,7 @@ export default function Account() {
 
             <TabsContent value="signin">
               <form
-                className="mt-4 grid gap-4"
+                className="mt-4 space-y-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
                   trackEvent("signin_click", { from_path: "/account", method: "email" });
@@ -623,7 +620,7 @@ export default function Account() {
                                 });
                               } catch (sendError) {
                                 toast({
-                                  title: "Couldn't resend email",
+                                  title: "Could not resend email",
                                   description: String(sendError),
                                 });
                               }
@@ -641,8 +638,7 @@ export default function Account() {
                   }
                 }}
               >
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                <FormField label="Email" htmlFor="email" required>
                   <Input
                     id="email"
                     type="email"
@@ -652,9 +648,8 @@ export default function Account() {
                     required
                     disabled={busy || authBackendStatus !== "ready"}
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
+                </FormField>
+                <FormField label="Password" htmlFor="password" required>
                   <Input
                     id="password"
                     type="password"
@@ -664,7 +659,7 @@ export default function Account() {
                     required
                     disabled={busy || authBackendStatus !== "ready"}
                   />
-                </div>
+                </FormField>
                 <Button
                   type="submit"
                   variant="ghost"
@@ -684,7 +679,7 @@ export default function Account() {
 
             <TabsContent value="register">
               <form
-                className="mt-4 grid gap-4"
+                className="mt-4 space-y-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
                   trackEvent("create_account_click", { from_path: "/account", method: "email" });
@@ -726,8 +721,7 @@ export default function Account() {
                   }
                 }}
               >
-                <div className="grid gap-2">
-                  <Label htmlFor="email2">Email</Label>
+                <FormField label="Email" htmlFor="email2" required>
                   <Input
                     id="email2"
                     type="email"
@@ -737,9 +731,8 @@ export default function Account() {
                     required
                     disabled={busy || authBackendStatus !== "ready"}
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password2">Password</Label>
+                </FormField>
+                <FormField label="Password" htmlFor="password2" required>
                   <Input
                     id="password2"
                     type="password"
@@ -749,7 +742,7 @@ export default function Account() {
                     required
                     disabled={busy || authBackendStatus !== "ready"}
                   />
-                </div>
+                </FormField>
                 {captchaEnabled ? (
                   captchaSiteKey ? (
                     <TurnstileWidget

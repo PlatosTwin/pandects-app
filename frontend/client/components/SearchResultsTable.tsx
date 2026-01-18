@@ -1,16 +1,14 @@
 import { ExternalLink, ArrowUp, ArrowDown, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BREAKPOINT_SM, DEFAULT_TRUNCATION_LENGTH, LONG_TRUNCATION_LENGTH } from "@/lib/constants";
+import { truncateText } from "@/lib/text-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
   Select,
@@ -19,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import type { SearchResult } from "@shared/search";
 
-import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 interface SearchResultsTableProps {
@@ -40,52 +38,6 @@ interface SearchResultsTableProps {
   currentPage?: number;
   pageSize?: number;
   className?: string;
-}
-
-// Utility function to truncate text and determine if tooltip is needed
-const truncateText = (text: string | null | undefined, maxLength: number = 75) => {
-  if (!text) {
-    return { truncated: "", needsTooltip: false };
-  }
-  if (text.length <= maxLength) {
-    return { truncated: text, needsTooltip: false };
-  }
-  return {
-    truncated: text.substring(0, maxLength) + "...",
-    needsTooltip: true,
-  };
-};
-
-type InfoOverlayProps = {
-  isCoarsePointer: boolean;
-  trigger: ReactNode;
-  content: ReactNode;
-  tooltipProps?: ComponentProps<typeof TooltipContent>;
-  popoverProps?: ComponentProps<typeof PopoverContent>;
-};
-
-function InfoOverlay({
-  isCoarsePointer,
-  trigger,
-  content,
-  tooltipProps,
-  popoverProps,
-}: InfoOverlayProps) {
-  if (isCoarsePointer) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent {...popoverProps}>{content}</PopoverContent>
-      </Popover>
-    );
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <TooltipContent {...tooltipProps}>{content}</TooltipContent>
-    </Tooltip>
-  );
 }
 
 export function SearchResultsTable({
@@ -111,7 +63,6 @@ export function SearchResultsTable({
   const [expandableResults, setExpandableResults] = useState<Set<string>>(
     () => new Set(),
   );
-  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const snippetRefs = useRef(new Map<string, HTMLDivElement | null>());
   const allSelected =
     searchResults.length > 0 &&
@@ -132,25 +83,13 @@ export function SearchResultsTable({
     });
   };
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia("(pointer: coarse)");
-    const update = () => setIsCoarsePointer(media.matches);
-    update();
-    if (media.addEventListener) {
-      media.addEventListener("change", update);
-      return () => media.removeEventListener("change", update);
-    }
-    media.addListener(update);
-    return () => media.removeListener(update);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    const isMobile = window.innerWidth < BREAKPOINT_SM;
     if (!isMobile) {
       setExpandableResults(new Set());
       return;
@@ -308,8 +247,8 @@ export function SearchResultsTable({
           )}
         >
           {searchResults.map((result, index) => {
-            const targetText = truncateText(result.target, 75);
-            const acquirerText = truncateText(result.acquirer, 75);
+            const targetText = truncateText(result.target, DEFAULT_TRUNCATION_LENGTH);
+            const acquirerText = truncateText(result.acquirer, DEFAULT_TRUNCATION_LENGTH);
             const isSelected = selectedResults.has(result.id);
             const isExpanded = expandedResults.has(result.id);
             const canExpand = expandableResults.has(result.id) || isExpanded;
@@ -329,10 +268,10 @@ export function SearchResultsTable({
               ?.map((part) => part.trim())
               .join("\u2022 ");
             const clauseTypeText = clauseTypeLabel
-              ? truncateText(clauseTypeLabel, 75)
+              ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
               : null;
             const sectionSummary = `${result.articleTitle} \u2192 ${result.sectionTitle}`;
-            const sectionSummaryText = truncateText(sectionSummary, 120);
+            const sectionSummaryText = truncateText(sectionSummary, LONG_TRUNCATION_LENGTH);
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 
@@ -376,8 +315,7 @@ export function SearchResultsTable({
                             {result.year}
                           </span>
                           {result.verified ? (
-                            <InfoOverlay
-                              isCoarsePointer={isCoarsePointer}
+                            <AdaptiveTooltip
                               trigger={
                                 <button
                                   type="button"
@@ -397,8 +335,7 @@ export function SearchResultsTable({
                             />
                           ) : null}
                           {clauseTypeLabel ? (
-                            <InfoOverlay
-                              isCoarsePointer={isCoarsePointer}
+                            <AdaptiveTooltip
                               trigger={
                                 <button
                                   type="button"
@@ -425,8 +362,7 @@ export function SearchResultsTable({
                               }}
                             />
                           ) : showDevFallbackPill ? (
-                            <InfoOverlay
-                              isCoarsePointer={isCoarsePointer}
+                            <AdaptiveTooltip
                               trigger={
                                 <button
                                   type="button"
@@ -475,8 +411,7 @@ export function SearchResultsTable({
                               Target
                             </span>{" "}
                             {targetText.needsTooltip ? (
-                              <InfoOverlay
-                                isCoarsePointer={isCoarsePointer}
+                              <AdaptiveTooltip
                               trigger={
                                 <button
                                   type="button"
@@ -502,8 +437,7 @@ export function SearchResultsTable({
                               Acquirer
                             </span>{" "}
                             {acquirerText.needsTooltip ? (
-                              <InfoOverlay
-                                isCoarsePointer={isCoarsePointer}
+                              <AdaptiveTooltip
                               trigger={
                                 <button
                                   type="button"

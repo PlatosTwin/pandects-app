@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { FilterOptionsResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
@@ -71,9 +72,7 @@ export function useFilterOptions(
 
         setError(null);
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error("Failed to fetch filter options:", err);
-        }
+        logger.error("Failed to fetch filter options:", err);
         trackEvent("api_error", {
           endpoint: "api/filter-options",
           kind:

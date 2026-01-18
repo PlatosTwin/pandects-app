@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { TOCItem } from "@shared/agreement";
 
 interface TableOfContentsProps {
@@ -236,9 +237,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
       });
     }
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error("Error parsing XML for TOC:", error);
-    }
+    logger.error("Error parsing XML for TOC:", error);
     // Return a basic structure if parsing fails
     return [
       {

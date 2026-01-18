@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
@@ -64,9 +65,7 @@ export function useTaxonomy(
         sessionStorage.setItem("taxonomyTree", JSON.stringify(data));
         setError(null);
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error("Failed to fetch taxonomy:", err);
-        }
+        logger.error("Failed to fetch taxonomy:", err);
         trackEvent("api_error", {
           endpoint: "api/taxonomy",
           kind:

@@ -26,7 +26,7 @@ export default function ForgotPassword() {
       });
     } catch (err) {
       toast({
-        title: "Couldn't send reset email",
+        title: "Could not send reset email",
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {

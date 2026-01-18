@@ -50,7 +50,7 @@ export default function ResetPassword() {
       navigate("/account", { replace: true });
     } catch (err) {
       toast({
-        title: "Couldn't reset password",
+        title: "Could not reset password",
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {

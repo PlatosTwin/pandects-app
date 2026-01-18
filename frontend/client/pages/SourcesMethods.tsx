@@ -2,16 +2,7 @@ import type { ReactNode } from "react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 import type {
@@ -42,63 +33,6 @@ type MetricsData = {
   exhibit: ExhibitEvalData;
 };
 
-type InfoDisclosureProps = {
-  isCoarsePointer: boolean;
-  label: ReactNode;
-  ariaLabel?: string;
-  triggerClassName?: string;
-  content: ReactNode;
-};
-
-function InfoDisclosure({
-  isCoarsePointer,
-  label,
-  ariaLabel,
-  triggerClassName,
-  content,
-}: InfoDisclosureProps) {
-  if (isCoarsePointer) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={ariaLabel}
-            className={triggerClassName}
-          >
-            {label}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-        >
-          {content}
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
-  return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          className={triggerClassName}
-        >
-          {label}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        className="max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg"
-      >
-        {content}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export default function SourcesMethods() {
   const [activeSection, setActiveSection] = useState("");
@@ -107,7 +41,6 @@ export default function SourcesMethods() {
   const pipelineRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
-  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const lastScrollToRef = useRef(0);
   const pipelineMetricsRef = useRef<{
     firstCenter: number;
@@ -203,7 +136,17 @@ export default function SourcesMethods() {
       const rawProgress = (viewportMid - metrics.firstCenter) / denom;
       const clamped = Math.min(1, Math.max(0, rawProgress));
       if (progressRef.current) {
+        // Add will-change during animation
+        progressRef.current.style.willChange = "transform";
         progressRef.current.style.transform = `scaleY(${clamped})`;
+        // Remove will-change after animation completes
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (progressRef.current) {
+              progressRef.current.style.willChange = "auto";
+            }
+          }, 300);
+        });
       }
     };
 
@@ -281,18 +224,6 @@ export default function SourcesMethods() {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia("(pointer: coarse)");
-    const updatePointer = () => setIsCoarsePointer(media.matches);
-    updatePointer();
-    if (media.addEventListener) {
-      media.addEventListener("change", updatePointer);
-      return () => media.removeEventListener("change", updatePointer);
-    }
-    media.addListener(updatePointer);
-    return () => media.removeListener(updatePointer);
-  }, []);
 
   useEffect(() => {
     if (shouldLoadMetrics) return;
@@ -377,6 +308,15 @@ export default function SourcesMethods() {
 
     return () => observer.disconnect();
   }, [activeSection]);
+
+  // Cleanup will-change on unmount
+  useEffect(() => {
+    return () => {
+      if (progressRef.current) {
+        progressRef.current.style.willChange = "auto";
+      }
+    };
+  }, []);
 
   const ComingSoon = ({ title }: { title: string }) => (
     <Card className="border-border/70 bg-card/70 p-5">
@@ -654,8 +594,8 @@ export default function SourcesMethods() {
                 <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--border)/0.6)_0,hsl(var(--border)/0.6)_6px,transparent_6px,transparent_12px)] bg-[length:2px_12px] bg-repeat-y" />
                 <div
                   ref={progressRef}
-                  className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-emerald-300 via-emerald-500 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.35)] will-change-transform"
-                  style={{ transform: "scaleY(0)", willChange: "transform" }}
+                  className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-emerald-300 via-emerald-500 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.35)]"
+                  style={{ transform: "scaleY(0)" }}
                 />
               </div>
               <ol className="space-y-8" aria-label="Pipeline steps">
@@ -693,11 +633,16 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Normalization
                       </span>
-                      <InfoDisclosure
-                        isCoarsePointer={isCoarsePointer}
-                        ariaLabel="Why we split and classify pages"
-                        triggerClassName="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
-                        label="?"
+                      <AdaptiveTooltip
+                        trigger={
+                          <button
+                            type="button"
+                            aria-label="Why we split and classify pages"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                          >
+                            ?
+                          </button>
+                        }
                         content={
                           <>
                             Why split agreements into pages? Because our NER
@@ -711,6 +656,15 @@ export default function SourcesMethods() {
                             appendices and exhibit sections.
                           </>
                         }
+                        tooltipProps={{
+                          side: "top",
+                          className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                        }}
+                        delayDuration={300}
+                        popoverProps={{
+                          side: "top",
+                          className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                        }}
                       />
                       <a
                         href="#page-classifier-model"
@@ -983,16 +937,30 @@ export default function SourcesMethods() {
               Pandects is a small-scale operation run on a shoestring budget,
               meaning we don't have the resources to send hundreds of thousands
               of pages of agreements to proprietary LLMs—and as of October 2025,{" "}
-              <InfoDisclosure
-                isCoarsePointer={isCoarsePointer}
-                triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                label="open-source models"
+              <AdaptiveTooltip
+                trigger={
+                  <button
+                    type="button"
+                    className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                  >
+                    open-source models
+                  </button>
+                }
                 content={
                   <>
                     We tried DeepSeek R1 on NYU's HPC clusters, and the results
                     were less than reliable.
                   </>
                 }
+                tooltipProps={{
+                  side: "top",
+                  className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                }}
+                delayDuration={300}
+                popoverProps={{
+                  side: "top",
+                  className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
               at scale. Our solution: use the latest and greatest LLMs to
@@ -1130,10 +1098,15 @@ export default function SourcesMethods() {
                   <div>
                     <strong>Training corpus:</strong> We train both models on an
                     80/20 random split of the full set of{" "}
-                    <InfoDisclosure
-                      isCoarsePointer={isCoarsePointer}
-                      triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                      label={<strong>31,864</strong>}
+                    <AdaptiveTooltip
+                      trigger={
+                        <button
+                          type="button"
+                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                        >
+                          <strong>31,864</strong>
+                        </button>
+                      }
                       content={
                         <>
                           Did we really label 31,864 pages by hand? Yes—but it
@@ -1223,10 +1196,15 @@ export default function SourcesMethods() {
                     </span>{" "}
                     pages only) and we selected an additional{" "}
                     <strong>1,194</strong> to{" "}
-                    <InfoDisclosure
-                      isCoarsePointer={isCoarsePointer}
-                      triggerClassName="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
-                      label="upsample Article entities"
+                    <AdaptiveTooltip
+                      trigger={
+                        <button
+                          type="button"
+                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                        >
+                          upsample Article entities
+                        </button>
+                      }
                       content={
                         <>
                           Because Article entities are relatively less common,

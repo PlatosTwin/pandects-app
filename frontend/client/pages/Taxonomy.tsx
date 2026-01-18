@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { logger } from "@/lib/logger";
 
 type ClauseTypeValue = ClauseTypeTree[keyof ClauseTypeTree];
 
@@ -327,9 +328,7 @@ export default function Taxonomy() {
     try {
       await navigator.clipboard.writeText(value);
     } catch {
-      if (import.meta.env.DEV) {
-        console.warn("Clipboard write failed.");
-      }
+      logger.warn("Clipboard write failed.");
     }
   };
 
@@ -372,7 +371,7 @@ export default function Taxonomy() {
               htmlFor="taxonomy-search-input"
               className="text-sm font-semibold text-foreground"
             >
-              Find a clause
+              Find a clause class
             </Label>
             <div className="relative mt-2">
               <Search

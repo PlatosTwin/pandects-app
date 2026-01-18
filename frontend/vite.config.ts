@@ -119,10 +119,11 @@ function criticalCssPlugin(): Plugin {
         );
       }
 
-      // Add DNS prefetch for external resources (keeping only what was safe before)
+      // Add DNS prefetch and preconnect for external resources
       const dnsPrefetch = `
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />`;
+  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+  <link rel="preconnect" href="https://pandects-api.fly.dev" crossorigin />`;
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 

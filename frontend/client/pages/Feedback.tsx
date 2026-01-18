@@ -88,7 +88,7 @@ export default function Feedback() {
       <div className="mb-8">
         <div className="prose max-w-none text-muted-foreground space-y-4 mb-8">
           <p>
-            To submit questions, flag issues, or propose imporvements, use our
+            To submit questions, flag issues, or propose improvements, use our
             general feedback form below. You can also{" "}
             <a
               href="https://github.com/PlatosTwin/pandects-app/issues"

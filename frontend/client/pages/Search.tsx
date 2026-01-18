@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { AVAILABLE_YEARS } from "@/lib/constants";
+import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
   Search as SearchIcon,
@@ -23,6 +23,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
@@ -211,7 +212,7 @@ export default function Search() {
   // Auto-collapse sidebar on tablet and mobile
   useEffect(() => {
     const handleResize = () => {
-      const isTabletOrMobile = window.innerWidth < 1024; // lg breakpoint
+      const isTabletOrMobile = window.innerWidth < BREAKPOINT_LG;
       setSidebarCollapsed(isTabletOrMobile);
     };
 
@@ -319,18 +320,15 @@ export default function Search() {
           </div>
 
           {filterOptionsError && (
-            <div
-              className="mx-4 mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm sm:mx-8"
-              role="alert"
-            >
-              <p className="font-medium text-foreground">
-                Filter options error
-              </p>
-              <p className="mt-1 text-muted-foreground">{filterOptionsError}</p>
+            <div className="mx-4 mt-4 sm:mx-8">
+              <Alert variant="destructive" role="alert">
+                <AlertTitle>Filter options error</AlertTitle>
+                <AlertDescription>{filterOptionsError}</AlertDescription>
+              </Alert>
             </div>
           )}
 
-          <div className="border-b border-border bg-background/60 px-4 py-4 backdrop-blur sm:px-8">
+          <div className="border-b border-border bg-background/60 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
@@ -349,21 +347,37 @@ export default function Search() {
                 </Button>
 
                 <div className="flex items-center gap-3">
-                  <Button
-                    onClick={() => downloadCSV(clauseTypesNested)}
-                    disabled={
-                      searchResults.length === 0 && selectedResults.size === 0
-                    }
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
-                  >
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    <span>
-                      Download CSV
-                      {selectedResults.size > 0 && ` (${selectedResults.size})`}
-                    </span>
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-block">
+                        <Button
+                          onClick={() => downloadCSV(clauseTypesNested)}
+                          disabled={
+                            searchResults.length === 0 && selectedResults.size === 0
+                          }
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
+                          aria-label={
+                            searchResults.length === 0 && selectedResults.size === 0
+                              ? "Download CSV (disabled: no results to download. Run a search first.)"
+                              : "Download CSV"
+                          }
+                        >
+                          <Download className="h-4 w-4" aria-hidden="true" />
+                          <span>
+                            Download CSV
+                            {selectedResults.size > 0 && ` (${selectedResults.size})`}
+                          </span>
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {searchResults.length === 0 && selectedResults.size === 0 && (
+                      <TooltipContent>
+                        <p>No results to download. Run a search first.</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
 
                   <Button
                     onClick={clearFilters}
@@ -535,7 +549,7 @@ export default function Search() {
                       </Suspense>
 
                       {selectedResults.size > 0 && (
-                        <div className="rounded-xl border border-border bg-background/70 p-4 backdrop-blur">
+                        <div className="rounded-xl border border-border bg-background/70 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/70">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm text-muted-foreground">
                               {selectedResults.size} selected

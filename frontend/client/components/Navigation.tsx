@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
 import { AuthMenu } from "@/components/AuthMenu";
+import { BETA_SAMPLE_AGREEMENTS_COUNT } from "@/lib/constants";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +26,21 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Navigation() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
-  const betaDisclaimer =
-    "Pandects is in early development. Layout, API schema, and data organization may change. Currently, the public site includes 45 sample agreements as a proof of concept.";
+  const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change. Currently, the public site includes ${BETA_SAMPLE_AGREEMENTS_COUNT} sample agreements as a proof of concept.`;
 
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
@@ -108,14 +117,27 @@ export default function Navigation() {
               Pandects
             </span>
           </Link>
-          <button
-            type="button"
-            onClick={() => window.alert(betaDisclaimer)}
-            className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label="Read beta notice"
-          >
-            BETA
-          </button>
+          <AlertDialog open={isBetaDialogOpen} onOpenChange={setIsBetaDialogOpen}>
+            <button
+              type="button"
+              onClick={() => setIsBetaDialogOpen(true)}
+              className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              aria-label="Read beta notice"
+            >
+              BETA
+            </button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Beta Notice</AlertDialogTitle>
+                <AlertDialogDescription className="text-left">
+                  {betaDisclaimer}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogAction onClick={() => setIsBetaDialogOpen(false)}>
+                Got it
+              </AlertDialogAction>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Desktop navigation */}

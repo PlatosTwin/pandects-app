@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/format-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
@@ -30,7 +31,6 @@ export function SearchPagination({
   isLoading = false,
   isLimited = false,
 }: SearchPaginationProps) {
-  const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
   const pageSizeOptions = [10, 25, 50, 100];
   const navigationDisabled = isLoading || isLimited;
 
@@ -105,6 +105,32 @@ export function SearchPagination({
       <div className="text-sm text-muted-foreground" aria-live="polite">
         Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
         {formatNumber(totalCount)} results
+      </div>
+
+      {/* Jump to page input (desktop only) */}
+      <div className="hidden items-center gap-2 text-sm sm:flex">
+        <label htmlFor="jump-to-page" className="text-muted-foreground">
+          Go to:
+        </label>
+        <input
+          id="jump-to-page"
+          type="number"
+          min={1}
+          max={totalPages}
+          defaultValue={currentPage}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const page = parseInt((e.target as HTMLInputElement).value, 10);
+              if (page >= 1 && page <= totalPages && !navigationDisabled) {
+                onPageChange(page);
+                (e.target as HTMLInputElement).value = "";
+              }
+            }
+          }}
+          className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={navigationDisabled}
+          aria-label="Jump to page number"
+        />
       </div>
 
       {/* Pagination controls */}

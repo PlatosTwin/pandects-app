@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Agreement } from "@shared/agreement";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { logger } from "@/lib/logger";
 
 export function useAgreement() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
@@ -31,9 +32,7 @@ export function useAgreement() {
       const data: Agreement = await response.json();
       setAgreement(data);
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error("Failed to fetch agreement:", err);
-      }
+      logger.error("Failed to fetch agreement:", err);
       setError(err instanceof Error ? err.message : "Failed to load agreement");
     } finally {
       setIsLoading(false);

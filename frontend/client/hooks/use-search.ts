@@ -10,6 +10,7 @@ import {
   DEFAULT_PAGE,
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
+import { logger } from "@/lib/logger";
 
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
@@ -213,9 +214,7 @@ export function useSearch() {
           });
         }
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error("Search failed:", error);
-        }
+        logger.error("Search failed:", error);
         setSearchResults([]);
         setTotalCount(0);
         setTotalPages(0);
@@ -307,9 +306,7 @@ export function useSearch() {
           const searchResponse = (await res.json()) as SearchResponse;
           resultsToDownload = searchResponse.results;
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error("Failed to fetch all results for CSV:", error);
-          }
+          logger.error("Failed to fetch all results for CSV:", error);
           trackEvent("api_error", {
             endpoint: "api/search",
             kind:

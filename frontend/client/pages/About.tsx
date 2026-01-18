@@ -8,9 +8,9 @@ export default function About() {
 
   const navItems = useMemo(
     () => [
-      { id: "overview", label: "Overview" },
-      { id: "contributing", label: "Contributing" },
-      { id: "credits", label: "Credits" },
+      { id: "overview", label: "Overview", indent: false },
+      { id: "contributing", label: "Contributing", indent: false },
+      { id: "credits", label: "Credits", indent: false },
     ],
     [],
   );
