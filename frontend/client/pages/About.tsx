@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
@@ -10,7 +9,6 @@ export default function About() {
   const navItems = useMemo(
     () => [
       { id: "overview", label: "Overview" },
-      { id: "timeline", label: "Timeline", indent: true },
       { id: "contributing", label: "Contributing" },
       { id: "credits", label: "Credits" },
     ],
@@ -118,51 +116,10 @@ export default function About() {
               Pandects is an open-source M&A research platform built to make it
               easier to browse and analyze clauses across definitive agreements.
             </p>
-
-            <div id="timeline" className="scroll-mt-24 pt-2">
-              <h3 className="text-lg font-semibold text-foreground">
-                Timeline
-              </h3>
-              <dl className="mt-4 space-y-4 pl-6">
-                <div className="grid grid-cols-[160px_1fr] gap-x-6">
-                  <dt className="font-semibold text-foreground">
-                    May – Jul ’25
-                  </dt>
-                  <dd className="text-muted-foreground">
-                    Preliminary testing; proof of concept
-                  </dd>
-                </div>
-                <div className="grid grid-cols-[160px_1fr] gap-x-6">
-                  <dt className="font-semibold text-foreground">Jul ’25</dt>
-                  <dd className="text-muted-foreground">
-                    Basic UI development
-                  </dd>
-                </div>
-                <div className="grid grid-cols-[160px_1fr] gap-x-6">
-                  <dt className="font-semibold text-foreground">
-                    Aug – Nov ’25
-                  </dt>
-                  <dd className="text-muted-foreground prose max-w-none">
-                    <Link to="/feedback" className="underline underline-offset-2">
-                      End‑user surveys
-                    </Link>{" "}
-                    and pipeline development
-                  </dd>
-                </div>
-                <div className="grid grid-cols-[160px_1fr] gap-x-6">
-                  <dt className="font-semibold text-foreground">
-                    Nov ’25 – Jan ’26
-                  </dt>
-                  <dd className="text-muted-foreground">
-                    Pipeline refinement; testing
-                  </dd>
-                </div>
-                <div className="grid grid-cols-[160px_1fr] gap-x-6">
-                  <dt className="font-semibold text-foreground">Feb ’26</dt>
-                  <dd className="text-muted-foreground">Soft launch</dd>
-                </div>
-              </dl>
-            </div>
+            <p className="max-w-3xl text-muted-foreground">
+              We plan to soft-launch the site in mid to late February 2026. Check back then
+              for more complete data.
+            </p>
           </section>
 
           <section id="contributing" className="scroll-mt-24 space-y-4" aria-labelledby="contributing-heading">
@@ -198,7 +155,7 @@ export default function About() {
               Credits
             </h2>
             <div className="space-y-6 text-muted-foreground">
-              <p className="prose max-w-none">
+              <p className="prose max-w-none text-muted-foreground">
                 Professor Emiliano Catan at NYU Law has been an active advisor
                 to this project from the beginning. The{" "}
                 <a
@@ -237,7 +194,7 @@ export default function About() {
                 advice early on in this project. Josh Carty provided technical
                 assistance early on, and helped brainstorm.
               </p>
-              <p className="prose max-w-none">
+              <p className="prose max-w-none text-muted-foreground">
                 This project would not have gotten off the ground without the
                 prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
                 and Eric Talley, whose{" "}
