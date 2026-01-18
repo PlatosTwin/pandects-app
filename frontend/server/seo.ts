@@ -167,9 +167,15 @@ function buildSeoBlock(seo: SeoPage): string {
   <meta name="description" content="${description}" />
   <link rel="canonical" href="${canonical}" />
   <meta name="robots" content="${robots}" />
+  <meta name="googlebot" content="${robots}" />
+  <meta name="bingbot" content="${robots}" />
+  <meta name="language" content="English" />
+  <meta name="geo.region" content="US" />
+  <meta name="geo.placename" content="United States" />
 
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:site_name" content="Pandects" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
@@ -185,6 +191,8 @@ function buildSeoBlock(seo: SeoPage): string {
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${ogImage}" />
   <meta name="twitter:image:alt" content="${imageAlt}" />
+  <meta name="twitter:site" content="@pandects" />
+  <meta name="twitter:creator" content="@pandects" />
 
   <script type="application/ld+json">${jsonLd}</script>
   <!-- SEO:END -->`;

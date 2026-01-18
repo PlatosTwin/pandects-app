@@ -49,14 +49,22 @@ export function applySeo(seo: SeoPage): void {
 
   setMetaByName("description", seo.description);
   setMetaByName("robots", seo.robots);
+  setMetaByName("googlebot", seo.robots);
+  setMetaByName("bingbot", seo.robots);
+  setMetaByName("language", "English");
+  setMetaByName("geo.region", "US");
+  setMetaByName("geo.placename", "United States");
   setMetaByName("twitter:card", "summary_large_image");
   setMetaByName("twitter:title", seo.title);
   setMetaByName("twitter:description", seo.description);
   setMetaByName("twitter:image", seo.ogImage);
   setMetaByName("twitter:image:alt", "Pandects");
+  setMetaByName("twitter:site", "@pandects");
+  setMetaByName("twitter:creator", "@pandects");
 
   setMetaByProperty("og:type", "website");
   setMetaByProperty("og:locale", "en_US");
+  setMetaByProperty("og:locale:alternate", "en_US");
   setMetaByProperty("og:site_name", "Pandects");
   setMetaByProperty("og:title", seo.title);
   setMetaByProperty("og:description", seo.description);

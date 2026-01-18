@@ -24,7 +24,7 @@ const routeConfig = {
 const routes = Object.keys(routeConfig);
 
 const now = new Date();
-const lastmod = now.toISOString().slice(0, 10);
+const lastmod = now.toISOString();
 
 const urls = routes
   .map((route) => {
@@ -33,7 +33,7 @@ const urls = routes
     return [
       "  <url>",
       `    <loc>${escapeXml(loc)}</loc>`,
-      `    <lastmod>${lastmod}</lastmod>`,
+      `    <lastmod>${escapeXml(lastmod)}</lastmod>`,
       `    <changefreq>${config.changefreq}</changefreq>`,
       `    <priority>${config.priority}</priority>`,
       "  </url>",

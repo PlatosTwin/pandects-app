@@ -44,7 +44,7 @@ function getSeoConfigForPath(pathname, origin) {
           description:
             "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
           robots: "index,follow,max-image-preview:large",
-          pageType: "WebPage",
+          pageType: "TechArticle",
           pageName: "API Docs",
           pageDescription:
             "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
@@ -99,7 +99,7 @@ function getSeoConfigForPath(pathname, origin) {
           description:
             "Learn where Pandects data comes from and how it is processed into structured datasets.",
           robots: "index,follow,max-image-preview:large",
-          pageType: "WebPage",
+          pageType: "Article",
           pageName: "Sources & Methods",
           pageDescription:
             "Learn where Pandects data comes from and how it is processed into structured datasets.",
@@ -247,7 +247,13 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
     logo: {
       "@type": "ImageObject",
       url: `${origin}/og.jpg`,
+      width: 1536,
+      height: 806,
     },
+    sameAs: [
+      "https://github.com/PlatosTwin/pandects-app",
+    ],
+    description: "Open-source M&A agreement search and data platform",
   };
 
   const website = {
@@ -256,6 +262,14 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
     name: "Pandects",
     url: siteUrl,
     publisher: { "@id": organizationId },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl}search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 
   const page =
@@ -276,6 +290,9 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
           description: pageDescription,
           isPartOf: { "@id": websiteId },
           about: { "@id": organizationId },
+          datePublished: new Date().toISOString(),
+          dateModified: new Date().toISOString(),
+          inLanguage: "en-US",
         };
 
   const graph = [organization, website, page];
@@ -302,6 +319,16 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
       creator: { "@id": organizationId },
       publisher: { "@id": organizationId },
       isPartOf: { "@id": websiteId },
+      distribution: {
+        "@type": "DataDownload",
+        encodingFormat: "CSV",
+        contentUrl: canonical,
+      },
+      temporalCoverage: "2010/..",
+      spatialCoverage: {
+        "@type": "Country",
+        name: "United States",
+      },
     });
   }
 
@@ -324,6 +351,21 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
         },
       ],
     });
+  }
+
+  // Add Article schema for article-type pages
+  if (pageType === "Article" || pageType === "TechArticle") {
+    const articleIndex = graph.findIndex((item) => item["@id"] === `${canonical}#webpage`);
+    if (articleIndex !== -1) {
+      graph[articleIndex] = {
+        ...graph[articleIndex],
+        "@type": pageType,
+        headline: pageName,
+        author: { "@id": organizationId },
+        publisher: { "@id": organizationId },
+        mainEntityOfPage: { "@id": `${canonical}#webpage` },
+      };
+    }
   }
 
   return {

@@ -12,5 +12,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+Crawl-delay: 1
 
 Sitemap: https://pandects.org/sitemap.xml

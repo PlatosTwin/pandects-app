@@ -254,7 +254,7 @@ export default function Search() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <FileText className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-                <h1 className="text-lg font-semibold text-foreground sm:text-xl sm:font-normal">
+                <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
                   M&A Clause Search
                 </h1>
               </div>
