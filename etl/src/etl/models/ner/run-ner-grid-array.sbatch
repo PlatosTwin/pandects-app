@@ -9,7 +9,6 @@
 #SBATCH --time=20:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=nmb9729@nyu.edu
-#SBATCH --array=0-10
 
 export PYTHONUNBUFFERED=1
 

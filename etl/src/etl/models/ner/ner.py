@@ -1533,7 +1533,7 @@ def _build_cli() -> argparse.ArgumentParser:
     grid_parser = subparsers.add_parser("grid-row", help="Run a single grid row")
     _ = grid_parser.add_argument("--row-id", type=int, required=True)
     _ = grid_parser.add_argument(
-        "--split-version", type=str, default="v1_article_stratified"
+        "--split-version", type=str, default="default"
     )
     _ = grid_parser.add_argument("--seed", type=int, default=42)
     _ = grid_parser.add_argument("--git-commit", type=str, default=None)

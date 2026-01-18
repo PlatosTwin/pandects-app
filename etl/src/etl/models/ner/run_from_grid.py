@@ -29,7 +29,7 @@ _ner_mod = _load_module("ner", CODE_DIR / "ner.py")
 run_grid_row = cast(Callable[..., object], _ner_mod.run_grid_row)
 
 
-DEFAULT_SPLIT_VERSION = "v1_article_stratified"
+DEFAULT_SPLIT_VERSION = "default"
 DEFAULT_SEED = 42
 
 

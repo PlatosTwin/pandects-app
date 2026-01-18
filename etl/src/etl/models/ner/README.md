@@ -65,7 +65,7 @@ python run_from_grid.py
 
 To run in HPC:
 ```
-sbatch --array=0-13 run-ner-grid-array.sbatch
+sbatch --array=0-17 run-ner-grid-array.sbatch
 ```
 
 Outputs (per run):
