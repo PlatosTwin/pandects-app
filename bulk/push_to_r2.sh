@@ -51,7 +51,7 @@ mydumper \
   --port="${MARIADB_PORT:-3306}" \
   --user="${MARIADB_USER:-root}" \
   --password="${MARIADB_PASSWORD:-}" \
-  --database="${MARIADB_DATABASE:-mna}" \
+  --database="${MARIADB_DATABASE:-pdx}" \
   --outputdir="$LOGICAL_DIR" \
   --threads="${MYDUMPER_THREADS:-6}" \
   --rows="${MYDUMPER_ROWS:-500000}" \
@@ -93,7 +93,7 @@ mysqldump \
   --quick \
   --lock-tables=false \
   --routines \
-  --databases "${MARIADB_DATABASE:-mna}" \
+  --databases "${MARIADB_DATABASE:-pdx}" \
   | gzip > "$SQL_DUMP_FILE"
 
 echo "✅ SQL Dump Ready: $(du -h "$SQL_DUMP_FILE" | cut -f1)"

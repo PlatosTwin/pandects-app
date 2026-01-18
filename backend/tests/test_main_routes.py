@@ -12,7 +12,7 @@ def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
     os.environ.setdefault("MARIADB_USER", "root")
     os.environ.setdefault("MARIADB_PASSWORD", "password")
     os.environ.setdefault("MARIADB_HOST", "127.0.0.1")
-    os.environ.setdefault("MARIADB_DATABASE", "mna")
+    os.environ.setdefault("MARIADB_DATABASE", "pdx")
     os.environ.setdefault("AUTH_SECRET_KEY", "test-auth-secret")
     os.environ.setdefault("PUBLIC_API_BASE_URL", "http://localhost:5000")
     os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")

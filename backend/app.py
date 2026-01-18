@@ -386,7 +386,7 @@ _MAIN_SCHEMA_TOKEN = "__main_schema__"
 
 
 def _main_db_schema_from_env() -> str:
-    return os.environ.get("MAIN_DB_SCHEMA", "mna").strip()
+    return os.environ.get("MAIN_DB_SCHEMA", "pdx").strip()
 
 
 def _main_db_uri_from_env() -> str:
