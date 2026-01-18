@@ -80,9 +80,9 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/agreements-index?page=1&pageSize=2")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("totalCount"), 3)
-        self.assertEqual(body.get("totalPages"), 2)
-        self.assertEqual(len(body.get("results", [])), 2)
+        self.assertEqual(body.get("totalCount"), 1)
+        self.assertEqual(body.get("totalPages"), 1)
+        self.assertEqual(len(body.get("results", [])), 1)
 
     def test_search_basic(self):
         client = self.app.test_client()

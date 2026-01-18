@@ -2202,6 +2202,13 @@ def _agreement_year_expr():
     return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
 
 
+def _xml_agreements_subquery():
+    return (
+        db.session.query(XML.agreement_uuid.distinct().label("agreement_uuid"))
+        .subquery()
+    )
+
+
 def _parse_section_standard_ids(raw: object) -> list[str]:
     if raw is None:
         return []
@@ -2533,6 +2540,7 @@ class SectionResource(MethodView):
         section_standard_ids_expr = _coalesced_section_standard_ids().label(
             "section_standard_ids"
         )
+        xml_agreements = _xml_agreements_subquery()
         row = (
             db.session.query(
                 Sections.agreement_uuid,
@@ -2542,6 +2550,10 @@ class SectionResource(MethodView):
                 Sections.xml_content,
                 Sections.article_title,
                 Sections.section_title,
+            )
+            .join(
+                xml_agreements,
+                Sections.agreement_uuid == xml_agreements.c.agreement_uuid,
             )
             .filter(Sections.section_uuid == section_uuid)
             .first()
@@ -2599,14 +2611,28 @@ def get_agreements_index() -> dict[str, object]:
     sort_direction = sort_dir.lower()
     order_by = sort_column.desc() if sort_direction == "desc" else sort_column.asc()
 
-    q = db.session.query(
-        Agreements.agreement_uuid,
-        year_expr.label("year"),
-        Agreements.target,
-        Agreements.acquirer,
-        Agreements.verified,
+    xml_agreements = _xml_agreements_subquery()
+    q = (
+        db.session.query(
+            Agreements.agreement_uuid,
+            year_expr.label("year"),
+            Agreements.target,
+            Agreements.acquirer,
+            Agreements.verified,
+        )
+        .join(
+            xml_agreements,
+            Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
+        )
     )
-    count_q = db.session.query(func.count(Agreements.agreement_uuid))
+    count_q = (
+        db.session.query(func.count(xml_agreements.c.agreement_uuid))
+        .select_from(Agreements)
+        .join(
+            xml_agreements,
+            Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
+        )
+    )
 
     if query:
         if query.isdigit():
@@ -2864,18 +2890,26 @@ class SearchResource(MethodView):
         year_expr = _agreement_year_expr()
 
         # build the base ORM query
-        q = db.session.query(
-            Sections.section_uuid,
-            Sections.agreement_uuid,
-            section_standard_ids_expr.label("section_standard_ids"),
-            Sections.xml_content,
-            Sections.article_title,
-            Sections.section_title,
-            Agreements.acquirer,
-            Agreements.target,
-            year_expr.label("year"),
-            Agreements.verified,
-        ).join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
+        xml_agreements = _xml_agreements_subquery()
+        q = (
+            db.session.query(
+                Sections.section_uuid,
+                Sections.agreement_uuid,
+                section_standard_ids_expr.label("section_standard_ids"),
+                Sections.xml_content,
+                Sections.article_title,
+                Sections.section_title,
+                Agreements.acquirer,
+                Agreements.target,
+                year_expr.label("year"),
+                Agreements.verified,
+            )
+            .join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
+            .join(
+                xml_agreements,
+                Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
+            )
+        )
 
         # apply filters only when provided - now handling multiple values
         if years:
