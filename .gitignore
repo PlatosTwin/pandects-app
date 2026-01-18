@@ -39,6 +39,7 @@ backend/build/
 *.sqlite
 *.sql
 *.csv
+!etl/src/etl/models/ner/configs/grid.csv
 *.parquet
 
 **/data/*
