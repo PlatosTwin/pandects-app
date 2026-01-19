@@ -52,7 +52,7 @@ export default function About() {
   }, []);
 
   const ComingSoon = ({ title }: { title: string }) => (
-    <Card className="border-border/70 bg-card/70 p-5">
+    <Card className="border-border/60 bg-card/70 p-6">
       <div className="text-sm font-medium text-foreground">{title}</div>
       <p className="mt-1 text-sm text-muted-foreground prose max-w-none">
         This section is being written. If you’d like to help,{" "}
@@ -77,7 +77,7 @@ export default function About() {
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <Card className="border-border/70 bg-background/70 p-3 backdrop-blur">
+            <Card className="border-border/60 bg-background/70 p-3 backdrop-blur">
               <div className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 On this page
               </div>
@@ -94,7 +94,7 @@ export default function About() {
                           "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                           activeSection === id
                             ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                         )}
                       >
                         {label}
@@ -108,7 +108,7 @@ export default function About() {
         </aside>
 
         <article className="space-y-12">
-          <section id="overview" className="scroll-mt-24 space-y-4" aria-labelledby="overview-heading">
+          <section id="overview" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="overview-heading">
             <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Overview
             </h2>
@@ -122,7 +122,7 @@ export default function About() {
             </p>
           </section>
 
-          <section id="contributing" className="scroll-mt-24 space-y-4" aria-labelledby="contributing-heading">
+          <section id="contributing" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="contributing-heading">
             <h2 id="contributing-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Contributing
             </h2>
@@ -150,7 +150,7 @@ export default function About() {
             </ul>
           </section>
 
-          <section id="credits" className="scroll-mt-24 space-y-4" aria-labelledby="credits-heading">
+          <section id="credits" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="credits-heading">
             <h2 id="credits-heading" className="text-2xl font-semibold tracking-tight text-foreground">
               Credits
             </h2>

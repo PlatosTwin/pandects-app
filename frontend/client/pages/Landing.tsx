@@ -22,7 +22,7 @@ export default function Landing() {
 
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="flex w-full max-w-[860px] flex-col items-center">
-          <Card className="w-full animate-fade-in-up border-border/70 bg-background/75 px-6 py-12 text-center backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
+          <Card className="w-full animate-fade-in-up border-border/60 bg-background/75 px-6 py-12 text-center backdrop-blur shadow-lg supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
             <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
               Sourced from EDGAR • Updated{"\u00A0"}weekly
             </div>
@@ -49,7 +49,7 @@ export default function Landing() {
                       sizes="(min-width: 640px) 128px, 96px"
                       fetchPriority="high"
                       decoding="async"
-                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/70 sm:h-32 sm:w-32"
+                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/60 sm:h-32 sm:w-32"
                     />
                   </picture>
                 </button>

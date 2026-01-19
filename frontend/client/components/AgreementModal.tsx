@@ -565,7 +565,7 @@ export function AgreementModal({
                   </section>
                 ))}
               </div>
-              <div className="mt-3 rounded-md border border-dashed border-border/70 bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
+              <div className="mt-3 rounded-md border border-dashed border-border/60 bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
                 To see deal metadata, view on desktop.
               </div>
             </details>

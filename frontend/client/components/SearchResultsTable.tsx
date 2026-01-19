@@ -4,6 +4,7 @@ import { BREAKPOINT_SM, DEFAULT_TRUNCATION_LENGTH, LONG_TRUNCATION_LENGTH } from
 import { truncateText } from "@/lib/text-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -222,7 +223,7 @@ export function SearchResultsTable({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleSortDirection}
-                className="h-10 w-10 p-1 sm:h-8 sm:w-8"
+                className="h-10 w-10 p-1 hover:bg-muted/40 sm:h-8 sm:w-8"
                 title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
                 aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
               >
@@ -280,10 +281,10 @@ export function SearchResultsTable({
                 role="listitem"
                 key={result.id}
                 className={cn(
-                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-colors",
+                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-200 hover:shadow-md",
                   isSelected
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border hover:bg-muted/10",
+                    ? "border-primary/40 bg-primary/5 shadow-md"
+                    : "border-border/60 hover:bg-muted/10",
                 )}
               >
                 {/* Header with metadata and checkbox */}
@@ -293,7 +294,7 @@ export function SearchResultsTable({
                     density === "compact" ? "sm:px-3 sm:py-2" : "sm:px-4 sm:py-3",
                     isSelected
                       ? "bg-primary/10 border-primary/20"
-                      : "bg-muted/40 border-border",
+                      : "bg-muted/30 border-border/60",
                   )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -311,9 +312,9 @@ export function SearchResultsTable({
                           <span className="text-xs font-semibold text-muted-foreground">
                             #{resultNumber}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
+                          <Badge variant="outline" className="px-2 py-0.5">
                             {result.year}
-                          </span>
+                          </Badge>
                           {result.verified ? (
                             <AdaptiveTooltip
                               trigger={
@@ -458,8 +459,9 @@ export function SearchResultsTable({
                               </span>
                             )}
                           </div>
-                          <span
-                            className="inline-flex w-full min-w-0 max-w-full items-center rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border sm:w-auto"
+                          <Badge
+                            variant="outline"
+                            className="w-full min-w-0 max-w-full sm:w-auto"
                             title={`${result.articleTitle} >> ${result.sectionTitle}`}
                           >
                             <span
@@ -468,7 +470,7 @@ export function SearchResultsTable({
                             >
                               {sectionSummaryText.truncated}
                             </span>
-                          </span>
+                          </Badge>
                         </div>
                       </div>
                     </div>
@@ -495,7 +497,7 @@ export function SearchResultsTable({
                     <>
                       <div
                         className={cn(
-                          "rounded-md border border-border bg-muted/20 p-3",
+                          "rounded-md border border-border/60 bg-muted/20 p-3",
                           density === "compact"
                             ? "sm:h-28 sm:p-2"
                             : "sm:h-36 sm:p-3",

@@ -59,6 +59,12 @@ export default {
         },
         cream: "hsl(var(--cream))",
       },
+      spacing: {
+        // Design tokens for consistent spacing
+        "section": "1.5rem", // 24px - gap-6
+        "card": "1rem", // 16px - gap-4
+        "tight": "0.5rem", // 8px - gap-2
+      },
       typography: {
         DEFAULT: {
           css: {

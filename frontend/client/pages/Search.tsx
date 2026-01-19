@@ -255,7 +255,7 @@ export default function Search() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <FileText className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-                <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+                <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
                   M&A Clause Search
                 </h1>
               </div>
@@ -328,13 +328,14 @@ export default function Search() {
             </div>
           )}
 
-          <div className="border-b border-border bg-background/60 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-8">
+          <div className="border-b border-border bg-muted/20 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
                   onClick={() => performSearch(true, clauseTypesNested)}
                   disabled={isSearching}
                   className="w-full gap-2 sm:w-auto"
+                  variant="default"
                 >
                   <SearchIcon
                     className={cn(
@@ -381,7 +382,7 @@ export default function Search() {
 
                   <Button
                     onClick={clearFilters}
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     className="px-0 text-muted-foreground hover:text-foreground sm:px-3"
                   >
@@ -435,7 +436,7 @@ export default function Search() {
                         <button
                           type="button"
                           onClick={() => toggleFilterValue(field, value)}
-                          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           aria-label={`Remove ${label} filter: ${displayValue}`}
                         >
                           <X className="h-3 w-3" aria-hidden="true" />
@@ -463,7 +464,7 @@ export default function Search() {
             <div className="px-4 py-6 sm:px-8 sm:py-8">
               {!hasSearched && (
                 <div className="mx-auto max-w-3xl">
-                  <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
                         <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -522,7 +523,7 @@ export default function Search() {
                       <Suspense
                         fallback={
                           <div
-                            className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground"
+                            className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground"
                             role="status"
                             aria-live="polite"
                           >
@@ -549,7 +550,7 @@ export default function Search() {
                       </Suspense>
 
                       {selectedResults.size > 0 && (
-                        <div className="rounded-xl border border-border bg-background/70 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                        <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm text-muted-foreground">
                               {selectedResults.size} selected

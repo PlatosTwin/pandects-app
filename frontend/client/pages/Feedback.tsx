@@ -68,7 +68,7 @@ export default function Feedback() {
     () => ({
       "general-feedback": (
         <div
-          className="h-[895px] rounded-lg border border-border bg-muted/30 p-6"
+          className="h-[895px] rounded-lg border border-border/60 bg-muted/30 p-6"
           role="status"
           aria-live="polite"
         >
@@ -127,11 +127,11 @@ export default function Feedback() {
       >
         <AccordionItem
           value="general-feedback"
-          className="bg-card rounded-lg shadow-sm border border-border"
+          className="bg-card rounded-lg shadow-sm border border-border/60"
         >
           <AccordionTrigger
             headingLevel="h2"
-            className="px-6 py-4 text-lg font-semibold text-foreground"
+            className="px-6 py-4 text-xl font-semibold text-foreground"
             onClick={() =>
               trackEvent("feedback_section_click", {
                 section: "general_feedback",
@@ -175,7 +175,7 @@ export default function Feedback() {
                   />
                   {loadTimeouts["general-feedback"] &&
                     !loadedSections["general-feedback"] && (
-                      <div className="mt-4 rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                      <div className="mt-4 rounded-lg border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
                         The form is taking longer than expected to load.{" "}
                         <a
                           href={generalFeedbackUrl}

@@ -475,7 +475,7 @@ export default function Account() {
             </div>
             {googleNeedsLegal ? (
               <div className="grid gap-3">
-                <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
+                <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
                   <Checkbox
                     id="legal-google"
                     checked={legalAccepted}
@@ -662,9 +662,9 @@ export default function Account() {
                 </FormField>
                 <Button
                   type="submit"
-                  variant="ghost"
+                  variant="default"
                   disabled={busy || authBackendStatus !== "ready"}
-                  className="w-64 justify-self-center border border-input bg-transparent hover:bg-accent/60"
+                  className="w-64 justify-self-center"
                 >
                   Sign in
                 </Button>
@@ -762,7 +762,7 @@ export default function Account() {
                     </div>
                   )
                 ) : null}
-                <div className="mt-2 flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
+                <div className="mt-2 flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
                   <Checkbox
                     id="legal-register"
                     checked={legalAccepted}
@@ -844,7 +844,7 @@ export default function Account() {
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold">API keys</h2>
+                <h2 className="text-xl font-semibold">API keys</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Use `X-API-Key` for API access. Keep keys secret — you can view
                   a newly created key only once.
@@ -912,7 +912,7 @@ export default function Account() {
                   apiKeys.map((k) => (
                     <div
                       key={k.id}
-                      className="rounded-md border border-border p-3"
+                      className="rounded-md border border-border/60 p-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -1025,8 +1025,8 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold">Usage (last 30 days)</h2>
+          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+            <h2 className="text-xl font-semibold">Usage (last 30 days)</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Total: {usageTotal.toLocaleString()} API requests.
             </p>
@@ -1039,7 +1039,7 @@ export default function Account() {
                   <div
                     key={row.day}
                     role="listitem"
-                    className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-1 rounded-md border border-border/60 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                   >
                     <span className="font-mono text-xs text-muted-foreground">
                       {row.day}
@@ -1053,8 +1053,8 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold text-destructive">
+          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+            <h2 className="text-xl font-semibold text-destructive">
               Delete account
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -1100,7 +1100,7 @@ export default function Account() {
                 setCopiedNewKey(true);
                 toast({ title: "Copied to clipboard" });
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border/60 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy API key"
             >

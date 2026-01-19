@@ -221,14 +221,14 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
           <AccordionItem
             key={model.id}
             value={model.id}
-            className="rounded-2xl border border-border/70 bg-card/60"
+            className="rounded-2xl border border-border/60 bg-card/60"
           >
             <AccordionTrigger className="px-5 py-4 text-left">
               <div className="flex w-full flex-wrap items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-foreground">
                   {model.title}
                 </div>
-                <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                   {model.badge}
                 </span>
               </div>
@@ -242,13 +242,13 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
       {cardModels.map((model) => (
         <Card
           key={model.id}
-          className="rounded-2xl border border-border/70 bg-card/60 p-5"
+          className="rounded-2xl border border-border/60 bg-card/60 p-6"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-foreground">
               {model.title}
             </div>
-            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
               {model.badge}
             </span>
           </div>

@@ -59,7 +59,7 @@ export function LegalMarkdownPage({ title, markdownPath, relatedLinks }: LegalMa
 
   return (
     <PageShell size="md" title={title} subtitle={prepared?.subtitle}>
-      <Card className="border-border/70 bg-background/70 p-8 backdrop-blur sm:p-10">
+      <Card className="border-border/60 bg-background/70 p-8 backdrop-blur sm:p-10">
         <div className="mx-auto max-w-3xl">
           {isLoading && (
             <div className="text-sm text-muted-foreground" role="status" aria-live="polite">

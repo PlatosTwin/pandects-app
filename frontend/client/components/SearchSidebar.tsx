@@ -146,7 +146,7 @@ export function SearchSidebar({
               trigger={
                 <button
                   type="button"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/60 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   aria-label="Learn more about the taxonomy"
                 >
                   ?
@@ -245,7 +245,7 @@ export function SearchSidebar({
   if (variant === "sheet") {
     return (
       <div className={cn("flex h-full flex-col", className)}>
-        <div className="border-b border-border p-4">
+        <div className="border-b border-border bg-muted/20 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Filters</h2>
           </div>
@@ -294,7 +294,7 @@ export function SearchSidebar({
         {showContent && (
           <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="border-b border-border p-4">
+            <div className="border-b border-border bg-muted/20 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-medium text-foreground">
                   Search Filters

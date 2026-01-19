@@ -204,12 +204,12 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
   );
 
   return (
-    <Card className="rounded-2xl border border-border/70 bg-card/60 p-5">
+    <Card className="rounded-2xl border border-border/60 bg-card/60 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold text-foreground">
           Model Metrics
         </div>
-        <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
           Binary Classifier
         </span>
       </div>

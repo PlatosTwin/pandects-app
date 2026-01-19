@@ -280,7 +280,7 @@ export function NestedCheckboxFilter({
           <label
             key={key}
             className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-within:bg-accent",
+              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/60 focus-within:bg-accent/60",
               indentClass,
             )}
           >
@@ -348,7 +348,7 @@ export function NestedCheckboxFilter({
   };
 
   const searchResultsList = searchTerm.trim() ? (
-    <div className="rounded-md border border-border bg-popover">
+    <div className="rounded-md border border-border/60 bg-popover">
       <Command shouldFilter={false}>
         <CommandList id={listId}>
           {searchResults.length === 0 ? (
@@ -409,7 +409,7 @@ export function NestedCheckboxFilter({
 
       {searchResultsList}
 
-      <div className="rounded-lg border border-border bg-background p-3">
+      <div className="rounded-lg border border-border/60 bg-background p-3">
         <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
           Browse categories
         </div>
@@ -419,7 +419,7 @@ export function NestedCheckboxFilter({
       </div>
 
       {selectedValues.length > 0 && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Selected ({selectedValues.length})
           </div>

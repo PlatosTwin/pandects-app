@@ -74,7 +74,7 @@ export default function Navigation() {
   const isDataActive = dataLinks.some((link) => isActive(link.to));
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <nav
         ref={navRef}
         aria-label="Primary"
@@ -159,8 +159,8 @@ export default function Navigation() {
                 className={cn(
                   navLinkBase,
                   isActive(link.to)
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
                 {link.label}
@@ -175,8 +175,8 @@ export default function Navigation() {
                     navLinkBase,
                     "inline-flex items-center gap-1",
                     isDataActive
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                   )}
                 >
                   Data
@@ -220,8 +220,8 @@ export default function Navigation() {
                 className={cn(
                   navLinkBase,
                   isActive(link.to)
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
                 {link.label}
@@ -300,8 +300,8 @@ export default function Navigation() {
                           className={cn(
                             navLinkBase,
                             isActive(link.to)
-                              ? "bg-accent text-foreground"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                              ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                           )}
                         >
                           {link.label}
@@ -331,8 +331,8 @@ export default function Navigation() {
                               navLinkBase,
                               "pl-4",
                               isActive(link.to)
-                                ? "bg-accent text-foreground"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                                ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                             )}
                           >
                             {link.label}
@@ -358,8 +358,8 @@ export default function Navigation() {
                           className={cn(
                             navLinkBase,
                             isActive(link.to)
-                              ? "bg-accent text-foreground"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                              ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                           )}
                         >
                           {link.label}

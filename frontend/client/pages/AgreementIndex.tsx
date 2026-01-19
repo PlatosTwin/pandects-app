@@ -273,7 +273,7 @@ export default function AgreementIndex() {
           return (
             <Card
               key={card.key}
-              className="relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background to-muted/40"
+              className="relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
               <CardContent className="relative flex items-center gap-4 p-6">
@@ -306,11 +306,11 @@ export default function AgreementIndex() {
         })}
       </div>
 
-      <Card className="border-border/60 shadow-sm">
+      <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow duration-200">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-xl font-semibold text-foreground">
                 Agreements
               </h2>
               <p className="text-sm text-muted-foreground" aria-live="polite">
@@ -342,9 +342,9 @@ export default function AgreementIndex() {
             </div>
           </div>
 
-          <div className="mt-6 hidden lg:block rounded-lg border border-border/60 bg-background/60">
+          <div className="mt-6 hidden lg:block rounded-lg border border-border/60 bg-muted/20">
             <Table className="min-w-[900px]">
-              <TableHeader className="sticky top-0 bg-background/95 backdrop-blur">
+              <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur">
                 <TableRow>
                   <TableHead
                     scope="col"
@@ -360,7 +360,7 @@ export default function AgreementIndex() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleSort("year")}
-                      className="h-8 px-2"
+                      className="h-8 px-2 hover:bg-muted/40"
                     >
                       Year
                       {sortBy === "year" ? (
@@ -391,7 +391,7 @@ export default function AgreementIndex() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleSort("target")}
-                      className="h-8 px-2"
+                      className="h-8 px-2 hover:bg-muted/40"
                     >
                       Target
                       {sortBy === "target" ? (
@@ -422,7 +422,7 @@ export default function AgreementIndex() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleSort("acquirer")}
-                      className="h-8 px-2"
+                      className="h-8 px-2 hover:bg-muted/40"
                     >
                       Acquirer
                       {sortBy === "acquirer" ? (
@@ -572,7 +572,7 @@ export default function AgreementIndex() {
               agreements.map((agreement) => (
                 <Card
                   key={`mobile-${agreement.agreementUuid}`}
-                  className="border-border/60"
+                  className="border-border/60 hover:shadow-md transition-shadow duration-200"
                 >
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-center justify-between">

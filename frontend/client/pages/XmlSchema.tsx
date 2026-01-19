@@ -82,7 +82,7 @@ export default function XmlSchema() {
                 role="region"
                 aria-label="XML element tree"
                 tabIndex={0}
-                className="rounded-lg border border-border/70 bg-muted/40 p-4 overflow-x-auto"
+                className="rounded-lg border border-border/60 bg-muted/40 p-4 overflow-x-auto"
               >
                 <pre className="whitespace-pre-wrap text-sm font-mono text-muted-foreground">
                   &lt;document uuid="agreement-uuid"&gt;

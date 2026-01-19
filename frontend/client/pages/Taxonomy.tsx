@@ -579,11 +579,11 @@ export default function Taxonomy() {
                   >
                     <AccordionTrigger
                       headingLevel="h2"
-                      className="px-6 py-4 text-left text-lg font-semibold hover:no-underline"
+                      className="px-6 py-4 text-left text-xl font-semibold hover:no-underline"
                     >
                       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <div className="text-lg font-semibold text-foreground">
+                          <div className="text-xl font-semibold text-foreground">
                             {entry.label}
                           </div>
                           <div className="group mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

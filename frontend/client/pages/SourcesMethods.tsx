@@ -319,7 +319,7 @@ export default function SourcesMethods() {
   }, []);
 
   const ComingSoon = ({ title }: { title: string }) => (
-    <Card className="border-border/70 bg-card/70 p-5">
+    <Card className="border-border/60 bg-card/70 p-6">
       <div className="text-sm font-medium text-foreground">{title}</div>
       <p className="mt-1 text-sm text-muted-foreground">
         This section is being written. If you would like to help, open an issue
@@ -340,7 +340,7 @@ export default function SourcesMethods() {
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <Card className="border-border/70 bg-background/70 p-3 backdrop-blur">
+            <Card className="border-border/60 bg-background/70 p-3 backdrop-blur">
               <div className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 On this page
               </div>
@@ -359,7 +359,7 @@ export default function SourcesMethods() {
                           "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                           activeSection === id
                             ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                         )}
                       >
                         {label}
@@ -383,7 +383,7 @@ export default function SourcesMethods() {
               text and messy HTML into clean, taxonomized XML. Conceptually, our
               pipeline solves five distinct problems.
             </p>
-            <div className="max-w-4xl rounded-2xl border border-border/70 bg-card/50 p-5 shadow-sm">
+            <div className="max-w-4xl rounded-2xl border border-border/60 bg-card/50 p-6 shadow-sm">
               <div className="grid gap-1 border-b border-border/60 px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
                 <div aria-hidden="true" />
                 <div className="px-1 text-left">The Status Quo</div>
@@ -613,7 +613,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#exhibit-model"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Exhibit Model
                       </a>
@@ -638,7 +638,7 @@ export default function SourcesMethods() {
                           <button
                             type="button"
                             aria-label="Why we split and classify pages"
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/60 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
                           >
                             ?
                           </button>
@@ -658,17 +658,17 @@ export default function SourcesMethods() {
                         }
                         tooltipProps={{
                           side: "top",
-                          className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                          className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
-                          className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                          className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                       />
                       <a
                         href="#page-classifier-model"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Page Classifier Model
                       </a>
@@ -702,7 +702,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               HTML
                             </span>
                           </div>
@@ -737,7 +737,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               Plain Text
                             </span>
                           </div>
@@ -769,7 +769,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#tagging-model"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Tagging Model
                       </a>
@@ -786,7 +786,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               Plain Text
                             </span>
                           </div>
@@ -806,7 +806,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               XML
                             </span>
                           </div>
@@ -891,7 +891,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#taxonomy-model"
-                        className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Taxonomy Model
                       </a>
@@ -954,12 +954,12 @@ export default function SourcesMethods() {
                 }
                 tooltipProps={{
                   side: "top",
-                  className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                  className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
-                  className: "max-w-xs border-border/70 bg-background/95 text-xs text-foreground shadow-lg",
+                  className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -986,7 +986,7 @@ export default function SourcesMethods() {
               id="exhibit-model"
               className="scroll-mt-32 pt-2 space-y-4"
             >
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-xl font-semibold text-foreground">
                 Exhibit Model
               </h3>
               <div className="text-muted-foreground">
@@ -1037,7 +1037,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                       Loading model metrics...
                     </Card>
                   }
@@ -1045,7 +1045,7 @@ export default function SourcesMethods() {
                   <LazyExhibitEvalMetrics data={metricsData.exhibit} />
                 </Suspense>
               ) : (
-                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                   Loading model metrics...
                 </Card>
               )}
@@ -1054,7 +1054,7 @@ export default function SourcesMethods() {
               id="page-classifier-model"
               className="scroll-mt-32 pt-2 space-y-4"
             >
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-xl font-semibold text-foreground">
                 Page Classifier Model
               </h3>
               <div className="text-muted-foreground">
@@ -1137,7 +1137,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                       Loading model metrics...
                     </Card>
                   }
@@ -1145,13 +1145,13 @@ export default function SourcesMethods() {
                   <LazyClassifierEvalMetrics data={metricsData.classifier} />
                 </Suspense>
               ) : (
-                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                   Loading model metrics...
                 </Card>
               )}
             </div>
             <div id="tagging-model" className="scroll-mt-32 pt-2 space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-xl font-semibold text-foreground">
                 Tagging Model
               </h3>
               <div className="text-muted-foreground">
@@ -1234,7 +1234,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                       Loading model metrics...
                     </Card>
                   }
@@ -1244,7 +1244,7 @@ export default function SourcesMethods() {
                   />
                 </Suspense>
               ) : (
-                <Card className="border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
+                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
                   Loading model metrics...
                 </Card>
               )}
@@ -1253,7 +1253,7 @@ export default function SourcesMethods() {
               id="taxonomy-model"
               className="scroll-mt-32 pt-2 space-y-4"
             >
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-xl font-semibold text-foreground">
                 Taxonomy Model
               </h3>
               <ComingSoon title="Mapping to the Pandects taxonomy" />

@@ -1,29 +1,47 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
-      className,
-    )}
-    {...props}
-  />
-));
+const cardVariants = cva(
+  "rounded-lg border bg-card text-card-foreground transition-shadow duration-200",
+  {
+    variants: {
+      variant: {
+        default: "border-border/60 shadow-sm",
+        compact: "border-border/60 shadow-sm p-4",
+        elevated: "border-border shadow-md",
+        subtle: "border-border/40 bg-muted/20 shadow-sm",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+export interface CardProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof cardVariants> {}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(cardVariants({ variant }), className)}
+      {...props}
+    />
+  ),
+);
 Card.displayName = "Card";
 
 const CardHeader = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { compact?: boolean }
+>(({ className, compact, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={cn("flex flex-col space-y-1.5", compact ? "p-4" : "p-6", className)}
     {...props}
   />
 ));
@@ -58,19 +76,19 @@ CardDescription.displayName = "CardDescription";
 
 const CardContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  React.HTMLAttributes<HTMLDivElement> & { compact?: boolean }
+>(({ className, compact, ...props }, ref) => (
+  <div ref={ref} className={cn(compact ? "p-4 pt-0" : "p-6 pt-0", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
 const CardFooter = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { compact?: boolean }
+>(({ className, compact, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={cn("flex items-center", compact ? "p-4 pt-0" : "p-6 pt-0", className)}
     {...props}
   />
 ));
@@ -83,4 +101,5 @@ export {
   CardTitle,
   CardDescription,
   CardContent,
+  cardVariants,
 };
