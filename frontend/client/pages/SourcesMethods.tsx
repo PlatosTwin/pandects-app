@@ -1116,6 +1116,15 @@ export default function SourcesMethods() {
                           hours.
                         </>
                       }
+                      tooltipProps={{
+                        side: "top",
+                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                      }}
+                      delayDuration={300}
+                      popoverProps={{
+                        side: "top",
+                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                      }}
                     />{" "}
                     manually labeled pages, stratified (with distributional
                     matching) by length of backmatter section (bucketed into 4
@@ -1188,14 +1197,12 @@ export default function SourcesMethods() {
                     <span className="font-mono text-sm text-foreground">
                       gpt-5.1
                     </span>{" "}
-                    to create a dataset of <strong>7,500</strong> labeled pages:{" "}
-                    <strong>6,306</strong> come from a random set of{" "}
-                    <strong>91</strong> complete agreements (
+                    to create a dataset of <strong>7,805</strong> labeled pages from complete agreements (
                     <span className="font-mono text-sm text-foreground">
                       body
                     </span>{" "}
-                    pages only) and we selected an additional{" "}
-                    <strong>1,194</strong> to{" "}
+                    pages only). We selected an additional{" "}
+                    <strong>2,695</strong> pages to{" "}
                     <AdaptiveTooltip
                       trigger={
                         <button
@@ -1211,19 +1218,29 @@ export default function SourcesMethods() {
                           creating training data by ingesting complete
                           agreements—rather than sampling for specific kinds of
                           entities—produces a training corpus with fewer
-                          examples of Article entities. So, after ingesting 91
-                          complete agreements, we selected an additional 1,194
+                          examples of Article entities. So, after ingesting
+                          complete agreements, we selected an additional 2,695
                           pages, filtering to those that mentioned either
                           "Article" or "ARTICLE".
                         </>
                       }
+                      tooltipProps={{
+                        side: "top",
+                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                      }}
+                      delayDuration={300}
+                      popoverProps={{
+                        side: "top",
+                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                      }}
                     />
-                    . We split this corpus into fixed sets for training (80%),
-                    validation (10%), and testing (10%), reserving the test set
+                    . We split this corpus into fixed sets for training (
+                    <strong>8,939</strong> pages), validation (<strong>780</strong> pages),
+                    and testing (<strong>781</strong> pages), reserving the test set
                     for the final evaluation only. To improve the model's
                     ability to identify Article entities—and also to ensure that
                     the distribution of entities in our validation and test sets
-                    is representative of agreements—we send all 1,194 upsampled
+                    is representative of agreements—we send all 2,695 upsampled
                     pages to the training set. We then stratify the remaining
                     pages based on 5-year window, the presence of Article
                     entities, and the presence of Section entities.
