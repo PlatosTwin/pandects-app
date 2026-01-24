@@ -20,6 +20,7 @@ interface CheckboxFilterProps {
   className?: string;
   hideSearch?: boolean;
   disabled?: boolean;
+  formatValues?: boolean; // Whether to format option values (for hardcoded enums)
 }
 
 export function CheckboxFilter({
@@ -30,6 +31,7 @@ export function CheckboxFilter({
   className,
   hideSearch = false,
   disabled = false,
+  formatValues = false,
 }: CheckboxFilterProps) {
   const labelId = useId();
   const listId = useId();
@@ -48,11 +50,13 @@ export function CheckboxFilter({
   const selectedLabel = useMemo(() => {
     if (selectedValues.length === 0) return `All ${pluralizeLabel(label)}`;
     if (selectedValues.length === 1) {
-      const { truncated } = truncateText(formatFilterOption(selectedValues[0]));
+      const value = selectedValues[0];
+      const displayValue = formatValues ? formatFilterOption(value) : value;
+      const { truncated } = truncateText(displayValue);
       return truncated;
     }
     return `${selectedValues.length} selected`;
-  }, [label, selectedValues]);
+  }, [label, selectedValues, formatValues]);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
@@ -114,7 +118,7 @@ export function CheckboxFilter({
                       onSelect={() => onToggle(option)}
                     >
                       <Check className="mr-2 h-4 w-4 text-primary" aria-hidden="true" />
-                      <span className="flex-1">{formatFilterOption(option)}</span>
+                      <span className="flex-1">{option}</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -127,7 +131,7 @@ export function CheckboxFilter({
                     onSelect={() => onToggle(option)}
                   >
                     <span className="mr-2 h-4 w-4" aria-hidden="true" />
-                    <span className="flex-1">{formatFilterOption(option)}</span>
+                    <span className="flex-1">{option}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

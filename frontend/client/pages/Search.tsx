@@ -478,10 +478,29 @@ export default function Search() {
                   ] as const
                 ).flatMap(([field, label, values]) =>
                   values.map((value) => {
+                    // Only format hardcoded enum values, not database values
+                    const isHardcodedEnum = [
+                      "transactionPriceTotal",
+                      "transactionPriceStock",
+                      "transactionPriceCash",
+                      "transactionPriceAssets",
+                      "transactionConsideration",
+                      "targetType",
+                      "acquirerType",
+                      "dealStatus",
+                      "attitude",
+                      "dealType",
+                      "purpose",
+                      "targetPe",
+                      "acquirerPe",
+                    ].includes(field);
+                    
                     const displayValue =
                       field === "clauseType"
                         ? clauseTypeLabelById[value] ?? value
-                        : formatFilterOption(value);
+                        : isHardcodedEnum
+                          ? formatFilterOption(value)
+                          : value;
                     return (
                       <Badge
                         key={`${field}:${value}`}

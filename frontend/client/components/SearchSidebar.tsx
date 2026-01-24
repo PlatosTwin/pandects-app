@@ -262,6 +262,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("transactionConsideration", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -274,6 +275,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("targetType", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -286,6 +288,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("acquirerType", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -322,6 +325,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("dealStatus", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -334,6 +338,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("attitude", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -346,6 +351,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("dealType", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -358,6 +364,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("purpose", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -370,6 +377,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("targetPe", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
 
@@ -382,6 +390,7 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("acquirerPe", value)}
           hideSearch={true}
           disabled={true}
+          formatValues={true}
         />
       </div>
     </div>
