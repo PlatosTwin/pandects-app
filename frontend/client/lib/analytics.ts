@@ -139,3 +139,25 @@ export function installGlobalErrorTracking() {
     window.removeEventListener("unhandledrejection", onUnhandledRejection);
   };
 }
+
+// Track time spent on page and send as beacon on page unload
+export function trackTimeOnPageOnUnload(pagePath: string) {
+  if (typeof window === "undefined") return () => undefined;
+
+  let timeOnPage = 0;
+  const startTime = Date.now();
+
+  const onBeforeUnload = () => {
+    timeOnPage = Date.now() - startTime;
+    // Only track if user spent > 1 second on page
+    if (timeOnPage > 1000) {
+      trackTimeOnPage(pagePath, timeOnPage);
+    }
+  };
+
+  window.addEventListener("beforeunload", onBeforeUnload);
+
+  return () => {
+    window.removeEventListener("beforeunload", onBeforeUnload);
+  };
+}

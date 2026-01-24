@@ -84,6 +84,71 @@ export default function Search() {
     clearSelection,
   } = actions;
 
+  // Wrap actions with tracking
+  const trackingActions = {
+    toggleFilterValue: (field: string, value: string) => {
+      trackEvent("search_filter_change", {
+        filter_field: field,
+        filter_value: value.substring(0, 50), // truncate long values
+        current_filters: Object.keys(filters).length,
+      });
+      toggleFilterValue(field, value);
+    },
+    performSearch: (force?: boolean) => {
+      if (force || !hasSearched) {
+        trackEvent("search_performed", {
+          filter_count: Object.values(filters).flat().length,
+          has_results: searchResults.length > 0,
+          result_count: totalCount,
+        });
+      }
+      performSearch(force, clauseTypesNested);
+    },
+    downloadCSV: () => {
+      trackEvent("search_export_click", {
+        export_format: "csv",
+        result_count: selectedResults.size > 0 ? selectedResults.size : totalCount,
+        is_filtered: Object.values(filters).flat().length > 0,
+      });
+      downloadCSV();
+    },
+    clearFilters: () => {
+      trackEvent("search_filters_cleared", {
+        filter_count: Object.values(filters).flat().length,
+      });
+      clearFilters();
+    },
+    goToPage: (page: number) => {
+      trackEvent("search_pagination", {
+        page_number: page,
+        total_pages: totalPages,
+        direction: page > currentPage ? "next" : "previous",
+      });
+      goToPage(page, clauseTypesNested);
+    },
+    changePageSize: (size: number) => {
+      trackEvent("search_page_size_change", {
+        old_page_size: pageSize,
+        new_page_size: size,
+      });
+      changePageSize(size, clauseTypesNested);
+    },
+    sortResults: (field: string) => {
+      trackEvent("search_sort_change", {
+        sort_field: field,
+        sort_direction: currentSort === field ? "reversed" : "initial",
+      });
+      sortResults(field);
+    },
+    toggleSortDirection: () => {
+      trackEvent("search_sort_direction_toggle", {
+        sort_field: currentSort,
+        new_direction: sortDirection === "asc" ? "desc" : "asc",
+      });
+      toggleSortDirection();
+    },
+  };
+
   // Get dynamic filter options
   const {
     targets,
@@ -195,7 +260,7 @@ export default function Search() {
         activeElement?.closest('[role="dialog"]');
 
       if (!isEditable && !isInsideDropdown && !hasOpenDropdown) {
-        performSearch(true, clauseTypesNested);
+        trackingActions.performSearch(true);
       }
     };
 
@@ -368,7 +433,7 @@ export default function Search() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
-                  onClick={() => performSearch(true, clauseTypesNested)}
+                  onClick={() => trackingActions.performSearch(true)}
                   disabled={isSearching}
                   className="w-full gap-2 sm:w-auto"
                   variant="default"
@@ -388,7 +453,7 @@ export default function Search() {
                     <TooltipTrigger asChild>
                       <span className="inline-block">
                         <Button
-                          onClick={() => downloadCSV(clauseTypesNested)}
+                          onClick={() => trackingActions.downloadCSV()}
                           disabled={
                             searchResults.length === 0 && selectedResults.size === 0
                           }
@@ -511,7 +576,7 @@ export default function Search() {
                         <span className="truncate">{displayValue}</span>
                         <button
                           type="button"
-                          onClick={() => toggleFilterValue(field, value)}
+                          onClick={() => trackingActions.toggleFilterValue(field, value)}
                           className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           aria-label={`Remove ${label} filter: ${displayValue}`}
                         >
@@ -587,10 +652,10 @@ export default function Search() {
                         pageSize={pageSize}
                         totalCount={totalCount}
                         onPageChange={(page) =>
-                          goToPage(page, clauseTypesNested)
+                          trackingActions.goToPage(page)
                         }
                         onPageSizeChange={(nextPageSize) =>
-                          changePageSize(nextPageSize, clauseTypesNested)
+                          trackingActions.changePageSize(nextPageSize)
                         }
                         isLoading={isSearching}
                         isLimited={(access?.tier ?? "anonymous") === "anonymous"}
@@ -635,7 +700,7 @@ export default function Search() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => downloadCSV(clauseTypesNested)}
+                                onClick={() => trackingActions.downloadCSV()}
                               >
                                 Download selected
                               </Button>
@@ -657,10 +722,10 @@ export default function Search() {
                         pageSize={pageSize}
                         totalCount={totalCount}
                         onPageChange={(page) =>
-                          goToPage(page, clauseTypesNested)
+                          trackingActions.goToPage(page)
                         }
                         onPageSizeChange={(nextPageSize) =>
-                          changePageSize(nextPageSize, clauseTypesNested)
+                          trackingActions.changePageSize(nextPageSize)
                         }
                         isLoading={isSearching}
                         isLimited={(access?.tier ?? "anonymous") === "anonymous"}

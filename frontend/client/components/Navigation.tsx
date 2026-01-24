@@ -149,7 +149,7 @@ function NavigationComponent() {
                 to={link.to}
                 data-panda-target={link.pandaTarget}
                 onClick={() =>
-                  trackEvent("nav_click", {
+                  trackEvent("nav_primary_click", {
                     nav_item: link.label,
                     from_path: location.pathname,
                     to_path: link.to,
@@ -189,7 +189,7 @@ function NavigationComponent() {
                     <Link
                       to={link.to}
                       onClick={() =>
-                        trackEvent("nav_click", {
+                        trackEvent("nav_data_click", {
                           nav_item: link.label,
                           from_path: location.pathname,
                           to_path: link.to,
@@ -210,7 +210,7 @@ function NavigationComponent() {
                 to={link.to}
                 data-panda-target={link.pandaTarget}
                 onClick={() =>
-                  trackEvent("nav_click", {
+                  trackEvent("nav_secondary_click", {
                     nav_item: link.label,
                     from_path: location.pathname,
                     to_path: link.to,
@@ -290,7 +290,7 @@ function NavigationComponent() {
                         <Link
                           to={link.to}
                           onClick={() =>
-                            trackEvent("nav_click", {
+                            trackEvent("nav_primary_click", {
                               nav_item: link.label,
                               from_path: location.pathname,
                               to_path: link.to,
@@ -320,7 +320,7 @@ function NavigationComponent() {
                           <Link
                             to={link.to}
                             onClick={() =>
-                              trackEvent("nav_click", {
+                              trackEvent("nav_data_click", {
                                 nav_item: link.label,
                                 from_path: location.pathname,
                                 to_path: link.to,
@@ -348,7 +348,7 @@ function NavigationComponent() {
                         <Link
                           to={link.to}
                           onClick={() =>
-                            trackEvent("nav_click", {
+                            trackEvent("nav_secondary_click", {
                               nav_item: link.label,
                               from_path: location.pathname,
                               to_path: link.to,
