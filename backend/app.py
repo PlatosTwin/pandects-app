@@ -41,6 +41,8 @@ from sqlalchemy import (
     or_,
     func,
     cast as sql_cast,
+    desc,
+    asc,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
@@ -2324,10 +2326,30 @@ class SearchArgsSchema(Schema):
     target = fields.List(fields.Str(), load_default=[])
     acquirer = fields.List(fields.Str(), load_default=[])
     standardId = fields.List(fields.Str(), load_default=[])
+    # Transaction price filters
+    transactionPriceTotal = fields.List(fields.Str(), load_default=[])
+    transactionPriceStock = fields.List(fields.Str(), load_default=[])
+    transactionPriceCash = fields.List(fields.Str(), load_default=[])
+    transactionPriceAssets = fields.List(fields.Str(), load_default=[])
+    # New filters from DB definition
+    transactionConsideration = fields.List(fields.Str(), load_default=[])
+    targetType = fields.List(fields.Str(), load_default=[])
+    acquirerType = fields.List(fields.Str(), load_default=[])
+    targetIndustry = fields.List(fields.Str(), load_default=[])
+    acquirerIndustry = fields.List(fields.Str(), load_default=[])
+    dealStatus = fields.List(fields.Str(), load_default=[])
+    attitude = fields.List(fields.Str(), load_default=[])
+    dealType = fields.List(fields.Str(), load_default=[])
+    purpose = fields.List(fields.Str(), load_default=[])
+    targetPe = fields.List(fields.Str(), load_default=[])
+    acquirerPe = fields.List(fields.Str(), load_default=[])
+    # Legacy filters (kept for backward compatibility, but deprecated)
     transactionSize = fields.List(fields.Str(), load_default=[])
     transactionType = fields.List(fields.Str(), load_default=[])
     considerationType = fields.List(fields.Str(), load_default=[])
-    targetType = fields.List(fields.Str(), load_default=[])
+    # Sort parameters
+    sortBy = fields.Str(load_default="year", validate=lambda x: x in ["year", "target", "acquirer"])
+    sortDirection = fields.Str(load_default="desc", validate=lambda x: x in ["asc", "desc"])
     page = fields.Int(load_default=1)
     pageSize = fields.Int(load_default=25)
 
@@ -2710,7 +2732,7 @@ def get_agreements_summary() -> dict[str, int]:
 
 
 def get_filter_options() -> tuple[Response, int] | Response:
-    """Fetch distinct targets and acquirers from the database"""
+    """Fetch distinct targets, acquirers, and industries from the database"""
     now = time.time()
     with _filter_options_lock:
         cached_payload = _filter_options_cache["payload"]
@@ -2763,8 +2785,53 @@ def get_filter_options() -> tuple[Response, int] | Response:
             )
         ).fetchall()
     ]
+    
+    target_industries = [
+        row[0]
+        for row in db.session.execute(
+            text(
+                f"""
+                SELECT DISTINCT a.target_industry
+                FROM {_schema_prefix()}agreements a
+                WHERE a.target_industry IS NOT NULL
+                  AND a.target_industry <> ''
+                  AND EXISTS (
+                    SELECT 1
+                    FROM {_schema_prefix()}sections s
+                    WHERE s.agreement_uuid = a.agreement_uuid
+                  )
+                ORDER BY a.target_industry
+                """
+            )
+        ).fetchall()
+    ]
+    
+    acquirer_industries = [
+        row[0]
+        for row in db.session.execute(
+            text(
+                f"""
+                SELECT DISTINCT a.acquirer_industry
+                FROM {_schema_prefix()}agreements a
+                WHERE a.acquirer_industry IS NOT NULL
+                  AND a.acquirer_industry <> ''
+                  AND EXISTS (
+                    SELECT 1
+                    FROM {_schema_prefix()}sections s
+                    WHERE s.agreement_uuid = a.agreement_uuid
+                  )
+                ORDER BY a.acquirer_industry
+                """
+            )
+        ).fetchall()
+    ]
 
-    payload = {"targets": targets, "acquirers": acquirers}
+    payload = {
+        "targets": targets,
+        "acquirers": acquirers,
+        "targetIndustries": target_industries,
+        "acquirerIndustries": acquirer_industries,
+    }
     with _filter_options_lock:
         _filter_options_cache["payload"] = payload
         _filter_options_cache["ts"] = now
@@ -2869,10 +2936,29 @@ class SearchResource(MethodView):
         targets = args["target"]
         acquirers = args["acquirer"]
         standard_ids = args["standardId"]
+        # New filters from DB definition
+        transaction_price_totals = args["transactionPriceTotal"]
+        transaction_price_stocks = args["transactionPriceStock"]
+        transaction_price_cashes = args["transactionPriceCash"]
+        transaction_price_assets = args["transactionPriceAssets"]
+        transaction_considerations = args["transactionConsideration"]
+        target_types = args["targetType"]
+        acquirer_types = args["acquirerType"]
+        target_industries = args["targetIndustry"]
+        acquirer_industries = args["acquirerIndustry"]
+        deal_statuses = args["dealStatus"]
+        attitudes = args["attitude"]
+        deal_types = args["dealType"]
+        purposes = args["purpose"]
+        target_pes = args["targetPe"]
+        acquirer_pes = args["acquirerPe"]
+        # Legacy filters (kept for backward compatibility)
         transaction_sizes = args["transactionSize"]
         transaction_types = args["transactionType"]
         consideration_types = args["considerationType"]
-        target_types = args["targetType"]
+        # Sort parameters
+        sort_by = args["sortBy"]
+        sort_direction = args["sortDirection"]
 
         # pagination parameters
         page = args["page"]
@@ -3018,15 +3104,99 @@ class SearchResource(MethodView):
 
         # Target Type filter
         if target_types:
-            # Convert frontend values to DB enum values
-            db_target_types = []
-            for t_type in target_types:
-                if t_type == "Public":
-                    db_target_types.append("public")
-                elif t_type == "Private":
-                    db_target_types.append("private")
-            if db_target_types:
-                q = q.filter(Agreements.target_type.in_(db_target_types))
+            # Frontend sends lowercase values, use them directly
+            q = q.filter(Agreements.target_type.in_(target_types))
+
+        # New filters from DB definition (disabled for now, ready to enable)
+        # Transaction Price filters - will be enabled when frontend is ready
+        # if transaction_price_totals:
+        #     q = q.filter(Agreements.transaction_price_total.in_(transaction_price_totals))
+        # if transaction_price_stocks:
+        #     q = q.filter(Agreements.transaction_price_stock.in_(transaction_price_stocks))
+        # if transaction_price_cashes:
+        #     q = q.filter(Agreements.transaction_price_cash.in_(transaction_price_cashes))
+        # if transaction_price_assets:
+        #     q = q.filter(Agreements.transaction_price_assets.in_(transaction_price_assets))
+
+        # Transaction Consideration filter
+        if transaction_considerations:
+            q = q.filter(Agreements.transaction_consideration.in_(transaction_considerations))
+
+        # Acquirer Type filter
+        if acquirer_types:
+            # Convert frontend values to DB enum values (same as target_type)
+            db_acquirer_types = []
+            for a_type in acquirer_types:
+                if a_type == "public":
+                    db_acquirer_types.append("public")
+                elif a_type == "private":
+                    db_acquirer_types.append("private")
+            if db_acquirer_types:
+                q = q.filter(Agreements.acquirer_type.in_(db_acquirer_types))
+
+        # Target Industry filter
+        if target_industries:
+            q = q.filter(Agreements.target_industry.in_(target_industries))
+
+        # Acquirer Industry filter
+        if acquirer_industries:
+            q = q.filter(Agreements.acquirer_industry.in_(acquirer_industries))
+
+        # Deal Status filter
+        if deal_statuses:
+            q = q.filter(Agreements.deal_status.in_(deal_statuses))
+
+        # Attitude filter
+        if attitudes:
+            q = q.filter(Agreements.attitude.in_(attitudes))
+
+        # Deal Type filter
+        if deal_types:
+            q = q.filter(Agreements.deal_type.in_(deal_types))
+
+        # Purpose filter
+        if purposes:
+            q = q.filter(Agreements.purpose.in_(purposes))
+
+        # Target PE filter
+        if target_pes:
+            db_target_pes = []
+            for pe in target_pes:
+                if pe == "true":
+                    db_target_pes.append(1)
+                elif pe == "false":
+                    db_target_pes.append(0)
+            if db_target_pes:
+                q = q.filter(Agreements.target_pe.in_(db_target_pes))
+
+        # Acquirer PE filter
+        if acquirer_pes:
+            db_acquirer_pes = []
+            for pe in acquirer_pes:
+                if pe == "true":
+                    db_acquirer_pes.append(1)
+                elif pe == "false":
+                    db_acquirer_pes.append(0)
+            if db_acquirer_pes:
+                q = q.filter(Agreements.acquirer_pe.in_(db_acquirer_pes))
+
+        # Apply sorting based on sort_by and sort_direction
+        if sort_by == "year":
+            year_expr = _agreement_year_expr()
+            if sort_direction == "desc":
+                q = q.order_by(desc(year_expr))
+            else:
+                q = q.order_by(asc(year_expr))
+        elif sort_by == "target":
+            if sort_direction == "desc":
+                q = q.order_by(desc(Agreements.target))
+            else:
+                q = q.order_by(asc(Agreements.target))
+        elif sort_by == "acquirer":
+            if sort_direction == "desc":
+                q = q.order_by(desc(Agreements.acquirer))
+            else:
+                q = q.order_by(asc(Agreements.acquirer))
 
         count_subquery = (
             q.order_by(None)

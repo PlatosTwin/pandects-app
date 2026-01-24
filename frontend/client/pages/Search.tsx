@@ -1,5 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
+import { formatFilterOption } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
 import {
   Search as SearchIcon,
@@ -86,9 +88,13 @@ export default function Search() {
   const {
     targets,
     acquirers,
+    targetIndustries,
+    acquirerIndustries,
     isLoading: isLoadingFilterOptions,
     error: filterOptionsError,
   } = useFilterOptions({ deferMs: 1200 });
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Agreement modal state
   const [selectedAgreement, setSelectedAgreement] = useState<{
@@ -120,7 +126,33 @@ export default function Search() {
 
   const closeAgreement = () => {
     setSelectedAgreement(null);
+    if (
+      searchParams.has("agreementUuid") ||
+      searchParams.has("sectionUuid")
+    ) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("agreementUuid");
+      next.delete("sectionUuid");
+      setSearchParams(next, { replace: true });
+    }
   };
+
+  const agreementUuidFromUrl = searchParams.get("agreementUuid");
+  const sectionUuidFromUrl = searchParams.get("sectionUuid");
+
+  useEffect(() => {
+    if (
+      !agreementUuidFromUrl ||
+      !sectionUuidFromUrl ||
+      selectedAgreement != null
+    )
+      return;
+    setSelectedAgreement({
+      agreementUuid: agreementUuidFromUrl,
+      sectionUuid: sectionUuidFromUrl,
+      metadata: { year: "", target: "", acquirer: "" },
+    });
+  }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
 
   // Static years data (not dynamic for now)
   const years = AVAILABLE_YEARS;
@@ -238,6 +270,8 @@ export default function Search() {
               years={years}
               targets={targets}
               acquirers={acquirers}
+              targetIndustries={targetIndustries}
+              acquirerIndustries={acquirerIndustries}
               clauseTypesNested={clauseTypesNested}
               clauseTypeLabelById={clauseTypeLabelById}
               isLoadingFilterOptions={isLoadingFilterOptions}
@@ -292,6 +326,8 @@ export default function Search() {
                         years={years}
                         targets={targets}
                         acquirers={acquirers}
+                        targetIndustries={targetIndustries}
+                        acquirerIndustries={acquirerIndustries}
                         clauseTypesNested={clauseTypesNested}
                         clauseTypeLabelById={clauseTypeLabelById}
                         isLoadingFilterOptions={isLoadingFilterOptions}
@@ -384,28 +420,34 @@ export default function Search() {
                     onClick={clearFilters}
                     variant="outline"
                     size="sm"
-                    className="px-0 text-muted-foreground hover:text-foreground sm:px-3"
+                    className="px-3 text-muted-foreground hover:text-foreground"
                   >
                     Reset filters
                   </Button>
                 </div>
               </div>
-
-              <Button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                variant="outline"
-                size="sm"
-                className="hidden lg:inline-flex"
-              >
-                {sidebarCollapsed ? "Show filters" : "Hide filters"}
-              </Button>
             </div>
           </div>
 
           {(filters.year.length > 0 ||
             filters.target.length > 0 ||
             filters.acquirer.length > 0 ||
-            filters.clauseType.length > 0) && (
+            filters.clauseType.length > 0 ||
+            filters.transactionPriceTotal.length > 0 ||
+            filters.transactionPriceStock.length > 0 ||
+            filters.transactionPriceCash.length > 0 ||
+            filters.transactionPriceAssets.length > 0 ||
+            filters.transactionConsideration.length > 0 ||
+            filters.targetType.length > 0 ||
+            filters.acquirerType.length > 0 ||
+            filters.targetIndustry.length > 0 ||
+            filters.acquirerIndustry.length > 0 ||
+            filters.dealStatus.length > 0 ||
+            filters.attitude.length > 0 ||
+            filters.dealType.length > 0 ||
+            filters.purpose.length > 0 ||
+            filters.targetPe.length > 0 ||
+            filters.acquirerPe.length > 0) && (
             <div className="border-b border-border px-4 py-3 sm:px-8">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
@@ -418,13 +460,28 @@ export default function Search() {
                     ["target", "Target", filters.target],
                     ["acquirer", "Acquirer", filters.acquirer],
                     ["clauseType", "Clause type", filters.clauseType],
+                    ["transactionPriceTotal", "Transaction price (total)", filters.transactionPriceTotal],
+                    ["transactionPriceStock", "Transaction price (stock)", filters.transactionPriceStock],
+                    ["transactionPriceCash", "Transaction price (cash)", filters.transactionPriceCash],
+                    ["transactionPriceAssets", "Transaction price (assets)", filters.transactionPriceAssets],
+                    ["transactionConsideration", "Transaction consideration", filters.transactionConsideration],
+                    ["targetType", "Target type", filters.targetType],
+                    ["acquirerType", "Acquirer type", filters.acquirerType],
+                    ["targetIndustry", "Target industry", filters.targetIndustry],
+                    ["acquirerIndustry", "Acquirer industry", filters.acquirerIndustry],
+                    ["dealStatus", "Deal status", filters.dealStatus],
+                    ["attitude", "Attitude", filters.attitude],
+                    ["dealType", "Deal type", filters.dealType],
+                    ["purpose", "Purpose", filters.purpose],
+                    ["targetPe", "Target PE", filters.targetPe],
+                    ["acquirerPe", "Acquirer PE", filters.acquirerPe],
                   ] as const
                 ).flatMap(([field, label, values]) =>
                   values.map((value) => {
                     const displayValue =
                       field === "clauseType"
                         ? clauseTypeLabelById[value] ?? value
-                        : value;
+                        : formatFilterOption(value);
                     return (
                       <Badge
                         key={`${field}:${value}`}

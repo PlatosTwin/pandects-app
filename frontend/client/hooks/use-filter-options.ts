@@ -8,6 +8,8 @@ import { authFetch } from "@/lib/auth-fetch";
 interface UseFilterOptionsReturn {
   targets: string[];
   acquirers: string[];
+  targetIndustries: string[];
+  acquirerIndustries: string[];
   isLoading: boolean;
   error: string | null;
 }
@@ -23,6 +25,8 @@ export function useFilterOptions(
   const { enabled = true, deferMs = 0 } = options;
   const [targets, setTargets] = useState<string[]>([]);
   const [acquirers, setAcquirers] = useState<string[]>([]);
+  const [targetIndustries, setTargetIndustries] = useState<string[]>([]);
+  const [acquirerIndustries, setAcquirerIndustries] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +43,8 @@ export function useFilterOptions(
         const parsed: FilterOptionsResponse = JSON.parse(cachedData);
         setTargets(parsed.targets || []);
         setAcquirers(parsed.acquirers || []);
+        setTargetIndustries(parsed.targetIndustries || []);
+        setAcquirerIndustries(parsed.acquirerIndustries || []);
         setIsLoading(false);
         return;
       } catch (e) {
@@ -66,6 +72,8 @@ export function useFilterOptions(
         // Update state
         setTargets(data.targets || []);
         setAcquirers(data.acquirers || []);
+        setTargetIndustries(data.targetIndustries || []);
+        setAcquirerIndustries(data.acquirerIndustries || []);
 
         // Cache in sessionStorage for future use
         sessionStorage.setItem("filterOptions", JSON.stringify(data));
@@ -87,6 +95,8 @@ export function useFilterOptions(
         // Fallback to empty arrays
         setTargets([]);
         setAcquirers([]);
+        setTargetIndustries([]);
+        setAcquirerIndustries([]);
       } finally {
         setIsLoading(false);
       }
@@ -103,6 +113,8 @@ export function useFilterOptions(
   return {
     targets,
     acquirers,
+    targetIndustries,
+    acquirerIndustries,
     isLoading,
     error,
   };

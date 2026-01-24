@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
-import { truncateText } from "@/lib/text-utils";
+import { truncateText, pluralizeLabel, formatFilterOption, pluralize } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -46,9 +46,9 @@ export function CheckboxFilter({
   );
 
   const selectedLabel = useMemo(() => {
-    if (selectedValues.length === 0) return `All ${label}s`;
+    if (selectedValues.length === 0) return `All ${pluralizeLabel(label)}`;
     if (selectedValues.length === 1) {
-      const { truncated } = truncateText(selectedValues[0]);
+      const { truncated } = truncateText(formatFilterOption(selectedValues[0]));
       return truncated;
     }
     return `${selectedValues.length} selected`;
@@ -63,7 +63,7 @@ export function CheckboxFilter({
         {label}
       </label>
 
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={disabled ? false : open} onOpenChange={(newOpen) => !disabled && setOpen(newOpen)}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -72,6 +72,7 @@ export function CheckboxFilter({
             aria-controls={listId}
             aria-labelledby={labelId}
             aria-haspopup="listbox"
+            aria-disabled={disabled}
             disabled={disabled}
             className={cn(
               "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
@@ -93,7 +94,7 @@ export function CheckboxFilter({
           <Command shouldFilter={!hideSearch}>
             {!hideSearch && (
               <CommandInput
-                placeholder={`Search ${label.toLowerCase()}s...`}
+                placeholder={`Search ${pluralize(formatFilterOption(label.toLowerCase()))}...`}
                 value={searchTerm}
                 onValueChange={setSearchTerm}
               />
@@ -101,7 +102,7 @@ export function CheckboxFilter({
             <CommandList id={listId}>
               <CommandEmpty>
                 {searchTerm.trim()
-                  ? `No ${label.toLowerCase()}s found matching "${searchTerm}"`
+                  ? `No ${pluralize(formatFilterOption(label.toLowerCase()))} found matching "${searchTerm}"`
                   : "No options available"}
               </CommandEmpty>
               {selectedOptions.length > 0 && (
@@ -113,7 +114,7 @@ export function CheckboxFilter({
                       onSelect={() => onToggle(option)}
                     >
                       <Check className="mr-2 h-4 w-4 text-primary" aria-hidden="true" />
-                      <span className="flex-1">{option}</span>
+                      <span className="flex-1">{formatFilterOption(option)}</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -126,7 +127,7 @@ export function CheckboxFilter({
                     onSelect={() => onToggle(option)}
                   >
                     <span className="mr-2 h-4 w-4" aria-hidden="true" />
-                    <span className="flex-1">{option}</span>
+                    <span className="flex-1">{formatFilterOption(option)}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

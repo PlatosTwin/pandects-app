@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
@@ -19,16 +19,27 @@ export function useSearch() {
     acquirer: [],
     clauseType: [],
     standardId: [],
-    transactionSize: [],
-    transactionType: [],
-    considerationType: [],
+    transactionPriceTotal: [],
+    transactionPriceStock: [],
+    transactionPriceCash: [],
+    transactionPriceAssets: [],
+    transactionConsideration: [],
     targetType: [],
+    acquirerType: [],
+    targetIndustry: [],
+    acquirerIndustry: [],
+    dealStatus: [],
+    attitude: [],
+    dealType: [],
+    purpose: [],
+    targetPe: [],
+    acquirerPe: [],
     page: DEFAULT_PAGE,
     pageSize: DEFAULT_PAGE_SIZE,
   });
 
   // Helper function to sort results
-  const sortResultsArray = (
+  const sortResultsArray = useCallback((
     results: SearchResult[],
     sortBy: "year" | "target" | "acquirer" | null,
     direction: "asc" | "desc",
@@ -52,7 +63,7 @@ export function useSearch() {
       }
       return direction === "desc" ? -comparison : comparison;
     });
-  };
+  }, []);
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -68,6 +79,11 @@ export function useSearch() {
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
   >("year");
+  const searchResultsRef = useRef<SearchResult[]>([]);
+  const lastSortRef = useRef<{ sortBy: typeof currentSort; direction: "asc" | "desc" }>({
+    sortBy: "year",
+    direction: "desc",
+  });
   // Pagination metadata from API
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
@@ -122,6 +138,8 @@ export function useSearch() {
       clauseTypesNested?: ClauseTypeTree,
       markAsSearched: boolean = resetPage,
       filtersOverride?: SearchFilters,
+      overrideSortBy?: typeof currentSort,
+      overrideSortDirection?: typeof sortDirection,
     ) => {
       setIsSearching(true);
       setShowErrorModal(false);
@@ -143,15 +161,11 @@ export function useSearch() {
 
         if (markAsSearched) {
           trackEvent("search_performed", {
-            years_count: searchFilters.year.length,
-            targets_count: searchFilters.target.length,
-            acquirers_count: searchFilters.acquirer.length,
-            clause_types_count: searchFilters.clauseType.length,
-            standard_ids_count: searchFilters.standardId.length,
-            transaction_size_count: searchFilters.transactionSize.length,
-            transaction_type_count: searchFilters.transactionType.length,
-            consideration_type_count: searchFilters.considerationType.length,
-            target_type_count: searchFilters.targetType.length,
+            years_count: searchFilters.year?.length ?? 0,
+            targets_count: searchFilters.target?.length ?? 0,
+            acquirers_count: searchFilters.acquirer?.length ?? 0,
+            clause_types_count: searchFilters.clauseType?.length ?? 0,
+            standard_ids_count: searchFilters.standardId?.length ?? 0,
             page: searchFilters.page,
             page_size: searchFilters.pageSize,
             sort_by: currentSort ?? "none",
@@ -160,6 +174,13 @@ export function useSearch() {
         }
 
         const params = buildSearchParams(searchFilters, clauseTypesNested);
+        // Add sort parameters to the API request
+        const effectiveSortBy = overrideSortBy ?? currentSort;
+        const effectiveSortDirection = overrideSortDirection ?? sortDirection;
+        if (effectiveSortBy) {
+          params.append("sortBy", effectiveSortBy);
+          params.append("sortDirection", effectiveSortDirection);
+        }
 
         const queryString = params.toString();
         const res = await authFetch(apiUrl(`v1/search?${queryString}`));
@@ -192,11 +213,13 @@ export function useSearch() {
         // Apply client-side sorting to the current page results
         const sortedResults = sortResultsArray(
           searchResponse.results,
-          currentSort,
+          currentSort ?? "year",
           sortDirection,
         );
 
         setSearchResults(sortedResults);
+        // Update the ref to track current results
+        searchResultsRef.current = sortedResults;
         setAccess(searchResponse.access);
         setTotalCount(searchResponse.totalCount);
         setTotalPages(searchResponse.totalPages);
@@ -216,6 +239,7 @@ export function useSearch() {
       } catch (error) {
         logger.error("Search failed:", error);
         setSearchResults([]);
+        searchResultsRef.current = [];
         setTotalCount(0);
         setTotalPages(0);
 
@@ -243,7 +267,7 @@ export function useSearch() {
         setIsSearching(false);
       }
     },
-    [filters, currentSort, sortDirection],
+    [filters, currentSort, sortDirection, sortResultsArray],
   );
 
   // Helper function to check if any filters are applied
@@ -253,13 +277,27 @@ export function useSearch() {
       (searchFilters.target && searchFilters.target.length > 0) ||
       (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
       (searchFilters.clauseType && searchFilters.clauseType.length > 0) ||
-      (searchFilters.transactionSize &&
-        searchFilters.transactionSize.length > 0) ||
-      (searchFilters.transactionType &&
-        searchFilters.transactionType.length > 0) ||
-      (searchFilters.considerationType &&
-        searchFilters.considerationType.length > 0) ||
-      (searchFilters.targetType && searchFilters.targetType.length > 0)
+      (searchFilters.transactionPriceTotal &&
+        searchFilters.transactionPriceTotal.length > 0) ||
+      (searchFilters.transactionPriceStock &&
+        searchFilters.transactionPriceStock.length > 0) ||
+      (searchFilters.transactionPriceCash &&
+        searchFilters.transactionPriceCash.length > 0) ||
+      (searchFilters.transactionPriceAssets &&
+        searchFilters.transactionPriceAssets.length > 0) ||
+      (searchFilters.transactionConsideration &&
+        searchFilters.transactionConsideration.length > 0) ||
+      (searchFilters.targetType && searchFilters.targetType.length > 0) ||
+      (searchFilters.acquirerType && searchFilters.acquirerType.length > 0) ||
+      (searchFilters.targetIndustry && searchFilters.targetIndustry.length > 0) ||
+      (searchFilters.acquirerIndustry &&
+        searchFilters.acquirerIndustry.length > 0) ||
+      (searchFilters.dealStatus && searchFilters.dealStatus.length > 0) ||
+      (searchFilters.attitude && searchFilters.attitude.length > 0) ||
+      (searchFilters.dealType && searchFilters.dealType.length > 0) ||
+      (searchFilters.purpose && searchFilters.purpose.length > 0) ||
+      (searchFilters.targetPe && searchFilters.targetPe.length > 0) ||
+      (searchFilters.acquirerPe && searchFilters.acquirerPe.length > 0)
     );
   };
 
@@ -325,11 +363,11 @@ export function useSearch() {
         mode: selectedResults.size > 0 ? "selected" : "all",
         selected_count: selectedResults.size,
         downloaded_count: resultsToDownload.length,
-        years_count: filters.year.length,
-        targets_count: filters.target.length,
-        acquirers_count: filters.acquirer.length,
-        clause_types_count: filters.clauseType.length,
-        standard_ids_count: filters.standardId.length,
+        years_count: filters.year?.length ?? 0,
+        targets_count: filters.target?.length ?? 0,
+        acquirers_count: filters.acquirer?.length ?? 0,
+        clause_types_count: filters.clauseType?.length ?? 0,
+        standard_ids_count: filters.standardId?.length ?? 0,
       });
 
       // Create CSV content
@@ -353,7 +391,7 @@ export function useSearch() {
             `"${result.acquirer}"`,
             `"${result.articleTitle}"`,
             `"${result.sectionTitle}"`,
-            `"${result.xml.replace(/"/g, '""')}"`,
+            `"${(result.xml ?? "").replace(/"/g, '""')}"`,
             result.sectionUuid,
             result.agreementUuid,
           ].join(","),
@@ -382,14 +420,26 @@ export function useSearch() {
       acquirer: [],
       clauseType: [],
       standardId: [],
-      transactionSize: [],
-      transactionType: [],
-      considerationType: [],
+      transactionPriceTotal: [],
+      transactionPriceStock: [],
+      transactionPriceCash: [],
+      transactionPriceAssets: [],
+      transactionConsideration: [],
       targetType: [],
+      acquirerType: [],
+      targetIndustry: [],
+      acquirerIndustry: [],
+      dealStatus: [],
+      attitude: [],
+      dealType: [],
+      purpose: [],
+      targetPe: [],
+      acquirerPe: [],
       page: DEFAULT_PAGE,
       pageSize: DEFAULT_PAGE_SIZE,
     });
     setSearchResults([]);
+    searchResultsRef.current = [];
     setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
@@ -426,14 +476,21 @@ export function useSearch() {
   const sortResults = useCallback(
     (sortBy: "year" | "target" | "acquirer") => {
       setCurrentSort(sortBy);
-      setSearchResults((prev) => sortResultsArray(prev, sortBy, sortDirection));
+      setSearchResults((prev) => {
+        const sorted = sortResultsArray(prev, sortBy, sortDirection);
+        searchResultsRef.current = sorted;
+        return sorted;
+      });
     },
     [sortDirection, sortResultsArray],
   );
 
   const toggleSortDirection = useCallback(() => {
-    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-  }, []);
+    const newDirection = sortDirection === "asc" ? "desc" : "asc";
+    setSortDirection(newDirection);
+    // Pass the new direction directly so it's used immediately without waiting for state update
+    performSearch(false, undefined, false, undefined, currentSort, newDirection);
+  }, [sortDirection, currentSort, performSearch]);
 
   // Result selection handlers
   const toggleResultSelection = useCallback((resultId: string) => {
@@ -473,14 +530,10 @@ export function useSearch() {
     setSelectedResults(new Set());
   }, []);
 
-  // Auto-refresh results when sort direction changes
+  // Keep ref in sync with state
   useEffect(() => {
-    if (currentSort && searchResults.length > 0) {
-      setSearchResults((prev) =>
-        sortResultsArray(prev, currentSort, sortDirection),
-      );
-    }
-  }, [sortDirection, currentSort]);
+    searchResultsRef.current = searchResults;
+  }, [searchResults]);
 
   return {
     filters,

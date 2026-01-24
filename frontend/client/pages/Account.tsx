@@ -1097,8 +1097,11 @@ export default function Account() {
               onClick={() => {
                 if (!revealedKey) return;
                 void navigator.clipboard.writeText(revealedKey);
-                setCopiedNewKey(true);
-                toast({ title: "Copied to clipboard" });
+                // Defer state and toast updates to avoid reflow
+                setTimeout(() => {
+                  setCopiedNewKey(true);
+                  toast({ title: "Copied to clipboard" });
+                }, 0);
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border/60 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"

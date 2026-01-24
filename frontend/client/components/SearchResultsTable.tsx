@@ -1,4 +1,13 @@
-import { ExternalLink, ArrowUp, ArrowDown, BadgeCheck } from "lucide-react";
+import {
+  ExternalLink,
+  ArrowUp,
+  ArrowDown,
+  BadgeCheck,
+  Copy,
+  Check,
+  FileText,
+  Link2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BREAKPOINT_SM, DEFAULT_TRUNCATION_LENGTH, LONG_TRUNCATION_LENGTH } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
@@ -18,10 +27,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
+import { useToast } from "@/components/ui/use-toast";
 import type { SearchResult } from "@shared/search";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
@@ -58,6 +74,7 @@ export function SearchResultsTable({
   pageSize = 25,
   className,
 }: SearchResultsTableProps) {
+  const { toast } = useToast();
   const [expandedResults, setExpandedResults] = useState<Set<string>>(
     () => new Set(),
   );
@@ -65,6 +82,98 @@ export function SearchResultsTable({
     () => new Set(),
   );
   const snippetRefs = useRef(new Map<string, HTMLDivElement | null>());
+  const copySuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const [copiedForResult, setCopiedForResult] = useState<{
+    resultId: string;
+    kind: "section" | "agreement" | "link";
+  } | null>(null);
+  const pendingCopyRef = useRef<{
+    text: string;
+    label: string;
+    resultId: string;
+    kind: "section" | "agreement" | "link";
+  } | null>(null);
+
+  const tailUuid = useCallback((uuid: string, n = 6) => uuid.slice(-n), []);
+
+  const formatCurrency = useCallback((value: string | null | undefined) => {
+    if (!value) return null;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(num);
+  }, []);
+
+  const buildSectionLinkUrl = useCallback(
+    (agreementUuid: string, sectionUuid: string) => {
+      if (typeof window === "undefined") return "";
+      const u = new URL("/search", window.location.origin);
+      u.searchParams.set("agreementUuid", agreementUuid);
+      u.searchParams.set("sectionUuid", sectionUuid);
+      return u.toString();
+    },
+    [],
+  );
+
+  const performCopy = useCallback(
+    async (
+      text: string,
+      label: string,
+      resultId: string,
+      kind: "section" | "agreement" | "link",
+    ) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        // Store pending copy to process after dropdown closes
+        pendingCopyRef.current = { text, label, resultId, kind };
+      } catch {
+        // For errors, we can show immediately since dropdown might not be open
+        setTimeout(() => {
+          toast({ title: "Copy failed", variant: "destructive" });
+        }, 0);
+      }
+    },
+    [],
+  );
+
+  const processPendingCopy = useCallback(() => {
+    if (pendingCopyRef.current) {
+      const { label, resultId, kind } = pendingCopyRef.current;
+      pendingCopyRef.current = null;
+      // Use double RAF + setTimeout to ensure dropdown animation completes
+      // and avoid forced synchronous layout (reflow)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Defer toast and state updates to avoid reflow
+          setTimeout(() => {
+            toast({ title: `${label} copied` });
+            if (copySuccessTimeoutRef.current) {
+              clearTimeout(copySuccessTimeoutRef.current);
+            }
+            setCopiedForResult({ resultId, kind });
+            copySuccessTimeoutRef.current = setTimeout(() => {
+              setCopiedForResult(null);
+              copySuccessTimeoutRef.current = null;
+            }, 1000);
+          }, 0);
+        });
+      });
+    }
+  }, [toast]);
+
+  useEffect(
+    () => () => {
+      if (copySuccessTimeoutRef.current) {
+        clearTimeout(copySuccessTimeoutRef.current);
+      }
+    },
+    [],
+  );
   const allSelected =
     searchResults.length > 0 &&
     searchResults.every((result) => selectedResults.has(result.id));
@@ -276,6 +385,12 @@ export function SearchResultsTable({
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 
+            const hasNewFields =
+              result.transaction_price_total ||
+              result.deal_status ||
+              result.deal_type ||
+              result.purpose;
+
             return (
               <div
                 role="listitem"
@@ -291,25 +406,28 @@ export function SearchResultsTable({
                 <div
                   className={cn(
                     "border-b px-4 py-3",
-                    density === "compact" ? "sm:px-3 sm:py-2" : "sm:px-4 sm:py-3",
+                    density === "compact"
+                      ? "sm:px-3 sm:py-2"
+                      : "sm:px-4 sm:py-3",
                     isSelected
                       ? "bg-primary/10 border-primary/20"
                       : "bg-muted/30 border-border/60",
                   )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() =>
                           onToggleResultSelection(result.id)
                         }
-                        className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
+                        className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4 shrink-0"
                         aria-label={`Select result ${resultNumber}`}
                       />
                       <div className="min-w-0 flex-1">
+                        {/* Top row: Number, Year, Verified, Clause Type */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-semibold text-muted-foreground">
+                          <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">
                             #{resultNumber}
                           </span>
                           <Badge variant="outline" className="px-2 py-0.5">
@@ -321,7 +439,7 @@ export function SearchResultsTable({
                                 <button
                                   type="button"
                                   aria-label="Verified agreement"
-                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
+                                  className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
                                 >
                                   <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                   <span className="hidden sm:inline">Verified</span>
@@ -401,6 +519,7 @@ export function SearchResultsTable({
                           ) : null}
                         </div>
 
+                        {/* Main info: Target and Acquirer */}
                         <div
                           className={cn(
                             "mt-2 flex flex-col gap-1.5 text-sm text-foreground sm:grid",
@@ -459,50 +578,254 @@ export function SearchResultsTable({
                               </span>
                             )}
                           </div>
+                        </div>
+
+                        {/* Article and Section pills - separate */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Badge
                             variant="outline"
-                            className="w-full min-w-0 max-w-full sm:w-auto"
-                            title={`${result.articleTitle} >> ${result.sectionTitle}`}
+                            className="hidden sm:inline-flex px-2 py-0.5 text-xs"
+                            title={result.articleTitle}
                           >
-                            <span
-                              className="block max-w-full min-w-0 truncate sm:max-w-[22rem]"
-                              title={sectionSummary}
-                            >
-                              {sectionSummaryText.truncated}
+                            <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
+                              {truncateText(result.articleTitle, DEFAULT_TRUNCATION_LENGTH).truncated}
+                            </span>
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="px-2 py-0.5 text-xs"
+                            title={result.sectionTitle}
+                          >
+                            <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
+                              {truncateText(result.sectionTitle, DEFAULT_TRUNCATION_LENGTH).truncated}
                             </span>
                           </Badge>
                         </div>
+
+                        {/* New fields row - hidden on mobile */}
+                        {hasNewFields && (
+                          <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
+                            {result.transaction_price_total && (
+                              <Badge
+                                variant="outline"
+                                className="px-2 py-0.5 text-xs font-medium"
+                              >
+                                {formatCurrency(result.transaction_price_total)}
+                              </Badge>
+                            )}
+                            {result.deal_status && (
+                              <Badge
+                                variant="outline"
+                                className="px-2 py-0.5 text-xs"
+                              >
+                                {result.deal_status}
+                              </Badge>
+                            )}
+                            {result.deal_type && (
+                              <Badge
+                                variant="outline"
+                                className="px-2 py-0.5 text-xs"
+                              >
+                                {result.deal_type}
+                              </Badge>
+                            )}
+                            {result.purpose && (
+                              <Badge
+                                variant="outline"
+                                className="px-2 py-0.5 text-xs"
+                                title={result.purpose}
+                              >
+                                <span className="max-w-[12rem] truncate">
+                                  {truncateText(result.purpose, DEFAULT_TRUNCATION_LENGTH).truncated}
+                                </span>
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Open Agreement Button */}
-                    <div className="sm:ml-4">
+                    {/* Actions: Open Agreement button (primary) */}
+                    <div className="flex items-center sm:ml-4 sm:justify-end">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onOpenAgreement(result, resultNumber)}
-                        className="flex h-11 items-center gap-2 border-primary/40 px-4 text-primary hover:bg-primary/10 sm:h-9 sm:px-3"
+                        className="flex w-full sm:w-auto h-11 items-center justify-center gap-2 border-primary/40 px-4 text-primary hover:bg-primary/10 sm:h-9 sm:px-3"
                       >
                         <ExternalLink className="w-4 h-4" aria-hidden="true" />
                         <span className="hidden sm:inline">Open Agreement</span>
-                        <span className="sm:hidden">Open</span>
+                        <span className="sm:hidden">Open Agreement</span>
                       </Button>
                     </div>
                   </div>
                 </div>
 
-                {/* Clause text */}
+                {/* Content area */}
                 <div className={cn("p-4", density === "compact" ? "sm:p-3" : "sm:p-4")}>
+                  {/* Clause text */}
                   {result.xml ? (
                     <>
                       <div
                         className={cn(
-                          "rounded-md border border-border/60 bg-muted/20 p-3",
+                          "relative rounded-md border border-border/60 bg-muted/20 p-3",
                           density === "compact"
                             ? "sm:h-28 sm:p-2"
                             : "sm:h-36 sm:p-3",
                         )}
                       >
+                        {/* Copy button - positioned in top-right corner of inner box */}
+                        <div className="absolute right-2 top-2 z-10">
+                          <DropdownMenu onOpenChange={(open) => {
+                            if (!open) {
+                              // Process pending copy after dropdown closes
+                              processPendingCopy();
+                            }
+                          }}>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                title="Copy…"
+                                className={cn(
+                                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground",
+                                  copiedForResult?.resultId === result.id &&
+                                    "bg-primary/10 text-primary border-primary/20",
+                                )}
+                                aria-label="Copy"
+                                aria-haspopup="menu"
+                              >
+                                {copiedForResult?.resultId === result.id ? (
+                                  <Check
+                                    className="h-3.5 w-3.5 text-primary"
+                                    aria-hidden="true"
+                                  />
+                                ) : (
+                                  <Copy
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              side="bottom"
+                              sideOffset={4}
+                              className="min-w-[14rem]"
+                            >
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  performCopy(
+                                    result.sectionUuid,
+                                    "Section UUID",
+                                    result.id,
+                                    "section",
+                                  )
+                                }
+                                title="Copy section UUID"
+                                className="flex cursor-pointer items-center gap-2 py-2"
+                              >
+                                <span
+                                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground"
+                                  aria-hidden="true"
+                                >
+                                  §
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  Section UUID
+                                </span>
+                                <span
+                                  className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
+                                  title={result.sectionUuid}
+                                >
+                                  …{tailUuid(result.sectionUuid)}
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  performCopy(
+                                    result.agreementUuid,
+                                    "Agreement UUID",
+                                    result.id,
+                                    "agreement",
+                                  )
+                                }
+                                title="Copy agreement UUID"
+                                className="flex cursor-pointer items-center gap-2 py-2"
+                              >
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                  <FileText
+                                    className="h-4 w-4 text-muted-foreground"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  Agreement UUID
+                                </span>
+                                <span
+                                  className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
+                                  title={result.agreementUuid}
+                                >
+                                  …{tailUuid(result.agreementUuid)}
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  // Extract text content from XML by stripping tags
+                                  const textContent = result.xml
+                                    ? result.xml
+                                        .replace(/<[^>]+>/g, "")
+                                        .replace(/\s+/g, " ")
+                                        .trim()
+                                    : "";
+                                  performCopy(
+                                    textContent,
+                                    "Section text",
+                                    result.id,
+                                    "section",
+                                  );
+                                }}
+                                title="Copy section text"
+                                className="flex cursor-pointer items-center gap-2 py-2"
+                              >
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                  <FileText
+                                    className="h-4 w-4 text-muted-foreground"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  Section text
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  performCopy(
+                                    buildSectionLinkUrl(
+                                      result.agreementUuid,
+                                      result.sectionUuid,
+                                    ),
+                                    "Agreement link",
+                                    result.id,
+                                    "link",
+                                  )
+                                }
+                                title="Copy link to this section"
+                                className="flex cursor-pointer items-center gap-2 py-2"
+                              >
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                  <Link2
+                                    className="h-4 w-4 text-muted-foreground"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  Agreement link
+                                </span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                         <div
                           ref={(node) => {
                             if (node) {
@@ -512,7 +835,7 @@ export function SearchResultsTable({
                             }
                           }}
                           className={cn(
-                            "text-sm leading-relaxed text-foreground",
+                            "text-sm leading-relaxed text-foreground pr-10",
                             "overflow-hidden sm:h-full sm:overflow-y-auto",
                             isExpanded ? "line-clamp-none" : "line-clamp-3",
                             "sm:line-clamp-none",
@@ -543,10 +866,9 @@ export function SearchResultsTable({
                   ) : (
                     <div className={cn(density === "compact" ? "sm:h-28" : "sm:h-36")}>
                       <Alert className="h-full">
-                        <AlertTitle>Sign in to view clause text</AlertTitle>
+                        <AlertTitle>Clause text not available</AlertTitle>
                         <AlertDescription>
-                          Search and filters work in limited mode, but the text is
-                          hidden until you create an account.
+                          This section has no stored clause text.
                         </AlertDescription>
                       </Alert>
                     </div>

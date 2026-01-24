@@ -129,13 +129,18 @@ export default function BulkData() {
   const copyToClipboard = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedStates((prev) => ({ ...prev, [id]: true }));
+      // Defer state and toast updates to avoid reflow
       setTimeout(() => {
-        setCopiedStates((prev) => ({ ...prev, [id]: false }));
-      }, 2000);
-      void showToast("success", "Copied to clipboard");
+        setCopiedStates((prev) => ({ ...prev, [id]: true }));
+        setTimeout(() => {
+          setCopiedStates((prev) => ({ ...prev, [id]: false }));
+        }, 2000);
+        void showToast("success", "Copied to clipboard");
+      }, 0);
     } catch (err) {
-      void showToast("error", "Copy failed");
+      setTimeout(() => {
+        void showToast("error", "Copy failed");
+      }, 0);
     }
   };
 

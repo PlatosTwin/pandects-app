@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useId } from "react";
 import { ChevronDown, ChevronRight, Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { truncateText } from "@/lib/text-utils";
+import { truncateText, pluralizeLabel, formatFilterOption, pluralize } from "@/lib/text-utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -115,14 +115,14 @@ export function NestedCheckboxFilter({
   const totalOptions = getAllSelectableIds.length;
 
   const selectedLabel = useMemo(() => {
-    if (totalSelected === 0) return `All ${label}s`;
+    if (totalSelected === 0) return `All ${pluralizeLabel(label)}`;
     if (totalSelected === 1) {
       const selected = selectedValues[0];
       const displayLabel = labelById?.[selected] ?? selected;
       const { truncated } = truncateText(displayLabel);
       return truncated;
     }
-    if (totalSelected === totalOptions) return `All ${label}s`;
+    if (totalSelected === totalOptions) return `All ${pluralizeLabel(label)}`;
     return `${totalSelected} selected`;
   }, [label, labelById, selectedValues, totalSelected, totalOptions]);
 
@@ -353,7 +353,7 @@ export function NestedCheckboxFilter({
         <CommandList id={listId}>
           {searchResults.length === 0 ? (
             <CommandEmpty>
-              No {label.toLowerCase()}s found matching "{searchTerm}"
+              No {pluralize(formatFilterOption(label.toLowerCase()))} found matching "{searchTerm}"
             </CommandEmpty>
           ) : (
             <CommandGroup heading="Search results">

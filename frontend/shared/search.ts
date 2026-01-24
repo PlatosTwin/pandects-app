@@ -6,10 +6,23 @@ export interface SearchFilters {
   acquirer?: string[];
   clauseType?: string[];
   standardId?: string[];
-  transactionSize?: string[];
-  transactionType?: string[];
-  considerationType?: string[];
+  // Transaction price filters (disabled for now)
+  transactionPriceTotal?: string[];
+  transactionPriceStock?: string[];
+  transactionPriceCash?: string[];
+  transactionPriceAssets?: string[];
+  // New filters from DB definition
+  transactionConsideration?: string[];
   targetType?: string[];
+  acquirerType?: string[];
+  targetIndustry?: string[];
+  acquirerIndustry?: string[];
+  dealStatus?: string[];
+  attitude?: string[];
+  dealType?: string[];
+  purpose?: string[];
+  targetPe?: string[];
+  acquirerPe?: string[];
   page?: number;
   pageSize?: number;
 }
@@ -26,6 +39,10 @@ export interface SearchResult {
   sectionUuid: string;
   agreementUuid: string;
   verified: boolean;
+  transaction_price_total?: string | null;
+  deal_status?: string | null;
+  deal_type?: string | null;
+  purpose?: string | null;
 }
 
 export interface SearchResponse {
@@ -48,6 +65,8 @@ export interface SearchResponse {
 export interface FilterOptionsResponse {
   targets: string[];
   acquirers: string[];
+  targetIndustries: string[];
+  acquirerIndustries: string[];
 }
 
 // Filter options (to be populated from API)

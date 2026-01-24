@@ -26,30 +26,50 @@ export const buildSearchParams = (
     );
   }
 
+  // Transaction price filters
   if (
-    searchFilters.transactionSize &&
-    searchFilters.transactionSize.length > 0
+    searchFilters.transactionPriceTotal &&
+    searchFilters.transactionPriceTotal.length > 0
   ) {
-    searchFilters.transactionSize.forEach((size) =>
-      params.append("transactionSize", size),
+    searchFilters.transactionPriceTotal.forEach((value) =>
+      params.append("transactionPriceTotal", value),
     );
   }
 
   if (
-    searchFilters.transactionType &&
-    searchFilters.transactionType.length > 0
+    searchFilters.transactionPriceStock &&
+    searchFilters.transactionPriceStock.length > 0
   ) {
-    searchFilters.transactionType.forEach((type) =>
-      params.append("transactionType", type),
+    searchFilters.transactionPriceStock.forEach((value) =>
+      params.append("transactionPriceStock", value),
     );
   }
 
   if (
-    searchFilters.considerationType &&
-    searchFilters.considerationType.length > 0
+    searchFilters.transactionPriceCash &&
+    searchFilters.transactionPriceCash.length > 0
   ) {
-    searchFilters.considerationType.forEach((type) =>
-      params.append("considerationType", type),
+    searchFilters.transactionPriceCash.forEach((value) =>
+      params.append("transactionPriceCash", value),
+    );
+  }
+
+  if (
+    searchFilters.transactionPriceAssets &&
+    searchFilters.transactionPriceAssets.length > 0
+  ) {
+    searchFilters.transactionPriceAssets.forEach((value) =>
+      params.append("transactionPriceAssets", value),
+    );
+  }
+
+  // New filters from DB definition
+  if (
+    searchFilters.transactionConsideration &&
+    searchFilters.transactionConsideration.length > 0
+  ) {
+    searchFilters.transactionConsideration.forEach((value) =>
+      params.append("transactionConsideration", value),
     );
   }
 
@@ -57,6 +77,57 @@ export const buildSearchParams = (
     searchFilters.targetType.forEach((type) =>
       params.append("targetType", type),
     );
+  }
+
+  if (searchFilters.acquirerType && searchFilters.acquirerType.length > 0) {
+    searchFilters.acquirerType.forEach((type) =>
+      params.append("acquirerType", type),
+    );
+  }
+
+  if (searchFilters.targetIndustry && searchFilters.targetIndustry.length > 0) {
+    searchFilters.targetIndustry.forEach((industry) =>
+      params.append("targetIndustry", industry),
+    );
+  }
+
+  if (
+    searchFilters.acquirerIndustry &&
+    searchFilters.acquirerIndustry.length > 0
+  ) {
+    searchFilters.acquirerIndustry.forEach((industry) =>
+      params.append("acquirerIndustry", industry),
+    );
+  }
+
+  if (searchFilters.dealStatus && searchFilters.dealStatus.length > 0) {
+    searchFilters.dealStatus.forEach((status) =>
+      params.append("dealStatus", status),
+    );
+  }
+
+  if (searchFilters.attitude && searchFilters.attitude.length > 0) {
+    searchFilters.attitude.forEach((attitude) =>
+      params.append("attitude", attitude),
+    );
+  }
+
+  if (searchFilters.dealType && searchFilters.dealType.length > 0) {
+    searchFilters.dealType.forEach((type) => params.append("dealType", type));
+  }
+
+  if (searchFilters.purpose && searchFilters.purpose.length > 0) {
+    searchFilters.purpose.forEach((purpose) =>
+      params.append("purpose", purpose),
+    );
+  }
+
+  if (searchFilters.targetPe && searchFilters.targetPe.length > 0) {
+    searchFilters.targetPe.forEach((pe) => params.append("targetPe", pe));
+  }
+
+  if (searchFilters.acquirerPe && searchFilters.acquirerPe.length > 0) {
+    searchFilters.acquirerPe.forEach((pe) => params.append("acquirerPe", pe));
   }
 
   void clauseTypesNested;

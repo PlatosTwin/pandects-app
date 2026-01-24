@@ -44,7 +44,35 @@ export const AVAILABLE_YEARS = [
 ];
 
 // Transaction filter options
-export const TRANSACTION_SIZE_OPTIONS = [
+export const TRANSACTION_CONSIDERATION_OPTIONS = [
+  "stock",
+  "cash",
+  "assets",
+  "mixed",
+  "unknown",
+];
+
+export const TARGET_TYPE_OPTIONS = ["public", "private"];
+
+export const ACQUIRER_TYPE_OPTIONS = ["public", "private"];
+
+export const DEAL_STATUS_OPTIONS = ["pending", "complete", "cancelled"];
+
+export const ATTITUDE_OPTIONS = ["friendly", "hostile", "unsolicited"];
+
+export const DEAL_TYPE_OPTIONS = [
+  "merger",
+  "stock_acquisition",
+  "asset_acquisition",
+  "tender_offer",
+];
+
+export const PURPOSE_OPTIONS = ["strategic", "financial"];
+
+export const PE_OPTIONS = ["true", "false"];
+
+export const TRANSACTION_PRICE_OPTIONS = [
+  "0 - 100M",
   "100M - 250M",
   "250M - 500M",
   "500M - 750M",
@@ -54,12 +82,6 @@ export const TRANSACTION_SIZE_OPTIONS = [
   "10B - 20B",
   "20B+",
 ];
-
-export const TRANSACTION_TYPE_OPTIONS = ["Strategic", "Financial"];
-
-export const CONSIDERATION_TYPE_OPTIONS = ["All stock", "All cash", "Mixed"];
-
-export const TARGET_TYPE_OPTIONS = ["Public", "Private"];
 
 // Text truncation constants
 export const DEFAULT_TRUNCATION_LENGTH = 75;

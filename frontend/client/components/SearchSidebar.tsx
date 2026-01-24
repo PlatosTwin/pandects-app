@@ -1,9 +1,14 @@
 import React, { useState } from "react";
 import {
-  TRANSACTION_SIZE_OPTIONS,
-  TRANSACTION_TYPE_OPTIONS,
-  CONSIDERATION_TYPE_OPTIONS,
+  TRANSACTION_CONSIDERATION_OPTIONS,
+  TRANSACTION_PRICE_OPTIONS,
   TARGET_TYPE_OPTIONS,
+  ACQUIRER_TYPE_OPTIONS,
+  DEAL_STATUS_OPTIONS,
+  ATTITUDE_OPTIONS,
+  DEAL_TYPE_OPTIONS,
+  PURPOSE_OPTIONS,
+  PE_OPTIONS,
   SIDEBAR_ANIMATION_DELAY,
 } from "@/lib/constants";
 import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
@@ -21,14 +26,27 @@ interface SearchSidebarProps {
     target?: string[];
     acquirer?: string[];
     clauseType?: string[];
-    transactionSize?: string[];
-    transactionType?: string[];
-    considerationType?: string[];
+    transactionPriceTotal?: string[];
+    transactionPriceStock?: string[];
+    transactionPriceCash?: string[];
+    transactionPriceAssets?: string[];
+    transactionConsideration?: string[];
     targetType?: string[];
+    acquirerType?: string[];
+    targetIndustry?: string[];
+    acquirerIndustry?: string[];
+    dealStatus?: string[];
+    attitude?: string[];
+    dealType?: string[];
+    purpose?: string[];
+    targetPe?: string[];
+    acquirerPe?: string[];
   };
   years: string[];
   targets: string[];
   acquirers: string[];
+  targetIndustries: string[];
+  acquirerIndustries: string[];
   clauseTypesNested: ClauseTypeTree;
   clauseTypeLabelById: Record<string, string>;
   isLoadingFilterOptions: boolean;
@@ -46,6 +64,8 @@ export function SearchSidebar({
   years,
   targets,
   acquirers,
+  targetIndustries,
+  acquirerIndustries,
   clauseTypesNested,
   clauseTypeLabelById,
   isLoadingFilterOptions,
@@ -192,37 +212,54 @@ export function SearchSidebar({
         )}
       </div>
 
-      {/* Transaction Size Filter */}
-      <div>
-        <CheckboxFilter
-          label="Transaction Size"
-          options={TRANSACTION_SIZE_OPTIONS}
-          selectedValues={filters.transactionSize || []}
-          onToggle={(value) => onToggleFilterValue("transactionSize", value)}
-          hideSearch={true}
-          disabled={true}
-        />
+      {/* Transaction Price Filters - Nested and Disabled */}
+      <div className="space-y-4">
+        <div className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
+          Transaction Price
+        </div>
+        <div className="ml-4 space-y-3">
+          <CheckboxFilter
+            label="Total"
+            options={TRANSACTION_PRICE_OPTIONS}
+            selectedValues={filters.transactionPriceTotal || []}
+            onToggle={(value) => onToggleFilterValue("transactionPriceTotal", value)}
+            hideSearch={true}
+            disabled={true}
+          />
+          <CheckboxFilter
+            label="Stock"
+            options={TRANSACTION_PRICE_OPTIONS}
+            selectedValues={filters.transactionPriceStock || []}
+            onToggle={(value) => onToggleFilterValue("transactionPriceStock", value)}
+            hideSearch={true}
+            disabled={true}
+          />
+          <CheckboxFilter
+            label="Cash"
+            options={TRANSACTION_PRICE_OPTIONS}
+            selectedValues={filters.transactionPriceCash || []}
+            onToggle={(value) => onToggleFilterValue("transactionPriceCash", value)}
+            hideSearch={true}
+            disabled={true}
+          />
+          <CheckboxFilter
+            label="Assets"
+            options={TRANSACTION_PRICE_OPTIONS}
+            selectedValues={filters.transactionPriceAssets || []}
+            onToggle={(value) => onToggleFilterValue("transactionPriceAssets", value)}
+            hideSearch={true}
+            disabled={true}
+          />
+        </div>
       </div>
 
-      {/* Transaction Type Filter */}
+      {/* Transaction Consideration Filter */}
       <div>
         <CheckboxFilter
-          label="Transaction Type"
-          options={TRANSACTION_TYPE_OPTIONS}
-          selectedValues={filters.transactionType || []}
-          onToggle={(value) => onToggleFilterValue("transactionType", value)}
-          hideSearch={true}
-          disabled={true}
-        />
-      </div>
-
-      {/* Consideration Type Filter */}
-      <div>
-        <CheckboxFilter
-          label="Consideration Type"
-          options={CONSIDERATION_TYPE_OPTIONS}
-          selectedValues={filters.considerationType || []}
-          onToggle={(value) => onToggleFilterValue("considerationType", value)}
+          label="Transaction Consideration"
+          options={TRANSACTION_CONSIDERATION_OPTIONS}
+          selectedValues={filters.transactionConsideration || []}
+          onToggle={(value) => onToggleFilterValue("transactionConsideration", value)}
           hideSearch={true}
           disabled={true}
         />
@@ -235,6 +272,114 @@ export function SearchSidebar({
           options={TARGET_TYPE_OPTIONS}
           selectedValues={filters.targetType || []}
           onToggle={(value) => onToggleFilterValue("targetType", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Acquirer Type Filter */}
+      <div>
+        <CheckboxFilter
+          label="Acquirer Type"
+          options={ACQUIRER_TYPE_OPTIONS}
+          selectedValues={filters.acquirerType || []}
+          onToggle={(value) => onToggleFilterValue("acquirerType", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Target Industry Filter */}
+      <div>
+        <CheckboxFilter
+          label="Target Industry"
+          options={targetIndustries}
+          selectedValues={filters.targetIndustry || []}
+          onToggle={(value) => onToggleFilterValue("targetIndustry", value)}
+          hideSearch={false}
+          disabled={true}
+        />
+      </div>
+
+      {/* Acquirer Industry Filter */}
+      <div>
+        <CheckboxFilter
+          label="Acquirer Industry"
+          options={acquirerIndustries}
+          selectedValues={filters.acquirerIndustry || []}
+          onToggle={(value) => onToggleFilterValue("acquirerIndustry", value)}
+          hideSearch={false}
+          disabled={true}
+        />
+      </div>
+
+      {/* Deal Status Filter */}
+      <div>
+        <CheckboxFilter
+          label="Deal Status"
+          options={DEAL_STATUS_OPTIONS}
+          selectedValues={filters.dealStatus || []}
+          onToggle={(value) => onToggleFilterValue("dealStatus", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Attitude Filter */}
+      <div>
+        <CheckboxFilter
+          label="Attitude"
+          options={ATTITUDE_OPTIONS}
+          selectedValues={filters.attitude || []}
+          onToggle={(value) => onToggleFilterValue("attitude", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Deal Type Filter */}
+      <div>
+        <CheckboxFilter
+          label="Deal Type"
+          options={DEAL_TYPE_OPTIONS}
+          selectedValues={filters.dealType || []}
+          onToggle={(value) => onToggleFilterValue("dealType", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Purpose Filter */}
+      <div>
+        <CheckboxFilter
+          label="Purpose"
+          options={PURPOSE_OPTIONS}
+          selectedValues={filters.purpose || []}
+          onToggle={(value) => onToggleFilterValue("purpose", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Target PE Filter */}
+      <div>
+        <CheckboxFilter
+          label="Target PE"
+          options={PE_OPTIONS}
+          selectedValues={filters.targetPe || []}
+          onToggle={(value) => onToggleFilterValue("targetPe", value)}
+          hideSearch={true}
+          disabled={true}
+        />
+      </div>
+
+      {/* Acquirer PE Filter */}
+      <div>
+        <CheckboxFilter
+          label="Acquirer PE"
+          options={PE_OPTIONS}
+          selectedValues={filters.acquirerPe || []}
+          onToggle={(value) => onToggleFilterValue("acquirerPe", value)}
           hideSearch={true}
           disabled={true}
         />
@@ -279,7 +424,7 @@ export function SearchSidebar({
 
       <div
         className={cn(
-          "bg-card border-r border-border transition-all duration-300 ease-in-out h-screen",
+          "bg-card border-r border-b border-border transition-all duration-300 ease-in-out h-screen",
           // Desktop: normal sidebar behavior
           "lg:flex-shrink-0 lg:sticky lg:top-0 lg:relative",
           isCollapsed ? "lg:w-16" : "lg:w-80",

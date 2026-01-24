@@ -47,7 +47,7 @@ export default function Landing() {
                       height={128}
                       srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
                       sizes="(min-width: 640px) 128px, 96px"
-                      fetchPriority="high"
+                      fetchpriority="high"
                       decoding="async"
                       className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/60 sm:h-32 sm:w-32"
                     />
@@ -76,7 +76,7 @@ export default function Landing() {
             </h1>
 
             <p className="mt-4 text-base font-medium text-foreground/70 sm:text-xl">
-            The fastest way for academics to query deal data.
+            The fastest way to query deal data.
             </p>
 
             <div className="mt-12 flex w-full flex-col items-center gap-3">
