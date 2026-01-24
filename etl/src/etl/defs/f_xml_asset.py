@@ -69,9 +69,11 @@ def xml_asset(
                         )
                         AND NOT EXISTS (
                             SELECT 1 
-                            FROM pdx.pages join pdx.tagged_outputs using(page_uuid) 
-                            WHERE label error
-                            and pages.agreement_uuid = a.agreement_uuid
+                            FROM pdx.pages p_err
+                            JOIN pdx.tagged_outputs t_err
+                                ON t_err.page_uuid = p_err.page_uuid
+                            WHERE t_err.label_error = 1
+                            AND p_err.agreement_uuid = a.agreement_uuid
                         )
                         GROUP BY a.agreement_uuid
                         HAVING
@@ -105,7 +107,7 @@ def xml_asset(
                     p.page_uuid,
                     p.page_order,
                     p.source_page_type,
-                    coalesce(tgo.tagged_text_corrected, tgo.tagged_text, p.processed_page_content) as tagged_output,
+                    coalesce(ner.tagged_text, tgo.tagged_text_corrected, tgo.tagged_text, p.processed_page_content) as tagged_output,
                     url,
                     acquirer,
                     target,
@@ -116,6 +118,7 @@ def xml_asset(
                     JOIN pdx.agreements a on p.agreement_uuid = a.agreement_uuid
                     LEFT JOIN pdx.tagged_outputs tgo
                     ON p.page_uuid = tgo.page_uuid
+                    LEFT JOIN pdx.ner_training_data ner on p.page_uuid = ner.page_uuid
                     WHERE p.agreement_uuid IN :uuids
                     ORDER BY p.agreement_uuid, p.page_order
                 """
