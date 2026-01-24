@@ -18,6 +18,14 @@
   <link rel="apple-touch-icon" sizes="256x256" href="/assets/logo-256.png" />
   <link rel="manifest" href="/site.webmanifest" />
   
+  <!-- Preload critical resources -->
+  <link rel="preload" as="image" href="/assets/logo-128.webp" type="image/webp" media="(prefers-reduced-data: no-preference)" />
+  <link rel="preload" as="image" href="/assets/logo-128.png" type="image/png" />
+  
+  <!-- Prefetch likely next pages -->
+  <link rel="prefetch" href="/search" as="document" />
+  <link rel="prefetch" href="/docs" as="document" />
+  
   <link rel="preconnect" href="https://accounts.google.com">
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 

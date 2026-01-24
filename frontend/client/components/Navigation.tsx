@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Menu } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, memo } from "react";
 import logo128Webp from "../../assets/logo-128.webp";
 import logo256Webp from "../../assets/logo-256.webp";
 import logo128Png from "../../assets/logo-128.png";
@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function Navigation() {
+function NavigationComponent() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
@@ -379,3 +379,5 @@ export default function Navigation() {
     </header>
   );
 }
+
+export default memo(NavigationComponent);

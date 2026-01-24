@@ -1,7 +1,8 @@
 import { Github } from "lucide-react";
 import { Link } from "react-router-dom";
+import { memo } from "react";
 
-export default function Footer() {
+function FooterComponent() {
   const currentYear = new Date().getFullYear();
 
   return (
@@ -56,3 +57,5 @@ export default function Footer() {
     </footer>
   );
 }
+
+export default memo(FooterComponent);
