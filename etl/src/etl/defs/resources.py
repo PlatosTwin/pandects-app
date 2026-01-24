@@ -6,8 +6,11 @@ including database connections, ML models, and pipeline configuration.
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 import dagster as dg
+import yaml
 from pydantic import PrivateAttr
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -56,6 +59,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
     ai_repair_entity_focus: AiRepairEntityFocus = AiRepairEntityFocus.O
     ai_repair_confidence_threshold: float = 1.0
+    reconcile_tags_agreement_batch_size: int = 500  # used in reconcile_tags asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     staging_days_to_fetch: int = 2  # used in staging_asset alt flow
     staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow
@@ -149,12 +153,91 @@ class TaxonomyModel(dg.ConfigurableResource[object]):
         return _DummyTaxonomyModel(TAXONOMY_LABEL_LIST)
 
 
+def _load_yaml_config() -> dict[str, Any]:
+    """Load pipeline configuration from YAML file.
+
+    Returns:
+        Dictionary with config values from YAML, or empty dict if file not found.
+    """
+    config_path = Path(__file__).parent.parent.parent.parent / "configs" / "etl_pipeline.yaml"
+    if not config_path.exists():
+        return {}
+    
+    try:
+        with config_path.open() as f:
+            yaml_data: Any = yaml.safe_load(f)
+            if yaml_data and "resources" in yaml_data:
+                pipeline_config = yaml_data["resources"].get("pipeline_config", {})
+                return pipeline_config.get("config", {})
+    except Exception:
+        # If YAML loading fails, return empty dict to fall back to defaults
+        return {}
+    
+    return {}
+
+
 def get_resources() -> dict[str, object]:
     """Get the base resource configuration for the pipeline.
+
+    Loads defaults from etl/configs/etl_pipeline.yaml if available.
+    Values can still be overridden via Dagster's -c flag at runtime.
 
     Returns:
         Dictionary containing all resource definitions.
     """
+    yaml_config = _load_yaml_config()
+    
+    # Convert YAML values to appropriate types, with fallback to current defaults
+    pipeline_config_kwargs: dict[str, Any] = {}
+    
+    if "mode" in yaml_config:
+        mode_str = str(yaml_config["mode"]).lower()
+        pipeline_config_kwargs["mode"] = PipelineMode(mode_str)
+    
+    if "scope" in yaml_config:
+        scope_str = str(yaml_config["scope"]).lower()
+        pipeline_config_kwargs["scope"] = ProcessingScope(scope_str)
+    
+    if "tagging_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["tagging_agreement_batch_size"] = int(yaml_config["tagging_agreement_batch_size"])
+    
+    if "xml_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
+    
+    if "taxonomy_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["taxonomy_agreement_batch_size"] = int(yaml_config["taxonomy_agreement_batch_size"])
+    
+    if "ai_repair_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["ai_repair_agreement_batch_size"] = int(yaml_config["ai_repair_agreement_batch_size"])
+    
+    if "ai_repair_entity_focus" in yaml_config:
+        focus_str = str(yaml_config["ai_repair_entity_focus"]).lower()
+        pipeline_config_kwargs["ai_repair_entity_focus"] = AiRepairEntityFocus(focus_str)
+    
+    if "ai_repair_confidence_threshold" in yaml_config:
+        pipeline_config_kwargs["ai_repair_confidence_threshold"] = float(yaml_config["ai_repair_confidence_threshold"])
+    
+    if "reconcile_tags_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["reconcile_tags_agreement_batch_size"] = int(yaml_config["reconcile_tags_agreement_batch_size"])
+    
+    if "tx_metadata_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["tx_metadata_agreement_batch_size"] = int(yaml_config["tx_metadata_agreement_batch_size"])
+    
+    if "staging_days_to_fetch" in yaml_config:
+        pipeline_config_kwargs["staging_days_to_fetch"] = int(yaml_config["staging_days_to_fetch"])
+    
+    if "staging_rate_limit_max_requests" in yaml_config:
+        pipeline_config_kwargs["staging_rate_limit_max_requests"] = int(yaml_config["staging_rate_limit_max_requests"])
+    
+    if "staging_rate_limit_window_seconds" in yaml_config:
+        pipeline_config_kwargs["staging_rate_limit_window_seconds"] = float(yaml_config["staging_rate_limit_window_seconds"])
+    
+    if "staging_max_workers" in yaml_config:
+        pipeline_config_kwargs["staging_max_workers"] = int(yaml_config["staging_max_workers"])
+    
+    if "staging_use_keyword_filter" in yaml_config:
+        pipeline_config_kwargs["staging_use_keyword_filter"] = bool(yaml_config["staging_use_keyword_filter"])
+    
     return {
         "db": DBResource(
             user=dg.EnvVar("MARIADB_USER"),
@@ -166,5 +249,5 @@ def get_resources() -> dict[str, object]:
         "classifier_model": ClassifierModel(),
         "tagging_model": TaggingModel(),
         "taxonomy_model": TaxonomyModel(),
-        "pipeline_config": PipelineConfig(),
+        "pipeline_config": PipelineConfig(**pipeline_config_kwargs),  # type: ignore
     }

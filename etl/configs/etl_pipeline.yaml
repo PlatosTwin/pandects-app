@@ -9,5 +9,10 @@ resources:
       ai_repair_agreement_batch_size: 10
       ai_repair_entity_focus: o
       ai_repair_confidence_threshold: 1.0
+      reconcile_tags_agreement_batch_size: 10
       tx_metadata_agreement_batch_size: 10
       staging_days_to_fetch: 7
+      staging_rate_limit_max_requests: 10
+      staging_rate_limit_window_seconds: 1.025
+      staging_max_workers: 8
+      staging_use_keyword_filter: true
