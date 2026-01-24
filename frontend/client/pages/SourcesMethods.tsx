@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   NerEvalData,
   ClassifierEvalData,
@@ -1037,16 +1038,30 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                      Loading model metrics...
+                    <Card className="border-border/60 bg-card/70 p-6">
+                      <div className="space-y-4">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-64 w-full" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                        </div>
+                      </div>
                     </Card>
                   }
                 >
                   <LazyExhibitEvalMetrics data={metricsData.exhibit} />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                  Loading model metrics...
+                <Card className="border-border/60 bg-card/70 p-6">
+                  <div className="space-y-4">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-64 w-full" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  </div>
                 </Card>
               )}
             </div>
@@ -1146,16 +1161,32 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                      Loading model metrics...
+                    <Card className="border-border/60 bg-card/70 p-6">
+                      <div className="space-y-4">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-64 w-full" />
+                        <div className="grid grid-cols-3 gap-4">
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                        </div>
+                      </div>
                     </Card>
                   }
                 >
                   <LazyClassifierEvalMetrics data={metricsData.classifier} />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                  Loading model metrics...
+                <Card className="border-border/60 bg-card/70 p-6">
+                  <div className="space-y-4">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-64 w-full" />
+                    <div className="grid grid-cols-3 gap-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  </div>
                 </Card>
               )}
             </div>
@@ -1251,8 +1282,16 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                      Loading model metrics...
+                    <Card className="border-border/60 bg-card/70 p-6">
+                      <div className="space-y-4">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-64 w-full" />
+                        <div className="grid grid-cols-3 gap-4">
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                        </div>
+                      </div>
                     </Card>
                   }
                 >
@@ -1261,8 +1300,16 @@ export default function SourcesMethods() {
                   />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6 text-sm text-muted-foreground">
-                  Loading model metrics...
+                <Card className="border-border/60 bg-card/70 p-6">
+                  <div className="space-y-4">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-64 w-full" />
+                    <div className="grid grid-cols-3 gap-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  </div>
                 </Card>
               )}
             </div>
