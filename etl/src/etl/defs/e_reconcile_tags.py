@@ -118,6 +118,9 @@ def _merge_with_rulings(
     def overlaps(a: Tuple[int, int], b: Tuple[int, int]) -> bool:
         return not (a[1] <= b[0] or a[0] >= b[1])
 
+    def is_whitespace_segment(s: int, e: int) -> bool:
+        return base_raw_text[s:e].strip() == ""
+
     def classify_segment(s: int, e: int) -> Tuple[str, int | None]:
         """
         Return one of:
@@ -183,6 +186,7 @@ def _merge_with_rulings(
 
     to_insert: List[Tuple[int, int, str]] = []
     replacements: dict[int, Tuple[int, int, str] | None] = {}
+    trims: dict[int, Tuple[int, int]] = {}
 
     # For each normalized ruling, evaluate against base spans
     i = 0  # pointer into base_sorted
@@ -229,6 +233,18 @@ def _merge_with_rulings(
                 replacements[overlaps_idx[0]] = (rs, re, rlab)
         else:
             # strictly inside but not coextensive: labels must match
+            if (
+                rlab == "none"
+                and is_whitespace_segment(rs, re)
+                and (rs == bs or re == be)
+            ):
+                cur_s, cur_e = trims.get(overlaps_idx[0], (bs, be))
+                if rs == bs:
+                    cur_s = max(cur_s, re)
+                if re == be:
+                    cur_e = min(cur_e, rs)
+                trims[overlaps_idx[0]] = (cur_s, cur_e)
+                continue
             if rlab != blab:
                 raise ValueError(
                     f"Ruling label {rlab} disagrees with base label {blab} within same span"
@@ -242,6 +258,11 @@ def _merge_with_rulings(
             rep = replacements[idx]
             if rep is not None:
                 combined.append(rep)
+        elif idx in trims:
+            ts, te = trims[idx]
+            if ts < te:
+                _, _, lab = span
+                combined.append((ts, te, lab))
         else:
             combined.append(span)
     final_spans = sorted(combined + to_insert, key=lambda x: (x[0], x[1]))
@@ -261,7 +282,7 @@ def reconcile_tags(
     engine = db.get_engine()
 
     # batching controls
-    batch_size = pipeline_config.tagging_agreement_batch_size
+    batch_size = pipeline_config.reconcile_tags_agreement_batch_size
     is_batched = pipeline_config.is_batched()
 
     last_uuid = ""
@@ -371,8 +392,9 @@ def reconcile_tags(
 
                 try:
                     corrected = _merge_with_rulings(base_raw, base_spans, rulings)
-                except Exception:
-                    # context.log.error(f"Reconciliation conflict for page {pid}: {e}")
+                except ValueError as e:
+                    # Expected: reconciliation conflicts (overlapping rulings, label mismatches)
+                    context.log.warning(f"Reconciliation conflict for page {pid}: {e}")
                     # Flag the page as having a label error, but do not abort the run
                     try:
                         _ = conn.execute(update_label_error, {"pid": pid})
@@ -381,6 +403,22 @@ def reconcile_tags(
                             f"Failed to set label_error for page {pid}: {db_err}"
                         )
                     # Skip writing corrected text for this page
+                    rulings_fail_count += rulings_count_for_page
+                    pages_fail_count += 1
+                    continue
+                except Exception as e:
+                    # Unexpected errors: log with full traceback
+                    context.log.error(
+                        f"Unexpected error reconciling page {pid}: {e}",
+                        exc_info=True,
+                    )
+                    # Still flag as error and skip
+                    try:
+                        _ = conn.execute(update_label_error, {"pid": pid})
+                    except Exception as db_err:
+                        context.log.warning(
+                            f"Failed to set label_error for page {pid}: {db_err}"
+                        )
                     rulings_fail_count += rulings_count_for_page
                     pages_fail_count += 1
                     continue
