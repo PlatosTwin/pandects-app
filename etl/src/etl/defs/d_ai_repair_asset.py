@@ -95,6 +95,22 @@ DDL_CREATE = [
         batch_id     VARCHAR(128) NOT NULL
     )
     """,
+    # processed spans: tracks which spans have been sent to repair LLM
+    """
+    CREATE TABLE IF NOT EXISTS pdx.ai_repair_processed_spans (
+        page_uuid           CHAR(36) NOT NULL,
+        entity              VARCHAR(32) NOT NULL,
+        start_char          INT NOT NULL,
+        end_char            INT NOT NULL,
+        entity_focus       VARCHAR(32) NOT NULL,
+        confidence_threshold DECIMAL(5,4) NOT NULL,
+        request_id          VARCHAR(256) NOT NULL,
+        batch_id            VARCHAR(128) NOT NULL,
+        status              VARCHAR(32) NOT NULL,
+        created_at          DATETIME NOT NULL,
+        PRIMARY KEY (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold)
+    )
+    """,
 ]
 
 
@@ -103,27 +119,46 @@ def _ensure_tables(conn: Connection) -> None:
         _ = conn.execute(text(ddl))
 
 
-def _fetch_candidates(conn: Connection, agreement_limit: int) -> List[Dict[str, Any]]:
+def _fetch_candidates(
+    conn: Connection,
+    agreement_limit: int,
+    entity_focus: str,
+    confidence_threshold: float,
+) -> List[Dict[str, Any]]:
     """
-    Pull pages with uncertain spans for the first N agreements that need AI repair.
+    Pull pages with uncertain spans that match entity_focus and confidence_threshold
+    and have at least one unprocessed span (regardless of prior threshold).
+    Returns pages from the first N agreements that have unprocessed matching spans.
     """
+    # Find agreements that have pages with unprocessed spans matching the criteria
     agreements_q = text(
         """
-        SELECT
+        SELECT DISTINCT
             p.agreement_uuid
         FROM
             pdx.pages p
             JOIN pdx.tagged_outputs t USING (page_uuid)
+            CROSS JOIN JSON_TABLE(
+                t.spans,
+                '$[*]' COLUMNS (
+                    entity VARCHAR(255) PATH '$.entity',
+                    start_char INT PATH '$.start_char',
+                    end_char INT PATH '$.end_char',
+                    avg_confidence DOUBLE PATH '$.avg_confidence'
+                )
+            ) AS jt
         WHERE
-            JSON_LENGTH(t.spans) > 0
+            CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
+            AND jt.avg_confidence < :ct
             AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    pdx.ai_repair_requests r
-                WHERE
-                    r.page_uuid = p.page_uuid
-                    and status not in ('completed', 'queued')
+                SELECT 1
+                FROM pdx.ai_repair_processed_spans ps
+                WHERE ps.page_uuid = p.page_uuid
+                  AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
+                  AND ps.start_char = jt.start_char
+                  AND ps.end_char = jt.end_char
+                  AND ps.entity_focus = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
+                  AND ps.status IN ('completed', 'queued', 'running')
             )
         GROUP BY
             p.agreement_uuid
@@ -134,14 +169,20 @@ def _fetch_candidates(conn: Connection, agreement_limit: int) -> List[Dict[str, 
         """
     )
     agreement_uuids = conn.execute(
-        agreements_q, {"lim": agreement_limit}
+        agreements_q,
+        {
+            "lim": agreement_limit,
+            "ef": entity_focus,
+            "ct": confidence_threshold,
+        },
     ).scalars().all()
     if not agreement_uuids:
         return []
 
+    # Fetch all pages from those agreements that have matching spans
     pages_q = text(
         """
-        SELECT
+        SELECT DISTINCT
             p.page_uuid,
             p.agreement_uuid,
             p.processed_page_content AS text,
@@ -149,17 +190,28 @@ def _fetch_candidates(conn: Connection, agreement_limit: int) -> List[Dict[str, 
         FROM
             pdx.pages p
             JOIN pdx.tagged_outputs t USING (page_uuid)
+            CROSS JOIN JSON_TABLE(
+                t.spans,
+                '$[*]' COLUMNS (
+                    entity VARCHAR(255) PATH '$.entity',
+                    start_char INT PATH '$.start_char',
+                    end_char INT PATH '$.end_char',
+                    avg_confidence DOUBLE PATH '$.avg_confidence'
+                )
+            ) AS jt
         WHERE
             p.agreement_uuid IN :uuids
-            AND JSON_LENGTH(t.spans) > 0
+            AND CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
+            AND jt.avg_confidence < :ct
             AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    pdx.ai_repair_requests r
-                WHERE
-                    r.page_uuid = p.page_uuid
-                    and status not in ('completed', 'queued')
+                SELECT 1
+                FROM pdx.ai_repair_processed_spans ps
+                WHERE ps.page_uuid = p.page_uuid
+                  AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
+                  AND ps.start_char = jt.start_char
+                  AND ps.end_char = jt.end_char
+                  AND ps.entity_focus = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
+                  AND ps.status IN ('completed', 'queued', 'running')
             )
         ORDER BY
             p.agreement_uuid,
@@ -167,8 +219,60 @@ def _fetch_candidates(conn: Connection, agreement_limit: int) -> List[Dict[str, 
             p.page_uuid
         """
     )
-    rows = conn.execute(pages_q, {"uuids": tuple(agreement_uuids)}).mappings().fetchall()
+    rows = conn.execute(
+        pages_q,
+        {
+            "uuids": tuple(agreement_uuids),
+            "ef": entity_focus,
+            "ct": confidence_threshold,
+        },
+    ).mappings().fetchall()
     return [dict(r) for r in rows]
+
+
+def _filter_already_processed_spans(
+    conn: Connection,
+    page_uuid: str,
+    spans: List[UncertainSpan],
+    entity_focus: str,
+) -> List[UncertainSpan]:
+    """
+    Filter out spans that have already been processed with the same entity_focus (any threshold).
+    Excludes spans that are completed, queued, or running.
+    Allows retrying failed/parse_error/completed_no_output spans.
+    """
+    if not spans:
+        return []
+    
+    # Build a set of spans that should be excluded (completed, queued, or running)
+    processed_q = text(
+        """
+        SELECT entity, start_char, end_char
+        FROM pdx.ai_repair_processed_spans
+        WHERE page_uuid = :pid
+          AND entity_focus = :ef
+          AND status IN ('completed', 'queued', 'running')
+        """
+    )
+    processed_rows = conn.execute(
+        processed_q,
+        {
+            "pid": page_uuid,
+            "ef": entity_focus,
+        },
+    ).mappings().fetchall()
+    
+    processed_set = {
+        (r["entity"], r["start_char"], r["end_char"])
+        for r in processed_rows
+    }
+    
+    # Filter out spans that are completed, queued, or running
+    return [
+        span
+        for span in spans
+        if (span.entity, span.start_char, span.end_char) not in processed_set
+    ]
 
 
 def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
@@ -246,6 +350,9 @@ def _insert_requests(
     """
     lines_meta: emitted by build_jsonl_lines_for_page(), one dict per custom_id:
         {request_id, page_uuid, mode, excerpt_start, excerpt_end}
+    
+    Only inserts new requests or updates requests with terminal statuses.
+    Does not overwrite requests that are already queued or running.
     """
     q = text(
         """
@@ -254,8 +361,14 @@ def _insert_requests(
         VALUES
             (:rid, :bid, :pid, :mode, :xs, :xe, :ts, 'queued')
         ON DUPLICATE KEY UPDATE
-            batch_id = VALUES(batch_id),
-            status   = 'queued'
+            batch_id = CASE
+                WHEN status IN ('queued', 'running') THEN batch_id
+                ELSE VALUES(batch_id)
+            END,
+            status = CASE
+                WHEN status IN ('queued', 'running') THEN status
+                ELSE 'queued'
+            END
         """
     )
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -274,6 +387,55 @@ def _insert_requests(
         )
 
 
+def _insert_processed_spans(
+    conn: Connection,
+    batch_id: str,
+    request_id: str,
+    page_uuid: str,
+    spans: List[UncertainSpan],
+    entity_focus: str,
+    confidence_threshold: float,
+) -> None:
+    """
+    Record which spans are being processed in this request.
+    """
+    if not spans:
+        return
+    
+    q = text(
+        """
+        INSERT INTO pdx.ai_repair_processed_spans
+            (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold,
+             request_id, batch_id, status, created_at)
+        VALUES
+            (:pid, :entity, :start, :end, :ef, :ct, :rid, :bid, 'queued', :ts)
+        ON DUPLICATE KEY UPDATE
+            request_id = VALUES(request_id),
+            batch_id = VALUES(batch_id),
+            status = CASE
+                WHEN status IN ('queued', 'running') THEN status
+                ELSE VALUES(status)
+            END
+        """
+    )
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for span in spans:
+        _ = conn.execute(
+            q,
+            {
+                "pid": page_uuid,
+                "entity": span.entity,
+                "start": span.start_char,
+                "end": span.end_char,
+                "ef": entity_focus,
+                "ct": confidence_threshold,
+                "rid": request_id,
+                "bid": batch_id,
+                "ts": now,
+            },
+        )
+
+
 def _mark_completed(conn: Connection, request_ids: Set[str]) -> None:
     if not request_ids:
         return
@@ -281,6 +443,12 @@ def _mark_completed(conn: Connection, request_ids: Set[str]) -> None:
         bindparam("ids", expanding=True)
     )
     _ = conn.execute(q, {"ids": list(request_ids)})
+    
+    # Also mark processed spans as completed
+    q_spans = text(
+        "UPDATE pdx.ai_repair_processed_spans SET status = 'completed' WHERE request_id IN :ids"
+    ).bindparams(bindparam("ids", expanding=True))
+    _ = conn.execute(q_spans, {"ids": list(request_ids)})
 
 
 @dg.asset(deps=[], name="4-1_ai_repair_enqueue_asset")
@@ -320,7 +488,12 @@ def ai_repair_enqueue_asset(
             refresh_summary_data(context, db)
             return
 
-        candidates = _fetch_candidates(conn, agreement_limit=batch_size)
+        candidates = _fetch_candidates(
+            conn,
+            agreement_limit=batch_size,
+            entity_focus=entity_focus,
+            confidence_threshold=confidence_threshold,
+        )
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
             refresh_summary_data(context, db)
@@ -331,6 +504,8 @@ def ai_repair_enqueue_asset(
         jsonl_excerpt_buf = io.StringIO()
         lines_meta_full: List[Dict[str, Any]] = []
         lines_meta_excerpt: List[Dict[str, Any]] = []
+        # Track which spans are included in each request: request_id -> List[UncertainSpan]
+        spans_by_request: Dict[str, List[UncertainSpan]] = {}
 
         for row in candidates:
             page_uuid = row["page_uuid"]
@@ -344,9 +519,19 @@ def ai_repair_enqueue_asset(
             if not focused_spans:
                 continue
 
+            # Filter out spans that have already been processed with these parameters
+            unprocessed_spans = _filter_already_processed_spans(
+                conn,
+                page_uuid,
+                focused_spans,
+                entity_focus,
+            )
+            if not unprocessed_spans:
+                continue
+
             decision: RepairDecision = decide_repair_windows(
                 text=text,
-                uncertain_spans=focused_spans,
+                uncertain_spans=unprocessed_spans,
             )
 
             if decision.mode == "full":
@@ -355,24 +540,38 @@ def ai_repair_enqueue_asset(
                     text=text,
                     decision=decision,
                     model=full_page_model,
-                    uncertain_spans=focused_spans,
+                    uncertain_spans=unprocessed_spans,
                 )
                 for line in batch_lines:
                     _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
                 lines_meta_full.extend(metas)
+                # For full-page mode, all unprocessed_spans are included
+                for meta in metas:
+                    spans_by_request[meta["request_id"]] = unprocessed_spans
             elif decision.mode == "excerpt":
                 batch_lines, metas = build_jsonl_lines_for_page(
                     page_uuid=page_uuid,
                     text=text,
                     decision=decision,
                     model=excerpt_model,
-                    uncertain_spans=focused_spans,
+                    uncertain_spans=unprocessed_spans,
                 )
                 for line in batch_lines:
                     _ = jsonl_excerpt_buf.write(
                         json.dumps(line, ensure_ascii=False) + "\n"
                     )
                 lines_meta_excerpt.extend(metas)
+                # For excerpt mode, track which spans intersect with each window
+                for meta in metas:
+                    cs = meta["excerpt_start"]
+                    ce = meta["excerpt_end"]
+                    # Find spans that intersect with this excerpt window
+                    intersecting_spans = [
+                        span
+                        for span in unprocessed_spans
+                        if span.start_char < ce and span.end_char > cs
+                    ]
+                    spans_by_request[meta["request_id"]] = intersecting_spans
             else:
                 raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
 
@@ -397,6 +596,26 @@ def ai_repair_enqueue_asset(
             request_total = len(lines_meta)
             _insert_batch_row(conn, batch, batch_completion_window, request_total)
             _insert_requests(conn, batch.id, lines_meta)
+            
+            # Record which spans are being processed in each request
+            for meta in lines_meta:
+                request_id = meta["request_id"]
+                page_uuid = meta["page_uuid"]
+                if request_id not in spans_by_request:
+                    raise ValueError(
+                        f"Missing span tracking for request {request_id}, page {page_uuid}. "
+                        + "This indicates a bug in the span tracking logic."
+                    )
+                spans_for_request = spans_by_request[request_id]
+                _insert_processed_spans(
+                    conn,
+                    batch.id,
+                    request_id,
+                    page_uuid,
+                    spans_for_request,
+                    entity_focus,
+                    confidence_threshold,
+                )
 
             context.log.info(
                 f"Enqueued OpenAI Batch {batch.id} ({label}) with {request_total} requests; input_file_id={in_file.id}"
@@ -440,19 +659,31 @@ def _bulk_update_status(conn: Connection, request_ids: Set[str], status: str) ->
         "UPDATE pdx.ai_repair_requests SET status = :st WHERE request_id IN :ids"
     ).bindparams(bindparam("ids", expanding=True))
     _ = conn.execute(q, {"st": status, "ids": list(request_ids)})
+    
+    # Also update processed spans status
+    q_spans = text(
+        "UPDATE pdx.ai_repair_processed_spans SET status = :st WHERE request_id IN :ids"
+    ).bindparams(bindparam("ids", expanding=True))
+    _ = conn.execute(q_spans, {"st": status, "ids": list(request_ids)})
 
 
 def _extract_message_text(body: Dict[str, Any]) -> str:
     """Pull the assistant message first text block from body.output."""
     output = body["output"]
+    if not isinstance(output, list):
+        raise ValueError(f"Expected body.output to be a list, got {type(output).__name__}")
     msg_blocks = [o for o in output if o.get("type") == "message"]
     if not msg_blocks:
         raise ValueError("No assistant message block in output.")
     contents = msg_blocks[0]["content"]
+    if not isinstance(contents, list):
+        raise ValueError(f"Expected message content to be a list, got {type(contents).__name__}")
     text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
     if not text_items:
         raise ValueError("Assistant message has no text content.")
     raw_text = text_items[0]["text"]
+    if not isinstance(raw_text, str):
+        raise ValueError(f"Expected text to be a string, got {type(raw_text).__name__}")
     return raw_text
 
 
@@ -574,6 +805,9 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
             mark_running = text(
                 "UPDATE pdx.ai_repair_requests SET status='running' WHERE batch_id=:bid AND status='queued'"
             )
+            mark_running_spans = text(
+                "UPDATE pdx.ai_repair_processed_spans SET status='running' WHERE batch_id=:bid AND status='queued'"
+            )
 
             for r in rows:
                 bid = r["batch_id"]
@@ -596,6 +830,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
 
                 if b.status not in ("completed", "failed", "cancelled", "expired"):
                     _ = conn.execute(mark_running, {"bid": bid})
+                    _ = conn.execute(mark_running_spans, {"bid": bid})
                     done = completed + failed
                     pct = int((done / total) * 100) if total else 0
                     running_progress.append(
@@ -653,7 +888,18 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                                     success_ids.add(rid2)
                                 else:
                                     raise ValueError(f"Unexpected request mode {mode!r} for {rid}.")
-                            except Exception:
+                            except (ValueError, KeyError, TypeError) as e:
+                                # Parse errors: malformed JSON, missing fields, type mismatches
+                                context.log.warning(
+                                    f"Batch {bid}: parse error for request {rid}: {e}"
+                                )
+                                parse_error_ids.add(rid)
+                            except Exception as e:
+                                # Unexpected errors: log and mark as parse error
+                                context.log.error(
+                                    f"Batch {bid}: unexpected error parsing request {rid}: {e}",
+                                    exc_info=True,
+                                )
                                 parse_error_ids.add(rid)
                     else:
                         context.log.warning(f"Batch {bid} has empty output content.")
