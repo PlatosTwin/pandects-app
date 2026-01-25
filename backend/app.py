@@ -39,6 +39,7 @@ from sqlalchemy import (
     TEXT,
     text,
     or_,
+    and_,
     func,
     cast as sql_cast,
     desc,
@@ -2205,8 +2206,30 @@ def _agreement_year_expr():
 
 
 def _xml_agreements_subquery():
+    """
+    Returns subquery of agreements that have XML.
+    Filters to only the latest version of XML for each agreement.
+    """
+    # Subquery to get max version for each agreement
+    max_version_sq = (
+        db.session.query(
+            XML.agreement_uuid,
+            func.max(XML.version).label("max_version")
+        )
+        .group_by(XML.agreement_uuid)
+        .subquery()
+    )
+    
+    # Main query: get agreements where XML version is the max version
     return (
         db.session.query(XML.agreement_uuid.distinct().label("agreement_uuid"))
+        .join(
+            max_version_sq,
+            and_(
+                XML.agreement_uuid == max_version_sq.c.agreement_uuid,
+                XML.version == max_version_sq.c.max_version
+            )
+        )
         .subquery()
     )
 
@@ -2347,6 +2370,9 @@ class SearchArgsSchema(Schema):
     transactionSize = fields.List(fields.Str(), load_default=[])
     transactionType = fields.List(fields.Str(), load_default=[])
     considerationType = fields.List(fields.Str(), load_default=[])
+    # Text filters
+    agreementUuid = fields.Str(load_default=None, allow_none=True)
+    sectionUuid = fields.Str(load_default=None, allow_none=True)
     # Sort parameters
     sortBy = fields.Str(load_default="year", validate=lambda x: x in ["year", "target", "acquirer"])
     sortDirection = fields.Str(load_default="desc", validate=lambda x: x in ["asc", "desc"])
@@ -2952,6 +2978,9 @@ class SearchResource(MethodView):
         purposes = args["purpose"]
         target_pes = args["targetPe"]
         acquirer_pes = args["acquirerPe"]
+        # Text filters
+        agreement_uuid = args["agreementUuid"]
+        section_uuid = args["sectionUuid"]
         # Legacy filters (kept for backward compatibility)
         transaction_sizes = args["transactionSize"]
         transaction_types = args["transactionType"]
@@ -3179,6 +3208,14 @@ class SearchResource(MethodView):
                     db_acquirer_pes.append(0)
             if db_acquirer_pes:
                 q = q.filter(Agreements.acquirer_pe.in_(db_acquirer_pes))
+
+        # Agreement UUID filter
+        if agreement_uuid and agreement_uuid.strip():
+            q = q.filter(Agreements.agreement_uuid == agreement_uuid.strip())
+
+        # Section UUID filter
+        if section_uuid and section_uuid.strip():
+            q = q.filter(Sections.section_uuid == section_uuid.strip())
 
         # Apply sorting based on sort_by and sort_direction
         if sort_by == "year":

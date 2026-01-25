@@ -23,6 +23,8 @@ export interface SearchFilters {
   purpose?: string[];
   targetPe?: string[];
   acquirerPe?: string[];
+  agreementUuid?: string;
+  sectionUuid?: string;
   page?: number;
   pageSize?: number;
 }

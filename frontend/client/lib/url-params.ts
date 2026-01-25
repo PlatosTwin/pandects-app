@@ -130,6 +130,15 @@ export const buildSearchParams = (
     searchFilters.acquirerPe.forEach((pe) => params.append("acquirerPe", pe));
   }
 
+  // Text filters (single values, not arrays)
+  if (searchFilters.agreementUuid && searchFilters.agreementUuid.trim()) {
+    params.append("agreementUuid", searchFilters.agreementUuid.trim());
+  }
+
+  if (searchFilters.sectionUuid && searchFilters.sectionUuid.trim()) {
+    params.append("sectionUuid", searchFilters.sectionUuid.trim());
+  }
+
   void clauseTypesNested;
   // Send selected taxonomy IDs directly.
   if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {

@@ -128,6 +128,19 @@ export function useSearch() {
     [],
   );
 
+  const setTextFilterValue = useCallback(
+    (field: keyof SearchFilters, value: string) => {
+      if (field === "page" || field === "pageSize") return;
+
+      const trimmedValue = value.trim();
+      setFilters((prev) => ({
+        ...prev,
+        [field]: trimmedValue || undefined,
+      }));
+    },
+    [],
+  );
+
   const setSortDirectionDirect = useCallback((direction: "asc" | "desc") => {
     setSortDirection(direction);
   }, []);
@@ -435,6 +448,8 @@ export function useSearch() {
       purpose: [],
       targetPe: [],
       acquirerPe: [],
+      agreementUuid: undefined,
+      sectionUuid: undefined,
       page: DEFAULT_PAGE,
       pageSize: DEFAULT_PAGE_SIZE,
     });
@@ -554,6 +569,7 @@ export function useSearch() {
       updateFilter,
       hydrateFilters,
       toggleFilterValue,
+      setTextFilterValue,
       performSearch,
       downloadCSV,
       clearFilters,

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
+import type { SearchFilters } from "@shared/search";
 import {
   Search as SearchIcon,
   Download,
@@ -71,6 +72,7 @@ export default function Search() {
 
   const {
     toggleFilterValue,
+    setTextFilterValue,
     performSearch,
     downloadCSV,
     clearFilters,
@@ -92,7 +94,15 @@ export default function Search() {
         filter_value: value.substring(0, 50), // truncate long values
         current_filters: Object.keys(filters).length,
       });
-      toggleFilterValue(field, value);
+      toggleFilterValue(field as keyof SearchFilters, value);
+    },
+    setTextFilterValue: (field: string, value: string) => {
+      trackEvent("search_filter_change", {
+        filter_field: field,
+        filter_value: value.substring(0, 50), // truncate long values
+        current_filters: Object.keys(filters).length,
+      });
+      setTextFilterValue(field as keyof SearchFilters, value);
     },
     performSearch: (force?: boolean) => {
       if (force || !hasSearched) {
@@ -138,7 +148,7 @@ export default function Search() {
         sort_field: field,
         sort_direction: currentSort === field ? "reversed" : "initial",
       });
-      sortResults(field);
+      sortResults(field as "year" | "target" | "acquirer");
     },
     toggleSortDirection: () => {
       trackEvent("search_sort_direction_toggle", {
@@ -342,6 +352,7 @@ export default function Search() {
               isLoadingFilterOptions={isLoadingFilterOptions}
               isLoadingTaxonomy={isLoadingTaxonomy}
               onToggleFilterValue={toggleFilterValue}
+              onTextFilterChange={trackingActions.setTextFilterValue}
               onClearFilters={clearFilters}
               onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
               isCollapsed={sidebarCollapsed}
@@ -398,6 +409,7 @@ export default function Search() {
                         isLoadingFilterOptions={isLoadingFilterOptions}
                         isLoadingTaxonomy={isLoadingTaxonomy}
                         onToggleFilterValue={toggleFilterValue}
+                        onTextFilterChange={trackingActions.setTextFilterValue}
                         onClearFilters={clearFilters}
                       />
                     </Suspense>
@@ -512,7 +524,9 @@ export default function Search() {
             filters.dealType.length > 0 ||
             filters.purpose.length > 0 ||
             filters.targetPe.length > 0 ||
-            filters.acquirerPe.length > 0) && (
+            filters.acquirerPe.length > 0 ||
+            filters.agreementUuid ||
+            filters.sectionUuid) && (
             <div className="border-b border-border px-4 py-3 sm:px-8">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
@@ -585,6 +599,45 @@ export default function Search() {
                       </Badge>
                     );
                   })
+                )}
+
+                {/* Text filters */}
+                {filters.agreementUuid && (
+                  <Badge
+                    key="agreementUuid"
+                    variant="outline"
+                    className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
+                  >
+                    <span className="text-muted-foreground">Agreement UUID:</span>
+                    <span className="truncate">{filters.agreementUuid}</span>
+                    <button
+                      type="button"
+                      onClick={() => trackingActions.setTextFilterValue("agreementUuid", "")}
+                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      aria-label={`Remove Agreement UUID filter: ${filters.agreementUuid}`}
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </Badge>
+                )}
+
+                {filters.sectionUuid && (
+                  <Badge
+                    key="sectionUuid"
+                    variant="outline"
+                    className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
+                  >
+                    <span className="text-muted-foreground">Section UUID:</span>
+                    <span className="truncate">{filters.sectionUuid}</span>
+                    <button
+                      type="button"
+                      onClick={() => trackingActions.setTextFilterValue("sectionUuid", "")}
+                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      aria-label={`Remove Section UUID filter: ${filters.sectionUuid}`}
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </Badge>
                 )}
 
                 <div className="ml-auto">

@@ -15,6 +15,7 @@ import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
+import { TextFilter } from "@/components/TextFilter";
 import { Button } from "@/components/ui/button";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -41,6 +42,8 @@ interface SearchSidebarProps {
     purpose?: string[];
     targetPe?: string[];
     acquirerPe?: string[];
+    agreementUuid?: string;
+    sectionUuid?: string;
   };
   years: string[];
   targets: string[];
@@ -52,6 +55,7 @@ interface SearchSidebarProps {
   isLoadingFilterOptions: boolean;
   isLoadingTaxonomy: boolean;
   onToggleFilterValue: (field: string, value: string) => void;
+  onTextFilterChange: (field: string, value: string) => void;
   onClearFilters: () => void;
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
@@ -71,6 +75,7 @@ export function SearchSidebar({
   isLoadingFilterOptions,
   isLoadingTaxonomy,
   onToggleFilterValue,
+  onTextFilterChange,
   onClearFilters,
   onToggleCollapse,
   isCollapsed = false,
@@ -391,6 +396,26 @@ export function SearchSidebar({
           hideSearch={true}
           disabled={true}
           formatValues={true}
+        />
+      </div>
+
+      {/* Agreement UUID Filter */}
+      <div>
+        <TextFilter
+          label="Agreement UUID"
+          value={filters.agreementUuid || ""}
+          onChange={(value) => onTextFilterChange("agreementUuid", value)}
+          placeholder="Enter agreement UUID"
+        />
+      </div>
+
+      {/* Section UUID Filter */}
+      <div>
+        <TextFilter
+          label="Section UUID"
+          value={filters.sectionUuid || ""}
+          onChange={(value) => onTextFilterChange("sectionUuid", value)}
+          placeholder="Enter section UUID"
         />
       </div>
     </div>
