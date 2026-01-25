@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ChevronDown,
 } from "lucide-react";
+import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
 import { XMLRenderer } from "./XMLRenderer";
@@ -466,16 +467,24 @@ export function AgreementModal({
               )}
             </div>
 
-            <Button
-              ref={closeButtonRef}
-              onClick={onClose}
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 text-muted-foreground hover:text-foreground"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" aria-hidden="true" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <FlagAsInaccurateButton
+                source="agreement_view"
+                agreementUuid={agreementUuid}
+                className="shrink-0"
+                tooltipSide="left"
+              />
+              <Button
+                ref={closeButtonRef}
+                onClick={onClose}
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         </div>
 

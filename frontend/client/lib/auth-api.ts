@@ -126,3 +126,17 @@ export async function verifyEmail(token: string) {
     body: JSON.stringify({ token }),
   });
 }
+
+export type FlagInaccurateSource = "search_result" | "agreement_view";
+
+export async function flagAsInaccurate(payload: {
+  source: FlagInaccurateSource;
+  agreementUuid: string;
+  sectionUuid?: string;
+}) {
+  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/flag-inaccurate"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}

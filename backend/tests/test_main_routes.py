@@ -59,11 +59,11 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
-                        "INSERT INTO xml (agreement_uuid, xml) VALUES "
+                        "INSERT INTO xml (agreement_uuid, xml, version, status) VALUES "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>HIDE</text></section>"
-                        "</article></document>')"
+                        "</article></document>', 1, NULL)"
                     )
                 )
                 conn.execute(

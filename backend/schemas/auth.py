@@ -37,3 +37,9 @@ class AuthDeleteAccountSchema(Schema):
 class AuthGoogleCredentialSchema(Schema):
     credential = fields.Str(required=True)
     legal = fields.Dict(required=False, allow_none=True)
+
+
+class AuthFlagInaccurateSchema(Schema):
+    source = fields.Str(required=True)
+    agreementUuid = fields.Str(required=True)
+    sectionUuid = fields.Str(required=False, allow_none=True)

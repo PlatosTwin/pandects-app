@@ -69,6 +69,7 @@ from backend.schemas.auth import (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
     AuthEmailSchema,
+    AuthFlagInaccurateSchema,
     AuthGoogleCredentialSchema,
     AuthLoginSchema,
     AuthPasswordResetSchema,
@@ -1022,6 +1023,42 @@ def _send_signup_notification_email(*, new_user_email: str) -> None:
         _send_resend_text_email(to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text)
 
 
+def _send_flag_notification_email(
+    *,
+    user_email: str,
+    submitted_at: datetime,
+    source: str,
+    agreement_uuid: str,
+    section_uuid: str | None,
+) -> None:
+    lines = [
+        "Pandects “Flag as inaccurate” submission",
+        "",
+        f"User: {user_email}",
+        f"Date/time (UTC): {submitted_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
+        f"Context: {source}",
+        f"Agreement UUID: {agreement_uuid}",
+    ]
+    if section_uuid:
+        lines.append(f"Section UUID: {section_uuid}")
+    text = "\n".join(lines)
+    subject = "Pandects: Flag as inaccurate"
+    api_key = _resend_api_key()
+    sender = _resend_from_email()
+    if api_key is None or sender is None:
+        if current_app.testing:
+            return
+        current_app.logger.warning(
+            "Flag notification skipped (missing RESEND_API_KEY/RESEND_FROM_EMAIL)."
+        )
+        return
+    if current_app.testing:
+        return
+    _send_resend_text_email(
+        to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text
+    )
+
+
 def _send_resend_template_email(
     *,
     to_email: str,
@@ -1891,6 +1928,7 @@ _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/password/forgot"): 5,
     ("POST", "/v1/auth/password/reset"): 10,
     ("POST", "/v1/auth/google/credential"): 10,
+    ("POST", "/v1/auth/flag-inaccurate"): 10,
 }
 
 
@@ -2122,6 +2160,8 @@ else:
         metadata,
         Column("agreement_uuid", CHAR(36), primary_key=True),
         Column("xml", TEXT, nullable=True),
+        Column("version", Integer, nullable=True),
+        Column("status", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
     taxonomy_l1_table = Table(
@@ -2205,32 +2245,73 @@ def _agreement_year_expr():
     return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
 
 
-def _xml_agreements_subquery():
+def _xml_eligible_latest_subquery():
     """
-    Returns subquery of agreements that have XML.
-    Filters to only the latest version of XML for each agreement.
+    Returns subquery (agreement_uuid, version) for XML rows that are
+    latest per agreement and have pdx.xml.status IS NULL OR status = 'verified'.
     """
-    # Subquery to get max version for each agreement
+    status_ok = or_(XML.status.is_(None), XML.status == "verified")
     max_version_sq = (
         db.session.query(
             XML.agreement_uuid,
-            func.max(XML.version).label("max_version")
+            func.max(XML.version).label("max_version"),
         )
+        .filter(status_ok)
         .group_by(XML.agreement_uuid)
         .subquery()
     )
-    
-    # Main query: get agreements where XML version is the max version
     return (
-        db.session.query(XML.agreement_uuid.distinct().label("agreement_uuid"))
+        db.session.query(
+            XML.agreement_uuid.label("agreement_uuid"),
+            XML.version.label("version"),
+        )
         .join(
             max_version_sq,
             and_(
                 XML.agreement_uuid == max_version_sq.c.agreement_uuid,
-                XML.version == max_version_sq.c.max_version
-            )
+                XML.version == max_version_sq.c.max_version,
+            ),
         )
+        .filter(status_ok)
         .subquery()
+    )
+
+
+def _xml_agreements_subquery():
+    """
+    Returns subquery of agreement_uuids that have eligible XML
+    (latest version, pdx.xml.status IS NULL OR status = 'verified').
+    """
+    eligible = _xml_eligible_latest_subquery()
+    return (
+        db.session.query(eligible.c.agreement_uuid.distinct().label("agreement_uuid"))
+        .select_from(eligible)
+        .subquery()
+    )
+
+
+def _is_agreement_section_eligible(agreement_uuid: str, section_uuid: str | None) -> bool:
+    """True iff agreement has pdx.xml status null/verified and (if section_uuid) section exists."""
+    xml_agreements = _xml_agreements_subquery()
+    if not section_uuid:
+        return (
+            db.session.query(xml_agreements.c.agreement_uuid)
+            .filter(xml_agreements.c.agreement_uuid == agreement_uuid)
+            .first()
+            is not None
+        )
+    return (
+        db.session.query(Sections.section_uuid)
+        .join(
+            xml_agreements,
+            Sections.agreement_uuid == xml_agreements.c.agreement_uuid,
+        )
+        .filter(
+            Sections.agreement_uuid == agreement_uuid,
+            Sections.section_uuid == section_uuid,
+        )
+        .first()
+        is not None
     )
 
 
@@ -2493,8 +2574,9 @@ class AgreementResource(MethodView):
                 abort(400, description="Invalid focusSectionUuid.")
         neighbor_sections_int = args["neighborSections"]
 
-        # query year, target, acquirer, xml, url for this agreement_uuid
+        # Only serve agreements with pdx.xml status null or 'verified' (latest version).
         year_expr = _agreement_year_expr().label("year")
+        eligible = _xml_eligible_latest_subquery()
         row = (
             db.session.query(
                 year_expr,
@@ -2526,7 +2608,14 @@ class AgreementResource(MethodView):
                 Agreements.url,
                 XML.xml,
             )
-            .join(XML, XML.agreement_uuid == Agreements.agreement_uuid)
+            .join(eligible, Agreements.agreement_uuid == eligible.c.agreement_uuid)
+            .join(
+                XML,
+                and_(
+                    XML.agreement_uuid == eligible.c.agreement_uuid,
+                    XML.version == eligible.c.version,
+                ),
+            )
             .filter(Agreements.agreement_uuid == agreement_uuid)
             .first()
         )
@@ -2771,8 +2860,20 @@ def get_filter_options() -> tuple[Response, int] | Response:
         resp.headers["Cache-Control"] = f"public, max-age={_FILTER_OPTIONS_TTL_SECONDS}"
         return resp, 200
 
-    # Use EXISTS to avoid row explosion from joining into per-section tables.
-    # This keeps filter options aligned with the agreements that actually have searchable sections.
+    # Restrict to agreements with sections and with pdx.xml status null or 'verified'.
+    _xml_eligible = (
+        "EXISTS ("
+        "  SELECT 1 FROM {t}xml x "
+        "  WHERE x.agreement_uuid = a.agreement_uuid "
+        "    AND (x.status IS NULL OR x.status = 'verified')"
+        ")"
+    ).format(t=_schema_prefix())
+    _has_sections = (
+        "EXISTS ("
+        "  SELECT 1 FROM {t}sections s "
+        "  WHERE s.agreement_uuid = a.agreement_uuid"
+        ")"
+    ).format(t=_schema_prefix())
     targets = [
         row[0]
         for row in db.session.execute(
@@ -2782,11 +2883,8 @@ def get_filter_options() -> tuple[Response, int] | Response:
                 FROM {_schema_prefix()}agreements a
                 WHERE a.target IS NOT NULL
                   AND a.target <> ''
-                  AND EXISTS (
-                    SELECT 1
-                    FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.agreement_uuid
-                  )
+                  AND {_has_sections}
+                  AND {_xml_eligible}
                 ORDER BY a.target
                 """
             )
@@ -2801,17 +2899,13 @@ def get_filter_options() -> tuple[Response, int] | Response:
                 FROM {_schema_prefix()}agreements a
                 WHERE a.acquirer IS NOT NULL
                   AND a.acquirer <> ''
-                  AND EXISTS (
-                    SELECT 1
-                    FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.agreement_uuid
-                  )
+                  AND {_has_sections}
+                  AND {_xml_eligible}
                 ORDER BY a.acquirer
                 """
             )
         ).fetchall()
     ]
-    
     target_industries = [
         row[0]
         for row in db.session.execute(
@@ -2821,17 +2915,13 @@ def get_filter_options() -> tuple[Response, int] | Response:
                 FROM {_schema_prefix()}agreements a
                 WHERE a.target_industry IS NOT NULL
                   AND a.target_industry <> ''
-                  AND EXISTS (
-                    SELECT 1
-                    FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.agreement_uuid
-                  )
+                  AND {_has_sections}
+                  AND {_xml_eligible}
                 ORDER BY a.target_industry
                 """
             )
         ).fetchall()
     ]
-    
     acquirer_industries = [
         row[0]
         for row in db.session.execute(
@@ -2841,11 +2931,8 @@ def get_filter_options() -> tuple[Response, int] | Response:
                 FROM {_schema_prefix()}agreements a
                 WHERE a.acquirer_industry IS NOT NULL
                   AND a.acquirer_industry <> ''
-                  AND EXISTS (
-                    SELECT 1
-                    FROM {_schema_prefix()}sections s
-                    WHERE s.agreement_uuid = a.agreement_uuid
-                  )
+                  AND {_has_sections}
+                  AND {_xml_eligible}
                 ORDER BY a.acquirer_industry
                 """
             )

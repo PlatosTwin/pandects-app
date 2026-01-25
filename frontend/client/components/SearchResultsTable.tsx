@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useToast } from "@/components/ui/use-toast";
+import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import type { SearchResult } from "@shared/search";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -645,8 +646,14 @@ export function SearchResultsTable({
                       </div>
                     </div>
 
-                    {/* Actions: Open Agreement button (primary) */}
-                    <div className="flex items-center sm:ml-4 sm:justify-end">
+                    {/* Actions: Flag + Open Agreement */}
+                    <div className="flex items-center gap-1 sm:ml-4 sm:justify-end">
+                      <FlagAsInaccurateButton
+                        source="search_result"
+                        agreementUuid={result.agreementUuid}
+                        sectionUuid={result.sectionUuid}
+                        className="shrink-0"
+                      />
                       <Button
                         variant="outline"
                         size="sm"

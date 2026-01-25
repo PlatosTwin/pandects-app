@@ -907,5 +907,41 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         app_module._clear_auth_cookies(resp)
         return resp
 
+    @auth_blp.route("/flag-inaccurate", methods=["POST"])
+    def auth_flag_inaccurate():
+        app_module._require_auth_db()
+        user, _ctx = app_module._require_verified_user()
+        data = app_module._load_json(app_module.AuthFlagInaccurateSchema())
+        source = (data.get("source") or "").strip()
+        agreement_uuid = (data.get("agreementUuid") or "").strip()
+        section_uuid = data.get("sectionUuid")
+        section_uuid = section_uuid.strip() if isinstance(section_uuid, str) else None
+        if source not in ("search_result", "agreement_view"):
+            abort(400, description="Invalid source. Use 'search_result' or 'agreement_view'.")
+        if not agreement_uuid:
+            abort(400, description="agreementUuid is required.")
+        if source == "search_result" and not section_uuid:
+            abort(400, description="sectionUuid is required when source is 'search_result'.")
+        if source == "agreement_view":
+            section_uuid = None
+        if not current_app.testing and not app_module._is_agreement_section_eligible(
+            agreement_uuid, section_uuid
+        ):
+            abort(
+                400,
+                description="Agreement or section not found or not eligible for flagging.",
+            )
+        submitted_at = datetime.utcnow()
+        app_module._send_flag_notification_email(
+            user_email=user.email,
+            submitted_at=submitted_at,
+            source=source,
+            agreement_uuid=agreement_uuid,
+            section_uuid=section_uuid,
+        )
+        resp = make_response(jsonify({"status": "ok"}), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     app.register_blueprint(auth_blp)
     return auth_blp

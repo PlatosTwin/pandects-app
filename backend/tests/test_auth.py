@@ -263,6 +263,84 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 401)
 
+    def test_flag_inaccurate_requires_auth_and_validates(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            json={
+                "source": "search_result",
+                "agreementUuid": "a1",
+                "sectionUuid": "s1",
+            },
+        )
+        self.assertEqual(res.status_code, 401)
+
+        res = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "flag@example.com",
+                "password": "password123",
+                "legal": {
+                    "checkedAtMs": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        with self.app.app_context():
+            user = AuthUser.query.filter_by(email="flag@example.com").first()
+            self.assertIsNotNone(user)
+            token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+        res = client.post("/v1/auth/email/verify", json={"token": token})
+        self.assertEqual(res.status_code, 200)
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "flag@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIsInstance(payload, dict)
+        session_token = payload.get("sessionToken")
+        self.assertIsInstance(session_token, str)
+        headers = {"Authorization": f"Bearer {session_token}"}
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "search_result",
+                "agreementUuid": "a1",
+                "sectionUuid": "s1",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "ok"})
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={"source": "agreement_view", "agreementUuid": "a2"},
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={"source": "bad", "agreementUuid": "a1", "sectionUuid": "s1"},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={"source": "search_result", "agreementUuid": "a1"},
+        )
+        self.assertEqual(res.status_code, 400)
+
     def test_password_reset_flow(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
