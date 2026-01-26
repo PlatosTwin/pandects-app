@@ -111,7 +111,7 @@ def xml_asset(
                     p.agreement_uuid,
                     p.page_uuid,
                     p.page_order,
-                    p.source_page_type,
+                    coalesce(p.gold_label, p.source_page_type) as source_page_type,
                     coalesce(tgo.tagged_text_gold, tgo.tagged_text_corrected, tgo.tagged_text, p.processed_page_content) as tagged_output,
                     url,
                     acquirer,
