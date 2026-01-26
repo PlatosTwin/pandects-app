@@ -18,7 +18,7 @@ class AgreementRow(Protocol):
     filing_company_name: str | None
     filing_company_cik: str | None
     form_type: str | None
-    exhibit_type: str | None  # "2" or "10"
+    exhibit_type: str | None  # "2", "10", or "99"
     secondary_filing_url: str | None  # URL of duplicate filing if detected
 
 

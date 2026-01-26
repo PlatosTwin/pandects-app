@@ -65,7 +65,7 @@ If you're using `dg dev`, open the asset (or job) in the UI, click the arrow nea
 
 **Models**: This stage uses the [Page Classifier Model](etl/src/etl/models/page_classifier/) to classify pages into one of five classes: `front_matter`, `toc`, `body`, `sig`, `back_matter`.
 
-**Validation**: We manually validate all agreements where either:
+**Validation**: We do not process agreements unless they are Exhibit 2, 10, or 99 filings; this is relevant only to agreements from the DMA corpus, where 11 URLs point to other types of exhibit. Additionally, and more importantly, e manually validate all agreements where either:
 1. Page labels are applied out of order—e.g., `back_matter` comes before `sig`; or
 2. There is at least one low-confidence page prior to a high-confidence `sig` block (we trust that high-confidence `sig` blocks are accurate, and thus that all pages after the `sig` block are safely assumed to be `back_matter`). Agreements with pages flagged for validation do not get ingested until validated.
 
