@@ -54,6 +54,13 @@ def xml_asset(
                 conn.execute(
                     text(
                         """
+                        WITH latest_xml AS (
+                            SELECT
+                                agreement_uuid,
+                                MAX(created_date) AS created_date
+                            FROM pdx.xml
+                            GROUP BY agreement_uuid
+                        )
                         SELECT DISTINCT
                             a.agreement_uuid
                         FROM
@@ -62,7 +69,7 @@ def xml_asset(
                             ON p.agreement_uuid = a.agreement_uuid
                         LEFT JOIN pdx.tagged_outputs t
                             ON t.page_uuid = p.page_uuid
-                        LEFT JOIN pdx.xml x
+                        LEFT JOIN latest_xml x
                             ON x.agreement_uuid = a.agreement_uuid
                         WHERE a.agreement_uuid > :last_uuid
                         AND p.source_page_type = 'body'
@@ -77,7 +84,15 @@ def xml_asset(
                         )
                         AND (
                             x.agreement_uuid IS NULL
-                            OR t.updated_date > x.created_date
+                            OR EXISTS (
+                                SELECT 1
+                                FROM pdx.pages p_upd
+                                JOIN pdx.tagged_outputs t_upd
+                                    ON t_upd.page_uuid = p_upd.page_uuid
+                                WHERE p_upd.agreement_uuid = a.agreement_uuid
+                                AND p_upd.source_page_type = 'body'
+                                AND t_upd.updated_date > x.created_date
+                            )
                         )
                         GROUP BY a.agreement_uuid
                         HAVING
