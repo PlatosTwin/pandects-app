@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 from datasketch import MinHash, MinHashLSH
 
-import pandas as pd
+# import pandas as pd  # Only needed for DMA corpus flow (commented out)
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -32,15 +32,16 @@ class FilingMetadata:
     """Metadata for a filing document.
     
     Supports two schemas:
-    - DMA corpus: has target, acquirer, filing_date as datetime
+    - DMA corpus: has target, acquirer, announce_date, filing_date as None (no SEC filing date available)
     - SEC index: has prob_filing, filing_company_name, filing_company_cik, form_type, filing_date as str
     """
     agreement_uuid: str
     url: str
-    filing_date: datetime.datetime | str  # datetime for DMA corpus, str (YYYYMMDD) for SEC index
+    filing_date: datetime.datetime | str | None = None  # str (YYYYMMDD) for SEC index, None for DMA corpus
     # DMA corpus fields (optional for SEC index flow)
     target: str | None = None
     acquirer: str | None = None
+    announce_date: datetime.datetime | None = None  # Deal announcement date (from DMA corpus)
     # SEC index fields (optional for DMA corpus flow)
     prob_filing: float | None = None
     filing_company_name: str | None = None
@@ -107,62 +108,67 @@ class IndexFiling(TypedDict):
     file_name: str
 
 
-def fetch_new_filings_dma_corpus(since: str) -> list[FilingMetadata]:
-    """
-    Fetch new filings from the DMA corpus (legacy/testing flow).
-
-    This function uses a local DMA corpus CSV file for testing purposes.
-    For production use, use fetch_new_filings_sec_index instead.
-
-    Args:
-        since: Date string to filter filings from.
-
-    Returns:
-        List of FilingMetadata objects.
-    """
-    df = pd.read_csv(
-        "/Users/nikitabogdanov/PycharmProjects/merger_agreements/dma_corpus/dma_corpus_metadata_250_sample.csv",
-        usecols=cast(Any, ["target", "acquirer", "date_announcement", "url", "filename"]),
-        parse_dates=cast(Any, ["date_announcement"]),
-    )
-
-    # Drop duplicate filings by filename
-    df.drop_duplicates(subset="filename", inplace=True)
-
-    # Keep only filings announced after `since`
-    cutoff = pd.to_datetime(since)
-    df = df[df["date_announcement"] > cutoff]
-
-    # # Sort oldest first and take only the 10 oldest new filings
-    # df.sort_values("date_announcement", ascending=True, inplace=True)
-    # # df = df.head(10)
-    # df = df.sample(frac=0.25)
-
-    # Build our results list via a memory‑light iterator
-    results: list[FilingMetadata] = []
-    for row in df.itertuples(index=False):
-        # Cast to Any to work around pandas-stubs typing limitations with itertuples
-        r = cast(Any, row)
-        date_ann = r.date_announcement
-        if isinstance(date_ann, pd.Timestamp):
-            filing_date = date_ann.to_pydatetime()
-        elif isinstance(date_ann, datetime.datetime):
-            filing_date = date_ann
-        else:
-            raise TypeError(
-                f"Unexpected date_announcement type: {type(date_ann).__name__}"
-            )
-        results.append(
-            FilingMetadata(
-                agreement_uuid=get_uuid(str(r.filename)),
-                url=str(r.url),
-                filing_date=filing_date,
-                target=str(r.target),
-                acquirer=str(r.acquirer),
-            )
-        )
-
-    return results
+# DMA corpus flow (commented out - use SEC index flow instead)
+# def fetch_new_filings_dma_corpus(since: str | None = None) -> list[FilingMetadata]:
+#     """
+#     Fetch new filings from the DMA corpus (legacy/testing flow).
+#
+#     This function uses a local DMA corpus CSV file for testing purposes.
+#     For production use, use fetch_new_filings_sec_index instead.
+#
+#     Args:
+#         since: Optional date string to filter filings from. If None, returns all rows.
+#
+#     Returns:
+#         List of FilingMetadata objects.
+#     """
+#     df = pd.read_csv(
+#         "/Users/nikitabogdanov/PycharmProjects/merger_agreements/dma_corpus/dma_corpus_metadata.csv",
+#         usecols=cast(Any, ["target", "acquirer", "date_announcement", "url", "filename"]),
+#         parse_dates=cast(Any, ["date_announcement"]),
+#     )
+#
+#     # Drop duplicate filings by filename
+#     df.drop_duplicates(subset="filename", inplace=True)
+#
+#     # Keep only filings announced after `since` (if provided)
+#     if since is not None:
+#         cutoff = pd.to_datetime(since)
+#         df = df[df["date_announcement"] > cutoff]
+#
+#     # # Sort oldest first and take only the 10 oldest new filings
+#     # df.sort_values("date_announcement", ascending=True, inplace=True)
+#     # # df = df.head(10)
+#     # df = df.sample(frac=0.25)
+#
+#     # Build our results list via a memory‑light iterator
+#     results: list[FilingMetadata] = []
+#     for row in df.itertuples(index=False):
+#         # Cast to Any to work around pandas-stubs typing limitations with itertuples
+#         r = cast(Any, row)
+#         # Note: date_announcement from DMA corpus is NOT the filing_date
+#         # We don't have the actual SEC filing date in DMA corpus, so set filing_date to None
+#         date_ann = r.date_announcement
+#         if isinstance(date_ann, pd.Timestamp):
+#             announce_date = date_ann.to_pydatetime()
+#         elif isinstance(date_ann, datetime.datetime):
+#             announce_date = date_ann
+#         else:
+#             raise TypeError(
+#                 f"Unexpected date_announcement type: {type(date_ann).__name__}"
+#             )
+#         results.append(
+#             FilingMetadata(
+#                 agreement_uuid=get_uuid(str(r.filename)),
+#                 url=str(r.url),
+#                 # filing_date defaults to None for DMA corpus (no SEC filing date available)
+#                 target=str(r.target),
+#                 acquirer=str(r.acquirer),
+#                 announce_date=announce_date,  # Set announcement date from DMA corpus
+#             )
+#         )
+#
+#     return results
 
 
 # MinHash parameters for near-duplicate detection

@@ -63,6 +63,7 @@ def refresh_summary_data(
                 FROM (
                     SELECT DISTINCT agreement_uuid
                     FROM {xml_table}
+                    WHERE status IS NULL OR status = 'verified'
                 ) AS x
                 JOIN {agreements_table} AS a
                     ON a.agreement_uuid = x.agreement_uuid
@@ -72,6 +73,7 @@ def refresh_summary_data(
                     WHERE p.agreement_uuid IN (
                         SELECT DISTINCT agreement_uuid
                         FROM {xml_table}
+                        WHERE status IS NULL OR status = 'verified'
                     )
                     GROUP BY p.agreement_uuid
                 ) AS p
@@ -82,6 +84,7 @@ def refresh_summary_data(
                     WHERE s.agreement_uuid IN (
                         SELECT DISTINCT agreement_uuid
                         FROM {xml_table}
+                        WHERE status IS NULL OR status = 'verified'
                     )
                     GROUP BY s.agreement_uuid
                 ) AS s

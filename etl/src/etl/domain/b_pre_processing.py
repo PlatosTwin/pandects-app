@@ -296,12 +296,50 @@ def strip_formatting_tags(
             continue
         _ = tag.attrs.pop("style", None)
 
-    # Unwrap every formatting tag (don't strip its inner whitespace)
+    # Unwrap every formatting tag (preserve whitespace around tags)
     for tag_name in remove_tags:
-        for tag in soup.find_all(tag_name):
+        for tag in list(soup.find_all(tag_name)):
             if not isinstance(tag, Tag):
                 continue
-            _ = tag.unwrap()
+            # Get the text content of the tag
+            tag_text = tag.get_text()
+            
+            # Check adjacent siblings to determine if we need to add spaces
+            prev_sibling = tag.previous_sibling
+            next_sibling = tag.next_sibling
+            
+            # Check if we need a space before the tag content
+            # Only add space if previous sibling is text that doesn't end with whitespace
+            # and tag text doesn't start with whitespace
+            needs_space_before = False
+            if isinstance(prev_sibling, NavigableString):
+                prev_text = str(prev_sibling)
+                if prev_text.strip():  # Previous sibling has non-whitespace content
+                    prev_ends_space = prev_text.rstrip() != prev_text  # Ends with whitespace
+                    tag_starts_space = tag_text and tag_text.lstrip() != tag_text  # Starts with whitespace
+                    if not prev_ends_space and not tag_starts_space:
+                        needs_space_before = True
+            
+            # Check if we need a space after the tag content
+            # Only add space if next sibling is text that doesn't start with whitespace
+            # and tag text doesn't end with whitespace
+            needs_space_after = False
+            if isinstance(next_sibling, NavigableString):
+                next_text = str(next_sibling)
+                if next_text.strip():  # Next sibling has non-whitespace content
+                    next_starts_space = next_text.lstrip() != next_text  # Starts with whitespace
+                    tag_ends_space = tag_text and tag_text.rstrip() != tag_text  # Ends with whitespace
+                    if not next_starts_space and not tag_ends_space:
+                        needs_space_after = True
+            
+            # Add spaces if needed
+            if needs_space_before:
+                tag_text = ' ' + tag_text
+            if needs_space_after:
+                tag_text = tag_text + ' '
+            
+            # Replace the tag with its text content
+            tag.replace_with(NavigableString(tag_text))
 
     # Normalize any non-breaking spaces into real spaces
     for node in soup.find_all(string=True):
@@ -412,9 +450,11 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
             for cell in cells:
                 if not isinstance(cell, Tag):
                     continue
-                # Pull all text without auto-spaces, then collapse whitespace
-                raw = cell.get_text(separator="", strip=True)
-                clean = re.sub(r"\s+", " ", raw)
+                # Extract text using space separator to preserve spacing around formatting tags
+                # This ensures that text nodes separated by tags get spaces between them
+                raw = cell.get_text(separator=" ", strip=False)
+                # Collapse multiple whitespace to single space
+                clean = re.sub(r"\s+", " ", raw).strip()
                 if clean:
                     texts.append(clean)
             if texts:
@@ -469,7 +509,8 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
     """
     if is_txt:
         fragments = re.split(r"<PAGE>", content)
-        return [{"content": page, "order": i} for i, page in enumerate(fragments)]
+        # Filter out entirely empty fragments but preserve original order indices
+        return [{"content": page, "order": i} for i, page in enumerate(fragments) if page.strip()]
     elif is_html:
         soup = BeautifulSoup(content, "html.parser")
 
@@ -527,7 +568,8 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
             r'(?i)<hr\b[^>]*\bdata-page-break\s*=\s*"true"[^>]*>', normalized
         )
 
-        return [{"content": frag} for frag in fragments]
+        # Filter out entirely empty fragments (from consecutive page breaks or page breaks at start/end)
+        return [{"content": frag} for frag in fragments if frag.strip()]
     else:
         raise RuntimeError("Unknown page source type.")
 

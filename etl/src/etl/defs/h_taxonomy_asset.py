@@ -140,10 +140,15 @@ def taxonomy_asset(
                 conn.execute(
                     text(
                         """
-                        SELECT agreement_uuid, xml
-                        FROM pdx.xml
-                        WHERE agreement_uuid IN :agreements
-                          AND is_latest_version = 1
+                        SELECT m.agreement_uuid, m.xml, m.version
+                        FROM pdx.xml m
+                        INNER JOIN (
+                            SELECT agreement_uuid, MAX(version) as max_version
+                            FROM pdx.xml
+                            GROUP BY agreement_uuid
+                        ) AS latest ON m.agreement_uuid = latest.agreement_uuid
+                            AND m.version = latest.max_version
+                        WHERE m.agreement_uuid IN :agreements
                         """
                     ),
                     {"agreements": tuple(agr_list)},
@@ -156,11 +161,17 @@ def taxonomy_asset(
             for r in xml_rows:
                 agr_uuid = r["agreement_uuid"]
                 xml_str = r["xml"]
+                xml_version = r.get("version", 1)  # Get the existing version
                 mapping = by_agr.get(agr_uuid, {})
                 if not mapping:
                     continue
                 new_xml = apply_standard_ids_to_xml(xml_str, mapping)
-                staged_xml.append(XMLData(agreement_uuid=agr_uuid, xml=new_xml))
+                # Preserve the existing version—taxonomy updates don't increment
+                staged_xml.append(XMLData(
+                    agreement_uuid=agr_uuid,
+                    xml=new_xml,
+                    version=xml_version
+                ))
 
             if staged_xml:
                 upsert_xml(staged_xml, conn)

@@ -5,6 +5,7 @@ resources:
       scope: batched
       tagging_agreement_batch_size: 10
       xml_agreement_batch_size: 10
+      sections_agreement_batch_size: 10
       taxonomy_agreement_batch_size: 10
       ai_repair_agreement_batch_size: 10
       ai_repair_entity_focus: o

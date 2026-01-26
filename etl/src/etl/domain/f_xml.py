@@ -14,11 +14,42 @@ class XMLData:
 
     agreement_uuid: str
     xml: str
+    version: int
 
 
 def get_uuid(x: str) -> str:
     """Generate a UUID5 hash from the input string."""
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
+
+
+SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
+SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
+ARTICLE_TAG_RE = re.compile(r"<article\b")
+
+
+def strip_subsection_section_tags(tagged_text: str) -> str:
+    """
+    Remove <section> tags from subsection headings like 1.2.3 or 1.2.3.4.
+
+    Args:
+        tagged_text: Tagged text that may include <section> headings.
+
+    Returns:
+        Tagged text with subsection <section> tags removed.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        inner = match.group(1)
+        if SUBSECTION_NUMBER_RE.search(inner):
+            return inner
+        return match.group(0)
+
+    return SECTION_TAG_RE.sub(replace, tagged_text)
+
+
+def count_article_tags(tagged_text: str) -> int:
+    """Count <article> tags in tagged text."""
+    return len(ARTICLE_TAG_RE.findall(tagged_text))
 
 
 def convert_to_xml(
@@ -285,17 +316,21 @@ def collapse_text_into_definitions(xml_str: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
-def generate_xml(df: Any) -> list[XMLData]:
+def generate_xml(df: Any, version_map: dict[str, int] | None = None) -> list[XMLData]:
     """
     Generate XML data from a DataFrame.
 
     Args:
         df: DataFrame containing agreement data.
+        version_map: Optional dict mapping agreement_uuid to version number.
+                    If not provided, defaults to version 1 for all.
 
     Returns:
         List of XMLData objects.
     """
     staged_xml = []
+    if version_map is None:
+        version_map = {}
 
     # Helper: add simple nodes (text/definition/page/pageUUID) to container
     def add_text_nodes_simple(parent: ET.Element, text_block: str) -> None:
@@ -385,6 +420,7 @@ def generate_xml(df: Any) -> list[XMLData]:
             body_text = "\n".join(
                 (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
             )
+            body_text = strip_subsection_section_tags(body_text)
             tmp_xml = convert_to_xml(
                 body_text,
                 agreement_uuid,
@@ -427,6 +463,14 @@ def generate_xml(df: Any) -> list[XMLData]:
         xml_str = ET.tostring(root, encoding="unicode")
         xml_str = collapse_text_into_definitions(xml_str)
         xml_str = xml.dom.minidom.parseString(xml_str).toprettyxml(indent="  ")
-        staged_xml.append(XMLData(agreement_uuid=agreement_uuid, xml=xml_str))
+        
+        # Get version from map or default to 1
+        version = version_map.get(agreement_uuid, 1)
+        
+        staged_xml.append(XMLData(
+            agreement_uuid=agreement_uuid,
+            xml=xml_str,
+            version=version
+        ))
 
     return staged_xml

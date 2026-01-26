@@ -18,7 +18,7 @@ def sections_asset(
     pipeline_config: PipelineConfig,
 ) -> None:
     # batching controls
-    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    agreement_batch_size = pipeline_config.sections_agreement_batch_size
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
@@ -30,10 +30,17 @@ def sections_asset(
                 conn.execute(
                     text(
                         """
-                        SELECT m.xml, m.agreement_uuid
+                        SELECT m.xml, m.agreement_uuid, m.version AS xml_version
                         FROM pdx.xml AS m
+                        INNER JOIN (
+                            SELECT agreement_uuid, MAX(version) as max_version
+                            FROM pdx.xml
+                            GROUP BY agreement_uuid
+                        ) AS latest ON m.agreement_uuid = latest.agreement_uuid
+                            AND m.version = latest.max_version
                         LEFT JOIN pdx.sections AS s
                           ON m.agreement_uuid = s.agreement_uuid
+                            AND s.xml_version = m.version
                         WHERE m.agreement_uuid > :last
                           AND s.agreement_uuid IS NULL
                         ORDER BY m.agreement_uuid
@@ -53,6 +60,7 @@ def sections_asset(
             for r in rows:
                 xml_str = r["xml"]
                 agr_uuid = r["agreement_uuid"]
+                xml_version = r["xml_version"]
                 secs = extract_sections_from_xml(xml_str)
                 for s in secs:
                     staged.append(
@@ -66,6 +74,7 @@ def sections_asset(
                             "section_title_normed": s["section_title_normed"],
                             "section_order": s.get("section_order"),
                             "xml_content": s["xml_content"],
+                            "xml_version": xml_version,
                         }
                     )
 

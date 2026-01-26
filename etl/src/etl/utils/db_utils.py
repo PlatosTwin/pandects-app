@@ -8,10 +8,11 @@ import json
 class AgreementRow(Protocol):
     agreement_uuid: str
     url: str
-    filing_date: object
+    filing_date: object | None
     # Optional fields (DMA corpus flow)
     target: str | None
     acquirer: str | None
+    announce_date: object | None  # Deal announcement date
     # Optional fields (SEC index flow)
     prob_filing: float | None
     filing_company_name: str | None
@@ -49,6 +50,7 @@ class TagRow(Protocol):
 class XmlRow(Protocol):
     agreement_uuid: str
     xml: str
+    version: int
 
 
 def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connection) -> None:
@@ -60,57 +62,68 @@ def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connectio
               filing_date,
               target,
               acquirer,
+              announce_date,
               prob_filing,
               filing_company_name,
               filing_company_cik,
               form_type,
               exhibit_type,
-              secondary_filing_url
+              secondary_filing_url,
+              source,
+              ingested_date
             ) VALUES (
               :agreement_uuid,
               :url,
               :filing_date,
               :target,
               :acquirer,
+              :announce_date,
               :prob_filing,
               :filing_company_name,
               :filing_company_cik,
               :form_type,
               :exhibit_type,
-              :secondary_filing_url
+              :secondary_filing_url,
+              :source,
+              DEFAULT
             )
             ON DUPLICATE KEY UPDATE
-              url                      = VALUES(url),
-              filing_date              = VALUES(filing_date),
-              target                   = VALUES(target),
-              acquirer                 = VALUES(acquirer),
-              prob_filing              = VALUES(prob_filing),
-              filing_company_name      = VALUES(filing_company_name),
-              filing_company_cik       = VALUES(filing_company_cik),
-              form_type                = VALUES(form_type),
-              exhibit_type             = VALUES(exhibit_type),
-              secondary_filing_url     = VALUES(secondary_filing_url)
+              url                      = COALESCE(VALUES(url), url),
+              filing_date              = COALESCE(VALUES(filing_date), filing_date),
+              target                   = COALESCE(VALUES(target), target),
+              acquirer                 = COALESCE(VALUES(acquirer), acquirer),
+              announce_date            = COALESCE(VALUES(announce_date), announce_date),
+              prob_filing              = COALESCE(VALUES(prob_filing), prob_filing),
+              filing_company_name      = COALESCE(VALUES(filing_company_name), filing_company_name),
+              filing_company_cik       = COALESCE(VALUES(filing_company_cik), filing_company_cik),
+              form_type                = COALESCE(VALUES(form_type), form_type),
+              exhibit_type             = COALESCE(VALUES(exhibit_type), exhibit_type),
+              secondary_filing_url     = COALESCE(VALUES(secondary_filing_url), secondary_filing_url),
+              source                   = COALESCE(VALUES(source), source)
         """
     )
 
     count = len(staged_agreements)
-    rows: list[dict[str, object]] = []
-    for f in staged_agreements:
-        rows.append(
-            {
-                "agreement_uuid": f.agreement_uuid,
-                "url": f.url,
-                "filing_date": f.filing_date,
-                "target": f.target,
-                "acquirer": f.acquirer,
-                "prob_filing": f.prob_filing,
-                "filing_company_name": f.filing_company_name,
-                "filing_company_cik": f.filing_company_cik,
-                "form_type": f.form_type,
-                "exhibit_type": f.exhibit_type,
-                "secondary_filing_url": f.secondary_filing_url,
-            }
-        )
+    # HARDCODED: source value is set to "edgar" for all agreements during staging
+    # To change this value, update the "source" field below
+    rows: list[dict[str, object]] = [
+        {
+            "agreement_uuid": f.agreement_uuid,
+            "url": f.url,
+            "filing_date": f.filing_date,
+            "target": f.target,
+            "acquirer": f.acquirer,
+            "announce_date": f.announce_date,
+            "prob_filing": f.prob_filing,
+            "filing_company_name": f.filing_company_name,
+            "filing_company_cik": f.filing_company_cik,
+            "form_type": f.form_type,
+            "exhibit_type": f.exhibit_type,
+            "secondary_filing_url": f.secondary_filing_url,
+            "source": "edgar",  # HARDCODED: Change this value to update the source
+        }
+        for f in staged_agreements
+    ]
 
     # execute in batches of 250
     for i in range(0, count, 250):
@@ -158,9 +171,7 @@ def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Con
 
         cols = ",\n    ".join(insert_cols)
         value_placeholders = ",\n    ".join(f":{c}" for c in insert_cols)
-        update_clause = ",\n    ".join(
-            f"{c}=VALUES({c})" for c in insert_cols if c != "page_uuid"
-        )
+        update_clause = ",\n    ".join(f"{c}=VALUES({c})" for c in insert_cols)
 
         upsert_sql = text(
             f"""
@@ -222,36 +233,34 @@ def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
             tagged_text,
             low_count,
             spans,
-            tokens
+            tokens,
+            created_date
         ) VALUES (
             :page_uuid,
             :tagged_text,
             :low_count,
             :spans,
-            :tokens
+            :tokens,
+            DEFAULT
         )
         ON DUPLICATE KEY UPDATE
-            tagged_text = VALUES(tagged_text),
-            low_count   = VALUES(low_count),
-            spans       = VALUES(spans),
-            tokens       = VALUES(tokens)
+            tagged_text   = VALUES(tagged_text),
+            low_count     = VALUES(low_count),
+            spans         = VALUES(spans),
+            tokens        = VALUES(tokens)
         """
     )
 
-    rows_tags: list[dict[str, object]] = []
-    rows_pages: list[dict[str, object]] = []
-    for tag in staged_tags:
-        rows_tags.append(
-            {
-                "page_uuid": tag.page_uuid,
-                "tagged_text": tag.tagged_text,
-                "low_count": tag.low_count,
-                "spans": json.dumps(tag.spans),
-                "tokens": json.dumps(tag.tokens),
-            }
-        )
-
-        rows_pages.append({"page_uuid": tag.page_uuid})
+    rows_tags: list[dict[str, object]] = [
+        {
+            "page_uuid": tag.page_uuid,
+            "tagged_text": tag.tagged_text,
+            "low_count": tag.low_count,
+            "spans": json.dumps(tag.spans),
+            "tokens": json.dumps(tag.tokens),
+        }
+        for tag in staged_tags
+    ]
 
     # execute in batches of 250
     for i in range(0, len(rows_tags), 250):
@@ -262,19 +271,27 @@ def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
 def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
     """
     Upserts a batch of XML objects into the pdx.xml table.
+    
+    Uses the version provided in staged_xml (no auto-increment).
+    Only the xml_asset should create new versions; taxonomy and other
+    downstream assets preserve the version when updating.
+    created_date is set automatically by the database (UTC_TIMESTAMP()).
+    
     Args:
-        staged_xml (Sequence): List of XML or dicts with keys
-            agreement_uuid, xml
+        staged_xml (Sequence): List of XML objects with keys
+            agreement_uuid, xml, version
         conn (Connection): SQLAlchemy connection.
     """
     upsert_sql_xml = text(
         """
         INSERT INTO pdx.xml (
             agreement_uuid,
-            xml
+            xml,
+            version
         ) VALUES (
             :agreement_uuid,
-            :xml
+            :xml,
+            :version
         )
         ON DUPLICATE KEY UPDATE
             xml = VALUES(xml)
@@ -287,10 +304,9 @@ def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
             {
                 "agreement_uuid": xml.agreement_uuid,
                 "xml": xml.xml,
+                "version": xml.version,
             }
         )
-
-        # agreements list no longer needed for processed flag updates
 
     for i in range(0, len(rows_xmls), 250):
         batch_tags = rows_xmls[i : i + 250]
@@ -303,7 +319,7 @@ def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Conne
 
     Each item in staged_sections must be a dict with keys:
       agreement_uuid, section_uuid, article_title, article_title_normed,
-      section_title, section_title_normed, xml_content
+      section_title, section_title_normed, xml_content, xml_version
     """
     upsert_sql = text(
         """
@@ -316,7 +332,8 @@ def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Conne
             section_title,
             section_title_normed,
             section_order,
-            xml_content
+            xml_content,
+            xml_version
         ) VALUES (
             :agreement_uuid,
             :section_uuid,
@@ -326,7 +343,8 @@ def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Conne
             :section_title,
             :section_title_normed,
             :section_order,
-            :xml_content
+            :xml_content,
+            :xml_version
         )
         ON DUPLICATE KEY UPDATE
             article_title = VALUES(article_title),
@@ -335,7 +353,8 @@ def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Conne
             section_title = VALUES(section_title),
             section_title_normed = VALUES(section_title_normed),
             section_order = VALUES(section_order),
-            xml_content = VALUES(xml_content)
+            xml_content = VALUES(xml_content),
+            xml_version = VALUES(xml_version)
         """
     )
 

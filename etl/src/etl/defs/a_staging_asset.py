@@ -20,7 +20,7 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.a_staging import (
     FilingMetadata,
     fetch_new_filings_sec_index,
-    # To switch back to DMA corpus flow, uncomment the line below and comment out fetch_new_filings_sec_index:
+    # To switch to DMA corpus flow, uncomment the line below and comment out fetch_new_filings_sec_index:
     # fetch_new_filings_dma_corpus,
 )
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
@@ -124,7 +124,6 @@ def staging_asset(
     now = datetime.now(timezone.utc)
 
     # Load exhibit classifier once for all days
-    # To switch back to DMA corpus flow, see comments in fetch_new_filings_sec_index call below
     classifier = ExhibitClassifier.load(_get_exhibit_classifier_path())
     staging_context = _DagsterContextAdapter(context)
 
@@ -171,7 +170,8 @@ def staging_asset(
             pipeline_config=pipeline_config,
             days_override=1,  # Process exactly one day
         )
-        # To switch to DMA corpus: filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
+        # To switch to DMA corpus: 
+        # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
         
         day_count = len(filings)
         total_count += day_count
@@ -204,6 +204,41 @@ def staging_asset(
                 ),
                 {"run_id": run_id, "count": total_count},
             )
+    
+    # DMA corpus flow (commented out - one-time batch processing):
+    # # For DMA corpus flow: process all records in one batch (one-time run)
+    # # Pass None to skip date filtering and get all rows from the CSV
+    # context.log.info("Fetching all DMA corpus filings (one-time run)")
+    # filings = fetch_new_filings_dma_corpus(since=None)
+    # 
+    # total_count = len(filings)
+    # 
+    # # Commit all filings in a single transaction
+    # with engine.begin() as conn:
+    #     if filings:
+    #         try:
+    #             upsert_agreements(filings, conn)
+    #             context.log.info(f"Upserted {total_count} agreements from DMA corpus")
+    #         except Exception as e:
+    #             context.log.error(f"Error upserting agreements: {e}")
+    #             raise RuntimeError(e)
+    #     else:
+    #         context.log.info("No M&A filings found in DMA corpus")
+    #     
+    #     # Update last_pulled_to to now (since this is a one-time run)
+    #     _update_last_pulled_to(conn, run_id, now)
+    #     
+    #     # Update rows_inserted count
+    #     _ = conn.execute(
+    #         text(
+    #             """
+    #             UPDATE pdx.pipeline_runs
+    #             SET rows_inserted = :count
+    #             WHERE run_id = :run_id
+    #             """
+    #         ),
+    #         {"run_id": run_id, "count": total_count},
+    #     )
 
     # Mark run as SUCCEEDED after all days complete
     with engine.begin() as conn:

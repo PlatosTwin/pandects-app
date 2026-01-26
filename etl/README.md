@@ -144,7 +144,7 @@ If you're using `dg dev`, open the asset (or job) in the UI, click the arrow nea
 
 **Models**: None.
 
-**Validation**: Methodology pending...
+**Validation**: Agreements with fewer than 5 tagger Article sections are filtered out on the assumption that they were mis-tagged.
 
 **Output**:
 * Agreement UUID
