@@ -307,6 +307,27 @@ def strip_formatting_tags(
             # Check adjacent siblings to determine if we need to add spaces
             prev_sibling = tag.previous_sibling
             next_sibling = tag.next_sibling
+
+            # If the tag is empty but sits between two text nodes,
+            # preserve a single space to avoid concatenation.
+            if not tag_text.strip():
+                if isinstance(prev_sibling, NavigableString) and isinstance(
+                    next_sibling, NavigableString
+                ):
+                    prev_text = str(prev_sibling)
+                    next_text = str(next_sibling)
+                    prev_ends_space = prev_text.rstrip() != prev_text
+                    next_starts_space = next_text.lstrip() != next_text
+                    if (
+                        prev_text.strip()
+                        and next_text.strip()
+                        and not prev_ends_space
+                        and not next_starts_space
+                    ):
+                        tag.replace_with(NavigableString(" "))
+                        continue
+                tag.replace_with(NavigableString(""))
+                continue
             
             # Check if we need a space before the tag content
             # Only add space if previous sibling is text that doesn't end with whitespace
