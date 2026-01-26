@@ -121,6 +121,35 @@ def _merge_with_rulings(
     def is_whitespace_segment(s: int, e: int) -> bool:
         return base_raw_text[s:e].strip() == ""
 
+    def is_punct_tail_segment(s: int, e: int) -> bool:
+        segment = base_raw_text[s:e].strip()
+        if not segment:
+            return False
+        # Allow whitespace between punctuation (e.g., ". -----------------")
+        return all(ch in (".", "-", " ", "\n", "\r", "\u00A0") for ch in segment) and any(ch in (".", "-") for ch in segment)
+
+    def is_mid_whitespace_segment(s: int, e: int) -> bool:
+        segment = base_raw_text[s:e]
+        if not segment or any(ch not in ("\n", "\r", " ", "\u00A0") for ch in segment):
+            return False
+        if sum(1 for ch in segment if ch in (" ", "\u00A0")) > 4:
+            return False
+        left = base_raw_text[:s]
+        right = base_raw_text[e:]
+        left_alnum = sum(1 for ch in left if ch.isalnum())
+        right_alnum = sum(1 for ch in right if ch.isalnum())
+        return (
+            left_alnum >= 2
+            and right_alnum >= 2
+        )
+
+    def is_whitespace_before_punct(s: int, e: int) -> bool:
+        segment = base_raw_text[s:e]
+        if not segment or any(ch not in ("\n", "\r", " ", "\u00A0") for ch in segment):
+            return False
+        remainder = base_raw_text[e:].lstrip(" \u00A0\r\n")
+        return remainder.startswith(".") or remainder.startswith("-")
+
     def classify_segment(s: int, e: int) -> Tuple[str, int | None]:
         """
         Return one of:
@@ -235,6 +264,31 @@ def _merge_with_rulings(
             # strictly inside but not coextensive: labels must match
             if (
                 rlab == "none"
+                and blab in ("section", "article")
+                and re == be
+                and is_punct_tail_segment(rs, re)
+            ):
+                continue
+            if (
+                rlab == "none"
+                and blab == "article"
+                and is_mid_whitespace_segment(rs, re)
+            ):
+                continue
+            if (
+                rlab == "none"
+                and blab == "section"
+                and is_mid_whitespace_segment(rs, re)
+            ):
+                continue
+            if (
+                rlab == "none"
+                and blab == "section"
+                and is_whitespace_before_punct(rs, re)
+            ):
+                continue
+            if (
+                rlab == "none"
                 and is_whitespace_segment(rs, re)
                 and (rs == bs or re == be)
             ):
@@ -286,23 +340,23 @@ def reconcile_tags(
     is_batched = pipeline_config.is_batched()
 
     last_uuid = ""
-    ran_batches = 0
     while True:
         with engine.begin() as conn:
-            # Identify pages to reconcile: those with rulings or full-page outputs
-            rows = (
+            # Identify agreements to reconcile: those with rulings or full-page outputs
+            agreement_rows = (
                 conn.execute(
                     text(
                         """
-                        SELECT DISTINCT p.page_uuid
+                        SELECT DISTINCT p.agreement_uuid
                         FROM pdx.pages p
                         LEFT JOIN pdx.ai_repair_full_pages f USING(page_uuid)
                         LEFT JOIN pdx.ai_repair_rulings r USING(page_uuid)
                         LEFT JOIN pdx.tagged_outputs t USING(page_uuid)
-                        WHERE p.page_uuid > :last
+                        WHERE p.agreement_uuid > :last
                           AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
                           AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
-                        ORDER BY p.page_uuid
+                          AND (t.label_error IS NULL OR t.label_error = 0)
+                        ORDER BY p.agreement_uuid
                         LIMIT :lim
                         """
                     ),
@@ -312,8 +366,32 @@ def reconcile_tags(
                 .all()
             )
 
-            if not rows:
+            if not agreement_rows:
                 break
+            agreement_uuids = list(agreement_rows)
+
+            # Fetch pages to reconcile for the selected agreements
+            rows = (
+                conn.execute(
+                    text(
+                        """
+                        SELECT DISTINCT p.page_uuid
+                        FROM pdx.pages p
+                        LEFT JOIN pdx.ai_repair_full_pages f USING(page_uuid)
+                        LEFT JOIN pdx.ai_repair_rulings r USING(page_uuid)
+                        LEFT JOIN pdx.tagged_outputs t USING(page_uuid)
+                        WHERE p.agreement_uuid IN :auuids
+                          AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
+                          AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
+                          AND (t.label_error IS NULL OR t.label_error = 0)
+                        ORDER BY p.agreement_uuid, p.page_uuid
+                        """
+                    ),
+                    {"auuids": tuple(agreement_uuids)},
+                )
+                .scalars()
+                .all()
+            )
 
             # Prepare statements
             sel_page = text(
@@ -382,10 +460,6 @@ def reconcile_tags(
 
                 if tagged_text_orig:
                     base_raw, base_spans = _strip_tags_and_spans(tagged_text_orig)
-                    # Sanity: if base_raw deviates, fall back to raw page text
-                    if base_raw != raw_text:
-                        base_raw = raw_text
-                        base_spans = []
                 else:
                     base_raw = raw_text
                     base_spans = []
@@ -426,7 +500,7 @@ def reconcile_tags(
                 rulings_success_count += rulings_count_for_page
                 pages_success_count += 1
 
-            last_uuid = rows[-1]
+            last_uuid = agreement_uuids[-1]
             total_rulings = rulings_success_count + rulings_fail_count
             total_pages = pages_success_count + pages_fail_count
             if total_rulings > 0 or total_pages > 0:
@@ -435,7 +509,6 @@ def reconcile_tags(
                 context.log.info(
                     f"Batch statistics: pages success={pages_success_count}, failed={pages_fail_count}, total={total_pages}, error rate={page_err_pct}% ; rulings success={rulings_success_count}, failed={rulings_fail_count}, total={total_rulings}, error rate={rul_err_pct}%"
                 )
-        ran_batches += 1
         if is_batched:
             break
 
