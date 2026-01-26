@@ -59,20 +59,6 @@ class _DagsterContextAdapter:
         return self._log
 
 
-def _update_last_pulled_to(conn: Connection, run_id: int, pulled_to: datetime) -> None:
-    """Update the last_pulled_to timestamp for the current run."""
-    _ = conn.execute(
-        text(
-            """
-            UPDATE pdx.pipeline_runs
-            SET last_pulled_to = :pulled_to
-            WHERE run_id = :run_id
-            """
-        ),
-        {"run_id": run_id, "pulled_to": pulled_to},
-    )
-
-
 @dg.asset(name="1_staging_asset")
 def staging_asset(
     context: AssetExecutionContext, 
@@ -106,21 +92,23 @@ def staging_asset(
     engine = db.get_engine()
     context.log.info("Running staging in FROM_SCRATCH mode")
 
-    # Get last pull timestamp
+    # Get last successful pull timestamp
     with engine.begin() as conn:
         last_run: datetime | None = conn.execute(
             text(
                 """
                 SELECT last_pulled_to
                 FROM pdx.pipeline_runs
-                ORDER BY run_time DESC LIMIT 1
+                WHERE status = 'SUCCEEDED'
+                ORDER BY run_time DESC
+                LIMIT 1
                 """
             )
         ).scalar_one_or_none()
         if last_run is None:
             last_run = datetime(1970, 1, 1)
 
-    # last_run = datetime(2021, 1, 1)  # TODO: Remove this override once production-ready
+    last_run = datetime(2021, 1, 1)  # TODO: Remove this override once production-ready
     now = datetime.now(timezone.utc)
 
     # Load exhibit classifier once for all days
@@ -130,7 +118,7 @@ def staging_asset(
     # Calculate total days to process
     days_to_fetch = pipeline_config.staging_days_to_fetch
     
-    # Insert STARTED record for this run and get the run_id
+    # Insert STARTED record for this run and get the run_id.
     # Use date-level granularity (midnight) for last_pulled_from/to
     last_run_date = datetime.combine(last_run.date(), datetime.min.time())
     with engine.begin() as conn:
@@ -145,114 +133,119 @@ def staging_asset(
             {
                 "run_time": now,
                 "from_ts": last_run_date,
-                "to_ts": last_run_date,  # Will be updated as we process each day
+                "to_ts": last_run_date,  # Will be updated after successful completion
             },
         )
         run_id = result.lastrowid
 
     total_count = 0
     base_date = last_run.date()
+    latest_pulled_to = last_run_date
     
-    # Process day by day
-    # Note: get_sec_index_urls fetches index for (start_date + day_offset), so we pass
-    # base_date as start_date and let the function fetch the correct day's index.
-    for day_offset in range(days_to_fetch):
-        # The actual index date being fetched (start_date + 1 day due to how get_sec_index_urls works)
-        index_date = base_date + timedelta(days=day_offset + 1)
-        start_date_for_fetch = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
-        context.log.info(f"Processing day {day_offset + 1}/{days_to_fetch}: fetching index for {index_date}")
-        
-        # Fetch and classify filings for this single day
-        filings = fetch_new_filings_sec_index(
-            exhibit_classifier=classifier,
-            context=staging_context,
-            start_date=start_date_for_fetch,
-            pipeline_config=pipeline_config,
-            days_override=1,  # Process exactly one day
-        )
-        # To switch to DMA corpus: 
-        # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
-        
-        day_count = len(filings)
-        total_count += day_count
-        
-        # Commit this day's filings and update progress
-        # Each day is its own transaction for crash recovery
+    try:
+        # Process day by day
+        # Note: get_sec_index_urls fetches index for (start_date + day_offset), so we pass
+        # base_date as start_date and let the function fetch the correct day's index.
+        for day_offset in range(days_to_fetch):
+            # The actual index date being fetched (start_date + 1 day due to how get_sec_index_urls works)
+            index_date = base_date + timedelta(days=day_offset + 1)
+            start_date_for_fetch = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+            context.log.info(
+                f"Processing day {day_offset + 1}/{days_to_fetch}: fetching index for {index_date}"
+            )
+            
+            # Fetch and classify filings for this single day
+            filings = fetch_new_filings_sec_index(
+                exhibit_classifier=classifier,
+                context=staging_context,
+                start_date=start_date_for_fetch,
+                pipeline_config=pipeline_config,
+                days_override=1,  # Process exactly one day
+            )
+            # To switch to DMA corpus: 
+            # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
+            
+            day_count = len(filings)
+            total_count += day_count
+            
+            # Commit this day's filings; keep pipeline_runs untouched until the end.
+            # Each day is its own transaction for crash recovery.
+            with engine.begin() as conn:
+                if filings:
+                    try:
+                        upsert_agreements(filings, conn)
+                        context.log.info(f"  Upserted {day_count} agreements for {index_date}")
+                    except Exception as e:
+                        context.log.error(f"Error upserting agreements for {index_date}: {e}")
+                        raise RuntimeError(e)
+                else:
+                    context.log.info(f"  No M&A filings found for {index_date}")
+            
+            latest_pulled_to = datetime.combine(index_date, datetime.min.time())
+
+        # DMA corpus flow (commented out - one-time batch processing):
+        # # For DMA corpus flow: process all records in one batch (one-time run)
+        # # Pass None to skip date filtering and get all rows from the CSV
+        # context.log.info("Fetching all DMA corpus filings (one-time run)")
+        # filings = fetch_new_filings_dma_corpus(since=None)
+        # 
+        # total_count = len(filings)
+        # 
+        # # Commit all filings in a single transaction
+        # with engine.begin() as conn:
+        #     if filings:
+        #         try:
+        #             upsert_agreements(filings, conn)
+        #             context.log.info(f"Upserted {total_count} agreements from DMA corpus")
+        #         except Exception as e:
+        #             context.log.error(f"Error upserting agreements: {e}")
+        #             raise RuntimeError(e)
+        #     else:
+        #         context.log.info("No M&A filings found in DMA corpus")
+        #     
+        #     # Update last_pulled_to to now (since this is a one-time run)
+        #     _update_last_pulled_to(conn, run_id, now)
+        #     
+        #     # Update rows_inserted count
+        #     _ = conn.execute(
+        #         text(
+        #             """
+        #             UPDATE pdx.pipeline_runs
+        #             SET rows_inserted = :count
+        #             WHERE run_id = :run_id
+        #             """
+        #         ),
+        #         {"run_id": run_id, "count": total_count},
+        #     )
+
+        context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
+        refresh_summary_data(context, db)
+
+        # Update pipeline_runs at the last possible moment.
         with engine.begin() as conn:
-            if filings:
-                try:
-                    upsert_agreements(filings, conn)
-                    context.log.info(f"  Upserted {day_count} agreements for {index_date}")
-                except Exception as e:
-                    context.log.error(f"Error upserting agreements for {index_date}: {e}")
-                    raise RuntimeError(e)
-            else:
-                context.log.info(f"  No M&A filings found for {index_date}")
-            
-            # Update last_pulled_to to the date we actually processed (midnight, date-level granularity)
-            pulled_to_date = datetime.combine(index_date, datetime.min.time())
-            _update_last_pulled_to(conn, run_id, pulled_to_date)
-            
-            # Update rows_inserted count
             _ = conn.execute(
                 text(
                     """
                     UPDATE pdx.pipeline_runs
-                    SET rows_inserted = :count
+                    SET last_pulled_to = :pulled_to,
+                        rows_inserted = :count,
+                        status = 'SUCCEEDED'
                     WHERE run_id = :run_id
                     """
                 ),
-                {"run_id": run_id, "count": total_count},
+                {"run_id": run_id, "pulled_to": latest_pulled_to, "count": total_count},
             )
-    
-    # DMA corpus flow (commented out - one-time batch processing):
-    # # For DMA corpus flow: process all records in one batch (one-time run)
-    # # Pass None to skip date filtering and get all rows from the CSV
-    # context.log.info("Fetching all DMA corpus filings (one-time run)")
-    # filings = fetch_new_filings_dma_corpus(since=None)
-    # 
-    # total_count = len(filings)
-    # 
-    # # Commit all filings in a single transaction
-    # with engine.begin() as conn:
-    #     if filings:
-    #         try:
-    #             upsert_agreements(filings, conn)
-    #             context.log.info(f"Upserted {total_count} agreements from DMA corpus")
-    #         except Exception as e:
-    #             context.log.error(f"Error upserting agreements: {e}")
-    #             raise RuntimeError(e)
-    #     else:
-    #         context.log.info("No M&A filings found in DMA corpus")
-    #     
-    #     # Update last_pulled_to to now (since this is a one-time run)
-    #     _update_last_pulled_to(conn, run_id, now)
-    #     
-    #     # Update rows_inserted count
-    #     _ = conn.execute(
-    #         text(
-    #             """
-    #             UPDATE pdx.pipeline_runs
-    #             SET rows_inserted = :count
-    #             WHERE run_id = :run_id
-    #             """
-    #         ),
-    #         {"run_id": run_id, "count": total_count},
-    #     )
-
-    # Mark run as SUCCEEDED after all days complete
-    with engine.begin() as conn:
-        _ = conn.execute(
-            text(
-                """
-                UPDATE pdx.pipeline_runs
-                SET status = 'SUCCEEDED'
-                WHERE run_id = :run_id
-                """
-            ),
-            {"run_id": run_id},
-        )
-
-    context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
-    refresh_summary_data(context, db)
-    return total_count
+        return total_count
+    except Exception:
+        with engine.begin() as conn:
+            _ = conn.execute(
+                text(
+                    """
+                    UPDATE pdx.pipeline_runs
+                    SET status = 'FAILED'
+                    WHERE run_id = :run_id
+                    """
+                ),
+                {"run_id": run_id},
+            )
+        raise
