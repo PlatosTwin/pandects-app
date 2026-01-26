@@ -40,6 +40,7 @@ from sqlalchemy import (
     text,
     or_,
     and_,
+    case,
     func,
     cast as sql_cast,
     desc,
@@ -2092,6 +2093,12 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    pages_table = Table(
+        "pages",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
     xml_table = Table(
         "xml",
         metadata,
@@ -2153,6 +2160,13 @@ else:
         Column("transaction_type", TEXT, nullable=True),
         Column("consideration_type", TEXT, nullable=True),
         Column("url", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    pages_table = Table(
+        "pages",
+        metadata,
+        Column("page_uuid", CHAR(36), primary_key=True),
+        Column("agreement_uuid", CHAR(36), nullable=False),
         schema=_MAIN_SCHEMA_TOKEN,
     )
     xml_table = Table(
@@ -2217,6 +2231,10 @@ class Agreements(db.Model):
 
 class XML(db.Model):
     __table__ = xml_table
+
+
+class Pages(db.Model):
+    __table__ = pages_table
 
 
 class TaxonomyL1(db.Model):
@@ -2811,6 +2829,100 @@ def get_agreements_index() -> dict[str, object]:
     return {"results": results, **meta}
 
 
+def get_agreements_status_summary() -> dict[str, object]:
+    year_expr = _agreement_year_expr()
+    latest_xml = (
+        db.session.query(
+            XML.agreement_uuid.label("agreement_uuid"),
+            func.max(XML.version).label("max_version"),
+        )
+        .group_by(XML.agreement_uuid)
+        .subquery()
+    )
+    latest_xml_rows = (
+        db.session.query(
+            XML.agreement_uuid.label("agreement_uuid"),
+            XML.status.label("status"),
+        )
+        .join(
+            latest_xml,
+            and_(
+                XML.agreement_uuid == latest_xml.c.agreement_uuid,
+                XML.version == latest_xml.c.max_version,
+            ),
+        )
+        .subquery()
+    )
+    pages_agreements = (
+        db.session.query(Pages.agreement_uuid.distinct().label("agreement_uuid"))
+        .subquery()
+    )
+
+    status_expr = case(
+        (
+            and_(
+                latest_xml_rows.c.agreement_uuid.isnot(None),
+                or_(
+                    latest_xml_rows.c.status.is_(None),
+                    latest_xml_rows.c.status == "verified",
+                ),
+            ),
+            "processed",
+        ),
+        (
+            or_(
+                Agreements.prob_filing < 0.75,
+                pages_agreements.c.agreement_uuid.isnot(None),
+            ),
+            "pages_only",
+        ),
+        else_="no_pages",
+    )
+
+    rows = (
+        db.session.query(
+            year_expr.label("year"),
+            status_expr.label("status"),
+            func.count(Agreements.agreement_uuid).label("count"),
+        )
+        .outerjoin(
+            latest_xml_rows,
+            Agreements.agreement_uuid == latest_xml_rows.c.agreement_uuid,
+        )
+        .outerjoin(
+            pages_agreements,
+            Agreements.agreement_uuid == pages_agreements.c.agreement_uuid,
+        )
+        .filter(year_expr.isnot(None))
+        .group_by(year_expr, status_expr)
+        .all()
+    )
+
+    year_map: dict[int, dict[str, int]] = {}
+    for row in rows:
+        if row.year is None:
+            continue
+        year = int(row.year)
+        if year not in year_map:
+            year_map[year] = {
+                "year": year,
+                "processed": 0,
+                "pagesOnly": 0,
+                "noPages": 0,
+            }
+        status = row.status or "no_pages"
+        if status == "pages_only":
+            status = "pagesOnly"
+        if status == "no_pages":
+            status = "noPages"
+        if status not in year_map[year]:
+            status = "noPages"
+        year_map[year][status] = int(row.count or 0)
+
+    years = [year_map[year] for year in sorted(year_map.keys())]
+    return {"years": years}
+
+
 def get_agreements_summary() -> dict[str, int]:
     now = time.time()
     with _agreements_summary_lock:
@@ -3030,6 +3142,11 @@ def _register_main_routes(target_app: Flask) -> None:
     )
     target_app.add_url_rule(
         "/v1/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
+    )
+    target_app.add_url_rule(
+        "/v1/agreements-status-summary",
+        view_func=get_agreements_status_summary,
+        methods=["GET"],
     )
     target_app.add_url_rule(
         "/v1/filter-options", view_func=get_filter_options, methods=["GET"]

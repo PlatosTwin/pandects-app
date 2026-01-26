@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -9,6 +9,14 @@ import {
   Layers,
   Search,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { PageShell } from "@/components/PageShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,6 +41,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
@@ -42,6 +63,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type AgreementIndexRow = {
   agreementUuid: string;
@@ -71,6 +94,17 @@ type AgreementIndexSummary = {
   pages: number;
 };
 
+type AgreementStatusYearRow = {
+  year: number;
+  processed: number;
+  pagesOnly: number;
+  noPages: number;
+};
+
+type AgreementStatusSummaryResponse = {
+  years: AgreementStatusYearRow[];
+};
+
 type SortColumn = "year" | "target" | "acquirer";
 type SortDirection = "asc" | "desc";
 
@@ -90,7 +124,7 @@ const summaryCards = [
     key: "agreements",
     label: "Agreements",
     icon: FileText,
-    description: "Total agreements ingested",
+    description: "Total agreements processed",
   },
   {
     key: "sections",
@@ -107,9 +141,22 @@ const summaryCards = [
 ] as const;
 
 export default function AgreementIndex() {
+  const isMobile = useIsMobile();
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false);
   const [summary, setSummary] = useState<AgreementIndexSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [statusSummary, setStatusSummary] = useState<AgreementStatusYearRow[]>(
+    [],
+  );
+  const [statusSummaryLoading, setStatusSummaryLoading] = useState(false);
+  const [statusSummaryLoaded, setStatusSummaryLoaded] = useState(false);
+  const [statusSummaryError, setStatusSummaryError] = useState<string | null>(
+    null,
+  );
+  const [statusAccordionValue, setStatusAccordionValue] = useState<
+    string | undefined
+  >(undefined);
 
   const [agreements, setAgreements] = useState<AgreementIndexRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +175,8 @@ export default function AgreementIndex() {
     target: string;
     acquirer: string;
   } | null>(null);
+  const stagedChartDescriptionId = useId();
+  const stagedChartTableId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +212,54 @@ export default function AgreementIndex() {
       cancelled = true;
     };
   }, []);
+
+  const statusAccordionOpen = statusAccordionValue === "staged";
+
+  useEffect(() => {
+    if (!statusAccordionOpen || statusSummaryLoaded || statusSummaryLoading)
+      return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const fetchStatusSummary = async () => {
+      try {
+        setStatusSummaryLoading(true);
+        setStatusSummaryError(null);
+        const res = await authFetch(apiUrl("v1/agreements-status-summary"), {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error(`Status summary request failed (${res.status})`);
+        }
+        const data = (await res.json()) as AgreementStatusSummaryResponse;
+        if (!cancelled) {
+          setStatusSummary(data.years ?? []);
+          setStatusSummaryLoaded(true);
+        }
+      } catch (err) {
+        if (
+          !cancelled &&
+          !(err instanceof DOMException && err.name === "AbortError")
+        ) {
+          setStatusSummaryError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load staging summary.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setStatusSummaryLoading(false);
+        }
+      }
+    };
+
+    fetchStatusSummary();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [statusAccordionOpen, statusSummaryLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,13 +352,234 @@ export default function AgreementIndex() {
 
   const filteredLabel = filterQuery.trim()
     ? `Filtered by "${filterQuery.trim()}"`
-    : "Showing all agreements";
+    : "";
+  const stagedChartData = useMemo(() => {
+    return statusSummary
+      .filter((row) => Number.isFinite(row.year))
+      .map((row) => ({
+        year: Number(row.year),
+        processed: Math.max(0, Number(row.processed || 0)),
+        pagesOnly: Math.max(0, Number(row.pagesOnly || 0)),
+        noPages: Math.max(0, Number(row.noPages || 0)),
+      }))
+      .sort((a, b) => a.year - b.year);
+  }, [statusSummary]);
+  const stagedTotals = useMemo(() => {
+    return stagedChartData.reduce(
+      (acc, row) => {
+        acc.processed += row.processed;
+        acc.pagesOnly += row.pagesOnly;
+        acc.noPages += row.noPages;
+        acc.total += row.processed + row.pagesOnly + row.noPages;
+        return acc;
+      },
+      { processed: 0, pagesOnly: 0, noPages: 0, total: 0 },
+    );
+  }, [stagedChartData]);
+  const stagedYearRange = useMemo(() => {
+    if (stagedChartData.length === 0) return null;
+    const minYear = stagedChartData[0].year;
+    const maxYear = stagedChartData[stagedChartData.length - 1].year;
+    return { minYear, maxYear };
+  }, [stagedChartData]);
+  const showSourceSplit =
+    stagedYearRange !== null &&
+    stagedYearRange.minYear <= 2020 &&
+    stagedYearRange.maxYear >= 2021;
+  const stagedYearTicks = useMemo(() => {
+    if (!stagedYearRange) return undefined;
+    const start = 2000;
+    const end = stagedYearRange.maxYear;
+    const availableYears = new Set(stagedChartData.map((row) => row.year));
+    const ticks: number[] = [];
+    for (let year = start; year <= end; year += 5) {
+      if (year >= stagedYearRange.minYear && availableYears.has(year)) {
+        ticks.push(year);
+      }
+    }
+    return ticks.length ? ticks : undefined;
+  }, [stagedYearRange, stagedChartData]);
+
+  const renderStagedChart = (className?: string) => (
+    <div
+      className={cn(
+        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        className,
+      )}
+    >
+      <ChartContainer
+        className="h-[240px] w-full aspect-auto sm:h-[300px] lg:h-[340px]"
+        config={{
+          processed: {
+            label: "Processed",
+            color: "hsl(142 71% 45%)",
+          },
+          pagesOnly: {
+            label: "Awaiting validation",
+            color: "hsl(0 84% 60%)",
+          },
+          noPages: {
+            label: "Staged",
+            color: "hsl(38 92% 55%)",
+          },
+        }}
+        role="img"
+        aria-label="Stacked bar chart showing processed versus staged agreements by filing year."
+        aria-describedby={`${stagedChartDescriptionId} ${stagedChartTableId}`}
+      >
+        <BarChart
+          data={stagedChartData}
+          margin={{ top: 6, right: 16, left: 6, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="year"
+            type="number"
+            allowDecimals={false}
+            domain={
+              stagedYearRange
+                ? [stagedYearRange.minYear, stagedYearRange.maxYear]
+                : ["dataMin", "dataMax"]
+            }
+            padding={{ left: 20, right: 20 }}
+            tickFormatter={(value) => String(value)}
+            tickMargin={6}
+            minTickGap={16}
+            interval="preserveStartEnd"
+            ticks={stagedYearTicks}
+          />
+          <YAxis allowDecimals={false} tickMargin={6} width={32} />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                indicator="dashed"
+                labelFormatter={(_, payload) => {
+                  const year = payload?.[0]?.payload?.year;
+                  return `Filing year ${year ?? "—"}`;
+                }}
+                formatter={(value, name, item) => {
+                  const indicatorColor = item?.payload?.fill || item?.color;
+                  const payload = item?.payload as
+                    | {
+                        processed?: number;
+                        pagesOnly?: number;
+                        noPages?: number;
+                      }
+                    | undefined;
+                  const processed = Number(payload?.processed ?? 0);
+                  const pagesOnly = Number(payload?.pagesOnly ?? 0);
+                  const noPages = Number(payload?.noPages ?? 0);
+                  const total = processed + noPages + pagesOnly;
+                  const processedPct =
+                    total > 0 ? Math.round((processed / total) * 1000) / 10 : 0;
+                  const getPct = (count: number) =>
+                    total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
+                  const colorBlock = (
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                      style={
+                        indicatorColor
+                          ? { backgroundColor: indicatorColor }
+                          : undefined
+                      }
+                      aria-hidden="true"
+                    />
+                  );
+
+                  const countValue = Number(value);
+                  const pct =
+                    name === "Processed"
+                      ? processedPct
+                      : name === "Awaiting validation"
+                        ? getPct(pagesOnly)
+                        : getPct(noPages);
+
+                  return (
+                    <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
+                      {colorBlock}
+                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
+                        {countValue.toLocaleString()}
+                      </span>
+                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {pct.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                }}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            dataKey="processed"
+            stackId="agreements"
+            fill="var(--color-processed)"
+            name="Processed"
+          />
+          <Bar
+            dataKey="pagesOnly"
+            stackId="agreements"
+            fill="var(--color-pagesOnly)"
+            name="Awaiting validation"
+          />
+          <Bar
+            dataKey="noPages"
+            stackId="agreements"
+            fill="var(--color-noPages)"
+            name="Staged"
+          />
+          {showSourceSplit ? (
+            <ReferenceLine
+              x={2020.5}
+              stroke="hsl(var(--foreground))"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              isFront
+              label={(props) => {
+                if (!props.viewBox) return null;
+                const text = isMobile ? "2020/21" : "2020/2021 split";
+                const paddingX = isMobile ? 6 : 4;
+                const rectHeight = isMobile ? 16 : 14;
+                const charWidth = isMobile ? 6.1 : 5.4;
+                const textWidth = text.length * charWidth;
+                const rectWidth = textWidth + paddingX * 2;
+                const rectX = props.viewBox.x - rectWidth - 8;
+                const rectY = props.viewBox.y + 8;
+                const textX = rectX + rectWidth / 2;
+                const textY = rectY + rectHeight / 2 + 0.5;
+                return (
+                  <g pointerEvents="none">
+                    <rect
+                      x={rectX}
+                      y={rectY}
+                      width={rectWidth}
+                      height={rectHeight}
+                      rx={4}
+                      fill="hsl(var(--background))"
+                      stroke="hsl(var(--border))"
+                    />
+                    <text
+                      x={textX}
+                      y={textY}
+                      fill="hsl(var(--muted-foreground))"
+                      fontSize={10}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {text}
+                    </text>
+                  </g>
+                );
+              }}
+            />
+          ) : null}
+        </BarChart>
+      </ChartContainer>
+    </div>
+  );
 
   return (
-    <PageShell
-      size="xl"
-      title="Agreement Index"
-    >
+    <PageShell size="xl" title="Agreement Index">
       <div
         className="mb-10 grid gap-4 md:grid-cols-3"
         aria-busy={summaryLoading}
@@ -306,16 +624,167 @@ export default function AgreementIndex() {
         })}
       </div>
 
+      <Card className="mb-10 border-border/60 shadow-sm">
+        <CardContent className="p-6">
+          <Accordion
+            type="single"
+            collapsible
+            value={statusAccordionValue}
+            onValueChange={setStatusAccordionValue}
+          >
+            <AccordionItem value="staged" className="border-border/60">
+              <AccordionTrigger
+                headingLevel="h2"
+                className="py-3 text-2xl font-semibold tracking-tight"
+              >
+                Agreement overview
+              </AccordionTrigger>
+              <AccordionContent className="pt-3">
+                <div className="space-y-3">
+                  <p
+                    id={stagedChartDescriptionId}
+                    className="text-base text-muted-foreground"
+                  >
+                    Staged agreements have not yet gone through our pipelines.
+                    Agreements that are awaiting validation have made it through
+                    at least one step of the pipeline but tripped one of our
+                    validations and are awaiting manual review. Agreements that
+                    are staged or awaiting validation do not show up in the{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      /v1/search
+                    </span>
+                    ,{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      /v1/agreements
+                    </span>
+                    , or{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      /v1/sections
+                    </span>{" "}
+                    routes, and are not included in the agreement statistics at
+                    the top of this page. The dashed vertical divider marks the 2020/2021
+                    boundary: from 2000 through 2020, we use data from the DMA
+                    Corpus; beginning 2021, we source data ourselves from EDGAR.
+                  </p>
+                  {statusSummaryLoading ? (
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
+                    </div>
+                  ) : statusSummaryError ? (
+                    <div
+                      className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                      role="alert"
+                    >
+                      {statusSummaryError}
+                    </div>
+                  ) : stagedChartData.length === 0 ? (
+                    <div
+                      className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                      role="status"
+                    >
+                      No staged agreement data available yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {isMobile ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setIsChartModalOpen(true)}
+                            aria-haspopup="dialog"
+                            aria-describedby={stagedChartDescriptionId}
+                          >
+                            Click to view on mobile
+                          </Button>
+                          <Dialog
+                            open={isChartModalOpen}
+                            onOpenChange={setIsChartModalOpen}
+                          >
+                            <DialogContent
+                              className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-4"
+                              aria-describedby={stagedChartDescriptionId}
+                            >
+                              <DialogTitle className="text-base font-semibold">
+                                Agreement overview
+                              </DialogTitle>
+                              {renderStagedChart("border-0 bg-background p-0")}
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      ) : (
+                        renderStagedChart()
+                      )}
+                      <table id={stagedChartTableId} className="sr-only">
+                        <caption>
+                          Processed, awaiting validation, and staged agreements
+                          by filing year
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Year</th>
+                            <th scope="col">Processed</th>
+                            <th scope="col">Awaiting validation</th>
+                            <th scope="col">Staged</th>
+                            <th scope="col">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stagedChartData.map((row) => (
+                            <tr key={`staged-row-${row.year}`}>
+                              <th scope="row">{row.year}</th>
+                              <td>{row.processed.toLocaleString("en-US")}</td>
+                              <td>{row.pagesOnly.toLocaleString("en-US")}</td>
+                              <td>{row.noPages.toLocaleString("en-US")}</td>
+                              <td>
+                                {(
+                                  row.processed +
+                                  row.pagesOnly +
+                                  row.noPages
+                                ).toLocaleString("en-US")}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <th scope="row">Total</th>
+                            <td>
+                              {stagedTotals.processed.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.pagesOnly.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.noPages.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.total.toLocaleString("en-US")}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow duration-200">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-foreground">
-                Agreements
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                Index of processed agreements
               </h2>
-              <p className="text-sm text-muted-foreground" aria-live="polite">
-                {filteredLabel}
-              </p>
+              {filteredLabel ? (
+                <p className="text-sm text-muted-foreground" aria-live="polite">
+                  {filteredLabel}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
               <div className="relative w-full sm:max-w-xs">
@@ -365,9 +834,15 @@ export default function AgreementIndex() {
                       Year
                       {sortBy === "year" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowUp
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowDown
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         )
                       ) : (
                         <ArrowUpDown
@@ -396,9 +871,15 @@ export default function AgreementIndex() {
                       Target
                       {sortBy === "target" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowUp
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowDown
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         )
                       ) : (
                         <ArrowUpDown
@@ -427,9 +908,15 @@ export default function AgreementIndex() {
                       Acquirer
                       {sortBy === "acquirer" ? (
                         sortDir === "asc" ? (
-                          <ArrowUp className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowUp
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <ArrowDown className="ml-2 h-4 w-4" aria-hidden="true" />
+                          <ArrowDown
+                            className="ml-2 h-4 w-4"
+                            aria-hidden="true"
+                          />
                         )
                       ) : (
                         <ArrowUpDown
@@ -462,7 +949,10 @@ export default function AgreementIndex() {
                 ) : error ? (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center">
-                      <div className="text-sm text-muted-foreground" role="alert">
+                      <div
+                        className="text-sm text-muted-foreground"
+                        role="alert"
+                      >
                         {error}
                       </div>
                     </TableCell>
@@ -470,7 +960,10 @@ export default function AgreementIndex() {
                 ) : agreements.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center">
-                      <div className="text-sm text-muted-foreground" role="status">
+                      <div
+                        className="text-sm text-muted-foreground"
+                        role="status"
+                      >
                         No agreements match this filter.
                       </div>
                     </TableCell>
@@ -522,8 +1015,13 @@ export default function AgreementIndex() {
                                 aria-label="Verified agreement"
                                 className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
                               >
-                                <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                                <span className="hidden sm:inline">Verified</span>
+                                <BadgeCheck
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                <span className="hidden sm:inline">
+                                  Verified
+                                </span>
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="left">
@@ -531,7 +1029,9 @@ export default function AgreementIndex() {
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -544,7 +1044,10 @@ export default function AgreementIndex() {
           <div className="mt-6 space-y-4 lg:hidden">
             {loading ? (
               Array.from({ length: 4 }).map((_, index) => (
-                <Card key={`mobile-skeleton-${index}`} className="border-border/60">
+                <Card
+                  key={`mobile-skeleton-${index}`}
+                  className="border-border/60"
+                >
                   <CardContent className="p-4">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="mt-3 h-4 w-full" />
@@ -581,7 +1084,10 @@ export default function AgreementIndex() {
                       </Badge>
                       {agreement.verified ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
-                          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                          <BadgeCheck
+                            className="h-3.5 w-3.5"
+                            aria-hidden="true"
+                          />
                           Verified
                         </span>
                       ) : (

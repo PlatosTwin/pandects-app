@@ -86,12 +86,12 @@ function getSeoConfigForPath(pathname, origin) {
         return {
           title: "Agreement Index | Pandects",
           description:
-            "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
+            "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
           robots: "index,follow,max-image-preview:large",
           pageType: "WebPage",
           pageName: "Agreement Index",
           pageDescription:
-            "Browse all merger agreements in Pandects with sortable metadata and high-level dataset statistics.",
+            "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
         };
       case "/sources-methods":
         return {
