@@ -108,7 +108,7 @@ def staging_asset(
         if last_run is None:
             last_run = datetime(1970, 1, 1)
 
-    last_run = datetime(2021, 1, 1)  # TODO: Remove this override once production-ready
+    #last_run = datetime(2021, 1, 1)  # TODO: Remove this override once production-ready
     now = datetime.now(timezone.utc)
 
     # Load exhibit classifier once for all days
