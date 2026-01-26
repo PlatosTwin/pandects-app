@@ -75,6 +75,7 @@ def pre_processing_asset(
                         )
                         AND (prob_filing > 0.75 or prob_filing is null or status = 'verified' or status IS NULL)
                         AND (status = 'verified' or status IS NULL)
+                        AND exhibit_type is not null
                     ORDER BY
                         agreement_uuid ASC
                     LIMIT
