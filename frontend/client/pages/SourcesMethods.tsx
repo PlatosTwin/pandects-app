@@ -709,29 +709,40 @@ export default function SourcesMethods() {
                           </div>
                           <p className="mt-2 text-xs font-mono text-muted-foreground">
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;P STYLE="margin-top:12pt; margin-bottom:0pt;
-                              text-indent:4%; font-size:10pt; font-family:Times
-                              New Roman"&gt;
+                              &lt;p style="margin:0pt;text-align:center;..."&gt;
                             </span>
-                            Section&nbsp;4.14{" "}
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;U&gt;
+                              &lt;font style="..."&gt;
                             </span>
-                            Brokers and Other Advisors
+                            ARTICLE&nbsp;2
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;/U&gt;
+                              &lt;/font&gt;&lt;/p&gt;
                             </span>
-                            . Except for Citigroup Global Markets Inc., the fees
-                            and expenses of which will be paid by ETE, no
-                            broker, investment banker or financial advisor is
-                            entitled to any broker&#146;s, finder&#146;s or
-                            financial advisor&#146;s fee or commission, or the
-                            reimbursement of expenses, in connection with the
-                            Merger or the transactions contemplated hereby based
-                            on arrangements made by or on behalf of ETE GP, ETE
-                            or any of their respective Subsidiaries.{" "}
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;/P&gt;
+                              &lt;p style="..."&gt;&lt;font style="..."&gt;
+                            </span>
+                            THE ARRANGEMENT
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;/font&gt;&lt;/p&gt;
+                            </span>
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;p style="...text-indent:-72pt;..."&gt;&lt;font&gt;
+                            </span>
+                            Section&nbsp;2.1
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;font&gt;&lt;/font&gt;
+                            </span>
+                            Arrangement
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;/font&gt;&lt;/p&gt;
+                            </span>
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;p style="...text-indent:36pt;..."&gt;&lt;font&gt;
+                            </span>
+                            The Company, the Parent and the Purchaser agree that
+                            the Arrangement will be implemented…
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;/font&gt;&lt;/p&gt;
                             </span>
                           </p>
                         </div>
@@ -743,16 +754,14 @@ export default function SourcesMethods() {
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-foreground">
-                            Section 4.14 Brokers and Other Advisors. Except for
-                            Citigroup Global Markets Inc., the fees and expenses
-                            of which will be paid by ETE, no broker, investment
-                            banker or financial advisor is entitled to any
-                            broker’s, finder’s or financial advisor’s fee or
-                            commission, or the reimbursement of expenses, in
-                            connection with the Merger or the transactions
-                            contemplated hereby based on arrangements made by or
-                            on behalf of ETE GP, ETE or any of their respective
-                            Subsidiaries.
+                            ARTICLE 2<br />
+                            <br />
+                            THE ARRANGEMENT<br />
+                            <br />
+                            Section 2.1 Arrangement<br />
+                            <br />
+                            The Company, the Parent and the Purchaser agree that
+                            the Arrangement will be implemented…
                           </p>
                         </div>
                       </div>
@@ -792,16 +801,14 @@ export default function SourcesMethods() {
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            Section 4.14 Brokers and Other Advisors. Except for
-                            Citigroup Global Markets Inc., the fees and expenses
-                            of which will be paid by ETE, no broker, investment
-                            banker or financial advisor is entitled to any
-                            broker’s, finder’s or financial advisor’s fee or
-                            commission, or the reimbursement of expenses, in
-                            connection with the Merger or the transactions
-                            contemplated hereby based on arrangements made by or
-                            on behalf of ETE GP, ETE or any of their respective
-                            Subsidiaries.
+                            ARTICLE 2<br />
+                            <br />
+                            THE ARRANGEMENT<br />
+                            <br />
+                            Section 2.1 Arrangement<br />
+                            <br />
+                            The Company, the Parent and the Purchaser agree that
+                            the Arrangement will be implemented…
                           </p>
                         </div>
                         <div>
@@ -813,18 +820,15 @@ export default function SourcesMethods() {
                           </div>
                           <p className="mt-2 text-xs font-mono text-foreground">
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;section&gt;Section 4.14 Brokers and Other
-                              Advisors.&lt;/section&gt;
+                              &lt;article&gt;ARTICLE 2<br />
+                            THE ARRANGEMENT&lt;/article&gt;
+                            </span>
+                            <br />
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;section&gt;Section 2.1 Arrangement&lt;/section&gt;
                             </span>{" "}
-                            Except for Citigroup Global Markets Inc., the fees
-                            and expenses of which will be paid by ETE, no
-                            broker, investment banker or financial advisor is
-                            entitled to any broker’s, finder’s or financial
-                            advisor’s fee or commission, or the reimbursement of
-                            expenses, in connection with the Merger or the
-                            transactions contemplated hereby based on
-                            arrangements made by or on behalf of ETE GP, ETE or
-                            any of their respective Subsidiaries.
+                            The Company, the Parent and the Purchaser agree that
+                            the Arrangement will be implemented…
                           </p>
                         </div>
                       </div>
