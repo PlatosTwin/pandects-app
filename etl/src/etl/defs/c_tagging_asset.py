@@ -53,7 +53,6 @@ def tagging_asset(
         f"Running tagging in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
-    ran_batches = 0
     while True:
         with engine.begin() as conn:
             # Fetch batch of agreements with at least one body page missing tags
@@ -225,7 +224,6 @@ def tagging_asset(
 
             last_uuid = agreement_uuids[-1]
 
-        ran_batches += 1
         if batched:
             break
 
