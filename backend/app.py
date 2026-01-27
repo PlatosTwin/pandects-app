@@ -1031,9 +1031,12 @@ def _send_flag_notification_email(
     source: str,
     agreement_uuid: str,
     section_uuid: str | None,
+    message: str,
+    request_follow_up: bool,
+    issue_types: list[str],
 ) -> None:
     lines = [
-        "Pandects “Flag as inaccurate” submission",
+        "Pandects issue report",
         "",
         f"User: {user_email}",
         f"Date/time (UTC): {submitted_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
@@ -1042,8 +1045,15 @@ def _send_flag_notification_email(
     ]
     if section_uuid:
         lines.append(f"Section UUID: {section_uuid}")
+    if issue_types:
+        lines.extend(["", "Issue categories:", ", ".join(issue_types)])
+    if message:
+        lines.extend(["", "Report details:", message])
+    else:
+        lines.extend(["", "Report details: (none provided)"])
+    lines.append(f"Request follow-up: {'Yes' if request_follow_up else 'No'}")
     text = "\n".join(lines)
-    subject = "Pandects: Flag as inaccurate"
+    subject = "Pandects: Issue report"
     api_key = _resend_api_key()
     sender = _resend_from_email()
     if api_key is None or sender is None:

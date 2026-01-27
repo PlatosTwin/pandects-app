@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -7,13 +7,31 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { flagAsInaccurate, type FlagInaccurateSource } from "@/lib/auth-api";
 import { useToast } from "@/components/ui/use-toast";
 
 const TOOLTIP_REST =
-  " Click here to flag an issue with this section or agreement; we'll look into it and correct the formatting or taxonomy classification by hand if something is amiss. (Must be signed in to use.)";
+  " Click here to report an issue with this section or agreement; we'll look into it and correct the formatting or taxonomy classification by hand if something is amiss.";
+
+const ISSUE_OPTIONS = [
+  "Incorrect tagging",
+  "Corrupted formatting",
+  "Incorrect taxonomy class",
+  "Incorrect metadata",
+  "Something else",
+] as const;
 
 interface FlagAsInaccurateButtonProps {
   source: FlagInaccurateSource;
@@ -35,7 +53,21 @@ export function FlagAsInaccurateButton({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [submitting, setSubmitting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [requestFollowUp, setRequestFollowUp] = useState(false);
+  const [issueSelections, setIssueSelections] = useState<string[]>([]);
+  const textareaId = useId();
   const isLoggedIn = status === "authenticated";
+  const canSubmit = isLoggedIn && issueSelections.length > 0 && !submitting;
+  const handleOpenChange = (nextOpen: boolean) => {
+    setIsOpen(nextOpen);
+    if (!nextOpen) {
+      setMessage("");
+      setRequestFollowUp(false);
+      setIssueSelections([]);
+    }
+  };
 
   const payload = {
     source,
@@ -45,16 +77,26 @@ export function FlagAsInaccurateButton({
       : {}),
   };
 
-  const handleClick = async () => {
-    if (!isLoggedIn || submitting) return;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
-      await flagAsInaccurate(payload);
+      await flagAsInaccurate({
+        ...payload,
+        message: message.trim() || undefined,
+        requestFollowUp,
+        issueTypes: issueSelections,
+      });
       toast({
         title: "Flag submitted",
         description:
           "Thanks for reporting. We'll look into it and correct any issues.",
       });
+      setIsOpen(false);
+      setMessage("");
+      setRequestFollowUp(false);
+      setIssueSelections([]);
     } catch (e) {
       toast({
         title: "Could not submit flag",
@@ -69,7 +111,7 @@ export function FlagAsInaccurateButton({
   const icon = (
     <CircleAlert
       className={cn(
-        "h-4 w-4 shrink-0 text-red-800 dark:text-red-400",
+        "h-4 w-4 shrink-0 text-muted-foreground",
         submitting && "opacity-50",
       )}
       aria-hidden="true"
@@ -86,59 +128,211 @@ export function FlagAsInaccurateButton({
       type="button"
       variant="ghost"
       size="icon"
-      onClick={handleClick}
+      onClick={() => setIsOpen(true)}
       disabled={submitting}
       className={cn(triggerClassName, "hover:text-foreground")}
-      aria-label="Flag as inaccurate"
+      aria-label="Report an issue"
+      aria-haspopup="dialog"
     >
       {icon}
     </Button>
   );
 
-  const inactiveTrigger = isMobile ? (
-    <span
-      className={triggerClassName}
-      role="img"
-      aria-label="Flag as inaccurate (sign in to use)"
-    >
-      {icon}
-    </span>
-  ) : (
-    <button
-      type="button"
-      className={cn(
-        triggerClassName,
-        "cursor-default border-none bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-      )}
-      aria-label="Flag as inaccurate (sign in to use)"
-      aria-disabled="true"
-      tabIndex={0}
-      onClick={(e) => e.preventDefault()}
-    >
-      {icon}
-    </button>
-  );
-
-  const trigger = isLoggedIn ? activeButton : inactiveTrigger;
+  const trigger = activeButton;
+  const issueGroupId = `${textareaId}-issues`;
 
   if (isMobile) {
-    return <>{trigger}</>;
+    return (
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        {trigger}
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report an issue</DialogTitle>
+          </DialogHeader>
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <div className="grid gap-2">
+              <span id={issueGroupId} className="text-sm font-medium">
+                What&apos;s wrong?{" "}
+                <span className="font-normal text-muted-foreground">
+                  (Required)
+                </span>
+              </span>
+              <div
+                className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-2"
+                role="group"
+                aria-labelledby={issueGroupId}
+                aria-required="true"
+              >
+                {ISSUE_OPTIONS.map((option) => {
+                  const optionId = `${textareaId}-${option.replace(/\s+/g, "-").toLowerCase()}`;
+                  const isChecked = issueSelections.includes(option);
+                  return (
+                    <div key={option} className="flex items-center gap-2">
+                      <Checkbox
+                        id={optionId}
+                        checked={isChecked}
+                        onCheckedChange={(value) => {
+                          setIssueSelections((prev) => {
+                            const next = new Set(prev);
+                            if (value) {
+                              next.add(option);
+                            } else {
+                              next.delete(option);
+                            }
+                            return Array.from(next);
+                          });
+                        }}
+                      />
+                      <Label htmlFor={optionId}>{option}</Label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">
+                Additional details.{" "}
+                <span className="font-normal text-muted-foreground">
+                  (Optional)
+                </span>
+              </span>
+              <Label htmlFor={textareaId} className="sr-only">
+                Issue description
+              </Label>
+              <Textarea
+                id={textareaId}
+                placeholder="Describe the issue..."
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`${textareaId}-followup`}
+                checked={requestFollowUp}
+                onCheckedChange={(value) =>
+                  setRequestFollowUp(Boolean(value))
+                }
+              />
+              <Label htmlFor={`${textareaId}-followup`}>
+                Request follow-up
+              </Label>
+            </div>
+            <div className="flex justify-center">
+              <Button type="submit" disabled={!canSubmit}>
+                Submit
+              </Button>
+            </div>
+            {!isLoggedIn && (
+              <p className="text-center text-sm text-muted-foreground">
+                You must be signed in to submit.
+              </p>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <TooltipContent
-        side={tooltipSide}
-        align={tooltipSide === "left" ? "start" : undefined}
-        className="max-w-sm overflow-visible"
-        sideOffset={8}
-      >
-        <p className="whitespace-normal break-words text-left">
-          <strong>Flag as Inaccurate.</strong>
-          {TOOLTIP_REST}
-        </p>
-      </TooltipContent>
-    </Tooltip>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <Tooltip>
+        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+        <TooltipContent
+          side={tooltipSide}
+          align={tooltipSide === "left" ? "start" : undefined}
+          className="max-w-sm overflow-visible"
+          sideOffset={8}
+        >
+          <p className="whitespace-normal break-words text-left">
+            <strong>Report an issue.</strong>
+            {TOOLTIP_REST}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Report an issue</DialogTitle>
+        </DialogHeader>
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-2">
+            <span id={issueGroupId} className="text-sm font-medium">
+              What&apos;s wrong?{" "}
+              <span className="font-normal text-muted-foreground">
+                (Required)
+              </span>
+            </span>
+            <div
+              className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-2"
+              role="group"
+              aria-labelledby={issueGroupId}
+              aria-required="true"
+            >
+              {ISSUE_OPTIONS.map((option) => {
+                const optionId = `${textareaId}-${option.replace(/\s+/g, "-").toLowerCase()}`;
+                const isChecked = issueSelections.includes(option);
+                return (
+                  <div key={option} className="flex items-center gap-2">
+                    <Checkbox
+                      id={optionId}
+                      checked={isChecked}
+                      onCheckedChange={(value) => {
+                        setIssueSelections((prev) => {
+                          const next = new Set(prev);
+                          if (value) {
+                            next.add(option);
+                          } else {
+                            next.delete(option);
+                          }
+                          return Array.from(next);
+                        });
+                      }}
+                    />
+                    <Label htmlFor={optionId}>{option}</Label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <span className="text-sm font-medium">
+              Additional details.{" "}
+              <span className="font-normal text-muted-foreground">
+                (Optional)
+              </span>
+            </span>
+            <Label htmlFor={textareaId} className="sr-only">
+              Issue description
+            </Label>
+            <Textarea
+              id={textareaId}
+              placeholder="Describe the issue..."
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`${textareaId}-followup`}
+              checked={requestFollowUp}
+              onCheckedChange={(value) => setRequestFollowUp(Boolean(value))}
+            />
+            <Label htmlFor={`${textareaId}-followup`}>
+              Request follow-up
+            </Label>
+          </div>
+          <div className="flex justify-center">
+            <Button type="submit" disabled={!canSubmit}>
+              Submit
+            </Button>
+          </div>
+          {!isLoggedIn && (
+            <p className="text-center text-sm text-muted-foreground">
+              You must be signed in to submit.
+            </p>
+          )}
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

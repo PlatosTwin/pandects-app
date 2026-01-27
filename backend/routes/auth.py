@@ -914,8 +914,34 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         data = app_module._load_json(app_module.AuthFlagInaccurateSchema())
         source = (data.get("source") or "").strip()
         agreement_uuid = (data.get("agreementUuid") or "").strip()
+        raw_message = data.get("message")
+        message = raw_message.strip() if isinstance(raw_message, str) else None
         section_uuid = data.get("sectionUuid")
         section_uuid = section_uuid.strip() if isinstance(section_uuid, str) else None
+        request_follow_up = data.get("requestFollowUp")
+        if request_follow_up is None:
+            request_follow_up = False
+        if not isinstance(request_follow_up, bool):
+            abort(400, description="requestFollowUp must be a boolean.")
+        issue_types = data.get("issueTypes")
+        if issue_types is None:
+            issue_types = []
+        if not isinstance(issue_types, list) or not all(
+            isinstance(item, str) for item in issue_types
+        ):
+            abort(400, description="issueTypes must be a list of strings.")
+        issue_types = [item.strip() for item in issue_types if item and item.strip()]
+        if not issue_types:
+            abort(400, description="issueTypes is required.")
+        allowed_issue_types = {
+            "Incorrect tagging",
+            "Corrupted formatting",
+            "Incorrect taxonomy class",
+            "Incorrect metadata",
+            "Something else",
+        }
+        if any(item not in allowed_issue_types for item in issue_types):
+            abort(400, description="issueTypes contains an invalid value.")
         if source not in ("search_result", "agreement_view"):
             abort(400, description="Invalid source. Use 'search_result' or 'agreement_view'.")
         if not agreement_uuid:
@@ -938,6 +964,9 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             source=source,
             agreement_uuid=agreement_uuid,
             section_uuid=section_uuid,
+            message=message,
+            request_follow_up=request_follow_up,
+            issue_types=issue_types,
         )
         resp = make_response(jsonify({"status": "ok"}), 200)
         resp.headers["Cache-Control"] = "no-store"

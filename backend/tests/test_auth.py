@@ -273,6 +273,9 @@ class AuthFlowTests(unittest.TestCase):
                 "source": "search_result",
                 "agreementUuid": "a1",
                 "sectionUuid": "s1",
+                "message": "Typo in summary.",
+                "requestFollowUp": True,
+                "issueTypes": ["Incorrect metadata"],
             },
         )
         self.assertEqual(res.status_code, 401)
@@ -315,6 +318,9 @@ class AuthFlowTests(unittest.TestCase):
                 "source": "search_result",
                 "agreementUuid": "a1",
                 "sectionUuid": "s1",
+                "message": "Metadata mismatch in clause excerpt.",
+                "requestFollowUp": False,
+                "issueTypes": ["Incorrect metadata", "Incorrect tagging"],
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -323,21 +329,82 @@ class AuthFlowTests(unittest.TestCase):
         res = client.post(
             "/v1/auth/flag-inaccurate",
             headers=headers,
-            json={"source": "agreement_view", "agreementUuid": "a2"},
+            json={
+                "source": "agreement_view",
+                "agreementUuid": "a2",
+                "requestFollowUp": True,
+                "issueTypes": ["Incorrect taxonomy class"],
+            },
         )
         self.assertEqual(res.status_code, 200)
 
         res = client.post(
             "/v1/auth/flag-inaccurate",
             headers=headers,
-            json={"source": "bad", "agreementUuid": "a1", "sectionUuid": "s1"},
+            json={
+                "source": "bad",
+                "agreementUuid": "a1",
+                "sectionUuid": "s1",
+                "message": "Bad source",
+                "requestFollowUp": False,
+                "issueTypes": ["Something else"],
+            },
         )
         self.assertEqual(res.status_code, 400)
 
         res = client.post(
             "/v1/auth/flag-inaccurate",
             headers=headers,
-            json={"source": "search_result", "agreementUuid": "a1"},
+            json={
+                "source": "search_result",
+                "agreementUuid": "a1",
+                "issueTypes": ["Corrupted formatting"],
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "agreement_view",
+                "agreementUuid": "a1",
+                "issueTypes": ["Incorrect tagging"],
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "agreement_view",
+                "agreementUuid": "a1",
+                "message": "Invalid issue type.",
+                "issueTypes": ["Not a real option"],
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "agreement_view",
+                "agreementUuid": "a1",
+                "message": "Missing issue types.",
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "agreement_view",
+                "agreementUuid": "a1",
+                "issueTypes": [],
+            },
         )
         self.assertEqual(res.status_code, 400)
 

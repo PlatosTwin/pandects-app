@@ -133,6 +133,9 @@ export async function flagAsInaccurate(payload: {
   source: FlagInaccurateSource;
   agreementUuid: string;
   sectionUuid?: string;
+  message?: string;
+  requestFollowUp: boolean;
+  issueTypes: string[];
 }) {
   return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/flag-inaccurate"), {
     method: "POST",
