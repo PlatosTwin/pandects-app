@@ -2841,6 +2841,15 @@ def get_agreements_index() -> dict[str, object]:
 
 def get_agreements_status_summary() -> dict[str, object]:
     year_expr = _agreement_year_expr()
+    latest_filing_date: object | None = (
+        db.session.query(func.max(Agreements.filing_date))
+        .filter(Agreements.filing_date.isnot(None), Agreements.filing_date != "")
+        .scalar()
+    )
+    if isinstance(latest_filing_date, (date, datetime)):
+        latest_filing_date = latest_filing_date.isoformat()
+    elif latest_filing_date is not None:
+        latest_filing_date = str(latest_filing_date)
     latest_xml = (
         db.session.query(
             XML.agreement_uuid.label("agreement_uuid"),
@@ -2930,7 +2939,7 @@ def get_agreements_status_summary() -> dict[str, object]:
         year_map[year][status] = int(row.count or 0)
 
     years = [year_map[year] for year in sorted(year_map.keys())]
-    return {"years": years}
+    return {"years": years, "latestFilingDate": latest_filing_date}
 
 
 def get_agreements_summary() -> dict[str, int]:

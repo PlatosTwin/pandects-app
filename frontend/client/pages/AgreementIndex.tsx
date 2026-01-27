@@ -58,6 +58,7 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
 import { AgreementModal } from "@/components/AgreementModal";
+import { formatDateValue } from "@/lib/format-utils";
 import {
   Tooltip,
   TooltipContent,
@@ -103,6 +104,7 @@ type AgreementStatusYearRow = {
 
 type AgreementStatusSummaryResponse = {
   years: AgreementStatusYearRow[];
+  latestFilingDate: string | null;
 };
 
 type SortColumn = "year" | "target" | "acquirer";
@@ -154,6 +156,8 @@ export default function AgreementIndex() {
   const [statusSummaryError, setStatusSummaryError] = useState<string | null>(
     null,
   );
+  const [statusSummaryLatestFilingDate, setStatusSummaryLatestFilingDate] =
+    useState<string | null>(null);
   const [statusAccordionValue, setStatusAccordionValue] = useState<
     string | undefined
   >(undefined);
@@ -234,6 +238,7 @@ export default function AgreementIndex() {
         const data = (await res.json()) as AgreementStatusSummaryResponse;
         if (!cancelled) {
           setStatusSummary(data.years ?? []);
+          setStatusSummaryLatestFilingDate(data.latestFilingDate ?? null);
           setStatusSummaryLoaded(true);
         }
       } catch (err) {
@@ -376,6 +381,39 @@ export default function AgreementIndex() {
       { processed: 0, pagesOnly: 0, noPages: 0, total: 0 },
     );
   }, [stagedChartData]);
+  const stagedSummaryMetrics = useMemo(() => {
+    const total = stagedTotals.total;
+    const pct = (value: number) =>
+      total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
+    return [
+      {
+        key: "staged",
+        label: "Staged",
+        value: stagedTotals.noPages,
+        pct: pct(stagedTotals.noPages),
+      },
+      {
+        key: "awaiting",
+        label: "Awaiting validation",
+        value: stagedTotals.pagesOnly,
+        pct: pct(stagedTotals.pagesOnly),
+      },
+      {
+        key: "processed",
+        label: "Processed",
+        value: stagedTotals.processed,
+        pct: pct(stagedTotals.processed),
+      },
+      {
+        key: "latest",
+        label: "Latest ingested",
+        value: statusSummaryLatestFilingDate
+          ? formatDateValue(statusSummaryLatestFilingDate)
+          : "—",
+        pct: null,
+      },
+    ] as const;
+  }, [stagedTotals, statusSummaryLatestFilingDate]);
   const stagedYearRange = useMemo(() => {
     if (stagedChartData.length === 0) return null;
     const minYear = stagedChartData[0].year;
@@ -577,6 +615,77 @@ export default function AgreementIndex() {
       </ChartContainer>
     </div>
   );
+  const renderStagedSummaryTable = (className?: string) => (
+    <div
+      className={cn("rounded-lg border border-border/60 bg-muted/20 p-3", className)}
+    >
+      <div className="grid gap-2 sm:hidden">
+        {stagedSummaryMetrics.map((metric) => (
+          <dl
+            key={metric.key}
+            className="rounded-md border border-border/60 bg-background/70 p-3"
+          >
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {metric.label}
+            </dt>
+            <dd className="mt-1 text-base font-semibold text-foreground">
+              {typeof metric.value === "number"
+                ? metric.value.toLocaleString("en-US")
+                : metric.value}
+            </dd>
+            <dd className="text-xs text-muted-foreground">
+              {metric.pct !== null
+                ? `${metric.pct.toFixed(1)}% of total`
+                : "Max filing date"}
+            </dd>
+          </dl>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto sm:block">
+        <Table className="min-w-[520px]">
+          <caption className="sr-only">
+            Summary totals for staged, awaiting validation, and processed agreements,
+            plus the latest ingested filing date.
+          </caption>
+          <TableHeader>
+            <TableRow>
+              {stagedSummaryMetrics.map((metric) => (
+                <TableHead
+                  key={metric.key}
+                  scope="col"
+                  className="text-xs uppercase tracking-wide text-muted-foreground"
+                >
+                  {metric.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              {stagedSummaryMetrics.map((metric) => (
+                <TableCell key={metric.key} className="align-top">
+                  <div className="text-base font-semibold text-foreground">
+                    {typeof metric.value === "number"
+                      ? metric.value.toLocaleString("en-US")
+                      : metric.value}
+                  </div>
+                  {metric.pct !== null ? (
+                    <div className="text-xs font-mono tabular-nums text-muted-foreground">
+                      {metric.pct.toFixed(1)}% of total
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      Max filing date
+                    </div>
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
 
   return (
     <PageShell size="xl" title="Agreement Index">
@@ -687,6 +796,7 @@ export default function AgreementIndex() {
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {renderStagedSummaryTable()}
                       {isMobile ? (
                         <>
                           <Button
