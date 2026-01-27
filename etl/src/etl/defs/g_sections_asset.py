@@ -43,6 +43,7 @@ def sections_asset(
                             AND s.xml_version = m.version
                         WHERE m.agreement_uuid > :last
                           AND s.agreement_uuid IS NULL
+                          AND (m.status is null or m.status = 'verified')
                         ORDER BY m.agreement_uuid
                         LIMIT :lim
                         """
