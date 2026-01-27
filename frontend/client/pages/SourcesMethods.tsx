@@ -820,13 +820,25 @@ export default function SourcesMethods() {
                           </div>
                           <p className="mt-2 text-xs font-mono text-foreground">
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;article&gt;ARTICLE 2<br />
-                            THE ARRANGEMENT&lt;/article&gt;
+                              &lt;article&gt;
+                            </span>
+                            ARTICLE 2<br />
+                            <br />
+                            THE ARRANGEMENT
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;/article&gt;
                             </span>
                             <br />
+                            <br />
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;section&gt;Section 2.1 Arrangement&lt;/section&gt;
-                            </span>{" "}
+                              &lt;section&gt;
+                            </span>
+                            Section 2.1 Arrangement
+                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                              &lt;/section&gt;
+                            </span>
+                            <br />
+                            <br />
                             The Company, the Parent and the Purchaser agree that
                             the Arrangement will be implemented…
                           </p>
