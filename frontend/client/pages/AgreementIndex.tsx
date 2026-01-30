@@ -97,9 +97,9 @@ type AgreementIndexSummary = {
 
 type AgreementStatusYearRow = {
   year: number;
-  processed: number;
-  pagesOnly: number;
-  noPages: number;
+  color: "green" | "yellow" | "red";
+  currentStage: string;
+  count: number;
 };
 
 type AgreementStatusSummaryResponse = {
@@ -359,26 +359,41 @@ export default function AgreementIndex() {
     ? `Filtered by "${filterQuery.trim()}"`
     : "";
   const stagedChartData = useMemo(() => {
-    return statusSummary
-      .filter((row) => Number.isFinite(row.year))
-      .map((row) => ({
-        year: Number(row.year),
-        processed: Math.max(0, Number(row.processed || 0)),
-        pagesOnly: Math.max(0, Number(row.pagesOnly || 0)),
-        noPages: Math.max(0, Number(row.noPages || 0)),
-      }))
-      .sort((a, b) => a.year - b.year);
+    const yearMap = new Map<
+      number,
+      { year: number; processed: number; staged: number; awaiting: number }
+    >();
+    statusSummary.forEach((row) => {
+      if (!Number.isFinite(row.year)) return;
+      const year = Number(row.year);
+      const count = Math.max(0, Number(row.count || 0));
+      const entry = yearMap.get(year) ?? {
+        year,
+        processed: 0,
+        staged: 0,
+        awaiting: 0,
+      };
+      if (row.color === "green") {
+        entry.processed += count;
+      } else if (row.color === "yellow") {
+        entry.staged += count;
+      } else if (row.color === "red") {
+        entry.awaiting += count;
+      }
+      yearMap.set(year, entry);
+    });
+    return Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
   }, [statusSummary]);
   const stagedTotals = useMemo(() => {
     return stagedChartData.reduce(
       (acc, row) => {
         acc.processed += row.processed;
-        acc.pagesOnly += row.pagesOnly;
-        acc.noPages += row.noPages;
-        acc.total += row.processed + row.pagesOnly + row.noPages;
+        acc.staged += row.staged;
+        acc.awaiting += row.awaiting;
+        acc.total += row.processed + row.staged + row.awaiting;
         return acc;
       },
-      { processed: 0, pagesOnly: 0, noPages: 0, total: 0 },
+      { processed: 0, staged: 0, awaiting: 0, total: 0 },
     );
   }, [stagedChartData]);
   const stagedSummaryMetrics = useMemo(() => {
@@ -389,14 +404,14 @@ export default function AgreementIndex() {
       {
         key: "staged",
         label: "Staged",
-        value: stagedTotals.noPages,
-        pct: pct(stagedTotals.noPages),
+        value: stagedTotals.staged,
+        pct: pct(stagedTotals.staged),
       },
       {
         key: "awaiting",
         label: "Awaiting validation",
-        value: stagedTotals.pagesOnly,
-        pct: pct(stagedTotals.pagesOnly),
+        value: stagedTotals.awaiting,
+        pct: pct(stagedTotals.awaiting),
       },
       {
         key: "processed",
@@ -438,6 +453,32 @@ export default function AgreementIndex() {
     return ticks.length ? ticks : undefined;
   }, [stagedYearRange, stagedChartData]);
 
+  const stageSummaryRows = useMemo(() => {
+    const stageOrder = [
+      { key: "0_staging", label: "Staging" },
+      { key: "1_pre_processing", label: "Pre-processing" },
+      { key: "2_tagging", label: "Tagging" },
+      { key: "3_xml", label: "XML validation" },
+    ] as const;
+    const stageMap = new Map(
+      stageOrder.map((stage) => [
+        stage.key,
+        { ...stage, staged: 0, awaiting: 0 },
+      ]),
+    );
+    statusSummary.forEach((row) => {
+      const entry = stageMap.get(row.currentStage);
+      if (!entry) return;
+      const count = Math.max(0, Number(row.count || 0));
+      if (row.color === "yellow") {
+        entry.staged += count;
+      } else if (row.color === "red") {
+        entry.awaiting += count;
+      }
+    });
+    return stageOrder.map((stage) => stageMap.get(stage.key)!);
+  }, [statusSummary]);
+
   const renderStagedChart = (className?: string) => (
     <div
       className={cn(
@@ -452,17 +493,17 @@ export default function AgreementIndex() {
             label: "Processed",
             color: "hsl(142 71% 45%)",
           },
-          pagesOnly: {
-            label: "Awaiting validation",
-            color: "hsl(0 84% 60%)",
-          },
-          noPages: {
+          staged: {
             label: "Staged",
             color: "hsl(38 92% 55%)",
           },
+          awaiting: {
+            label: "Awaiting validation",
+            color: "hsl(0 84% 60%)",
+          },
         }}
         role="img"
-        aria-label="Stacked bar chart showing processed versus staged agreements by filing year."
+        aria-label="Stacked bar chart showing processed, staged, and awaiting validation agreements by filing year."
         aria-describedby={`${stagedChartDescriptionId} ${stagedChartTableId}`}
       >
         <BarChart
@@ -500,14 +541,14 @@ export default function AgreementIndex() {
                   const payload = item?.payload as
                     | {
                         processed?: number;
-                        pagesOnly?: number;
-                        noPages?: number;
+                        staged?: number;
+                        awaiting?: number;
                       }
                     | undefined;
                   const processed = Number(payload?.processed ?? 0);
-                  const pagesOnly = Number(payload?.pagesOnly ?? 0);
-                  const noPages = Number(payload?.noPages ?? 0);
-                  const total = processed + noPages + pagesOnly;
+                  const staged = Number(payload?.staged ?? 0);
+                  const awaiting = Number(payload?.awaiting ?? 0);
+                  const total = processed + staged + awaiting;
                   const processedPct =
                     total > 0 ? Math.round((processed / total) * 1000) / 10 : 0;
                   const getPct = (count: number) =>
@@ -528,9 +569,9 @@ export default function AgreementIndex() {
                   const pct =
                     name === "Processed"
                       ? processedPct
-                      : name === "Awaiting validation"
-                        ? getPct(pagesOnly)
-                        : getPct(noPages);
+                      : name === "Staged"
+                        ? getPct(staged)
+                        : getPct(awaiting);
 
                   return (
                     <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
@@ -555,16 +596,16 @@ export default function AgreementIndex() {
             name="Processed"
           />
           <Bar
-            dataKey="pagesOnly"
+            dataKey="staged"
             stackId="agreements"
-            fill="var(--color-pagesOnly)"
-            name="Awaiting validation"
+            fill="var(--color-staged)"
+            name="Staged"
           />
           <Bar
-            dataKey="noPages"
+            dataKey="awaiting"
             stackId="agreements"
-            fill="var(--color-noPages)"
-            name="Staged"
+            fill="var(--color-awaiting)"
+            name="Awaiting validation"
           />
           {showSourceSplit ? (
             <ReferenceLine
@@ -681,6 +722,90 @@ export default function AgreementIndex() {
                 </TableCell>
               ))}
             </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+
+  const renderStageFunnelTable = (className?: string) => (
+    <div
+      className={cn(
+        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        className,
+      )}
+    >
+      <div className="grid gap-2 sm:hidden">
+        {stageSummaryRows.map((row) => (
+          <dl
+            key={row.key}
+            className="rounded-md border border-border/60 bg-background/70 p-3"
+          >
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {row.label}
+            </dt>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <div>
+                <dd className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Staged
+                </dd>
+                <dd className="text-base font-semibold text-foreground">
+                  {row.staged.toLocaleString("en-US")}
+                </dd>
+              </div>
+              <div>
+                <dd className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Awaiting validation
+                </dd>
+                <dd className="text-base font-semibold text-foreground">
+                  {row.awaiting.toLocaleString("en-US")}
+                </dd>
+              </div>
+            </div>
+          </dl>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto sm:block">
+        <Table className="min-w-[520px]">
+          <caption className="sr-only">
+            Staged versus awaiting validation agreements by pipeline stage.
+          </caption>
+          <TableHeader>
+            <TableRow>
+              <TableHead
+                scope="col"
+                className="text-xs uppercase tracking-wide text-muted-foreground"
+              >
+                Stage
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="text-xs uppercase tracking-wide text-muted-foreground"
+              >
+                Staged
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="text-xs uppercase tracking-wide text-muted-foreground"
+              >
+                Awaiting validation
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {stageSummaryRows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell className="font-medium text-foreground">
+                  {row.label}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums text-foreground">
+                  {row.staged.toLocaleString("en-US")}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums text-foreground">
+                  {row.awaiting.toLocaleString("en-US")}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
@@ -827,6 +952,7 @@ export default function AgreementIndex() {
                       ) : (
                         renderStagedChart()
                       )}
+                      {renderStageFunnelTable()}
                       <table id={stagedChartTableId} className="sr-only">
                         <caption>
                           Processed, awaiting validation, and staged agreements
@@ -843,35 +969,35 @@ export default function AgreementIndex() {
                         </thead>
                         <tbody>
                           {stagedChartData.map((row) => (
-                            <tr key={`staged-row-${row.year}`}>
-                              <th scope="row">{row.year}</th>
-                              <td>{row.processed.toLocaleString("en-US")}</td>
-                              <td>{row.pagesOnly.toLocaleString("en-US")}</td>
-                              <td>{row.noPages.toLocaleString("en-US")}</td>
-                              <td>
-                                {(
-                                  row.processed +
-                                  row.pagesOnly +
-                                  row.noPages
-                                ).toLocaleString("en-US")}
-                              </td>
-                            </tr>
-                          ))}
-                          <tr>
-                            <th scope="row">Total</th>
+                          <tr key={`staged-row-${row.year}`}>
+                            <th scope="row">{row.year}</th>
+                            <td>{row.processed.toLocaleString("en-US")}</td>
+                            <td>{row.awaiting.toLocaleString("en-US")}</td>
+                            <td>{row.staged.toLocaleString("en-US")}</td>
                             <td>
-                              {stagedTotals.processed.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.pagesOnly.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.noPages.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.total.toLocaleString("en-US")}
+                              {(
+                                row.processed +
+                                  row.awaiting +
+                                  row.staged
+                              ).toLocaleString("en-US")}
                             </td>
                           </tr>
+                        ))}
+                        <tr>
+                          <th scope="row">Total</th>
+                          <td>
+                            {stagedTotals.processed.toLocaleString("en-US")}
+                          </td>
+                          <td>
+                              {stagedTotals.awaiting.toLocaleString("en-US")}
+                          </td>
+                          <td>
+                              {stagedTotals.staged.toLocaleString("en-US")}
+                          </td>
+                          <td>
+                              {stagedTotals.total.toLocaleString("en-US")}
+                          </td>
+                        </tr>
                         </tbody>
                       </table>
                     </div>

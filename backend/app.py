@@ -2840,7 +2840,6 @@ def get_agreements_index() -> dict[str, object]:
 
 
 def get_agreements_status_summary() -> dict[str, object]:
-    year_expr = _agreement_year_expr()
     latest_filing_date: object | None = (
         db.session.query(func.max(Agreements.filing_date))
         .filter(Agreements.filing_date.isnot(None), Agreements.filing_date != "")
@@ -2850,95 +2849,34 @@ def get_agreements_status_summary() -> dict[str, object]:
         latest_filing_date = latest_filing_date.isoformat()
     elif latest_filing_date is not None:
         latest_filing_date = str(latest_filing_date)
-    latest_xml = (
-        db.session.query(
-            XML.agreement_uuid.label("agreement_uuid"),
-            func.max(XML.version).label("max_version"),
-        )
-        .group_by(XML.agreement_uuid)
-        .subquery()
-    )
-    latest_xml_rows = (
-        db.session.query(
-            XML.agreement_uuid.label("agreement_uuid"),
-            XML.status.label("status"),
-        )
-        .join(
-            latest_xml,
-            and_(
-                XML.agreement_uuid == latest_xml.c.agreement_uuid,
-                XML.version == latest_xml.c.max_version,
-            ),
-        )
-        .subquery()
-    )
-    pages_agreements = (
-        db.session.query(Pages.agreement_uuid.distinct().label("agreement_uuid"))
-        .subquery()
-    )
-
-    status_expr = case(
-        (
-            and_(
-                latest_xml_rows.c.agreement_uuid.isnot(None),
-                or_(
-                    latest_xml_rows.c.status.is_(None),
-                    latest_xml_rows.c.status == "verified",
-                ),
-            ),
-            "processed",
-        ),
-        (
-            or_(
-                Agreements.prob_filing < 0.75,
-                pages_agreements.c.agreement_uuid.isnot(None),
-            ),
-            "pages_only",
-        ),
-        else_="no_pages",
-    )
-
     rows = (
-        db.session.query(
-            year_expr.label("year"),
-            status_expr.label("status"),
-            func.count(Agreements.agreement_uuid).label("count"),
+        db.session.execute(
+            text(
+                f"""
+                SELECT
+                    year,
+                    color,
+                    current_stage,
+                    count
+                FROM {_schema_prefix()}agreement_status_summary
+                WHERE year IS NOT NULL
+                ORDER BY year ASC, current_stage ASC, color ASC
+                """
+            )
         )
-        .outerjoin(
-            latest_xml_rows,
-            Agreements.agreement_uuid == latest_xml_rows.c.agreement_uuid,
-        )
-        .outerjoin(
-            pages_agreements,
-            Agreements.agreement_uuid == pages_agreements.c.agreement_uuid,
-        )
-        .filter(year_expr.isnot(None))
-        .group_by(year_expr, status_expr)
+        .mappings()
         .all()
     )
 
-    year_map: dict[int, dict[str, int]] = {}
-    for row in rows:
-        if row.year is None:
-            continue
-        year = int(row.year)
-        if year not in year_map:
-            year_map[year] = {
-                "year": year,
-                "processed": 0,
-                "pagesOnly": 0,
-                "noPages": 0,
-            }
-        status = row.status or "no_pages"
-        if status == "pages_only":
-            status = "pagesOnly"
-        if status == "no_pages":
-            status = "noPages"
-        if status not in year_map[year]:
-            status = "noPages"
-        year_map[year][status] = int(row.count or 0)
-
-    years = [year_map[year] for year in sorted(year_map.keys())]
+    years = [
+        {
+            "year": int(row["year"]),
+            "color": row["color"],
+            "currentStage": row["current_stage"],
+            "count": int(row["count"] or 0),
+        }
+        for row in rows
+    ]
     return {"years": years, "latestFilingDate": latest_filing_date}
 
 

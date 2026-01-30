@@ -16,6 +16,7 @@ def refresh_summary_data(
     engine = db.get_engine()
 
     summary_table = f"{schema}.summary_data"
+    status_summary_table = f"{schema}.agreement_status_summary"
     agreements_table = f"{schema}.agreements"
     xml_table = f"{schema}.xml"
     pages_table = f"{schema}.pages"
@@ -23,6 +24,7 @@ def refresh_summary_data(
 
     with engine.begin() as conn:
         _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
+        _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
         _ = conn.execute(
             text(
                 f"""
@@ -98,6 +100,273 @@ def refresh_summary_data(
                     6,
                     7,
                     8
+                """
+            )
+        )
+        _ = conn.execute(
+            text(
+                f"""
+                INSERT INTO {status_summary_table} (
+                    year,
+                    color,
+                    current_stage,
+                    count
+                )
+                WITH latest_xml AS (
+                    SELECT
+                        agreement_uuid,
+                        MAX(created_date) AS created_date
+                    FROM {xml_table}
+                    GROUP BY agreement_uuid
+                ),
+                green AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'green' AS color,
+                        'processed' AS current_stage,
+                        COUNT(DISTINCT x.agreement_uuid) AS count
+                    FROM {xml_table} x
+                    JOIN latest_xml
+                        ON x.agreement_uuid = latest_xml.agreement_uuid
+                        AND x.created_date = latest_xml.created_date
+                    JOIN {agreements_table} a
+                        ON x.agreement_uuid = a.agreement_uuid
+                    WHERE x.status IS NULL
+                        OR x.status = 'verified'
+                    GROUP BY 1, 2, 3
+                ),
+                yellow_a AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'yellow' AS color,
+                        '0_staging' AS current_stage,
+                        COUNT(DISTINCT a.agreement_uuid) AS count
+                    FROM {agreements_table} a
+                    LEFT JOIN {pages_table} p
+                        ON a.agreement_uuid = p.agreement_uuid
+                    WHERE p.agreement_uuid IS NULL
+                        AND (
+                            (prob_filing < 0.75 AND status = 'verified')
+                            OR (
+                                prob_filing > 0.75
+                                AND (status = 'verified' OR status IS NULL)
+                            )
+                        )
+                    GROUP BY 1, 2, 3
+                ),
+                red_a AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'red' AS color,
+                        '0_staging' AS current_stage,
+                        COUNT(DISTINCT a.agreement_uuid) AS count
+                    FROM {agreements_table} a
+                    LEFT JOIN {pages_table} p
+                        ON a.agreement_uuid = p.agreement_uuid
+                    WHERE p.agreement_uuid IS NULL
+                        AND prob_filing < 0.75
+                        AND status IS NULL
+                    GROUP BY 1, 2, 3
+                ),
+                low_conf AS (
+                    SELECT DISTINCT
+                        agreement_uuid
+                    FROM (
+                        SELECT
+                            agreement_uuid,
+                            page_order,
+                            page_type_prob_front_matter,
+                            page_type_prob_toc,
+                            page_type_prob_body,
+                            page_type_prob_sig,
+                            page_type_prob_back_matter,
+                            gold_label,
+                            MIN(
+                                CASE
+                                    WHEN source_page_type = 'sig'
+                                    AND page_type_prob_sig >= 0.95
+                                    THEN page_order
+                                END
+                            ) OVER (PARTITION BY agreement_uuid) AS sig_cutoff_page
+                        FROM {pages_table}
+                    ) sub
+                    WHERE
+                        (
+                            page_type_prob_front_matter BETWEEN 0.3 AND 0.7
+                            OR page_type_prob_toc BETWEEN 0.3 AND 0.7
+                            OR page_type_prob_body BETWEEN 0.3 AND 0.7
+                            OR page_type_prob_sig BETWEEN 0.3 AND 0.7
+                            OR page_type_prob_back_matter BETWEEN 0.3 AND 0.7
+                        )
+                        AND (
+                            page_order <= sig_cutoff_page
+                            OR sig_cutoff_page IS NULL
+                        )
+                        AND gold_label IS NULL
+                ),
+                out_of_order AS (
+                    WITH PageRanks AS (
+                        SELECT
+                            agreement_uuid,
+                            page_order,
+                            CASE
+                                WHEN source_page_type = 'front_matter' THEN 1
+                                WHEN source_page_type = 'toc' THEN 2
+                                WHEN source_page_type = 'body' THEN 3
+                                WHEN source_page_type = 'sig' THEN 4
+                                WHEN source_page_type = 'back_matter' THEN 5
+                                ELSE 99
+                            END AS type_rank
+                        FROM {pages_table}
+                        WHERE gold_label IS NULL
+                    ),
+                    RankedPages AS (
+                        SELECT
+                            agreement_uuid,
+                            page_order,
+                            type_rank,
+                            MAX(type_rank) OVER (
+                                PARTITION BY agreement_uuid
+                                ORDER BY page_order
+                                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                            ) AS max_prev_type_rank
+                        FROM PageRanks
+                    )
+                    SELECT DISTINCT
+                        agreement_uuid
+                    FROM RankedPages
+                    WHERE max_prev_type_rank IS NOT NULL
+                        AND type_rank < max_prev_type_rank
+                ),
+                yellow_b AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'yellow' AS color,
+                        '1_pre_processing' AS current_stage,
+                        COUNT(DISTINCT a.agreement_uuid) AS count
+                    FROM {agreements_table} a
+                    JOIN {pages_table} p
+                        ON a.agreement_uuid = p.agreement_uuid
+                    LEFT JOIN low_conf
+                        ON p.agreement_uuid = low_conf.agreement_uuid
+                    LEFT JOIN out_of_order
+                        ON p.agreement_uuid = out_of_order.agreement_uuid
+                    LEFT JOIN {schema}.tagged_outputs t
+                        ON p.page_uuid = t.page_uuid
+                    WHERE low_conf.agreement_uuid IS NULL
+                        AND out_of_order.agreement_uuid IS NULL
+                        AND t.page_uuid IS NULL
+                    GROUP BY 1, 2, 3
+                ),
+                red_b AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'red' AS color,
+                        '1_pre_processing' AS current_stage,
+                        COUNT(DISTINCT a.agreement_uuid) AS count
+                    FROM {agreements_table} a
+                    JOIN {pages_table} p
+                        ON a.agreement_uuid = p.agreement_uuid
+                    LEFT JOIN low_conf
+                        ON p.agreement_uuid = low_conf.agreement_uuid
+                    LEFT JOIN out_of_order
+                        ON p.agreement_uuid = out_of_order.agreement_uuid
+                    WHERE
+                        (
+                            low_conf.agreement_uuid IS NOT NULL
+                            OR out_of_order.agreement_uuid IS NOT NULL
+                        )
+                    GROUP BY 1, 2, 3
+                ),
+                label_errs AS (
+                    SELECT DISTINCT
+                        agreement_uuid
+                    FROM {schema}.tagged_outputs t
+                    JOIN {pages_table} p
+                        ON t.page_uuid = p.page_uuid
+                    WHERE t.label_error
+                ),
+                repairs AS (
+                    SELECT DISTINCT
+                        agreement_uuid
+                    FROM {schema}.ai_repair_requests r
+                    JOIN {pages_table} p
+                        ON r.page_uuid = p.page_uuid
+                ),
+                yellow_c AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'yellow' AS color,
+                        '2_tagging' AS current_stage,
+                        COUNT(DISTINCT p.agreement_uuid) AS count
+                    FROM {schema}.tagged_outputs t
+                    JOIN {pages_table} p
+                        ON t.page_uuid = p.page_uuid
+                    JOIN {agreements_table} a
+                        ON p.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN {xml_table} x
+                        ON a.agreement_uuid = x.agreement_uuid
+                    LEFT JOIN repairs
+                        ON a.agreement_uuid = repairs.agreement_uuid
+                    LEFT JOIN label_errs
+                        ON a.agreement_uuid = label_errs.agreement_uuid
+                    WHERE (
+                        x.agreement_uuid IS NULL
+                        OR EXISTS (
+                            SELECT 1
+                            FROM {pages_table} p_upd
+                            JOIN {schema}.tagged_outputs t_upd
+                                ON t_upd.page_uuid = p_upd.page_uuid
+                            WHERE p_upd.agreement_uuid = a.agreement_uuid
+                                AND p_upd.source_page_type = 'body'
+                                AND t_upd.updated_date > x.created_date
+                        )
+                    )
+                    AND CASE
+                        WHEN repairs.agreement_uuid IS NOT NULL
+                            THEN label_errs.agreement_uuid IS NULL
+                        ELSE TRUE
+                    END
+                    GROUP BY 1, 2, 3
+                ),
+                red_c AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'red' AS color,
+                        '2_tagging' AS current_stage,
+                        COUNT(DISTINCT p.agreement_uuid) AS count
+                    FROM {schema}.tagged_outputs t
+                    JOIN {pages_table} p
+                        ON t.page_uuid = p.page_uuid
+                    JOIN {agreements_table} a
+                        ON p.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN repairs
+                        ON a.agreement_uuid = repairs.agreement_uuid
+                    LEFT JOIN label_errs
+                        ON a.agreement_uuid = label_errs.agreement_uuid
+                    WHERE label_errs.agreement_uuid IS NOT NULL
+                    GROUP BY 1, 2, 3
+                ),
+                red_d AS (
+                    SELECT
+                        YEAR(DATE(filing_date)) AS year,
+                        'red' AS color,
+                        '3_xml' AS current_stage,
+                        COUNT(x.agreement_uuid) AS count
+                    FROM {xml_table} x
+                    JOIN {agreements_table} a
+                        ON x.agreement_uuid = a.agreement_uuid
+                    WHERE x.status = 'invalid'
+                    GROUP BY 1, 2, 3
+                )
+                SELECT * FROM green
+                UNION ALL SELECT * FROM yellow_a
+                UNION ALL SELECT * FROM red_a
+                UNION ALL SELECT * FROM yellow_b
+                UNION ALL SELECT * FROM red_b
+                UNION ALL SELECT * FROM yellow_c
+                UNION ALL SELECT * FROM red_c
+                UNION ALL SELECT * FROM red_d
                 """
             )
         )
