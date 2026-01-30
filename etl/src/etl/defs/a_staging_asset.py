@@ -59,6 +59,25 @@ class _DagsterContextAdapter:
         return self._log
 
 
+def _update_pipeline_run_progress(
+    conn: Connection,
+    run_id: int,
+    pulled_to: datetime,
+    rows_inserted: int,
+) -> None:
+    _ = conn.execute(
+        text(
+            """
+            UPDATE pdx.pipeline_runs
+            SET last_pulled_to = :pulled_to,
+                rows_inserted = :count
+            WHERE run_id = :run_id
+            """
+        ),
+        {"run_id": run_id, "pulled_to": pulled_to, "count": rows_inserted},
+    )
+
+
 @dg.asset(name="1_staging_asset")
 def staging_asset(
     context: AssetExecutionContext, 
@@ -92,15 +111,15 @@ def staging_asset(
     engine = db.get_engine()
     context.log.info("Running staging in FROM_SCRATCH mode")
 
-    # Get last successful pull timestamp
+    # Get the most recent pull timestamp (even from a failed/terminated run)
     with engine.begin() as conn:
         last_run: datetime | None = conn.execute(
             text(
                 """
                 SELECT last_pulled_to
                 FROM pdx.pipeline_runs
-                WHERE status = 'SUCCEEDED'
-                ORDER BY run_time DESC
+                WHERE last_pulled_to IS NOT NULL
+                ORDER BY last_pulled_to DESC, run_time DESC
                 LIMIT 1
                 """
             )
@@ -180,8 +199,10 @@ def staging_asset(
                         raise RuntimeError(e)
                 else:
                     context.log.info(f"  No M&A filings found for {index_date}")
-            
+
             latest_pulled_to = datetime.combine(index_date, datetime.min.time())
+            with engine.begin() as conn:
+                _update_pipeline_run_progress(conn, run_id, latest_pulled_to, total_count)
 
         # DMA corpus flow (commented out - one-time batch processing):
         # # For DMA corpus flow: process all records in one batch (one-time run)
