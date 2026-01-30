@@ -73,8 +73,10 @@ def pre_processing_asset(
                             SELECT 1 FROM pdx.pages p
                             WHERE p.agreement_uuid = pdx.agreements.agreement_uuid
                         )
-                        AND (prob_filing > 0.75 or prob_filing is null or status = 'verified' or status IS NULL)
-                        AND (status = 'verified' or status IS NULL)
+                        AND (
+                            (prob_filing < 0.75 and status = 'verified')
+                            OR (prob_filing > 0.75 and (status = 'verified' or status IS NULL))
+                        )
                         AND exhibit_type is not null
                     ORDER BY
                         agreement_uuid ASC
