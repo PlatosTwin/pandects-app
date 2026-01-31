@@ -286,9 +286,10 @@ def refresh_summary_data(
                         YEAR(DATE(filing_date)) AS year,
                         'gray' AS color,
                         '1_pre_processing' AS current_stage,
-                        COUNT(DISTINCT a.agreement_uuid) AS count
+                        COUNT(DISTINCT agreement_uuid) AS count
                     from pdx.agreements
                         where paginated = False
+                    group by 1,2,3
                 ),
                 label_errs AS (
                     SELECT DISTINCT
