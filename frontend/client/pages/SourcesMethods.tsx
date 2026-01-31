@@ -329,8 +329,8 @@ export default function SourcesMethods() {
     </Card>
   );
 
-  const baselineClassifierF1 = 0.9270384433262334;
-  const postProcessingF1 = 0.9553224497648898;
+  const baselineClassifierF1 = 0.9433498592558431;
+  const postProcessingF1 = 0.9727222114209235;
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
 
   return (
@@ -1136,12 +1136,12 @@ export default function SourcesMethods() {
                           type="button"
                           className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
                         >
-                          <strong>31,864</strong>
+                          <strong>34,999</strong>
                         </button>
                       }
                       content={
                         <>
-                          Did we really label 31,864 pages by hand? Yes—but it
+                          Did we really label 34,999 pages by hand? Yes—but it
                           wasn't that bad. We had GPT build us a custom labeling
                           interface that allowed us to select all body pages in
                           a single go, so the whole process took less than three
