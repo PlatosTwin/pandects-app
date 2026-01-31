@@ -4,6 +4,7 @@ resources:
       mode: from_scratch
       scope: batched
       tagging_agreement_batch_size: 10
+      pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10
       sections_agreement_batch_size: 10
       taxonomy_agreement_batch_size: 10

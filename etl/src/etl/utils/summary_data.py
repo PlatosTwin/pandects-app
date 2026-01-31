@@ -21,6 +21,7 @@ def refresh_summary_data(
     xml_table = f"{schema}.xml"
     pages_table = f"{schema}.pages"
     sections_table = f"{schema}.sections"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
 
     with engine.begin() as conn:
         _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
@@ -238,6 +239,7 @@ def refresh_summary_data(
                     WHERE max_prev_type_rank IS NOT NULL
                         AND type_rank < max_prev_type_rank
                 ),
+                tagged as (select distinct agreement_uuid from {tagged_outputs_table} join {pages_table} using(page_uuid)),
                 yellow_b AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -251,11 +253,12 @@ def refresh_summary_data(
                         ON p.agreement_uuid = low_conf.agreement_uuid
                     LEFT JOIN out_of_order
                         ON p.agreement_uuid = out_of_order.agreement_uuid
-                    LEFT JOIN {schema}.tagged_outputs t
-                        ON p.page_uuid = t.page_uuid
+                    LEFT JOIN tagged
+                        ON a.agreement_uuid = tagged.agreement_uuid
                     WHERE low_conf.agreement_uuid IS NULL
                         AND out_of_order.agreement_uuid IS NULL
-                        AND t.page_uuid IS NULL
+                        AND tagged.agreement_uuid is null
+                        AND (paginated is null or paginated)
                     GROUP BY 1, 2, 3
                 ),
                 red_b AS (
@@ -278,10 +281,19 @@ def refresh_summary_data(
                         )
                     GROUP BY 1, 2, 3
                 ),
+                gray_b AS (
+                    select
+                        YEAR(DATE(filing_date)) AS year,
+                        'gray' AS color,
+                        '1_pre_processing' AS current_stage,
+                        COUNT(DISTINCT a.agreement_uuid) AS count
+                    from pdx.agreements
+                        where paginated = False
+                ),
                 label_errs AS (
                     SELECT DISTINCT
                         agreement_uuid
-                    FROM {schema}.tagged_outputs t
+                    FROM {tagged_outputs_table} t
                     JOIN {pages_table} p
                         ON t.page_uuid = p.page_uuid
                     WHERE t.label_error
@@ -299,7 +311,7 @@ def refresh_summary_data(
                         'yellow' AS color,
                         '2_tagging' AS current_stage,
                         COUNT(DISTINCT p.agreement_uuid) AS count
-                    FROM {schema}.tagged_outputs t
+                    FROM {tagged_outputs_table} t
                     JOIN {pages_table} p
                         ON t.page_uuid = p.page_uuid
                     JOIN {agreements_table} a
@@ -315,7 +327,7 @@ def refresh_summary_data(
                         OR EXISTS (
                             SELECT 1
                             FROM {pages_table} p_upd
-                            JOIN {schema}.tagged_outputs t_upd
+                            JOIN {tagged_outputs_table} t_upd
                                 ON t_upd.page_uuid = p_upd.page_uuid
                             WHERE p_upd.agreement_uuid = a.agreement_uuid
                                 AND p_upd.source_page_type = 'body'
@@ -335,16 +347,13 @@ def refresh_summary_data(
                         'red' AS color,
                         '2_tagging' AS current_stage,
                         COUNT(DISTINCT p.agreement_uuid) AS count
-                    FROM {schema}.tagged_outputs t
+                    FROM {tagged_outputs_table} t
                     JOIN {pages_table} p
                         ON t.page_uuid = p.page_uuid
                     JOIN {agreements_table} a
                         ON p.agreement_uuid = a.agreement_uuid
-                    LEFT JOIN repairs
-                        ON a.agreement_uuid = repairs.agreement_uuid
-                    LEFT JOIN label_errs
+                    JOIN label_errs
                         ON a.agreement_uuid = label_errs.agreement_uuid
-                    WHERE label_errs.agreement_uuid IS NOT NULL
                     GROUP BY 1, 2, 3
                 ),
                 red_d AS (
@@ -364,6 +373,7 @@ def refresh_summary_data(
                 UNION ALL SELECT * FROM red_a
                 UNION ALL SELECT * FROM yellow_b
                 UNION ALL SELECT * FROM red_b
+                UNION ALL SELECT * FROM gray_b
                 UNION ALL SELECT * FROM yellow_c
                 UNION ALL SELECT * FROM red_c
                 UNION ALL SELECT * FROM red_d

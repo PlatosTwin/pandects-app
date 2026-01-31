@@ -54,6 +54,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     mode: PipelineMode = PipelineMode.FROM_SCRATCH
     scope: ProcessingScope = ProcessingScope.BATCHED
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
+    pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
     xml_agreement_batch_size: int = 10  # used in xml_asset
     sections_agreement_batch_size: int = 10  # used in sections_asset
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
@@ -201,6 +202,9 @@ def get_resources() -> dict[str, object]:
     
     if "tagging_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["tagging_agreement_batch_size"] = int(yaml_config["tagging_agreement_batch_size"])
+
+    if "pre_processing_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["pre_processing_agreement_batch_size"] = int(yaml_config["pre_processing_agreement_batch_size"])
     
     if "xml_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])

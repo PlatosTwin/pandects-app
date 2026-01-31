@@ -48,7 +48,7 @@ def pre_processing_asset(
 
     is_cleanup = is_cleanup_mode(context, pipeline_config)
 
-    batch_size: int = 5  # Process pages from batch_size agreements at a time
+    batch_size = pipeline_config.pre_processing_agreement_batch_size
     
     # FROM_SCRATCH mode
     # Just like CLEANUP mode, but we split the agreement into pages first
@@ -78,6 +78,7 @@ def pre_processing_asset(
                             OR (prob_filing > 0.75 and (status = 'verified' or status IS NULL))
                         )
                         AND exhibit_type is not null
+                        AND (paginated is null or paginated)
                     ORDER BY
                         agreement_uuid ASC
                     LIMIT
@@ -97,17 +98,38 @@ def pre_processing_asset(
                 ]
 
                 # Process (tag and format) agreements
-                staged_pages = pre_process(
+                staged_pages, pagination_statuses = pre_process(
                     cast(PreProcessContext, cast(object, context)),
                     agreements,
                     inference_model,
                 )
 
+                if pagination_statuses:
+                    _ = conn.execute(
+                        text(
+                            """
+                        UPDATE pdx.agreements
+                        SET paginated = :paginated
+                        WHERE agreement_uuid = :agreement_uuid
+                        """
+                        ),
+                        [
+                            {
+                                "agreement_uuid": agreement_uuid,
+                                "paginated": paginated,
+                            }
+                            for agreement_uuid, paginated in pagination_statuses.items()
+                        ],
+                    )
+
                 if staged_pages:
                     try:
                         upsert_pages(staged_pages, operation_type="insert", conn=conn)
+                        agreement_count = len(
+                            {p.agreement_uuid for p in staged_pages if p.agreement_uuid}
+                        )
                         context.log.info(
-                            f"Successfully processed {len(staged_pages)} pages from {len(agreements)} agreements"
+                            f"Successfully processed {len(staged_pages)} pages from {agreement_count} agreements"
                         )
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")

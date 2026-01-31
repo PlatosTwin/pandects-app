@@ -264,8 +264,6 @@ def strip_formatting_tags(
         return False
 
     for tag in list(soup.find_all(True)):
-        if not isinstance(tag, Tag):
-            continue
         if _has_hidden_ancestor(tag):
             tag.decompose()
 
@@ -292,15 +290,11 @@ def strip_formatting_tags(
 
     # Remove all style attributes
     for tag in soup.find_all(True):
-        if not isinstance(tag, Tag):
-            continue
         _ = tag.attrs.pop("style", None)
 
     # Unwrap every formatting tag (preserve whitespace around tags)
     for tag_name in remove_tags:
         for tag in list(soup.find_all(tag_name)):
-            if not isinstance(tag, Tag):
-                continue
             # Get the text content of the tag
             tag_text = tag.get_text()
             
@@ -308,25 +302,44 @@ def strip_formatting_tags(
             prev_sibling = tag.previous_sibling
             next_sibling = tag.next_sibling
 
-            # If the tag is empty but sits between two text nodes,
-            # preserve a single space to avoid concatenation.
+            # If the tag is empty/whitespace-only but sits between two content nodes,
+            # preserve a single space to avoid concatenation (e.g. "Section 1.1" + NBSP font
+            # + "Defined Terms" -> "Section 1.1 Defined Terms").
             if not tag_text.strip():
-                if isinstance(prev_sibling, NavigableString) and isinstance(
-                    next_sibling, NavigableString
+                def _sibling_has_content(sib: object) -> bool:
+                    if isinstance(sib, NavigableString):
+                        return bool(str(sib).strip())
+                    if isinstance(sib, Tag):
+                        return bool(sib.get_text().strip())
+                    return False
+
+                def _sibling_ends_space(sib: object) -> bool:
+                    if isinstance(sib, NavigableString):
+                        t = str(sib)
+                        return t.rstrip() != t
+                    if isinstance(sib, Tag):
+                        t = sib.get_text()
+                        return bool(t) and t.rstrip() != t
+                    return False
+
+                def _sibling_starts_space(sib: object) -> bool:
+                    if isinstance(sib, NavigableString):
+                        t = str(sib)
+                        return t.lstrip() != t
+                    if isinstance(sib, Tag):
+                        t = sib.get_text()
+                        return bool(t) and t.lstrip() != t
+                    return False
+
+                if (
+                    _sibling_has_content(prev_sibling)
+                    and _sibling_has_content(next_sibling)
+                    and not _sibling_ends_space(prev_sibling)
+                    and not _sibling_starts_space(next_sibling)
                 ):
-                    prev_text = str(prev_sibling)
-                    next_text = str(next_sibling)
-                    prev_ends_space = prev_text.rstrip() != prev_text
-                    next_starts_space = next_text.lstrip() != next_text
-                    if (
-                        prev_text.strip()
-                        and next_text.strip()
-                        and not prev_ends_space
-                        and not next_starts_space
-                    ):
-                        tag.replace_with(NavigableString(" "))
-                        continue
-                tag.replace_with(NavigableString(""))
+                    _ = tag.replace_with(NavigableString(" "))
+                    continue
+                _ = tag.replace_with(NavigableString(""))
                 continue
             
             # Check if we need a space before the tag content
@@ -360,13 +373,12 @@ def strip_formatting_tags(
                 tag_text = tag_text + ' '
             
             # Replace the tag with its text content
-            tag.replace_with(NavigableString(tag_text))
+            _ = tag.replace_with(NavigableString(tag_text))
 
     # Normalize any non-breaking spaces into real spaces
     for node in soup.find_all(string=True):
-        if isinstance(node, NavigableString):
-            text = str(node).replace("\u00a0", " ").replace("\xa0", " ")
-            _ = node.replace_with(NavigableString(text))
+        text = str(node).replace("\u00a0", " ").replace("\xa0", " ")
+        _ = node.replace_with(NavigableString(text))
 
     return soup
 
@@ -431,8 +443,6 @@ def block_level_soup(
                     _ = p.append(node)
                 _ = new_soup.append(p)
     for tag in soup.find_all(block_tags):
-        if not isinstance(tag, Tag):
-            continue
         # Skip any that live inside another block_tag
         if tag.find_parent(block_tags):
             continue
@@ -460,17 +470,11 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
         BeautifulSoup object with tables converted to paragraphs.
     """
     for table in soup.find_all("table"):
-        if not isinstance(table, Tag):
-            continue
         rows: list[str] = []
         for tr in table.find_all("tr"):
-            if not isinstance(tr, Tag):
-                continue
             cells = tr.find_all(["td", "th"])
             texts: list[str] = []
             for cell in cells:
-                if not isinstance(cell, Tag):
-                    continue
                 # Extract text using space separator to preserve spacing around formatting tags
                 # This ensures that text nodes separated by tags get spaces between them
                 raw = cell.get_text(separator=" ", strip=False)
@@ -540,6 +544,21 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
             _ = c.extract()
 
         # Convert div-based page-breaks to <hr data-page-break>
+        def _parse_style(style: str) -> dict[str, str]:
+            parsed: dict[str, str] = {}
+            for part in style.split(";"):
+                if ":" not in part:
+                    continue
+                key, value = part.split(":", 1)
+                key = key.strip().lower()
+                value = value.strip().lower()
+                if key:
+                    parsed[key] = value
+            return parsed
+
+        def _is_break_value(value: str) -> bool:
+            return value in {"page", "always", "left", "right", "recto", "verso"}
+
         def is_page_break_div(tag: Tag) -> bool:
             if tag.name != "div":
                 return False
@@ -548,33 +567,36 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
                 style = " ".join(style_attr)
             else:
                 style = str(style_attr or "")
-            return (
-                "page-break-before" in style.lower()
-                or "page-break-after" in style.lower()
-            )
+            styles = _parse_style(style)
+            for key in ("page-break-before", "page-break-after", "break-before", "break-after"):
+                value = styles.get(key)
+                if value and _is_break_value(value):
+                    return True
+            return False
 
         for div in soup.find_all(is_page_break_div):
-            if not isinstance(div, Tag):
-                continue
             style_attr = div.get("style")
             if isinstance(style_attr, list):
                 style = " ".join(style_attr).lower()
             else:
                 style = str(style_attr or "").lower()
+            styles = _parse_style(style)
             has_hr = div.find("hr") is not None
-            if "page-break-before" in style and not has_hr:
-                hr = soup.new_tag("hr")
-                hr["data-page-break"] = "true"
-                _ = div.insert_before(hr)
-            if "page-break-after" in style and not has_hr:
-                hr = soup.new_tag("hr")
-                hr["data-page-break"] = "true"
-                _ = div.insert_after(hr)
+            if not has_hr:
+                before_val = styles.get("page-break-before") or styles.get("break-before")
+                if before_val and _is_break_value(before_val):
+                    hr = soup.new_tag("hr")
+                    hr["data-page-break"] = "true"
+                    _ = div.insert_before(hr)
+            if not has_hr:
+                after_val = styles.get("page-break-after") or styles.get("break-after")
+                if after_val and _is_break_value(after_val):
+                    hr = soup.new_tag("hr")
+                    hr["data-page-break"] = "true"
+                    _ = div.insert_after(hr)
 
         # Mark every other <hr> outside of tables
         for hr in soup.find_all("hr"):
-            if not isinstance(hr, Tag):
-                continue
             attr_val = hr.get("data-page-break")
             if isinstance(attr_val, list):
                 data_break = " ".join(attr_val)
@@ -631,7 +653,7 @@ def pre_process(
     context: ContextProtocol | None,
     rows: list[AgreementRow],
     classifier_model: ClassifierModelProtocol,
-) -> list[PageMetadata] | None:
+) -> tuple[list[PageMetadata], dict[str, bool]]:
     """
     Split agreements into pages, classify page type, and process HTML into formatted text.
 
@@ -641,10 +663,12 @@ def pre_process(
         classifier_model: Model to use for page classification.
 
     Returns:
-        List of processed PageMetadata objects, or None if processing should be skipped.
+        Tuple of processed PageMetadata objects and a mapping of agreement UUIDs
+        to whether they appear paginated.
     """
     staged_pages: list[PageMetadata] = []
     all_page_objs: list[PageMetadata] = []
+    pagination_statuses: dict[str, bool] = {}
 
     for agreement in rows:
         raw_url = agreement["url"]
@@ -669,7 +693,10 @@ def pre_process(
         # Split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
 
-        if len(pages) <= 10:
+        is_paginated = len(pages) > 10
+        pagination_statuses[agreement["agreement_uuid"]] = is_paginated
+
+        if not is_paginated:
             if context:
                 context.log.info(
                     f"Agreement {agreement['agreement_uuid']} likely is not paginated. Skipping page upload."
@@ -714,12 +741,12 @@ def pre_process(
             all_page_objs.extend(page_objs)
 
     if not all_page_objs:
-        return staged_pages
+        return staged_pages, pagination_statuses
 
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
     staged_pages.extend(all_page_objs)
-    return staged_pages
+    return staged_pages, pagination_statuses
 
 
 def cleanup(
@@ -784,7 +811,7 @@ if __name__ == "__main__":
 
     clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
 
-    _ = pre_process(
+    _, _ = pre_process(
         None,
         [
             {

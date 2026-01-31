@@ -97,7 +97,7 @@ type AgreementIndexSummary = {
 
 type AgreementStatusYearRow = {
   year: number;
-  color: "green" | "yellow" | "red";
+  color: "green" | "yellow" | "red" | "gray";
   currentStage: string;
   count: number;
 };
@@ -361,7 +361,13 @@ export default function AgreementIndex() {
   const stagedChartData = useMemo(() => {
     const yearMap = new Map<
       number,
-      { year: number; processed: number; staged: number; awaiting: number }
+      {
+        year: number;
+        processed: number;
+        staged: number;
+        awaiting: number;
+        notPaginated: number;
+      }
     >();
     statusSummary.forEach((row) => {
       if (!Number.isFinite(row.year)) return;
@@ -372,6 +378,7 @@ export default function AgreementIndex() {
         processed: 0,
         staged: 0,
         awaiting: 0,
+        notPaginated: 0,
       };
       if (row.color === "green") {
         entry.processed += count;
@@ -379,6 +386,8 @@ export default function AgreementIndex() {
         entry.staged += count;
       } else if (row.color === "red") {
         entry.awaiting += count;
+      } else if (row.color === "gray") {
+        entry.notPaginated += count;
       }
       yearMap.set(year, entry);
     });
@@ -390,10 +399,12 @@ export default function AgreementIndex() {
         acc.processed += row.processed;
         acc.staged += row.staged;
         acc.awaiting += row.awaiting;
-        acc.total += row.processed + row.staged + row.awaiting;
+        acc.notPaginated += row.notPaginated;
+        acc.total +=
+          row.processed + row.staged + row.awaiting + row.notPaginated;
         return acc;
       },
-      { processed: 0, staged: 0, awaiting: 0, total: 0 },
+      { processed: 0, staged: 0, awaiting: 0, notPaginated: 0, total: 0 },
     );
   }, [stagedChartData]);
   const stagedSummaryMetrics = useMemo(() => {
@@ -418,6 +429,12 @@ export default function AgreementIndex() {
         label: "Processed",
         value: stagedTotals.processed,
         pct: pct(stagedTotals.processed),
+      },
+      {
+        key: "not-paginated",
+        label: "Not paginated",
+        value: stagedTotals.notPaginated,
+        pct: pct(stagedTotals.notPaginated),
       },
       {
         key: "latest",
@@ -501,9 +518,13 @@ export default function AgreementIndex() {
             label: "Awaiting validation",
             color: "hsl(0 84% 60%)",
           },
+          notPaginated: {
+            label: "Not paginated",
+            color: "hsl(220 9% 60%)",
+          },
         }}
         role="img"
-        aria-label="Stacked bar chart showing processed, staged, and awaiting validation agreements by filing year."
+        aria-label="Stacked bar chart showing processed, staged, awaiting validation, and not paginated agreements by filing year."
         aria-describedby={`${stagedChartDescriptionId} ${stagedChartTableId}`}
       >
         <BarChart
@@ -543,12 +564,14 @@ export default function AgreementIndex() {
                         processed?: number;
                         staged?: number;
                         awaiting?: number;
+                        notPaginated?: number;
                       }
                     | undefined;
                   const processed = Number(payload?.processed ?? 0);
                   const staged = Number(payload?.staged ?? 0);
                   const awaiting = Number(payload?.awaiting ?? 0);
-                  const total = processed + staged + awaiting;
+                  const notPaginated = Number(payload?.notPaginated ?? 0);
+                  const total = processed + staged + awaiting + notPaginated;
                   const processedPct =
                     total > 0 ? Math.round((processed / total) * 1000) / 10 : 0;
                   const getPct = (count: number) =>
@@ -571,7 +594,9 @@ export default function AgreementIndex() {
                       ? processedPct
                       : name === "Staged"
                         ? getPct(staged)
-                        : getPct(awaiting);
+                        : name === "Awaiting validation"
+                          ? getPct(awaiting)
+                          : getPct(notPaginated);
 
                   return (
                     <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
@@ -606,6 +631,12 @@ export default function AgreementIndex() {
             stackId="agreements"
             fill="var(--color-awaiting)"
             name="Awaiting validation"
+          />
+          <Bar
+            dataKey="notPaginated"
+            stackId="agreements"
+            fill="var(--color-notPaginated)"
+            name="Not paginated"
           />
           {showSourceSplit ? (
             <ReferenceLine
@@ -955,8 +986,8 @@ export default function AgreementIndex() {
                       {renderStageFunnelTable()}
                       <table id={stagedChartTableId} className="sr-only">
                         <caption>
-                          Processed, awaiting validation, and staged agreements
-                          by filing year
+                          Processed, awaiting validation, staged, and not paginated
+                          agreements by filing year
                         </caption>
                         <thead>
                           <tr>
@@ -964,40 +995,46 @@ export default function AgreementIndex() {
                             <th scope="col">Processed</th>
                             <th scope="col">Awaiting validation</th>
                             <th scope="col">Staged</th>
+                            <th scope="col">Not paginated</th>
                             <th scope="col">Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {stagedChartData.map((row) => (
-                          <tr key={`staged-row-${row.year}`}>
-                            <th scope="row">{row.year}</th>
-                            <td>{row.processed.toLocaleString("en-US")}</td>
-                            <td>{row.awaiting.toLocaleString("en-US")}</td>
-                            <td>{row.staged.toLocaleString("en-US")}</td>
-                            <td>
-                              {(
-                                row.processed +
+                            <tr key={`staged-row-${row.year}`}>
+                              <th scope="row">{row.year}</th>
+                              <td>{row.processed.toLocaleString("en-US")}</td>
+                              <td>{row.awaiting.toLocaleString("en-US")}</td>
+                              <td>{row.staged.toLocaleString("en-US")}</td>
+                              <td>{row.notPaginated.toLocaleString("en-US")}</td>
+                              <td>
+                                {(
+                                  row.processed +
                                   row.awaiting +
-                                  row.staged
-                              ).toLocaleString("en-US")}
+                                  row.staged +
+                                  row.notPaginated
+                                ).toLocaleString("en-US")}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr>
+                            <th scope="row">Total</th>
+                            <td>
+                              {stagedTotals.processed.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.awaiting.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.staged.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.notPaginated.toLocaleString("en-US")}
+                            </td>
+                            <td>
+                              {stagedTotals.total.toLocaleString("en-US")}
                             </td>
                           </tr>
-                        ))}
-                        <tr>
-                          <th scope="row">Total</th>
-                          <td>
-                            {stagedTotals.processed.toLocaleString("en-US")}
-                          </td>
-                          <td>
-                              {stagedTotals.awaiting.toLocaleString("en-US")}
-                          </td>
-                          <td>
-                              {stagedTotals.staged.toLocaleString("en-US")}
-                          </td>
-                          <td>
-                              {stagedTotals.total.toLocaleString("en-US")}
-                          </td>
-                        </tr>
                         </tbody>
                       </table>
                     </div>
