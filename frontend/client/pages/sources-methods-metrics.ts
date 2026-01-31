@@ -256,30 +256,30 @@ export const nerEvalData: NerEvalData = {
 
 export const exhibitEvalData: ExhibitEvalData = {
   summary: {
-    accuracy: 0.9756838905775076,
-    precision: 0.9927272727272727,
-    recall: 0.978494623655914,
-    f1: 0.9855595667870036,
-    roc_auc: 0.9864516129032258,
+    accuracy: 0.9647058823529412,
+    precision: 0.9962962962962963,
+    recall: 0.9607142857142857,
+    f1: 0.9781818181818182,
+    roc_auc: 0.9870238095238095,
   },
   confusionMatrix: [
-    [48, 2],
-    [6, 273],
+    [59, 1],
+    [11, 269],
   ],
   perClass: [
     {
       label: "class_0",
-      accuracy: 0.96,
-      precision: 0.8888888888888888,
-      recall: 0.96,
-      f1: 0.9230769230769231,
+      accuracy: 0.9833333333333333,
+      precision: 0.8428571428571429,
+      recall: 0.9833333333333333,
+      f1: 0.9076923076923077,
     },
     {
       label: "class_1",
-      accuracy: 0.978494623655914,
-      precision: 0.9927272727272727,
-      recall: 0.978494623655914,
-      f1: 0.9855595667870036,
+      accuracy: 0.9607142857142857,
+      precision: 0.9962962962962963,
+      recall: 0.9607142857142857,
+      f1: 0.9781818181818182,
     },
   ],
 };

@@ -418,7 +418,8 @@ export default function SourcesMethods() {
                         Automated Identification
                       </div>
                       <p className="text-sm text-foreground">
-                        We parse through Exhibit 2 and Exhibit 10 filings at
+                        We parse through Exhibit 2, Exhibit 10, and Exhibit 99
+                        filings at
                         scale and use machine learning to identify those that
                         represent definitive merger agreements.
                       </p>
@@ -1022,10 +1023,10 @@ export default function SourcesMethods() {
                 , identify all filings that match target form types (all forms
                 except for S-8 and ABS-EE), filter filings by scanning for
                 keywords indicating "Material Definitive Agreement" entries,
-                scrape each filing's index page to extract Exhibit 10.* and 2.*
-                links, fetch and render the exhibit content as text, and use the
-                Exhibit Model to classify candidates, retaining only those with
-                probability of at least 0.5.
+                scrape each filing's index page to extract Exhibit 10.*, 2.*,
+                and 99.* links, fetch and render the exhibit content as text,
+                and use the Exhibit Model to classify candidates, retaining
+                only those with probability of at least 0.5.
               </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
@@ -1043,11 +1044,11 @@ export default function SourcesMethods() {
                 <li className="space-y-2">
                   <div>
                     <strong>Training corpus:</strong> We train the Exhibit Model
-                    on an 80/20 random split of <strong>1,392</strong> positive
-                    samples, selected from the DMA corpus, and 250 negatives,
-                    selected from SEC filings under Exhibits 2 and 10, with a
-                    bias toward filings that earlier versions of this model
-                    incorrectly identified as agreements.
+                    on an 80/20 random split of <strong>1,400</strong> positive
+                    samples, selected from the DMA corpus, and 299 negatives,
+                    selected from SEC filings under Exhibits 2, 10, and 99,
+                    with a bias toward filings that earlier versions of this
+                    model incorrectly identified as agreements.
                   </div>
                 </li>
               </ul>
