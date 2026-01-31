@@ -8,7 +8,7 @@ are loaded from a shared manifest to prevent leakage.
 # pyright: reportMissingTypeStubs=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import cast
 
 import numpy as np
@@ -86,15 +86,16 @@ def load_and_prepare_data(
         raise ValueError("Found missing or invalid date_announcement values.")
     announcement_years = announcement_dates.dt.year.to_numpy()
     agreement_uuids = df["agreement_uuid"].astype(str).to_numpy()
-    year_counts = (
+    year_counts = cast(
+        pd.Series,
         pd.DataFrame(
             {"agreement_uuid": agreement_uuids, "announcement_year": announcement_years}
         )
         .groupby("agreement_uuid")["announcement_year"]
         .nunique()
-        .astype(int)
+        .astype(int),
     )
-    inconsistent = year_counts[year_counts > 1]
+    inconsistent = cast(pd.Series, year_counts[year_counts > 1])
     if not inconsistent.empty:
         raise ValueError(
             "Found agreements spanning multiple announcement years; cannot stratify by year."
@@ -103,7 +104,8 @@ def load_and_prepare_data(
     # Map labels to integers
     labels = cast(list[str], CLASSIFIER_LABEL_LIST)
     label2idx = {label: idx for idx, label in enumerate(labels)}
-    y_series = df["label"].map(label2idx)
+    label_series = cast(pd.Series, df["label"])
+    y_series = label_series.map(cast(Mapping[str, int], label2idx))
     if y_series.isna().any():
         raise ValueError("Found labels missing from CLASSIFIER_LABEL_LIST.")
     y = y_series.astype(int).to_numpy()
@@ -121,7 +123,9 @@ def load_and_prepare_data(
     )
     features = np.vstack(features_list)
 
-    split_df = df[["agreement_uuid", "date_announcement", "label"]].copy()
+    split_df = cast(
+        pd.DataFrame, df[["agreement_uuid", "date_announcement", "label"]].copy()
+    )
     return features, y, agreement_uuids, announcement_years, split_df
 
 
@@ -239,7 +243,7 @@ def main() -> None:
     features = features.astype(np.float32, copy=False)
 
     # Train/val/test split from shared manifest (agreement-level, year-stratified)
-    agreement_ids = pd.unique(agreement_uuids).astype(str)
+    agreement_ids = np.asarray(pd.unique(agreement_uuids), dtype=str)
     if "train" not in split or "val" not in split or "test" not in split:
         raise ValueError("Split manifest missing required keys: train/val/test.")
     train_ids = [str(x) for x in split["train"]]
@@ -252,13 +256,14 @@ def main() -> None:
     if missing_ids:
         raise ValueError("Split manifest contains unknown agreement_uuid values.")
 
-    agreement_windows = (
+    agreement_windows = cast(
+        pd.Series,
         pd.DataFrame(
             {"agreement_uuid": agreement_uuids, "announcement_year": years}
         )
-        .drop_duplicates("agreement_uuid")
+        .drop_duplicates(subset=["agreement_uuid"])
         .set_index("agreement_uuid")["announcement_year"]
-        .loc[agreement_ids]
+        .loc[agreement_ids],
     )
     agreement_window_map = (
         (agreement_windows.astype(int) // year_window) * year_window
@@ -281,7 +286,8 @@ def main() -> None:
         if isinstance(back_edges_raw, list)
         else None
     )
-    agreement_stats = (
+    agreement_stats = cast(
+        pd.DataFrame,
         split_df.assign(
             agreement_uuid=split_df["agreement_uuid"].astype(str),
             announcement_year=pd.to_datetime(
@@ -301,7 +307,9 @@ def main() -> None:
     )
 
     def _bucket_counts(values: pd.Series, edges: list[float]) -> dict[int, int]:
-        buckets = pd.cut(values, bins=edges, include_lowest=True, labels=False)
+        buckets = cast(
+            pd.Series, pd.cut(values, bins=edges, include_lowest=True, labels=False)
+        )
         if buckets.isna().any():
             raise ValueError("Failed to bucketize split metric values.")
         return buckets.astype(int).value_counts().sort_index().to_dict()
@@ -320,11 +328,13 @@ def main() -> None:
         back_counts: dict[int, int] | None = None
         if length_edges:
             length_counts = _bucket_counts(
-                agreement_stats.loc[list(ids), "page_count"], length_edges
+                cast(pd.Series, agreement_stats.loc[list(ids), "page_count"]),
+                length_edges,
             )
         if back_edges:
             back_counts = _bucket_counts(
-                agreement_stats.loc[list(ids), "back_count"], back_edges
+                cast(pd.Series, agreement_stats.loc[list(ids), "back_count"]),
+                back_edges,
             )
         print(
             f"[split] {name:<8} agreements={len(ids):>4} pages={page_count:>6} windows={window_counts}"

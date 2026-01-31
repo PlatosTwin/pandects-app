@@ -6,7 +6,7 @@ training and testing the taxonomy classifier using PyTorch Lightning with
 optional hyperparameter optimization via Optuna. It supports two modes for text
 representation: 'transformer' (HF model) and 'tfidf'.
 """
-# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
 
 # Standard library
 import os
@@ -16,6 +16,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast, Literal
+from collections.abc import Mapping
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -115,15 +116,19 @@ class TaxonomyTrainer:
         self.vectorizer: TfidfVectorizer | None = None
 
     def _load_data(self) -> None:
-        df = pd.read_parquet(self.cfg.data_parquet)  # pyright: ignore[reportUnknownMemberType]
+        df: pd.DataFrame = pd.read_parquet(self.cfg.data_parquet)
         assert set(["article_title", "section_title", "section_text", "label"]).issubset(df.columns)
 
         label2id = {l: i for i, l in enumerate(self.cfg.label_list)}
-        df = df.dropna(subset=["section_text"]).fillna("")  # pyright: ignore[reportUnknownMemberType]
-        df = df[df["label"].isin(self.cfg.label_list)].copy()  # pyright: ignore[reportUnknownMemberType]
-        df["label_ids"] = df["label"].map(label2id)
+        df = df.dropna(subset=["section_text"]).fillna("")
+        df = cast(
+            pd.DataFrame,
+            df[cast(pd.Series, df["label"]).isin(self.cfg.label_list)].copy(),
+        )
+        label_series = cast(pd.Series, df["label"])
+        df["label_ids"] = label_series.map(cast(Mapping[str, int], label2id))
 
-        strat = df["label_ids"] if self.cfg.use_stratify else None
+        strat = cast(pd.Series, df["label_ids"]) if self.cfg.use_stratify else None
         tr, va = cast(
             tuple[pd.DataFrame, pd.DataFrame],
             cast(
@@ -135,14 +140,14 @@ class TaxonomyTrainer:
         )
 
         if self.cfg.mode == "transformer":
-            article_title_tr = tr["article_title"].astype(str).tolist()
-            section_title_tr = tr["section_title"].astype(str).tolist()
-            section_text_tr = tr["section_text"].astype(str).tolist()
-            label_ids_tr = tr["label_ids"].astype(int).tolist()
-            article_title_va = va["article_title"].astype(str).tolist()
-            section_title_va = va["section_title"].astype(str).tolist()
-            section_text_va = va["section_text"].astype(str).tolist()
-            label_ids_va = va["label_ids"].astype(int).tolist()
+            article_title_tr = cast(pd.Series, tr["article_title"]).astype(str).tolist()
+            section_title_tr = cast(pd.Series, tr["section_title"]).astype(str).tolist()
+            section_text_tr = cast(pd.Series, tr["section_text"]).astype(str).tolist()
+            label_ids_tr = cast(pd.Series, tr["label_ids"]).astype(int).tolist()
+            article_title_va = cast(pd.Series, va["article_title"]).astype(str).tolist()
+            section_title_va = cast(pd.Series, va["section_title"]).astype(str).tolist()
+            section_text_va = cast(pd.Series, va["section_text"]).astype(str).tolist()
+            label_ids_va = cast(pd.Series, va["label_ids"]).astype(int).tolist()
             self.train_rows = {
                 "article_title": article_title_tr,
                 "section_title": section_title_tr,
@@ -156,12 +161,12 @@ class TaxonomyTrainer:
                 "label_ids": label_ids_va,
             }
         else:
-            article_title_tr = tr["article_title"].astype(str).tolist()
-            section_title_tr = tr["section_title"].astype(str).tolist()
-            section_text_tr = tr["section_text"].astype(str).tolist()
-            article_title_va = va["article_title"].astype(str).tolist()
-            section_title_va = va["section_title"].astype(str).tolist()
-            section_text_va = va["section_text"].astype(str).tolist()
+            article_title_tr = cast(pd.Series, tr["article_title"]).astype(str).tolist()
+            section_title_tr = cast(pd.Series, tr["section_title"]).astype(str).tolist()
+            section_text_tr = cast(pd.Series, tr["section_text"]).astype(str).tolist()
+            article_title_va = cast(pd.Series, va["article_title"]).astype(str).tolist()
+            section_title_va = cast(pd.Series, va["section_title"]).astype(str).tolist()
+            section_text_va = cast(pd.Series, va["section_text"]).astype(str).tolist()
             texts_tr = [
                 _combine_text(str(a), str(s), str(t))
                 for a, s, t in zip(article_title_tr, section_title_tr, section_text_tr)
@@ -180,18 +185,18 @@ class TaxonomyTrainer:
             )
             Xtr = cast(
                 _DenseConvertible,
-                self.vectorizer.fit_transform(texts_tr),  # pyright: ignore[reportUnknownMemberType]
+                self.vectorizer.fit_transform(texts_tr),
             )
             Xva = cast(
                 _DenseConvertible,
-                self.vectorizer.transform(texts_va),  # pyright: ignore[reportUnknownMemberType]
+                self.vectorizer.transform(texts_va),
             )
 
             # Convert to dense for a small MLP (could keep sparse for linear models)
             self.X_train = Xtr.astype("float32").toarray()
             self.X_val = Xva.astype("float32").toarray()
-            self.y_train = tr["label_ids"].astype("int64").to_numpy()  # pyright: ignore[reportUnknownMemberType]
-            self.y_val = va["label_ids"].astype("int64").to_numpy()  # pyright: ignore[reportUnknownMemberType]
+            self.y_train = cast(pd.Series, tr["label_ids"]).astype("int64").to_numpy()
+            self.y_val = cast(pd.Series, va["label_ids"]).astype("int64").to_numpy()
 
     def _get_callbacks(
         self, trial: Trial | None = None
@@ -392,7 +397,7 @@ class TaxonomyInference:
         self.vectorizer: TfidfVectorizer | None = None
 
         if mode == "transformer":
-            model = TaxonomyClassifier.load_from_checkpoint(  # pyright: ignore[reportUnknownMemberType]
+            model = TaxonomyClassifier.load_from_checkpoint(
                 ckpt_path, map_location=self.device
             )
             if model.mode != "transformer":
@@ -410,12 +415,12 @@ class TaxonomyInference:
                 raise ValueError("Transformer inference requires `model_name` (or a checkpoint that saved it).")
             self.tokenizer = cast(
                 PreTrainedTokenizerBase,
-                AutoTokenizer.from_pretrained(  # pyright: ignore[reportUnknownMemberType]
+                AutoTokenizer.from_pretrained(
                     tokenizer_name, use_fast=True
                 ),
             )
         else:
-            model = TaxonomyClassifier.load_from_checkpoint(  # pyright: ignore[reportUnknownMemberType]
+            model = TaxonomyClassifier.load_from_checkpoint(
                 ckpt_path, map_location=self.device
             )
             if model.mode != "tfidf":

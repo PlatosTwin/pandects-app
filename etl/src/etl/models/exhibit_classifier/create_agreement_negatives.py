@@ -51,9 +51,9 @@ def _load_links(path: Path) -> list[str]:
 
 def _append_rows(output_path: Path, texts: Iterable[str]) -> None:
     text_list = list(texts)
-    df = pd.DataFrame({"text": text_list, "label": [0] * len(text_list)})
+    df: pd.DataFrame = pd.DataFrame({"text": text_list, "label": [0] * len(text_list)})
     write_header = not output_path.exists()
-    df.to_csv(output_path, mode="a", index=False, header=write_header)
+    df.to_csv(output_path, mode="a", index=False, header=write_header)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _parse_args() -> argparse.Namespace:

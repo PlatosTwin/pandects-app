@@ -54,7 +54,7 @@ def build_agreement_split(
     if announcement_dates.isna().any():
         raise ValueError(f"Found missing or invalid {date_col} values.")
 
-    working = df[[agreement_col, date_col]].copy()
+    working = cast(pd.DataFrame, df[[agreement_col, date_col]].copy())
     working[agreement_col] = working[agreement_col].astype(str)
     if year_window <= 0:
         raise ValueError("year_window must be > 0.")
@@ -63,19 +63,23 @@ def build_agreement_split(
         (working["announcement_year"] // year_window) * year_window
     )
 
-    year_counts = working.groupby(agreement_col)["announcement_year"].nunique().astype(int)
-    inconsistent = year_counts[year_counts > 1]
+    year_counts = cast(
+        pd.Series,
+        working.groupby(agreement_col)["announcement_year"].nunique().astype(int),
+    )
+    inconsistent = cast(pd.Series, year_counts[year_counts > 1])
     if not inconsistent.empty:
         raise ValueError(
             "Found agreements spanning multiple announcement years; cannot stratify by year."
         )
 
-    agreement_ids = working[agreement_col].unique().tolist()
+    agreement_series = cast(pd.Series, working[agreement_col])
+    agreement_ids = cast(list[str], agreement_series.astype(str).unique().tolist())
     agreement_windows = cast(
         pd.Series,
         cast(
             object,
-            working.drop_duplicates(agreement_col)
+            working.drop_duplicates(subset=agreement_col)
             .set_index(agreement_col)
             .loc[agreement_ids, "announcement_window"],
         ),
@@ -88,7 +92,9 @@ def build_agreement_split(
             raise ValueError(f"{name} edges must have at least 2 values.")
         if sorted(edges) != edges:
             raise ValueError(f"{name} edges must be sorted ascending.")
-        buckets = pd.cut(values, bins=edges, include_lowest=True, labels=False)
+        buckets = cast(
+            pd.Series, pd.cut(values, bins=edges, include_lowest=True, labels=False)
+        )
         if buckets.isna().any():
             raise ValueError(f"Failed to bucketize {name} values with edges {edges}.")
         return buckets.astype(int), list(edges)
@@ -104,18 +110,24 @@ def build_agreement_split(
     back_bucket = pd.Series(0, index=agreement_ids, dtype=int)
     back_counts = pd.Series(0, index=agreement_ids, dtype=float)
 
-    page_counts = working.groupby(agreement_col).size().reindex(agreement_ids)
+    page_counts = cast(
+        pd.Series, working.groupby(agreement_col).size().reindex(agreement_ids)
+    )
     length_bucket, length_edges = _fixed_buckets(
         page_counts, edges=length_bucket_edges, name="agreement length"
     )
     if "label" not in df.columns:
         raise ValueError("Missing required column for back matter buckets: 'label'.")
-    back_counts = (
-        df[[agreement_col, "label"]]
-        .assign(**{agreement_col: df[agreement_col].astype(str)})
-        .groupby(agreement_col)["label"]
-        .apply(lambda s: int((s == back_label).sum()))  # pyright: ignore[reportUnknownLambdaType]
-        .reindex(agreement_ids)
+    def _count_back(series: pd.Series) -> int:
+        return int((series == back_label).sum())
+
+    label_frame = df[[agreement_col, "label"]].copy()
+    label_frame[agreement_col] = label_frame[agreement_col].astype(str)
+    back_counts = cast(
+        pd.Series,
+        label_frame.groupby(agreement_col)["label"]
+        .apply(_count_back)
+        .reindex(agreement_ids),
     )
     back_bucket, back_edges = _fixed_buckets(
         back_counts, edges=back_matter_bucket_edges, name="back matter pages"
@@ -172,7 +184,8 @@ def build_agreement_split(
     split_lists = {"train": train_ids, "val": val_ids, "test": test_ids}
 
     for b in sorted(back_bucket.unique()):
-        ids_in_back = back_bucket[back_bucket == b].index.tolist()
+        back_mask = cast(pd.Series, back_bucket == b)
+        ids_in_back = [str(x) for x in back_bucket.loc[back_mask].index.tolist()]
         preassigned: set[str] = set()
         if back_bucket_targets[int(b)].get("val", 0) == 1 and back_bucket_targets[int(b)].get("test", 0) == 1:
             back_mean = float(back_bucket_means.get(int(b), 0.0))
@@ -191,6 +204,7 @@ def build_agreement_split(
                 val_pick = picks[0]
                 test_pick = picks[1] if len(picks) > 1 else picks[0]
             for split_name, agr_id in (("val", val_pick), ("test", test_pick)):
+                agr_id = str(agr_id)
                 if agr_id in preassigned:
                     continue
                 year = int(cast(int, agreement_windows.loc[agr_id]))
@@ -206,10 +220,13 @@ def build_agreement_split(
                 if back_bucket_targets[int(b)][split_name] > 0:
                     back_bucket_targets[int(b)][split_name] -= 1
 
-        length_subset = length_bucket.loc[ids_in_back]
+        length_subset = cast(pd.Series, length_bucket.loc[ids_in_back])
         by_length = length_subset.groupby(length_subset)
         for l, group in by_length:
-            group_ids = [gid for gid in group.index.tolist() if gid not in preassigned]
+            l_int = int(cast(int, l))
+            group_ids = [
+                str(gid) for gid in group.index.tolist() if str(gid) not in preassigned
+            ]
             rng.shuffle(group_ids)
             for agr_id in group_ids:
                 year = int(cast(int, agreement_windows.loc[agr_id]))
@@ -228,7 +245,7 @@ def build_agreement_split(
                     cur_sum = back_bucket_sums[(split_name, int(b))]
                     next_avg = (cur_sum + back_value) / (cur_count + 1)
                     return (
-                        length_bucket_counts[(split_name, int(b), int(l))],
+                        length_bucket_counts[(split_name, int(b), l_int)],
                         abs(next_avg - back_mean),
                         year_counts.get((split_name, year), 0),
                         back_bucket_counts[(split_name, int(b))],
@@ -240,7 +257,7 @@ def build_agreement_split(
                 global_counts[chosen] += 1
                 back_bucket_counts[(chosen, int(b))] += 1
                 back_bucket_sums[(chosen, int(b))] += back_value
-                length_bucket_counts[(chosen, int(b), int(l))] += 1
+                length_bucket_counts[(chosen, int(b), l_int)] += 1
                 year_counts[(chosen, year)] = year_counts.get((chosen, year), 0) + 1
                 if back_bucket_targets[int(b)][chosen] > 0:
                     back_bucket_targets[int(b)][chosen] -= 1

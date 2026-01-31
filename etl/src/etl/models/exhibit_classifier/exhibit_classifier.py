@@ -19,7 +19,7 @@ Notes:
 import re
 import warnings
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import joblib
 import numpy as np
@@ -619,7 +619,7 @@ class ExhibitClassifier:
             return None
             
         if hasattr(self.binary_classifier, 'coef_'):
-            coefs = self.binary_classifier.coef_[0]  # pyright: ignore[reportUnknownMemberType]
+            coefs = self.binary_classifier.coef_[0]
             names = self.get_feature_names()
             
             if len(coefs) != len(names):

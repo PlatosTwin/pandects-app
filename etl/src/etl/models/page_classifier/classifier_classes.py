@@ -147,13 +147,10 @@ class DocumentDataset(Dataset[dict[str, Tensor]]):
 
         # Group pages by document and sort by order
         df = df.copy()  # Make a copy to avoid modifying original
-        df['idx'] = range(len(df))  # Add index column
-        # Group by agreement and sort by order within each group, excluding grouping columns
-        grouped = df.groupby('agreement_uuid', sort=False, group_keys=False).apply(  # pyright: ignore[reportCallIssue]
-            lambda x: list(x.sort_values('order')['idx']),
-            include_groups=False,  # pyright: ignore[reportCallIssue]
-        )
-        self.document_indices = grouped.tolist()
+        df["idx"] = range(len(df))  # Add index column
+        sorted_df = df.sort_values(["agreement_uuid", "order"], kind="mergesort")
+        grouped = sorted_df.groupby("agreement_uuid", sort=False)["idx"].apply(list)
+        self.document_indices = cast(list[list[int]], grouped.tolist())
         self.inference: bool = inference
 
     def __len__(self) -> int:
@@ -350,9 +347,15 @@ class PageDataModule(pl.LightningDataModule):
             if missing_ids:
                 raise ValueError("Split manifest contains unknown agreement_uuid values.")
 
-            train_df = self.df[self.df["agreement_uuid"].isin(train_ids)]
-            val_df = self.df[self.df["agreement_uuid"].isin(val_ids)]
-            test_df = self.df[self.df["agreement_uuid"].isin(test_ids)]
+            train_df = cast(
+                pd.DataFrame, self.df[self.df["agreement_uuid"].isin(train_ids)]
+            )
+            val_df = cast(
+                pd.DataFrame, self.df[self.df["agreement_uuid"].isin(val_ids)]
+            )
+            test_df = cast(
+                pd.DataFrame, self.df[self.df["agreement_uuid"].isin(test_ids)]
+            )
 
             # Use only labels present in training data
             present_labels = set(train_df["label"])
