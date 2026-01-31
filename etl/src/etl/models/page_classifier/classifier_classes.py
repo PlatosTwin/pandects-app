@@ -1290,12 +1290,8 @@ class PageClassifier(pl.LightningModule):
         sig_threshold: float = 0.3,
     ) -> tuple[list[Prediction], bool]:
         """
-        Apply decode-time fix: find the first continuous signature block and convert those
-        pages to 'sig', then everything after to 'back_matter'. Uses predicted signature
-        classes when present; otherwise falls back to a probability threshold.
-        
-        This addresses the case where real signature pages are incorrectly predicted as 'body' 
-        or 'back_matter' because exhibit signature pages later in the document confuse the model.
+        Apply decode-time fix: find the first continuous signature block (by predicted labels)
+        and convert everything after it to 'back_matter'.
         
         Args:
             seq_preds: List of prediction dictionaries for a single document
@@ -1318,41 +1314,23 @@ class PageClassifier(pl.LightningModule):
         first_sig_idx = None
         last_sig_idx = None
 
-        # Prefer predicted signature block if present
+        # Use predicted signature block if present; do nothing otherwise.
         for i, pred in enumerate(seq_preds):
             if pred.get("pred_class") == sig_label_name:
                 first_sig_idx = i
                 break
 
-        if first_sig_idx is not None:
-            last_sig_idx = first_sig_idx
-            for i in range(first_sig_idx + 1, len(seq_preds)):
-                if seq_preds[i].get("pred_class") == sig_label_name:
-                    last_sig_idx = i
-                else:
-                    break
-        else:
-            # Fall back to probability threshold if no signature predicted
-            for i, pred in enumerate(seq_preds):
-                pred_probs = cast(dict[str, float], pred["pred_probs"])
-                sig_prob = pred_probs.get(sig_label_name, 0.0)
-                if sig_prob >= sig_threshold:
-                    first_sig_idx = i
-                    break
+        if first_sig_idx is None:
+            for pred in seq_preds:
+                pred["postprocess_modified"] = False
+            return seq_preds, False
 
-            if first_sig_idx is None:
-                for pred in seq_preds:
-                    pred["postprocess_modified"] = False
-                return seq_preds, False
-
-            last_sig_idx = first_sig_idx
-            for i in range(first_sig_idx + 1, len(seq_preds)):
-                pred_probs = cast(dict[str, float], seq_preds[i]["pred_probs"])
-                sig_prob = pred_probs.get(sig_label_name, 0.0)
-                if sig_prob >= sig_threshold:
-                    last_sig_idx = i
-                else:
-                    break  # End of continuous block
+        last_sig_idx = first_sig_idx
+        for i in range(first_sig_idx + 1, len(seq_preds)):
+            if seq_preds[i].get("pred_class") == sig_label_name:
+                last_sig_idx = i
+            else:
+                break
         
         # Create modified predictions
         modified_preds = []
@@ -1362,15 +1340,7 @@ class PageClassifier(pl.LightningModule):
             new_pred = pred.copy()
             new_pred["pred_probs"] = cast(dict[str, float], pred["pred_probs"]).copy()
             
-            if first_sig_idx <= i <= last_sig_idx:
-                # Pages in the signature block: convert to 'sig'
-                if pred["pred_class"] != sig_label_name:
-                    new_pred["pred_class"] = sig_label_name
-                    new_pred["postprocess_modified"] = True
-                    was_modified = True
-                else:
-                    new_pred["postprocess_modified"] = False
-            elif i > last_sig_idx:
+            if i > last_sig_idx:
                 # Pages after signature block: convert to 'back_matter'
                 if self.back_idx is not None and pred["pred_class"] != back_label_name:
                     new_pred["pred_class"] = back_label_name
@@ -1379,7 +1349,7 @@ class PageClassifier(pl.LightningModule):
                 else:
                     new_pred["postprocess_modified"] = False
             else:
-                # Pages before signature block: leave unchanged
+                # Pages before and within the signature block: leave unchanged
                 new_pred["postprocess_modified"] = False
                 
             modified_preds.append(new_pred)
