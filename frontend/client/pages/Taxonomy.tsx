@@ -423,6 +423,7 @@ export default function Taxonomy() {
                             type="button"
                             onClick={() => handleResultClick(result)}
                             className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                            aria-label={`View clause: ${[result.l1, result.l2, result.l3].filter(Boolean).join(" > ")}`}
                           >
                             <Badge
                               variant="outline"

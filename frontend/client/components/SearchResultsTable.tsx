@@ -417,14 +417,16 @@ export function SearchResultsTable({
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() =>
-                          onToggleResultSelection(result.id)
-                        }
-                        className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4 shrink-0"
-                        aria-label={`Select result ${resultNumber}`}
-                      />
+                      <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center sm:min-h-0 sm:min-w-0">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() =>
+                            onToggleResultSelection(result.id)
+                          }
+                          className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
+                          aria-label={`Select result ${resultNumber}`}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
                         {/* Top row: Number, Year, Verified, Clause Type */}
                         <div className="flex flex-wrap items-center gap-2">
@@ -694,7 +696,7 @@ export function SearchResultsTable({
                                 type="button"
                                 title="Copy…"
                                 className={cn(
-                                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground",
+                                  "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-border/60 bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground sm:h-7 sm:w-7",
                                   copiedForResult?.resultId === result.id &&
                                     "bg-primary/10 text-primary border-primary/20",
                                 )}

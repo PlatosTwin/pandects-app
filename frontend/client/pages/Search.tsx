@@ -591,7 +591,7 @@ export default function Search() {
                         <button
                           type="button"
                           onClick={() => trackingActions.toggleFilterValue(field, value)}
-                          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
                           aria-label={`Remove ${label} filter: ${displayValue}`}
                         >
                           <X className="h-3 w-3" aria-hidden="true" />
@@ -613,7 +613,7 @@ export default function Search() {
                     <button
                       type="button"
                       onClick={() => trackingActions.setTextFilterValue("agreementUuid", "")}
-                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
                       aria-label={`Remove Agreement UUID filter: ${filters.agreementUuid}`}
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
@@ -632,7 +632,7 @@ export default function Search() {
                     <button
                       type="button"
                       onClick={() => trackingActions.setTextFilterValue("sectionUuid", "")}
-                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
                       aria-label={`Remove Section UUID filter: ${filters.sectionUuid}`}
                     >
                       <X className="h-3 w-3" aria-hidden="true" />

@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 
+/** Search filters, results, pagination, and actions (performSearch, downloadCSV, etc.). */
 export function useSearch() {
   const [filters, setFilters] = useState<SearchFilters>({
     year: [],

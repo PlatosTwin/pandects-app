@@ -1,3 +1,5 @@
+/** Authenticated fetch: adds session (cookie or Bearer) and CSRF for non-GET requests. */
+
 import { authSessionTransport } from "@/lib/auth-transport";
 import { getSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
@@ -48,6 +50,7 @@ async function ensureCsrfToken(): Promise<string | null> {
   }
 }
 
+/** Fetch with session and CSRF; use for all API calls that require auth or cookies. */
 export async function authFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},

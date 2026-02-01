@@ -4,6 +4,7 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { logger } from "@/lib/logger";
 
+/** Agreement state and fetch/clear for the agreement modal. */
 export function useAgreement() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [isLoading, setIsLoading] = useState(false);

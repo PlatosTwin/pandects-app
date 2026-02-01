@@ -20,16 +20,19 @@ export function TextFilter({
   disabled = false,
 }: TextFilterProps) {
   const labelId = useId();
+  const inputId = useId();
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <label
         id={labelId}
+        htmlFor={inputId}
         className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
       >
         {label}
       </label>
       <Input
+        id={inputId}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

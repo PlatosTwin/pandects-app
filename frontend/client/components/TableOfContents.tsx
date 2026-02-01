@@ -66,6 +66,7 @@ export function TableOfContents({
             }
           }}
           aria-expanded={hasChildren ? isExpanded : undefined}
+          aria-label={item.sectionUuid ? `Go to section: ${item.title}` : item.title}
         >
           <div className="w-4 flex-shrink-0 flex items-center justify-center">
             {hasChildren ? (

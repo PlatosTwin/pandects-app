@@ -1618,6 +1618,7 @@ def _load_query(schema: Schema) -> dict:
 
 
 def _pagination_metadata(*, total_count: int, page: int, page_size: int) -> dict[str, object]:
+    """Build standard pagination dict for list responses."""
     total_pages = math.ceil(total_count / page_size) if total_count else 0
     has_prev = page > 1
     has_next = page < total_pages
@@ -1797,6 +1798,7 @@ def _lookup_api_key(raw_key: str) -> ApiKey | None:
 
 
 def _current_access_context() -> AccessContext:
+    """Resolve request auth (cookie session or X-API-Key) into AccessContext; cached on g."""
     cached = getattr(g, "access_ctx", None)
     if isinstance(cached, AccessContext):
         return cached
@@ -3116,9 +3118,6 @@ class SearchResource(MethodView):
     @search_blp.response(200, SearchResponseSchema)
     def get(self, args) -> dict[str, object]:
         ctx = _current_access_context()
-        # @app.route("/v1/search", methods=["GET"])
-        # def search_sections():
-        # pull in optional query params - now supporting multiple values
         years = args["year"]
         targets = args["target"]
         acquirers = args["acquirer"]

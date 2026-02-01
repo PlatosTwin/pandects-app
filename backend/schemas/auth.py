@@ -1,3 +1,5 @@
+"""Marshmallow schemas for auth request/response validation."""
+
 from marshmallow import Schema, fields
 
 

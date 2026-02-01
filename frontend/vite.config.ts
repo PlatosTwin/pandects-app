@@ -127,8 +127,11 @@ function criticalCssPlugin(): Plugin {
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
-      // Add preload hints for LCP image using bundle info if available
-      if (ctx?.bundle) {
+      // Add preload hints for LCP image only if not already present (index.html may have them)
+      const hasLogoPreload = (nextHtml.match(/<link[^>]+>/g) || []).some(
+        (link) => link.includes("rel=\"preload\"") && link.includes("logo-128") && link.includes("as=\"image\"")
+      );
+      if (ctx?.bundle && !hasLogoPreload) {
         const preloadHints: string[] = [];
         for (const [fileName, chunk] of Object.entries(ctx.bundle)) {
           if (chunk.type === "asset") {
@@ -173,33 +176,32 @@ function criticalCssPlugin(): Plugin {
       });
     },
     writeBundle(options, bundle) {
-      // After bundle is written, inject preload hints into HTML if bundle info wasn't available in transformIndexHtml
+      // After bundle is written, inject logo preload hints only if not already present
       const htmlPath = path.join(options.dir || "dist/spa", "index.html");
       if (fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, "utf-8");
+        const hasLogoPreload = (html.match(/<link[^>]+>/g) || []).some(
+          (link) => link.includes("rel=\"preload\"") && link.includes("logo-128") && link.includes("as=\"image\"")
+        );
+        if (hasLogoPreload) return;
+
         const preloadHints: string[] = [];
-        
         for (const [fileName, chunk] of Object.entries(bundle)) {
           if (chunk.type === "asset") {
             const assetFileName = chunk.fileName;
             if (assetFileName.includes("logo-128")) {
               if (assetFileName.endsWith(".webp")) {
-                if (!html.includes(`rel="preload" href="/${assetFileName}"`)) {
-                  preloadHints.push(
-                    `  <link rel="preload" href="/${assetFileName}" as="image" type="image/webp" />`,
-                  );
-                }
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/webp" />`,
+                );
               } else if (assetFileName.endsWith(".png")) {
-                if (!html.includes(`rel="preload" href="/${assetFileName}"`)) {
-                  preloadHints.push(
-                    `  <link rel="preload" href="/${assetFileName}" as="image" type="image/png" />`,
-                  );
-                }
+                preloadHints.push(
+                  `  <link rel="preload" href="/${assetFileName}" as="image" type="image/png" />`,
+                );
               }
             }
           }
         }
-        
         if (preloadHints.length > 0) {
           html = html.replace(
             "</head>",

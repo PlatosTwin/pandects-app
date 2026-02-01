@@ -477,14 +477,15 @@ export default function AgreementIndex() {
       { key: "2_tagging", label: "Tagging" },
       { key: "3_xml", label: "XML validation" },
     ] as const;
-    const stageMap = new Map(
+    type StageKey = (typeof stageOrder)[number]["key"];
+    const stageMap = new Map<StageKey, { key: StageKey; label: string; staged: number; awaiting: number }>(
       stageOrder.map((stage) => [
         stage.key,
         { ...stage, staged: 0, awaiting: 0 },
       ]),
     );
     statusSummary.forEach((row) => {
-      const entry = stageMap.get(row.currentStage);
+      const entry = stageMap.get(row.currentStage as StageKey);
       if (!entry) return;
       const count = Math.max(0, Number(row.count || 0));
       if (row.color === "yellow") {

@@ -1,3 +1,5 @@
+"""Flask blueprint for auth: register, login, password reset, API keys, Google OAuth."""
+
 from __future__ import annotations
 
 import os
