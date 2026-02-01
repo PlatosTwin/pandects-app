@@ -1287,7 +1287,7 @@ class PageClassifier(pl.LightningModule):
     def _apply_first_sig_block_postprocessing(
         self,
         seq_preds: list[Prediction],
-        sig_threshold: float = 0.3,
+        _: float = 0.3,
     ) -> tuple[list[Prediction], bool]:
         """
         Apply decode-time fix: find the first continuous signature block (by predicted labels)
