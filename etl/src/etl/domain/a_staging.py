@@ -97,6 +97,7 @@ class AgreementCandidateResult:
     filing_company_cik: str
     filing_date: str  # YYYYMMDD format from idx
     exhibit_type: str  # "2", "10", or "99"
+    page_count: int
     minhash: MinHash  # For near-duplicate detection via LSH
 
 
@@ -176,7 +177,7 @@ _MINHASH_NUM_PERM = 128  # Number of permutations (higher = more accurate, slowe
 _MINHASH_SHINGLE_SIZE = 5  # Size of word shingles
 
 
-def _compute_minhash(content: str, is_txt: bool, is_html: bool) -> MinHash:
+def _compute_minhash(rendered_text: str) -> MinHash:
     """Compute a MinHash signature for near-duplicate detection.
     
     Uses only the first 20,000 characters to focus on the main agreement content
@@ -185,11 +186,8 @@ def _compute_minhash(content: str, is_txt: bool, is_html: bool) -> MinHash:
     Uses word-level shingles (n-grams) for robustness against minor text differences.
     For very short texts (fewer words than shingle size), falls back to individual words.
     """
-    # Format the entire content into text
-    text = _render_agreement_text(content, is_txt=is_txt, is_html=is_html)
-    
     # Use only the first 20,000 characters (roughly first N pages equivalent)
-    text = text[:20000]
+    text = rendered_text[:20000]
     
     mh = MinHash(num_perm=_MINHASH_NUM_PERM)
     words = text.lower().split()
@@ -243,24 +241,44 @@ def classify_exhibit_candidates(
     valid_candidates: list[ExhibitCandidate] = []
     agreement_texts: list[str] = []
     minhashes: list[MinHash] = []
+    page_counts: list[int] = []
+    cached_exhibits: dict[str, tuple[str, int, MinHash] | None] = {}
 
     for candidate in exhibit_candidates:
-        try:
-            fetch_result = _fetch_exhibit_content(
-                candidate.exhibit_url, user_agent=SEC_USER_AGENT
-            )
-        except Exception as e:
-            # Log and skip this candidate rather than crashing the whole batch
-            context.log.info(f"Failed to fetch {candidate.exhibit_url} after retries: {e}")
-            continue
-            
-        if fetch_result is None:
+        cached = cached_exhibits.get(candidate.exhibit_url)
+        if cached is None and candidate.exhibit_url in cached_exhibits:
             context.log.info(f"Skipping unsupported file type: {candidate.exhibit_url}")
             continue
-        content, is_txt, is_html = fetch_result
-        agreement_text = _render_agreement_text(content, is_txt=is_txt, is_html=is_html)
+        if cached is None:
+            try:
+                fetch_result = _fetch_exhibit_content(
+                    candidate.exhibit_url, user_agent=SEC_USER_AGENT
+                )
+            except Exception as e:
+                # Log and skip this candidate rather than crashing the whole batch
+                context.log.info(f"Failed to fetch {candidate.exhibit_url} after retries: {e}")
+                continue
+
+            if fetch_result is None:
+                cached_exhibits[candidate.exhibit_url] = None
+                context.log.info(f"Skipping unsupported file type: {candidate.exhibit_url}")
+                continue
+            content, is_txt, is_html = fetch_result
+            agreement_text, page_count = _render_agreement_text_and_page_count(
+                content, is_txt=is_txt, is_html=is_html
+            )
+            minhash = _compute_minhash(agreement_text)
+            cached_exhibits[candidate.exhibit_url] = (
+                agreement_text,
+                page_count,
+                minhash,
+            )
+        else:
+            agreement_text, page_count, minhash = cached
+
         agreement_texts.append(agreement_text)
-        minhashes.append(_compute_minhash(content, is_txt=is_txt, is_html=is_html))
+        minhashes.append(minhash)
+        page_counts.append(page_count)
         valid_candidates.append(candidate)
 
     # Early return if no valid candidates (all fetches failed/skipped)
@@ -287,6 +305,7 @@ def classify_exhibit_candidates(
                 filing_company_cik=candidate.filing_company_cik,
                 filing_date=candidate.filing_date,
                 exhibit_type=candidate.exhibit_type,
+                page_count=page_counts[idx],
                 minhash=minhashes[idx],
             )
         )
@@ -383,7 +402,7 @@ def fetch_new_filings_sec_index(
             candidates_with_pagination = []
             
             for idx, candidate in group:
-                has_pagination = _has_valid_pagination(candidate.candidate_url, SEC_USER_AGENT)
+                has_pagination = 10 < candidate.page_count <= 350
                 if has_pagination:
                     candidates_with_pagination.append((idx, candidate))
             
@@ -490,37 +509,15 @@ def _fetch_exhibit_content(
     return None
 
 
-def _has_valid_pagination(candidate_url: str, user_agent: str) -> bool:
-    """Check if a candidate has valid pagination (between 10 and 350 pages).
-    
-    Args:
-        candidate_url: URL of the candidate to check.
-        user_agent: User agent string for requests.
-        
-    Returns:
-        True if the candidate has between 10 and 350 pages, False otherwise.
-    """
-    try:
-        fetch_result = _fetch_exhibit_content(candidate_url, user_agent)
-        if fetch_result is None:
-            return False
-        content, is_txt, is_html = fetch_result
-        pages = split_to_pages(content, is_txt=is_txt, is_html=is_html)
-        page_count = len(pages)
-        # Valid pagination: more than 10 pages and at most 350 pages
-        return 10 < page_count <= 350
-    except Exception:
-        # If we can't fetch or parse, assume no valid pagination
-        return False
-
-
-def _render_agreement_text(content: str, is_txt: bool, is_html: bool) -> str:
+def _render_agreement_text_and_page_count(
+    content: str, is_txt: bool, is_html: bool
+) -> tuple[str, int]:
     pages = split_to_pages(content, is_txt=is_txt, is_html=is_html)
     rendered_pages = [
         format_content(page["content"], is_txt=is_txt, is_html=is_html).strip()
         for page in pages
     ]
-    return "\n\n".join(page for page in rendered_pages if page)
+    return "\n\n".join(page for page in rendered_pages if page), len(pages)
 
 
 def get_sec_index_urls(start_date_str: str, days_to_fetch: int) -> list[str]:
