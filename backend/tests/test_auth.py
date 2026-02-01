@@ -320,7 +320,7 @@ class AuthFlowTests(unittest.TestCase):
                 "sectionUuid": "s1",
                 "message": "Metadata mismatch in clause excerpt.",
                 "requestFollowUp": False,
-                "issueTypes": ["Incorrect metadata", "Incorrect tagging"],
+                "issueTypes": ["Incorrect metadata", "Incorrect tagging (Article/Section)"],
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -369,7 +369,7 @@ class AuthFlowTests(unittest.TestCase):
             json={
                 "source": "agreement_view",
                 "agreementUuid": "a1",
-                "issueTypes": ["Incorrect tagging"],
+                "issueTypes": ["Incorrect tagging (Article/Section)"],
             },
         )
         self.assertEqual(res.status_code, 200)

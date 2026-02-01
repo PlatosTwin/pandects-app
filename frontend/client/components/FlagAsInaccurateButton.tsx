@@ -26,10 +26,11 @@ const TOOLTIP_REST =
   " Click here to report an issue with this section or agreement; we'll look into it and correct the formatting or taxonomy classification by hand if something is amiss.";
 
 const ISSUE_OPTIONS = [
-  "Incorrect tagging",
+  "Incorrect tagging (Article/Section)",
   "Corrupted formatting",
   "Incorrect taxonomy class",
   "Incorrect metadata",
+  "Not an M&A agreement",
   "Something else",
 ] as const;
 
@@ -145,7 +146,7 @@ export function FlagAsInaccurateButton({
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         {trigger}
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Report an issue</DialogTitle>
           </DialogHeader>
@@ -158,7 +159,7 @@ export function FlagAsInaccurateButton({
                 </span>
               </span>
               <div
-                className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-2"
+                className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
                 role="group"
                 aria-labelledby={issueGroupId}
                 aria-required="true"
@@ -183,7 +184,15 @@ export function FlagAsInaccurateButton({
                           });
                         }}
                       />
-                      <Label htmlFor={optionId}>{option}</Label>
+                      <Label
+                        htmlFor={optionId}
+                        className={cn(
+                          option === "Incorrect tagging (Article/Section)" &&
+                            "whitespace-nowrap",
+                        )}
+                      >
+                        {option}
+                      </Label>
                     </div>
                   );
                 })}
@@ -250,7 +259,7 @@ export function FlagAsInaccurateButton({
           </p>
         </TooltipContent>
       </Tooltip>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Report an issue</DialogTitle>
         </DialogHeader>
@@ -263,7 +272,7 @@ export function FlagAsInaccurateButton({
               </span>
             </span>
             <div
-              className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-2"
+              className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
               role="group"
               aria-labelledby={issueGroupId}
               aria-required="true"
@@ -288,7 +297,15 @@ export function FlagAsInaccurateButton({
                         });
                       }}
                     />
-                    <Label htmlFor={optionId}>{option}</Label>
+                    <Label
+                      htmlFor={optionId}
+                      className={cn(
+                        option === "Incorrect tagging (Article/Section)" &&
+                          "whitespace-nowrap",
+                      )}
+                    >
+                      {option}
+                    </Label>
                   </div>
                 );
               })}

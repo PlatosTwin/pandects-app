@@ -934,10 +934,11 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         if not issue_types:
             abort(400, description="issueTypes is required.")
         allowed_issue_types = {
-            "Incorrect tagging",
+            "Incorrect tagging (Article/Section)",
             "Corrupted formatting",
             "Incorrect taxonomy class",
             "Incorrect metadata",
+            "Not an M&A agreement",
             "Something else",
         }
         if any(item not in allowed_issue_types for item in issue_types):
