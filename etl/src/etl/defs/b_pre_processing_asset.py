@@ -20,6 +20,7 @@ from etl.domain.b_pre_processing import (
     cleanup,
     pre_process,
 )
+from etl.domain.z_gating import apply_agreement_gating, apply_gating, apply_pages_gating
 from etl.utils.db_utils import upsert_pages
 from etl.utils.run_config import is_cleanup_mode
 from etl.utils.summary_data import refresh_summary_data
@@ -49,6 +50,9 @@ def pre_processing_asset(
     is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     batch_size = pipeline_config.pre_processing_agreement_batch_size
+
+    with engine.begin() as conn:
+        _ = apply_agreement_gating(conn, db.database)
     
     # FROM_SCRATCH mode
     # Just like CLEANUP mode, but we split the agreement into pages first
@@ -73,12 +77,7 @@ def pre_processing_asset(
                             SELECT 1 FROM pdx.pages p
                             WHERE p.agreement_uuid = pdx.agreements.agreement_uuid
                         )
-                        AND (
-                            (prob_filing < 0.75 and status = 'verified')
-                            OR (prob_filing > 0.75 and (status = 'verified' or status IS NULL))
-                        )
-                        AND exhibit_type is not null
-                        AND (paginated is null or paginated)
+                        AND gated = 0
                     ORDER BY
                         agreement_uuid ASC
                     LIMIT
@@ -223,5 +222,9 @@ def pre_processing_asset(
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")
                         raise RuntimeError(e)
+
+    with engine.begin() as conn:
+        _ = apply_pages_gating(conn, db.database)
+        _ = apply_gating(conn, db.database)
 
     refresh_summary_data(context, db)

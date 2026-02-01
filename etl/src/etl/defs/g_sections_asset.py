@@ -6,6 +6,7 @@ from sqlalchemy import text
 from etl.defs.f_xml_asset import xml_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
+from etl.domain.z_gating import apply_gating, apply_xml_gating
 from etl.utils.db_utils import upsert_sections
 from etl.utils.run_config import is_batched
 from etl.utils.summary_data import refresh_summary_data
@@ -23,6 +24,10 @@ def sections_asset(
 
     engine = db.get_engine()
     last_uuid = ""
+
+    with engine.begin() as conn:
+        _ = apply_xml_gating(conn, db.database)
+        _ = apply_gating(conn, db.database)
 
     while True:
         with engine.begin() as conn:
@@ -43,7 +48,7 @@ def sections_asset(
                             AND s.xml_version = m.version
                         WHERE m.agreement_uuid > :last
                           AND s.agreement_uuid IS NULL
-                          AND (m.status is null or m.status = 'verified')
+                          AND m.gated = 0
                         ORDER BY m.agreement_uuid
                         LIMIT :lim
                         """

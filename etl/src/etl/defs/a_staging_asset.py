@@ -23,6 +23,7 @@ from etl.domain.a_staging import (
     # To switch to DMA corpus flow, uncomment the line below and comment out fetch_new_filings_sec_index:
     # fetch_new_filings_dma_corpus,
 )
+from etl.domain.z_gating import apply_agreement_gating, apply_gating
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.run_config import is_cleanup_mode
@@ -105,6 +106,9 @@ def staging_asset(
 
     if is_cleanup:
         context.log.info("CLEANUP mode. Skipping staging step.")
+        with db.get_engine().begin() as conn:
+            _ = apply_agreement_gating(conn, db.database)
+            _ = apply_gating(conn, db.database)
         refresh_summary_data(context, db)
         return 0
 
@@ -240,6 +244,9 @@ def staging_asset(
         #     )
 
         context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
+        with engine.begin() as conn:
+            _ = apply_agreement_gating(conn, db.database)
+            _ = apply_gating(conn, db.database)
         refresh_summary_data(context, db)
 
         # Update pipeline_runs at the last possible moment.

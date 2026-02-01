@@ -10,7 +10,8 @@ from sqlalchemy import text
 from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.f_xml import count_article_tags, generate_xml
+from etl.domain.f_xml import generate_xml
+from etl.domain.z_gating import apply_gating, apply_tagged_outputs_gating, apply_xml_gating
 from etl.utils.db_utils import upsert_xml
 from etl.utils.run_config import is_batched, is_cleanup_mode
 from etl.utils.summary_data import refresh_summary_data
@@ -44,6 +45,9 @@ def xml_asset(
         f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
     )
 
+    with engine.begin() as conn:
+        _ = apply_tagged_outputs_gating(conn, db.database)
+
     last_uuid = ''
     while True:
         with engine.begin() as conn:
@@ -71,17 +75,18 @@ def xml_asset(
                             ON t.page_uuid = p.page_uuid
                         LEFT JOIN latest_xml x
                             ON x.agreement_uuid = a.agreement_uuid
+                        LEFT JOIN (
+                            SELECT DISTINCT p2.agreement_uuid
+                            FROM pdx.tagged_outputs t2
+                            JOIN pdx.pages p2
+                                ON t2.page_uuid = p2.page_uuid
+                            WHERE t2.gated = 1
+                        ) gated
+                            ON gated.agreement_uuid = a.agreement_uuid
                         WHERE a.agreement_uuid > :last_uuid
                         AND p.source_page_type = 'body'
                         AND COALESCE(t.tagged_text_gold, t.tagged_text_corrected, t.tagged_text) IS NOT NULL
-                        AND NOT EXISTS (
-                            SELECT 1 
-                            FROM pdx.pages p_err
-                            JOIN pdx.tagged_outputs t_err
-                                ON t_err.page_uuid = p_err.page_uuid
-                            WHERE t_err.label_error = 1
-                            AND p_err.agreement_uuid = a.agreement_uuid
-                        )
+                        AND gated.agreement_uuid IS NULL
                         AND (
                             x.agreement_uuid IS NULL
                             OR EXISTS (
@@ -149,27 +154,6 @@ def xml_asset(
             )
 
             df = pd.DataFrame(rows)
-            min_article_tags = 5
-            body_rows = df[df["source_page_type"] == "body"]
-            article_counts = (
-                body_rows.groupby("agreement_uuid")["tagged_output"]
-                .apply(lambda series: count_article_tags("".join(series.to_list())))  # pyright: ignore[reportUnknownLambdaType]
-            )
-            mask = article_counts >= min_article_tags
-            filtered = article_counts[mask]
-            eligible_uuids: list[str] = list(filtered.index)  # pyright: ignore[reportAttributeAccessIssue]
-            if not eligible_uuids:
-                context.log.info(
-                    "Skipping batch: no agreements with at least 5 <article> tags."
-                )
-                last_uuid = agreement_uuids[-1]
-                continue
-            skipped_count = len(agreement_uuids) - len(eligible_uuids)
-            if skipped_count > 0:
-                context.log.info(
-                    f"Skipping {skipped_count} agreements with fewer than 5 <article> tags."
-                )
-            df = df[df["agreement_uuid"].isin(eligible_uuids)]
             # Determine version: new agreements get v1, updated pages increment version
             existing_versions = conn.execute(
                 text("""
@@ -178,7 +162,7 @@ def xml_asset(
                     WHERE agreement_uuid IN :uuids
                     GROUP BY agreement_uuid
                 """),
-                {"uuids": tuple(eligible_uuids)},
+                {"uuids": tuple(agreement_uuids)},
             ).mappings().fetchall()
             
             version_map = {row["agreement_uuid"]: row["max_version"] + 1 for row in existing_versions}
@@ -189,7 +173,7 @@ def xml_asset(
             try:
                 upsert_xml(xml, conn)
                 context.log.info(
-                    f"Successfully generated XML for {len(eligible_uuids)} agreements"
+                    f"Successfully generated XML for {len(agreement_uuids)} agreements"
                 )
             except Exception as e:
                 context.log.error(f"Error upserting XML: {e}")
@@ -198,5 +182,9 @@ def xml_asset(
             last_uuid = agreement_uuids[-1]
         if batched:
             break
+
+    with engine.begin() as conn:
+        _ = apply_xml_gating(conn, db.database)
+        _ = apply_gating(conn, db.database)
 
     refresh_summary_data(context, db)

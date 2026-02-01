@@ -26,6 +26,7 @@ import time
 
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.utils.run_config import is_batched
+from etl.domain.z_gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 from etl.domain.d_ai_repair import (
     UncertainSpan,
@@ -485,6 +486,7 @@ def ai_repair_enqueue_asset(
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
+            _ = apply_gating(conn, db.database)
             refresh_summary_data(context, db)
             return
 
@@ -496,6 +498,7 @@ def ai_repair_enqueue_asset(
         )
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
+            _ = apply_gating(conn, db.database)
             refresh_summary_data(context, db)
             return
 
@@ -577,6 +580,7 @@ def ai_repair_enqueue_asset(
 
         if not lines_meta_full and not lines_meta_excerpt:
             context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+            _ = apply_gating(conn, db.database)
             refresh_summary_data(context, db)
             return
 
@@ -625,6 +629,8 @@ def ai_repair_enqueue_asset(
         _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
         _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
 
+    with engine.begin() as conn:
+        _ = apply_gating(conn, db.database)
     refresh_summary_data(context, db)
 
 
@@ -788,6 +794,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
             )
             if not rows:
                 context.log.info("ai_repair_poll_asset: no batches to poll.")
+                _ = apply_gating(conn, db.database)
                 refresh_summary_data(context, db)
                 return
 

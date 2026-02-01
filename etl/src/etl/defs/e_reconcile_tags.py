@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from etl.defs.d_ai_repair_asset import ai_repair_poll_asset
 from etl.defs.resources import DBResource, PipelineConfig
+from etl.domain.z_gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 
@@ -512,4 +513,6 @@ def reconcile_tags(
         if is_batched:
             break
 
+    with db.get_engine().begin() as conn:
+        _ = apply_gating(conn, db.database)
     refresh_summary_data(context, db)

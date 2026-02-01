@@ -146,13 +146,7 @@ def refresh_summary_data(
                     LEFT JOIN {pages_table} p
                         ON a.agreement_uuid = p.agreement_uuid
                     WHERE p.agreement_uuid IS NULL
-                        AND (
-                            (prob_filing < 0.75 AND status = 'verified')
-                            OR (
-                                prob_filing > 0.75
-                                AND (status = 'verified' OR status IS NULL)
-                            )
-                        )
+                        AND a.gated = 0
                     GROUP BY 1, 2, 3
                 ),
                 red_a AS (
@@ -165,81 +159,23 @@ def refresh_summary_data(
                     LEFT JOIN {pages_table} p
                         ON a.agreement_uuid = p.agreement_uuid
                     WHERE p.agreement_uuid IS NULL
-                        AND prob_filing < 0.75
-                        AND status IS NULL
+                        AND a.gated = 1
                     GROUP BY 1, 2, 3
                 ),
-                low_conf AS (
+                gated_pages AS (
                     SELECT DISTINCT
                         agreement_uuid
-                    FROM (
-                        SELECT
-                            agreement_uuid,
-                            page_order,
-                            page_type_prob_front_matter,
-                            page_type_prob_toc,
-                            page_type_prob_body,
-                            page_type_prob_sig,
-                            page_type_prob_back_matter,
-                            gold_label,
-                            MIN(
-                                CASE
-                                    WHEN source_page_type = 'sig'
-                                    AND page_type_prob_sig >= 0.95
-                                    THEN page_order
-                                END
-                            ) OVER (PARTITION BY agreement_uuid) AS sig_cutoff_page
-                        FROM {pages_table}
-                    ) sub
-                    WHERE
-                        (
-                            page_type_prob_front_matter BETWEEN 0.3 AND 0.7
-                            OR page_type_prob_toc BETWEEN 0.3 AND 0.7
-                            OR page_type_prob_body BETWEEN 0.3 AND 0.7
-                            OR page_type_prob_sig BETWEEN 0.3 AND 0.7
-                            OR page_type_prob_back_matter BETWEEN 0.3 AND 0.7
-                        )
-                        AND (
-                            page_order <= sig_cutoff_page
-                            OR sig_cutoff_page IS NULL
-                        )
-                        AND gold_label IS NULL
-                ),
-                out_of_order AS (
-                    WITH PageRanks AS (
-                        SELECT
-                            agreement_uuid,
-                            page_order,
-                            CASE
-                                WHEN source_page_type = 'front_matter' THEN 1
-                                WHEN source_page_type = 'toc' THEN 2
-                                WHEN source_page_type = 'body' THEN 3
-                                WHEN source_page_type = 'sig' THEN 4
-                                WHEN source_page_type = 'back_matter' THEN 5
-                                ELSE 99
-                            END AS type_rank
-                        FROM {pages_table}
-                        WHERE gold_label IS NULL
-                    ),
-                    RankedPages AS (
-                        SELECT
-                            agreement_uuid,
-                            page_order,
-                            type_rank,
-                            MAX(type_rank) OVER (
-                                PARTITION BY agreement_uuid
-                                ORDER BY page_order
-                                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                            ) AS max_prev_type_rank
-                        FROM PageRanks
-                    )
-                    SELECT DISTINCT
-                        agreement_uuid
-                    FROM RankedPages
-                    WHERE max_prev_type_rank IS NOT NULL
-                        AND type_rank < max_prev_type_rank
+                    FROM {pages_table}
+                    WHERE gated = 1
                 ),
                 tagged as (select distinct agreement_uuid from {tagged_outputs_table} join {pages_table} using(page_uuid)),
+                gated_tagged AS (
+                    SELECT DISTINCT p.agreement_uuid
+                    FROM {tagged_outputs_table} t
+                    JOIN {pages_table} p
+                        ON t.page_uuid = p.page_uuid
+                    WHERE t.gated = 1
+                ),
                 yellow_b AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -249,14 +185,11 @@ def refresh_summary_data(
                     FROM {agreements_table} a
                     JOIN {pages_table} p
                         ON a.agreement_uuid = p.agreement_uuid
-                    LEFT JOIN low_conf
-                        ON p.agreement_uuid = low_conf.agreement_uuid
-                    LEFT JOIN out_of_order
-                        ON p.agreement_uuid = out_of_order.agreement_uuid
+                    LEFT JOIN gated_pages
+                        ON p.agreement_uuid = gated_pages.agreement_uuid
                     LEFT JOIN tagged
                         ON a.agreement_uuid = tagged.agreement_uuid
-                    WHERE low_conf.agreement_uuid IS NULL
-                        AND out_of_order.agreement_uuid IS NULL
+                    WHERE gated_pages.agreement_uuid IS NULL
                         AND tagged.agreement_uuid is null
                         AND (paginated is null or paginated)
                     GROUP BY 1, 2, 3
@@ -270,15 +203,8 @@ def refresh_summary_data(
                     FROM {agreements_table} a
                     JOIN {pages_table} p
                         ON a.agreement_uuid = p.agreement_uuid
-                    LEFT JOIN low_conf
-                        ON p.agreement_uuid = low_conf.agreement_uuid
-                    LEFT JOIN out_of_order
-                        ON p.agreement_uuid = out_of_order.agreement_uuid
-                    WHERE
-                        (
-                            low_conf.agreement_uuid IS NOT NULL
-                            OR out_of_order.agreement_uuid IS NOT NULL
-                        )
+                    JOIN gated_pages
+                        ON p.agreement_uuid = gated_pages.agreement_uuid
                     GROUP BY 1, 2, 3
                 ),
                 gray_b AS (
@@ -290,21 +216,6 @@ def refresh_summary_data(
                     from pdx.agreements
                         where paginated = False
                     group by 1,2,3
-                ),
-                label_errs AS (
-                    SELECT DISTINCT
-                        agreement_uuid
-                    FROM {tagged_outputs_table} t
-                    JOIN {pages_table} p
-                        ON t.page_uuid = p.page_uuid
-                    WHERE t.label_error
-                ),
-                repairs AS (
-                    SELECT DISTINCT
-                        agreement_uuid
-                    FROM {schema}.ai_repair_requests r
-                    JOIN {pages_table} p
-                        ON r.page_uuid = p.page_uuid
                 ),
                 yellow_c AS (
                     SELECT
@@ -319,10 +230,8 @@ def refresh_summary_data(
                         ON p.agreement_uuid = a.agreement_uuid
                     LEFT JOIN {xml_table} x
                         ON a.agreement_uuid = x.agreement_uuid
-                    LEFT JOIN repairs
-                        ON a.agreement_uuid = repairs.agreement_uuid
-                    LEFT JOIN label_errs
-                        ON a.agreement_uuid = label_errs.agreement_uuid
+                    LEFT JOIN gated_tagged
+                        ON a.agreement_uuid = gated_tagged.agreement_uuid
                     WHERE (
                         x.agreement_uuid IS NULL
                         OR EXISTS (
@@ -335,11 +244,7 @@ def refresh_summary_data(
                                 AND t_upd.updated_date > x.created_date
                         )
                     )
-                    AND CASE
-                        WHEN repairs.agreement_uuid IS NOT NULL
-                            THEN label_errs.agreement_uuid IS NULL
-                        ELSE TRUE
-                    END
+                    AND gated_tagged.agreement_uuid IS NULL
                     GROUP BY 1, 2, 3
                 ),
                 red_c AS (
@@ -353,8 +258,8 @@ def refresh_summary_data(
                         ON t.page_uuid = p.page_uuid
                     JOIN {agreements_table} a
                         ON p.agreement_uuid = a.agreement_uuid
-                    JOIN label_errs
-                        ON a.agreement_uuid = label_errs.agreement_uuid
+                    JOIN gated_tagged
+                        ON a.agreement_uuid = gated_tagged.agreement_uuid
                     GROUP BY 1, 2, 3
                 ),
                 red_d AS (
@@ -366,7 +271,7 @@ def refresh_summary_data(
                     FROM {xml_table} x
                     JOIN {agreements_table} a
                         ON x.agreement_uuid = a.agreement_uuid
-                    WHERE x.status = 'invalid'
+                    WHERE x.gated = 1
                     GROUP BY 1, 2, 3
                 )
                 SELECT * FROM green

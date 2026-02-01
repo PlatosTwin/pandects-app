@@ -9,6 +9,7 @@ from etl.defs.f_xml_asset import xml_asset
 from etl.defs.g_sections_asset import sections_asset
 from etl.defs.h_taxonomy_asset import taxonomy_asset
 from etl.defs.i_tx_metadata_asset import tx_metadata_asset
+from etl.defs.z_gating_asset import gating_asset
 from etl.defs.resources import get_resources
 
 base_resources = get_resources()
@@ -39,6 +40,7 @@ defs = dg.Definitions(
         sections_asset,
         taxonomy_asset,
         tx_metadata_asset,
+        gating_asset,
     ],
     jobs=[etl_pipeline, cleanup_pipeline],
     resources=base_resources,

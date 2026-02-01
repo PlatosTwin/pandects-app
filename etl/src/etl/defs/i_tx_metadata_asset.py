@@ -24,6 +24,7 @@ from etl.domain.i_tx_metadata import (
     build_tx_metadata_update_params,
     parse_tx_metadata_response,
 )
+from etl.domain.z_gating import apply_gating
 from etl.utils.run_config import is_batched
 from etl.utils.summary_data import refresh_summary_data
 
@@ -44,6 +45,8 @@ def tx_metadata_asset(
     # Enforce batched-only mode
     if not is_batched(context, pipeline_config):
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
+        with db.get_engine().begin() as conn:
+            _ = apply_gating(conn, db.database)
         refresh_summary_data(context, db)
         return
 
@@ -77,6 +80,8 @@ def tx_metadata_asset(
 
     if not agreements:
         context.log.info("tx_metadata_asset: no agreements need metadata.")
+        with db.get_engine().begin() as conn:
+            _ = apply_gating(conn, db.database)
         refresh_summary_data(context, db)
         return
 
@@ -156,4 +161,6 @@ def tx_metadata_asset(
         f"tx_metadata_asset: attempted={attempted}, parsed={parsed_ok}, updated={updated}, parse_errors={parse_errors}, skipped_due_to_error={skipped_due_to_error}"
     )
 
+    with engine.begin() as conn:
+        _ = apply_gating(conn, db.database)
     refresh_summary_data(context, db)
