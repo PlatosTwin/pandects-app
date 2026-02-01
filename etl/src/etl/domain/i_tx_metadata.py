@@ -75,7 +75,7 @@ def json_schema_transaction_metadata():
                     {"type": "null"},
                 ]
             },
-            "sources": {
+            "metadata_sources": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
@@ -134,7 +134,7 @@ def json_schema_transaction_metadata():
             "attitude",
             "deal_type",
             "purpose",
-            "sources",
+            "metadata_sources",
         ],
     }
 
@@ -168,8 +168,8 @@ TX_METADATA_INSTRUCTIONS = (
     "if you think total consideration is $19, that is probably wrong, as it's too small; "
     "if you think the consideration is mixed, at least two consideration type columns should be non-zero; "
     "etc."
-    "For sources, populate `sources.citations` with URLs and explicitly list which fields each URL supports. "
-    "If you couldn't find a field, do not guess; say why briefly in `sources.notes`."
+    "For sources, populate `metadata_sources.citations` with URLs and explicitly list which fields each URL supports. "
+    "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
 )
 
 
@@ -226,7 +226,7 @@ def parse_tx_metadata_response_text(raw_text: str) -> Dict[str, Any]:
         "attitude",
         "deal_type",
         "purpose",
-        "sources",
+        "metadata_sources",
     }
     if not required_keys.issubset(obj.keys()):
         raise ValueError("Missing required keys in response JSON.")
@@ -303,25 +303,25 @@ def build_tx_metadata_update_params(
     if acquirer_pe is not None and not isinstance(acquirer_pe, bool):
         raise TypeError("acquirer_pe must be a boolean or null.")
 
-    sources_obj = tx_metadata_obj.get("sources")
+    sources_obj = tx_metadata_obj.get("metadata_sources")
     if not isinstance(sources_obj, dict):
-        raise TypeError("sources must be an object.")
+        raise TypeError("metadata_sources must be an object.")
     citations = sources_obj.get("citations")
     notes = sources_obj.get("notes")
     if not isinstance(citations, list):
-        raise TypeError("sources.citations must be an array.")
+        raise TypeError("metadata_sources.citations must be an array.")
     if notes is not None and not isinstance(notes, str):
-        raise TypeError("sources.notes must be a string or null.")
+        raise TypeError("metadata_sources.notes must be a string or null.")
     for c in citations:
         if not isinstance(c, dict):
-            raise TypeError("sources.citations items must be objects.")
+            raise TypeError("metadata_sources.citations items must be objects.")
         url = c.get("url")
         fields = c.get("fields")
         if not isinstance(url, str) or not url:
-            raise TypeError("sources.citations[].url must be a non-empty string.")
+            raise TypeError("metadata_sources.citations[].url must be a non-empty string.")
         if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
-            raise TypeError("sources.citations[].fields must be an array of strings.")
-    sources = json.dumps(sources_obj, ensure_ascii=False, separators=(",", ":"))
+            raise TypeError("metadata_sources.citations[].fields must be an array of strings.")
+    metadata_sources = json.dumps(sources_obj, ensure_ascii=False, separators=(",", ":"))
 
     def _validate_naics(code: object | None, *, field_name: str) -> Optional[str]:
         if code is None:
@@ -413,6 +413,6 @@ def build_tx_metadata_update_params(
         "attitude": attitude,
         "deal_type": deal_type,
         "purpose": purpose,
-        "sources": sources,
+        "metadata_sources": metadata_sources,
         "uuid": agreement_uuid,
     }

@@ -125,7 +125,7 @@ def tx_metadata_asset(
             attitude = :attitude,
             deal_type = :deal_type,
             purpose = :purpose,
-            sources = :sources,
+            metadata_sources = :metadata_sources,
             metadata = 1
         WHERE agreement_uuid = :uuid
         """
