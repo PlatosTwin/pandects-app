@@ -31,6 +31,12 @@ def parse_args() -> argparse.Namespace:
         description="Train the exhibit classifier on agreement text data."
     )
     _ = parser.add_argument(
+        "--mode",
+        choices=("train", "eval"),
+        default="train",
+        help="train: fit classifier; eval: evaluate existing checkpoint only.",
+    )
+    _ = parser.add_argument(
         "--data-path",
         default=str(DEFAULT_DATA_PATH),
         help="Path to training data (CSV/Parquet/TXT with a 'text' column).",
@@ -79,27 +85,156 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _require_supervised_labels(labels: list[int] | None) -> np.ndarray:
+    if labels is None:
+        raise RuntimeError("Evaluation requires labels; none found in dataset.")
+    if not any(label == 0 for label in labels):
+        raise RuntimeError("Evaluation requires both positive and negative labels.")
+    return np.array(labels, dtype=int)
+
+
+def _compute_and_log_metrics(
+    *,
+    y_true: np.ndarray,
+    preds: np.ndarray,
+    probs: np.ndarray,
+    threshold: float,
+    metrics_file: Path,
+) -> None:
+    accuracy = float(accuracy_score(y_true, preds))
+    precision, recall, f1, _ = cast(
+        tuple[float, float, float, object],
+        precision_recall_fscore_support(
+            y_true,
+            preds,
+            average="binary",
+            zero_division=cast(str, cast(object, 0)),
+        ),
+    )
+    try:
+        roc_auc = float(cast(float, roc_auc_score(y_true, probs)))
+    except ValueError:
+        roc_auc = float("nan")
+    avg_precision = float(cast(float, average_precision_score(y_true, probs)))
+    pos_rate = float(np.mean(y_true))
+
+    precision_per_class, recall_per_class, f1_per_class, _ = cast(
+        tuple[np.ndarray, np.ndarray, np.ndarray, object],
+        precision_recall_fscore_support(
+            y_true,
+            preds,
+            average=None,
+            zero_division=cast(str, cast(object, 0)),
+        ),
+    )
+    cm = confusion_matrix(y_true, preds)
+
+    class_0_total = int(cast(int, cm[0, :].sum())) if cm.shape[0] > 0 else 0
+    class_1_total = int(cast(int, cm[1, :].sum())) if cm.shape[0] > 1 else 0
+    accuracy_class_0 = float(cast(float, cm[0, 0] / class_0_total)) if class_0_total > 0 else 0.0
+    accuracy_class_1 = float(cast(float, cm[1, 1] / class_1_total)) if class_1_total > 0 else 0.0
+
+    message = (
+        f"Holdout metrics (pos_rate={pos_rate:.3f}, threshold={threshold:.2f}): "
+        f"accuracy={accuracy:.3f} precision={precision:.3f} recall={recall:.3f} "
+        f"f1={f1:.3f} roc_auc={roc_auc:.3f} avg_precision={avg_precision:.3f}"
+    )
+    print(message)
+
+    metrics = {
+        "overall": {
+            "accuracy": float(accuracy),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1": float(f1),
+            "roc_auc": float(roc_auc),
+        },
+        "per_class": {
+            "class_0": {
+                "accuracy": accuracy_class_0,
+                "precision": float(cast(float, precision_per_class[0])),
+                "recall": float(cast(float, recall_per_class[0])),
+                "f1": float(cast(float, f1_per_class[0])),
+            },
+            "class_1": {
+                "accuracy": accuracy_class_1,
+                "precision": float(cast(float, precision_per_class[1])),
+                "recall": float(cast(float, recall_per_class[1])),
+                "f1": float(cast(float, f1_per_class[1])),
+            },
+        },
+        "confusion_matrix": cm.tolist(),
+    }
+
+    with open(metrics_file, "w") as f:
+        yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
+
+    print(f"Saved evaluation metrics to {metrics_file}")
+
+
+def _print_false_negatives(
+    *,
+    y_true: np.ndarray,
+    preds: np.ndarray,
+    urls: list[str],
+) -> None:
+    true_list = cast(list[int], y_true.tolist())
+    pred_list = cast(list[int], preds.tolist())
+    false_negative_urls = [
+        url for url, y_val, p_val in zip(urls, true_list, pred_list) if y_val == 1 and p_val == 0
+    ]
+    print(f"False negatives (positive labeled as negative): {len(false_negative_urls)}")
+    for url in false_negative_urls:
+        print(url)
+
+
 def main() -> None:
     args = parse_args()
     data_path = Path(cast(str, args.data_path))
     output_path = Path(cast(str, args.output_path))
 
     print(f"Loading training data from {data_path}...")
-    texts, labels = load_training_data(str(data_path))
+    texts, labels, urls = load_training_data(str(data_path))
     print(f"Loaded {len(texts)} examples.")
+
+    mode = cast(str, args.mode)
+    if mode == "eval":
+        y = _require_supervised_labels(labels)
+        if urls is None:
+            raise RuntimeError("Evaluation requires a 'url' column in the dataset.")
+        print(f"Loading classifier from {output_path}...")
+        classifier = ExhibitClassifier.load(output_path)
+        print(f"Evaluating on {len(texts)} examples...")
+        probs = np.array(classifier.predict_proba_batch(texts))
+        preds = (probs >= cast(float, args.threshold)).astype(int)
+
+        EVAL_METRICS_DIR.mkdir(parents=True, exist_ok=True)
+        metrics_file = EVAL_METRICS_DIR / "exhibit_classifier_test_metrics.yaml"
+        _compute_and_log_metrics(
+            y_true=y,
+            preds=preds,
+            probs=probs,
+            threshold=cast(float, args.threshold),
+            metrics_file=metrics_file,
+        )
+        _print_false_negatives(y_true=y, preds=preds, urls=urls)
+        return
 
     if labels and any(label == 0 for label in labels):
         y = np.array(labels, dtype=int)
+        if urls is None:
+            raise RuntimeError("False-negative reporting requires a 'url' column in the dataset.")
         pos_count = int(cast(int, np.sum(y == 1)))  # pyright: ignore[reportAny]
         neg_count = int(cast(int, np.sum(y == 0)))  # pyright: ignore[reportAny]
         print(f"Label distribution: {pos_count} positives, {neg_count} negatives")
         print(f"Splitting data ({1 - cast(float, args.eval_split):.0%} train, {cast(float, args.eval_split):.0%} test)...")
         split = cast(
-            tuple[list[str], list[str], np.ndarray, np.ndarray],
+            tuple[list[str], list[str], list[str], list[str], np.ndarray, np.ndarray],
             cast(
                 object,
                 train_test_split(
                     texts,
+                    urls,
                     y,
                     test_size=cast(float, args.eval_split),
                     random_state=cast(int, args.random_state),
@@ -107,7 +242,7 @@ def main() -> None:
                 ),
             ),
         )
-        train_texts, test_texts, y_train, y_test = split
+        train_texts, test_texts, _train_urls, test_urls, y_train, y_test = split
         print(f"Train set: {len(train_texts)} examples, Test set: {len(test_texts)} examples")
         print("Initializing classifier...")
         classifier = ExhibitClassifier(
@@ -124,83 +259,16 @@ def main() -> None:
         probs = np.array(classifier.predict_proba_batch(test_texts))
         preds = (probs >= cast(float, args.threshold)).astype(int)
         print("Computing metrics...")
-        accuracy = float(accuracy_score(y_test, preds))
-        precision, recall, f1, _ = cast(
-            tuple[float, float, float, object],
-            precision_recall_fscore_support(
-                y_test,
-                preds,
-                average="binary",
-                zero_division=cast(str, cast(object, 0)),
-            ),
-        )
-        try:
-            roc_auc = float(cast(float, roc_auc_score(y_test, probs)))
-        except ValueError:
-            roc_auc = float("nan")
-        avg_precision = float(cast(float, average_precision_score(y_test, probs)))
-        pos_rate = float(np.mean(y_test))
-        threshold = cast(float, args.threshold)
-        
-        # Calculate per-class metrics
-        precision_per_class, recall_per_class, f1_per_class, _ = cast(
-            tuple[np.ndarray, np.ndarray, np.ndarray, object],
-            precision_recall_fscore_support(
-                y_test,
-                preds,
-                average=None,
-                zero_division=cast(str, cast(object, 0)),
-            ),
-        )
-        
-        # Calculate confusion matrix
-        cm = confusion_matrix(y_test, preds)
-        
-        # Calculate per-class accuracy from confusion matrix
-        # For each class, accuracy = correct predictions for that class / total samples of that class
-        # This is equivalent to recall, but we'll call it accuracy as requested
-        class_0_total = int(cast(int, cm[0, :].sum())) if cm.shape[0] > 0 else 0
-        class_1_total = int(cast(int, cm[1, :].sum())) if cm.shape[0] > 1 else 0
-        accuracy_class_0 = float(cast(float, cm[0, 0] / class_0_total)) if class_0_total > 0 else 0.0
-        accuracy_class_1 = float(cast(float, cm[1, 1] / class_1_total)) if class_1_total > 0 else 0.0
-        
-        # Print metrics
-        message = f"Holdout metrics (pos_rate={pos_rate:.3f}, threshold={threshold:.2f}): accuracy={accuracy:.3f} precision={precision:.3f} recall={recall:.3f} f1={f1:.3f} roc_auc={roc_auc:.3f} avg_precision={avg_precision:.3f}"
-        print(message)
-        
-        # Save metrics to YAML file
         EVAL_METRICS_DIR.mkdir(parents=True, exist_ok=True)
         metrics_file = EVAL_METRICS_DIR / "exhibit_classifier_test_metrics.yaml"
-        
-        metrics = {
-            "overall": {
-                "accuracy": float(accuracy),
-                "precision": float(precision),
-                "recall": float(recall),
-                "f1": float(f1),
-                "roc_auc": float(roc_auc),
-            },
-            "per_class": {
-                "class_0": {
-                    "accuracy": accuracy_class_0,
-                    "precision": float(cast(float, precision_per_class[0])),
-                    "recall": float(cast(float, recall_per_class[0])),
-                    "f1": float(cast(float, f1_per_class[0])),
-                },
-                "class_1": {
-                    "accuracy": accuracy_class_1,
-                    "precision": float(cast(float, precision_per_class[1])),
-                    "recall": float(cast(float, recall_per_class[1])),
-                    "f1": float(cast(float, f1_per_class[1])),
-                },
-            },
-            "confusion_matrix": cm.tolist(),
-        }
-        
-        with open(metrics_file, "w") as f:
-            yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
-        
-        print(f"Saved evaluation metrics to {metrics_file}")
+        _compute_and_log_metrics(
+            y_true=y_test,
+            preds=preds,
+            probs=probs,
+            threshold=cast(float, args.threshold),
+            metrics_file=metrics_file,
+        )
+        _print_false_negatives(y_true=y_test, preds=preds, urls=test_urls)
         
         # Save feature importance if available (supervised mode)
         coefs = classifier.get_model_coefficients()

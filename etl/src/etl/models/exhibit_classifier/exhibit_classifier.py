@@ -657,7 +657,7 @@ class ExhibitClassifier:
 
 def load_training_data(
     data_path: str,
-) -> tuple[list[str], list[int] | None]:
+) -> tuple[list[str], list[int] | None, list[str] | None]:
     """
     Load M&A agreement texts from a data file.
     
@@ -668,7 +668,7 @@ def load_training_data(
         data_path: Path to the training data file
         
     Returns:
-        Tuple of text list and optional label list
+        Tuple of text list, optional label list, and optional URL list
     """
     path = Path(data_path)
     
@@ -683,7 +683,10 @@ def load_training_data(
             labels = None
             if 'label' in df.columns:
                 labels = df['label'].fillna(1).astype(int).tolist()
-            return texts, labels
+            urls = None
+            if 'url' in df.columns:
+                urls = df['url'].fillna("").astype(str).tolist()
+            return texts, labels, urls
         else:
             raise ValueError("CSV file must contain a 'text' column")
     
@@ -694,14 +697,17 @@ def load_training_data(
             labels = None
             if 'label' in df.columns:
                 labels = df['label'].fillna(1).astype(int).tolist()
-            return texts, labels
+            urls = None
+            if 'url' in df.columns:
+                urls = df['url'].fillna("").astype(str).tolist()
+            return texts, labels, urls
         else:
             raise ValueError("Parquet file must contain a 'text' column")
     
     elif path.suffix == ".txt":
         # Assume each line is a separate agreement
         with open(path, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()], None
+            return [line.strip() for line in f if line.strip()], None, None
     
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")

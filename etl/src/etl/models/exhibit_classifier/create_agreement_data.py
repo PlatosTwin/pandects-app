@@ -50,19 +50,21 @@ def _load_links(path: Path) -> list[str]:
     return [line.strip() for line in lines if line.strip()]
 
 
-def _fetch_texts_from_links(links: list[str], label_name: str) -> list[str]:
+def _fetch_texts_from_links(links: list[str], label_name: str) -> tuple[list[str], list[str]]:
     texts: list[str] = []
+    urls: list[str] = []
     for idx, link in enumerate(links, start=1):
         try:
             content, is_txt, is_html = _fetch_exhibit_content(link, SEC_USER_AGENT)
             agreement_text = _render_agreement_text(content, is_txt=is_txt, is_html=is_html)
             if agreement_text.strip():
                 texts.append(agreement_text)
+                urls.append(link)
         except Exception as e:
             print(f"Failed to fetch {label_name} link {idx}/{len(links)}: {e}")
             continue
         print(f"Processed {label_name} {idx}/{len(links)} links.")
-    return texts
+    return texts, urls
 
 
 def _parse_args() -> argparse.Namespace:
@@ -116,12 +118,22 @@ def main() -> None:
         positive_links = _load_links(positives_path)
         if not positive_links:
             raise RuntimeError("No positive links found to process.")
-        positive_texts = _fetch_texts_from_links(positive_links, "positive")
-        positive_df = pd.DataFrame({"text": positive_texts, "label": [1] * len(positive_texts)})
+        positive_texts, positive_urls = _fetch_texts_from_links(positive_links, "positive")
+        positive_df = pd.DataFrame(
+            {
+                "text": positive_texts,
+                "label": [1] * len(positive_texts),
+                "url": positive_urls,
+            }
+        )
         if existing_df is not None:
+            if "url" not in existing_df.columns:
+                raise RuntimeError(
+                    "Existing data is missing 'url' column. Regenerate full dataset to preserve URLs."
+                )
             negative_df = existing_df[existing_df["label"] == 0]  # pyright: ignore[reportUnknownVariableType]
         else:
-            negative_df = pd.DataFrame(columns=["text", "label"])  # pyright: ignore[reportArgumentType]
+            negative_df = pd.DataFrame(columns=["text", "label", "url"])  # pyright: ignore[reportArgumentType]
         combined_df = pd.concat([positive_df, negative_df], ignore_index=True)  # pyright: ignore[reportUnknownArgumentType]
         _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         print(
@@ -132,12 +144,22 @@ def main() -> None:
         negative_links = _load_links(negatives_path)
         if not negative_links:
             raise RuntimeError("No negative links found to process.")
-        negative_texts = _fetch_texts_from_links(negative_links, "negative")
-        negative_df = pd.DataFrame({"text": negative_texts, "label": [0] * len(negative_texts)})
+        negative_texts, negative_urls = _fetch_texts_from_links(negative_links, "negative")
+        negative_df = pd.DataFrame(
+            {
+                "text": negative_texts,
+                "label": [0] * len(negative_texts),
+                "url": negative_urls,
+            }
+        )
         if existing_df is not None:
+            if "url" not in existing_df.columns:
+                raise RuntimeError(
+                    "Existing data is missing 'url' column. Regenerate full dataset to preserve URLs."
+                )
             positive_df = existing_df[existing_df["label"] == 1]  # pyright: ignore[reportUnknownVariableType]
         else:
-            positive_df = pd.DataFrame(columns=["text", "label"])  # pyright: ignore[reportArgumentType]
+            positive_df = pd.DataFrame(columns=["text", "label", "url"])  # pyright: ignore[reportArgumentType]
         combined_df = pd.concat([positive_df, negative_df], ignore_index=True)  # pyright: ignore[reportUnknownArgumentType]
         _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         print(
@@ -149,10 +171,14 @@ def main() -> None:
         negative_links = _load_links(negatives_path)
         if not positive_links and not negative_links:
             raise RuntimeError("No links found to process.")
-        positive_texts = _fetch_texts_from_links(positive_links, "positive")
-        negative_texts = _fetch_texts_from_links(negative_links, "negative")
-        positive_df = pd.DataFrame({"text": positive_texts, "label": [1] * len(positive_texts)})
-        negative_df = pd.DataFrame({"text": negative_texts, "label": [0] * len(negative_texts)})
+        positive_texts, positive_urls = _fetch_texts_from_links(positive_links, "positive")
+        negative_texts, negative_urls = _fetch_texts_from_links(negative_links, "negative")
+        positive_df = pd.DataFrame(
+            {"text": positive_texts, "label": [1] * len(positive_texts), "url": positive_urls}
+        )
+        negative_df = pd.DataFrame(
+            {"text": negative_texts, "label": [0] * len(negative_texts), "url": negative_urls}
+        )
         combined_df = pd.concat([positive_df, negative_df], ignore_index=True)
         _ = combined_df.to_parquet(output_path, index=False)  # pyright: ignore[reportUnknownMemberType]
         print(
@@ -163,4 +189,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
