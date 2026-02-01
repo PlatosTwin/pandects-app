@@ -143,13 +143,8 @@ def taxonomy_asset(
                         """
                         SELECT m.agreement_uuid, m.xml, m.version
                         FROM pdx.xml m
-                        INNER JOIN (
-                            SELECT agreement_uuid, MAX(version) as max_version
-                            FROM pdx.xml
-                            GROUP BY agreement_uuid
-                        ) AS latest ON m.agreement_uuid = latest.agreement_uuid
-                            AND m.version = latest.max_version
                         WHERE m.agreement_uuid IN :agreements
+                          AND m.latest = 1
                         """
                     ),
                     {"agreements": tuple(agr_list)},

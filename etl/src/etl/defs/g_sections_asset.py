@@ -37,17 +37,12 @@ def sections_asset(
                         """
                         SELECT m.xml, m.agreement_uuid, m.version AS xml_version
                         FROM pdx.xml AS m
-                        INNER JOIN (
-                            SELECT agreement_uuid, MAX(version) as max_version
-                            FROM pdx.xml
-                            GROUP BY agreement_uuid
-                        ) AS latest ON m.agreement_uuid = latest.agreement_uuid
-                            AND m.version = latest.max_version
                         LEFT JOIN pdx.sections AS s
                           ON m.agreement_uuid = s.agreement_uuid
                             AND s.xml_version = m.version
                         WHERE m.agreement_uuid > :last
                           AND s.agreement_uuid IS NULL
+                          AND m.latest = 1
                           AND m.gated = 0
                         ORDER BY m.agreement_uuid
                         LIMIT :lim

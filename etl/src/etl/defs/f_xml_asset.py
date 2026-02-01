@@ -5,7 +5,7 @@ import pandas as pd
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.e_reconcile_tags import reconcile_tags
@@ -58,13 +58,6 @@ def xml_asset(
                 conn.execute(
                     text(
                         """
-                        WITH latest_xml AS (
-                            SELECT
-                                agreement_uuid,
-                                MAX(created_date) AS created_date
-                            FROM pdx.xml
-                            GROUP BY agreement_uuid
-                        )
                         SELECT DISTINCT
                             a.agreement_uuid
                         FROM
@@ -73,8 +66,9 @@ def xml_asset(
                             ON p.agreement_uuid = a.agreement_uuid
                         LEFT JOIN pdx.tagged_outputs t
                             ON t.page_uuid = p.page_uuid
-                        LEFT JOIN latest_xml x
+                        LEFT JOIN pdx.xml x
                             ON x.agreement_uuid = a.agreement_uuid
+                            AND x.latest = 1
                         LEFT JOIN (
                             SELECT DISTINCT p2.agreement_uuid
                             FROM pdx.tagged_outputs t2
@@ -172,6 +166,28 @@ def xml_asset(
 
             try:
                 upsert_xml(xml, conn)
+                _ = conn.execute(
+                    text("UPDATE pdx.xml SET latest = 0 WHERE agreement_uuid IN :uuids")
+                    .bindparams(bindparam("uuids", expanding=True)),
+                    {"uuids": agreement_uuids},
+                )
+                _ = conn.execute(
+                    text(
+                        """
+                        UPDATE pdx.xml x
+                        JOIN (
+                            SELECT agreement_uuid, MAX(version) AS max_version
+                            FROM pdx.xml
+                            WHERE agreement_uuid IN :uuids
+                            GROUP BY agreement_uuid
+                        ) m
+                            ON x.agreement_uuid = m.agreement_uuid
+                            AND x.version = m.max_version
+                        SET x.latest = 1
+                        """
+                    ).bindparams(bindparam("uuids", expanding=True)),
+                    {"uuids": agreement_uuids},
+                )
                 context.log.info(
                     f"Successfully generated XML for {len(agreement_uuids)} agreements"
                 )

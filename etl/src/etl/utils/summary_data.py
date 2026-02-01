@@ -113,27 +113,17 @@ def refresh_summary_data(
                     current_stage,
                     count
                 )
-                WITH latest_xml AS (
-                    SELECT
-                        agreement_uuid,
-                        MAX(created_date) AS created_date
-                    FROM {xml_table}
-                    GROUP BY agreement_uuid
-                ),
-                green AS (
+                WITH green AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
                         'green' AS color,
                         'processed' AS current_stage,
                         COUNT(DISTINCT x.agreement_uuid) AS count
                     FROM {xml_table} x
-                    JOIN latest_xml
-                        ON x.agreement_uuid = latest_xml.agreement_uuid
-                        AND x.created_date = latest_xml.created_date
                     JOIN {agreements_table} a
                         ON x.agreement_uuid = a.agreement_uuid
-                    WHERE x.status IS NULL
-                        OR x.status = 'verified'
+                    WHERE (x.status IS NULL OR x.status = 'verified')
+                        AND x.latest = 1
                     GROUP BY 1, 2, 3
                 ),
                 yellow_a AS (
