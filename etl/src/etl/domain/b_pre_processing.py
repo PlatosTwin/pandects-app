@@ -723,6 +723,7 @@ def pre_process(
                     print(
                         f"Agreement {agreement['agreement_uuid']} has a long page. Skipping page upload."
                     )
+                pagination_statuses[agreement["agreement_uuid"]] = False
                 page_objs = []
                 break
             page_objs.append(
