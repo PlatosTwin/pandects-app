@@ -1,7 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from typing import cast
 
 from etl.defs.g_sections_asset import sections_asset
@@ -31,6 +31,9 @@ def taxonomy_asset(
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
+    schema = db.database
+    sections_table = f"{schema}.sections"
+    xml_table = f"{schema}.xml"
     last_uuid = ""
 
     model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
@@ -45,9 +48,9 @@ def taxonomy_asset(
             agr_rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT DISTINCT agreement_uuid
-                        FROM pdx.sections
+                        FROM {sections_table}
                         WHERE agreement_uuid > :last
                           AND section_standard_id IS NULL
                         ORDER BY agreement_uuid
@@ -69,18 +72,18 @@ def taxonomy_asset(
             sec_rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT section_uuid,
                                agreement_uuid,
                                article_title,
                                section_title,
                                xml_content
-                        FROM pdx.sections
+                        FROM {sections_table}
                         WHERE agreement_uuid IN :agreements
                           AND section_standard_id IS NULL
                         ORDER BY agreement_uuid, section_uuid
                         """
-                    ),
+                    ).bindparams(bindparam("agreements", expanding=True)),
                     {"agreements": tuple(agr_list)},
                 )
                 .mappings()
@@ -115,8 +118,8 @@ def taxonomy_asset(
                 )
 
             upd_sql = text(
-                """
-                UPDATE pdx.sections
+                f"""
+                UPDATE {sections_table}
                 SET section_standard_id = :label,
                     alt_label_a_prob = :a,
                     alt_label_b_prob = :b,
@@ -140,13 +143,13 @@ def taxonomy_asset(
             xml_rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT m.agreement_uuid, m.xml, m.version
-                        FROM pdx.xml m
+                        FROM {xml_table} m
                         WHERE m.agreement_uuid IN :agreements
                           AND m.latest = 1
                         """
-                    ),
+                    ).bindparams(bindparam("agreements", expanding=True)),
                     {"agreements": tuple(agr_list)},
                 )
                 .mappings()
@@ -170,7 +173,7 @@ def taxonomy_asset(
                 ))
 
             if staged_xml:
-                upsert_xml(staged_xml, conn)
+                upsert_xml(staged_xml, db.database, conn)
             context.log.info(
                 f"taxonomy_asset: batch updated {len(upd_rows)} sections across {len(agr_list)} agreements; upserted {len(staged_xml)} XMLs"
             )

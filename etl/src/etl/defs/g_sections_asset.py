@@ -23,6 +23,9 @@ def sections_asset(
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    sections_table = f"{schema}.sections"
     last_uuid = ""
 
     with engine.begin() as conn:
@@ -34,10 +37,10 @@ def sections_asset(
             rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT m.xml, m.agreement_uuid, m.version AS xml_version
-                        FROM pdx.xml AS m
-                        LEFT JOIN pdx.sections AS s
+                        FROM {xml_table} AS m
+                        LEFT JOIN {sections_table} AS s
                           ON m.agreement_uuid = s.agreement_uuid
                             AND s.xml_version = m.version
                         WHERE m.agreement_uuid > :last
@@ -80,7 +83,7 @@ def sections_asset(
                     )
 
             if staged:
-                upsert_sections(staged, conn)
+                upsert_sections(staged, db.database, conn)
                 context.log.info(f"sections_asset: upserted {len(staged)} sections from {len(rows)} agreements")
 
             last_uuid = rows[-1]["agreement_uuid"]

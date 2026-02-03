@@ -53,10 +53,15 @@ class XmlRow(Protocol):
     version: int
 
 
-def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connection) -> None:
+def upsert_agreements(
+    staged_agreements: Sequence[AgreementRow],
+    schema: str,
+    conn: Connection,
+) -> None:
+    agreements_table = f"{schema}.agreements"
     upsert_sql = text(
-        """
-            INSERT INTO pdx.agreements (
+        f"""
+            INSERT INTO {agreements_table} (
               agreement_uuid,
               url,
               filing_date,
@@ -131,7 +136,12 @@ def upsert_agreements(staged_agreements: Sequence[AgreementRow], conn: Connectio
         _ = conn.execute(upsert_sql, batch)
 
 
-def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Connection) -> None:
+def upsert_pages(
+    staged_pages: Sequence[PageRow],
+    operation_type: str,
+    schema: str,
+    conn: Connection,
+) -> None:
     """
     Upserts a batch of PageMetadata objects into the pdx.pages table.
     Args:
@@ -173,9 +183,10 @@ def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Con
         value_placeholders = ",\n    ".join(f":{c}" for c in insert_cols)
         update_clause = ",\n    ".join(f"{c}=VALUES({c})" for c in insert_cols)
 
+        pages_table = f"{schema}.pages"
         upsert_sql = text(
             f"""
-        INSERT INTO pdx.pages (
+        INSERT INTO {pages_table} (
             {cols}
         ) VALUES (
             {value_placeholders}
@@ -194,9 +205,10 @@ def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Con
             f"{c} = :{c}" for c in update_cols if c != "page_uuid"
         )
 
+        pages_table = f"{schema}.pages"
         upsert_sql = text(
             f"""
-        UPDATE pdx.pages
+        UPDATE {pages_table}
         SET
             {set_clause}
         WHERE page_uuid = :page_uuid
@@ -218,7 +230,11 @@ def upsert_pages(staged_pages: Sequence[PageRow], operation_type: str, conn: Con
         _ = conn.execute(upsert_sql, batch)
 
 
-def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
+def upsert_tags(
+    staged_tags: Sequence[TagRow],
+    schema: str,
+    conn: Connection,
+) -> None:
     """
     Upserts a batch of TagData objects into the pdx.tagged_outputs table.
     Args:
@@ -226,9 +242,10 @@ def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
             page_uuid, tagged_text, low_count, spans, tokens.
         conn (Connection): SQLAlchemy connection.
     """
+    tagged_outputs_table = f"{schema}.tagged_outputs"
     upsert_sql_tags = text(
-        """
-        INSERT INTO pdx.tagged_outputs (
+        f"""
+        INSERT INTO {tagged_outputs_table} (
             page_uuid,
             tagged_text,
             low_count,
@@ -268,7 +285,11 @@ def upsert_tags(staged_tags: Sequence[TagRow], conn: Connection) -> None:
         _ = conn.execute(upsert_sql_tags, batch_tags)
 
 
-def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
+def upsert_xml(
+    staged_xml: Sequence[XmlRow],
+    schema: str,
+    conn: Connection,
+) -> None:
     """
     Upserts a batch of XML objects into the pdx.xml table.
     
@@ -282,9 +303,10 @@ def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
             agreement_uuid, xml, version
         conn (Connection): SQLAlchemy connection.
     """
+    xml_table = f"{schema}.xml"
     upsert_sql_xml = text(
-        """
-        INSERT INTO pdx.xml (
+        f"""
+        INSERT INTO {xml_table} (
             agreement_uuid,
             xml,
             version
@@ -313,7 +335,11 @@ def upsert_xml(staged_xml: Sequence[XmlRow], conn: Connection) -> None:
         _ = conn.execute(upsert_sql_xml, batch_tags)
 
 
-def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Connection) -> None:
+def upsert_sections(
+    staged_sections: Sequence[Mapping[str, object]],
+    schema: str,
+    conn: Connection,
+) -> None:
     """
     Upsert section rows into pdx.sections.
 
@@ -321,9 +347,10 @@ def upsert_sections(staged_sections: Sequence[Mapping[str, object]], conn: Conne
       agreement_uuid, section_uuid, article_title, article_title_normed,
       section_title, section_title_normed, xml_content, xml_version
     """
+    sections_table = f"{schema}.sections"
     upsert_sql = text(
-        """
-        INSERT INTO pdx.sections (
+        f"""
+        INSERT INTO {sections_table} (
             agreement_uuid,
             section_uuid,
             article_title,

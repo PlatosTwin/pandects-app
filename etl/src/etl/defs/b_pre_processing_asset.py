@@ -50,6 +50,9 @@ def pre_processing_asset(
     is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     batch_size = pipeline_config.pre_processing_agreement_batch_size
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    pages_table = f"{schema}.pages"
 
     with engine.begin() as conn:
         _ = apply_agreement_gating(conn, db.database)
@@ -65,21 +68,19 @@ def pre_processing_asset(
                 # Fetch agreements that do not yet have any pages (idempotent)
                 result = conn.execute(
                     text(
-                        """
+                        f"""
                     SELECT
-                        agreement_uuid,
-                        url
+                        a.agreement_uuid,
+                        a.url
                     FROM
-                        pdx.agreements
+                        {agreements_table} a
+                    LEFT JOIN {pages_table} p ON p.agreement_uuid = a.agreement_uuid
                     WHERE
-                        agreement_uuid > :last_uuid
-                        AND NOT EXISTS (
-                            SELECT 1 FROM pdx.pages p
-                            WHERE p.agreement_uuid = pdx.agreements.agreement_uuid
-                        )
-                        AND gated = 0
+                        a.agreement_uuid > :last_uuid
+                        AND p.page_uuid IS NULL
+                        AND a.gated = 0
                     ORDER BY
-                        agreement_uuid ASC
+                        a.agreement_uuid ASC
                     LIMIT
                         :batch_size
                     """
@@ -106,8 +107,8 @@ def pre_processing_asset(
                 if pagination_statuses:
                     _ = conn.execute(
                         text(
-                            """
-                        UPDATE pdx.agreements
+                            f"""
+                        UPDATE {agreements_table}
                         SET paginated = :paginated
                         WHERE agreement_uuid = :agreement_uuid
                         """
@@ -123,7 +124,9 @@ def pre_processing_asset(
 
                 if staged_pages:
                     try:
-                        upsert_pages(staged_pages, operation_type="insert", conn=conn)
+                        upsert_pages(
+                            staged_pages, "insert", db.database, conn
+                        )
                         agreement_count = len(
                             {p.agreement_uuid for p in staged_pages if p.agreement_uuid}
                         )
@@ -146,20 +149,27 @@ def pre_processing_asset(
         # Since we've already split the agreements into pages, we can just fetch the pages
         while True:
             with engine.begin() as conn:
-                # Fetch pages that are missing derived outputs (processed text or page type)
+                # Fetch pages that are missing derived outputs (processed text or page type).
+                # Use UNION to split OR for index-friendly execution.
                 result = conn.execute(
                     text(
-                        """
-                    WITH agreement_batch AS (
-                        SELECT
-                            distinct agreement_uuid
-                        FROM
-                            pdx.pages
-                        WHERE
-                            agreement_uuid > :last_uuid
-                            AND (processed_page_content IS NULL OR source_page_type IS NULL)
-                        ORDER BY
-                            agreement_uuid ASC
+                        f"""
+                    WITH
+                    batch_a AS (
+                        SELECT DISTINCT agreement_uuid
+                        FROM {pages_table}
+                        WHERE agreement_uuid > :last_uuid AND processed_page_content IS NULL
+                    ),
+                    batch_b AS (
+                        SELECT DISTINCT agreement_uuid
+                        FROM {pages_table}
+                        WHERE agreement_uuid > :last_uuid AND source_page_type IS NULL
+                    ),
+                    agreement_batch AS (
+                        (SELECT agreement_uuid FROM batch_a)
+                        UNION
+                        (SELECT agreement_uuid FROM batch_b)
+                        ORDER BY 1
                         LIMIT :batch_size
                     )
                     SELECT
@@ -169,14 +179,10 @@ def pre_processing_asset(
                         p.page_order,
                         p.source_is_txt,
                         p.source_is_html
-                    FROM
-                        pdx.pages AS p
-                    WHERE
-                        p.agreement_uuid in (SELECT agreement_uuid FROM agreement_batch)
-                        AND (p.processed_page_content IS NULL OR p.source_page_type IS NULL)
-                    ORDER BY
-                        p.page_order,
-                        p.page_uuid;
+                    FROM {pages_table} p
+                    WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM agreement_batch)
+                      AND (p.processed_page_content IS NULL OR p.source_page_type IS NULL)
+                    ORDER BY p.page_order, p.page_uuid
                     """
                     ),
                     {"last_uuid": last_uuid, "batch_size": batch_size},
@@ -208,7 +214,9 @@ def pre_processing_asset(
 
                 if staged_pages:
                     try:
-                        upsert_pages(staged_pages, operation_type="update", conn=conn)
+                        upsert_pages(
+                            staged_pages, "update", db.database, conn
+                        )
                         
                         num_agr = len(set(p["agreement_uuid"] for p in pages))
                         num_pages = len(staged_pages)

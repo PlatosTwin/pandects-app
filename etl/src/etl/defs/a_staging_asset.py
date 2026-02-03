@@ -29,7 +29,7 @@ from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.run_config import is_cleanup_mode
 from etl.utils.summary_data import refresh_summary_data
 
-UpsertAgreements = Callable[[Sequence[FilingMetadata], Connection], None]
+UpsertAgreements = Callable[[Sequence[FilingMetadata], str, Connection], None]
 upsert_agreements = cast(UpsertAgreements, _upsert_agreements)
 
 
@@ -62,14 +62,15 @@ class _DagsterContextAdapter:
 
 def _update_pipeline_run_progress(
     conn: Connection,
+    pipeline_runs_table: str,
     run_id: int,
     pulled_to: datetime,
     rows_inserted: int,
 ) -> None:
     _ = conn.execute(
         text(
-            """
-            UPDATE pdx.pipeline_runs
+            f"""
+            UPDATE {pipeline_runs_table}
             SET last_pulled_to = :pulled_to,
                 rows_inserted = :count
             WHERE run_id = :run_id
@@ -113,15 +114,17 @@ def staging_asset(
         return 0
 
     engine = db.get_engine()
+    schema = db.database
+    pipeline_runs_table = f"{schema}.pipeline_runs"
     context.log.info("Running staging in FROM_SCRATCH mode")
 
     # Get the most recent pull timestamp (even from a failed/terminated run)
     with engine.begin() as conn:
         last_run: datetime | None = conn.execute(
             text(
-                """
+                f"""
                 SELECT last_pulled_to
-                FROM pdx.pipeline_runs
+                FROM {pipeline_runs_table}
                 WHERE last_pulled_to IS NOT NULL
                 ORDER BY last_pulled_to DESC, run_time DESC
                 LIMIT 1
@@ -129,9 +132,8 @@ def staging_asset(
             )
         ).scalar_one_or_none()
         if last_run is None:
-            last_run = datetime(1970, 1, 1)
+            last_run = datetime(2019, 12, 31)
 
-    #last_run = datetime(2021, 1, 1)  # TODO: Remove this override once production-ready
     now = datetime.now(timezone.utc)
 
     # Load exhibit classifier once for all days
@@ -147,8 +149,8 @@ def staging_asset(
     with engine.begin() as conn:
         result = conn.execute(
             text(
-                """
-                INSERT INTO pdx.pipeline_runs
+                f"""
+                INSERT INTO {pipeline_runs_table}
                 (run_time, last_pulled_from, last_pulled_to, status, rows_inserted)
                 VALUES (:run_time, :from_ts, :to_ts, 'STARTED', 0)
                 """
@@ -196,7 +198,7 @@ def staging_asset(
             with engine.begin() as conn:
                 if filings:
                     try:
-                        upsert_agreements(filings, conn)
+                        upsert_agreements(filings, db.database, conn)
                         context.log.info(f"  Upserted {day_count} agreements for {index_date}")
                     except Exception as e:
                         context.log.error(f"Error upserting agreements for {index_date}: {e}")
@@ -206,7 +208,9 @@ def staging_asset(
 
             latest_pulled_to = datetime.combine(index_date, datetime.min.time())
             with engine.begin() as conn:
-                _update_pipeline_run_progress(conn, run_id, latest_pulled_to, total_count)
+                _update_pipeline_run_progress(
+                    conn, pipeline_runs_table, run_id, latest_pulled_to, total_count
+                )
 
         # DMA corpus flow (commented out - one-time batch processing):
         # # For DMA corpus flow: process all records in one batch (one-time run)
@@ -253,8 +257,8 @@ def staging_asset(
         with engine.begin() as conn:
             _ = conn.execute(
                 text(
-                    """
-                    UPDATE pdx.pipeline_runs
+                    f"""
+                    UPDATE {pipeline_runs_table}
                     SET last_pulled_to = :pulled_to,
                         rows_inserted = :count,
                         status = 'SUCCEEDED'
@@ -268,8 +272,8 @@ def staging_asset(
         with engine.begin() as conn:
             _ = conn.execute(
                 text(
-                    """
-                    UPDATE pdx.pipeline_runs
+                    f"""
+                    UPDATE {pipeline_runs_table}
                     SET status = 'FAILED'
                     WHERE run_id = :run_id
                     """

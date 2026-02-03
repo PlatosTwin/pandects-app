@@ -53,17 +53,19 @@ def tx_metadata_asset(
     batch_size = pipeline_config.tx_metadata_agreement_batch_size
 
     engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
 
     # Select earliest agreements without metadata
     select_q = text(
-        """
+        f"""
         SELECT 
             agreement_uuid, 
             target,
             acquirer,
             filing_date
         FROM 
-            pdx.agreements
+            {agreements_table}
         WHERE 
             COALESCE(metadata, 0) = 0
         ORDER BY 
@@ -110,8 +112,8 @@ def tx_metadata_asset(
 
     # Persist: only for parsed successes
     update_q = text(
-        """
-        UPDATE pdx.agreements
+        f"""
+        UPDATE {agreements_table}
         SET 
             transaction_consideration = :consideration,
             transaction_price_cash = :price_cash,

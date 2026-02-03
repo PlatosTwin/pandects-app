@@ -39,6 +39,11 @@ def xml_asset(
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    xml_table = f"{schema}.xml"
     is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     context.log.info(
@@ -57,22 +62,22 @@ def xml_asset(
             agreement_uuids = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT DISTINCT
                             a.agreement_uuid
                         FROM
-                            pdx.agreements a
-                        JOIN pdx.pages p
+                            {agreements_table} a
+                        JOIN {pages_table} p
                             ON p.agreement_uuid = a.agreement_uuid
-                        LEFT JOIN pdx.tagged_outputs t
+                        LEFT JOIN {tagged_outputs_table} t
                             ON t.page_uuid = p.page_uuid
-                        LEFT JOIN pdx.xml x
+                        LEFT JOIN {xml_table} x
                             ON x.agreement_uuid = a.agreement_uuid
                             AND x.latest = 1
                         LEFT JOIN (
                             SELECT DISTINCT p2.agreement_uuid
-                            FROM pdx.tagged_outputs t2
-                            JOIN pdx.pages p2
+                            FROM {tagged_outputs_table} t2
+                            JOIN {pages_table} p2
                                 ON t2.page_uuid = p2.page_uuid
                             WHERE t2.gated = 1
                         ) gated
@@ -85,8 +90,8 @@ def xml_asset(
                             x.agreement_uuid IS NULL
                             OR EXISTS (
                                 SELECT 1
-                                FROM pdx.pages p_upd
-                                JOIN pdx.tagged_outputs t_upd
+                                FROM {pages_table} p_upd
+                                JOIN {tagged_outputs_table} t_upd
                                     ON t_upd.page_uuid = p_upd.page_uuid
                                 WHERE p_upd.agreement_uuid = a.agreement_uuid
                                 AND p_upd.source_page_type = 'body'
@@ -120,7 +125,7 @@ def xml_asset(
             rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                     SELECT
                     p.agreement_uuid,
                     p.page_uuid,
@@ -133,9 +138,9 @@ def xml_asset(
                     filing_date,
                     source_is_txt,
                     source_is_html
-                    FROM pdx.pages p
-                    JOIN pdx.agreements a on p.agreement_uuid = a.agreement_uuid
-                    LEFT JOIN pdx.tagged_outputs tgo
+                    FROM {pages_table} p
+                    JOIN {agreements_table} a on p.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN {tagged_outputs_table} tgo
                     ON p.page_uuid = tgo.page_uuid
                     WHERE p.agreement_uuid IN :uuids
                     ORDER BY p.agreement_uuid, p.page_order
@@ -150,9 +155,9 @@ def xml_asset(
             df = pd.DataFrame(rows)
             # Determine version: new agreements get v1, updated pages increment version
             existing_versions = conn.execute(
-                text("""
+                text(f"""
                     SELECT agreement_uuid, MAX(version) as max_version
-                    FROM pdx.xml
+                    FROM {xml_table}
                     WHERE agreement_uuid IN :uuids
                     GROUP BY agreement_uuid
                 """),
@@ -165,25 +170,22 @@ def xml_asset(
             xml = generate_xml(df, version_map)
 
             try:
-                upsert_xml(xml, conn)
-                _ = conn.execute(
-                    text("UPDATE pdx.xml SET latest = 0 WHERE agreement_uuid IN :uuids")
-                    .bindparams(bindparam("uuids", expanding=True)),
-                    {"uuids": agreement_uuids},
-                )
+                upsert_xml(xml, db.database, conn)
                 _ = conn.execute(
                     text(
-                        """
-                        UPDATE pdx.xml x
+                        f"""
+                        UPDATE {xml_table} x
                         JOIN (
                             SELECT agreement_uuid, MAX(version) AS max_version
-                            FROM pdx.xml
+                            FROM {xml_table}
                             WHERE agreement_uuid IN :uuids
                             GROUP BY agreement_uuid
-                        ) m
-                            ON x.agreement_uuid = m.agreement_uuid
-                            AND x.version = m.max_version
-                        SET x.latest = 1
+                        ) m ON x.agreement_uuid = m.agreement_uuid
+                        SET x.latest = CASE
+                            WHEN x.version = m.max_version THEN 1
+                            ELSE 0
+                        END
+                        WHERE x.agreement_uuid IN :uuids
                         """
                     ).bindparams(bindparam("uuids", expanding=True)),
                     {"uuids": agreement_uuids},

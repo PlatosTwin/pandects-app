@@ -1,10 +1,11 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import re
+from collections import defaultdict
 from typing import List, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etl.defs.d_ai_repair_asset import ai_repair_poll_asset
 from etl.defs.resources import DBResource, PipelineConfig
@@ -335,6 +336,11 @@ def reconcile_tags(
     pdx.tagged_outputs.tagged_text_corrected.
     """
     engine = db.get_engine()
+    schema = db.database
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
+    ai_repair_rulings_table = f"{schema}.ai_repair_rulings"
 
     # batching controls
     batch_size = pipeline_config.reconcile_tags_agreement_batch_size
@@ -347,12 +353,12 @@ def reconcile_tags(
             agreement_rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT DISTINCT p.agreement_uuid
-                        FROM pdx.pages p
-                        LEFT JOIN pdx.ai_repair_full_pages f USING(page_uuid)
-                        LEFT JOIN pdx.ai_repair_rulings r USING(page_uuid)
-                        LEFT JOIN pdx.tagged_outputs t USING(page_uuid)
+                        FROM {pages_table} p
+                        LEFT JOIN {ai_repair_full_pages_table} f USING(page_uuid)
+                        LEFT JOIN {ai_repair_rulings_table} r USING(page_uuid)
+                        LEFT JOIN {tagged_outputs_table} t USING(page_uuid)
                         WHERE p.agreement_uuid > :last
                           AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
                           AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
@@ -372,58 +378,84 @@ def reconcile_tags(
             agreement_uuids = list(agreement_rows)
 
             # Fetch pages to reconcile for the selected agreements
-            rows = (
+            page_rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT DISTINCT p.page_uuid
-                        FROM pdx.pages p
-                        LEFT JOIN pdx.ai_repair_full_pages f USING(page_uuid)
-                        LEFT JOIN pdx.ai_repair_rulings r USING(page_uuid)
-                        LEFT JOIN pdx.tagged_outputs t USING(page_uuid)
+                        FROM {pages_table} p
+                        LEFT JOIN {ai_repair_full_pages_table} f USING(page_uuid)
+                        LEFT JOIN {ai_repair_rulings_table} r USING(page_uuid)
+                        LEFT JOIN {tagged_outputs_table} t USING(page_uuid)
                         WHERE p.agreement_uuid IN :auuids
                           AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
                           AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
                           AND (t.label_error IS NULL OR t.label_error = 0)
                         ORDER BY p.agreement_uuid, p.page_uuid
                         """
-                    ),
+                    ).bindparams(bindparam("auuids", expanding=True)),
                     {"auuids": tuple(agreement_uuids)},
                 )
                 .scalars()
                 .all()
             )
+            page_uuid_list = list(page_rows)
 
-            # Prepare statements
-            sel_page = text(
-                """
-                SELECT p.page_uuid, p.processed_page_content AS text,
-                       t.tagged_text, t.tagged_text_corrected
-                FROM pdx.pages p
-                LEFT JOIN pdx.tagged_outputs t USING(page_uuid)
-                WHERE p.page_uuid = :pid
-                """
-            )
-            sel_full = text(
-                "SELECT tagged_text FROM pdx.ai_repair_full_pages WHERE page_uuid = :pid LIMIT 1"
-            )
-            sel_rulings = text(
-                """
-                SELECT start_char, end_char, label
-                FROM pdx.ai_repair_rulings WHERE page_uuid = :pid
-                ORDER BY start_char, end_char
-                """
-            )
+            if not page_uuid_list:
+                last_uuid = agreement_uuids[-1]
+                if is_batched:
+                    break
+                continue
+
+            # Batch-fetch page metadata, full-page text, and rulings (avoid N+1)
+            meta_rows = conn.execute(
+                text(
+                    f"""
+                    SELECT p.page_uuid, p.processed_page_content AS text,
+                           t.tagged_text, t.tagged_text_corrected
+                    FROM {pages_table} p
+                    LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
+                    WHERE p.page_uuid IN :pids
+                    """
+                ).bindparams(bindparam("pids", expanding=True)),
+                {"pids": page_uuid_list},
+            ).mappings().fetchall()
+            page_meta = {r["page_uuid"]: r for r in meta_rows}
+
+            full_rows = conn.execute(
+                text(
+                    f"SELECT page_uuid, tagged_text FROM {ai_repair_full_pages_table} WHERE page_uuid IN :pids"
+                ).bindparams(bindparam("pids", expanding=True)),
+                {"pids": page_uuid_list},
+            ).mappings().fetchall()
+            full_by_page = {r["page_uuid"]: r["tagged_text"] for r in full_rows}
+
+            rulings_rows = conn.execute(
+                text(
+                    f"""
+                    SELECT page_uuid, start_char, end_char, label
+                    FROM {ai_repair_rulings_table} WHERE page_uuid IN :pids
+                    ORDER BY page_uuid, start_char, end_char
+                    """
+                ).bindparams(bindparam("pids", expanding=True)),
+                {"pids": page_uuid_list},
+            ).mappings().fetchall()
+            rulings_by_page: dict[str, list[Tuple[int, int, str]]] = defaultdict(list)
+            for r in rulings_rows:
+                rulings_by_page[r["page_uuid"]].append(
+                    (int(r["start_char"]), int(r["end_char"]), str(r["label"]))
+                )
+
             update_corrected = text(
-                """
-                UPDATE pdx.tagged_outputs
+                f"""
+                UPDATE {tagged_outputs_table}
                 SET tagged_text_corrected = :txt
                 WHERE page_uuid = :pid
                 """
             )
             update_label_error = text(
-                """
-                UPDATE pdx.tagged_outputs
+                f"""
+                UPDATE {tagged_outputs_table}
                 SET label_error = 1
                 WHERE page_uuid = :pid
                 """
@@ -435,25 +467,21 @@ def reconcile_tags(
             pages_success_count = 0
             pages_fail_count = 0
 
-            for pid in rows:
-                meta = conn.execute(sel_page, {"pid": pid}).mappings().first()
+            for pid in page_uuid_list:
+                meta = page_meta.get(pid)
                 if not meta:
                     continue
-                raw_text = meta["text"] or ""
+                raw_text = meta.get("text") or ""
                 tagged_text_orig = meta.get("tagged_text") or ""
 
                 # Full-page output wins
-                full = conn.execute(sel_full, {"pid": pid}).scalar()
+                full = full_by_page.get(pid)
                 if full:
                     _ = conn.execute(update_corrected, {"pid": pid, "txt": full})
                     continue
 
                 # Else overlay excerpt rulings
-                rrows = conn.execute(sel_rulings, {"pid": pid}).mappings().fetchall()
-                rulings = [
-                    (int(r["start_char"]), int(r["end_char"]), str(r["label"]))
-                    for r in rrows
-                ]
+                rulings = rulings_by_page.get(pid, [])
                 if not rulings:
                     # nothing to change
                     continue

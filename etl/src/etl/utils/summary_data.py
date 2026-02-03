@@ -29,7 +29,6 @@ def refresh_summary_data(
         _ = conn.execute(
             text(
                 f"""
-                -- Deduplicate XML rows per agreement to avoid double-counting.
                 INSERT INTO {summary_table} (
                     year,
                     form_type,
@@ -47,6 +46,11 @@ def refresh_summary_data(
                     sum_transaction_value_total,
                     count_verified
                 )
+                WITH eligible_xml AS (
+                    SELECT DISTINCT agreement_uuid
+                    FROM {xml_table}
+                    WHERE status IS NULL OR status = 'verified'
+                )
                 SELECT
                     year(date(filing_date)) as year,
                     a.form_type,
@@ -63,32 +67,20 @@ def refresh_summary_data(
                     COUNT(DISTINCT a.target) AS count_distinct_target,
                     COALESCE(SUM(a.transaction_price_total), 0) AS sum_transaction_value_total,
                     SUM(CASE WHEN a.verified THEN 1 ELSE 0 END) AS count_verified
-                FROM (
-                    SELECT DISTINCT agreement_uuid
-                    FROM {xml_table}
-                    WHERE status IS NULL OR status = 'verified'
-                ) AS x
+                FROM eligible_xml AS x
                 JOIN {agreements_table} AS a
                     ON a.agreement_uuid = x.agreement_uuid
                 LEFT JOIN (
                     SELECT p.agreement_uuid, COUNT(*) AS page_count
                     FROM {pages_table} AS p
-                    WHERE p.agreement_uuid IN (
-                        SELECT DISTINCT agreement_uuid
-                        FROM {xml_table}
-                        WHERE status IS NULL OR status = 'verified'
-                    )
+                    WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM eligible_xml)
                     GROUP BY p.agreement_uuid
                 ) AS p
                     ON p.agreement_uuid = a.agreement_uuid
                 LEFT JOIN (
                     SELECT s.agreement_uuid, COUNT(*) AS section_count
                     FROM {sections_table} AS s
-                    WHERE s.agreement_uuid IN (
-                        SELECT DISTINCT agreement_uuid
-                        FROM {xml_table}
-                        WHERE status IS NULL OR status = 'verified'
-                    )
+                    WHERE s.agreement_uuid IN (SELECT agreement_uuid FROM eligible_xml)
                     GROUP BY s.agreement_uuid
                 ) AS s
                     ON s.agreement_uuid = a.agreement_uuid
@@ -158,7 +150,11 @@ def refresh_summary_data(
                     FROM {pages_table}
                     WHERE gated = 1
                 ),
-                tagged as (select distinct agreement_uuid from {tagged_outputs_table} join {pages_table} using(page_uuid)),
+                tagged AS (
+                    SELECT DISTINCT agreement_uuid
+                    FROM {tagged_outputs_table} t
+                    JOIN {pages_table} p ON t.page_uuid = p.page_uuid
+                ),
                 gated_tagged AS (
                     SELECT DISTINCT p.agreement_uuid
                     FROM {tagged_outputs_table} t
@@ -198,14 +194,14 @@ def refresh_summary_data(
                     GROUP BY 1, 2, 3
                 ),
                 gray_b AS (
-                    select
+                    SELECT
                         YEAR(DATE(filing_date)) AS year,
                         'gray' AS color,
                         '1_pre_processing' AS current_stage,
                         COUNT(DISTINCT agreement_uuid) AS count
-                    from pdx.agreements
-                        where paginated = False
-                    group by 1,2,3
+                    FROM {agreements_table}
+                    WHERE paginated = False
+                    GROUP BY 1, 2, 3
                 ),
                 yellow_c AS (
                     SELECT

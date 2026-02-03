@@ -48,6 +48,9 @@ def tagging_asset(
 
     last_uuid: str = ""
     engine = db.get_engine()
+    schema = db.database
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
     is_cleanup = is_cleanup_mode(context, pipeline_config)
 
     context.log.info(
@@ -59,72 +62,45 @@ def tagging_asset(
 
     while True:
         with engine.begin() as conn:
-            # Fetch batch of agreements with at least one body page missing tags
-            agreement_uuids = (
-                conn.execute(
-                    text(
-                        """
-                        SELECT
-                            p.agreement_uuid
-                        FROM
-                            pdx.pages p
-                        LEFT JOIN pdx.tagged_outputs t
-                            ON t.page_uuid = p.page_uuid
-                        WHERE
-                            p.agreement_uuid > :last_uuid
-                            AND coalesce(p.gold_label, p.source_page_type) = 'body'
-                            AND p.processed_page_content IS NOT NULL
-                            AND t.page_uuid IS NULL
-                            AND p.gated = 0
-                        GROUP BY
-                            p.agreement_uuid
-                        ORDER BY
-                            p.agreement_uuid ASC
-                        LIMIT
-                            :batch_size
-                    """
-                    ),
-                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
-                )
-                .scalars()
-                .all()
-            )
-
-            if not agreement_uuids:
-                break
-
-            # Fetch body pages missing tags for those agreements
+            # Single query: agreements + body pages missing tags via CTE
             rows_mapping = (
                 conn.execute(
                     text(
-                        """
+                        f"""
+                        WITH agreement_batch AS (
+                            SELECT p.agreement_uuid
+                            FROM {pages_table} p
+                            LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
+                            WHERE p.agreement_uuid > :last_uuid
+                              AND coalesce(p.gold_label, p.source_page_type) = 'body'
+                              AND p.processed_page_content IS NOT NULL
+                              AND t.page_uuid IS NULL
+                              AND p.gated = 0
+                            GROUP BY p.agreement_uuid
+                            ORDER BY p.agreement_uuid ASC
+                            LIMIT :batch_size
+                        )
                         SELECT
+                            p.agreement_uuid,
                             p.page_uuid,
                             p.processed_page_content
-                        FROM
-                            pdx.pages p
-                        LEFT JOIN pdx.tagged_outputs t
-                            ON t.page_uuid = p.page_uuid
-                        WHERE
-                            p.agreement_uuid IN :uuids
-                            AND coalesce(p.gold_label, p.source_page_type) = 'body'
-                            AND p.processed_page_content IS NOT NULL
-                            AND t.page_uuid IS NULL
-                        ORDER BY
-                            p.agreement_uuid ASC,
-                            p.page_order ASC,
-                            p.page_uuid ASC
-                    """
+                        FROM {pages_table} p
+                        LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
+                        WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM agreement_batch)
+                          AND coalesce(p.gold_label, p.source_page_type) = 'body'
+                          AND p.processed_page_content IS NOT NULL
+                          AND t.page_uuid IS NULL
+                        ORDER BY p.agreement_uuid ASC, p.page_order ASC, p.page_uuid ASC
+                        """
                     ),
-                    {"uuids": tuple(agreement_uuids)},
+                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
                 )
                 .mappings()
                 .fetchall()
             )
 
             if not rows_mapping:
-                last_uuid = agreement_uuids[-1]
-                continue
+                break
 
             # Apply tagging to pages
             rows: list[TaggingRow] = [
@@ -135,13 +111,13 @@ def tagging_asset(
             )
 
             try:
-                upsert_tags(tagged_pages, conn)
+                upsert_tags(tagged_pages, db.database, conn)
                 context.log.info(f"Successfully tagged {len(tagged_pages)} pages")
             except Exception as e:
                 context.log.error(f"Error upserting tags: {e}")
                 raise RuntimeError(e)
 
-            last_uuid = agreement_uuids[-1]
+            last_uuid = max(r["agreement_uuid"] for r in rows_mapping)
 
         if batched:
             break

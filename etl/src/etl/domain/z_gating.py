@@ -25,10 +25,11 @@ def apply_gating(
     schema: str,
     min_article_tags: int = MIN_ARTICLE_TAGS,
 ) -> GatingCounts:
+    _set_validation_priority(conn, schema)
     agreements_gated = apply_agreement_gating(conn, schema)
     pages_gated = apply_pages_gating(conn, schema)
-    tagged_outputs_gated = apply_tagged_outputs_gating(conn, schema, min_article_tags)
-    xml_gated = apply_xml_gating(conn, schema)
+    tagged_outputs_gated = apply_tagged_outputs_gating(conn, schema)
+    xml_gated = apply_xml_gating(conn, schema, min_article_tags)
     return GatingCounts(
         agreements_gated=agreements_gated,
         pages_gated=pages_gated,
@@ -38,9 +39,10 @@ def apply_gating(
 
 
 def apply_agreement_gating(conn: Connection, schema: str) -> int:
+    agreements_table = f"{schema}.agreements"
     stmt = text(
         f"""
-        UPDATE {schema}.agreements
+        UPDATE {agreements_table}
         SET gated = CASE
             WHEN NOT (
                 (
@@ -63,79 +65,25 @@ def apply_agreement_gating(conn: Connection, schema: str) -> int:
 
 
 def apply_pages_gating(conn: Connection, schema: str) -> int:
+    pages_table = f"{schema}.pages"
     stmt = text(
         f"""
-        UPDATE {schema}.pages p
+        UPDATE {pages_table} p
         LEFT JOIN (
+            WITH sigs AS (
+                SELECT
+                    agreement_uuid,
+                    COUNT(page_uuid) AS ct_pages,
+                    MAX(CASE WHEN source_page_type = 'sig' THEN page_type_prob_sig ELSE 0 END) AS prob_sig,
+                    SUM(CASE WHEN source_page_type = 'sig' THEN 1 ELSE 0 END) AS ct_sig,
+                    SUM(CASE WHEN source_page_type = 'back_matter' THEN 1 ELSE 0 END) AS ct_back_matter,
+                    SUM(CASE WHEN gold_label IS NOT NULL THEN 1 ELSE 0 END) AS ct_gold
+                FROM {pages_table}
+                GROUP BY agreement_uuid
+            )
             SELECT DISTINCT agreement_uuid
-            FROM (
-                SELECT agreement_uuid
-                FROM (
-                    SELECT
-                        agreement_uuid,
-                        page_order,
-                        page_type_prob_front_matter,
-                        page_type_prob_toc,
-                        page_type_prob_body,
-                        page_type_prob_sig,
-                        page_type_prob_back_matter,
-                        gold_label,
-                        MIN(
-                            CASE
-                                WHEN source_page_type = 'sig'
-                                AND page_type_prob_sig >= 0.95
-                                THEN page_order
-                            END
-                        ) OVER (PARTITION BY agreement_uuid) AS sig_cutoff_page
-                    FROM {schema}.pages
-                ) sub
-                WHERE
-                    (
-                        page_type_prob_front_matter BETWEEN 0.3 AND 0.7
-                        OR page_type_prob_toc BETWEEN 0.3 AND 0.7
-                        OR page_type_prob_body BETWEEN 0.3 AND 0.7
-                        OR page_type_prob_sig BETWEEN 0.3 AND 0.7
-                        OR page_type_prob_back_matter BETWEEN 0.3 AND 0.7
-                    )
-                    AND (
-                        page_order <= sig_cutoff_page
-                        OR sig_cutoff_page IS NULL
-                    )
-                    AND gold_label IS NULL
-                UNION
-                SELECT agreement_uuid
-                FROM (
-                    SELECT agreement_uuid
-                    FROM (
-                        SELECT
-                            agreement_uuid,
-                            page_order,
-                            type_rank,
-                            MAX(type_rank) OVER (
-                                PARTITION BY agreement_uuid
-                                ORDER BY page_order
-                                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                            ) AS max_prev_type_rank
-                        FROM (
-                            SELECT
-                                agreement_uuid,
-                                page_order,
-                                CASE
-                                    WHEN source_page_type = 'front_matter' THEN 1
-                                    WHEN source_page_type = 'toc' THEN 2
-                                    WHEN source_page_type = 'body' THEN 3
-                                    WHEN source_page_type = 'sig' THEN 4
-                                    WHEN source_page_type = 'back_matter' THEN 5
-                                    ELSE 99
-                                END AS type_rank
-                            FROM {schema}.pages
-                            WHERE gold_label IS NULL
-                        ) PageRanks
-                    ) RankedPages
-                    WHERE max_prev_type_rank IS NOT NULL
-                        AND type_rank < max_prev_type_rank
-                ) out_of_order
-            ) gated
+            FROM sigs
+            WHERE ct_back_matter >= 1 AND ct_sig = 0 AND ct_gold = 0
         ) g
             ON g.agreement_uuid = p.agreement_uuid
         SET p.gated = CASE
@@ -148,23 +96,19 @@ def apply_pages_gating(conn: Connection, schema: str) -> int:
     return int(result.rowcount or 0)
 
 
-def apply_tagged_outputs_gating(
-    conn: Connection,
-    schema: str,
-    min_article_tags: int = MIN_ARTICLE_TAGS,
-) -> int:
-    label_error_uuids = _fetch_label_error_agreements(conn, schema)
-    low_article_uuids = _fetch_low_article_agreements(conn, schema, min_article_tags)
-    gated_agreements = sorted(label_error_uuids | low_article_uuids)
+def apply_tagged_outputs_gating(conn: Connection, schema: str) -> int:
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    pages_table = f"{schema}.pages"
+    gated_agreements = sorted(_fetch_label_error_agreements(conn, schema))
 
-    _ = conn.execute(text(f"UPDATE {schema}.tagged_outputs SET gated = 0"))
+    _ = conn.execute(text(f"UPDATE {tagged_outputs_table} SET gated = 0"))
     if not gated_agreements:
         return 0
 
     stmt = text(
         f"""
-        UPDATE {schema}.tagged_outputs t
-        JOIN {schema}.pages p
+        UPDATE {tagged_outputs_table} t
+        JOIN {pages_table} p
             ON t.page_uuid = p.page_uuid
         SET t.gated = 1
         WHERE p.agreement_uuid IN :gated_agreements
@@ -174,27 +118,47 @@ def apply_tagged_outputs_gating(
     return int(result.rowcount or 0)
 
 
-def apply_xml_gating(conn: Connection, schema: str) -> int:
-    stmt = text(
-        f"""
-        UPDATE {schema}.xml
-        SET gated = CASE
-            WHEN status = 'invalid' THEN 1
-            ELSE 0
-        END
-        """
-    )
-    result = conn.execute(stmt)
+def apply_xml_gating(
+    conn: Connection,
+    schema: str,
+    min_article_tags: int = MIN_ARTICLE_TAGS,
+) -> int:
+    xml_table = f"{schema}.xml"
+    low_article_uuids = _fetch_low_article_agreements(conn, schema, min_article_tags)
+    if not low_article_uuids:
+        stmt = text(
+            f"""
+            UPDATE {xml_table} x
+            SET x.gated = CASE WHEN x.status = 'invalid' THEN 1 ELSE 0 END
+            """
+        )
+        result = conn.execute(stmt)
+    else:
+        stmt = text(
+            f"""
+            UPDATE {xml_table} x
+            SET x.gated = CASE
+                WHEN x.status = 'invalid' THEN 1
+                WHEN x.agreement_uuid IN :low_article_uuids
+                    AND (x.status IS NULL OR x.status != 'verified')
+                THEN 1
+                ELSE 0
+            END
+            """
+        ).bindparams(bindparam("low_article_uuids", expanding=True))
+        result = conn.execute(stmt, {"low_article_uuids": sorted(low_article_uuids)})
     return int(result.rowcount or 0)
 
 
 def _fetch_label_error_agreements(conn: Connection, schema: str) -> set[str]:
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    pages_table = f"{schema}.pages"
     rows = conn.execute(
         text(
             f"""
             SELECT DISTINCT p.agreement_uuid
-            FROM {schema}.tagged_outputs t
-            JOIN {schema}.pages p
+            FROM {tagged_outputs_table} t
+            JOIN {pages_table} p
                 ON t.page_uuid = p.page_uuid
             WHERE t.label_error = 1
             """
@@ -208,13 +172,15 @@ def _fetch_low_article_agreements(
     schema: str,
     min_article_tags: int,
 ) -> set[str]:
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
     rows = conn.execute(
         text(
             f"""
             WITH eligible AS (
                 SELECT p.agreement_uuid
-                FROM {schema}.pages p
-                LEFT JOIN {schema}.tagged_outputs t
+                FROM {pages_table} p
+                LEFT JOIN {tagged_outputs_table} t
                     ON t.page_uuid = p.page_uuid
                 WHERE p.source_page_type = 'body'
                 GROUP BY p.agreement_uuid
@@ -237,8 +203,8 @@ def _fetch_low_article_agreements(
                     t.tagged_text,
                     p.processed_page_content
                 ) AS tagged_output
-            FROM {schema}.pages p
-            LEFT JOIN {schema}.tagged_outputs t
+            FROM {pages_table} p
+            LEFT JOIN {tagged_outputs_table} t
                 ON t.page_uuid = p.page_uuid
             JOIN eligible e
                 ON e.agreement_uuid = p.agreement_uuid
@@ -257,3 +223,9 @@ def _fetch_low_article_agreements(
         )
 
     return {uuid for uuid, count in counts.items() if count < min_article_tags}
+
+
+def _set_validation_priority(conn: Connection, schema: str) -> None:
+    _ = conn.execute(text(f"UPDATE {schema}.agreements SET validation_priority = 1"))
+    _ = conn.execute(text(f"UPDATE {schema}.pages SET validation_priority = 1"))
+    _ = conn.execute(text(f"UPDATE {schema}.tagged_outputs SET validation_priority = 1"))

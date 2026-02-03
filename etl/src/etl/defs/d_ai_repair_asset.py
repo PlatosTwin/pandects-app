@@ -115,13 +115,15 @@ DDL_CREATE = [
 ]
 
 
-def _ensure_tables(conn: Connection) -> None:
+def _ensure_tables(conn: Connection, schema: str) -> None:
     for ddl in DDL_CREATE:
-        _ = conn.execute(text(ddl))
+        ddl_with_schema = ddl.replace("pdx.", f"{schema}.")
+        _ = conn.execute(text(ddl_with_schema))
 
 
 def _fetch_candidates(
     conn: Connection,
+    schema: str,
     agreement_limit: int,
     entity_focus: str,
     confidence_threshold: float,
@@ -131,14 +133,17 @@ def _fetch_candidates(
     and have at least one unprocessed span (regardless of prior threshold).
     Returns pages from the first N agreements that have unprocessed matching spans.
     """
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
     # Find agreements that have pages with unprocessed spans matching the criteria
     agreements_q = text(
-        """
+        f"""
         SELECT DISTINCT
             p.agreement_uuid
         FROM
-            pdx.pages p
-            JOIN pdx.tagged_outputs t USING (page_uuid)
+            {pages_table} p
+            JOIN {tagged_outputs_table} t USING (page_uuid)
             CROSS JOIN JSON_TABLE(
                 t.spans,
                 '$[*]' COLUMNS (
@@ -153,7 +158,7 @@ def _fetch_candidates(
             AND jt.avg_confidence < :ct
             AND NOT EXISTS (
                 SELECT 1
-                FROM pdx.ai_repair_processed_spans ps
+                FROM {ai_repair_processed_spans_table} ps
                 WHERE ps.page_uuid = p.page_uuid
                   AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
                   AND ps.start_char = jt.start_char
@@ -182,15 +187,15 @@ def _fetch_candidates(
 
     # Fetch all pages from those agreements that have matching spans
     pages_q = text(
-        """
+        f"""
         SELECT DISTINCT
             p.page_uuid,
             p.agreement_uuid,
             p.processed_page_content AS text,
             t.spans AS spans
         FROM
-            pdx.pages p
-            JOIN pdx.tagged_outputs t USING (page_uuid)
+            {pages_table} p
+            JOIN {tagged_outputs_table} t USING (page_uuid)
             CROSS JOIN JSON_TABLE(
                 t.spans,
                 '$[*]' COLUMNS (
@@ -206,7 +211,7 @@ def _fetch_candidates(
             AND jt.avg_confidence < :ct
             AND NOT EXISTS (
                 SELECT 1
-                FROM pdx.ai_repair_processed_spans ps
+                FROM {ai_repair_processed_spans_table} ps
                 WHERE ps.page_uuid = p.page_uuid
                   AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
                   AND ps.start_char = jt.start_char
@@ -231,44 +236,46 @@ def _fetch_candidates(
     return [dict(r) for r in rows]
 
 
-def _filter_already_processed_spans(
+def _fetch_processed_spans_batch(
     conn: Connection,
-    page_uuid: str,
-    spans: List[UncertainSpan],
+    schema: str,
+    page_uuids: List[str],
     entity_focus: str,
-) -> List[UncertainSpan]:
+) -> Dict[str, Set[Tuple[str, int, int]]]:
     """
-    Filter out spans that have already been processed with the same entity_focus (any threshold).
-    Excludes spans that are completed, queued, or running.
-    Allows retrying failed/parse_error/completed_no_output spans.
+    Batch-fetch processed spans for multiple pages.
+    Returns dict: page_uuid -> set of (entity, start_char, end_char).
     """
-    if not spans:
-        return []
-    
-    # Build a set of spans that should be excluded (completed, queued, or running)
-    processed_q = text(
-        """
-        SELECT entity, start_char, end_char
-        FROM pdx.ai_repair_processed_spans
-        WHERE page_uuid = :pid
+    if not page_uuids:
+        return {}
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
+    q = text(
+        f"""
+        SELECT page_uuid, entity, start_char, end_char
+        FROM {ai_repair_processed_spans_table}
+        WHERE page_uuid IN :pids
           AND entity_focus = :ef
           AND status IN ('completed', 'queued', 'running')
         """
-    )
-    processed_rows = conn.execute(
-        processed_q,
-        {
-            "pid": page_uuid,
-            "ef": entity_focus,
-        },
-    ).mappings().fetchall()
-    
-    processed_set = {
-        (r["entity"], r["start_char"], r["end_char"])
-        for r in processed_rows
-    }
-    
-    # Filter out spans that are completed, queued, or running
+    ).bindparams(bindparam("pids", expanding=True))
+    rows = conn.execute(q, {"pids": page_uuids, "ef": entity_focus}).mappings().fetchall()
+    out: Dict[str, Set[Tuple[str, int, int]]] = {}
+    for r in rows:
+        pid = r["page_uuid"]
+        key = (r["entity"], r["start_char"], r["end_char"])
+        out.setdefault(pid, set()).add(key)
+    return out
+
+
+def _filter_already_processed_spans(
+    spans: List[UncertainSpan],
+    processed_set: Set[Tuple[str, int, int]],
+) -> List[UncertainSpan]:
+    """
+    Filter out spans that are in processed_set (completed, queued, or running).
+    """
+    if not spans:
+        return []
     return [
         span
         for span in spans
@@ -311,11 +318,16 @@ def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
 
 
 def _insert_batch_row(
-    conn: Connection, batch: Any, completion_window: str, request_total: int
+    conn: Connection,
+    schema: str,
+    batch: Any,
+    completion_window: str,
+    request_total: int,
 ) -> None:
+    ai_repair_batches_table = f"{schema}.ai_repair_batches"
     q = text(
-        """
-        INSERT INTO pdx.ai_repair_batches
+        f"""
+        INSERT INTO {ai_repair_batches_table}
             (batch_id, created_at, status, input_file_id, output_file_id, error_file_id,
              completion_window, request_total, request_failed)
         VALUES
@@ -346,7 +358,10 @@ def _insert_batch_row(
 
 
 def _insert_requests(
-    conn: Connection, batch_id: str, lines_meta: List[Dict[str, Any]]
+    conn: Connection,
+    schema: str,
+    batch_id: str,
+    lines_meta: List[Dict[str, Any]],
 ) -> None:
     """
     lines_meta: emitted by build_jsonl_lines_for_page(), one dict per custom_id:
@@ -355,9 +370,10 @@ def _insert_requests(
     Only inserts new requests or updates requests with terminal statuses.
     Does not overwrite requests that are already queued or running.
     """
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
     q = text(
-        """
-        INSERT INTO pdx.ai_repair_requests
+        f"""
+        INSERT INTO {ai_repair_requests_table}
             (request_id, batch_id, page_uuid, mode, excerpt_start, excerpt_end, created_at, status)
         VALUES
             (:rid, :bid, :pid, :mode, :xs, :xe, :ts, 'queued')
@@ -390,6 +406,7 @@ def _insert_requests(
 
 def _insert_processed_spans(
     conn: Connection,
+    schema: str,
     batch_id: str,
     request_id: str,
     page_uuid: str,
@@ -402,10 +419,11 @@ def _insert_processed_spans(
     """
     if not spans:
         return
-    
+
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
     q = text(
-        """
-        INSERT INTO pdx.ai_repair_processed_spans
+        f"""
+        INSERT INTO {ai_repair_processed_spans_table}
             (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold,
              request_id, batch_id, status, created_at)
         VALUES
@@ -437,17 +455,19 @@ def _insert_processed_spans(
         )
 
 
-def _mark_completed(conn: Connection, request_ids: Set[str]) -> None:
+def _mark_completed(conn: Connection, schema: str, request_ids: Set[str]) -> None:
     if not request_ids:
         return
-    q = text("UPDATE pdx.ai_repair_requests SET status = 'completed' WHERE request_id IN :ids").bindparams(
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
+    q = text(f"UPDATE {ai_repair_requests_table} SET status = 'completed' WHERE request_id IN :ids").bindparams(
         bindparam("ids", expanding=True)
     )
     _ = conn.execute(q, {"ids": list(request_ids)})
-    
+
     # Also mark processed spans as completed
     q_spans = text(
-        "UPDATE pdx.ai_repair_processed_spans SET status = 'completed' WHERE request_id IN :ids"
+        f"UPDATE {ai_repair_processed_spans_table} SET status = 'completed' WHERE request_id IN :ids"
     ).bindparams(bindparam("ids", expanding=True))
     _ = conn.execute(q_spans, {"ids": list(request_ids)})
 
@@ -476,7 +496,7 @@ def ai_repair_enqueue_asset(
     excerpt_model = "gpt-5-mini"
 
     with engine.begin() as conn:
-        _ensure_tables(conn)
+        _ensure_tables(conn, db.database)
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.ai_repair_agreement_batch_size
@@ -492,6 +512,7 @@ def ai_repair_enqueue_asset(
 
         candidates = _fetch_candidates(
             conn,
+            db.database,
             agreement_limit=batch_size,
             entity_focus=entity_focus,
             confidence_threshold=confidence_threshold,
@@ -502,7 +523,13 @@ def ai_repair_enqueue_asset(
             refresh_summary_data(context, db)
             return
 
-        # 2) build JSONL in-memory, split by mode to keep batch models consistent
+        # 2) batch-fetch processed spans for all candidates (one query instead of per-page)
+        candidate_page_uuids = [r["page_uuid"] for r in candidates]
+        processed_by_page = _fetch_processed_spans_batch(
+            conn, db.database, candidate_page_uuids, entity_focus
+        )
+
+        # 3) build JSONL in-memory, split by mode to keep batch models consistent
         jsonl_full_buf = io.StringIO()
         jsonl_excerpt_buf = io.StringIO()
         lines_meta_full: List[Dict[str, Any]] = []
@@ -523,11 +550,10 @@ def ai_repair_enqueue_asset(
                 continue
 
             # Filter out spans that have already been processed with these parameters
+            processed_set = processed_by_page.get(page_uuid, set())
             unprocessed_spans = _filter_already_processed_spans(
-                conn,
-                page_uuid,
                 focused_spans,
-                entity_focus,
+                processed_set,
             )
             if not unprocessed_spans:
                 continue
@@ -598,8 +624,10 @@ def ai_repair_enqueue_asset(
             )
 
             request_total = len(lines_meta)
-            _insert_batch_row(conn, batch, batch_completion_window, request_total)
-            _insert_requests(conn, batch.id, lines_meta)
+            _insert_batch_row(
+                conn, db.database, batch, batch_completion_window, request_total
+            )
+            _insert_requests(conn, db.database, batch.id, lines_meta)
             
             # Record which spans are being processed in each request
             for meta in lines_meta:
@@ -613,6 +641,7 @@ def ai_repair_enqueue_asset(
                 spans_for_request = spans_by_request[request_id]
                 _insert_processed_spans(
                     conn,
+                    db.database,
                     batch.id,
                     request_id,
                     page_uuid,
@@ -658,17 +687,21 @@ def _request_counts(batch: Any) -> Tuple[int, int, int]:
     return total, failed, completed
 
 
-def _bulk_update_status(conn: Connection, request_ids: Set[str], status: str) -> None:
+def _bulk_update_status(
+    conn: Connection, schema: str, request_ids: Set[str], status: str
+) -> None:
     if not request_ids:
         return
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
     q = text(
-        "UPDATE pdx.ai_repair_requests SET status = :st WHERE request_id IN :ids"
+        f"UPDATE {ai_repair_requests_table} SET status = :st WHERE request_id IN :ids"
     ).bindparams(bindparam("ids", expanding=True))
     _ = conn.execute(q, {"st": status, "ids": list(request_ids)})
-    
+
     # Also update processed spans status
     q_spans = text(
-        "UPDATE pdx.ai_repair_processed_spans SET status = :st WHERE request_id IN :ids"
+        f"UPDATE {ai_repair_processed_spans_table} SET status = :st WHERE request_id IN :ids"
     ).bindparams(bindparam("ids", expanding=True))
     _ = conn.execute(q_spans, {"st": status, "ids": list(request_ids)})
 
@@ -767,6 +800,12 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
       - No output/no error → status = 'completed_no_output'
     """
     engine = db.get_engine()
+    schema = db.database
+    ai_repair_batches_table = f"{schema}.ai_repair_batches"
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
+    ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
+    ai_repair_rulings_table = f"{schema}.ai_repair_rulings"
     client = _oai_client()
 
     base_sleep_seconds = 5
@@ -780,9 +819,9 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
             rows = (
                 conn.execute(
                     text(
-                        """
+                        f"""
                         SELECT batch_id
-                        FROM pdx.ai_repair_batches
+                        FROM {ai_repair_batches_table}
                         WHERE status NOT IN ('completed','failed','cancelled','expired')
                         ORDER BY created_at ASC
                         LIMIT 20
@@ -799,21 +838,21 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                 return
 
             upd_batch = text(
-                """
-                UPDATE pdx.ai_repair_batches
+                f"""
+                UPDATE {ai_repair_batches_table}
                 SET status=:st, output_file_id=:of, error_file_id=:ef,
                     request_total=:rt, request_failed=:rf
                 WHERE batch_id=:bid
                 """
             )
             select_req = text(
-                "SELECT request_id, page_uuid, mode, excerpt_start FROM pdx.ai_repair_requests WHERE batch_id = :bid"
+                f"SELECT request_id, page_uuid, mode, excerpt_start FROM {ai_repair_requests_table} WHERE batch_id = :bid"
             )
             mark_running = text(
-                "UPDATE pdx.ai_repair_requests SET status='running' WHERE batch_id=:bid AND status='queued'"
+                f"UPDATE {ai_repair_requests_table} SET status='running' WHERE batch_id=:bid AND status='queued'"
             )
             mark_running_spans = text(
-                "UPDATE pdx.ai_repair_processed_spans SET status='running' WHERE batch_id=:bid AND status='queued'"
+                f"UPDATE {ai_repair_processed_spans_table} SET status='running' WHERE batch_id=:bid AND status='queued'"
             )
 
             for r in rows:
@@ -925,7 +964,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
 
                 if usage_by_request:
                     upd_usage = text(
-                        "UPDATE pdx.ai_repair_requests SET token_usage = :usage WHERE request_id = :rid"
+                        f"UPDATE {ai_repair_requests_table} SET token_usage = :usage WHERE request_id = :rid"
                     )
                     for rid, usage in usage_by_request.items():
                         _ = conn.execute(
@@ -935,8 +974,8 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                 # Full-page tagged_text
                 if parsed_full_pages:
                     ins_full = text(
-                        """
-                        INSERT INTO pdx.ai_repair_full_pages (request_id, page_uuid, tagged_text, batch_id)
+                        f"""
+                        INSERT INTO {ai_repair_full_pages_table} (request_id, page_uuid, tagged_text, batch_id)
                         VALUES (:rid, :pid, :txt, :bid)
                         ON DUPLICATE KEY UPDATE tagged_text = VALUES(tagged_text), batch_id = VALUES(batch_id)
                         """
@@ -950,8 +989,8 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                 # Excerpt rulings (convert to page-level coords using excerpt_start)
                 if parsed_rulings:
                     ins_r = text(
-                        """
-                        INSERT INTO pdx.ai_repair_rulings (request_id, page_uuid, start_char, end_char, label, batch_id)
+                        f"""
+                        INSERT INTO {ai_repair_rulings_table} (request_id, page_uuid, start_char, end_char, label, batch_id)
                         VALUES (:rid, :pid, :s, :e, :lab, :bid)
                         ON DUPLICATE KEY UPDATE label = VALUES(label), batch_id = VALUES(batch_id)
                         """
@@ -972,25 +1011,25 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                 parsed_ids = set(rid for rid, _, _ in parsed_full_pages) | set(rid for rid, _, _ in parsed_rulings)
 
                 # Mark requests completed that produced outputs (either kind)
-                _mark_completed(conn, parsed_ids)
+                _mark_completed(conn, db.database, parsed_ids)
 
                 # Completed with HTTP success but no parsed record (and not failed/parse_error)
                 no_output_ids = (
                     (http_success_ids - parsed_ids) - failed_ids - parse_error_ids
                 )
-                _bulk_update_status(conn, no_output_ids, "completed_no_output")
+                _bulk_update_status(conn, db.database, no_output_ids, "completed_no_output")
 
                 # Parse errors on HTTP-success lines
                 _bulk_update_status(
-                    conn, parse_error_ids - failed_ids - parsed_ids, "parse_error"
+                    conn, db.database, parse_error_ids - failed_ids - parsed_ids, "parse_error"
                 )
 
                 # Explicit failures
-                _bulk_update_status(conn, failed_ids, "failed")
+                _bulk_update_status(conn, db.database, failed_ids, "failed")
 
                 # Leftovers: neither output nor error line → completed_no_output
                 leftover_ids = req_ids_all - http_success_ids - failed_ids - parse_error_ids
-                _bulk_update_status(conn, leftover_ids, "completed_no_output")
+                _bulk_update_status(conn, db.database, leftover_ids, "completed_no_output")
 
                 # Summary
                 context.log.info(
