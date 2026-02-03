@@ -950,6 +950,12 @@ def _default_model_path() -> Path:
     return base_dir / "models" / "exhibit_classifier" / "model_files" / "exhibit-classifier.joblib"
 
 
+# CLI for debug/troubleshoot (no Dagster, no DB): from repo root:
+#   cd etl && uv run python -m etl.domain.a_staging --start-date YYYY-MM-DD --days N
+# Optional: --model-path /path/to/exhibit-classifier.joblib
+# Writes results to etl/src/etl/models/exhibit_classifier/data/staging_data_<start>_<days>.txt
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run staging exhibit discovery and classification."
