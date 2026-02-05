@@ -1,10 +1,19 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 from __future__ import annotations
 
+import copy
 import json
 import re
 from datetime import date, datetime
 from typing import Any, Dict, Optional
+
+DEAL_TYPE_ALLOWED = (
+    "merger",
+    "stock_acquisition",
+    "asset_acquisition",
+    "tender_offer",
+    "membership_interest_purchase",
+)
 
 
 def json_schema_transaction_metadata():
@@ -59,12 +68,7 @@ def json_schema_transaction_metadata():
                 "anyOf": [
                     {
                         "type": "string",
-                        "enum": [
-                            "merger",
-                            "stock_acquisition",
-                            "asset_acquisition",
-                            "tender_offer",
-                        ],
+                        "enum": list(DEAL_TYPE_ALLOWED),
                     },
                     {"type": "null"},
                 ]
@@ -139,6 +143,28 @@ def json_schema_transaction_metadata():
     }
 
 
+def json_schema_transaction_metadata_web_search_only() -> Dict[str, Any]:
+    """Schema for web-search mode: same as full but omit target, acquirer, deal_type (collected offline)."""
+    full = copy.deepcopy(json_schema_transaction_metadata())
+    props = {k: v for k, v in full["properties"].items() if k not in ("deal_type",)}
+    required = [k for k in full["required"] if k != "deal_type"]
+    # Remove deal_type from metadata_sources.citations.fields enum if present
+    if "metadata_sources" in props and "properties" in props["metadata_sources"]:
+        cites = props["metadata_sources"]["properties"].get("citations", {})
+        if "items" in cites and "properties" in cites["items"]:
+            flds = cites["items"]["properties"].get("fields", {})
+            if "items" in flds and "enum" in flds["items"]:
+                flds["items"]["enum"] = [
+                    x for x in flds["items"]["enum"] if x != "deal_type"
+                ]
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": props,
+        "required": required,
+    }
+
+
 TX_METADATA_INSTRUCTIONS = (
     "You are an expert M&A research analyst. For the provided transaction details, "
     "and using trusted sources only (via the websearch tool), find: "
@@ -168,6 +194,39 @@ TX_METADATA_INSTRUCTIONS = (
     "if you think total consideration is $19, that is probably wrong, as it's too small; "
     "if you think the consideration is mixed, at least two consideration type columns should be non-zero; "
     "etc."
+    "For sources, populate `metadata_sources.citations` with URLs and explicitly list which fields each URL supports. "
+    "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
+)
+
+TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
+    "You are an expert M&A research analyst. For the provided transaction details, "
+    "and using trusted sources only (via the websearch tool), find: "
+    "1) the type of consideration (all stock, all cash, all asset swap, mixed); "
+    "2) the purchase price components (USD), without accounting for any assumed debt, notes, etc. "
+    "(i.e., equity value / consideration paid to sellers, not enterprise value). "
+    "Return full USD amounts (e.g., $4.18 billion -> 4180000000), not shorthand units; "
+    "If sources only provide enterprise value / transaction value including assumed debt and you cannot isolate equity consideration, use null for purchase price. "
+    "3) whether the target was public or private at announcement. Public means the target itself is publicly traded (listed or OTC) or is an SEC reporting issuer; "
+    "if the target is a privately held subsidiary of a public parent, treat the target as private unless the target itself is publicly traded/SEC-reporting. "
+    "If you cannot determine, use null. "
+    "4) whether the acquirer was public or private at announcement. Public means the acquirer itself is publicly traded (listed or OTC) or is an SEC reporting issuer; "
+    "if the acquirer is a privately held acquisition vehicle controlled by a public/PE parent, treat the acquirer as private unless it is itself publicly traded/SEC-reporting. "
+    "If you cannot determine, use null. "
+    "5) whether the target was owned by a private equity shop; "
+    "6) whether the acquirer was a private equity shop; "
+    "7) the target industry using the NAICS subsector code as digits only (prefer 3-digit subsector; if only 2-digit sector is available, return that; otherwise null); "
+    "8) the acquirer industry using the NAICS subsector code as digits only (prefer 3-digit subsector; if only 2-digit sector is available, return that; otherwise null); "
+    "9) announce_date: the date the deal was publicly announced (YYYY-MM-DD); "
+    "10) close_date: the date the deal closed (YYYY-MM-DD), or null if not completed; "
+    "11) deal_status: 'pending', 'complete', or 'cancelled' (use 'unknown' if unclear); "
+    "12) attitude: 'friendly', 'hostile', or 'unsolicited' (use null if unclear); "
+    "13) purpose: 'strategic' or 'financial' (use null if unclear). "
+    "Do not extract or return target, acquirer, or deal_type (those are provided separately). "
+    "For fields where you don't know the answer, use null. "
+    "Do a sanity check before completing, and dig deeper if need be—e.g., "
+    "if you think total consideration is $19, that is probably wrong, as it's too small; "
+    "if you think the consideration is mixed, at least two consideration type columns should be non-zero; "
+    "etc. "
     "For sources, populate `metadata_sources.citations` with URLs and explicitly list which fields each URL supports. "
     "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
 )
@@ -207,6 +266,31 @@ def build_tx_metadata_request_body(
     }
 
 
+def build_tx_metadata_request_body_web_search_only(
+    agreement: Dict[str, Any], *, model: str
+) -> Dict[str, Any]:
+    """Same as build_tx_metadata_request_body but schema/instructions omit target, acquirer, deal_type."""
+    schema = json_schema_transaction_metadata_web_search_only()
+    target: str = agreement.get("target") or ""
+    acquirer: str = agreement.get("acquirer") or ""
+    filing_date_str = _filing_date_to_str(agreement.get("filing_date"))
+
+    return {
+        "model": model,
+        "tools": [{"type": "web_search"}],
+        "instructions": TX_METADATA_INSTRUCTIONS_WEB_SEARCH,
+        "input": f"Transaction: {acquirer} acquired {target}, with an SEC filing date of {filing_date_str}.",
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "transaction_metadata_web_search",
+                "strict": True,
+                "schema": schema,
+            }
+        },
+    }
+
+
 def parse_tx_metadata_response_text(raw_text: str) -> Dict[str, Any]:
     obj = json.loads(raw_text)
     if not isinstance(obj, dict):
@@ -233,6 +317,34 @@ def parse_tx_metadata_response_text(raw_text: str) -> Dict[str, Any]:
     return obj
 
 
+REQUIRED_KEYS_WEB_SEARCH = {
+    "consideration_type",
+    "purchase_price",
+    "target_public",
+    "acquirer_public",
+    "target_pe",
+    "acquirer_pe",
+    "target_industry",
+    "acquirer_industry",
+    "announce_date",
+    "close_date",
+    "deal_status",
+    "attitude",
+    "purpose",
+    "metadata_sources",
+}
+
+
+def parse_tx_metadata_response_text_web_search(raw_text: str) -> Dict[str, Any]:
+    """Parse web-search response (schema omits deal_type)."""
+    obj = json.loads(raw_text)
+    if not isinstance(obj, dict):
+        raise ValueError("Response JSON is not an object.")
+    if not REQUIRED_KEYS_WEB_SEARCH.issubset(obj.keys()):
+        raise ValueError("Missing required keys in response JSON.")
+    return obj
+
+
 def parse_tx_metadata_response(resp: Any) -> Dict[str, Any]:
     if not hasattr(resp, "output_text"):
         raise TypeError("Response object is missing output_text.")
@@ -240,6 +352,123 @@ def parse_tx_metadata_response(resp: Any) -> Dict[str, Any]:
     if not isinstance(raw_text, str):
         raise TypeError("Response output_text is not a string.")
     return parse_tx_metadata_response_text(raw_text)
+
+
+# --- Offline mode: target, acquirer, deal_type from document only ---
+
+def json_schema_offline_metadata() -> Dict[str, Any]:
+    """JSON schema for offline extraction: target, acquirer, deal_type only."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "deal_type": {
+                "anyOf": [
+                    {"type": "string", "enum": list(DEAL_TYPE_ALLOWED)},
+                    {"type": "null"},
+                ]
+            },
+        },
+        "required": ["target", "acquirer", "deal_type"],
+    }
+
+
+TX_METADATA_OFFLINE_INSTRUCTIONS = (
+    "You are an expert at reading M&A agreement documents. "
+    "Using ONLY the provided document text (no external knowledge or web search), extract: "
+    "1) target: the full legal or customary name of the company being acquired (the target). Use null if not clearly stated. "
+    "2) acquirer: the full legal or customary name of the company acquiring (the acquirer/buyer). Use null if not clearly stated. "
+    "3) deal_type: exactly one of 'merger', 'stock_acquisition', 'asset_acquisition', 'tender_offer', 'membership_interest_purchase', or null if unclear. "
+    "Be precise: use names as they appear in the document (e.g. in the introductory recitals or header). "
+    "Return only valid JSON matching the schema; no commentary."
+)
+
+
+def build_offline_tx_metadata_request_body(
+    agreement_uuid: str,
+    concatenated_page_text: str,
+    *,
+    model: str = "gpt-5-mini",
+) -> Dict[str, Any]:
+    """Build request body for offline extraction (one agreement). No tools; JSON output."""
+    schema = json_schema_offline_metadata()
+    return {
+        "custom_id": agreement_uuid,
+        "method": "POST",
+        "url": "/v1/responses",
+        "body": {
+            "model": model,
+            "instructions": TX_METADATA_OFFLINE_INSTRUCTIONS,
+            "input": [{"role": "user", "content": concatenated_page_text}],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "offline_tx_metadata",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+        },
+    }
+
+
+def parse_offline_tx_metadata_response_text(raw_text: str) -> Dict[str, Any]:
+    obj = json.loads(raw_text)
+    if not isinstance(obj, dict):
+        raise ValueError("Response JSON is not an object.")
+    for key in ("target", "acquirer", "deal_type"):
+        if key not in obj:
+            raise ValueError(f"Missing required key in response JSON: {key!r}.")
+    target = obj.get("target")
+    acquirer = obj.get("acquirer")
+    deal_type_raw = obj.get("deal_type")
+    if target is not None and not isinstance(target, str):
+        raise TypeError("target must be a string or null.")
+    if acquirer is not None and not isinstance(acquirer, str):
+        raise TypeError("acquirer must be a string or null.")
+    return {
+        "target": target if (isinstance(target, str) and target.strip()) else None,
+        "acquirer": acquirer if (isinstance(acquirer, str) and acquirer.strip()) else None,
+        "deal_type": _validate_nullable_enum_standalone(
+            deal_type_raw, field_name="deal_type", allowed=DEAL_TYPE_ALLOWED
+        ),
+    }
+
+
+def _validate_nullable_enum_standalone(
+    v: object | None, *, field_name: str, allowed: tuple[str, ...]
+) -> Optional[str]:
+    if v is None:
+        return None
+    if not isinstance(v, str):
+        raise TypeError(f"{field_name} must be a string or null.")
+    if v not in allowed:
+        raise TypeError(f"{field_name} must be one of {allowed} or null.")
+    return v
+
+
+def build_offline_update_params(
+    *, agreement_uuid: str, parsed: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Params for UPDATE agreements SET target, acquirer, deal_type only."""
+    target = parsed.get("target")
+    acquirer = parsed.get("acquirer")
+    deal_type = parsed.get("deal_type")
+    if target is not None and not isinstance(target, str):
+        raise TypeError("target must be a string or null.")
+    if acquirer is not None and not isinstance(acquirer, str):
+        raise TypeError("acquirer must be a string or null.")
+    deal_type = _validate_nullable_enum_standalone(
+        deal_type, field_name="deal_type", allowed=DEAL_TYPE_ALLOWED
+    )
+    return {
+        "uuid": agreement_uuid,
+        "target": target or None,
+        "acquirer": acquirer or None,
+        "deal_type": deal_type,
+    }
 
 
 def map_consideration_type_to_db(value: Optional[str]) -> Optional[str]:
@@ -387,7 +616,7 @@ def build_tx_metadata_update_params(
     deal_type = _validate_nullable_enum(
         tx_metadata_obj.get("deal_type"),
         field_name="deal_type",
-        allowed=("merger", "stock_acquisition", "asset_acquisition", "tender_offer"),
+        allowed=DEAL_TYPE_ALLOWED,
     )
     purpose = _validate_nullable_enum(
         tx_metadata_obj.get("purpose"),
@@ -416,3 +645,14 @@ def build_tx_metadata_update_params(
         "metadata_sources": metadata_sources,
         "uuid": agreement_uuid,
     }
+
+
+def build_tx_metadata_update_params_web_search_only(
+    *, agreement_uuid: str, tx_metadata_obj: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Build UPDATE params for web-search mode: same as full but omit target, acquirer, deal_type."""
+    obj_with_deal_type = {**tx_metadata_obj, "deal_type": tx_metadata_obj.get("deal_type", None)}
+    params = build_tx_metadata_update_params(
+        agreement_uuid=agreement_uuid, tx_metadata_obj=obj_with_deal_type
+    )
+    return {k: v for k, v in params.items() if k not in ("target", "acquirer", "deal_type")}

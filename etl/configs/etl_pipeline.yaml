@@ -13,6 +13,7 @@ resources:
       ai_repair_confidence_threshold: 1.0
       reconcile_tags_agreement_batch_size: 10
       tx_metadata_agreement_batch_size: 10
+      tx_metadata_mode: offline
       staging_days_to_fetch: 7
       staging_rate_limit_max_requests: 10
       staging_rate_limit_window_seconds: 1.025

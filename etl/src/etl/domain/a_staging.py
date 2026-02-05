@@ -287,11 +287,12 @@ def classify_exhibit_candidates(
         return []
 
     probabilities = exhibit_classifier.predict_proba_batch(agreement_texts)
+    threshold = getattr(exhibit_classifier, "decision_threshold", 0.5)
 
     results: list[AgreementCandidateResult] = []
     for idx, candidate in enumerate(valid_candidates):
         probability = probabilities[idx]
-        is_ma = probability >= 0.5
+        is_ma = probability >= threshold
         context.log.info(
             f"Exhibit classifier candidate {idx + 1}/{len(valid_candidates)}: ma_probability={probability:.3f} is_ma={is_ma}"
         )

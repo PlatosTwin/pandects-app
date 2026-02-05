@@ -25,11 +25,11 @@ def apply_gating(
     schema: str,
     min_article_tags: int = MIN_ARTICLE_TAGS,
 ) -> GatingCounts:
-    _set_validation_priority(conn, schema)
     agreements_gated = apply_agreement_gating(conn, schema)
     pages_gated = apply_pages_gating(conn, schema)
     tagged_outputs_gated = apply_tagged_outputs_gating(conn, schema)
     xml_gated = apply_xml_gating(conn, schema, min_article_tags)
+    _set_validation_priority(conn, schema)
     return GatingCounts(
         agreements_gated=agreements_gated,
         pages_gated=pages_gated,
@@ -44,18 +44,7 @@ def apply_agreement_gating(conn: Connection, schema: str) -> int:
         f"""
         UPDATE {agreements_table}
         SET gated = CASE
-            WHEN NOT (
-                (
-                    (prob_filing < 0.90 AND status = 'verified')
-                    OR (
-                        prob_filing > 0.90
-                        AND (status = 'verified' OR status IS NULL)
-                    )
-                )
-                AND exhibit_type IS NOT NULL
-                AND (paginated IS NULL OR paginated)
-            )
-            THEN 1
+            WHEN prob_filing < 0.75 AND status IS NULL THEN 1
             ELSE 0
         END
         """
@@ -226,6 +215,23 @@ def _fetch_low_article_agreements(
 
 
 def _set_validation_priority(conn: Connection, schema: str) -> None:
-    _ = conn.execute(text(f"UPDATE {schema}.agreements SET validation_priority = 1"))
-    _ = conn.execute(text(f"UPDATE {schema}.pages SET validation_priority = 1"))
+    _ = conn.execute(
+        text(f"UPDATE {schema}.agreements SET validation_priority = 1 - prob_filing")
+    )
+    _ = conn.execute(
+        text(
+            f"""
+            UPDATE {schema}.pages p
+            JOIN (
+                SELECT agreement_uuid,
+                    SUM(CASE WHEN gated = 1 THEN 1 ELSE 0 END) AS ct_flagged
+                FROM {schema}.pages
+                GROUP BY agreement_uuid
+            ) g
+                ON g.agreement_uuid = p.agreement_uuid
+            SET p.validation_priority = g.ct_flagged
+            """
+        )
+    )
     _ = conn.execute(text(f"UPDATE {schema}.tagged_outputs SET validation_priority = 1"))
+    _ = conn.execute(text(f"UPDATE {schema}.xml SET validation_priority = 1"))

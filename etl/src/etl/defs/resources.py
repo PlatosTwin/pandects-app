@@ -48,6 +48,13 @@ class AiRepairEntityFocus(Enum):
     O = "o"
 
 
+class TxMetadataMode(Enum):
+    """Transaction metadata enrichment mode: offline (document-only) or web_search."""
+
+    OFFLINE = "offline"
+    WEB_SEARCH = "web_search"
+
+
 class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pipeline execution mode and batching behavior."""
 
@@ -63,6 +70,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     ai_repair_confidence_threshold: float = 1.0
     reconcile_tags_agreement_batch_size: int = 500  # used in reconcile_tags asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
+    tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
     staging_days_to_fetch: int = 2  # used in staging_asset alt flow
     staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow
     staging_rate_limit_window_seconds: float = 1.025  # used in staging_asset alt flow
@@ -230,6 +238,10 @@ def get_resources() -> dict[str, object]:
     
     if "tx_metadata_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["tx_metadata_agreement_batch_size"] = int(yaml_config["tx_metadata_agreement_batch_size"])
+    
+    if "tx_metadata_mode" in yaml_config:
+        mode_str = str(yaml_config["tx_metadata_mode"]).lower()
+        pipeline_config_kwargs["tx_metadata_mode"] = TxMetadataMode(mode_str)
     
     if "staging_days_to_fetch" in yaml_config:
         pipeline_config_kwargs["staging_days_to_fetch"] = int(yaml_config["staging_days_to_fetch"])
