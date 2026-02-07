@@ -47,7 +47,7 @@ class FilingMetadata:
     filing_company_name: str | None = None
     filing_company_cik: str | None = None
     form_type: str | None = None
-    exhibit_type: str | None = None  # "2", "10", or "99"
+    exhibit_type: str | None = None  # "2" or "10"
     secondary_filing_url: str | None = None  # URL of duplicate filing if detected
 
 
@@ -82,7 +82,7 @@ class ExhibitCandidate:
     filing_company_name: str
     filing_company_cik: str
     filing_date: str  # YYYYMMDD format from idx
-    exhibit_type: str  # "2", "10", or "99"
+    exhibit_type: str  # "2" or "10"
 
 
 @dataclass
@@ -96,7 +96,7 @@ class AgreementCandidateResult:
     filing_company_name: str
     filing_company_cik: str
     filing_date: str  # YYYYMMDD format from idx
-    exhibit_type: str  # "2", "10", or "99"
+    exhibit_type: str  # "2" or "10"
     page_count: int
     minhash: MinHash  # For near-duplicate detection via LSH
 
@@ -621,7 +621,7 @@ def check_filing_for_keywords(
         re.IGNORECASE,
     )
     desc_pattern = re.compile(
-        r"<DESCRIPTION>\s*(EX|Exhibit|EX\.)[\s\-]*(10|2|99)[\.\s]",
+        r"<DESCRIPTION>\s*(EX|Exhibit|EX\.)[\s\-]*(10|2)[\.\s]",
         re.IGNORECASE,
     )
 
@@ -649,9 +649,9 @@ def get_exhibit_links_from_index_page(
     context: _Context,
     rate_limited_get: Callable[..., requests.Response],
 ) -> list[tuple[str, str]]:
-    """Visit the filing's index page and scrape Exhibit 10.*, 2.*, and 99.* links.
+    """Visit the filing's index page and scrape Exhibit 10.* and 2.* links.
     
-    Returns list of (url, exhibit_type) tuples where exhibit_type is "2", "10", or "99".
+    Returns list of (url, exhibit_type) tuples where exhibit_type is "2" or "10".
     """
     base_sec_url = "https://www.sec.gov/Archives/"
 
@@ -695,7 +695,7 @@ def get_exhibit_links_from_index_page(
     if not document_table:
         return final_links
 
-    type_pattern = re.compile(r"(?i)(EX|Exhibit)[\s\-]*(10|2|99)(\..*)?$")
+    type_pattern = re.compile(r"(?i)(EX|Exhibit)[\s\-]*(10|2)(\..*)?$")
 
     for row in document_table.find_all("tr"):
         cols = row.find_all("td")
@@ -706,7 +706,7 @@ def get_exhibit_links_from_index_page(
         match = type_pattern.match(doc_type)
         if not match:
             continue
-        exhibit_type = match.group(2)  # "2", "10", or "99"
+        exhibit_type = match.group(2)  # "2" or "10"
 
         link_cell = cols[2]
         link_tag = link_cell.find("a")
