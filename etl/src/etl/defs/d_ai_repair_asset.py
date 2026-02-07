@@ -24,7 +24,7 @@ from openai import OpenAI
 import os
 import time
 
-from etl.defs.resources import DBResource, PipelineConfig
+from etl.defs.resources import DBResource, PipelineConfig, AiRepairMode
 from etl.utils.run_config import is_batched
 from etl.domain.z_gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
@@ -500,9 +500,11 @@ def ai_repair_enqueue_asset(
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.ai_repair_agreement_batch_size
+        ai_repair_mode = pipeline_config.ai_repair_mode
         entity_focus = pipeline_config.ai_repair_entity_focus.value
         confidence_threshold = pipeline_config.ai_repair_confidence_threshold
         batched = is_batched(context, pipeline_config)
+        send_full_pages = ai_repair_mode == AiRepairMode.ALL
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
@@ -536,6 +538,7 @@ def ai_repair_enqueue_asset(
         lines_meta_excerpt: List[Dict[str, Any]] = []
         # Track which spans are included in each request: request_id -> List[UncertainSpan]
         spans_by_request: Dict[str, List[UncertainSpan]] = {}
+        deferred_full_pages = 0
 
         for row in candidates:
             page_uuid = row["page_uuid"]
@@ -564,6 +567,9 @@ def ai_repair_enqueue_asset(
             )
 
             if decision.mode == "full":
+                if not send_full_pages:
+                    deferred_full_pages += 1
+                    continue
                 batch_lines, metas = build_jsonl_lines_for_page(
                     page_uuid=page_uuid,
                     text=text,
@@ -605,7 +611,12 @@ def ai_repair_enqueue_asset(
                 raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
 
         if not lines_meta_full and not lines_meta_excerpt:
-            context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+            if deferred_full_pages > 0 and not send_full_pages:
+                context.log.info(
+                    f"ai_repair_enqueue_asset: deferred {deferred_full_pages} full-page candidates in EXCERPT mode."
+                )
+            else:
+                context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
             _ = apply_gating(conn, db.database)
             refresh_summary_data(context, db)
             return
@@ -657,6 +668,11 @@ def ai_repair_enqueue_asset(
         # 3) upload JSONL + create Batch per mode
         _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
         _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
+
+        if deferred_full_pages > 0 and not send_full_pages:
+            context.log.info(
+                f"ai_repair_enqueue_asset: deferred {deferred_full_pages} full-page candidates in EXCERPT mode."
+            )
 
     with engine.begin() as conn:
         _ = apply_gating(conn, db.database)

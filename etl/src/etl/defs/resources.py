@@ -48,6 +48,13 @@ class AiRepairEntityFocus(Enum):
     O = "o"
 
 
+class AiRepairMode(Enum):
+    """Mode for AI repair enqueue behavior."""
+
+    EXCERPT = "excerpt"
+    ALL = "all"
+
+
 class TxMetadataMode(Enum):
     """Transaction metadata enrichment mode: offline (document-only) or web_search."""
 
@@ -66,6 +73,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     sections_agreement_batch_size: int = 10  # used in sections_asset
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     ai_repair_agreement_batch_size: int = 150  # used in ai_repair_enqueue_asset
+    ai_repair_mode: AiRepairMode = AiRepairMode.EXCERPT  # excerpt | all
     ai_repair_entity_focus: AiRepairEntityFocus = AiRepairEntityFocus.O
     ai_repair_confidence_threshold: float = 1.0
     reconcile_tags_agreement_batch_size: int = 500  # used in reconcile_tags asset
@@ -225,6 +233,10 @@ def get_resources() -> dict[str, object]:
     
     if "ai_repair_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["ai_repair_agreement_batch_size"] = int(yaml_config["ai_repair_agreement_batch_size"])
+
+    if "ai_repair_mode" in yaml_config:
+        mode_str = str(yaml_config["ai_repair_mode"]).lower()
+        pipeline_config_kwargs["ai_repair_mode"] = AiRepairMode(mode_str)
     
     if "ai_repair_entity_focus" in yaml_config:
         focus_str = str(yaml_config["ai_repair_entity_focus"]).lower()
