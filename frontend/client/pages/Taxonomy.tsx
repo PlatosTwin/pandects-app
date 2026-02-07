@@ -433,27 +433,31 @@ export default function Taxonomy() {
                             >
                               {getResultLevel(result)}
                             </Badge>
-                            <div className="flex flex-wrap items-center">
-                              <span className="font-medium">
+                            <div className="flex-1 space-y-0.5">
+                              <div className="font-medium leading-snug">
                                 {renderHighlighted(result.l1)}
-                              </span>
+                              </div>
                               {result.l2 && (
-                                <>
-                                  <span className="mx-1 text-muted-foreground">
-                                    {">"}
-                                  </span>
-                                  <span className="text-muted-foreground">
-                                    {renderHighlighted(result.l2)}
-                                  </span>
-                                </>
-                              )}
-                              {result.l3 && (
-                                <>
-                                  <span className="mx-1 text-muted-foreground">
-                                    {">"}
-                                  </span>
-                                  <span>{renderHighlighted(result.l3)}</span>
-                                </>
+                                <div className="ml-1 mt-0.5 border-l border-foreground/35 pl-3">
+                                  <div className="relative leading-snug text-muted-foreground">
+                                    <span
+                                      aria-hidden="true"
+                                      className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/35"
+                                    />
+                                    <span>{renderHighlighted(result.l2)}</span>
+                                  </div>
+                                  {result.l3 && (
+                                    <div className="ml-3 mt-0.5 border-l border-foreground/30 pl-3">
+                                      <div className="relative leading-snug">
+                                        <span
+                                          aria-hidden="true"
+                                          className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/30"
+                                        />
+                                        <span>{renderHighlighted(result.l3)}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </button>
