@@ -4,6 +4,7 @@ from dagster import AssetExecutionContext
 
 from etl.defs.resources import DBResource
 from etl.domain.z_gating import MIN_ARTICLE_TAGS, apply_gating
+from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(name="z_gating")
@@ -23,3 +24,4 @@ def gating_asset(
         gating_counts.tagged_outputs_gated,
         gating_counts.xml_gated,
     )
+    refresh_summary_data(context, db)

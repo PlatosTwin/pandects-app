@@ -23,12 +23,28 @@ def refresh_summary_data(
     sections_table = f"{schema}.sections"
     tagged_outputs_table = f"{schema}.tagged_outputs"
 
+    lock_name = f"{schema}.summary_data_refresh"
+    lock_timeout_seconds = 300
+
     with engine.begin() as conn:
-        _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
-        _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
-        _ = conn.execute(
-            text(
-                f"""
+        lock_result = conn.execute(
+            text("SELECT GET_LOCK(:lock_name, :timeout_seconds) AS got_lock"),
+            {"lock_name": lock_name, "timeout_seconds": lock_timeout_seconds},
+        ).scalar()
+
+        if lock_result != 1:
+            if context is not None:
+                context.log.warning(
+                    f"Skipping summary_data refresh; lock busy ({lock_name})."
+                )
+            return
+
+        try:
+            _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
+            _ = conn.execute(
+                text(
+                    f"""
                 INSERT INTO {summary_table} (
                     year,
                     form_type,
@@ -94,11 +110,11 @@ def refresh_summary_data(
                     7,
                     8
                 """
+                )
             )
-        )
-        _ = conn.execute(
-            text(
-                f"""
+            _ = conn.execute(
+                text(
+                    f"""
                 INSERT INTO {status_summary_table} (
                     year,
                     color,
@@ -270,8 +286,12 @@ def refresh_summary_data(
                 UNION ALL SELECT * FROM red_c
                 UNION ALL SELECT * FROM red_d
                 """
+                )
             )
-        )
+        finally:
+            _ = conn.execute(
+                text("SELECT RELEASE_LOCK(:lock_name)"), {"lock_name": lock_name}
+            )
 
     if context is not None:
         context.log.info("summary_data refreshed.")

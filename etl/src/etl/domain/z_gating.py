@@ -40,17 +40,26 @@ def apply_gating(
 
 def apply_agreement_gating(conn: Connection, schema: str) -> int:
     agreements_table = f"{schema}.agreements"
-    stmt = text(
+    gate_on_stmt = text(
         f"""
         UPDATE {agreements_table}
-        SET gated = CASE
-            WHEN prob_filing < 0.75 AND status IS NULL THEN 1
-            ELSE 0
-        END
+        SET gated = 1
+        WHERE prob_filing < 0.75
+            AND status IS NULL
+            AND (gated IS NULL OR gated != 1)
         """
     )
-    result = conn.execute(stmt)
-    return int(result.rowcount or 0)
+    gate_off_stmt = text(
+        f"""
+        UPDATE {agreements_table}
+        SET gated = 0
+        WHERE (prob_filing >= 0.75 OR status IS NOT NULL)
+            AND (gated IS NULL OR gated != 0)
+        """
+    )
+    gated_on = conn.execute(gate_on_stmt).rowcount or 0
+    gated_off = conn.execute(gate_off_stmt).rowcount or 0
+    return int(gated_on + gated_off)
 
 
 def apply_pages_gating(conn: Connection, schema: str) -> int:
