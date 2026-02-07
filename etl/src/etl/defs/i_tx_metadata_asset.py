@@ -282,7 +282,10 @@ def _run_offline_mode(
     update_offline_q = text(
         f"""
         UPDATE {agreements_table}
-        SET target = :target, acquirer = :acquirer, deal_type = :deal_type
+        SET
+            target = COALESCE(target, :target),
+            acquirer = COALESCE(acquirer, :acquirer),
+            deal_type = COALESCE(deal_type, :deal_type)
         WHERE agreement_uuid = :uuid
         """
     )
