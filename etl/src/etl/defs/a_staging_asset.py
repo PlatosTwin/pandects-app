@@ -132,7 +132,7 @@ def staging_asset(
             )
         ).scalar_one_or_none()
         if last_run is None:
-            last_run = datetime(2019, 12, 31)
+            last_run = datetime(2020, 12, 31)
 
     now = datetime.now(timezone.utc)
 
