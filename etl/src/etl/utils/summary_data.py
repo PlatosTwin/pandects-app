@@ -145,6 +145,7 @@ def refresh_summary_data(
                         ON a.agreement_uuid = p.agreement_uuid
                     WHERE p.agreement_uuid IS NULL
                         AND a.gated = 0
+                        AND (a.paginated IS NULL OR a.paginated = TRUE)
                     GROUP BY 1, 2, 3
                 ),
                 red_a AS (
@@ -158,6 +159,7 @@ def refresh_summary_data(
                         ON a.agreement_uuid = p.agreement_uuid
                     WHERE p.agreement_uuid IS NULL
                         AND a.gated = 1
+                        AND (a.paginated IS NULL OR a.paginated = TRUE)
                     GROUP BY 1, 2, 3
                 ),
                 gated_pages AS (
@@ -193,7 +195,6 @@ def refresh_summary_data(
                         ON a.agreement_uuid = tagged.agreement_uuid
                     WHERE gated_pages.agreement_uuid IS NULL
                         AND tagged.agreement_uuid is null
-                        AND (paginated is null or paginated)
                     GROUP BY 1, 2, 3
                 ),
                 red_b AS (

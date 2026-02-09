@@ -849,9 +849,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
             )
             if not rows:
                 context.log.info("ai_repair_poll_asset: no batches to poll.")
-                _ = apply_gating(conn, db.database)
-                refresh_summary_data(context, db)
-                return
+                break
 
             upd_batch = text(
                 f"""
@@ -1097,3 +1095,7 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
                 context.log.info(f"Backoff increased: interval {prev_sleep}s -> {new_sleep}s")
 
         time.sleep(min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds))
+
+    with engine.begin() as conn:
+        _ = apply_gating(conn, db.database)
+    refresh_summary_data(context, db)

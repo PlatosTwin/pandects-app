@@ -44,8 +44,10 @@ def apply_agreement_gating(conn: Connection, schema: str) -> int:
         f"""
         UPDATE {agreements_table}
         SET gated = 1
-        WHERE prob_filing < 0.75
-            AND status IS NULL
+        WHERE (
+                (prob_filing < 0.9 AND status IS NULL)
+                OR paginated = FALSE
+            )
             AND (gated IS NULL OR gated != 1)
         """
     )
@@ -54,6 +56,7 @@ def apply_agreement_gating(conn: Connection, schema: str) -> int:
         UPDATE {agreements_table}
         SET gated = 0
         WHERE (prob_filing >= 0.75 OR status IS NOT NULL)
+            AND (paginated IS NULL OR paginated = TRUE)
             AND (gated IS NULL OR gated != 0)
         """
     )
