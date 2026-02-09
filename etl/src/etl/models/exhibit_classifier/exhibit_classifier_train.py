@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import statistics
 from pathlib import Path
 from typing import cast
 
@@ -20,7 +21,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from etl.models.exhibit_classifier.exhibit_classifier import (
     ExhibitClassifier,
@@ -33,6 +34,7 @@ DEFAULT_MODEL_PATH = BASE_DIR / "model_files" / "exhibit-classifier.joblib"
 DEFAULT_SPLIT_PATH = BASE_DIR / "data" / "exhibit-splits.json"
 EVAL_METRICS_DIR = BASE_DIR / "eval_metrics"
 DEFAULT_OPTUNA_PATH = EVAL_METRICS_DIR / "exhibit_classifier_optuna_best.yaml"
+TUNE_CV_FOLDS = 3
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument(
         "--optuna-trials",
         type=int,
-        default=30,
+        default=10,
         help="Number of Optuna trials to run in tune mode.",
     )
     _ = parser.add_argument(
@@ -170,6 +172,19 @@ def _load_or_create_split(
     if val_split + test_split >= 1:
         raise ValueError("val_split + test_split must be less than 1.")
 
+    url_to_indices: dict[str, list[int]] = {}
+    for idx, url in enumerate(urls):
+        url_to_indices.setdefault(url, []).append(idx)
+
+    duplicate_urls = [url for url, idxs in url_to_indices.items() if len(idxs) > 1]
+    if duplicate_urls:
+        duplicate_urls_sorted = sorted(duplicate_urls)
+        duplicate_list_text = "\n".join(duplicate_urls_sorted)
+        raise RuntimeError(
+            "Duplicate URLs found in exhibit dataset; remove duplicates before splitting.\n"
+            + f"Found {len(duplicate_urls_sorted)} duplicate URLs:\n{duplicate_list_text}"
+        )
+
     if split_path.exists():
         with open(split_path, "r", encoding="utf-8") as f:
             manifest_raw = cast(object, json.load(f))
@@ -189,6 +204,15 @@ def _load_or_create_split(
         train_urls = [str(url) for url in train_items]
         val_urls = [str(url) for url in val_items]
         test_urls = [str(url) for url in test_items]
+        train_url_set = set(train_urls)
+        val_url_set = set(val_urls)
+        test_url_set = set(test_urls)
+        if train_url_set & val_url_set:
+            raise RuntimeError("Split manifest has overlap between train and val URLs.")
+        if train_url_set & test_url_set:
+            raise RuntimeError("Split manifest has overlap between train and test URLs.")
+        if val_url_set & test_url_set:
+            raise RuntimeError("Split manifest has overlap between val and test URLs.")
     else:
         indices = list(range(len(urls)))
         holdout_size = val_split + test_split
@@ -236,21 +260,31 @@ def _load_or_create_split(
             json.dump(manifest, f, indent=2, sort_keys=False)
         print(f"[split] wrote exhibit split manifest to {split_path}")
 
-    url_to_indices: dict[str, list[int]] = {}
-    for idx, url in enumerate(urls):
-        url_to_indices.setdefault(url, []).append(idx)
-
     def _indices_for(target_urls: list[str]) -> list[int]:
-        indices: list[int] = []
-        for url in target_urls:
-            indices.extend(url_to_indices.get(url, []))
-        return indices
+        missing = [url for url in target_urls if url not in url_to_indices]
+        if missing:
+            preview = ", ".join(missing[:10])
+            extra = "" if len(missing) <= 10 else f" (+{len(missing) - 10} more)"
+            raise RuntimeError(
+                "Split manifest references URLs not present in dataset: "
+                + f"{preview}{extra}"
+            )
+        return [url_to_indices[url][0] for url in target_urls]
 
     train_indices = _indices_for(train_urls)
     val_indices = _indices_for(val_urls)
     test_indices = _indices_for(test_urls)
     if not train_indices or not val_indices or not test_indices:
         raise RuntimeError("Split resulted in empty train, val, or test set.")
+    train_idx_set = set(train_indices)
+    val_idx_set = set(val_indices)
+    test_idx_set = set(test_indices)
+    if train_idx_set & val_idx_set:
+        raise RuntimeError("Split mapping produced overlapping train and val indices.")
+    if train_idx_set & test_idx_set:
+        raise RuntimeError("Split mapping produced overlapping train and test indices.")
+    if val_idx_set & test_idx_set:
+        raise RuntimeError("Split mapping produced overlapping val and test indices.")
 
     return train_indices, val_indices, test_indices
 
@@ -311,6 +345,33 @@ def _select_threshold(
     return best
 
 
+def _compute_threshold_metrics(
+    *,
+    y_true: np.ndarray,
+    probs: np.ndarray,
+    threshold: float,
+) -> dict[str, float]:
+    preds = (probs >= threshold).astype(int)
+    cm = np.asarray(confusion_matrix(y_true, preds), dtype=int)
+    if cm.shape != (2, 2):
+        raise RuntimeError("Threshold metrics require binary labels with both classes present.")
+    tn = int(cast(int, cm[0, 0]))
+    fp = int(cast(int, cm[0, 1]))
+    fn = int(cast(int, cm[1, 0]))
+    tp = int(cast(int, cm[1, 1]))
+    recall = tp / max(tp + fn, 1)
+    precision = tp / max(tp + fp, 1)
+    class_0_recall = tn / max(tn + fp, 1)
+    f1 = 2 * precision * recall / max(precision + recall, 1e-12)
+    return {
+        "precision": float(precision),
+        "class_0_recall": float(class_0_recall),
+        "recall": float(recall),
+        "f1": float(f1),
+        "false_positives": float(fp),
+    }
+
+
 def _ngram_from_key(key: str) -> tuple[int, int]:
     if key == "1_2":
         return (1, 2)
@@ -338,17 +399,17 @@ def _class_weight_from_params(
 
 def _run_optuna_search(
     *,
-    train_texts: list[str],
-    y_train: np.ndarray,
-    val_texts: list[str],
-    y_val: np.ndarray,
+    tune_texts: list[str],
+    y_tune: np.ndarray,
     min_recall: float,
     threshold_step: float,
     random_state: int,
     num_trials: int,
     tune_vectorizer: bool,
+    cv_folds: int,
 ) -> tuple[dict[str, object], float, dict[str, float]]:
     fixed_logreg_max_iter = 2000
+    cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
 
     def objective(trial: Trial) -> float:
         if tune_vectorizer:
@@ -396,24 +457,62 @@ def _run_optuna_search(
             start_scan_chars=int(start_scan_chars),
             random_state=random_state,
         )
-        _ = classifier.fit(train_texts, labels=cast(list[int], y_train.tolist()))
-        probs_val = np.array(classifier.predict_proba_batch(val_texts))
-        threshold, metrics = _select_threshold(
-            y_true=y_val,
-            probs=probs_val,
-            min_recall=min_recall,
-            threshold_step=threshold_step,
-        )
-        trial.report(float(metrics["class_0_recall"]), step=0)
-        if trial.should_prune():
-            raise TrialPruned()
-        trial.set_user_attr("threshold", threshold)
-        trial.set_user_attr("precision", metrics["precision"])
-        trial.set_user_attr("class_0_recall", metrics["class_0_recall"])
-        trial.set_user_attr("recall", metrics["recall"])
-        trial.set_user_attr("f1", metrics["f1"])
-        trial.set_user_attr("false_positives", metrics["false_positives"])
-        return float(metrics["class_0_recall"])
+        fold_thresholds: list[float] = []
+        fold_precisions: list[float] = []
+        fold_class0_recalls: list[float] = []
+        fold_recalls: list[float] = []
+        fold_f1s: list[float] = []
+        fold_false_positives: list[float] = []
+
+        for fold_step, split_pair in enumerate(cv.split(tune_texts, y_tune)):
+            fit_idx, fold_val_idx = cast(tuple[np.ndarray, np.ndarray], split_pair)
+            fit_indices = cast(list[int], fit_idx.tolist())
+            fold_val_indices = cast(list[int], fold_val_idx.tolist())
+            fit_texts = [tune_texts[i] for i in fit_indices]
+            fold_val_texts = [tune_texts[i] for i in fold_val_indices]
+            y_fit = y_tune[fit_idx]
+            y_fold_val = y_tune[fold_val_idx]
+            _ = classifier.fit(fit_texts, labels=cast(list[int], y_fit.tolist()))
+            probs_fold_val = np.array(classifier.predict_proba_batch(fold_val_texts))
+            try:
+                threshold, metrics = _select_threshold(
+                    y_true=y_fold_val,
+                    probs=probs_fold_val,
+                    min_recall=min_recall,
+                    threshold_step=threshold_step,
+                )
+            except RuntimeError as exc:
+                raise TrialPruned(str(exc)) from exc
+
+            fold_thresholds.append(float(threshold))
+            fold_precisions.append(float(metrics["precision"]))
+            fold_class0_recalls.append(float(metrics["class_0_recall"]))
+            fold_recalls.append(float(metrics["recall"]))
+            fold_f1s.append(float(metrics["f1"]))
+            fold_false_positives.append(float(metrics["false_positives"]))
+
+            running_mean_class0 = float(np.mean(np.array(fold_class0_recalls, dtype=float)))
+            trial.report(running_mean_class0, step=fold_step)
+            if trial.should_prune():
+                raise TrialPruned()
+
+        if not fold_thresholds:
+            raise TrialPruned("No successful CV folds for this trial.")
+
+        threshold_median = float(statistics.median(fold_thresholds))
+        precision_mean = float(np.mean(np.array(fold_precisions, dtype=float)))
+        class0_recall_mean = float(np.mean(np.array(fold_class0_recalls, dtype=float)))
+        recall_mean = float(np.mean(np.array(fold_recalls, dtype=float)))
+        f1_mean = float(np.mean(np.array(fold_f1s, dtype=float)))
+        false_positives_mean = float(np.mean(np.array(fold_false_positives, dtype=float)))
+
+        trial.set_user_attr("threshold", threshold_median)
+        trial.set_user_attr("precision", precision_mean)
+        trial.set_user_attr("class_0_recall", class0_recall_mean)
+        trial.set_user_attr("recall", recall_mean)
+        trial.set_user_attr("f1", f1_mean)
+        trial.set_user_attr("false_positives", false_positives_mean)
+        return class0_recall_mean
 
     no_improve_limit = 5
     best_value: float | None = None
@@ -568,27 +667,25 @@ def main() -> None:
             test_split=test_split,
             random_state=random_state,
         )
-        train_texts = [texts[i] for i in train_idx]
-        val_texts = [texts[i] for i in val_idx]
+        tune_idx = train_idx + val_idx
+        tune_texts = [texts[i] for i in tune_idx]
         test_texts = [texts[i] for i in test_idx]
-        y_train = y[train_idx]
-        y_val = y[val_idx]
+        y_tune = y[tune_idx]
         y_test = y[test_idx]
-        print(f"Train set: {len(train_texts)} examples, Val set: {len(val_texts)} examples, Test set: {len(test_texts)} examples")
-        print(f"Running Optuna with {optuna_trials} trials...")
+        print(f"Tune pool (train+val): {len(tune_texts)} examples, Test set: {len(test_texts)} examples")
+        print(f"Running Optuna with {optuna_trials} trials ({TUNE_CV_FOLDS}-fold stratified CV)...")
         best_params, best_threshold, best_metrics = _run_optuna_search(
-            train_texts=train_texts,
-            y_train=y_train,
-            val_texts=val_texts,
-            y_val=y_val,
+            tune_texts=tune_texts,
+            y_tune=y_tune,
             min_recall=min_recall,
             threshold_step=threshold_step,
             random_state=random_state,
             num_trials=optuna_trials,
             tune_vectorizer=tune_vectorizer,
+            cv_folds=TUNE_CV_FOLDS,
         )
         msg = (
-            f"Optuna best (val): class_0_recall={best_metrics['class_0_recall']:.3f} "
+            f"Optuna best ({TUNE_CV_FOLDS}-fold CV): class_0_recall={best_metrics['class_0_recall']:.3f} "
             f"precision={best_metrics['precision']:.3f} recall={best_metrics['recall']:.3f} "
             f"f1={best_metrics['f1']:.3f} false_positives={int(best_metrics['false_positives'])} "
             f"threshold={best_threshold:.2f}"
@@ -606,14 +703,14 @@ def main() -> None:
             start_scan_chars=cast(int, best_params["start_scan_chars"]),
             random_state=random_state,
         )
-        _ = classifier.fit(train_texts, labels=cast(list[int], y_train.tolist()))
+        _ = classifier.fit(tune_texts, labels=cast(list[int], y_tune.tolist()))
 
-        probs_val = np.array(classifier.predict_proba_batch(val_texts))
-        threshold, tuning_metrics = _select_threshold(
-            y_true=y_val,
-            probs=probs_val,
-            min_recall=min_recall,
-            threshold_step=threshold_step,
+        threshold = float(best_threshold)
+        probs_tune = np.array(classifier.predict_proba_batch(tune_texts))
+        final_threshold_metrics = _compute_threshold_metrics(
+            y_true=y_tune,
+            probs=probs_tune,
+            threshold=threshold,
         )
         probs_test = np.array(classifier.predict_proba_batch(test_texts))
         preds = (probs_test >= threshold).astype(int)
@@ -637,19 +734,16 @@ def main() -> None:
             "search_threshold": float(best_threshold),
             "search_metrics": best_metrics,
             "final_threshold": float(threshold),
-            "final_threshold_metrics": {
-                "precision": float(tuning_metrics["precision"]),
-                "class_0_recall": float(tuning_metrics["class_0_recall"]),
-                "recall": float(tuning_metrics["recall"]),
-                "f1": float(tuning_metrics["f1"]),
-                "false_positives": float(tuning_metrics["false_positives"]),
-            },
+            "final_threshold_source": "cv_median_fold_threshold",
+            "final_threshold_metrics": final_threshold_metrics,
             "meta": {
                 "min_recall": float(min_recall),
                 "val_split": float(val_split),
                 "test_split": float(test_split),
                 "seed": int(random_state),
                 "trials": int(optuna_trials),
+                "cv_folds": int(TUNE_CV_FOLDS),
+                "tune_pool_size": int(len(tune_texts)),
             },
         }
         with open(DEFAULT_OPTUNA_PATH, "w", encoding="utf-8") as f:
