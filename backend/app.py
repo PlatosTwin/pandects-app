@@ -164,6 +164,8 @@ def _async_task_runner() -> AsyncTaskRunner | None:
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:4173",
@@ -172,6 +174,8 @@ _DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:3000",
     "https://pandects.org",
     "https://www.pandects.org",
+    "https://docs.pandects.org",
+    "https://www.docs.pandects.org",
 )
 
 

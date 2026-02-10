@@ -1,0 +1,1 @@
+{"parameters":[{"in":"path","name":"section_uuid","required":true,"schema":{"type":"string","minLength":1}}]}

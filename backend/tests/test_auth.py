@@ -648,9 +648,25 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
-        res = client.get("/v1/auth/csrf", headers={"Origin": "http://localhost:8080"})
+        origin = "http://localhost:8080"
+        res = client.get("/v1/auth/csrf", headers={"Origin": origin})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.headers.get("Access-Control-Allow-Credentials"), "true")
+        self.assertEqual(res.headers.get("Access-Control-Allow-Origin"), origin)
+
+    def test_cors_allows_docs_origins(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+
+        for origin in (
+            "http://localhost:3001",
+            "https://docs.pandects.org",
+        ):
+            with self.subTest(origin=origin):
+                res = client.get("/v1/auth/csrf", headers={"Origin": origin})
+                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.headers.get("Access-Control-Allow-Credentials"), "true")
+                self.assertEqual(res.headers.get("Access-Control-Allow-Origin"), origin)
 
     def test_delete_account_requires_confirmation_and_revokes_keys(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"

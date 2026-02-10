@@ -1,0 +1,1 @@
+{"parameters":[{"in":"query","name":"focusSectionUuid","schema":{"type":"string","nullable":true},"required":false},{"in":"query","name":"neighborSections","schema":{"type":"integer","default":1},"required":false},{"in":"path","name":"agreement_uuid","required":true,"schema":{"type":"string","minLength":1}}]}
