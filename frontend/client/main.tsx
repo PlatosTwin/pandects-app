@@ -12,7 +12,6 @@ import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-const Docs = lazy(() => import("./pages/Docs"));
 const Search = lazy(() => import("./pages/Search"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
@@ -92,7 +91,6 @@ const App = () => {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Landing />} />
                 <Route path="/search" element={<Search />} />
-                <Route path="/docs" element={<Docs />} />
                 <Route path="/bulk-data" element={<BulkData />} />
                 <Route path="/agreement-index" element={<AgreementIndex />} />
                 <Route path="/sources-methods" element={<SourcesMethods />} />

@@ -7,7 +7,6 @@ const origin = (process.env.PUBLIC_ORIGIN || DEFAULT_ORIGIN).replace(/\/+$/, "")
 const routeConfig = {
   "/": { priority: "1.0", changefreq: "daily" },
   "/search": { priority: "0.9", changefreq: "weekly" },
-  "/docs": { priority: "0.9", changefreq: "weekly" },
   "/bulk-data": { priority: "0.8", changefreq: "weekly" },
   "/agreement-index": { priority: "0.8", changefreq: "weekly" },
   "/sources-methods": { priority: "0.8", changefreq: "monthly" },

@@ -45,6 +45,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./client"),
       "@shared": path.resolve(__dirname, "./shared"),
+      "@branding": path.resolve(__dirname, "../branding"),
     },
   },
   define: {

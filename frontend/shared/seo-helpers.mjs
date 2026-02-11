@@ -38,17 +38,6 @@ function getSeoConfigForPath(pathname, origin) {
           pageDescription:
             "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
         };
-      case "/docs":
-        return {
-          title: "API Docs | Pandects",
-          description:
-            "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
-          robots: "index,follow,max-image-preview:large",
-          pageType: "TechArticle",
-          pageName: "API Docs",
-          pageDescription:
-            "Explore the Pandects API via OpenAPI and learn how to query agreements, clauses, and metadata.",
-        };
       case "/xml-schema":
         return {
           title: "XML Schema | Pandects",

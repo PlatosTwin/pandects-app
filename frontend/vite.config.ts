@@ -82,6 +82,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./client"),
         "@shared": path.resolve(__dirname, "./shared"),
+        "@branding": path.resolve(__dirname, "../branding"),
       },
     },
   };
@@ -123,7 +124,7 @@ function criticalCssPlugin(): Plugin {
       const dnsPrefetch = `
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
-  <link rel="preconnect" href="https://pandects-api.fly.dev" crossorigin />`;
+  <link rel="preconnect" href="https://api.pandects.org" crossorigin />`;
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
@@ -133,7 +134,7 @@ function criticalCssPlugin(): Plugin {
       );
       if (ctx?.bundle && !hasLogoPreload) {
         const preloadHints: string[] = [];
-        for (const [fileName, chunk] of Object.entries(ctx.bundle)) {
+        for (const [, chunk] of Object.entries(ctx.bundle)) {
           if (chunk.type === "asset") {
             const assetFileName = chunk.fileName;
             if (assetFileName.includes("logo-128")) {
@@ -186,7 +187,7 @@ function criticalCssPlugin(): Plugin {
         if (hasLogoPreload) return;
 
         const preloadHints: string[] = [];
-        for (const [fileName, chunk] of Object.entries(bundle)) {
+        for (const [, chunk] of Object.entries(bundle)) {
           if (chunk.type === "asset") {
             const assetFileName = chunk.fileName;
             if (assetFileName.includes("logo-128")) {

@@ -12,8 +12,8 @@ function getApiBaseUrl(): string {
   const isProduction = import.meta.env.PROD;
 
   if (isProduction) {
-    // Production environment (fly.io)
-    return "https://pandects-api.fly.dev";
+    // Production environment
+    return "https://api.pandects.org";
   } else {
     // Development environment (local)
     return "http://localhost:5113";

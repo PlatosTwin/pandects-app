@@ -11,6 +11,7 @@ import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
 import { AuthMenu } from "@/components/AuthMenu";
 import { BETA_SAMPLE_AGREEMENTS_COUNT } from "@/lib/constants";
+import brandLinks from "@branding/links.json";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,7 @@ function NavigationComponent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change. Currently, the public site includes ${BETA_SAMPLE_AGREEMENTS_COUNT} sample agreements as a proof of concept.`;
 
   const isActive = (path: string) => location.pathname === path;
@@ -49,7 +51,12 @@ function NavigationComponent() {
   const primaryLinks = useMemo(
     () => [
       { to: "/search", label: "Search", pandaTarget: "nav-search" },
-      { to: "/docs", label: "Docs", pandaTarget: "nav-docs" },
+      {
+        to: docsUrl,
+        label: "Docs",
+        pandaTarget: "nav-docs",
+        external: true,
+      },
     ],
     [],
   );
@@ -144,27 +151,48 @@ function NavigationComponent() {
         <div className="hidden items-center gap-1 md:flex">
           <div className="flex items-center gap-1">
             {primaryLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                data-panda-target={link.pandaTarget}
-                onClick={() =>
-                  trackEvent("nav_primary_click", {
-                    nav_item: link.label,
-                    from_path: location.pathname,
-                    to_path: link.to,
-                  })
-                }
-                aria-current={isActive(link.to) ? "page" : undefined}
-                className={cn(
-                  navLinkBase,
-                  isActive(link.to)
-                    ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                {link.label}
-              </Link>
+              link.external ? (
+                <a
+                  key={link.to}
+                  href={link.to}
+                  data-panda-target={link.pandaTarget}
+                  onClick={() =>
+                    trackEvent("nav_primary_click", {
+                      nav_item: link.label,
+                      from_path: location.pathname,
+                      to_path: link.to,
+                    })
+                  }
+                  className={cn(
+                    navLinkBase,
+                    "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  data-panda-target={link.pandaTarget}
+                  onClick={() =>
+                    trackEvent("nav_primary_click", {
+                      nav_item: link.label,
+                      from_path: location.pathname,
+                      to_path: link.to,
+                    })
+                  }
+                  aria-current={isActive(link.to) ? "page" : undefined}
+                  className={cn(
+                    navLinkBase,
+                    isActive(link.to)
+                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              )
             ))}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -287,25 +315,44 @@ function NavigationComponent() {
                   <div className="grid gap-1">
                     {primaryLinks.map((link) => (
                       <SheetClose asChild key={link.to}>
-                        <Link
-                          to={link.to}
-                          onClick={() =>
-                            trackEvent("nav_primary_click", {
-                              nav_item: link.label,
-                              from_path: location.pathname,
-                              to_path: link.to,
-                            })
-                          }
-                          aria-current={isActive(link.to) ? "page" : undefined}
-                          className={cn(
-                            navLinkBase,
-                            isActive(link.to)
-                              ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                          )}
-                        >
-                          {link.label}
-                        </Link>
+                        {link.external ? (
+                          <a
+                            href={link.to}
+                            onClick={() =>
+                              trackEvent("nav_primary_click", {
+                                nav_item: link.label,
+                                from_path: location.pathname,
+                                to_path: link.to,
+                              })
+                            }
+                            className={cn(
+                              navLinkBase,
+                              "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            )}
+                          >
+                            {link.label}
+                          </a>
+                        ) : (
+                          <Link
+                            to={link.to}
+                            onClick={() =>
+                              trackEvent("nav_primary_click", {
+                                nav_item: link.label,
+                                from_path: location.pathname,
+                                to_path: link.to,
+                              })
+                            }
+                            aria-current={isActive(link.to) ? "page" : undefined}
+                            className={cn(
+                              navLinkBase,
+                              isActive(link.to)
+                                ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            )}
+                          >
+                            {link.label}
+                          </Link>
+                        )}
                       </SheetClose>
                     ))}
                   </div>

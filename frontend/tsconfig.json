@@ -8,6 +8,8 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "types": ["vite/client", "node"],
+    "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
@@ -29,13 +31,15 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./client/*"],
-      "@shared/*": ["./shared/*"]
+      "@shared/*": ["./shared/*"],
+      "@branding/*": ["../branding/*"]
     }
   },
   "include": [
     "client/**/*",
     "server/**/*",
     "shared/**/*",
+    "../branding/**/*.json",
     "vite.config.ts",
     "vite.config.server.ts"
   ],

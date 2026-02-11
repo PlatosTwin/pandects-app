@@ -33,6 +33,7 @@ const routes = [
   { pathname: "/feedback", filename: "feedback.html" },
   { pathname: "/sources-methods", filename: "sources-methods.html" },
   { pathname: "/xml-schema", filename: "xml-schema.html" },
+  { pathname: "/taxonomy", filename: "taxonomy.html" },
 ];
 
 for (const route of routes) {

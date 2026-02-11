@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
+import brandLinks from "@branding/links.json";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
 import type { ClauseTypeNode, ClauseTypeTree } from "@/lib/clause-types";
 import { ArrowRight, Copy, Folder, Layers, Search, Tag } from "lucide-react";
@@ -88,6 +89,7 @@ const buildTaxonomyEntries = (tree: ClauseTypeTree): TaxonomyLevel1[] =>
   });
 
 export default function Taxonomy() {
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const { taxonomyTree, isLoading, error } = useTaxonomy({ fresh: true });
   const [searchQuery, setSearchQuery] = useState("");
   const [openLevel1, setOpenLevel1] = useState<string[]>([]);
@@ -364,7 +366,10 @@ export default function Taxonomy() {
           Pull the latest taxonomy via the{" "}
           <span className="font-mono text-sm text-foreground">/v1/taxonomy</span>{" "}
           API route. See the{" "}
-          <a href="/docs" className="text-primary underline underline-offset-2">
+          <a
+            href={docsUrl}
+            className="text-primary underline underline-offset-2"
+          >
             Docs
           </a>{" "}
           for usage details.

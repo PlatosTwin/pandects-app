@@ -1,6 +1,7 @@
 # syntax = docker/dockerfile:1
 
-ARG NODE_VERSION=20.5.0
+# Keep in sync with package.json engines (Node 24.x)
+ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}-slim AS build
 
 WORKDIR /app/docs

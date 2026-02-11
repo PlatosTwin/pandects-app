@@ -5,6 +5,10 @@ import compression from "compression";
 import { handleDemo } from "./routes/demo";
 import { getPublicOrigin, getSeoForPath, injectSeoBlock, isKnownRoute } from "./seo";
 
+const DOCS_SITE_URL = (process.env.PUBLIC_DOCS_URL || "https://docs.pandects.org")
+  .trim()
+  .replace(/\/+$/, "");
+
 export function createServer() {
   const app = express();
 
@@ -81,6 +85,14 @@ export function createServer() {
         return;
       }
 
+      if (req.path === "/docs" || req.path.startsWith("/docs/")) {
+        const docsSuffix = req.path.slice("/docs".length);
+        const queryIndex = req.originalUrl.indexOf("?");
+        const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+        res.redirect(301, `${DOCS_SITE_URL}${docsSuffix}${query}`);
+        return;
+      }
+
       if (req.path !== "/" && req.path.endsWith("/")) {
         const [pathname, query] = req.originalUrl.split("?");
         const canonicalPath = (pathname ?? req.path).replace(/\/+$/, "");
@@ -113,13 +125,16 @@ export function createServer() {
 
 function loadPrerenderedTemplates(staticPath: string): Map<string, string> {
   const templates = new Map<string, string>();
-    const entries = [
-      { route: "/", file: "index.html" },
-      { route: "/about", file: "about.html" },
-      { route: "/bulk-data", file: "bulk-data.html" },
-      { route: "/donate", file: "donate.html" },
-      { route: "/feedback", file: "feedback.html" },
-    ];
+  const entries = [
+    { route: "/", file: "index.html" },
+    { route: "/about", file: "about.html" },
+    { route: "/bulk-data", file: "bulk-data.html" },
+    { route: "/donate", file: "donate.html" },
+    { route: "/feedback", file: "feedback.html" },
+    { route: "/sources-methods", file: "sources-methods.html" },
+    { route: "/xml-schema", file: "xml-schema.html" },
+    { route: "/taxonomy", file: "taxonomy.html" },
+  ];
 
   const dir = path.join(staticPath, "prerender");
   for (const entry of entries) {
