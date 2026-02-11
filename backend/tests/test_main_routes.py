@@ -69,9 +69,9 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(
                     text(
                         "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
-                        "xml_content, article_standard_id, section_standard_id) VALUES "
+                        "xml_content, section_standard_id) VALUES "
                         "('a1', '00000000-0000-0000-0000-000000000001', "
-                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', 'a1', '[\"s1\"]')"
+                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]')"
                     )
                 )
 
@@ -92,6 +92,17 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("totalCount"), 1)
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
+
+    def test_get_section_by_uuid(self):
+        client = self.app.test_client()
+        section_uuid = "00000000-0000-0000-0000-000000000001"
+        res = client.get(f"/v1/sections/{section_uuid}")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("agreementUuid"), "a1")
+        self.assertEqual(body.get("sectionUuid"), section_uuid)
+        self.assertEqual(body.get("sectionStandardId"), ["s1"])
+        self.assertNotIn("articleStandardId", body)
 
     def test_agreement_redaction_for_anonymous(self):
         client = self.app.test_client()

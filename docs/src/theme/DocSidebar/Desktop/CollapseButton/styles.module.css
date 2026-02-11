@@ -21,7 +21,7 @@
   }
 
   .collapseSidebarButton:hover,
-  .collapseSidebarButton:focus {
+  .collapseSidebarButton:focus-visible {
     background-color: #f1f4f9;
   }
 
@@ -30,7 +30,7 @@
     width: 17px;
     height: 17px;
     margin: 0;
-    color: #9ba8bc;
+    color: #64748b;
     transform: rotate(180deg);
     transform-origin: center;
   }

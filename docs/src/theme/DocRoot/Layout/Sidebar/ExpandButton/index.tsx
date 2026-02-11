@@ -37,8 +37,16 @@ function ExpandChevron({ className }: { className?: string }): ReactNode {
 export default function DocRootLayoutSidebarExpandButton({
   toggleSidebar,
 }: Props): ReactNode {
+  const expandSidebarLabel = translate({
+    id: "theme.docs.sidebar.expandButtonAriaLabel",
+    message: "Expand sidebar",
+    description:
+      "The ARIA label and title attribute for expand button of doc sidebar",
+  });
+
   return (
-    <div
+    <button
+      type="button"
       className={styles.expandButton}
       title={translate({
         id: "theme.docs.sidebar.expandButtonTitle",
@@ -46,18 +54,10 @@ export default function DocRootLayoutSidebarExpandButton({
         description:
           "The ARIA label and title attribute for expand button of doc sidebar",
       })}
-      aria-label={translate({
-        id: "theme.docs.sidebar.expandButtonAriaLabel",
-        message: "Expand sidebar",
-        description:
-          "The ARIA label and title attribute for expand button of doc sidebar",
-      })}
-      tabIndex={0}
-      role="button"
-      onKeyDown={toggleSidebar}
+      aria-label={expandSidebarLabel}
       onClick={toggleSidebar}
     >
       <ExpandChevron className={styles.expandButtonIcon} />
-    </div>
+    </button>
   );
 }

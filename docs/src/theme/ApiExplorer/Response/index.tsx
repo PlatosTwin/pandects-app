@@ -14,6 +14,8 @@ import {
   clearHeaders,
 } from "@theme/ApiExplorer/Response/slice";
 
+const ApiCodeBlockComponent = ApiCodeBlock as React.ComponentType<any>;
+
 function formatXml(xml: string) {
   const tab = "  ";
   let formatted = "";
@@ -105,20 +107,18 @@ function Response({ item }: { item: ApiItem }) {
             <span className="openapi-explorer__response-example-chip">
               Example
             </span>
-            <span className="openapi-explorer__response-chevron">⌄</span>
           </div>
         )}
       </div>
       <div className="openapi-explorer__response-body">
         {code && prettyResponse !== "Fetching..." ? (
-          // @ts-ignore
-          <ApiCodeBlock
+          <ApiCodeBlockComponent
             className="openapi-explorer__code-block openapi-response__status-code"
             language={response.startsWith("<") ? `xml` : `json`}
             showLineNumbers
           >
             {prettyResponse || ""}
-          </ApiCodeBlock>
+          </ApiCodeBlockComponent>
         ) : prettyResponse === "Fetching..." ? (
           <div className="openapi-explorer__loading-container">
             <div className="openapi-response__lds-ring">
@@ -131,13 +131,13 @@ function Response({ item }: { item: ApiItem }) {
         ) : hasResponseBody ? (
           // Show network/CORS/validation errors even when there is no HTTP status code.
           // The upstream theme otherwise falls back to the placeholder text and hides the real error.
-          <ApiCodeBlock
+          <ApiCodeBlockComponent
             className="openapi-explorer__code-block openapi-response__status-code"
             language="text"
             showLineNumbers
           >
             {prettyResponse}
-          </ApiCodeBlock>
+          </ApiCodeBlockComponent>
         ) : (
           <p className="openapi-explorer__response-placeholder-message">
             <Translate

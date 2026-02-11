@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  * ========================================================================== */
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 import BrowserOnly from "@docusaurus/BrowserOnly";
 import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
@@ -75,7 +75,6 @@ function base64ToUint8Array(base64: string) {
   return bytes;
 }
 
-// @ts-ignore
 export default function ApiItem(props: Props): JSX.Element {
   const docHtmlClassName = `docs-doc-id-${props.content.metadata.id}`;
   const MDXComponent = props.content;
@@ -84,7 +83,6 @@ export default function ApiItem(props: Props): JSX.Element {
   let { api } = frontMatter as ApiFrontMatter;
   const { schema } = frontMatter as SchemaFrontMatter;
   const { sample } = frontMatter as SampleFrontMatter;
-  // decompress and parse
   if (api) {
     try {
       api = JSON.parse(
@@ -100,21 +98,17 @@ export default function ApiItem(props: Props): JSX.Element {
   const options = themeConfig.api;
   const isBrowser = useIsBrowser();
 
-  // Regex for 2XX status
   const statusRegex = new RegExp("(20[0-9]|2[1-9][0-9])");
 
-  // Define store2
-  let store2: any = {};
+  let store: any = {};
   const persistenceMiddleware = createPersistenceMiddleware(options);
+  const rightPanelRef = useRef<HTMLDivElement | null>(null);
 
-  // Init store for SSR
   if (!isBrowser) {
-    store2 = createStoreWithoutState({}, [persistenceMiddleware]);
+    store = createStoreWithoutState({}, [persistenceMiddleware]);
   }
 
-  // Init store for CSR to hydrate components
   if (isBrowser) {
-    // Create list of only 2XX response content types to create request samples from
     let acceptArray: any = [];
     for (const [code, content] of Object.entries(api?.responses ?? [])) {
       if (statusRegex.test(code)) {
@@ -146,15 +140,12 @@ export default function ApiItem(props: Props): JSX.Element {
     });
 
     const storage = createStorage(options?.authPersistence ?? "sessionStorage");
-    // TODO: determine way to rehydrate without flashing
-    // const acceptValue = window?.sessionStorage.getItem("accept");
-    // const contentTypeValue = window?.sessionStorage.getItem("contentType");
     const server = storage.getItem("server");
     const serverObject = server
       ? (JSON.parse(server) as ServerObject)
       : undefined;
 
-    store2 = createStoreWithState(
+    store = createStoreWithState(
       {
         accept: {
           value: acceptArray[0],
@@ -178,18 +169,71 @@ export default function ApiItem(props: Props): JSX.Element {
     );
   }
 
+  useEffect(() => {
+    if (!isBrowser) {
+      return;
+    }
+    const panel = rightPanelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    let rafId = 0;
+    const scheduleUpdate = () => {
+      if (rafId !== 0) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        if (window.innerWidth <= 996) {
+          panel.style.removeProperty("--openapi-right-panel-top");
+          return;
+        }
+
+        const rootStyle = window.getComputedStyle(document.documentElement);
+        const rootFontPx = Number.parseFloat(rootStyle.fontSize) || 16;
+        const navbarHeightPx =
+          Number.parseFloat(rootStyle.getPropertyValue("--ifm-navbar-height")) || 0;
+        const viewportGapPx = 0.95 * rootFontPx;
+        const minTopPx = navbarHeightPx + viewportGapPx;
+
+        const panelHeightPx = panel.getBoundingClientRect().height;
+        const desiredTopPx = window.innerHeight - panelHeightPx - viewportGapPx;
+        const stickyTopPx = Math.min(minTopPx, desiredTopPx);
+
+        panel.style.setProperty("--openapi-right-panel-top", `${stickyTopPx}px`);
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
+    resizeObserver.observe(panel);
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    scheduleUpdate();
+
+    return () => {
+      if (rafId !== 0) {
+        window.cancelAnimationFrame(rafId);
+      }
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [isBrowser]);
+
   if (api) {
     return (
       <DocProvider content={props.content}>
         <HtmlClassNameProvider className={docHtmlClassName}>
           <DocItemMetadata />
           <DocItemLayout>
-            <Provider store={store2}>
+            <Provider store={store}>
               <div className={clsx("row", "theme-api-markdown")}>
                 <div className="col col--7 openapi-left-panel__container">
                   <MDXComponent />
                 </div>
-                <div className="col col--5 openapi-right-panel__container">
+                <div
+                  ref={rightPanelRef}
+                  className="col col--5 openapi-right-panel__container"
+                >
                   <BrowserOnly fallback={<SkeletonLoader size="lg" />}>
                     {() => {
                       return <ApiExplorer item={api} infoPath={infoPath} />;
@@ -212,7 +256,10 @@ export default function ApiItem(props: Props): JSX.Element {
               <div className="col col--7 openapi-left-panel__container schema">
                 <MDXComponent />
               </div>
-              <div className="col col--5 openapi-right-panel__container">
+              <div
+                ref={rightPanelRef}
+                className="col col--5 openapi-right-panel__container"
+              >
                 <CodeBlock language="json" title={`${frontMatter.title}`}>
                   {JSON.stringify(sample, null, 2)}
                 </CodeBlock>

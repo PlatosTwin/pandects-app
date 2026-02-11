@@ -46,7 +46,6 @@ from sqlalchemy import (
     desc,
     asc,
 )
-from sqlalchemy.dialects.mysql import LONGTEXT, TINYTEXT
 from dotenv import load_dotenv
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
@@ -2151,6 +2150,12 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    sections_table = Table(
+        "sections",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -2229,23 +2234,18 @@ else:
         Column("parent_id", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
-
-_SECTION_TEXT_TYPE = LONGTEXT if not _SKIP_MAIN_DB_REFLECTION else TEXT
-_SECTION_ID_TYPE = TINYTEXT if not _SKIP_MAIN_DB_REFLECTION else TEXT
-
-sections_table = Table(
-    "sections",
-    metadata,
-    Column("agreement_uuid", CHAR(36), nullable=False),
-    Column("section_uuid", CHAR(36), primary_key=True),
-    Column("article_title", TEXT, nullable=False),
-    Column("section_title", TEXT, nullable=False),
-    Column("xml_content", _SECTION_TEXT_TYPE, nullable=False),
-    Column("article_standard_id", _SECTION_ID_TYPE, nullable=False),
-    Column("section_standard_id", _SECTION_ID_TYPE, nullable=False),
-    Column("section_standard_id_gold_label", _SECTION_ID_TYPE, nullable=True),
-    schema=_MAIN_SCHEMA_TOKEN,
-)
+    sections_table = Table(
+        "sections",
+        metadata,
+        Column("agreement_uuid", CHAR(36), nullable=False),
+        Column("section_uuid", CHAR(36), primary_key=True),
+        Column("article_title", TEXT, nullable=False),
+        Column("section_title", TEXT, nullable=False),
+        Column("xml_content", TEXT, nullable=False),
+        Column("section_standard_id", TEXT, nullable=False),
+        Column("section_standard_id_gold_label", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
 
 
 # ── SQLAlchemy models mapping ───────────────────────────────────────
@@ -2278,10 +2278,10 @@ class TaxonomyL3(db.Model):
 
 
 def _coalesced_section_standard_ids():
-    return func.coalesce(
-        Sections.section_standard_id_gold_label,
-        Sections.section_standard_id,
-    )
+    gold_label_col = Sections.__table__.c.get("section_standard_id_gold_label")
+    if gold_label_col is None:
+        return Sections.section_standard_id
+    return func.coalesce(gold_label_col, Sections.section_standard_id)
 
 
 def _agreement_year_expr():
@@ -2868,9 +2868,6 @@ class AgreementResponseSchema(Schema):
 class SectionResponseSchema(Schema):
     agreementUuid = fields.Str(metadata={"description": "Agreement UUID that owns this section."})
     sectionUuid = fields.Str(metadata={"description": "Section UUID."})
-    articleStandardId = fields.Str(
-        metadata={"description": "Taxonomy standard ID for the parent article."}
-    )
     sectionStandardId = fields.List(
         fields.Str(),
         metadata={"description": "Taxonomy standard IDs for this section."},
@@ -2899,7 +2896,7 @@ class AgreementResource(MethodView):
                 "required": True,
                 "schema": {"type": "string", "minLength": 1},
                 "description": "Agreement UUID.",
-                "example": "8f89fe31-f77e-45dc-91e0-c5e38fe4004f",
+                "example": "0279944d-85ca-5707-908a-d4cbd169d058",
             }
         ],
     )
@@ -3019,7 +3016,7 @@ class SectionResource(MethodView):
                 "required": True,
                 "schema": {"type": "string", "minLength": 1},
                 "description": "Section UUID.",
-                "example": "5f7e1853-60ed-4f1c-b5fe-a4f5e237f97e",
+                "example": "0006660d-c622-5fbf-a9b9-c220335f0197",
             }
         ],
     )
@@ -3029,25 +3026,25 @@ class SectionResource(MethodView):
         if not _UUID_RE.match(section_uuid):
             abort(400, description="Invalid sectionUuid.")
 
+        section_cols = Sections.__table__.c
         section_standard_ids_expr = _coalesced_section_standard_ids().label(
             "section_standard_ids"
         )
         xml_agreements = _xml_agreements_subquery()
         row = (
             db.session.query(
-                Sections.agreement_uuid,
-                Sections.section_uuid,
-                Sections.article_standard_id,
+                section_cols["agreement_uuid"].label("agreement_uuid"),
+                section_cols["section_uuid"].label("section_uuid"),
                 section_standard_ids_expr,
-                Sections.xml_content,
-                Sections.article_title,
-                Sections.section_title,
+                section_cols["xml_content"].label("xml_content"),
+                section_cols["article_title"].label("article_title"),
+                section_cols["section_title"].label("section_title"),
             )
             .join(
                 xml_agreements,
-                Sections.agreement_uuid == xml_agreements.c.agreement_uuid,
+                section_cols["agreement_uuid"] == xml_agreements.c.agreement_uuid,
             )
-            .filter(Sections.section_uuid == section_uuid)
+            .filter(section_cols["section_uuid"] == section_uuid)
             .first()
         )
 
@@ -3057,7 +3054,6 @@ class SectionResource(MethodView):
         (
             agreement_uuid,
             section_uuid,
-            article_standard_id,
             section_standard_ids_raw,
             xml_content,
             article_title,
@@ -3069,7 +3065,6 @@ class SectionResource(MethodView):
         return {
             "agreementUuid": agreement_uuid,
             "sectionUuid": section_uuid,
-            "articleStandardId": article_standard_id,
             "sectionStandardId": section_standard_ids,
             "xml": xml_content,
             "articleTitle": article_title,

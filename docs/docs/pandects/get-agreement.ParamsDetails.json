@@ -1,1 +1,1 @@
-{"parameters":[{"in":"path","name":"agreement_uuid","required":true,"schema":{"type":"string","minLength":1},"description":"Agreement UUID.","example":"8f89fe31-f77e-45dc-91e0-c5e38fe4004f"}]}
+{"parameters":[{"in":"path","name":"agreement_uuid","required":true,"schema":{"type":"string","minLength":1},"description":"Agreement UUID.","example":"0279944d-85ca-5707-908a-d4cbd169d058"}]}

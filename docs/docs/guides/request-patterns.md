@@ -18,7 +18,7 @@ curl "https://api.pandects.org/v1/search?year=2023&transactionType=Merger&page=1
 Use an agreement UUID from search results:
 
 ```bash
-curl "https://api.pandects.org/v1/agreements/{agreement_uuid}?neighborSections=1"
+curl "https://api.pandects.org/v1/agreements/{agreement_uuid}"
 ```
 
 ## Fetch a specific section

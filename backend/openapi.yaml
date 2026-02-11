@@ -392,7 +392,7 @@ paths:
           type: string
           minLength: 1
         description: Agreement UUID.
-        example: 8f89fe31-f77e-45dc-91e0-c5e38fe4004f
+        example: 0279944d-85ca-5707-908a-d4cbd169d058
       responses:
         '422':
           $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
@@ -441,7 +441,7 @@ paths:
           type: string
           minLength: 1
         description: Section UUID.
-        example: 5f7e1853-60ed-4f1c-b5fe-a4f5e237f97e
+        example: 0006660d-c622-5fbf-a9b9-c220335f0197
     parameters:
     - in: path
       name: section_uuid
@@ -744,9 +744,6 @@ components:
         sectionUuid:
           type: string
           description: Section UUID.
-        articleStandardId:
-          type: string
-          description: Taxonomy standard ID for the parent article.
         sectionStandardId:
           type: array
           description: Taxonomy standard IDs for this section.
