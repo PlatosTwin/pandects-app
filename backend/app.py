@@ -373,6 +373,18 @@ def _configure_openapi(target_app: Flask) -> None:
             "API_TITLE": "Pandects API",
             "API_VERSION": "v1",
             "OPENAPI_VERSION": "3.0.2",
+            "API_SPEC_OPTIONS": {
+                "servers": [
+                    {
+                        "url": "https://api.pandects.org",
+                        "description": "Production API",
+                    },
+                    {
+                        "url": "http://localhost:5113",
+                        "description": "Local development API",
+                    },
+                ]
+            },
             "OPENAPI_URL_PREFIX": "/",
             "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
             "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
@@ -2460,86 +2472,327 @@ sections_blp = Blueprint(
 
 
 class SearchArgsSchema(Schema):
-    year = fields.List(fields.Int(), load_default=[])
-    target = fields.List(fields.Str(), load_default=[])
-    acquirer = fields.List(fields.Str(), load_default=[])
-    standardId = fields.List(fields.Str(), load_default=[])
+    year = fields.List(
+        fields.Int(),
+        load_default=[],
+        metadata={
+            "description": "Agreement year filter. Repeat query key for multiple values.",
+            "example": [2022, 2023],
+        },
+    )
+    target = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Exact target company names to include.",
+            "example": ["Slack Technologies, Inc."],
+        },
+    )
+    acquirer = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Exact acquirer company names to include.",
+            "example": ["salesforce.com, inc."],
+        },
+    )
+    standardId = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Clause taxonomy standard IDs. Parent IDs expand to include descendant "
+                "taxonomy nodes."
+            ),
+            "example": ["1.1", "1.2.3"],
+        },
+    )
     # Transaction price filters
-    transactionPriceTotal = fields.List(fields.Str(), load_default=[])
-    transactionPriceStock = fields.List(fields.Str(), load_default=[])
-    transactionPriceCash = fields.List(fields.Str(), load_default=[])
-    transactionPriceAssets = fields.List(fields.Str(), load_default=[])
+    transactionPriceTotal = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Reserved for future filtering by total transaction price. Accepted but "
+                "currently ignored by the query engine."
+            )
+        },
+    )
+    transactionPriceStock = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Reserved for future filtering by stock consideration value. Accepted but "
+                "currently ignored by the query engine."
+            )
+        },
+    )
+    transactionPriceCash = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Reserved for future filtering by cash consideration value. Accepted but "
+                "currently ignored by the query engine."
+            )
+        },
+    )
+    transactionPriceAssets = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Reserved for future filtering by asset consideration value. Accepted but "
+                "currently ignored by the query engine."
+            )
+        },
+    )
     # New filters from DB definition
-    transactionConsideration = fields.List(fields.Str(), load_default=[])
-    targetType = fields.List(fields.Str(), load_default=[])
-    acquirerType = fields.List(fields.Str(), load_default=[])
-    targetIndustry = fields.List(fields.Str(), load_default=[])
-    acquirerIndustry = fields.List(fields.Str(), load_default=[])
-    dealStatus = fields.List(fields.Str(), load_default=[])
-    attitude = fields.List(fields.Str(), load_default=[])
-    dealType = fields.List(fields.Str(), load_default=[])
-    purpose = fields.List(fields.Str(), load_default=[])
-    targetPe = fields.List(fields.Str(), load_default=[])
-    acquirerPe = fields.List(fields.Str(), load_default=[])
+    transactionConsideration = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Transaction consideration category values from the agreement record."
+        },
+    )
+    targetType = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Target company type values (for example `public` or `private`)."
+        },
+    )
+    acquirerType = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Acquirer company type values (for example `public` or `private`)."
+        },
+    )
+    targetIndustry = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Target industry values from normalized agreement metadata."},
+    )
+    acquirerIndustry = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Acquirer industry values from normalized agreement metadata."},
+    )
+    dealStatus = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Deal status values (for example announced, completed, terminated)."},
+    )
+    attitude = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Deal attitude values (for example friendly or hostile)."},
+    )
+    dealType = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Deal type values from agreement metadata."},
+    )
+    purpose = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Strategic purpose values from agreement metadata."},
+    )
+    targetPe = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Target private-equity backed filter. Supported values: `true`, `false`."
+        },
+    )
+    acquirerPe = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Acquirer private-equity backed filter. Supported values: `true`, `false`."
+        },
+    )
     # Legacy filters (kept for backward compatibility, but deprecated)
-    transactionSize = fields.List(fields.Str(), load_default=[])
-    transactionType = fields.List(fields.Str(), load_default=[])
-    considerationType = fields.List(fields.Str(), load_default=[])
+    transactionSize = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": (
+                "Legacy transaction size bucket labels (for example `100M - 250M`, `20B+`)."
+            ),
+            "deprecated": True,
+        },
+    )
+    transactionType = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Legacy transaction type labels (`Strategic`, `Financial`).",
+            "deprecated": True,
+        },
+    )
+    considerationType = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={
+            "description": "Legacy consideration labels (`All stock`, `All cash`, `Mixed`).",
+            "deprecated": True,
+        },
+    )
     # Text filters
-    agreementUuid = fields.Str(load_default=None, allow_none=True)
-    sectionUuid = fields.Str(load_default=None, allow_none=True)
+    agreementUuid = fields.Str(
+        load_default=None,
+        allow_none=True,
+        metadata={"description": "Filter to one agreement UUID."},
+    )
+    sectionUuid = fields.Str(
+        load_default=None,
+        allow_none=True,
+        metadata={"description": "Filter to one section UUID."},
+    )
     # Sort parameters
-    sortBy = fields.Str(load_default="year", validate=lambda x: x in ["year", "target", "acquirer"])
-    sortDirection = fields.Str(load_default="desc", validate=lambda x: x in ["asc", "desc"])
-    page = fields.Int(load_default=1)
-    pageSize = fields.Int(load_default=25)
+    sortBy = fields.Str(
+        load_default="year",
+        validate=lambda x: x in ["year", "target", "acquirer"],
+        metadata={"description": "Sort key. One of: `year`, `target`, `acquirer`."},
+    )
+    sortDirection = fields.Str(
+        load_default="desc",
+        validate=lambda x: x in ["asc", "desc"],
+        metadata={"description": "Sort direction. One of: `asc`, `desc`."},
+    )
+    page = fields.Int(
+        load_default=1,
+        metadata={"description": "1-based page number.", "example": 1},
+    )
+    pageSize = fields.Int(
+        load_default=25,
+        metadata={
+            "description": (
+                "Page size. Effective max is 10 for unauthenticated callers and 100 for "
+                "authenticated callers."
+            ),
+            "example": 25,
+        },
+    )
 
 
 class SectionItemSchema(Schema):
-    id = fields.Str()
-    agreementUuid = fields.Str()
-    sectionUuid = fields.Str()
-    standardId = fields.List(fields.Str())
-    xml = fields.Str()
-    articleTitle = fields.Str()
-    sectionTitle = fields.Str()
-    acquirer = fields.Str()
-    target = fields.Str()
-    year = fields.Int()
-    verified = fields.Bool()
+    id = fields.Str(metadata={"description": "Canonical identifier for this section result."})
+    agreementUuid = fields.Str(metadata={"description": "Agreement UUID for the section."})
+    sectionUuid = fields.Str(metadata={"description": "Section UUID."})
+    standardId = fields.List(
+        fields.Str(),
+        metadata={"description": "Matched taxonomy standard IDs for this section."},
+    )
+    xml = fields.Str(
+        metadata={"description": "Section XML content. Full content requires authentication."}
+    )
+    articleTitle = fields.Str(metadata={"description": "Article heading that contains the section."})
+    sectionTitle = fields.Str(metadata={"description": "Section heading text."})
+    acquirer = fields.Str(metadata={"description": "Acquirer company name."})
+    target = fields.Str(metadata={"description": "Target company name."})
+    year = fields.Int(metadata={"description": "Agreement year."})
+    verified = fields.Bool(metadata={"description": "Whether this result is from verified content."})
 
 
 class AccessInfoSchema(Schema):
-    tier = fields.Str(required=True)
-    message = fields.Str(required=False, allow_none=True)
+    tier = fields.Str(
+        required=True,
+        metadata={"description": "Access tier used to shape response limits and content visibility."},
+    )
+    message = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Optional human-readable access message for the caller."},
+    )
 
 
 class SearchResponseSchema(Schema):
-    results = fields.List(fields.Nested(SectionItemSchema))
-    access = fields.Nested(AccessInfoSchema)
-    page = fields.Int()
-    pageSize = fields.Int()
-    totalCount = fields.Int()
-    totalPages = fields.Int()
-    hasNext = fields.Bool()
-    hasPrev = fields.Bool()
-    nextNum = fields.Int(allow_none=True)
-    prevNum = fields.Int(allow_none=True)
+    results = fields.List(
+        fields.Nested(SectionItemSchema),
+        metadata={"description": "Page of search results."},
+    )
+    access = fields.Nested(
+        AccessInfoSchema,
+        metadata={"description": "Access context applied to this response."},
+    )
+    page = fields.Int(metadata={"description": "Current 1-based page number."})
+    pageSize = fields.Int(metadata={"description": "Effective page size for this response."})
+    totalCount = fields.Int(metadata={"description": "Total number of matching sections."})
+    totalPages = fields.Int(metadata={"description": "Total pages at the effective page size."})
+    hasNext = fields.Bool(metadata={"description": "Whether a next page exists."})
+    hasPrev = fields.Bool(metadata={"description": "Whether a previous page exists."})
+    nextNum = fields.Int(
+        allow_none=True,
+        metadata={"description": "Next page number when `hasNext` is true."},
+    )
+    prevNum = fields.Int(
+        allow_none=True,
+        metadata={"description": "Previous page number when `hasPrev` is true."},
+    )
 
 
 class DumpEntrySchema(Schema):
-    timestamp = fields.Str(required=True)
-    sql = fields.Url(required=False, allow_none=True)
-    sha256 = fields.Str(required=False, allow_none=True)
-    sha256_url = fields.Url(required=False, allow_none=True)
-    manifest = fields.Url(required=False, allow_none=True)
-    size_bytes = fields.Int(required=False, allow_none=True)
-    warning = fields.Str(required=False, allow_none=True)
+    timestamp = fields.Str(
+        required=True,
+        metadata={"description": "Dump timestamp label (derived from object prefix)."},
+    )
+    sql = fields.Url(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Public URL for the compressed SQL dump file."},
+    )
+    sha256 = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={"description": "SHA-256 digest value for the dump when available."},
+    )
+    sha256_url = fields.Url(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Public URL to a `.sha256` checksum file."},
+    )
+    manifest = fields.Url(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Public URL to a manifest JSON file for the dump."},
+    )
+    size_bytes = fields.Int(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Dump file size in bytes when available."},
+    )
+    warning = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Warning message when metadata is incomplete."},
+    )
 
 
 class AgreementArgsSchema(Schema):
-    focusSectionUuid = fields.Str(required=False, allow_none=True)
-    neighborSections = fields.Int(load_default=1)
+    focusSectionUuid = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Optional section UUID used when redacting anonymous responses to keep a "
+                "focused neighborhood visible."
+            )
+        },
+    )
+    neighborSections = fields.Int(
+        load_default=1,
+        metadata={
+            "description": (
+                "Number of neighboring sections to include around `focusSectionUuid` when "
+                "response XML is redacted."
+            ),
+            "example": 1,
+        },
+    )
 
 
 class AgreementsIndexArgsSchema(Schema):
@@ -2551,45 +2804,80 @@ class AgreementsIndexArgsSchema(Schema):
 
 
 class AgreementResponseSchema(Schema):
-    year = fields.Int()
-    target = fields.Str()
-    acquirer = fields.Str()
-    filing_date = fields.Str(allow_none=True)
-    prob_filing = fields.Float(allow_none=True)
-    filing_company_name = fields.Str(allow_none=True)
-    filing_company_cik = fields.Str(allow_none=True)
-    form_type = fields.Str(allow_none=True)
-    exhibit_type = fields.Str(allow_none=True)
-    transaction_price_total = fields.Float(allow_none=True)
-    transaction_price_stock = fields.Float(allow_none=True)
-    transaction_price_cash = fields.Float(allow_none=True)
-    transaction_price_assets = fields.Float(allow_none=True)
-    transaction_consideration = fields.Str(allow_none=True)
-    target_type = fields.Str(allow_none=True)
-    acquirer_type = fields.Str(allow_none=True)
-    target_industry = fields.Str(allow_none=True)
-    acquirer_industry = fields.Str(allow_none=True)
-    announce_date = fields.Str(allow_none=True)
-    close_date = fields.Str(allow_none=True)
-    deal_status = fields.Str(allow_none=True)
-    attitude = fields.Str(allow_none=True)
-    deal_type = fields.Str(allow_none=True)
-    purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
-    url = fields.Str()
-    xml = fields.Str()
-    isRedacted = fields.Bool(required=False)
+    year = fields.Int(metadata={"description": "Agreement year."})
+    target = fields.Str(metadata={"description": "Target company name."})
+    acquirer = fields.Str(metadata={"description": "Acquirer company name."})
+    filing_date = fields.Str(allow_none=True, metadata={"description": "SEC filing date, when available."})
+    prob_filing = fields.Float(allow_none=True, metadata={"description": "Model confidence score for filing linkage."})
+    filing_company_name = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity name in SEC metadata."},
+    )
+    filing_company_cik = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity CIK in SEC metadata."},
+    )
+    form_type = fields.Str(allow_none=True, metadata={"description": "SEC form type."})
+    exhibit_type = fields.Str(allow_none=True, metadata={"description": "SEC exhibit type."})
+    transaction_price_total = fields.Float(
+        allow_none=True,
+        metadata={"description": "Total transaction value when available."},
+    )
+    transaction_price_stock = fields.Float(
+        allow_none=True,
+        metadata={"description": "Stock portion of transaction consideration."},
+    )
+    transaction_price_cash = fields.Float(
+        allow_none=True,
+        metadata={"description": "Cash portion of transaction consideration."},
+    )
+    transaction_price_assets = fields.Float(
+        allow_none=True,
+        metadata={"description": "Asset portion of transaction consideration."},
+    )
+    transaction_consideration = fields.Str(
+        allow_none=True,
+        metadata={"description": "High-level consideration type classification."},
+    )
+    target_type = fields.Str(allow_none=True, metadata={"description": "Target company type."})
+    acquirer_type = fields.Str(allow_none=True, metadata={"description": "Acquirer company type."})
+    target_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Target industry classification."},
+    )
+    acquirer_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Acquirer industry classification."},
+    )
+    announce_date = fields.Str(allow_none=True, metadata={"description": "Public deal announcement date."})
+    close_date = fields.Str(allow_none=True, metadata={"description": "Deal close date, when available."})
+    deal_status = fields.Str(allow_none=True, metadata={"description": "Current status of the deal."})
+    attitude = fields.Str(allow_none=True, metadata={"description": "Deal attitude classification."})
+    deal_type = fields.Str(allow_none=True, metadata={"description": "Deal type classification."})
+    purpose = fields.Str(allow_none=True, metadata={"description": "Deal purpose classification."})
+    target_pe = fields.Bool(allow_none=True, metadata={"description": "Whether target is private-equity backed."})
+    acquirer_pe = fields.Bool(allow_none=True, metadata={"description": "Whether acquirer is private-equity backed."})
+    url = fields.Str(metadata={"description": "Source filing URL."})
+    xml = fields.Str(metadata={"description": "Agreement XML content (may be redacted for anonymous access)."})
+    isRedacted = fields.Bool(
+        required=False,
+        metadata={"description": "Present and true when XML has been redacted for access control."},
+    )
 
 
 class SectionResponseSchema(Schema):
-    agreementUuid = fields.Str()
-    sectionUuid = fields.Str()
-    articleStandardId = fields.Str()
-    sectionStandardId = fields.List(fields.Str())
-    xml = fields.Str()
-    articleTitle = fields.Str()
-    sectionTitle = fields.Str()
+    agreementUuid = fields.Str(metadata={"description": "Agreement UUID that owns this section."})
+    sectionUuid = fields.Str(metadata={"description": "Section UUID."})
+    articleStandardId = fields.Str(
+        metadata={"description": "Taxonomy standard ID for the parent article."}
+    )
+    sectionStandardId = fields.List(
+        fields.Str(),
+        metadata={"description": "Taxonomy standard IDs for this section."},
+    )
+    xml = fields.Str(metadata={"description": "Section XML content."})
+    articleTitle = fields.Str(metadata={"description": "Parent article heading."})
+    sectionTitle = fields.Str(metadata={"description": "Section heading text."})
 
 
 # ── Auth request schemas ──────────────────────────────────────────────────
@@ -2597,6 +2885,24 @@ class SectionResponseSchema(Schema):
 
 @agreements_blp.route("/<string:agreement_uuid>")
 class AgreementResource(MethodView):
+    @agreements_blp.doc(
+        operationId="getAgreement",
+        summary="Retrieve agreement text by UUID",
+        description=(
+            "Returns agreement metadata and XML content. For anonymous callers, XML can be "
+            "redacted based on `focusSectionUuid` and `neighborSections`."
+        ),
+        parameters=[
+            {
+                "in": "path",
+                "name": "agreement_uuid",
+                "required": True,
+                "schema": {"type": "string", "minLength": 1},
+                "description": "Agreement UUID.",
+                "example": "8f89fe31-f77e-45dc-91e0-c5e38fe4004f",
+            }
+        ],
+    )
     @agreements_blp.arguments(AgreementArgsSchema, location="query")
     @agreements_blp.response(200, AgreementResponseSchema)
     def get(self, args, agreement_uuid) -> dict[str, object]:
@@ -2702,6 +3008,21 @@ class AgreementResource(MethodView):
 
 @sections_blp.route("/<string:section_uuid>")
 class SectionResource(MethodView):
+    @sections_blp.doc(
+        operationId="getSection",
+        summary="Retrieve section text by UUID",
+        description="Returns one section payload including taxonomy IDs and XML content.",
+        parameters=[
+            {
+                "in": "path",
+                "name": "section_uuid",
+                "required": True,
+                "schema": {"type": "string", "minLength": 1},
+                "description": "Section UUID.",
+                "example": "5f7e1853-60ed-4f1c-b5fe-a4f5e237f97e",
+            }
+        ],
+    )
     @sections_blp.response(200, SectionResponseSchema)
     def get(self, section_uuid: str) -> dict[str, object]:
         section_uuid = section_uuid.strip()
@@ -3118,6 +3439,14 @@ def _register_main_routes(target_app: Flask) -> None:
 
 @search_blp.route("")
 class SearchResource(MethodView):
+    @search_blp.doc(
+        operationId="searchSections",
+        summary="Search agreement sections",
+        description=(
+            "Searches sections using structured filters and taxonomy IDs. For list filters, "
+            "repeat query keys (for example `year=2023&year=2024`)."
+        ),
+    )
     @search_blp.arguments(SearchArgsSchema, location="query")
     @search_blp.response(200, SearchResponseSchema)
     def get(self, args) -> dict[str, object]:
@@ -3445,6 +3774,11 @@ class SearchResource(MethodView):
 @taxonomy_blp.route("")
 class TaxonomyResource(MethodView):
     @taxonomy_blp.doc(
+        operationId="getTaxonomy",
+        summary="Retrieve clause taxonomy",
+        description=(
+            "Returns the hierarchical Pandects taxonomy tree keyed by standard ID."
+        ),
         responses={
             200: {
                 "description": "OK",
@@ -3478,6 +3812,13 @@ class TaxonomyResource(MethodView):
 
 @dumps_blp.route("")  # blueprint already has url_prefix="/v1/dumps"
 class DumpListResource(MethodView):
+    @dumps_blp.doc(
+        operationId="listDumps",
+        summary="List available bulk dumps",
+        description=(
+            "Returns newest-first metadata for publicly available database dump artifacts."
+        ),
+    )
     @dumps_blp.response(200, DumpEntrySchema(many=True))
     def get(self) -> list[dict[str, object]]:
         now = time.time()

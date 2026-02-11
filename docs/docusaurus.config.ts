@@ -126,11 +126,15 @@ const config: Config = {
         ],
       },
       languageTabs: [
+        {
+          highlight: "python",
+          language: "python",
+          logoClass: "python",
+          variant: "Requests",
+          variants: ["Requests", "http.client"],
+        },
         { highlight: "bash", language: "curl", logoClass: "curl" },
         { highlight: "javascript", language: "nodejs", logoClass: "nodejs" },
-        { highlight: "ruby", language: "ruby", logoClass: "ruby" },
-        { highlight: "php", language: "php", logoClass: "php" },
-        { highlight: "python", language: "python", logoClass: "python" },
       ],
     } satisfies Preset.ThemeConfig,
 

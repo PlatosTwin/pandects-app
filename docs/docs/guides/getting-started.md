@@ -2,6 +2,7 @@
 id: getting-started
 title: Getting Started
 description: Base URL, response format, and first API calls.
+sidebar_position: 1
 ---
 
 # Getting Started

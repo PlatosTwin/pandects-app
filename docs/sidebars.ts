@@ -8,6 +8,13 @@ type SidebarDocItem = {
   className?: string;
 };
 
+type SidebarLinkItem = {
+  type: "link";
+  href: string;
+  label: string;
+  className?: string;
+};
+
 type SidebarCategoryItem = {
   type: "category";
   label: string;
@@ -18,7 +25,7 @@ type SidebarCategoryItem = {
   className?: string;
 };
 
-type SidebarItem = SidebarDocItem | SidebarCategoryItem;
+type SidebarItem = SidebarDocItem | SidebarLinkItem | SidebarCategoryItem;
 
 const isDocItem = (item: SidebarItem): item is SidebarDocItem => item.type === "doc";
 const isCategoryItem = (item: SidebarItem): item is SidebarCategoryItem =>
@@ -42,7 +49,8 @@ const apiReferenceItems = rawApiItems.filter(
     return item;
   }
 
-  const endpointId = item.items[0].id;
+  const endpointItem = item.items[0];
+  const endpointId = endpointItem.id;
 
   return {
     ...item,
@@ -53,7 +61,12 @@ const apiReferenceItems = rawApiItems.filter(
         id: categoryLinkDocId,
         className: "sidebar-hidden-category-doc",
       },
-      ...item.items,
+      {
+        type: "link",
+        href: `/docs/${endpointId}`,
+        label: endpointItem.label ?? endpointId,
+        className: endpointItem.className,
+      },
     ],
   };
 });

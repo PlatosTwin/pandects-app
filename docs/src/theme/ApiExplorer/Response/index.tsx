@@ -1,17 +1,12 @@
 import React from "react";
 
 import { useDoc } from "@docusaurus/plugin-content-docs/client";
-import { usePrismTheme } from "@docusaurus/theme-common";
 import Translate, { translate } from "@docusaurus/Translate";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import ApiCodeBlock from "@theme/ApiExplorer/ApiCodeBlock";
 import { useTypedDispatch, useTypedSelector } from "@theme/ApiItem/hooks";
-import SchemaTabs from "@theme/SchemaTabs";
-import TabItem from "@theme/TabItem";
 import { OPENAPI_RESPONSE } from "@theme/translationIds";
 import clsx from "clsx";
 import type { ApiItem } from "docusaurus-plugin-openapi-docs/src/types";
-import type { ThemeConfig } from "docusaurus-theme-openapi-docs/src/types";
 
 import {
   clearResponse,
@@ -36,27 +31,41 @@ function formatXml(xml: string) {
   return formatted.substring(1, formatted.length - 3);
 }
 
+function statusLabel(code: string): string {
+  const numeric = Number.parseInt(code, 10);
+  if (Number.isNaN(numeric)) {
+    return "Response";
+  }
+  if (numeric >= 500) {
+    return "Server Error";
+  }
+  if (numeric >= 400) {
+    return "Client Error";
+  }
+  if (numeric >= 300) {
+    return "Redirect";
+  }
+  if (numeric >= 200) {
+    return "Success";
+  }
+  return "Info";
+}
+
 function Response({ item }: { item: ApiItem }) {
   const metadata = useDoc();
-  const { siteConfig } = useDocusaurusContext();
-  const themeConfig = siteConfig.themeConfig as ThemeConfig;
   const hideSendButton = metadata.frontMatter.hide_send_button;
-  const proxy = metadata.frontMatter.proxy ?? themeConfig.api?.proxy;
-  const prismTheme = usePrismTheme();
   const code = useTypedSelector((state: any) => state.response.code);
-  const headers = useTypedSelector((state: any) => state.response.headers);
   const response = useTypedSelector((state: any) => state.response.value);
   const dispatch = useTypedDispatch();
   const responseStatusClass =
     code &&
-    "openapi-response__dot " +
-      (parseInt(code) >= 400
-        ? "openapi-response__dot--danger"
-        : parseInt(code) >= 200 && parseInt(code) < 300
-          ? "openapi-response__dot--success"
-          : "openapi-response__dot--info");
+    (parseInt(code) >= 400
+      ? "openapi-response__dot--danger"
+      : parseInt(code) >= 200 && parseInt(code) < 300
+        ? "openapi-response__dot--success"
+        : "openapi-response__dot--info");
 
-  if ((!item.servers && !proxy) || hideSendButton) {
+  if (hideSendButton) {
     return null;
   }
 
@@ -74,6 +83,7 @@ function Response({ item }: { item: ApiItem }) {
 
   const hasResponseBody =
     Boolean(prettyResponse) && prettyResponse !== "Fetching...";
+  const hasStatusCode = Boolean(code) && prettyResponse !== "Fetching...";
 
   return (
     <div className="openapi-explorer__response-container">
@@ -81,66 +91,34 @@ function Response({ item }: { item: ApiItem }) {
         <span className="openapi-explorer__response-title">
           {translate({ id: OPENAPI_RESPONSE.TITLE, message: "Response" })}
         </span>
-        <span
-          className="openapi-explorer__response-clear-btn"
-          onClick={() => {
-            dispatch(clearResponse());
-            dispatch(clearCode());
-            dispatch(clearHeaders());
-          }}
-        >
-          {translate({ id: OPENAPI_RESPONSE.CLEAR, message: "Clear" })}
-        </span>
+        {hasStatusCode && (
+          <div className="openapi-explorer__response-title-meta">
+            <span
+              className={clsx(
+                "openapi-explorer__response-status",
+                "openapi-response__dot",
+                responseStatusClass
+              )}
+            >
+              {`${code} - ${statusLabel(code)}`}
+            </span>
+            <span className="openapi-explorer__response-example-chip">
+              Example
+            </span>
+            <span className="openapi-explorer__response-chevron">⌄</span>
+          </div>
+        )}
       </div>
-      <div
-        style={{
-          backgroundColor:
-            (code || hasResponseBody) && prettyResponse !== "Fetching..."
-              ? prismTheme.plain.backgroundColor
-              : "transparent",
-          paddingLeft: "1rem",
-          paddingTop: "1rem",
-          ...((prettyResponse === "Fetching..." || !code) && {
-            paddingBottom: "1rem",
-          }),
-        }}
-      >
+      <div className="openapi-explorer__response-body">
         {code && prettyResponse !== "Fetching..." ? (
-          <SchemaTabs lazy>
-            {/* @ts-ignore */}
-            <TabItem
-              label={` ${code}`}
-              value="body"
-              attributes={{
-                className: clsx("openapi-response__dot", responseStatusClass),
-              }}
-              default
-            >
-              {/* @ts-ignore */}
-              <ApiCodeBlock
-                className="openapi-explorer__code-block openapi-response__status-code"
-                language={response.startsWith("<") ? `xml` : `json`}
-              >
-                {prettyResponse || ""}
-              </ApiCodeBlock>
-            </TabItem>
-            {/* @ts-ignore */}
-            <TabItem
-              label={translate({
-                id: OPENAPI_RESPONSE.HEADERS_TAB,
-                message: "Headers",
-              })}
-              value="headers"
-            >
-              {/* @ts-ignore */}
-              <ApiCodeBlock
-                className="openapi-explorer__code-block openapi-response__status-headers"
-                language={response.startsWith("<") ? `xml` : `json`}
-              >
-                {JSON.stringify(headers, undefined, 2)}
-              </ApiCodeBlock>
-            </TabItem>
-          </SchemaTabs>
+          // @ts-ignore
+          <ApiCodeBlock
+            className="openapi-explorer__code-block openapi-response__status-code"
+            language={response.startsWith("<") ? `xml` : `json`}
+            showLineNumbers
+          >
+            {prettyResponse || ""}
+          </ApiCodeBlock>
         ) : prettyResponse === "Fetching..." ? (
           <div className="openapi-explorer__loading-container">
             <div className="openapi-response__lds-ring">
@@ -156,6 +134,7 @@ function Response({ item }: { item: ApiItem }) {
           <ApiCodeBlock
             className="openapi-explorer__code-block openapi-response__status-code"
             language="text"
+            showLineNumbers
           >
             {prettyResponse}
           </ApiCodeBlock>
@@ -170,6 +149,17 @@ function Response({ item }: { item: ApiItem }) {
           </p>
         )}
       </div>
+      <button
+        type="button"
+        className="openapi-explorer__response-clear-btn"
+        onClick={() => {
+          dispatch(clearResponse());
+          dispatch(clearCode());
+          dispatch(clearHeaders());
+        }}
+      >
+        {translate({ id: OPENAPI_RESPONSE.CLEAR, message: "Clear" })}
+      </button>
     </div>
   );
 }

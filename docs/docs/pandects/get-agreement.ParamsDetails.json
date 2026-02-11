@@ -1,1 +1,1 @@
-{"parameters":[{"in":"query","name":"focusSectionUuid","schema":{"type":"string","nullable":true},"required":false},{"in":"query","name":"neighborSections","schema":{"type":"integer","default":1},"required":false},{"in":"path","name":"agreement_uuid","required":true,"schema":{"type":"string","minLength":1}}]}
+{"parameters":[{"in":"path","name":"agreement_uuid","required":true,"schema":{"type":"string","minLength":1},"description":"Agreement UUID.","example":"8f89fe31-f77e-45dc-91e0-c5e38fe4004f"}]}

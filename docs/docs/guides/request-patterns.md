@@ -2,6 +2,7 @@
 id: request-patterns
 title: Request Patterns
 description: Practical patterns for search and retrieval flows.
+sidebar_position: 2
 ---
 
 # Request Patterns

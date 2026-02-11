@@ -1,10 +1,11 @@
 ---
 id: error-model
-title: Error Model
+title: Error Models
 description: How to handle validation and server errors.
+sidebar_position: 3
 ---
 
-# Error Model
+# Error Models
 
 Treat non-`2xx` responses as structured errors and log request IDs when available.
 
