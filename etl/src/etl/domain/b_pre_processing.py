@@ -292,6 +292,39 @@ def strip_formatting_tags(
     for tag in soup.find_all(True):
         _ = tag.attrs.pop("style", None)
 
+    no_space_before_chars = set(".,;:!?)]}%")
+    no_space_after_chars = set("([{")
+
+    def _node_text(node: object) -> str:
+        if isinstance(node, NavigableString):
+            return str(node)
+        if isinstance(node, Tag):
+            return node.get_text()
+        return ""
+
+    def _previous_nonempty_sibling(node: Tag) -> object | None:
+        sibling = node.previous_sibling
+        while sibling is not None and _node_text(sibling) == "":
+            sibling = sibling.previous_sibling
+        return sibling
+
+    def _next_nonempty_sibling(node: Tag) -> object | None:
+        sibling = node.next_sibling
+        while sibling is not None and _node_text(sibling) == "":
+            sibling = sibling.next_sibling
+        return sibling
+
+    def _sibling_has_content(sib: object | None) -> bool:
+        return bool(_node_text(sib).strip())
+
+    def _sibling_ends_space(sib: object | None) -> bool:
+        text = _node_text(sib)
+        return bool(text) and text.rstrip() != text
+
+    def _sibling_starts_space(sib: object | None) -> bool:
+        text = _node_text(sib)
+        return bool(text) and text.lstrip() != text
+
     # Unwrap every formatting tag (preserve whitespace around tags)
     for tag_name in remove_tags:
         for tag in list(soup.find_all(tag_name)):
@@ -299,38 +332,13 @@ def strip_formatting_tags(
             tag_text = tag.get_text()
             
             # Check adjacent siblings to determine if we need to add spaces
-            prev_sibling = tag.previous_sibling
-            next_sibling = tag.next_sibling
+            prev_sibling = _previous_nonempty_sibling(tag)
+            next_sibling = _next_nonempty_sibling(tag)
 
             # If the tag is empty/whitespace-only but sits between two content nodes,
             # preserve a single space to avoid concatenation (e.g. "Section 1.1" + NBSP font
             # + "Defined Terms" -> "Section 1.1 Defined Terms").
             if not tag_text.strip():
-                def _sibling_has_content(sib: object) -> bool:
-                    if isinstance(sib, NavigableString):
-                        return bool(str(sib).strip())
-                    if isinstance(sib, Tag):
-                        return bool(sib.get_text().strip())
-                    return False
-
-                def _sibling_ends_space(sib: object) -> bool:
-                    if isinstance(sib, NavigableString):
-                        t = str(sib)
-                        return t.rstrip() != t
-                    if isinstance(sib, Tag):
-                        t = sib.get_text()
-                        return bool(t) and t.rstrip() != t
-                    return False
-
-                def _sibling_starts_space(sib: object) -> bool:
-                    if isinstance(sib, NavigableString):
-                        t = str(sib)
-                        return t.lstrip() != t
-                    if isinstance(sib, Tag):
-                        t = sib.get_text()
-                        return bool(t) and t.lstrip() != t
-                    return False
-
                 if (
                     _sibling_has_content(prev_sibling)
                     and _sibling_has_content(next_sibling)
@@ -346,45 +354,45 @@ def strip_formatting_tags(
             # Only add space if previous sibling is text that doesn't end with whitespace
             # and tag text doesn't start with whitespace
             needs_space_before = False
-            if isinstance(prev_sibling, NavigableString):
-                prev_text = str(prev_sibling)
-                if prev_text.strip():  # Previous sibling has non-whitespace content
-                    prev_ends_space = prev_text.rstrip() != prev_text  # Ends with whitespace
-                    tag_starts_space = tag_text and tag_text.lstrip() != tag_text  # Starts with whitespace
-                    prev_last_char = prev_text.rstrip()[-1] if prev_text.rstrip() else ""
-                    tag_first_char = tag_text.lstrip()[0] if tag_text.lstrip() else ""
-                    # Avoid splitting a single word that is visually styled across tags,
-                    # e.g. "D<small>EFINITIONS</small>" -> "DEFINITIONS".
-                    split_word_boundary = bool(
-                        prev_last_char.isalpha() and tag_first_char.isalpha()
-                    )
-                    if (
-                        not prev_ends_space
-                        and not tag_starts_space
-                        and not split_word_boundary
-                    ):
-                        needs_space_before = True
+            prev_text = _node_text(prev_sibling)
+            if prev_text.strip():  # Previous sibling has non-whitespace content
+                prev_ends_space = prev_text.rstrip() != prev_text  # Ends with whitespace
+                tag_starts_space = tag_text and tag_text.lstrip() != tag_text  # Starts with whitespace
+                prev_last_char = prev_text.rstrip()[-1] if prev_text.rstrip() else ""
+                tag_first_char = tag_text.lstrip()[0] if tag_text.lstrip() else ""
+                # Avoid splitting a single word that is visually styled across tags,
+                # e.g. "D<small>EFINITIONS</small>" -> "DEFINITIONS".
+                split_word_boundary = bool(prev_last_char.isalpha() and tag_first_char.isalpha())
+                starts_with_closing_punct = bool(tag_first_char in no_space_before_chars)
+                if (
+                    not prev_ends_space
+                    and not tag_starts_space
+                    and not split_word_boundary
+                    and not starts_with_closing_punct
+                ):
+                    needs_space_before = True
             
             # Check if we need a space after the tag content
             # Only add space if next sibling is text that doesn't start with whitespace
             # and tag text doesn't end with whitespace
             needs_space_after = False
-            if isinstance(next_sibling, NavigableString):
-                next_text = str(next_sibling)
-                if next_text.strip():  # Next sibling has non-whitespace content
-                    next_starts_space = next_text.lstrip() != next_text  # Starts with whitespace
-                    tag_ends_space = tag_text and tag_text.rstrip() != tag_text  # Ends with whitespace
-                    tag_last_char = tag_text.rstrip()[-1] if tag_text.rstrip() else ""
-                    next_first_char = next_text.lstrip()[0] if next_text.lstrip() else ""
-                    split_word_boundary = bool(
-                        tag_last_char.isalpha() and next_first_char.isalpha()
-                    )
-                    if (
-                        not next_starts_space
-                        and not tag_ends_space
-                        and not split_word_boundary
-                    ):
-                        needs_space_after = True
+            next_text = _node_text(next_sibling)
+            if next_text.strip():  # Next sibling has non-whitespace content
+                next_starts_space = next_text.lstrip() != next_text  # Starts with whitespace
+                tag_ends_space = tag_text and tag_text.rstrip() != tag_text  # Ends with whitespace
+                tag_last_char = tag_text.rstrip()[-1] if tag_text.rstrip() else ""
+                next_first_char = next_text.lstrip()[0] if next_text.lstrip() else ""
+                split_word_boundary = bool(tag_last_char.isalpha() and next_first_char.isalpha())
+                starts_with_closing_punct = bool(next_first_char in no_space_before_chars)
+                ends_with_opening_punct = bool(tag_last_char in no_space_after_chars)
+                if (
+                    not next_starts_space
+                    and not tag_ends_space
+                    and not split_word_boundary
+                    and not starts_with_closing_punct
+                    and not ends_with_opening_punct
+                ):
+                    needs_space_after = True
             
             # Add spaces if needed
             if needs_space_before:

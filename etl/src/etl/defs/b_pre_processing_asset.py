@@ -79,6 +79,7 @@ def pre_processing_asset(
                         a.agreement_uuid > :last_uuid
                         AND p.page_uuid IS NULL
                         AND a.gated = 0
+                        AND (a.paginated IS NULL OR a.paginated = TRUE)
                     ORDER BY
                         a.agreement_uuid ASC
                     LIMIT
