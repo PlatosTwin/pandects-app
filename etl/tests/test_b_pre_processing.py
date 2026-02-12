@@ -70,6 +70,31 @@ class PreProcessingTests(unittest.TestCase):
 
                 self.assertEqual(text, "Section 1. The Merger")
 
+    def test_format_content_keeps_space_after_number_with_empty_anchor_between(self) -> None:
+        html = (
+            "<h2><font>3.22</font><font>           </font>"
+            "<a name='x'></a><a name='y'><u>Information in the Proxy Statement</u></a>.</h2>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("3.22 Information in the Proxy Statement.", text)
+
+    def test_format_content_does_not_add_space_before_punctuation(self) -> None:
+        html = "<h2><font>3.21</font><font>      </font><a><u>Financial Advisor</u></a>.</h2>"
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("3.21 Financial Advisor.", text)
+        self.assertNotIn("Financial Advisor .", text)
+
+    def test_format_content_does_not_split_section_ref_before_closing_paren(self) -> None:
+        html = "<p>Section 6.2<b><font>)</font></b></p>"
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "Section 6.2)")
+
 
 if __name__ == "__main__":
     _ = unittest.main()
