@@ -7,10 +7,10 @@ sidebar_position: 2
 
 # Request Patterns
 
-## Search by year and transaction type
+## Search by year and clause type
 
 ```bash
-curl "https://api.pandects.org/v1/search?year=2023&transactionType=Merger&page=1&pageSize=25"
+curl "https://api.pandects.org/v1/search?year=2023&standardId=1.1&page=1&pageSize=25"
 ```
 
 ## Drill into an agreement

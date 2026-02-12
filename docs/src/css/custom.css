@@ -833,6 +833,18 @@ body {
   padding: 0.04rem 0.38rem;
 }
 
+.theme-api-markdown .openapi-params__list-item .openapi-schema__pending,
+.theme-api-markdown .openapi-explorer__form-item-meta .openapi-schema__pending {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+  color: #075985;
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  border-radius: 999px;
+  padding: 0.04rem 0.38rem;
+}
+
 .theme-api-markdown .openapi-params__list-item p {
   margin: 0.38rem 0 0;
   color: #3d526f;
@@ -897,6 +909,7 @@ body {
 
 .theme-api-markdown .openapi-schema__nullable,
 .theme-api-markdown .openapi-schema__required,
+.theme-api-markdown .openapi-schema__pending,
 .theme-api-markdown .openapi-schema__deprecated {
   flex-shrink: 0;
   white-space: nowrap;

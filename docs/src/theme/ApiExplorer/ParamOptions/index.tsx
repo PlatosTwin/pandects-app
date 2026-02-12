@@ -35,8 +35,17 @@ function ParamOption({ param }: ParamProps) {
 }
 
 function ParamOptionWrapper({ param }: ParamProps) {
+  const isPending =
+    typeof param.description === "string" &&
+    param.description.trim().toLowerCase().startsWith("pending:");
+
   return (
-    <FormItem label={param.name} type={param.in} required={param.required}>
+    <FormItem
+      label={param.name}
+      type={param.in}
+      required={param.required}
+      pending={isPending}
+    >
       <ParamOption param={param} />
     </FormItem>
   );

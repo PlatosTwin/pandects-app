@@ -8,14 +8,15 @@ export interface Props {
   label?: string;
   type?: string;
   required?: boolean | undefined;
+  pending?: boolean | undefined;
   children?: React.ReactNode;
   className?: string;
 }
 
-function FormItem({ label, type, required, children, className }: Props) {
+function FormItem({ label, type, required, pending, children, className }: Props) {
   return (
     <div className={clsx("openapi-explorer__form-item", className)}>
-      {(label || type || required) && (
+      {(label || type || required || pending) && (
         <div className="openapi-schema__container openapi-explorer__form-item-meta">
           {label && (
             <label className="openapi-explorer__form-item-label openapi-schema__property">
@@ -23,15 +24,18 @@ function FormItem({ label, type, required, children, className }: Props) {
             </label>
           )}
           {type && <span className="openapi-schema__type"> — {type}</span>}
-          {required && (
+          {(required || pending) && (
             <>
               <span className="openapi-schema__divider"></span>
-              <span className="openapi-schema__required">
-                {translate({
-                  id: OPENAPI_SCHEMA_ITEM.REQUIRED,
-                  message: "required",
-                })}
-              </span>
+              {required && (
+                <span className="openapi-schema__required">
+                  {translate({
+                    id: OPENAPI_SCHEMA_ITEM.REQUIRED,
+                    message: "required",
+                  })}
+                </span>
+              )}
+              {pending && <span className="openapi-schema__pending">Pending</span>}
             </>
           )}
         </div>

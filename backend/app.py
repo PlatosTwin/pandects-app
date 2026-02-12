@@ -2501,8 +2501,8 @@ class SearchArgsSchema(Schema):
         load_default=[],
         metadata={
             "description": (
-                "Clause taxonomy standard IDs. Parent IDs expand to include descendant "
-                "taxonomy nodes."
+                "Clause type taxonomy standard IDs (Clause Type in the Search UI). "
+                "Parent IDs expand to include descendant taxonomy nodes."
             ),
             "example": ["1.1", "1.2.3"],
         },
@@ -2513,8 +2513,8 @@ class SearchArgsSchema(Schema):
         load_default=[],
         metadata={
             "description": (
-                "Reserved for future filtering by total transaction price. Accepted but "
-                "currently ignored by the query engine."
+                "Pending: currently deactivated in the Search UI. Accepted but currently "
+                "ignored by the query engine."
             )
         },
     )
@@ -2523,8 +2523,8 @@ class SearchArgsSchema(Schema):
         load_default=[],
         metadata={
             "description": (
-                "Reserved for future filtering by stock consideration value. Accepted but "
-                "currently ignored by the query engine."
+                "Pending: currently deactivated in the Search UI. Accepted but currently "
+                "ignored by the query engine."
             )
         },
     )
@@ -2533,8 +2533,8 @@ class SearchArgsSchema(Schema):
         load_default=[],
         metadata={
             "description": (
-                "Reserved for future filtering by cash consideration value. Accepted but "
-                "currently ignored by the query engine."
+                "Pending: currently deactivated in the Search UI. Accepted but currently "
+                "ignored by the query engine."
             )
         },
     )
@@ -2543,8 +2543,8 @@ class SearchArgsSchema(Schema):
         load_default=[],
         metadata={
             "description": (
-                "Reserved for future filtering by asset consideration value. Accepted but "
-                "currently ignored by the query engine."
+                "Pending: currently deactivated in the Search UI. Accepted but currently "
+                "ignored by the query engine."
             )
         },
     )
@@ -2553,92 +2553,110 @@ class SearchArgsSchema(Schema):
         fields.Str(),
         load_default=[],
         metadata={
-            "description": "Transaction consideration category values from the agreement record."
+            "description": (
+                "Pending: currently deactivated in the Search UI. Transaction "
+                "consideration category values from the agreement record."
+            )
         },
     )
     targetType = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
-            "description": "Target company type values (for example `public` or `private`)."
+            "description": (
+                "Pending: currently deactivated in the Search UI. Target company type "
+                "values (for example `public` or `private`)."
+            )
         },
     )
     acquirerType = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
-            "description": "Acquirer company type values (for example `public` or `private`)."
+            "description": (
+                "Pending: currently deactivated in the Search UI. Acquirer company "
+                "type values (for example `public` or `private`)."
+            )
         },
     )
     targetIndustry = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Target industry values from normalized agreement metadata."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Target industry "
+                "values from normalized agreement metadata."
+            )
+        },
     )
     acquirerIndustry = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Acquirer industry values from normalized agreement metadata."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Acquirer industry "
+                "values from normalized agreement metadata."
+            )
+        },
     )
     dealStatus = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Deal status values (for example announced, completed, terminated)."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Deal status values "
+                "(for example `pending`, `complete`, `cancelled`)."
+            )
+        },
     )
     attitude = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Deal attitude values (for example friendly or hostile)."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Deal attitude values "
+                "(for example `friendly`, `hostile`, `unsolicited`)."
+            )
+        },
     )
     dealType = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Deal type values from agreement metadata."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Deal type values "
+                "from agreement metadata."
+            )
+        },
     )
     purpose = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Strategic purpose values from agreement metadata."},
+        metadata={
+            "description": (
+                "Pending: currently deactivated in the Search UI. Strategic purpose "
+                "values from agreement metadata."
+            )
+        },
     )
     targetPe = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
-            "description": "Target private-equity backed filter. Supported values: `true`, `false`."
+            "description": (
+                "Pending: currently deactivated in the Search UI. Target private-equity "
+                "backed filter. Supported values: `true`, `false`."
+            )
         },
     )
     acquirerPe = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
-            "description": "Acquirer private-equity backed filter. Supported values: `true`, `false`."
-        },
-    )
-    # Legacy filters (kept for backward compatibility, but deprecated)
-    transactionSize = fields.List(
-        fields.Str(),
-        load_default=[],
-        metadata={
             "description": (
-                "Legacy transaction size bucket labels (for example `100M - 250M`, `20B+`)."
-            ),
-            "deprecated": True,
-        },
-    )
-    transactionType = fields.List(
-        fields.Str(),
-        load_default=[],
-        metadata={
-            "description": "Legacy transaction type labels (`Strategic`, `Financial`).",
-            "deprecated": True,
-        },
-    )
-    considerationType = fields.List(
-        fields.Str(),
-        load_default=[],
-        metadata={
-            "description": "Legacy consideration labels (`All stock`, `All cash`, `Mixed`).",
-            "deprecated": True,
+                "Pending: currently deactivated in the Search UI. Acquirer private-equity "
+                "backed filter. Supported values: `true`, `false`."
+            )
         },
     )
     # Text filters
@@ -3450,11 +3468,7 @@ class SearchResource(MethodView):
         targets = args["target"]
         acquirers = args["acquirer"]
         standard_ids = args["standardId"]
-        # New filters from DB definition
-        transaction_price_totals = args["transactionPriceTotal"]
-        transaction_price_stocks = args["transactionPriceStock"]
-        transaction_price_cashes = args["transactionPriceCash"]
-        transaction_price_assets = args["transactionPriceAssets"]
+        # Pending filters from the Search UI
         transaction_considerations = args["transactionConsideration"]
         target_types = args["targetType"]
         acquirer_types = args["acquirerType"]
@@ -3469,10 +3483,6 @@ class SearchResource(MethodView):
         # Text filters
         agreement_uuid = args["agreementUuid"]
         section_uuid = args["sectionUuid"]
-        # Legacy filters (kept for backward compatibility)
-        transaction_sizes = args["transactionSize"]
-        transaction_types = args["transactionType"]
-        consideration_types = args["considerationType"]
         # Sort parameters
         sort_by = args["sortBy"]
         sort_direction = args["sortDirection"]
@@ -3535,105 +3545,20 @@ class SearchResource(MethodView):
                 ]
                 q = q.filter(or_(*json_filters))
 
-        # Transaction Size filter - convert ranges to DB values
-        if transaction_sizes:
-            size_conditions = []
-            for size_range in transaction_sizes:
-                if size_range == "100M - 250M":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 100000000,
-                            Agreements.transaction_size < 250000000,
-                        )
-                    )
-                elif size_range == "250M - 500M":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 250000000,
-                            Agreements.transaction_size < 500000000,
-                        )
-                    )
-                elif size_range == "500M - 750M":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 500000000,
-                            Agreements.transaction_size < 750000000,
-                        )
-                    )
-                elif size_range == "750M - 1B":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 750000000,
-                            Agreements.transaction_size < 1000000000,
-                        )
-                    )
-                elif size_range == "1B - 5B":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 1000000000,
-                            Agreements.transaction_size < 5000000000,
-                        )
-                    )
-                elif size_range == "5B - 10B":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 5000000000,
-                            Agreements.transaction_size < 10000000000,
-                        )
-                    )
-                elif size_range == "10B - 20B":
-                    size_conditions.append(
-                        db.and_(
-                            Agreements.transaction_size >= 10000000000,
-                            Agreements.transaction_size < 20000000000,
-                        )
-                    )
-                elif size_range == "20B+":
-                    size_conditions.append(Agreements.transaction_size >= 20000000000)
-            if size_conditions:
-                q = q.filter(db.or_(*size_conditions))
-
-        # Transaction Type filter
-        if transaction_types:
-            # Convert frontend values to DB enum values
-            db_transaction_types = []
-            for t_type in transaction_types:
-                if t_type == "Strategic":
-                    db_transaction_types.append("strategic")
-                elif t_type == "Financial":
-                    db_transaction_types.append("financial")
-            if db_transaction_types:
-                q = q.filter(Agreements.transaction_type.in_(db_transaction_types))
-
-        # Consideration Type filter
-        if consideration_types:
-            # Convert frontend values to DB enum values
-            db_consideration_types = []
-            for c_type in consideration_types:
-                if c_type == "All stock":
-                    db_consideration_types.append("stock")
-                elif c_type == "All cash":
-                    db_consideration_types.append("cash")
-                elif c_type == "Mixed":
-                    db_consideration_types.append("mixed")
-            if db_consideration_types:
-                q = q.filter(Agreements.consideration_type.in_(db_consideration_types))
-
         # Target Type filter
         if target_types:
-            # Frontend sends lowercase values, use them directly
             q = q.filter(Agreements.target_type.in_(target_types))
 
-        # New filters from DB definition (disabled for now, ready to enable)
+        # Pending filters (deactivated in Search UI)
         # Transaction Price filters - will be enabled when frontend is ready
-        # if transaction_price_totals:
-        #     q = q.filter(Agreements.transaction_price_total.in_(transaction_price_totals))
-        # if transaction_price_stocks:
-        #     q = q.filter(Agreements.transaction_price_stock.in_(transaction_price_stocks))
-        # if transaction_price_cashes:
-        #     q = q.filter(Agreements.transaction_price_cash.in_(transaction_price_cashes))
-        # if transaction_price_assets:
-        #     q = q.filter(Agreements.transaction_price_assets.in_(transaction_price_assets))
+        # if args["transactionPriceTotal"]:
+        #     q = q.filter(Agreements.transaction_price_total.in_(args["transactionPriceTotal"]))
+        # if args["transactionPriceStock"]:
+        #     q = q.filter(Agreements.transaction_price_stock.in_(args["transactionPriceStock"]))
+        # if args["transactionPriceCash"]:
+        #     q = q.filter(Agreements.transaction_price_cash.in_(args["transactionPriceCash"]))
+        # if args["transactionPriceAssets"]:
+        #     q = q.filter(Agreements.transaction_price_assets.in_(args["transactionPriceAssets"]))
 
         # Transaction Consideration filter
         if transaction_considerations:
@@ -3641,15 +3566,7 @@ class SearchResource(MethodView):
 
         # Acquirer Type filter
         if acquirer_types:
-            # Convert frontend values to DB enum values (same as target_type)
-            db_acquirer_types = []
-            for a_type in acquirer_types:
-                if a_type == "public":
-                    db_acquirer_types.append("public")
-                elif a_type == "private":
-                    db_acquirer_types.append("private")
-            if db_acquirer_types:
-                q = q.filter(Agreements.acquirer_type.in_(db_acquirer_types))
+            q = q.filter(Agreements.acquirer_type.in_(acquirer_types))
 
         # Target Industry filter
         if target_industries:
