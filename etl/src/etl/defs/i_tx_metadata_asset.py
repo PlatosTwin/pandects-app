@@ -2,7 +2,8 @@
 
 Offline mode: selects agreements missing target, acquirer, or deal_type; sends
 front_matter + first two body pages to gpt-5-mini via OpenAI Batch API; updates
-target, acquirer, deal_type only.
+target, acquirer, deal_type only. Offline batch state is persisted so interrupted
+runs can resume polling/apply work on the next invocation.
 
 Web-search mode: selects agreements with metadata=0 and target/acquirer set;
 uses Responses API with web_search; updates web-sourced fields only (not target,
@@ -16,11 +17,13 @@ import io
 import json
 import os
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
+from sqlalchemy.engine import Connection
 from openai import OpenAI
 
 from etl.defs.resources import DBResource, PipelineConfig, TxMetadataMode
@@ -35,6 +38,9 @@ from etl.domain.i_tx_metadata import (
 from etl.domain.z_gating import apply_gating
 from etl.utils.run_config import is_batched
 from etl.utils.summary_data import refresh_summary_data
+
+
+TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 
 
 def _oai_client() -> OpenAI:
@@ -64,6 +70,263 @@ def _extract_output_text_from_batch_body(body: Dict[str, Any]) -> str:
     return raw_text
 
 
+def _ensure_offline_batches_table(conn: Connection, schema: str) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {schema}.tx_metadata_offline_batches (
+                batch_id VARCHAR(128) PRIMARY KEY,
+                created_at DATETIME NOT NULL,
+                status VARCHAR(32) NOT NULL,
+                input_file_id VARCHAR(128) NULL,
+                output_file_id VARCHAR(128) NULL,
+                error_file_id VARCHAR(128) NULL,
+                completion_window VARCHAR(16) NOT NULL,
+                request_total INT NOT NULL,
+                applied TINYINT(1) NOT NULL DEFAULT 0,
+                applied_at DATETIME NULL
+            )
+            """
+        )
+    )
+
+
+def _fetch_unapplied_offline_batch(conn: Connection, schema: str) -> Dict[str, Any] | None:
+    row = conn.execute(
+        text(
+            f"""
+            SELECT
+                batch_id,
+                status,
+                input_file_id,
+                output_file_id,
+                error_file_id,
+                completion_window,
+                request_total
+            FROM {schema}.tx_metadata_offline_batches
+            WHERE applied = 0
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        )
+    ).mappings().first()
+    if row is None:
+        return None
+    return dict(row)
+
+
+def _upsert_offline_batch_row(
+    conn: Connection,
+    schema: str,
+    *,
+    batch: Any,
+    completion_window: str,
+    request_total: int,
+) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO {schema}.tx_metadata_offline_batches (
+                batch_id,
+                created_at,
+                status,
+                input_file_id,
+                output_file_id,
+                error_file_id,
+                completion_window,
+                request_total,
+                applied
+            )
+            VALUES (
+                :batch_id,
+                :created_at,
+                :status,
+                :input_file_id,
+                :output_file_id,
+                :error_file_id,
+                :completion_window,
+                :request_total,
+                0
+            )
+            ON DUPLICATE KEY UPDATE
+                status = VALUES(status),
+                input_file_id = VALUES(input_file_id),
+                output_file_id = VALUES(output_file_id),
+                error_file_id = VALUES(error_file_id),
+                completion_window = VALUES(completion_window),
+                request_total = VALUES(request_total)
+            """
+        ),
+        {
+            "batch_id": batch.id,
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
+            "status": batch.status,
+            "input_file_id": getattr(batch, "input_file_id", None),
+            "output_file_id": getattr(batch, "output_file_id", None),
+            "error_file_id": getattr(batch, "error_file_id", None),
+            "completion_window": completion_window,
+            "request_total": request_total,
+        },
+    )
+
+
+def _mark_offline_batch_applied(conn: Connection, schema: str, batch_id: str) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            UPDATE {schema}.tx_metadata_offline_batches
+            SET applied = 1, applied_at = :applied_at
+            WHERE batch_id = :batch_id
+            """
+        ),
+        {
+            "batch_id": batch_id,
+            "applied_at": datetime.now(timezone.utc).replace(tzinfo=None),
+        },
+    )
+
+
+def _read_file_text(resp: Any) -> str:
+    text_attr = getattr(resp, "text", None)
+    if callable(text_attr):
+        out_text = text_attr()
+    elif isinstance(text_attr, str):
+        out_text = text_attr
+    else:
+        content_attr = getattr(resp, "content", None)
+        if isinstance(content_attr, bytes):
+            out_text = content_attr.decode("utf-8")
+        else:
+            read_attr = getattr(resp, "read", None)
+            if not callable(read_attr):
+                raise TypeError("Batch output content has no text/content/read interface.")
+            raw_bytes = read_attr()
+            if not isinstance(raw_bytes, bytes):
+                raise TypeError("Batch output read() did not return bytes.")
+            out_text = raw_bytes.decode("utf-8")
+    if not isinstance(out_text, str):
+        raise TypeError("Batch output text is not a string.")
+    return out_text
+
+
+def _poll_batch_until_terminal(
+    context: AssetExecutionContext,
+    client: OpenAI,
+    batch_id: str,
+) -> Any:
+    base_sleep_seconds = 5
+    backoff_level = 0
+    no_update_polls = 0
+    last_progress_snapshot: Tuple[Any, ...] | None = None
+    max_sleep_seconds = 30 * 60
+
+    while True:
+        b = client.batches.retrieve(batch_id)
+        if b.status in TERMINAL_BATCH_STATUSES:
+            return b
+
+        rc = getattr(b, "request_counts", None)
+        if rc is not None:
+            completed = getattr(rc, "completed", 0) or 0
+            failed = getattr(rc, "failed", 0) or 0
+            progress_snapshot = (b.status, completed, failed)
+        else:
+            progress_snapshot = (b.status,)
+
+        if progress_snapshot == last_progress_snapshot:
+            no_update_polls += 1
+        else:
+            if backoff_level > 0:
+                prev_sleep = min(
+                    base_sleep_seconds * (2**backoff_level),
+                    max_sleep_seconds,
+                )
+                context.log.info(
+                    f"tx_metadata_asset (offline): backoff reset: interval {prev_sleep}s -> {base_sleep_seconds}s"
+                )
+            no_update_polls = 0
+            backoff_level = 0
+            last_progress_snapshot = progress_snapshot
+
+        if no_update_polls >= 10:
+            prev_sleep = min(
+                base_sleep_seconds * (2**backoff_level),
+                max_sleep_seconds,
+            )
+            backoff_level += 1
+            no_update_polls = 0
+            new_sleep = min(
+                base_sleep_seconds * (2**backoff_level),
+                max_sleep_seconds,
+            )
+            if new_sleep > prev_sleep:
+                context.log.info(
+                    f"tx_metadata_asset (offline): backoff increased: interval {prev_sleep}s -> {new_sleep}s"
+                )
+
+        sleep_seconds = min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds)
+        context.log.info(
+            f"tx_metadata_asset (offline): batch {batch_id} status={b.status}; sleeping {sleep_seconds}s"
+        )
+        time.sleep(sleep_seconds)
+
+
+def _apply_offline_batch_output(
+    context: AssetExecutionContext,
+    engine: Any,
+    client: OpenAI,
+    agreements_table: str,
+    batch: Any,
+) -> Tuple[int, int]:
+    ofid = getattr(batch, "output_file_id", None)
+    if not ofid:
+        context.log.warning("tx_metadata_asset (offline): batch has no output_file_id.")
+        return 0, 0
+
+    out_content = client.files.content(ofid)
+    out_text = _read_file_text(out_content)
+
+    update_offline_q = text(
+        f"""
+        UPDATE {agreements_table}
+        SET
+            target = COALESCE(target, :target),
+            acquirer = COALESCE(acquirer, :acquirer),
+            deal_type = COALESCE(deal_type, :deal_type)
+        WHERE agreement_uuid = :uuid
+        """
+    )
+    updated = 0
+    parse_errors = 0
+    for line_str in out_text.strip().splitlines():
+        if not line_str.strip():
+            continue
+        raw = json.loads(line_str)
+        rid = raw.get("custom_id")
+        resp = raw.get("response")
+        if not rid or not resp:
+            continue
+        sc = resp.get("status_code")
+        if sc not in (200, 201, 202):
+            parse_errors += 1
+            continue
+        body = resp.get("body")
+        if not body:
+            parse_errors += 1
+            continue
+        try:
+            raw_text = _extract_output_text_from_batch_body(body)
+            parsed = parse_offline_tx_metadata_response_text(raw_text)
+            params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
+            with engine.begin() as conn:
+                conn.execute(update_offline_q, params)
+            updated += 1
+        except Exception as e:
+            parse_errors += 1
+            context.log.warning(f"tx_metadata_asset (offline): parse error for {rid}: {e}")
+    return updated, parse_errors
+
+
 @dg.asset(deps=[], name="9_tx_metadata_asset")
 def tx_metadata_asset(
     context: AssetExecutionContext,
@@ -88,6 +351,7 @@ def tx_metadata_asset(
     if mode == TxMetadataMode.OFFLINE:
         _run_offline_mode(
             context, engine,
+            schema,
             agreements_table, pages_table, tagged_outputs_table,
             batch_size,
         )
@@ -105,12 +369,56 @@ def tx_metadata_asset(
 def _run_offline_mode(
     context: AssetExecutionContext,
     engine: Any,
+    schema: str,
     agreements_table: str,
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
 ) -> None:
-    """Offline: select agreements missing target/acquirer/deal_type; Batch API; UPDATE three columns."""
+    """Offline mode with resumable batch polling and idempotent updates."""
+    client = _oai_client()
+    with engine.begin() as conn:
+        _ensure_offline_batches_table(conn, schema)
+        existing_batch = _fetch_unapplied_offline_batch(conn, schema)
+
+    if existing_batch is not None:
+        existing_batch_id = existing_batch["batch_id"]
+        context.log.info(
+            f"tx_metadata_asset (offline): resuming existing batch {existing_batch_id}."
+        )
+        batch = _poll_batch_until_terminal(context, client, existing_batch_id)
+        request_total = int(existing_batch["request_total"])
+        with engine.begin() as conn:
+            _upsert_offline_batch_row(
+                conn,
+                schema,
+                batch=batch,
+                completion_window=str(existing_batch["completion_window"]),
+                request_total=request_total,
+            )
+
+        if batch.status != "completed":
+            context.log.warning(
+                f"tx_metadata_asset (offline): batch {batch.id} ended with status={batch.status}; not applying updates."
+            )
+            with engine.begin() as conn:
+                _mark_offline_batch_applied(conn, schema, batch.id)
+            return
+
+        updated, parse_errors = _apply_offline_batch_output(
+            context=context,
+            engine=engine,
+            client=client,
+            agreements_table=agreements_table,
+            batch=batch,
+        )
+        with engine.begin() as conn:
+            _mark_offline_batch_applied(conn, schema, batch.id)
+        context.log.info(
+            f"tx_metadata_asset (offline): resumed batch {batch.id} completed; updated={updated}, parse_errors={parse_errors}"
+        )
+        return
+
     # Select agreements where target IS NULL OR acquirer IS NULL OR deal_type IS NULL
     select_q = text(
         f"""
@@ -185,7 +493,6 @@ def _run_offline_mode(
         context.log.info("tx_metadata_asset (offline): no agreements with page text to send.")
         return
 
-    client = _oai_client()
     jsonl_buf = io.StringIO()
     for line in lines:
         _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -198,140 +505,48 @@ def _run_offline_mode(
         endpoint="/v1/responses",
         completion_window=completion_window,
     )
+    with engine.begin() as conn:
+        _upsert_offline_batch_row(
+            conn,
+            schema,
+            batch=batch,
+            completion_window=completion_window,
+            request_total=len(lines),
+        )
     context.log.info(
         f"tx_metadata_asset (offline): created batch {batch.id} with {len(lines)} requests; polling until complete."
     )
 
-    # Poll until terminal with exponential backoff (same pattern as ai_repair_poll_asset)
-    base_sleep_seconds = 5
-    backoff_level = 0
-    no_update_polls = 0
-    last_progress_snapshot: Tuple[Any, ...] | None = None
-    max_sleep_seconds = 30 * 60
-
-    while True:
-        b = client.batches.retrieve(batch.id)
-        if b.status in ("completed", "failed", "cancelled", "expired"):
-            break
-
-        rc = getattr(b, "request_counts", None)
-        if rc is not None:
-            completed = getattr(rc, "completed", 0) or 0
-            failed = getattr(rc, "failed", 0) or 0
-            progress_snapshot = (b.status, completed, failed)
-        else:
-            progress_snapshot = (b.status,)
-
-        if progress_snapshot == last_progress_snapshot:
-            no_update_polls += 1
-        else:
-            if backoff_level > 0:
-                prev_sleep = min(
-                    base_sleep_seconds * (2**backoff_level),
-                    max_sleep_seconds,
-                )
-                context.log.info(
-                    f"tx_metadata_asset (offline): backoff reset: interval {prev_sleep}s -> {base_sleep_seconds}s"
-                )
-            no_update_polls = 0
-            backoff_level = 0
-            last_progress_snapshot = progress_snapshot
-
-        if no_update_polls >= 10:
-            prev_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            backoff_level += 1
-            no_update_polls = 0
-            new_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            if new_sleep > prev_sleep:
-                context.log.info(
-                    f"tx_metadata_asset (offline): backoff increased: interval {prev_sleep}s -> {new_sleep}s"
-                )
-
-        sleep_seconds = min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds)
-        context.log.info(
-            f"tx_metadata_asset (offline): batch {batch.id} status={b.status}; sleeping {sleep_seconds}s"
+    final_batch = _poll_batch_until_terminal(context, client, batch.id)
+    with engine.begin() as conn:
+        _upsert_offline_batch_row(
+            conn,
+            schema,
+            batch=final_batch,
+            completion_window=completion_window,
+            request_total=len(lines),
         )
-        time.sleep(sleep_seconds)
 
-    if b.status != "completed":
+    if final_batch.status != "completed":
         context.log.warning(
-            f"tx_metadata_asset (offline): batch {batch.id} ended with status={b.status}; not applying updates."
+            f"tx_metadata_asset (offline): batch {final_batch.id} ended with status={final_batch.status}; not applying updates."
         )
+        with engine.begin() as conn:
+            _mark_offline_batch_applied(conn, schema, final_batch.id)
         return
 
-    ofid = getattr(b, "output_file_id", None)
-    if not ofid:
-        context.log.warning("tx_metadata_asset (offline): batch has no output_file_id.")
-        return
-
-    out_content = client.files.content(ofid)
-    text_attr = getattr(out_content, "text", None)
-    if callable(text_attr):
-        out_text = text_attr()
-    elif isinstance(text_attr, str):
-        out_text = text_attr
-    else:
-        content_attr = getattr(out_content, "content", None)
-        if isinstance(content_attr, bytes):
-            out_text = content_attr.decode("utf-8")
-        else:
-            read_attr = getattr(out_content, "read", None)
-            if not callable(read_attr):
-                raise TypeError("Batch output content has no text/content/read interface.")
-            raw_bytes = read_attr()
-            if not isinstance(raw_bytes, bytes):
-                raise TypeError("Batch output read() did not return bytes.")
-            out_text = raw_bytes.decode("utf-8")
-    if not isinstance(out_text, str):
-        raise TypeError("Batch output text is not a string.")
-
-    update_offline_q = text(
-        f"""
-        UPDATE {agreements_table}
-        SET
-            target = COALESCE(target, :target),
-            acquirer = COALESCE(acquirer, :acquirer),
-            deal_type = COALESCE(deal_type, :deal_type)
-        WHERE agreement_uuid = :uuid
-        """
+    updated, parse_errors = _apply_offline_batch_output(
+        context=context,
+        engine=engine,
+        client=client,
+        agreements_table=agreements_table,
+        batch=final_batch,
     )
-    updated = 0
-    parse_errors = 0
-    for line_str in out_text.strip().splitlines():
-        if not line_str.strip():
-            continue
-        raw = json.loads(line_str)
-        rid = raw.get("custom_id")
-        resp = raw.get("response")
-        if not rid or not resp:
-            continue
-        sc = resp.get("status_code")
-        if sc not in (200, 201, 202):
-            parse_errors += 1
-            continue
-        body = resp.get("body")
-        if not body:
-            parse_errors += 1
-            continue
-        try:
-            raw_text = _extract_output_text_from_batch_body(body)
-            parsed = parse_offline_tx_metadata_response_text(raw_text)
-            params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
-            with engine.begin() as conn:
-                conn.execute(update_offline_q, params)
-            updated += 1
-        except Exception as e:
-            parse_errors += 1
-            context.log.warning(f"tx_metadata_asset (offline): parse error for {rid}: {e}")
+    with engine.begin() as conn:
+        _mark_offline_batch_applied(conn, schema, final_batch.id)
 
     context.log.info(
-        f"tx_metadata_asset (offline): batch {batch.id} completed; updated={updated}, parse_errors={parse_errors}"
+        f"tx_metadata_asset (offline): batch {final_batch.id} completed; updated={updated}, parse_errors={parse_errors}"
     )
 
 
