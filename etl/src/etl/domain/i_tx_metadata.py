@@ -16,7 +16,7 @@ DEAL_TYPE_ALLOWED = (
 )
 
 
-def json_schema_transaction_metadata():
+def json_schema_transaction_metadata() -> Dict[str, Any]:
     return {
         "type": "object",
         "additionalProperties": False,

@@ -87,13 +87,13 @@ def tx_metadata_asset(
 
     if mode == TxMetadataMode.OFFLINE:
         _run_offline_mode(
-            context, db, engine, schema,
+            context, engine,
             agreements_table, pages_table, tagged_outputs_table,
             batch_size,
         )
     else:
         _run_web_search_mode(
-            context, db, engine, schema,
+            context, engine,
             agreements_table, batch_size,
         )
 
@@ -104,9 +104,7 @@ def tx_metadata_asset(
 
 def _run_offline_mode(
     context: AssetExecutionContext,
-    db: DBResource,
     engine: Any,
-    schema: str,
     agreements_table: str,
     pages_table: str,
     tagged_outputs_table: str,
@@ -118,7 +116,10 @@ def _run_offline_mode(
         f"""
         SELECT agreement_uuid
         FROM {agreements_table}
-        WHERE target IS NULL OR acquirer IS NULL OR deal_type IS NULL
+        WHERE 
+            (target IS NULL OR acquirer IS NULL OR deal_type IS NULL)
+            AND (paginated = True or paginated IS NULL)
+            AND gated = 0
         ORDER BY agreement_uuid ASC
         LIMIT :lim
         """
@@ -187,7 +188,7 @@ def _run_offline_mode(
     client = _oai_client()
     jsonl_buf = io.StringIO()
     for line in lines:
-        jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+        _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
     jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
     jsonl_bytes.name = "tx_metadata_offline_requests.jsonl"
     in_file = client.files.create(purpose="batch", file=jsonl_bytes)
@@ -215,7 +216,6 @@ def _run_offline_mode(
 
         rc = getattr(b, "request_counts", None)
         if rc is not None:
-            total = getattr(rc, "total", 0) or 0
             completed = getattr(rc, "completed", 0) or 0
             failed = getattr(rc, "failed", 0) or 0
             progress_snapshot = (b.status, completed, failed)
@@ -271,13 +271,25 @@ def _run_offline_mode(
         return
 
     out_content = client.files.content(ofid)
-    if hasattr(out_content, "text"):
-        t = out_content.text
-        out_text = t() if callable(t) else t
+    text_attr = getattr(out_content, "text", None)
+    if callable(text_attr):
+        out_text = text_attr()
+    elif isinstance(text_attr, str):
+        out_text = text_attr
     else:
-        out_text = out_content.content.decode("utf-8") if hasattr(out_content, "content") else out_content.decode("utf-8")
+        content_attr = getattr(out_content, "content", None)
+        if isinstance(content_attr, bytes):
+            out_text = content_attr.decode("utf-8")
+        else:
+            read_attr = getattr(out_content, "read", None)
+            if not callable(read_attr):
+                raise TypeError("Batch output content has no text/content/read interface.")
+            raw_bytes = read_attr()
+            if not isinstance(raw_bytes, bytes):
+                raise TypeError("Batch output read() did not return bytes.")
+            out_text = raw_bytes.decode("utf-8")
     if not isinstance(out_text, str):
-        out_text = out_content.read().decode("utf-8")
+        raise TypeError("Batch output text is not a string.")
 
     update_offline_q = text(
         f"""
@@ -325,9 +337,7 @@ def _run_offline_mode(
 
 def _run_web_search_mode(
     context: AssetExecutionContext,
-    db: DBResource,
     engine: Any,
-    schema: str,
     agreements_table: str,
     batch_size: int,
 ) -> None:
@@ -411,6 +421,10 @@ def _run_web_search_mode(
             context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
 
     context.log.info(
-        f"tx_metadata_asset (web_search): attempted={attempted}, parsed={len(success_data)}, "
-        f"updated={updated}, parse_errors={parse_errors}, skipped_due_to_error={skipped_due_to_error}"
+        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s",
+        attempted,
+        len(success_data),
+        updated,
+        parse_errors,
+        skipped_due_to_error,
     )
