@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 from datetime import date
+from xml.parsers.expat import ExpatError
 
 
 @dataclass
@@ -15,6 +16,14 @@ class XMLData:
     agreement_uuid: str
     xml: str
     version: int
+
+
+@dataclass
+class XMLGenerationFailure:
+    """A recoverable XML generation error for one agreement."""
+
+    agreement_uuid: str
+    error: str
 
 
 def get_uuid(x: str) -> str:
@@ -316,7 +325,9 @@ def collapse_text_into_definitions(xml_str: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
-def generate_xml(df: Any, version_map: dict[str, int] | None = None) -> list[XMLData]:
+def generate_xml(
+    df: Any, version_map: dict[str, int] | None = None
+) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
     """
     Generate XML data from a DataFrame.
 
@@ -326,9 +337,12 @@ def generate_xml(df: Any, version_map: dict[str, int] | None = None) -> list[XML
                     If not provided, defaults to version 1 for all.
 
     Returns:
-        List of XMLData objects.
+        A tuple:
+        - list of successfully generated XMLData objects
+        - list of recoverable per-agreement XML generation failures
     """
     staged_xml = []
+    failures = []
     if version_map is None:
         version_map = {}
 
@@ -373,104 +387,112 @@ def generate_xml(df: Any, version_map: dict[str, int] | None = None) -> list[XML
 
     agreement_uuids = df["agreement_uuid"].unique().tolist()
     for agreement_uuid in agreement_uuids:
-        temp = df[df["agreement_uuid"] == agreement_uuid].copy()
-        # Preserve order
-        if "page_order" in temp.columns:
-            temp = temp.sort_values(by=["page_order", "page_uuid"], kind="stable")
-        else:
-            temp = temp.sort_values(by=["page_uuid"], kind="stable")
+        try:
+            temp = df[df["agreement_uuid"] == agreement_uuid].copy()
+            # Preserve order
+            if "page_order" in temp.columns:
+                temp = temp.sort_values(by=["page_order", "page_uuid"], kind="stable")
+            else:
+                temp = temp.sort_values(by=["page_uuid"], kind="stable")
 
-        url = temp["url"].to_list()[0]
-        acquirer = temp["acquirer"].to_list()[0]
-        target = temp["target"].to_list()[0]
-        announcement_date = temp["filing_date"].to_list()[0]
-        source_format = "html" if temp["source_is_html"].to_list()[0] else "txt"
+            url = temp["url"].to_list()[0]
+            acquirer = temp["acquirer"].to_list()[0]
+            target = temp["target"].to_list()[0]
+            announcement_date = temp["filing_date"].to_list()[0]
+            source_format = "html" if temp["source_is_html"].to_list()[0] else "txt"
 
-        root = ET.Element("document", uuid=agreement_uuid)
-        metadata = ET.SubElement(root, "metadata")
-        ET.SubElement(metadata, "acquirer").text = acquirer
-        ET.SubElement(metadata, "target").text = target
-        ET.SubElement(metadata, "filingDate").text = announcement_date.strftime("%Y-%m-%d")
-        ET.SubElement(metadata, "url").text = url
-        ET.SubElement(metadata, "sourceFormat").text = source_format
+            root = ET.Element("document", uuid=agreement_uuid)
+            metadata = ET.SubElement(root, "metadata")
+            ET.SubElement(metadata, "acquirer").text = acquirer
+            ET.SubElement(metadata, "target").text = target
+            ET.SubElement(metadata, "filingDate").text = announcement_date.strftime("%Y-%m-%d")
+            ET.SubElement(metadata, "url").text = url
+            ET.SubElement(metadata, "sourceFormat").text = source_format
 
-        # Containers by page type
-        # frontMatter
-        fm_rows = temp[temp.get("source_page_type") == "front_matter"]
-        if not fm_rows.empty:
-            fm_el = ET.SubElement(root, "frontMatter")
-            text_block = "\n".join(
-                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
+            # Containers by page type
+            # frontMatter
+            fm_rows = temp[temp.get("source_page_type") == "front_matter"]
+            if not fm_rows.empty:
+                fm_el = ET.SubElement(root, "frontMatter")
+                text_block = "\n".join(
+                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
+                )
+                add_text_nodes_simple(fm_el, text_block)
+
+            # tableOfContents
+            toc_rows = temp[temp.get("source_page_type") == "toc"]
+            if not toc_rows.empty:
+                toc_el = ET.SubElement(root, "tableOfContents")
+                text_block = "\n".join(
+                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
+                )
+                add_text_nodes_simple(toc_el, text_block)
+
+            # body (preserve page order; parse headings across all body pages)
+            body_rows = temp[temp.get("source_page_type") == "body"]
+            if not body_rows.empty:
+                body_el = ET.SubElement(root, "body")
+                body_text = "\n".join(
+                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                )
+                body_text = strip_subsection_section_tags(body_text)
+                tmp_xml = convert_to_xml(
+                    body_text,
+                    agreement_uuid,
+                    acquirer,
+                    target,
+                    announcement_date,
+                    url,
+                    source_format,
+                )
+                tmp_root = ET.fromstring(tmp_xml)
+                # Include any leading content that appeared before the first heading within body pages
+                fm_tmp = tmp_root.find("frontMatter")
+                if fm_tmp is not None:
+                    for child in list(fm_tmp):
+                        body_el.append(child)
+                # Merge parsed body (articles/sections spanning pages)
+                body_tmp = tmp_root.find("body")
+                if body_tmp is not None:
+                    for child in list(body_tmp):
+                        body_el.append(child)
+
+            # sigPages
+            sig_rows = temp[temp.get("source_page_type") == "sig"]
+            if not sig_rows.empty:
+                sig_el = ET.SubElement(root, "sigPages")
+                text_block = "\n".join(
+                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
+                )
+                add_text_nodes_simple(sig_el, text_block)
+
+            # backMatter
+            bm_rows = temp[temp.get("source_page_type") == "back_matter"]
+            if not bm_rows.empty:
+                bm_el = ET.SubElement(root, "backMatter")
+                text_block = "\n".join(
+                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
+                )
+                add_text_nodes_simple(bm_el, text_block)
+
+            xml_str = ET.tostring(root, encoding="unicode")
+            xml_str = collapse_text_into_definitions(xml_str)
+            xml_str = xml.dom.minidom.parseString(xml_str).toprettyxml(indent="  ")
+        except (ET.ParseError, ExpatError) as error:
+            failures.append(
+                XMLGenerationFailure(agreement_uuid=agreement_uuid, error=str(error))
             )
-            add_text_nodes_simple(fm_el, text_block)
+            continue
 
-        # tableOfContents
-        toc_rows = temp[temp.get("source_page_type") == "toc"]
-        if not toc_rows.empty:
-            toc_el = ET.SubElement(root, "tableOfContents")
-            text_block = "\n".join(
-                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
-            )
-            add_text_nodes_simple(toc_el, text_block)
-
-        # body (preserve page order; parse headings across all body pages)
-        body_rows = temp[temp.get("source_page_type") == "body"]
-        if not body_rows.empty:
-            body_el = ET.SubElement(root, "body")
-            body_text = "\n".join(
-                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
-            )
-            body_text = strip_subsection_section_tags(body_text)
-            tmp_xml = convert_to_xml(
-                body_text,
-                agreement_uuid,
-                acquirer,
-                target,
-                announcement_date,
-                url,
-                source_format,
-            )
-            tmp_root = ET.fromstring(tmp_xml)
-            # Include any leading content that appeared before the first heading within body pages
-            fm_tmp = tmp_root.find("frontMatter")
-            if fm_tmp is not None:
-                for child in list(fm_tmp):
-                    body_el.append(child)
-            # Merge parsed body (articles/sections spanning pages)
-            body_tmp = tmp_root.find("body")
-            if body_tmp is not None:
-                for child in list(body_tmp):
-                    body_el.append(child)
-
-        # sigPages
-        sig_rows = temp[temp.get("source_page_type") == "sig"]
-        if not sig_rows.empty:
-            sig_el = ET.SubElement(root, "sigPages")
-            text_block = "\n".join(
-                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
-            )
-            add_text_nodes_simple(sig_el, text_block)
-
-        # backMatter
-        bm_rows = temp[temp.get("source_page_type") == "back_matter"]
-        if not bm_rows.empty:
-            bm_el = ET.SubElement(root, "backMatter")
-            text_block = "\n".join(
-                (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
-            )
-            add_text_nodes_simple(bm_el, text_block)
-
-        xml_str = ET.tostring(root, encoding="unicode")
-        xml_str = collapse_text_into_definitions(xml_str)
-        xml_str = xml.dom.minidom.parseString(xml_str).toprettyxml(indent="  ")
-        
         # Get version from map or default to 1
         version = version_map.get(agreement_uuid, 1)
-        
-        staged_xml.append(XMLData(
-            agreement_uuid=agreement_uuid,
-            xml=xml_str,
-            version=version
-        ))
 
-    return staged_xml
+        staged_xml.append(
+            XMLData(
+                agreement_uuid=agreement_uuid,
+                xml=xml_str,
+                version=version,
+            )
+        )
+
+    return staged_xml, failures

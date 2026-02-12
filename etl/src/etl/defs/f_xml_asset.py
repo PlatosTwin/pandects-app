@@ -167,7 +167,25 @@ def xml_asset(
             version_map = {row["agreement_uuid"]: row["max_version"] + 1 for row in existing_versions}
             
             # Generate XML from tagged pages
-            xml = generate_xml(df, version_map)
+            xml, xml_generation_failures = generate_xml(df, version_map)
+            for failure in xml_generation_failures:
+                context.log.warning(
+                    "Skipping XML generation due to parse error for agreement_uuid=%s: %s",
+                    failure.agreement_uuid,
+                    failure.error,
+                )
+
+            if not xml:
+                context.log.warning(
+                    "Skipping XML upsert for this batch because all %s agreements failed XML parsing",
+                    len(agreement_uuids),
+                )
+                last_uuid = agreement_uuids[-1]
+                if batched:
+                    break
+                continue
+
+            generated_agreement_uuids = [item.agreement_uuid for item in xml]
 
             try:
                 upsert_xml(xml, db.database, conn)
@@ -188,10 +206,10 @@ def xml_asset(
                         WHERE x.agreement_uuid IN :uuids
                         """
                     ).bindparams(bindparam("uuids", expanding=True)),
-                    {"uuids": agreement_uuids},
+                    {"uuids": generated_agreement_uuids},
                 )
                 context.log.info(
-                    f"Successfully generated XML for {len(agreement_uuids)} agreements"
+                    f"Successfully generated XML for {len(generated_agreement_uuids)} agreements"
                 )
             except Exception as e:
                 context.log.error(f"Error upserting XML: {e}")
