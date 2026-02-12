@@ -351,7 +351,18 @@ def strip_formatting_tags(
                 if prev_text.strip():  # Previous sibling has non-whitespace content
                     prev_ends_space = prev_text.rstrip() != prev_text  # Ends with whitespace
                     tag_starts_space = tag_text and tag_text.lstrip() != tag_text  # Starts with whitespace
-                    if not prev_ends_space and not tag_starts_space:
+                    prev_last_char = prev_text.rstrip()[-1] if prev_text.rstrip() else ""
+                    tag_first_char = tag_text.lstrip()[0] if tag_text.lstrip() else ""
+                    # Avoid splitting a single word that is visually styled across tags,
+                    # e.g. "D<small>EFINITIONS</small>" -> "DEFINITIONS".
+                    split_word_boundary = bool(
+                        prev_last_char.isalpha() and tag_first_char.isalpha()
+                    )
+                    if (
+                        not prev_ends_space
+                        and not tag_starts_space
+                        and not split_word_boundary
+                    ):
                         needs_space_before = True
             
             # Check if we need a space after the tag content
@@ -363,7 +374,16 @@ def strip_formatting_tags(
                 if next_text.strip():  # Next sibling has non-whitespace content
                     next_starts_space = next_text.lstrip() != next_text  # Starts with whitespace
                     tag_ends_space = tag_text and tag_text.rstrip() != tag_text  # Ends with whitespace
-                    if not next_starts_space and not tag_ends_space:
+                    tag_last_char = tag_text.rstrip()[-1] if tag_text.rstrip() else ""
+                    next_first_char = next_text.lstrip()[0] if next_text.lstrip() else ""
+                    split_word_boundary = bool(
+                        tag_last_char.isalpha() and next_first_char.isalpha()
+                    )
+                    if (
+                        not next_starts_space
+                        and not tag_ends_space
+                        and not split_word_boundary
+                    ):
                         needs_space_after = True
             
             # Add spaces if needed
