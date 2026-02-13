@@ -48,7 +48,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: standardId
+        name: standard_id
         description: Clause type taxonomy standard IDs (Clause Type in the Search
           UI). Parent IDs expand to include descendant taxonomy nodes.
         schema:
@@ -63,7 +63,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: transactionPriceTotal
+        name: transaction_price_total
         description: 'Pending: currently deactivated in the Search UI. Accepted but
           currently ignored by the query engine.'
         schema:
@@ -75,7 +75,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: transactionPriceStock
+        name: transaction_price_stock
         description: 'Pending: currently deactivated in the Search UI. Accepted but
           currently ignored by the query engine.'
         schema:
@@ -87,7 +87,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: transactionPriceCash
+        name: transaction_price_cash
         description: 'Pending: currently deactivated in the Search UI. Accepted but
           currently ignored by the query engine.'
         schema:
@@ -99,7 +99,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: transactionPriceAssets
+        name: transaction_price_assets
         description: 'Pending: currently deactivated in the Search UI. Accepted but
           currently ignored by the query engine.'
         schema:
@@ -111,7 +111,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: transactionConsideration
+        name: transaction_consideration
         description: 'Pending: currently deactivated in the Search UI. Transaction
           consideration category values from the agreement record.'
         schema:
@@ -123,7 +123,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: targetType
+        name: target_type
         description: 'Pending: currently deactivated in the Search UI. Target company
           type values (for example `public` or `private`).'
         schema:
@@ -135,7 +135,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: acquirerType
+        name: acquirer_type
         description: 'Pending: currently deactivated in the Search UI. Acquirer company
           type values (for example `public` or `private`).'
         schema:
@@ -147,7 +147,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: targetIndustry
+        name: target_industry
         description: 'Pending: currently deactivated in the Search UI. Target industry
           values from normalized agreement metadata.'
         schema:
@@ -159,7 +159,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: acquirerIndustry
+        name: acquirer_industry
         description: 'Pending: currently deactivated in the Search UI. Acquirer industry
           values from normalized agreement metadata.'
         schema:
@@ -171,7 +171,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: dealStatus
+        name: deal_status
         description: 'Pending: currently deactivated in the Search UI. Deal status
           values (for example `pending`, `complete`, `cancelled`).'
         schema:
@@ -195,7 +195,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: dealType
+        name: deal_type
         description: Deal type values from agreement metadata.
         schema:
           type: array
@@ -218,7 +218,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: targetPe
+        name: target_pe
         description: 'Pending: currently deactivated in the Search UI. Target private-equity
           backed filter. Supported values: `true`, `false`.'
         schema:
@@ -230,7 +230,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: acquirerPe
+        name: acquirer_pe
         description: 'Pending: currently deactivated in the Search UI. Acquirer private-equity
           backed filter. Supported values: `true`, `false`.'
         schema:
@@ -242,7 +242,7 @@ paths:
         explode: true
         style: form
       - in: query
-        name: agreementUuid
+        name: agreement_uuid
         description: Filter to one agreement UUID.
         schema:
           type: string
@@ -250,7 +250,7 @@ paths:
           nullable: true
         required: false
       - in: query
-        name: sectionUuid
+        name: section_uuid
         description: Filter to one section UUID.
         schema:
           type: string
@@ -258,14 +258,14 @@ paths:
           nullable: true
         required: false
       - in: query
-        name: sortBy
+        name: sort_by
         description: 'Sort key. One of: `year`, `target`, `acquirer`.'
         schema:
           type: string
           default: year
         required: false
       - in: query
-        name: sortDirection
+        name: sort_direction
         description: 'Sort direction. One of: `asc`, `desc`.'
         schema:
           type: string
@@ -280,7 +280,7 @@ paths:
           example: 1
         required: false
       - in: query
-        name: pageSize
+        name: page_size
         description: Page size. Effective max is 10 for unauthenticated callers and
           100 for authenticated callers.
         schema:
@@ -379,7 +379,7 @@ paths:
       operationId: getAgreement
       summary: Retrieve agreement text by UUID
       description: Returns agreement metadata and XML content. For anonymous callers,
-        XML can be redacted based on `focusSectionUuid` and `neighborSections`.
+        XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.
     parameters:
     - in: path
       name: agreement_uuid
@@ -475,13 +475,13 @@ components:
         id:
           type: string
           description: Canonical identifier for this section result.
-        agreementUuid:
+        agreement_uuid:
           type: string
           description: Agreement UUID for the section.
-        sectionUuid:
+        section_uuid:
           type: string
           description: Section UUID.
-        standardId:
+        standard_id:
           type: array
           description: Matched taxonomy standard IDs for this section.
           items:
@@ -489,10 +489,10 @@ components:
         xml:
           type: string
           description: Section XML content. Full content requires authentication.
-        articleTitle:
+        article_title:
           type: string
           description: Article heading that contains the section.
-        sectionTitle:
+        section_title:
           type: string
           description: Section heading text.
         acquirer:
@@ -534,28 +534,28 @@ components:
         page:
           type: integer
           description: Current 1-based page number.
-        pageSize:
+        page_size:
           type: integer
           description: Effective page size for this response.
-        totalCount:
+        total_count:
           type: integer
           description: Total number of matching sections.
-        totalPages:
+        total_pages:
           type: integer
           description: Total pages at the effective page size.
-        hasNext:
+        has_next:
           type: boolean
           description: Whether a next page exists.
-        hasPrev:
+        has_prev:
           type: boolean
           description: Whether a previous page exists.
-        nextNum:
+        next_num:
           type: integer
-          description: Next page number when `hasNext` is true.
+          description: Next page number when `has_next` is true.
           nullable: true
-        prevNum:
+        prev_num:
           type: integer
-          description: Previous page number when `hasPrev` is true.
+          description: Previous page number when `has_prev` is true.
           nullable: true
     DumpEntry:
       type: object
@@ -702,19 +702,19 @@ components:
         xml:
           type: string
           description: Agreement XML content (may be redacted for anonymous access).
-        isRedacted:
+        is_redacted:
           type: boolean
           description: Present and true when XML has been redacted for access control.
     SectionResponse:
       type: object
       properties:
-        agreementUuid:
+        agreement_uuid:
           type: string
           description: Agreement UUID that owns this section.
-        sectionUuid:
+        section_uuid:
           type: string
           description: Section UUID.
-        sectionStandardId:
+        section_standard_id:
           type: array
           description: Taxonomy standard IDs for this section.
           items:
@@ -722,10 +722,10 @@ components:
         xml:
           type: string
           description: Section XML content.
-        articleTitle:
+        article_title:
           type: string
           description: Parent article heading.
-        sectionTitle:
+        section_title:
           type: string
           description: Section heading text.
   responses:

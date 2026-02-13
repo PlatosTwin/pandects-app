@@ -16,14 +16,14 @@ type AuthStatus = "loading" | "anonymous" | "authenticated";
 interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
-  sessionToken: string | null;
+  session_token: string | null;
   refresh: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
     password: string,
     legal: LegalAcceptancePayload,
-    captchaToken?: string,
+    captcha_token?: string,
   ) => Promise<void>;
   logout: () => void;
 }
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialToken ? "loading" : "anonymous",
   );
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [sessionToken, setSessionTokenState] = useState<string | null>(initialToken);
+  const [session_token, setSessionTokenState] = useState<string | null>(initialToken);
 
   const refresh = useCallback(async () => {
     const token = transport === "bearer" ? getSessionToken() : null;
@@ -64,11 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await loginWithEmail(email, password);
     if (transport === "bearer") {
-      if (!res.sessionToken) {
+      if (!res.session_token) {
         throw new Error("Missing session token.");
       }
-      setSessionToken(res.sessionToken);
-      setSessionTokenState(res.sessionToken);
+      setSessionToken(res.session_token);
+      setSessionTokenState(res.session_token);
     }
     setUser(res.user);
     setStatus("authenticated");
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string,
       password: string,
       legal: LegalAcceptancePayload,
-      captchaToken?: string,
+      captcha_token?: string,
     ) => {
       if (transport === "cookie") {
         void logoutSession().catch(() => undefined);
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setStatus("anonymous");
 
-      await registerWithEmail(email, password, legal, captchaToken);
+      await registerWithEmail(email, password, legal, captcha_token);
     },
     [transport],
   );
@@ -107,8 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [transport]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, sessionToken, refresh, login, register, logout }),
-    [status, user, sessionToken, refresh, login, register, logout],
+    () => ({ status, user, session_token, refresh, login, register, logout }),
+    [status, user, session_token, refresh, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

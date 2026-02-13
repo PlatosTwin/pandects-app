@@ -28,81 +28,81 @@ export const buildSearchParams = (
 
   // Transaction price filters
   if (
-    searchFilters.transactionPriceTotal &&
-    searchFilters.transactionPriceTotal.length > 0
+    searchFilters.transaction_price_total &&
+    searchFilters.transaction_price_total.length > 0
   ) {
-    searchFilters.transactionPriceTotal.forEach((value) =>
-      params.append("transactionPriceTotal", value),
+    searchFilters.transaction_price_total.forEach((value) =>
+      params.append("transaction_price_total", value),
     );
   }
 
   if (
-    searchFilters.transactionPriceStock &&
-    searchFilters.transactionPriceStock.length > 0
+    searchFilters.transaction_price_stock &&
+    searchFilters.transaction_price_stock.length > 0
   ) {
-    searchFilters.transactionPriceStock.forEach((value) =>
-      params.append("transactionPriceStock", value),
+    searchFilters.transaction_price_stock.forEach((value) =>
+      params.append("transaction_price_stock", value),
     );
   }
 
   if (
-    searchFilters.transactionPriceCash &&
-    searchFilters.transactionPriceCash.length > 0
+    searchFilters.transaction_price_cash &&
+    searchFilters.transaction_price_cash.length > 0
   ) {
-    searchFilters.transactionPriceCash.forEach((value) =>
-      params.append("transactionPriceCash", value),
+    searchFilters.transaction_price_cash.forEach((value) =>
+      params.append("transaction_price_cash", value),
     );
   }
 
   if (
-    searchFilters.transactionPriceAssets &&
-    searchFilters.transactionPriceAssets.length > 0
+    searchFilters.transaction_price_assets &&
+    searchFilters.transaction_price_assets.length > 0
   ) {
-    searchFilters.transactionPriceAssets.forEach((value) =>
-      params.append("transactionPriceAssets", value),
+    searchFilters.transaction_price_assets.forEach((value) =>
+      params.append("transaction_price_assets", value),
     );
   }
 
   // New filters from DB definition
   if (
-    searchFilters.transactionConsideration &&
-    searchFilters.transactionConsideration.length > 0
+    searchFilters.transaction_consideration &&
+    searchFilters.transaction_consideration.length > 0
   ) {
-    searchFilters.transactionConsideration.forEach((value) =>
-      params.append("transactionConsideration", value),
+    searchFilters.transaction_consideration.forEach((value) =>
+      params.append("transaction_consideration", value),
     );
   }
 
-  if (searchFilters.targetType && searchFilters.targetType.length > 0) {
-    searchFilters.targetType.forEach((type) =>
-      params.append("targetType", type),
+  if (searchFilters.target_type && searchFilters.target_type.length > 0) {
+    searchFilters.target_type.forEach((type) =>
+      params.append("target_type", type),
     );
   }
 
-  if (searchFilters.acquirerType && searchFilters.acquirerType.length > 0) {
-    searchFilters.acquirerType.forEach((type) =>
-      params.append("acquirerType", type),
+  if (searchFilters.acquirer_type && searchFilters.acquirer_type.length > 0) {
+    searchFilters.acquirer_type.forEach((type) =>
+      params.append("acquirer_type", type),
     );
   }
 
-  if (searchFilters.targetIndustry && searchFilters.targetIndustry.length > 0) {
-    searchFilters.targetIndustry.forEach((industry) =>
-      params.append("targetIndustry", industry),
+  if (searchFilters.target_industry && searchFilters.target_industry.length > 0) {
+    searchFilters.target_industry.forEach((industry) =>
+      params.append("target_industry", industry),
     );
   }
 
   if (
-    searchFilters.acquirerIndustry &&
-    searchFilters.acquirerIndustry.length > 0
+    searchFilters.acquirer_industry &&
+    searchFilters.acquirer_industry.length > 0
   ) {
-    searchFilters.acquirerIndustry.forEach((industry) =>
-      params.append("acquirerIndustry", industry),
+    searchFilters.acquirer_industry.forEach((industry) =>
+      params.append("acquirer_industry", industry),
     );
   }
 
-  if (searchFilters.dealStatus && searchFilters.dealStatus.length > 0) {
-    searchFilters.dealStatus.forEach((status) =>
-      params.append("dealStatus", status),
+  if (searchFilters.deal_status && searchFilters.deal_status.length > 0) {
+    searchFilters.deal_status.forEach((status) =>
+      params.append("deal_status", status),
     );
   }
 
@@ -112,8 +112,8 @@ export const buildSearchParams = (
     );
   }
 
-  if (searchFilters.dealType && searchFilters.dealType.length > 0) {
-    searchFilters.dealType.forEach((type) => params.append("dealType", type));
+  if (searchFilters.deal_type && searchFilters.deal_type.length > 0) {
+    searchFilters.deal_type.forEach((type) => params.append("deal_type", type));
   }
 
   if (searchFilters.purpose && searchFilters.purpose.length > 0) {
@@ -122,28 +122,28 @@ export const buildSearchParams = (
     );
   }
 
-  if (searchFilters.targetPe && searchFilters.targetPe.length > 0) {
-    searchFilters.targetPe.forEach((pe) => params.append("targetPe", pe));
+  if (searchFilters.target_pe && searchFilters.target_pe.length > 0) {
+    searchFilters.target_pe.forEach((pe) => params.append("target_pe", pe));
   }
 
-  if (searchFilters.acquirerPe && searchFilters.acquirerPe.length > 0) {
-    searchFilters.acquirerPe.forEach((pe) => params.append("acquirerPe", pe));
+  if (searchFilters.acquirer_pe && searchFilters.acquirer_pe.length > 0) {
+    searchFilters.acquirer_pe.forEach((pe) => params.append("acquirer_pe", pe));
   }
 
   // Text filters (single values, not arrays)
-  if (searchFilters.agreementUuid && searchFilters.agreementUuid.trim()) {
-    params.append("agreementUuid", searchFilters.agreementUuid.trim());
+  if (searchFilters.agreement_uuid && searchFilters.agreement_uuid.trim()) {
+    params.append("agreement_uuid", searchFilters.agreement_uuid.trim());
   }
 
-  if (searchFilters.sectionUuid && searchFilters.sectionUuid.trim()) {
-    params.append("sectionUuid", searchFilters.sectionUuid.trim());
+  if (searchFilters.section_uuid && searchFilters.section_uuid.trim()) {
+    params.append("section_uuid", searchFilters.section_uuid.trim());
   }
 
   void clauseTypesNested;
   // Send selected taxonomy IDs directly.
   if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-    searchFilters.clauseType.forEach((standardId) =>
-      params.append("standardId", standardId),
+    searchFilters.clauseType.forEach((standard_id) =>
+      params.append("standard_id", standard_id),
     );
   }
 
@@ -151,8 +151,8 @@ export const buildSearchParams = (
   if (includePagination) {
     if (searchFilters.page)
       params.append("page", searchFilters.page.toString());
-    if (searchFilters.pageSize)
-      params.append("pageSize", searchFilters.pageSize.toString());
+    if (searchFilters.page_size)
+      params.append("page_size", searchFilters.page_size.toString());
   }
 
   return params;

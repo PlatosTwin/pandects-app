@@ -58,14 +58,14 @@ export default function Search() {
     searchResults,
     selectedResults,
     hasSearched,
-    totalCount,
-    totalPages,
+    total_count,
+    total_pages,
     currentSort,
     currentPage,
-    pageSize,
+    page_size,
     showErrorModal,
     errorMessage,
-    sortDirection,
+    sort_direction,
     access,
     actions,
   } = useSearch();
@@ -109,7 +109,7 @@ export default function Search() {
         trackEvent("search_performed", {
           filter_count: Object.values(filters).flat().length,
           has_results: searchResults.length > 0,
-          result_count: totalCount,
+          result_count: total_count,
         });
       }
       performSearch(force, clauseTypesNested);
@@ -117,7 +117,7 @@ export default function Search() {
     downloadCSV: () => {
       trackEvent("search_export_click", {
         export_format: "csv",
-        result_count: selectedResults.size > 0 ? selectedResults.size : totalCount,
+        result_count: selectedResults.size > 0 ? selectedResults.size : total_count,
         is_filtered: Object.values(filters).flat().length > 0,
       });
       downloadCSV();
@@ -131,14 +131,14 @@ export default function Search() {
     goToPage: (page: number) => {
       trackEvent("search_pagination", {
         page_number: page,
-        total_pages: totalPages,
+        total_pages: total_pages,
         direction: page > currentPage ? "next" : "previous",
       });
       goToPage(page, clauseTypesNested);
     },
     changePageSize: (size: number) => {
       trackEvent("search_page_size_change", {
-        old_page_size: pageSize,
+        old_page_size: page_size,
         new_page_size: size,
       });
       changePageSize(size, clauseTypesNested);
@@ -153,7 +153,7 @@ export default function Search() {
     toggleSortDirection: () => {
       trackEvent("search_sort_direction_toggle", {
         sort_field: currentSort,
-        new_direction: sortDirection === "asc" ? "desc" : "asc",
+        new_direction: sort_direction === "asc" ? "desc" : "asc",
       });
       toggleSortDirection();
     },
@@ -163,8 +163,8 @@ export default function Search() {
   const {
     targets,
     acquirers,
-    targetIndustries,
-    acquirerIndustries,
+    target_industries,
+    acquirer_industries,
     isLoading: isLoadingFilterOptions,
     error: filterOptionsError,
   } = useFilterOptions({ deferMs: 1200 });
@@ -173,8 +173,8 @@ export default function Search() {
 
   // Agreement modal state
   const [selectedAgreement, setSelectedAgreement] = useState<{
-    agreementUuid: string;
-    sectionUuid: string;
+    agreement_uuid: string;
+    section_uuid: string;
     metadata: {
       year: string;
       target: string;
@@ -189,8 +189,8 @@ export default function Search() {
       verified: result.verified,
     });
     setSelectedAgreement({
-      agreementUuid: result.agreementUuid,
-      sectionUuid: result.sectionUuid,
+      agreement_uuid: result.agreement_uuid,
+      section_uuid: result.section_uuid,
       metadata: {
         year: result.year,
         target: result.target,
@@ -202,18 +202,18 @@ export default function Search() {
   const closeAgreement = () => {
     setSelectedAgreement(null);
     if (
-      searchParams.has("agreementUuid") ||
-      searchParams.has("sectionUuid")
+      searchParams.has("agreement_uuid") ||
+      searchParams.has("section_uuid")
     ) {
       const next = new URLSearchParams(searchParams);
-      next.delete("agreementUuid");
-      next.delete("sectionUuid");
+      next.delete("agreement_uuid");
+      next.delete("section_uuid");
       setSearchParams(next, { replace: true });
     }
   };
 
-  const agreementUuidFromUrl = searchParams.get("agreementUuid");
-  const sectionUuidFromUrl = searchParams.get("sectionUuid");
+  const agreementUuidFromUrl = searchParams.get("agreement_uuid");
+  const sectionUuidFromUrl = searchParams.get("section_uuid");
 
   useEffect(() => {
     if (
@@ -223,8 +223,8 @@ export default function Search() {
     )
       return;
     setSelectedAgreement({
-      agreementUuid: agreementUuidFromUrl,
-      sectionUuid: sectionUuidFromUrl,
+      agreement_uuid: agreementUuidFromUrl,
+      section_uuid: sectionUuidFromUrl,
       metadata: { year: "", target: "", acquirer: "" },
     });
   }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
@@ -345,8 +345,8 @@ export default function Search() {
               years={years}
               targets={targets}
               acquirers={acquirers}
-              targetIndustries={targetIndustries}
-              acquirerIndustries={acquirerIndustries}
+              target_industries={target_industries}
+              acquirer_industries={acquirer_industries}
               clauseTypesNested={clauseTypesNested}
               clauseTypeLabelById={clauseTypeLabelById}
               isLoadingFilterOptions={isLoadingFilterOptions}
@@ -402,8 +402,8 @@ export default function Search() {
                         years={years}
                         targets={targets}
                         acquirers={acquirers}
-                        targetIndustries={targetIndustries}
-                        acquirerIndustries={acquirerIndustries}
+                        target_industries={target_industries}
+                        acquirer_industries={acquirer_industries}
                         clauseTypesNested={clauseTypesNested}
                         clauseTypeLabelById={clauseTypeLabelById}
                         isLoadingFilterOptions={isLoadingFilterOptions}
@@ -510,23 +510,23 @@ export default function Search() {
             filters.target.length > 0 ||
             filters.acquirer.length > 0 ||
             filters.clauseType.length > 0 ||
-            filters.transactionPriceTotal.length > 0 ||
-            filters.transactionPriceStock.length > 0 ||
-            filters.transactionPriceCash.length > 0 ||
-            filters.transactionPriceAssets.length > 0 ||
-            filters.transactionConsideration.length > 0 ||
-            filters.targetType.length > 0 ||
-            filters.acquirerType.length > 0 ||
-            filters.targetIndustry.length > 0 ||
-            filters.acquirerIndustry.length > 0 ||
-            filters.dealStatus.length > 0 ||
+            filters.transaction_price_total.length > 0 ||
+            filters.transaction_price_stock.length > 0 ||
+            filters.transaction_price_cash.length > 0 ||
+            filters.transaction_price_assets.length > 0 ||
+            filters.transaction_consideration.length > 0 ||
+            filters.target_type.length > 0 ||
+            filters.acquirer_type.length > 0 ||
+            filters.target_industry.length > 0 ||
+            filters.acquirer_industry.length > 0 ||
+            filters.deal_status.length > 0 ||
             filters.attitude.length > 0 ||
-            filters.dealType.length > 0 ||
+            filters.deal_type.length > 0 ||
             filters.purpose.length > 0 ||
-            filters.targetPe.length > 0 ||
-            filters.acquirerPe.length > 0 ||
-            filters.agreementUuid ||
-            filters.sectionUuid) && (
+            filters.target_pe.length > 0 ||
+            filters.acquirer_pe.length > 0 ||
+            filters.agreement_uuid ||
+            filters.section_uuid) && (
             <div className="border-b border-border px-4 py-3 sm:px-8">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
@@ -539,39 +539,39 @@ export default function Search() {
                     ["target", "Target", filters.target],
                     ["acquirer", "Acquirer", filters.acquirer],
                     ["clauseType", "Clause type", filters.clauseType],
-                    ["transactionPriceTotal", "Transaction price (total)", filters.transactionPriceTotal],
-                    ["transactionPriceStock", "Transaction price (stock)", filters.transactionPriceStock],
-                    ["transactionPriceCash", "Transaction price (cash)", filters.transactionPriceCash],
-                    ["transactionPriceAssets", "Transaction price (assets)", filters.transactionPriceAssets],
-                    ["transactionConsideration", "Transaction consideration", filters.transactionConsideration],
-                    ["targetType", "Target type", filters.targetType],
-                    ["acquirerType", "Acquirer type", filters.acquirerType],
-                    ["targetIndustry", "Target industry", filters.targetIndustry],
-                    ["acquirerIndustry", "Acquirer industry", filters.acquirerIndustry],
-                    ["dealStatus", "Deal status", filters.dealStatus],
+                    ["transaction_price_total", "Transaction price (total)", filters.transaction_price_total],
+                    ["transaction_price_stock", "Transaction price (stock)", filters.transaction_price_stock],
+                    ["transaction_price_cash", "Transaction price (cash)", filters.transaction_price_cash],
+                    ["transaction_price_assets", "Transaction price (assets)", filters.transaction_price_assets],
+                    ["transaction_consideration", "Transaction consideration", filters.transaction_consideration],
+                    ["target_type", "Target type", filters.target_type],
+                    ["acquirer_type", "Acquirer type", filters.acquirer_type],
+                    ["target_industry", "Target industry", filters.target_industry],
+                    ["acquirer_industry", "Acquirer industry", filters.acquirer_industry],
+                    ["deal_status", "Deal status", filters.deal_status],
                     ["attitude", "Attitude", filters.attitude],
-                    ["dealType", "Deal type", filters.dealType],
+                    ["deal_type", "Deal type", filters.deal_type],
                     ["purpose", "Purpose", filters.purpose],
-                    ["targetPe", "Target PE", filters.targetPe],
-                    ["acquirerPe", "Acquirer PE", filters.acquirerPe],
+                    ["target_pe", "Target PE", filters.target_pe],
+                    ["acquirer_pe", "Acquirer PE", filters.acquirer_pe],
                   ] as const
                 ).flatMap(([field, label, values]) =>
                   values.map((value) => {
                     // Only format hardcoded enum values, not database values
                     const isHardcodedEnum = [
-                      "transactionPriceTotal",
-                      "transactionPriceStock",
-                      "transactionPriceCash",
-                      "transactionPriceAssets",
-                      "transactionConsideration",
-                      "targetType",
-                      "acquirerType",
-                      "dealStatus",
+                      "transaction_price_total",
+                      "transaction_price_stock",
+                      "transaction_price_cash",
+                      "transaction_price_assets",
+                      "transaction_consideration",
+                      "target_type",
+                      "acquirer_type",
+                      "deal_status",
                       "attitude",
-                      "dealType",
+                      "deal_type",
                       "purpose",
-                      "targetPe",
-                      "acquirerPe",
+                      "target_pe",
+                      "acquirer_pe",
                     ].includes(field);
                     
                     const displayValue =
@@ -602,38 +602,38 @@ export default function Search() {
                 )}
 
                 {/* Text filters */}
-                {filters.agreementUuid && (
+                {filters.agreement_uuid && (
                   <Badge
-                    key="agreementUuid"
+                    key="agreement_uuid"
                     variant="outline"
                     className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
                   >
                     <span className="text-muted-foreground">Agreement UUID:</span>
-                    <span className="truncate">{filters.agreementUuid}</span>
+                    <span className="truncate">{filters.agreement_uuid}</span>
                     <button
                       type="button"
-                      onClick={() => trackingActions.setTextFilterValue("agreementUuid", "")}
+                      onClick={() => trackingActions.setTextFilterValue("agreement_uuid", "")}
                       className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
-                      aria-label={`Remove Agreement UUID filter: ${filters.agreementUuid}`}
+                      aria-label={`Remove Agreement UUID filter: ${filters.agreement_uuid}`}
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </Badge>
                 )}
 
-                {filters.sectionUuid && (
+                {filters.section_uuid && (
                   <Badge
-                    key="sectionUuid"
+                    key="section_uuid"
                     variant="outline"
                     className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
                   >
                     <span className="text-muted-foreground">Section UUID:</span>
-                    <span className="truncate">{filters.sectionUuid}</span>
+                    <span className="truncate">{filters.section_uuid}</span>
                     <button
                       type="button"
-                      onClick={() => trackingActions.setTextFilterValue("sectionUuid", "")}
+                      onClick={() => trackingActions.setTextFilterValue("section_uuid", "")}
                       className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
-                      aria-label={`Remove Section UUID filter: ${filters.sectionUuid}`}
+                      aria-label={`Remove Section UUID filter: ${filters.section_uuid}`}
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
                     </button>
@@ -680,7 +680,7 @@ export default function Search() {
 
               {hasSearched && (
                 <div className="space-y-6">
-                  {totalCount === 0 ? (
+                  {total_count === 0 ? (
                     <div
                       className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
                       role="status"
@@ -701,9 +701,9 @@ export default function Search() {
                     <>
                       <SearchPagination
                         currentPage={currentPage}
-                        totalPages={totalPages}
-                        pageSize={pageSize}
-                        totalCount={totalCount}
+                        totalPages={total_pages}
+                        pageSize={page_size}
+                        totalCount={total_count}
                         onPageChange={(page) =>
                           trackingActions.goToPage(page)
                         }
@@ -729,8 +729,8 @@ export default function Search() {
                           searchResults={searchResults}
                           selectedResults={selectedResults}
                           clauseTypePathByStandardId={clauseTypePathByStandardId}
-                          sortBy={currentSort ?? "year"}
-                          sortDirection={sortDirection}
+                          sort_by={currentSort ?? "year"}
+                          sort_direction={sort_direction}
                           onToggleResultSelection={toggleResultSelection}
                           onToggleSelectAll={toggleSelectAll}
                           onOpenAgreement={openAgreement}
@@ -739,7 +739,7 @@ export default function Search() {
                           density={resultsDensity}
                           onDensityChange={updateResultsDensity}
                           currentPage={currentPage}
-                          pageSize={pageSize}
+                          page_size={page_size}
                         />
                       </Suspense>
 
@@ -771,9 +771,9 @@ export default function Search() {
 
                       <SearchPagination
                         currentPage={currentPage}
-                        totalPages={totalPages}
-                        pageSize={pageSize}
-                        totalCount={totalCount}
+                        totalPages={total_pages}
+                        pageSize={page_size}
+                        totalCount={total_count}
                         onPageChange={(page) =>
                           trackingActions.goToPage(page)
                         }
@@ -807,8 +807,8 @@ export default function Search() {
           <AgreementModal
             isOpen={!!selectedAgreement}
             onClose={closeAgreement}
-            agreementUuid={selectedAgreement.agreementUuid}
-            targetSectionUuid={selectedAgreement.sectionUuid}
+            agreement_uuid={selectedAgreement.agreement_uuid}
+            targetSectionUuid={selectedAgreement.section_uuid}
             agreementMetadata={selectedAgreement.metadata}
           />
         </Suspense>

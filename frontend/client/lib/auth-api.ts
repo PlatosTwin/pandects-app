@@ -3,7 +3,7 @@ import { authFetchJson } from "@/lib/auth-fetch";
 import type { ApiKeySummary, AuthUser, UsageByDay } from "@/lib/auth-types";
 
 export type LegalAcceptancePayload = {
-  checkedAtMs: number;
+  checked_at_ms: number;
   docs: ["tos", "privacy", "license"];
 };
 
@@ -11,23 +11,23 @@ export async function registerWithEmail(
   email: string,
   password: string,
   legal: LegalAcceptancePayload,
-  captchaToken?: string,
+  captcha_token?: string,
 ) {
   return authFetchJson<{
     status: "verification_required";
     user: AuthUser;
-    debugToken?: string;
+    debug_token?: string;
   }>(apiUrl("v1/auth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
-      captchaToken ? { email, password, legal, captchaToken } : { email, password, legal },
+      captcha_token ? { email, password, legal, captcha_token } : { email, password, legal },
     ),
   });
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  return authFetchJson<{ user: AuthUser; sessionToken?: string }>(
+  return authFetchJson<{ user: AuthUser; session_token?: string }>(
     apiUrl("v1/auth/login"),
     {
       method: "POST",
@@ -59,8 +59,8 @@ export async function listApiKeys() {
 
 export async function createApiKey(name?: string) {
   return authFetchJson<{
-    apiKey: { id: string; name: string | null; prefix: string; createdAt: string };
-    apiKeyPlaintext: string;
+    api_key: { id: string; name: string | null; prefix: string; created_at: string };
+    api_key_plaintext: string;
   }>(apiUrl("v1/auth/api-keys"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -75,7 +75,7 @@ export async function revokeApiKey(id: string) {
 }
 
 export async function fetchUsage() {
-  return authFetchJson<{ byDay: UsageByDay[]; total: number }>(
+  return authFetchJson<{ by_day: UsageByDay[]; total: number }>(
     apiUrl("v1/auth/usage"),
   );
 }
@@ -84,7 +84,7 @@ export async function loginWithGoogleCredential(
   credential: string,
   legal?: LegalAcceptancePayload,
 ) {
-  return authFetchJson<{ user: AuthUser; sessionToken?: string }>(
+  return authFetchJson<{ user: AuthUser; session_token?: string }>(
     apiUrl("v1/auth/google/credential"),
     {
       method: "POST",
@@ -131,11 +131,11 @@ export type FlagInaccurateSource = "search_result" | "agreement_view";
 
 export async function flagAsInaccurate(payload: {
   source: FlagInaccurateSource;
-  agreementUuid: string;
-  sectionUuid?: string;
+  agreement_uuid: string;
+  section_uuid?: string;
   message?: string;
-  requestFollowUp: boolean;
-  issueTypes: string[];
+  request_follow_up: boolean;
+  issue_types: string[];
 }) {
   return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/flag-inaccurate"), {
     method: "POST",

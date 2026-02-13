@@ -36,8 +36,8 @@ const ISSUE_OPTIONS = [
 
 interface FlagAsInaccurateButtonProps {
   source: FlagInaccurateSource;
-  agreementUuid: string;
-  sectionUuid?: string;
+  agreement_uuid: string;
+  section_uuid?: string;
   className?: string;
   /** Preferred tooltip side. Use "left" when button is top-right (e.g. modal) to avoid viewport clipping. */
   tooltipSide?: "left" | "bottom";
@@ -45,8 +45,8 @@ interface FlagAsInaccurateButtonProps {
 
 export function FlagAsInaccurateButton({
   source,
-  agreementUuid,
-  sectionUuid,
+  agreement_uuid,
+  section_uuid,
   className,
   tooltipSide = "bottom",
 }: FlagAsInaccurateButtonProps) {
@@ -56,7 +56,7 @@ export function FlagAsInaccurateButton({
   const [submitting, setSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const [requestFollowUp, setRequestFollowUp] = useState(false);
+  const [request_follow_up, setRequestFollowUp] = useState(false);
   const [issueSelections, setIssueSelections] = useState<string[]>([]);
   const textareaId = useId();
   const isLoggedIn = status === "authenticated";
@@ -72,9 +72,9 @@ export function FlagAsInaccurateButton({
 
   const payload = {
     source,
-    agreementUuid,
-    ...(source === "search_result" && sectionUuid != null
-      ? { sectionUuid }
+    agreement_uuid,
+    ...(source === "search_result" && section_uuid != null
+      ? { section_uuid }
       : {}),
   };
 
@@ -86,8 +86,8 @@ export function FlagAsInaccurateButton({
       await flagAsInaccurate({
         ...payload,
         message: message.trim() || undefined,
-        requestFollowUp,
-        issueTypes: issueSelections,
+        request_follow_up,
+        issue_types: issueSelections,
       });
       toast({
         title: "Flag submitted",
@@ -218,7 +218,7 @@ export function FlagAsInaccurateButton({
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`${textareaId}-followup`}
-                checked={requestFollowUp}
+                checked={request_follow_up}
                 onCheckedChange={(value) =>
                   setRequestFollowUp(Boolean(value))
                 }
@@ -331,7 +331,7 @@ export function FlagAsInaccurateButton({
           <div className="flex items-center gap-2">
             <Checkbox
               id={`${textareaId}-followup`}
-              checked={requestFollowUp}
+              checked={request_follow_up}
               onCheckedChange={(value) => setRequestFollowUp(Boolean(value))}
             />
             <Label htmlFor={`${textareaId}-followup`}>

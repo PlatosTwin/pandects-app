@@ -91,7 +91,7 @@ export default function Account() {
 
   const [captchaEnabled, setCaptchaEnabled] = useState(false);
   const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captcha_token, setCaptchaToken] = useState<string | null>(null);
   const [captchaStatus, setCaptchaStatus] = useState<"loading" | "ready" | "unavailable">(
     "loading",
   );
@@ -104,7 +104,7 @@ export default function Account() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
-  const hasAnyKey = apiKeys.some((k) => !k.revokedAt);
+  const hasAnyKey = apiKeys.some((k) => !k.revoked_at);
   const emailNotVerifiedMessage = "Email address not verified.";
 
   const fetchWithTimeout = useCallback(
@@ -159,7 +159,7 @@ export default function Account() {
   const loadAccountData = async () => {
     const [keys, usage] = await Promise.all([listApiKeys(), fetchUsage()]);
     setApiKeys(keys.keys);
-    setUsageByDay(usage.byDay);
+    setUsageByDay(usage.by_day);
     setUsageTotal(usage.total);
   };
 
@@ -223,22 +223,22 @@ export default function Account() {
     setGooglePendingCredential(null);
     setGoogleNeedsLegal(false);
 
-    const resolveClientInfo = async (): Promise<{ clientId: string; nonce: string } | null> => {
+    const resolveClientInfo = async (): Promise<{ client_id: string; nonce: string } | null> => {
       try {
         const res = await fetch(apiUrl("v1/auth/google/client-id"), {
           credentials: "include",
         });
         if (!res.ok) return null;
-        const data = (await res.json()) as { clientId?: unknown; nonce?: unknown };
-        const clientId =
-          typeof data.clientId === "string" && data.clientId.trim().length > 0
-            ? data.clientId.trim()
+        const data = (await res.json()) as { client_id?: unknown; nonce?: unknown };
+        const client_id =
+          typeof data.client_id === "string" && data.client_id.trim().length > 0
+            ? data.client_id.trim()
             : null;
         const nonce =
           typeof data.nonce === "string" && data.nonce.trim().length > 0
             ? data.nonce.trim()
             : null;
-        return clientId && nonce ? { clientId, nonce } : null;
+        return client_id && nonce ? { client_id, nonce } : null;
       } catch {
         return null;
       }
@@ -264,7 +264,7 @@ export default function Account() {
         }
 
         window.google.accounts.id.initialize({
-          client_id: clientInfo.clientId,
+          client_id: clientInfo.client_id,
           nonce: clientInfo.nonce,
           callback: async ({ credential }) => {
             trackEvent("google_continue_click", { from_path: "/account" });
@@ -272,8 +272,8 @@ export default function Account() {
             try {
               const res = await loginWithGoogleCredential(credential);
               if (authSessionTransport() === "bearer") {
-                if (!res.sessionToken) throw new Error("Missing session token.");
-                setSessionToken(res.sessionToken);
+                if (!res.session_token) throw new Error("Missing session token.");
+                setSessionToken(res.session_token);
               }
               await refreshRef.current();
               toast({ title: "Signed in" });
@@ -381,11 +381,11 @@ export default function Account() {
           setCaptchaStatus("unavailable");
           return;
         }
-        const data = (await res.json()) as { enabled?: unknown; siteKey?: unknown };
+        const data = (await res.json()) as { enabled?: unknown; site_key?: unknown };
         const enabled = data.enabled === true;
         const resolvedSiteKey =
-          enabled && typeof data.siteKey === "string" && data.siteKey.trim()
-            ? data.siteKey.trim()
+          enabled && typeof data.site_key === "string" && data.site_key.trim()
+            ? data.site_key.trim()
             : null;
         setCaptchaEnabled(enabled);
         setCaptchaSiteKey(resolvedSiteKey);
@@ -540,12 +540,12 @@ export default function Account() {
                         submitted_at_ms: Date.now(),
                       });
                       const res = await loginWithGoogleCredential(googlePendingCredential, {
-                        checkedAtMs: legalCheckedAtMs,
+                        checked_at_ms: legalCheckedAtMs,
                         docs: ["tos", "privacy", "license"],
                       });
                       if (authSessionTransport() === "bearer") {
-                        if (!res.sessionToken) throw new Error("Missing session token.");
-                        setSessionToken(res.sessionToken);
+                        if (!res.session_token) throw new Error("Missing session token.");
+                        setSessionToken(res.session_token);
                       }
                       await refresh();
                       toast({ title: "Signed in" });
@@ -689,7 +689,7 @@ export default function Account() {
                     if (!legalCheckedAtMs) {
                       throw new Error("Please accept the Terms, Privacy Policy, and License.");
                     }
-                    if (captchaEnabled && !captchaToken) {
+                    if (captchaEnabled && !captcha_token) {
                       throw new Error("Please complete the captcha.");
                     }
                     trackEvent("legal_consent_submitted", {
@@ -701,10 +701,10 @@ export default function Account() {
                       email,
                       password,
                       {
-                        checkedAtMs: legalCheckedAtMs,
+                        checked_at_ms: legalCheckedAtMs,
                         docs: ["tos", "privacy", "license"],
                       },
-                      captchaToken ?? undefined,
+                      captcha_token ?? undefined,
                     );
                     toast({
                       title: "Check your email",
@@ -822,7 +822,7 @@ export default function Account() {
                     busy ||
                     authBackendStatus !== "ready" ||
                     !legalAccepted ||
-                    (captchaEnabled && !captchaToken)
+                    (captchaEnabled && !captcha_token)
                   }
                   className="w-64 justify-self-center"
                 >
@@ -882,7 +882,7 @@ export default function Account() {
                     setBusy(true);
                     try {
                       const created = await createApiKey(newKeyName || undefined);
-                      setRevealedKey(created.apiKeyPlaintext);
+                      setRevealedKey(created.api_key_plaintext);
                       setNewKeyName("");
                       await loadAccountData();
                     } catch (err) {
@@ -943,23 +943,23 @@ export default function Account() {
                               setBusy(false);
                             }
                           }}
-                          disabled={busy || !!k.revokedAt}
+                          disabled={busy || !!k.revoked_at}
                           className="shrink-0"
                         >
-                          {k.revokedAt ? "Revoked" : "Revoke"}
+                          {k.revoked_at ? "Revoked" : "Revoke"}
                         </Button>
                       </div>
                       <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
                         <div className="flex items-center justify-between gap-3">
                           <span>Created</span>
                           <span className="text-foreground">
-                            {formatDate(k.createdAt)}
+                            {formatDate(k.created_at)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <span>Last used</span>
                           <span className="text-foreground">
-                            {formatDate(k.lastUsedAt)}
+                            {formatDate(k.last_used_at)}
                           </span>
                         </div>
                       </div>
@@ -991,8 +991,8 @@ export default function Account() {
                         <tr key={k.id} className="border-b last:border-b-0">
                           <td className="py-3">{k.name ?? "—"}</td>
                           <td className="py-3 font-mono">{k.prefix}</td>
-                          <td className="py-3">{formatDate(k.createdAt)}</td>
-                          <td className="py-3">{formatDate(k.lastUsedAt)}</td>
+                          <td className="py-3">{formatDate(k.created_at)}</td>
+                          <td className="py-3">{formatDate(k.last_used_at)}</td>
                           <td className="py-3 text-right">
                             <Button
                               variant="outline"
@@ -1011,9 +1011,9 @@ export default function Account() {
                                   setBusy(false);
                                 }
                               }}
-                              disabled={busy || !!k.revokedAt}
+                              disabled={busy || !!k.revoked_at}
                             >
-                              {k.revokedAt ? "Revoked" : "Revoke"}
+                              {k.revoked_at ? "Revoked" : "Revoke"}
                             </Button>
                           </td>
                         </tr>

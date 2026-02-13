@@ -40,7 +40,7 @@ import {
 interface AgreementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  agreementUuid: string;
+  agreement_uuid: string;
   targetSectionUuid?: string;
   agreementMetadata?: {
     year: string;
@@ -52,7 +52,7 @@ interface AgreementModalProps {
 export function AgreementModal({
   isOpen,
   onClose,
-  agreementUuid,
+  agreement_uuid,
   targetSectionUuid,
   agreementMetadata,
 }: AgreementModalProps) {
@@ -200,12 +200,12 @@ export function AgreementModal({
   ];
 
   useEffect(() => {
-    if (isOpen && agreementUuid) {
-      fetchAgreement(agreementUuid, targetSectionUuid);
+    if (isOpen && agreement_uuid) {
+      fetchAgreement(agreement_uuid, targetSectionUuid);
     } else if (!isOpen) {
       clearAgreement();
     }
-  }, [isOpen, agreementUuid, targetSectionUuid, fetchAgreement, clearAgreement]);
+  }, [isOpen, agreement_uuid, targetSectionUuid, fetchAgreement, clearAgreement]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -285,14 +285,14 @@ export function AgreementModal({
   };
 
   const scrollToSection = (
-    sectionUuid: string,
+    section_uuid: string,
     shouldHighlight: boolean = false,
   ) => {
     if (!contentRef.current) return;
 
     // Find element with data-section-uuid attribute
     const sectionElement = contentRef.current.querySelector(
-      `[data-section-uuid="${sectionUuid}"]`,
+      `[data-section-uuid="${section_uuid}"]`,
     ) as HTMLElement;
 
     if (sectionElement) {
@@ -343,7 +343,7 @@ export function AgreementModal({
 
         // Add highlighting if requested
         if (shouldHighlight) {
-          setHighlightedSection(sectionUuid);
+          setHighlightedSection(section_uuid);
           // Remove highlight after animation
           setTimeout(() => {
             setHighlightedSection(null);
@@ -470,7 +470,7 @@ export function AgreementModal({
             <div className="flex items-center gap-1">
               <FlagAsInaccurateButton
                 source="agreement_view"
-                agreementUuid={agreementUuid}
+                agreement_uuid={agreement_uuid}
                 className="shrink-0"
                 tooltipSide="left"
               />
@@ -628,7 +628,7 @@ export function AgreementModal({
                 }}
               >
                 <div className="max-w-4xl mx-auto min-w-0">
-                  {agreement.isRedacted ? (
+                  {agreement.is_redacted ? (
                     <div className="mb-4">
                       <Alert>
                         <AlertTitle>Preview mode</AlertTitle>

@@ -1,16 +1,16 @@
 export interface AuthUser {
   id: string;
   email: string;
-  createdAt?: string;
+  created_at?: string;
 }
 
 export interface ApiKeySummary {
   id: string;
   name: string | null;
   prefix: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-  revokedAt: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 export interface UsageByDay {

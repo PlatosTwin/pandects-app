@@ -43,7 +43,7 @@ async function ensureCsrfToken(): Promise<string | null> {
     const res = await fetch(apiUrl("v1/auth/csrf"), { credentials: "include" });
     const data = (await res.json().catch(() => null)) as unknown;
     if (!data || typeof data !== "object") return null;
-    const token = (data as { csrfToken?: unknown }).csrfToken;
+    const token = (data as { csrf_token?: unknown }).csrf_token;
     return typeof token === "string" && token.trim() ? token.trim() : null;
   } catch {
     return null;

@@ -29,7 +29,7 @@ export interface Agreement {
   acquirer_pe: boolean | null;
   xml: string;
   url?: string;
-  isRedacted?: boolean;
+  is_redacted?: boolean;
 }
 
 // Table of Contents types for XML navigation

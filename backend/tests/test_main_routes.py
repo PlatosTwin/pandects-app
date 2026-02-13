@@ -77,19 +77,19 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
-        res = client.get("/v1/agreements-index?page=1&pageSize=2")
+        res = client.get("/v1/agreements-index?page=1&page_size=2")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("totalCount"), 1)
-        self.assertEqual(body.get("totalPages"), 1)
+        self.assertEqual(body.get("total_count"), 1)
+        self.assertEqual(body.get("total_pages"), 1)
         self.assertEqual(len(body.get("results", [])), 1)
 
     def test_search_basic(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?year=2020&page=1&pageSize=10")
+        res = client.get("/v1/search?year=2020&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("totalCount"), 1)
+        self.assertEqual(body.get("total_count"), 1)
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
 
@@ -99,19 +99,19 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get(f"/v1/sections/{section_uuid}")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("agreementUuid"), "a1")
-        self.assertEqual(body.get("sectionUuid"), section_uuid)
-        self.assertEqual(body.get("sectionStandardId"), ["s1"])
+        self.assertEqual(body.get("agreement_uuid"), "a1")
+        self.assertEqual(body.get("section_uuid"), section_uuid)
+        self.assertEqual(body.get("section_standard_id"), ["s1"])
         self.assertNotIn("articleStandardId", body)
 
     def test_agreement_redaction_for_anonymous(self):
         client = self.app.test_client()
         res = client.get(
-            "/v1/agreements/a1?focusSectionUuid=00000000-0000-0000-0000-000000000001&neighborSections=0"
+            "/v1/agreements/a1?focus_section_uuid=00000000-0000-0000-0000-000000000001&neighbor_sections=0"
         )
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertTrue(body.get("isRedacted"))
+        self.assertTrue(body.get("is_redacted"))
         xml = body.get("xml", "")
         self.assertIn("[REDACTED]", xml)
 

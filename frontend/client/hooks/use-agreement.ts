@@ -11,19 +11,19 @@ export function useAgreement() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAgreement = useCallback(
-    async (agreementUuid: string, focusSectionUuid?: string) => {
+    async (agreement_uuid: string, focus_section_uuid?: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
-      if (focusSectionUuid) {
-        params.set("focusSectionUuid", focusSectionUuid);
-        params.set("neighborSections", "1");
+      if (focus_section_uuid) {
+        params.set("focus_section_uuid", focus_section_uuid);
+        params.set("neighbor_sections", "1");
       }
       const suffix = params.toString() ? `?${params.toString()}` : "";
       const response = await authFetch(
-        apiUrl(`v1/agreements/${agreementUuid}${suffix}`),
+        apiUrl(`v1/agreements/${agreement_uuid}${suffix}`),
       );
 
       if (!response.ok) {

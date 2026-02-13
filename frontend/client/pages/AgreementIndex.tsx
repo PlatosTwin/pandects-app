@@ -68,25 +68,25 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type AgreementIndexRow = {
-  agreementUuid: string;
+  agreement_uuid: string;
   year: string | null;
   target: string | null;
   acquirer: string | null;
-  considerationType: string | null;
-  totalConsideration: string | number | null;
-  targetIndustry: string | null;
-  acquirerIndustry: string | null;
+  consideration_type: string | null;
+  total_consideration: string | number | null;
+  target_industry: string | null;
+  acquirer_industry: string | null;
   verified: boolean;
 };
 
 type AgreementIndexResponse = {
   results: AgreementIndexRow[];
   page: number;
-  pageSize: number;
-  totalCount: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 };
 
 type AgreementIndexSummary = {
@@ -98,13 +98,13 @@ type AgreementIndexSummary = {
 type AgreementStatusYearRow = {
   year: number;
   color: "green" | "yellow" | "red" | "gray";
-  currentStage: string;
+  current_stage: string;
   count: number;
 };
 
 type AgreementStatusSummaryResponse = {
   years: AgreementStatusYearRow[];
-  latestFilingDate: string | null;
+  latest_filing_date: string | null;
 };
 
 type SortColumn = "year" | "target" | "acquirer";
@@ -166,15 +166,15 @@ export default function AgreementIndex() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(25);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [sortBy, setSortBy] = useState<SortColumn>("year");
-  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+  const [page_size] = useState(25);
+  const [total_count, setTotalCount] = useState(0);
+  const [total_pages, setTotalPages] = useState(1);
+  const [sort_by, setSortBy] = useState<SortColumn>("year");
+  const [sort_dir, setSortDir] = useState<SortDirection>("desc");
   const [filterInput, setFilterInput] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
   const [selectedAgreement, setSelectedAgreement] = useState<{
-    agreementUuid: string;
+    agreement_uuid: string;
     year: string;
     target: string;
     acquirer: string;
@@ -238,7 +238,7 @@ export default function AgreementIndex() {
         const data = (await res.json()) as AgreementStatusSummaryResponse;
         if (!cancelled) {
           setStatusSummary(data.years ?? []);
-          setStatusSummaryLatestFilingDate(data.latestFilingDate ?? null);
+          setStatusSummaryLatestFilingDate(data.latest_filing_date ?? null);
           setStatusSummaryLoaded(true);
         }
       } catch (err) {
@@ -276,9 +276,9 @@ export default function AgreementIndex() {
         setError(null);
         const params = new URLSearchParams();
         params.set("page", String(page));
-        params.set("pageSize", String(pageSize));
-        params.set("sortBy", sortBy);
-        params.set("sortDir", sortDir);
+        params.set("page_size", String(page_size));
+        params.set("sort_by", sort_by);
+        params.set("sort_dir", sort_dir);
         if (filterQuery.trim()) {
           params.set("query", filterQuery.trim());
         }
@@ -293,8 +293,8 @@ export default function AgreementIndex() {
         const data = (await res.json()) as AgreementIndexResponse;
         if (!cancelled) {
           setAgreements(data.results);
-          setTotalCount(data.totalCount);
-          setTotalPages(Math.max(1, data.totalPages));
+          setTotalCount(data.total_count);
+          setTotalPages(Math.max(1, data.total_pages));
         }
       } catch (err) {
         if (!cancelled) {
@@ -316,7 +316,7 @@ export default function AgreementIndex() {
       cancelled = true;
       controller.abort();
     };
-  }, [page, pageSize, sortBy, sortDir, filterQuery]);
+  }, [page, page_size, sort_by, sort_dir, filterQuery]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -327,7 +327,7 @@ export default function AgreementIndex() {
   }, [filterInput]);
 
   const handleSort = (column: SortColumn) => {
-    if (column === sortBy) {
+    if (column === sort_by) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortBy(column);
@@ -337,23 +337,23 @@ export default function AgreementIndex() {
   };
 
   const pageItems = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (total_pages <= 7) {
+      return Array.from({ length: total_pages }, (_, i) => i + 1);
     }
 
     const items: Array<number | "ellipsis"> = [];
     items.push(1);
 
     const start = Math.max(2, page - 1);
-    const end = Math.min(totalPages - 1, page + 1);
+    const end = Math.min(total_pages - 1, page + 1);
 
     if (start > 2) items.push("ellipsis");
     for (let i = start; i <= end; i += 1) items.push(i);
-    if (end < totalPages - 1) items.push("ellipsis");
+    if (end < total_pages - 1) items.push("ellipsis");
 
-    items.push(totalPages);
+    items.push(total_pages);
     return items;
-  }, [page, totalPages]);
+  }, [page, total_pages]);
 
   const filteredLabel = filterQuery.trim()
     ? `Filtered by "${filterQuery.trim()}"`
@@ -485,7 +485,7 @@ export default function AgreementIndex() {
       ]),
     );
     statusSummary.forEach((row) => {
-      const entry = stageMap.get(row.currentStage as StageKey);
+      const entry = stageMap.get(row.current_stage as StageKey);
       if (!entry) return;
       const count = Math.max(0, Number(row.count || 0));
       if (row.color === "yellow") {
@@ -1080,7 +1080,7 @@ export default function AgreementIndex() {
                 />
               </div>
               <Badge variant="secondary" className="self-start sm:self-auto">
-                {totalCount.toLocaleString("en-US")} agreements
+                {total_count.toLocaleString("en-US")} agreements
               </Badge>
             </div>
           </div>
@@ -1092,8 +1092,8 @@ export default function AgreementIndex() {
                   <TableHead
                     scope="col"
                     aria-sort={
-                      sortBy === "year"
-                        ? sortDir === "asc"
+                      sort_by === "year"
+                        ? sort_dir === "asc"
                           ? "ascending"
                           : "descending"
                         : "none"
@@ -1106,8 +1106,8 @@ export default function AgreementIndex() {
                       className="h-8 px-2 hover:bg-muted/40"
                     >
                       Year
-                      {sortBy === "year" ? (
-                        sortDir === "asc" ? (
+                      {sort_by === "year" ? (
+                        sort_dir === "asc" ? (
                           <ArrowUp
                             className="ml-2 h-4 w-4"
                             aria-hidden="true"
@@ -1129,8 +1129,8 @@ export default function AgreementIndex() {
                   <TableHead
                     scope="col"
                     aria-sort={
-                      sortBy === "target"
-                        ? sortDir === "asc"
+                      sort_by === "target"
+                        ? sort_dir === "asc"
                           ? "ascending"
                           : "descending"
                         : "none"
@@ -1143,8 +1143,8 @@ export default function AgreementIndex() {
                       className="h-8 px-2 hover:bg-muted/40"
                     >
                       Target
-                      {sortBy === "target" ? (
-                        sortDir === "asc" ? (
+                      {sort_by === "target" ? (
+                        sort_dir === "asc" ? (
                           <ArrowUp
                             className="ml-2 h-4 w-4"
                             aria-hidden="true"
@@ -1166,8 +1166,8 @@ export default function AgreementIndex() {
                   <TableHead
                     scope="col"
                     aria-sort={
-                      sortBy === "acquirer"
-                        ? sortDir === "asc"
+                      sort_by === "acquirer"
+                        ? sort_dir === "asc"
                           ? "ascending"
                           : "descending"
                         : "none"
@@ -1180,8 +1180,8 @@ export default function AgreementIndex() {
                       className="h-8 px-2 hover:bg-muted/40"
                     >
                       Acquirer
-                      {sortBy === "acquirer" ? (
-                        sortDir === "asc" ? (
+                      {sort_by === "acquirer" ? (
+                        sort_dir === "asc" ? (
                           <ArrowUp
                             className="ml-2 h-4 w-4"
                             aria-hidden="true"
@@ -1244,7 +1244,7 @@ export default function AgreementIndex() {
                   </TableRow>
                 ) : (
                   agreements.map((agreement) => (
-                    <TableRow key={agreement.agreementUuid}>
+                    <TableRow key={agreement.agreement_uuid}>
                       <TableCell className="whitespace-nowrap">
                         <Badge variant="outline">
                           {formatYear(agreement.year)}
@@ -1255,7 +1255,7 @@ export default function AgreementIndex() {
                           type="button"
                           onClick={() =>
                             setSelectedAgreement({
-                              agreementUuid: agreement.agreementUuid,
+                              agreement_uuid: agreement.agreement_uuid,
                               year: agreement.year ?? "",
                               target: agreement.target ?? "",
                               acquirer: agreement.acquirer ?? "",
@@ -1275,10 +1275,10 @@ export default function AgreementIndex() {
                         {formatValue(agreement.acquirer)}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {formatValue(agreement.considerationType)}
+                        {formatValue(agreement.consideration_type)}
                       </TableCell>
                       <TableCell className="hidden xl:table-cell text-muted-foreground">
-                        {formatValue(agreement.totalConsideration)}
+                        {formatValue(agreement.total_consideration)}
                       </TableCell>
                       <TableCell className="text-right">
                         {agreement.verified ? (
@@ -1348,7 +1348,7 @@ export default function AgreementIndex() {
             ) : (
               agreements.map((agreement) => (
                 <Card
-                  key={`mobile-${agreement.agreementUuid}`}
+                  key={`mobile-${agreement.agreement_uuid}`}
                   className="border-border/60 hover:shadow-md transition-shadow duration-200"
                 >
                   <CardContent className="space-y-3 p-4">
@@ -1377,7 +1377,7 @@ export default function AgreementIndex() {
                           type="button"
                           onClick={() =>
                             setSelectedAgreement({
-                              agreementUuid: agreement.agreementUuid,
+                              agreement_uuid: agreement.agreement_uuid,
                               year: agreement.year ?? "",
                               target: agreement.target ?? "",
                               acquirer: agreement.acquirer ?? "",
@@ -1401,7 +1401,7 @@ export default function AgreementIndex() {
                           Consideration type
                         </div>
                         <div className="mt-1 text-muted-foreground">
-                          {formatValue(agreement.considerationType)}
+                          {formatValue(agreement.consideration_type)}
                         </div>
                       </div>
                       <div>
@@ -1409,7 +1409,7 @@ export default function AgreementIndex() {
                           Total consideration
                         </div>
                         <div className="mt-1 text-muted-foreground">
-                          {formatValue(agreement.totalConsideration)}
+                          {formatValue(agreement.total_consideration)}
                         </div>
                       </div>
                     </div>
@@ -1421,7 +1421,7 @@ export default function AgreementIndex() {
 
           <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
+              Page {page} of {total_pages}
             </div>
             <Pagination className="justify-end sm:justify-center">
               <PaginationContent>
@@ -1463,10 +1463,10 @@ export default function AgreementIndex() {
                     href="#"
                     onClick={(event) => {
                       event.preventDefault();
-                      if (page < totalPages) setPage(page + 1);
+                      if (page < total_pages) setPage(page + 1);
                     }}
                     className={cn(
-                      page === totalPages && "pointer-events-none opacity-50",
+                      page === total_pages && "pointer-events-none opacity-50",
                       "text-foreground",
                     )}
                   />
@@ -1481,7 +1481,7 @@ export default function AgreementIndex() {
         <AgreementModal
           isOpen={!!selectedAgreement}
           onClose={() => setSelectedAgreement(null)}
-          agreementUuid={selectedAgreement.agreementUuid}
+          agreement_uuid={selectedAgreement.agreement_uuid}
           agreementMetadata={{
             year: selectedAgreement.year,
             target: selectedAgreement.target,

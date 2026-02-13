@@ -19,37 +19,37 @@ export function useSearch() {
     target: [],
     acquirer: [],
     clauseType: [],
-    standardId: [],
-    transactionPriceTotal: [],
-    transactionPriceStock: [],
-    transactionPriceCash: [],
-    transactionPriceAssets: [],
-    transactionConsideration: [],
-    targetType: [],
-    acquirerType: [],
-    targetIndustry: [],
-    acquirerIndustry: [],
-    dealStatus: [],
+    standard_id: [],
+    transaction_price_total: [],
+    transaction_price_stock: [],
+    transaction_price_cash: [],
+    transaction_price_assets: [],
+    transaction_consideration: [],
+    target_type: [],
+    acquirer_type: [],
+    target_industry: [],
+    acquirer_industry: [],
+    deal_status: [],
     attitude: [],
-    dealType: [],
+    deal_type: [],
     purpose: [],
-    targetPe: [],
-    acquirerPe: [],
+    target_pe: [],
+    acquirer_pe: [],
     page: DEFAULT_PAGE,
-    pageSize: DEFAULT_PAGE_SIZE,
+    page_size: DEFAULT_PAGE_SIZE,
   });
 
   // Helper function to sort results
   const sortResultsArray = useCallback((
     results: SearchResult[],
-    sortBy: "year" | "target" | "acquirer" | null,
+    sort_by: "year" | "target" | "acquirer" | null,
     direction: "asc" | "desc",
   ): SearchResult[] => {
-    if (!sortBy) return results;
+    if (!sort_by) return results;
 
     return [...results].sort((a, b) => {
       let comparison = 0;
-      switch (sortBy) {
+      switch (sort_by) {
         case "year":
           comparison = parseInt(a.year, 10) - parseInt(b.year, 10);
           break;
@@ -72,31 +72,31 @@ export function useSearch() {
     new Set(),
   );
   const [hasSearched, setHasSearched] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [total_count, setTotalCount] = useState(0);
+  const [total_pages, setTotalPages] = useState(0);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentSort, setCurrentSort] = useState<
     "year" | "target" | "acquirer" | null
   >("year");
   const searchResultsRef = useRef<SearchResult[]>([]);
-  const lastSortRef = useRef<{ sortBy: typeof currentSort; direction: "asc" | "desc" }>({
-    sortBy: "year",
+  const lastSortRef = useRef<{ sort_by: typeof currentSort; direction: "asc" | "desc" }>({
+    sort_by: "year",
     direction: "desc",
   });
   // Pagination metadata from API
-  const [hasNext, setHasNext] = useState(false);
-  const [hasPrev, setHasPrev] = useState(false);
-  const [nextNum, setNextNum] = useState<number | null>(null);
-  const [prevNum, setPrevNum] = useState<number | null>(null);
+  const [has_next, setHasNext] = useState(false);
+  const [has_prev, setHasPrev] = useState(false);
+  const [next_num, setNextNum] = useState<number | null>(null);
+  const [prev_num, setPrevNum] = useState<number | null>(null);
   const [access, setAccess] = useState<SearchResponse["access"]>({
     tier: "anonymous",
   });
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[] | number) => {
-      if (field === "page" || field === "pageSize") {
+      if (field === "page" || field === "page_size") {
         setFilters((prev) => ({ ...prev, [field]: value as number }));
       } else {
         setFilters((prev) => ({ ...prev, [field]: value as string[] }));
@@ -110,13 +110,13 @@ export function useSearch() {
       ...prev,
       ...next,
       page: next.page ?? prev.page,
-      pageSize: next.pageSize ?? prev.pageSize,
+      page_size: next.page_size ?? prev.page_size,
     }));
   }, []);
 
   const toggleFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
-      if (field === "page" || field === "pageSize") return;
+      if (field === "page" || field === "page_size") return;
 
       setFilters((prev) => {
         const currentValues = (prev[field] as string[]) || [];
@@ -131,7 +131,7 @@ export function useSearch() {
 
   const setTextFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
-      if (field === "page" || field === "pageSize") return;
+      if (field === "page" || field === "page_size") return;
 
       const trimmedValue = value.trim();
       setFilters((prev) => ({
@@ -153,7 +153,7 @@ export function useSearch() {
       markAsSearched: boolean = resetPage,
       filtersOverride?: SearchFilters,
       overrideSortBy?: typeof currentSort,
-      overrideSortDirection?: typeof sortDirection,
+      overrideSortDirection?: typeof sort_direction,
     ) => {
       setIsSearching(true);
       setShowErrorModal(false);
@@ -179,21 +179,21 @@ export function useSearch() {
             targets_count: searchFilters.target?.length ?? 0,
             acquirers_count: searchFilters.acquirer?.length ?? 0,
             clause_types_count: searchFilters.clauseType?.length ?? 0,
-            standard_ids_count: searchFilters.standardId?.length ?? 0,
+            standard_ids_count: searchFilters.standard_id?.length ?? 0,
             page: searchFilters.page,
-            page_size: searchFilters.pageSize,
+            page_size: searchFilters.page_size,
             sort_by: currentSort ?? "none",
-            sort_direction: sortDirection,
+            sort_direction: sort_direction,
           });
         }
 
         const params = buildSearchParams(searchFilters, clauseTypesNested);
         // Add sort parameters to the API request
         const effectiveSortBy = overrideSortBy ?? currentSort;
-        const effectiveSortDirection = overrideSortDirection ?? sortDirection;
+        const effectiveSortDirection = overrideSortDirection ?? sort_direction;
         if (effectiveSortBy) {
-          params.append("sortBy", effectiveSortBy);
-          params.append("sortDirection", effectiveSortDirection);
+          params.append("sort_by", effectiveSortBy);
+          params.append("sort_direction", effectiveSortDirection);
         }
 
         const queryString = params.toString();
@@ -220,7 +220,7 @@ export function useSearch() {
           setFilters((prev) => ({
             ...prev,
             page: searchResponse.page,
-            pageSize: searchResponse.pageSize,
+            page_size: searchResponse.page_size,
           }));
         }
 
@@ -228,26 +228,26 @@ export function useSearch() {
         const sortedResults = sortResultsArray(
           searchResponse.results,
           currentSort ?? "year",
-          sortDirection,
+          sort_direction,
         );
 
         setSearchResults(sortedResults);
         // Update the ref to track current results
         searchResultsRef.current = sortedResults;
         setAccess(searchResponse.access);
-        setTotalCount(searchResponse.totalCount);
-        setTotalPages(searchResponse.totalPages);
-        setHasNext(searchResponse.hasNext);
-        setHasPrev(searchResponse.hasPrev);
-        setNextNum(searchResponse.nextNum);
-        setPrevNum(searchResponse.prevNum);
+        setTotalCount(searchResponse.total_count);
+        setTotalPages(searchResponse.total_pages);
+        setHasNext(searchResponse.has_next);
+        setHasPrev(searchResponse.has_prev);
+        setNextNum(searchResponse.next_num);
+        setPrevNum(searchResponse.prev_num);
 
         if (markAsSearched) {
           trackEvent("search_results_loaded", {
-            total_count: searchResponse.totalCount,
-            total_pages: searchResponse.totalPages,
+            total_count: searchResponse.total_count,
+            total_pages: searchResponse.total_pages,
             page: searchFilters.page,
-            page_size: searchFilters.pageSize,
+            page_size: searchFilters.page_size,
           });
         }
       } catch (error) {
@@ -281,7 +281,7 @@ export function useSearch() {
         setIsSearching(false);
       }
     },
-    [filters, currentSort, sortDirection, sortResultsArray],
+    [filters, currentSort, sort_direction, sortResultsArray],
   );
 
   // Helper function to check if any filters are applied
@@ -291,27 +291,27 @@ export function useSearch() {
       (searchFilters.target && searchFilters.target.length > 0) ||
       (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
       (searchFilters.clauseType && searchFilters.clauseType.length > 0) ||
-      (searchFilters.transactionPriceTotal &&
-        searchFilters.transactionPriceTotal.length > 0) ||
-      (searchFilters.transactionPriceStock &&
-        searchFilters.transactionPriceStock.length > 0) ||
-      (searchFilters.transactionPriceCash &&
-        searchFilters.transactionPriceCash.length > 0) ||
-      (searchFilters.transactionPriceAssets &&
-        searchFilters.transactionPriceAssets.length > 0) ||
-      (searchFilters.transactionConsideration &&
-        searchFilters.transactionConsideration.length > 0) ||
-      (searchFilters.targetType && searchFilters.targetType.length > 0) ||
-      (searchFilters.acquirerType && searchFilters.acquirerType.length > 0) ||
-      (searchFilters.targetIndustry && searchFilters.targetIndustry.length > 0) ||
-      (searchFilters.acquirerIndustry &&
-        searchFilters.acquirerIndustry.length > 0) ||
-      (searchFilters.dealStatus && searchFilters.dealStatus.length > 0) ||
+      (searchFilters.transaction_price_total &&
+        searchFilters.transaction_price_total.length > 0) ||
+      (searchFilters.transaction_price_stock &&
+        searchFilters.transaction_price_stock.length > 0) ||
+      (searchFilters.transaction_price_cash &&
+        searchFilters.transaction_price_cash.length > 0) ||
+      (searchFilters.transaction_price_assets &&
+        searchFilters.transaction_price_assets.length > 0) ||
+      (searchFilters.transaction_consideration &&
+        searchFilters.transaction_consideration.length > 0) ||
+      (searchFilters.target_type && searchFilters.target_type.length > 0) ||
+      (searchFilters.acquirer_type && searchFilters.acquirer_type.length > 0) ||
+      (searchFilters.target_industry && searchFilters.target_industry.length > 0) ||
+      (searchFilters.acquirer_industry &&
+        searchFilters.acquirer_industry.length > 0) ||
+      (searchFilters.deal_status && searchFilters.deal_status.length > 0) ||
       (searchFilters.attitude && searchFilters.attitude.length > 0) ||
-      (searchFilters.dealType && searchFilters.dealType.length > 0) ||
+      (searchFilters.deal_type && searchFilters.deal_type.length > 0) ||
       (searchFilters.purpose && searchFilters.purpose.length > 0) ||
-      (searchFilters.targetPe && searchFilters.targetPe.length > 0) ||
-      (searchFilters.acquirerPe && searchFilters.acquirerPe.length > 0)
+      (searchFilters.target_pe && searchFilters.target_pe.length > 0) ||
+      (searchFilters.acquirer_pe && searchFilters.acquirer_pe.length > 0)
     );
   };
 
@@ -331,7 +331,7 @@ export function useSearch() {
           const searchFilters = {
             ...filters,
             page: undefined,
-            pageSize: undefined,
+            page_size: undefined,
           };
           const params = buildSearchParams(
             searchFilters,
@@ -340,7 +340,7 @@ export function useSearch() {
           );
 
           // Set a very large page size to get all results
-          params.append("pageSize", LARGE_PAGE_SIZE_FOR_CSV.toString());
+          params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
           params.append("page", DEFAULT_PAGE.toString());
 
           const queryString = params.toString();
@@ -381,7 +381,7 @@ export function useSearch() {
         targets_count: filters.target?.length ?? 0,
         acquirers_count: filters.acquirer?.length ?? 0,
         clause_types_count: filters.clauseType?.length ?? 0,
-        standard_ids_count: filters.standardId?.length ?? 0,
+        standard_ids_count: filters.standard_id?.length ?? 0,
       });
 
       // Create CSV content
@@ -403,11 +403,11 @@ export function useSearch() {
             result.year,
             `"${result.target}"`,
             `"${result.acquirer}"`,
-            `"${result.articleTitle}"`,
-            `"${result.sectionTitle}"`,
+            `"${result.article_title}"`,
+            `"${result.section_title}"`,
             `"${(result.xml ?? "").replace(/"/g, '""')}"`,
-            result.sectionUuid,
-            result.agreementUuid,
+            result.section_uuid,
+            result.agreement_uuid,
           ].join(","),
         ),
       ].join("\n");
@@ -433,26 +433,26 @@ export function useSearch() {
       target: [],
       acquirer: [],
       clauseType: [],
-      standardId: [],
-      transactionPriceTotal: [],
-      transactionPriceStock: [],
-      transactionPriceCash: [],
-      transactionPriceAssets: [],
-      transactionConsideration: [],
-      targetType: [],
-      acquirerType: [],
-      targetIndustry: [],
-      acquirerIndustry: [],
-      dealStatus: [],
+      standard_id: [],
+      transaction_price_total: [],
+      transaction_price_stock: [],
+      transaction_price_cash: [],
+      transaction_price_assets: [],
+      transaction_consideration: [],
+      target_type: [],
+      acquirer_type: [],
+      target_industry: [],
+      acquirer_industry: [],
+      deal_status: [],
       attitude: [],
-      dealType: [],
+      deal_type: [],
       purpose: [],
-      targetPe: [],
-      acquirerPe: [],
-      agreementUuid: undefined,
-      sectionUuid: undefined,
+      target_pe: [],
+      acquirer_pe: [],
+      agreement_uuid: undefined,
+      section_uuid: undefined,
       page: DEFAULT_PAGE,
-      pageSize: DEFAULT_PAGE_SIZE,
+      page_size: DEFAULT_PAGE_SIZE,
     });
     setSearchResults([]);
     searchResultsRef.current = [];
@@ -476,8 +476,8 @@ export function useSearch() {
   );
 
   const changePageSize = useCallback(
-    async (pageSize: number, clauseTypesNested?: ClauseTypeTree) => {
-      const nextFilters: SearchFilters = { ...filters, pageSize, page: 1 };
+    async (page_size: number, clauseTypesNested?: ClauseTypeTree) => {
+      const nextFilters: SearchFilters = { ...filters, page_size, page: 1 };
       setFilters(nextFilters);
       await performSearch(false, clauseTypesNested, false, nextFilters);
     },
@@ -490,23 +490,23 @@ export function useSearch() {
   }, []);
 
   const sortResults = useCallback(
-    (sortBy: "year" | "target" | "acquirer") => {
-      setCurrentSort(sortBy);
+    (sort_by: "year" | "target" | "acquirer") => {
+      setCurrentSort(sort_by);
       setSearchResults((prev) => {
-        const sorted = sortResultsArray(prev, sortBy, sortDirection);
+        const sorted = sortResultsArray(prev, sort_by, sort_direction);
         searchResultsRef.current = sorted;
         return sorted;
       });
     },
-    [sortDirection, sortResultsArray],
+    [sort_direction, sortResultsArray],
   );
 
   const toggleSortDirection = useCallback(() => {
-    const newDirection = sortDirection === "asc" ? "desc" : "asc";
+    const newDirection = sort_direction === "asc" ? "desc" : "asc";
     setSortDirection(newDirection);
     // Pass the new direction directly so it's used immediately without waiting for state update
     performSearch(false, undefined, false, undefined, currentSort, newDirection);
-  }, [sortDirection, currentSort, performSearch]);
+  }, [sort_direction, currentSort, performSearch]);
 
   // Result selection handlers
   const toggleResultSelection = useCallback((resultId: string) => {
@@ -558,14 +558,14 @@ export function useSearch() {
     selectedResults,
     hasSearched,
     access,
-    totalCount,
-    totalPages,
+    total_count,
+    total_pages,
     currentSort,
     currentPage: filters.page || 1,
-    pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
+    page_size: filters.page_size || DEFAULT_PAGE_SIZE,
     showErrorModal,
     errorMessage,
-    sortDirection,
+    sort_direction,
     actions: {
       updateFilter,
       hydrateFilters,

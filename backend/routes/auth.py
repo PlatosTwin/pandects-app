@@ -47,7 +47,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "createdAt": user.created_at.isoformat(),
+                    "created_at": user.created_at.isoformat(),
                 },
             }
             if (
@@ -55,7 +55,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
                 and current_app.debug
             ):
-                payload["debugToken"] = verify_token
+                payload["debug_token"] = verify_token
             resp = make_response(jsonify(payload), 201)
             resp.headers["Cache-Control"] = "no-store"
             app_module._clear_auth_cookies(resp)
@@ -77,7 +77,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                     "user": {
                         "id": existing.id,
                         "email": existing.email,
-                        "createdAt": existing.created_at.isoformat(),
+                        "created_at": existing.created_at.isoformat(),
                     },
                 }
                 if (
@@ -85,7 +85,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                     and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
                     and current_app.debug
                 ):
-                    payload["debugToken"] = verify_token
+                    payload["debug_token"] = verify_token
                 app_module._auth_enumeration_delay()
                 resp = make_response(jsonify(payload), 201)
                 resp.headers["Cache-Control"] = "no-store"
@@ -136,11 +136,11 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "createdAt": user.created_at.isoformat(),
+                "created_at": user.created_at.isoformat(),
             },
         }
         if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and current_app.debug:
-            payload["debugToken"] = verify_token
+            payload["debug_token"] = verify_token
         resp = make_response(jsonify(payload), 201)
         resp.headers["Cache-Control"] = "no-store"
         app_module._clear_auth_cookies(resp)
@@ -166,7 +166,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             token = app_module._issue_session_token(user.id)
             payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
             if app_module._auth_session_transport() == "bearer":
-                payload["sessionToken"] = token
+                payload["session_token"] = token
             resp = make_response(jsonify(payload))
             resp.headers["Cache-Control"] = "no-store"
             if app_module._auth_session_transport() == "cookie":
@@ -189,7 +189,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             token = app_module._issue_session_token(user.id)
             payload = {"user": {"id": user.id, "email": user.email}}
             if app_module._auth_session_transport() == "bearer":
-                payload["sessionToken"] = token
+                payload["session_token"] = token
             resp = make_response(jsonify(payload))
             resp.headers["Cache-Control"] = "no-store"
             if app_module._auth_session_transport() == "cookie":
@@ -401,7 +401,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         if app_module._auth_session_transport() == "cookie":
             existing = app_module._csrf_cookie_value()
             token = existing or secrets.token_urlsafe(32)
-            resp = make_response(jsonify({"status": "ok", "csrfToken": token}))
+            resp = make_response(jsonify({"status": "ok", "csrf_token": token}))
             resp.headers["Cache-Control"] = "no-store"
             if existing is None:
                 app_module._set_csrf_cookie(resp, token, max_age=60 * 60 * 24 * 14)
@@ -450,9 +450,9 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                                 "id": k.id,
                                 "name": k.name,
                                 "prefix": k.prefix,
-                                "createdAt": k.created_at.isoformat(),
-                                "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
-                                "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
+                                "created_at": k.created_at.isoformat(),
+                                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+                                "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
                             }
                             for k in keys
                         ]
@@ -477,9 +477,9 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                             "id": k.id,
                             "name": k.name,
                             "prefix": k.prefix,
-                            "createdAt": k.created_at.isoformat(),
-                            "lastUsedAt": k.last_used_at.isoformat() if k.last_used_at else None,
-                            "revokedAt": k.revoked_at.isoformat() if k.revoked_at else None,
+                            "created_at": k.created_at.isoformat(),
+                            "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+                            "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
                         }
                         for k in keys
                     ]
@@ -506,13 +506,13 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             resp = make_response(
                 jsonify(
                     {
-                        "apiKey": {
+                        "api_key": {
                             "id": key.id,
                             "name": key.name,
                             "prefix": key.prefix,
-                            "createdAt": key.created_at.isoformat(),
+                            "created_at": key.created_at.isoformat(),
                         },
-                        "apiKeyPlaintext": plaintext,
+                        "api_key_plaintext": plaintext,
                     }
                 )
             )
@@ -525,13 +525,13 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         resp = make_response(
             jsonify(
                 {
-                    "apiKey": {
+                    "api_key": {
                         "id": key.id,
                         "name": key.name,
                         "prefix": key.prefix,
-                        "createdAt": key.created_at.isoformat(),
+                        "created_at": key.created_at.isoformat(),
                     },
-                    "apiKeyPlaintext": plaintext,
+                    "api_key_plaintext": plaintext,
                 }
             )
         )
@@ -569,14 +569,14 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         user, _ctx = app_module._require_verified_user()
         if app_module._auth_is_mocked():
             by_day, total = app_module._mock_auth.usage_for_user(user_id=user.id)
-            resp = make_response(jsonify({"byDay": by_day, "total": total}))
+            resp = make_response(jsonify({"by_day": by_day, "total": total}))
             resp.headers["Cache-Control"] = "no-store"
             return resp
         cutoff = app_module._utc_today() - timedelta(days=29)
         try:
             key_ids = [k.id for k in app_module.ApiKey.query.filter_by(user_id=user.id).all()]
             if not key_ids:
-                return jsonify({"byDay": [], "total": 0})
+                return jsonify({"by_day": [], "total": 0})
 
             rows = (
                 app_module.ApiUsageDaily.query.filter(app_module.ApiUsageDaily.api_key_id.in_(key_ids))
@@ -594,7 +594,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             resp = make_response(
                 jsonify(
                     {
-                        "byDay": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
+                        "by_day": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
                         "total": total,
                     }
                 )
@@ -681,7 +681,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         if app_module._auth_is_mocked():
             abort(501, description="Google auth is unavailable in mock auth mode.")
         nonce = secrets.token_urlsafe(32)
-        resp = make_response(jsonify({"clientId": app_module._google_oauth_client_id(), "nonce": nonce}))
+        resp = make_response(jsonify({"client_id": app_module._google_oauth_client_id(), "nonce": nonce}))
         resp.headers["Cache-Control"] = "no-store"
         app_module._set_google_nonce_cookie(resp, nonce)
         return resp
@@ -693,17 +693,17 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             payload: dict[str, object] = {"enabled": False}
             if current_app.debug:
                 payload["debug"] = {
-                    "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
+                    "turnstile_enabled": os.environ.get("TURNSTILE_ENABLED"),
                     "has_site_key": bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()),
                     "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
                 }
             resp = make_response(jsonify(payload))
             resp.headers["Cache-Control"] = "no-store"
             return resp
-        payload: dict[str, object] = {"enabled": True, "siteKey": app_module._turnstile_site_key()}
+        payload: dict[str, object] = {"enabled": True, "site_key": app_module._turnstile_site_key()}
         if current_app.debug:
             payload["debug"] = {
-                "TURNSTILE_ENABLED": os.environ.get("TURNSTILE_ENABLED"),
+                "turnstile_enabled": os.environ.get("TURNSTILE_ENABLED"),
                 "has_site_key": True,
                 "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
             }
@@ -883,7 +883,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         token = app_module._issue_session_token(user.id)
         payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
         if app_module._auth_session_transport() == "bearer":
-            payload["sessionToken"] = token
+            payload["session_token"] = token
         resp = make_response(jsonify(payload))
         resp.headers["Cache-Control"] = "no-store"
         if app_module._auth_session_transport() == "cookie":
@@ -915,26 +915,26 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         user, _ctx = app_module._require_verified_user()
         data = app_module._load_json(app_module.AuthFlagInaccurateSchema())
         source = (data.get("source") or "").strip()
-        agreement_uuid = (data.get("agreementUuid") or "").strip()
+        agreement_uuid = (data.get("agreement_uuid") or "").strip()
         raw_message = data.get("message")
         message = raw_message.strip() if isinstance(raw_message, str) else None
-        section_uuid = data.get("sectionUuid")
+        section_uuid = data.get("section_uuid")
         section_uuid = section_uuid.strip() if isinstance(section_uuid, str) else None
-        request_follow_up = data.get("requestFollowUp")
+        request_follow_up = data.get("request_follow_up")
         if request_follow_up is None:
             request_follow_up = False
         if not isinstance(request_follow_up, bool):
-            abort(400, description="requestFollowUp must be a boolean.")
-        issue_types = data.get("issueTypes")
+            abort(400, description="request_follow_up must be a boolean.")
+        issue_types = data.get("issue_types")
         if issue_types is None:
             issue_types = []
         if not isinstance(issue_types, list) or not all(
             isinstance(item, str) for item in issue_types
         ):
-            abort(400, description="issueTypes must be a list of strings.")
+            abort(400, description="issue_types must be a list of strings.")
         issue_types = [item.strip() for item in issue_types if item and item.strip()]
         if not issue_types:
-            abort(400, description="issueTypes is required.")
+            abort(400, description="issue_types is required.")
         allowed_issue_types = {
             "Incorrect tagging (Article/Section)",
             "Corrupted formatting",
@@ -944,13 +944,13 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             "Something else",
         }
         if any(item not in allowed_issue_types for item in issue_types):
-            abort(400, description="issueTypes contains an invalid value.")
+            abort(400, description="issue_types contains an invalid value.")
         if source not in ("search_result", "agreement_view"):
             abort(400, description="Invalid source. Use 'search_result' or 'agreement_view'.")
         if not agreement_uuid:
-            abort(400, description="agreementUuid is required.")
+            abort(400, description="agreement_uuid is required.")
         if source == "search_result" and not section_uuid:
-            abort(400, description="sectionUuid is required when source is 'search_result'.")
+            abort(400, description="section_uuid is required when source is 'search_result'.")
         if source == "agreement_view":
             section_uuid = None
         if not current_app.testing and not app_module._is_agreement_section_eligible(

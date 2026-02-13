@@ -27,29 +27,29 @@ interface SearchSidebarProps {
     target?: string[];
     acquirer?: string[];
     clauseType?: string[];
-    transactionPriceTotal?: string[];
-    transactionPriceStock?: string[];
-    transactionPriceCash?: string[];
-    transactionPriceAssets?: string[];
-    transactionConsideration?: string[];
-    targetType?: string[];
-    acquirerType?: string[];
-    targetIndustry?: string[];
-    acquirerIndustry?: string[];
-    dealStatus?: string[];
+    transaction_price_total?: string[];
+    transaction_price_stock?: string[];
+    transaction_price_cash?: string[];
+    transaction_price_assets?: string[];
+    transaction_consideration?: string[];
+    target_type?: string[];
+    acquirer_type?: string[];
+    target_industry?: string[];
+    acquirer_industry?: string[];
+    deal_status?: string[];
     attitude?: string[];
-    dealType?: string[];
+    deal_type?: string[];
     purpose?: string[];
-    targetPe?: string[];
-    acquirerPe?: string[];
-    agreementUuid?: string;
-    sectionUuid?: string;
+    target_pe?: string[];
+    acquirer_pe?: string[];
+    agreement_uuid?: string;
+    section_uuid?: string;
   };
   years: string[];
   targets: string[];
   acquirers: string[];
-  targetIndustries: string[];
-  acquirerIndustries: string[];
+  target_industries: string[];
+  acquirer_industries: string[];
   clauseTypesNested: ClauseTypeTree;
   clauseTypeLabelById: Record<string, string>;
   isLoadingFilterOptions: boolean;
@@ -68,8 +68,8 @@ export function SearchSidebar({
   years,
   targets,
   acquirers,
-  targetIndustries,
-  acquirerIndustries,
+  target_industries,
+  acquirer_industries,
   clauseTypesNested,
   clauseTypeLabelById,
   isLoadingFilterOptions,
@@ -226,32 +226,32 @@ export function SearchSidebar({
           <CheckboxFilter
             label="Total"
             options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transactionPriceTotal || []}
-            onToggle={(value) => onToggleFilterValue("transactionPriceTotal", value)}
+            selectedValues={filters.transaction_price_total || []}
+            onToggle={(value) => onToggleFilterValue("transaction_price_total", value)}
             hideSearch={true}
             disabled={true}
           />
           <CheckboxFilter
             label="Stock"
             options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transactionPriceStock || []}
-            onToggle={(value) => onToggleFilterValue("transactionPriceStock", value)}
+            selectedValues={filters.transaction_price_stock || []}
+            onToggle={(value) => onToggleFilterValue("transaction_price_stock", value)}
             hideSearch={true}
             disabled={true}
           />
           <CheckboxFilter
             label="Cash"
             options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transactionPriceCash || []}
-            onToggle={(value) => onToggleFilterValue("transactionPriceCash", value)}
+            selectedValues={filters.transaction_price_cash || []}
+            onToggle={(value) => onToggleFilterValue("transaction_price_cash", value)}
             hideSearch={true}
             disabled={true}
           />
           <CheckboxFilter
             label="Assets"
             options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transactionPriceAssets || []}
-            onToggle={(value) => onToggleFilterValue("transactionPriceAssets", value)}
+            selectedValues={filters.transaction_price_assets || []}
+            onToggle={(value) => onToggleFilterValue("transaction_price_assets", value)}
             hideSearch={true}
             disabled={true}
           />
@@ -263,8 +263,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Transaction Consideration"
           options={TRANSACTION_CONSIDERATION_OPTIONS}
-          selectedValues={filters.transactionConsideration || []}
-          onToggle={(value) => onToggleFilterValue("transactionConsideration", value)}
+          selectedValues={filters.transaction_consideration || []}
+          onToggle={(value) => onToggleFilterValue("transaction_consideration", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -276,8 +276,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Target Type"
           options={TARGET_TYPE_OPTIONS}
-          selectedValues={filters.targetType || []}
-          onToggle={(value) => onToggleFilterValue("targetType", value)}
+          selectedValues={filters.target_type || []}
+          onToggle={(value) => onToggleFilterValue("target_type", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -289,8 +289,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Acquirer Type"
           options={ACQUIRER_TYPE_OPTIONS}
-          selectedValues={filters.acquirerType || []}
-          onToggle={(value) => onToggleFilterValue("acquirerType", value)}
+          selectedValues={filters.acquirer_type || []}
+          onToggle={(value) => onToggleFilterValue("acquirer_type", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -301,9 +301,9 @@ export function SearchSidebar({
       <div>
         <CheckboxFilter
           label="Target Industry"
-          options={targetIndustries}
-          selectedValues={filters.targetIndustry || []}
-          onToggle={(value) => onToggleFilterValue("targetIndustry", value)}
+          options={target_industries}
+          selectedValues={filters.target_industry || []}
+          onToggle={(value) => onToggleFilterValue("target_industry", value)}
           hideSearch={false}
           disabled={true}
         />
@@ -313,9 +313,9 @@ export function SearchSidebar({
       <div>
         <CheckboxFilter
           label="Acquirer Industry"
-          options={acquirerIndustries}
-          selectedValues={filters.acquirerIndustry || []}
-          onToggle={(value) => onToggleFilterValue("acquirerIndustry", value)}
+          options={acquirer_industries}
+          selectedValues={filters.acquirer_industry || []}
+          onToggle={(value) => onToggleFilterValue("acquirer_industry", value)}
           hideSearch={false}
           disabled={true}
         />
@@ -326,8 +326,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Deal Status"
           options={DEAL_STATUS_OPTIONS}
-          selectedValues={filters.dealStatus || []}
-          onToggle={(value) => onToggleFilterValue("dealStatus", value)}
+          selectedValues={filters.deal_status || []}
+          onToggle={(value) => onToggleFilterValue("deal_status", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -352,8 +352,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Deal Type"
           options={DEAL_TYPE_OPTIONS}
-          selectedValues={filters.dealType || []}
-          onToggle={(value) => onToggleFilterValue("dealType", value)}
+          selectedValues={filters.deal_type || []}
+          onToggle={(value) => onToggleFilterValue("deal_type", value)}
           hideSearch={true}
           formatValues={true}
         />
@@ -377,8 +377,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Target PE"
           options={PE_OPTIONS}
-          selectedValues={filters.targetPe || []}
-          onToggle={(value) => onToggleFilterValue("targetPe", value)}
+          selectedValues={filters.target_pe || []}
+          onToggle={(value) => onToggleFilterValue("target_pe", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -390,8 +390,8 @@ export function SearchSidebar({
         <CheckboxFilter
           label="Acquirer PE"
           options={PE_OPTIONS}
-          selectedValues={filters.acquirerPe || []}
-          onToggle={(value) => onToggleFilterValue("acquirerPe", value)}
+          selectedValues={filters.acquirer_pe || []}
+          onToggle={(value) => onToggleFilterValue("acquirer_pe", value)}
           hideSearch={true}
           disabled={true}
           formatValues={true}
@@ -402,8 +402,8 @@ export function SearchSidebar({
       <div>
         <TextFilter
           label="Agreement UUID"
-          value={filters.agreementUuid || ""}
-          onChange={(value) => onTextFilterChange("agreementUuid", value)}
+          value={filters.agreement_uuid || ""}
+          onChange={(value) => onTextFilterChange("agreement_uuid", value)}
           placeholder="Enter agreement UUID"
         />
       </div>
@@ -412,8 +412,8 @@ export function SearchSidebar({
       <div>
         <TextFilter
           label="Section UUID"
-          value={filters.sectionUuid || ""}
-          onChange={(value) => onTextFilterChange("sectionUuid", value)}
+          value={filters.section_uuid || ""}
+          onChange={(value) => onTextFilterChange("section_uuid", value)}
           placeholder="Enter section UUID"
         />
       </div>

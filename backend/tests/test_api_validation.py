@@ -75,7 +75,7 @@ class ApiValidationTests(unittest.TestCase):
                     "email": "captcha@example.com",
                     "password": "password123",
                     "legal": {
-                        "checkedAtMs": 1700000000000,
+                        "checked_at_ms": 1700000000000,
                         "docs": ["tos", "privacy", "license"],
                     },
                 },

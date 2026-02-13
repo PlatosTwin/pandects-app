@@ -88,7 +88,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "a@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": checked_at_ms,
+                    "checked_at_ms": checked_at_ms,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -101,7 +101,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "a@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": checked_at_ms,
+                    "checked_at_ms": checked_at_ms,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -175,7 +175,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "events@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -221,7 +221,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "bearer@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -245,7 +245,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
         self.assertIsInstance(payload, dict)
-        session_token = payload.get("sessionToken")
+        session_token = payload.get("session_token")
         self.assertIsInstance(session_token, str)
 
         res = client.get(
@@ -271,11 +271,11 @@ class AuthFlowTests(unittest.TestCase):
             "/v1/auth/flag-inaccurate",
             json={
                 "source": "search_result",
-                "agreementUuid": "a1",
-                "sectionUuid": "s1",
+                "agreement_uuid": "a1",
+                "section_uuid": "s1",
                 "message": "Typo in summary.",
-                "requestFollowUp": True,
-                "issueTypes": ["Incorrect metadata"],
+                "request_follow_up": True,
+                "issue_types": ["Incorrect metadata"],
             },
         )
         self.assertEqual(res.status_code, 401)
@@ -286,7 +286,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "flag@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -307,7 +307,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
         self.assertIsInstance(payload, dict)
-        session_token = payload.get("sessionToken")
+        session_token = payload.get("session_token")
         self.assertIsInstance(session_token, str)
         headers = {"Authorization": f"Bearer {session_token}"}
 
@@ -316,11 +316,11 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "search_result",
-                "agreementUuid": "a1",
-                "sectionUuid": "s1",
+                "agreement_uuid": "a1",
+                "section_uuid": "s1",
                 "message": "Metadata mismatch in clause excerpt.",
-                "requestFollowUp": False,
-                "issueTypes": ["Incorrect metadata", "Incorrect tagging (Article/Section)"],
+                "request_follow_up": False,
+                "issue_types": ["Incorrect metadata", "Incorrect tagging (Article/Section)"],
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -331,9 +331,9 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "agreement_view",
-                "agreementUuid": "a2",
-                "requestFollowUp": True,
-                "issueTypes": ["Incorrect taxonomy class"],
+                "agreement_uuid": "a2",
+                "request_follow_up": True,
+                "issue_types": ["Incorrect taxonomy class"],
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -343,11 +343,11 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "bad",
-                "agreementUuid": "a1",
-                "sectionUuid": "s1",
+                "agreement_uuid": "a1",
+                "section_uuid": "s1",
                 "message": "Bad source",
-                "requestFollowUp": False,
-                "issueTypes": ["Something else"],
+                "request_follow_up": False,
+                "issue_types": ["Something else"],
             },
         )
         self.assertEqual(res.status_code, 400)
@@ -357,8 +357,8 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "search_result",
-                "agreementUuid": "a1",
-                "issueTypes": ["Corrupted formatting"],
+                "agreement_uuid": "a1",
+                "issue_types": ["Corrupted formatting"],
             },
         )
         self.assertEqual(res.status_code, 400)
@@ -368,8 +368,8 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "agreement_view",
-                "agreementUuid": "a1",
-                "issueTypes": ["Incorrect tagging (Article/Section)"],
+                "agreement_uuid": "a1",
+                "issue_types": ["Incorrect tagging (Article/Section)"],
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -379,9 +379,9 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "agreement_view",
-                "agreementUuid": "a1",
+                "agreement_uuid": "a1",
                 "message": "Invalid issue type.",
-                "issueTypes": ["Not a real option"],
+                "issue_types": ["Not a real option"],
             },
         )
         self.assertEqual(res.status_code, 400)
@@ -391,7 +391,7 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "agreement_view",
-                "agreementUuid": "a1",
+                "agreement_uuid": "a1",
                 "message": "Missing issue types.",
             },
         )
@@ -402,8 +402,8 @@ class AuthFlowTests(unittest.TestCase):
             headers=headers,
             json={
                 "source": "agreement_view",
-                "agreementUuid": "a1",
-                "issueTypes": [],
+                "agreement_uuid": "a1",
+                "issue_types": [],
             },
         )
         self.assertEqual(res.status_code, 400)
@@ -418,7 +418,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "reset@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -480,7 +480,7 @@ class AuthFlowTests(unittest.TestCase):
                 json={
                     "credential": "fake",
                     "legal": {
-                        "checkedAtMs": 1700000000000,
+                        "checked_at_ms": 1700000000000,
                         "docs": ["tos", "privacy", "license"],
                     },
                 },
@@ -545,7 +545,7 @@ class AuthFlowTests(unittest.TestCase):
                     "email": "captcha@example.com",
                     "password": "password123",
                     "legal": {
-                        "checkedAtMs": 1700000000000,
+                        "checked_at_ms": 1700000000000,
                         "docs": ["tos", "privacy", "license"],
                     },
                 },
@@ -560,9 +560,9 @@ class AuthFlowTests(unittest.TestCase):
                 json={
                     "email": "captcha@example.com",
                     "password": "password123",
-                    "captchaToken": "ok",
+                    "captcha_token": "ok",
                     "legal": {
-                        "checkedAtMs": 1700000000000,
+                        "checked_at_ms": 1700000000000,
                         "docs": ["tos", "privacy", "license"],
                     },
                 },
@@ -584,7 +584,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "b@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -605,7 +605,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
-        token = data.get("sessionToken")
+        token = data.get("session_token")
         self.assertIsInstance(token, str)
         self.assertGreater(len(token), 10)
 
@@ -681,7 +681,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "delete-me@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -735,7 +735,7 @@ class AuthFlowTests(unittest.TestCase):
                 "email": "keyuser@example.com",
                 "password": "password123",
                 "legal": {
-                    "checkedAtMs": 1700000000000,
+                    "checked_at_ms": 1700000000000,
                     "docs": ["tos", "privacy", "license"],
                 },
             },
@@ -754,7 +754,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIsInstance(data, dict)
-        token = data.get("sessionToken")
+        token = data.get("session_token")
         self.assertIsInstance(token, str)
 
         res = client.post(
@@ -765,7 +765,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         created = res.get_json()
         self.assertIsInstance(created, dict)
-        api_key = created.get("apiKeyPlaintext")
+        api_key = created.get("api_key_plaintext")
         self.assertIsInstance(api_key, str)
 
         with self.app.app_context():

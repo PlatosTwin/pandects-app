@@ -1415,7 +1415,7 @@ def _turnstile_secret_key() -> str:
 
 
 def _require_captcha_token(data: dict) -> str:
-    token = data.get("captchaToken")
+    token = data.get("captcha_token")
     if not isinstance(token, str) or not token.strip():
         abort(
             _json_error(
@@ -1465,7 +1465,7 @@ def _encode_frontend_hash_params(params: dict[str, str]) -> str:
 def _frontend_google_callback_redirect(*, token: str | None, next_path: str | None, error: str | None):
     fragment: dict[str, str] = {}
     if token:
-        fragment["sessionToken"] = token
+        fragment["session_token"] = token
     if next_path:
         fragment["next"] = next_path
     if error:
@@ -1641,13 +1641,13 @@ def _pagination_metadata(*, total_count: int, page: int, page_size: int) -> dict
     next_num = page + 1 if has_next else None
     return {
         "page": page,
-        "pageSize": page_size,
-        "totalCount": total_count,
-        "totalPages": total_pages,
-        "hasNext": has_next,
-        "hasPrev": has_prev,
-        "nextNum": next_num,
-        "prevNum": prev_num,
+        "page_size": page_size,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "has_next": has_next,
+        "has_prev": has_prev,
+        "next_num": next_num,
+        "prev_num": prev_num,
     }
 
 
@@ -1708,8 +1708,8 @@ def _require_legal_acceptance(data: dict) -> datetime:
                 message="Legal acceptance required to create an account.",
             )
         )
-    checked_at_ms = legal.get("checkedAtMs")
-    checked_at = _utc_datetime_from_ms(checked_at_ms, field="legal.checkedAtMs")
+    checked_at_ms = legal.get("checked_at_ms")
+    checked_at = _utc_datetime_from_ms(checked_at_ms, field="legal.checked_at_ms")
     docs = legal.get("docs")
     if not isinstance(docs, list):
         abort(400, description="legal.docs must be an array.")
@@ -2496,7 +2496,7 @@ class SearchArgsSchema(Schema):
             "example": ["salesforce.com, inc."],
         },
     )
-    standardId = fields.List(
+    standard_id = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2508,7 +2508,7 @@ class SearchArgsSchema(Schema):
         },
     )
     # Transaction price filters
-    transactionPriceTotal = fields.List(
+    transaction_price_total = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2518,7 +2518,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    transactionPriceStock = fields.List(
+    transaction_price_stock = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2528,7 +2528,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    transactionPriceCash = fields.List(
+    transaction_price_cash = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2538,7 +2538,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    transactionPriceAssets = fields.List(
+    transaction_price_assets = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2549,7 +2549,7 @@ class SearchArgsSchema(Schema):
         },
     )
     # New filters from DB definition
-    transactionConsideration = fields.List(
+    transaction_consideration = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2559,7 +2559,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    targetType = fields.List(
+    target_type = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2569,7 +2569,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    acquirerType = fields.List(
+    acquirer_type = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2579,7 +2579,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    targetIndustry = fields.List(
+    target_industry = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2589,7 +2589,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    acquirerIndustry = fields.List(
+    acquirer_industry = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2599,7 +2599,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    dealStatus = fields.List(
+    deal_status = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2619,7 +2619,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    dealType = fields.List(
+    deal_type = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2636,7 +2636,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    targetPe = fields.List(
+    target_pe = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2646,7 +2646,7 @@ class SearchArgsSchema(Schema):
             )
         },
     )
-    acquirerPe = fields.List(
+    acquirer_pe = fields.List(
         fields.Str(),
         load_default=[],
         metadata={
@@ -2657,23 +2657,23 @@ class SearchArgsSchema(Schema):
         },
     )
     # Text filters
-    agreementUuid = fields.Str(
+    agreement_uuid = fields.Str(
         load_default=None,
         allow_none=True,
         metadata={"description": "Filter to one agreement UUID."},
     )
-    sectionUuid = fields.Str(
+    section_uuid = fields.Str(
         load_default=None,
         allow_none=True,
         metadata={"description": "Filter to one section UUID."},
     )
     # Sort parameters
-    sortBy = fields.Str(
+    sort_by = fields.Str(
         load_default="year",
         validate=lambda x: x in ["year", "target", "acquirer"],
         metadata={"description": "Sort key. One of: `year`, `target`, `acquirer`."},
     )
-    sortDirection = fields.Str(
+    sort_direction = fields.Str(
         load_default="desc",
         validate=lambda x: x in ["asc", "desc"],
         metadata={"description": "Sort direction. One of: `asc`, `desc`."},
@@ -2682,7 +2682,7 @@ class SearchArgsSchema(Schema):
         load_default=1,
         metadata={"description": "1-based page number.", "example": 1},
     )
-    pageSize = fields.Int(
+    page_size = fields.Int(
         load_default=25,
         metadata={
             "description": (
@@ -2696,17 +2696,17 @@ class SearchArgsSchema(Schema):
 
 class SectionItemSchema(Schema):
     id = fields.Str(metadata={"description": "Canonical identifier for this section result."})
-    agreementUuid = fields.Str(metadata={"description": "Agreement UUID for the section."})
-    sectionUuid = fields.Str(metadata={"description": "Section UUID."})
-    standardId = fields.List(
+    agreement_uuid = fields.Str(metadata={"description": "Agreement UUID for the section."})
+    section_uuid = fields.Str(metadata={"description": "Section UUID."})
+    standard_id = fields.List(
         fields.Str(),
         metadata={"description": "Matched taxonomy standard IDs for this section."},
     )
     xml = fields.Str(
         metadata={"description": "Section XML content. Full content requires authentication."}
     )
-    articleTitle = fields.Str(metadata={"description": "Article heading that contains the section."})
-    sectionTitle = fields.Str(metadata={"description": "Section heading text."})
+    article_title = fields.Str(metadata={"description": "Article heading that contains the section."})
+    section_title = fields.Str(metadata={"description": "Section heading text."})
     acquirer = fields.Str(metadata={"description": "Acquirer company name."})
     target = fields.Str(metadata={"description": "Target company name."})
     year = fields.Int(metadata={"description": "Agreement year."})
@@ -2735,18 +2735,18 @@ class SearchResponseSchema(Schema):
         metadata={"description": "Access context applied to this response."},
     )
     page = fields.Int(metadata={"description": "Current 1-based page number."})
-    pageSize = fields.Int(metadata={"description": "Effective page size for this response."})
-    totalCount = fields.Int(metadata={"description": "Total number of matching sections."})
-    totalPages = fields.Int(metadata={"description": "Total pages at the effective page size."})
-    hasNext = fields.Bool(metadata={"description": "Whether a next page exists."})
-    hasPrev = fields.Bool(metadata={"description": "Whether a previous page exists."})
-    nextNum = fields.Int(
+    page_size = fields.Int(metadata={"description": "Effective page size for this response."})
+    total_count = fields.Int(metadata={"description": "Total number of matching sections."})
+    total_pages = fields.Int(metadata={"description": "Total pages at the effective page size."})
+    has_next = fields.Bool(metadata={"description": "Whether a next page exists."})
+    has_prev = fields.Bool(metadata={"description": "Whether a previous page exists."})
+    next_num = fields.Int(
         allow_none=True,
-        metadata={"description": "Next page number when `hasNext` is true."},
+        metadata={"description": "Next page number when `has_next` is true."},
     )
-    prevNum = fields.Int(
+    prev_num = fields.Int(
         allow_none=True,
-        metadata={"description": "Previous page number when `hasPrev` is true."},
+        metadata={"description": "Previous page number when `has_prev` is true."},
     )
 
 
@@ -2788,7 +2788,7 @@ class DumpEntrySchema(Schema):
 
 
 class AgreementArgsSchema(Schema):
-    focusSectionUuid = fields.Str(
+    focus_section_uuid = fields.Str(
         required=False,
         allow_none=True,
         metadata={
@@ -2798,11 +2798,11 @@ class AgreementArgsSchema(Schema):
             )
         },
     )
-    neighborSections = fields.Int(
+    neighbor_sections = fields.Int(
         load_default=1,
         metadata={
             "description": (
-                "Number of neighboring sections to include around `focusSectionUuid` when "
+                "Number of neighboring sections to include around `focus_section_uuid` when "
                 "response XML is redacted."
             ),
             "example": 1,
@@ -2812,9 +2812,9 @@ class AgreementArgsSchema(Schema):
 
 class AgreementsIndexArgsSchema(Schema):
     page = fields.Int(load_default=1)
-    pageSize = fields.Int(load_default=25)
-    sortBy = fields.Str(load_default="year")
-    sortDir = fields.Str(load_default="desc")
+    page_size = fields.Int(load_default=25)
+    sort_by = fields.Str(load_default="year")
+    sort_dir = fields.Str(load_default="desc")
     query = fields.Str(load_default="")
 
 
@@ -2874,22 +2874,22 @@ class AgreementResponseSchema(Schema):
     acquirer_pe = fields.Bool(allow_none=True, metadata={"description": "Whether acquirer is private-equity backed."})
     url = fields.Str(metadata={"description": "Source filing URL."})
     xml = fields.Str(metadata={"description": "Agreement XML content (may be redacted for anonymous access)."})
-    isRedacted = fields.Bool(
+    is_redacted = fields.Bool(
         required=False,
         metadata={"description": "Present and true when XML has been redacted for access control."},
     )
 
 
 class SectionResponseSchema(Schema):
-    agreementUuid = fields.Str(metadata={"description": "Agreement UUID that owns this section."})
-    sectionUuid = fields.Str(metadata={"description": "Section UUID."})
-    sectionStandardId = fields.List(
+    agreement_uuid = fields.Str(metadata={"description": "Agreement UUID that owns this section."})
+    section_uuid = fields.Str(metadata={"description": "Section UUID."})
+    section_standard_id = fields.List(
         fields.Str(),
         metadata={"description": "Taxonomy standard IDs for this section."},
     )
     xml = fields.Str(metadata={"description": "Section XML content."})
-    articleTitle = fields.Str(metadata={"description": "Parent article heading."})
-    sectionTitle = fields.Str(metadata={"description": "Section heading text."})
+    article_title = fields.Str(metadata={"description": "Parent article heading."})
+    section_title = fields.Str(metadata={"description": "Section heading text."})
 
 
 # ── Auth request schemas ──────────────────────────────────────────────────
@@ -2902,7 +2902,7 @@ class AgreementResource(MethodView):
         summary="Retrieve agreement text by UUID",
         description=(
             "Returns agreement metadata and XML content. For anonymous callers, XML can be "
-            "redacted based on `focusSectionUuid` and `neighborSections`."
+            "redacted based on `focus_section_uuid` and `neighbor_sections`."
         ),
         parameters=[
             {
@@ -2919,12 +2919,12 @@ class AgreementResource(MethodView):
     @agreements_blp.response(200, AgreementResponseSchema)
     def get(self, args, agreement_uuid) -> dict[str, object]:
         ctx = _current_access_context()
-        focus_section_uuid = args.get("focusSectionUuid")
+        focus_section_uuid = args.get("focus_section_uuid")
         if focus_section_uuid is not None:
             focus_section_uuid = focus_section_uuid.strip()
             if not _UUID_RE.match(focus_section_uuid):
-                abort(400, description="Invalid focusSectionUuid.")
-        neighbor_sections_int = args["neighborSections"]
+                abort(400, description="Invalid focus_section_uuid.")
+        neighbor_sections_int = args["neighbor_sections"]
 
         # Only serve agreements with pdx.xml status null or 'verified' (latest version).
         year_expr = _agreement_year_expr().label("year")
@@ -3012,7 +3012,7 @@ class AgreementResource(MethodView):
                 neighbor_sections=neighbor_sections_int,
             )
             payload["xml"] = redacted_xml
-            payload["isRedacted"] = True
+            payload["is_redacted"] = True
             return payload
         payload["xml"] = xml_content
         return payload
@@ -3039,7 +3039,7 @@ class SectionResource(MethodView):
     def get(self, section_uuid: str) -> dict[str, object]:
         section_uuid = section_uuid.strip()
         if not _UUID_RE.match(section_uuid):
-            abort(400, description="Invalid sectionUuid.")
+            abort(400, description="Invalid section_uuid.")
 
         section_cols = Sections.__table__.c
         section_standard_ids_expr = _coalesced_section_standard_ids().label(
@@ -3078,12 +3078,12 @@ class SectionResource(MethodView):
         section_standard_ids = _parse_section_standard_ids(section_standard_ids_raw)
 
         return {
-            "agreementUuid": agreement_uuid,
-            "sectionUuid": section_uuid,
-            "sectionStandardId": section_standard_ids,
+            "agreement_uuid": agreement_uuid,
+            "section_uuid": section_uuid,
+            "section_standard_id": section_standard_ids,
             "xml": xml_content,
-            "articleTitle": article_title,
-            "sectionTitle": section_title,
+            "article_title": article_title,
+            "section_title": section_title,
         }
 
 
@@ -3091,9 +3091,9 @@ def get_agreements_index() -> dict[str, object]:
     ctx = _current_access_context()
     args = _load_query(AgreementsIndexArgsSchema())
     page = int(args["page"])
-    page_size = int(args["pageSize"])
-    sort_by = str(args["sortBy"] or "year")
-    sort_dir = str(args["sortDir"] or "desc")
+    page_size = int(args["page_size"])
+    sort_by = str(args["sort_by"] or "year")
+    sort_dir = str(args["sort_dir"] or "desc")
     query = str(args.get("query") or "").strip()
 
     if page < 1:
@@ -3160,14 +3160,14 @@ def get_agreements_index() -> dict[str, object]:
 
     results = [
         {
-            "agreementUuid": row.agreement_uuid,
+            "agreement_uuid": row.agreement_uuid,
             "year": row.year,
             "target": row.target,
             "acquirer": row.acquirer,
-            "considerationType": None,
-            "totalConsideration": None,
-            "targetIndustry": None,
-            "acquirerIndustry": None,
+            "consideration_type": None,
+            "total_consideration": None,
+            "target_industry": None,
+            "acquirer_industry": None,
             "verified": bool(row.verified) if row.verified is not None else False,
         }
         for row in items
@@ -3209,12 +3209,12 @@ def get_agreements_status_summary() -> dict[str, object]:
         {
             "year": int(row["year"]),
             "color": row["color"],
-            "currentStage": row["current_stage"],
+            "current_stage": row["current_stage"],
             "count": int(row["count"] or 0),
         }
         for row in rows
     ]
-    return {"years": years, "latestFilingDate": latest_filing_date}
+    return {"years": years, "latest_filing_date": latest_filing_date}
 
 
 def get_agreements_summary() -> dict[str, int]:
@@ -3348,8 +3348,8 @@ def get_filter_options() -> tuple[Response, int] | Response:
     payload = {
         "targets": targets,
         "acquirers": acquirers,
-        "targetIndustries": target_industries,
-        "acquirerIndustries": acquirer_industries,
+        "target_industries": target_industries,
+        "acquirer_industries": acquirer_industries,
     }
     with _filter_options_lock:
         _filter_options_cache["payload"] = payload
@@ -3464,29 +3464,29 @@ class SearchResource(MethodView):
         years = args["year"]
         targets = args["target"]
         acquirers = args["acquirer"]
-        standard_ids = args["standardId"]
+        standard_ids = args["standard_id"]
         # Additional metadata filters (some are still deactivated in the Search UI)
-        transaction_considerations = args["transactionConsideration"]
-        target_types = args["targetType"]
-        acquirer_types = args["acquirerType"]
-        target_industries = args["targetIndustry"]
-        acquirer_industries = args["acquirerIndustry"]
-        deal_statuses = args["dealStatus"]
+        transaction_considerations = args["transaction_consideration"]
+        target_types = args["target_type"]
+        acquirer_types = args["acquirer_type"]
+        target_industries = args["target_industry"]
+        acquirer_industries = args["acquirer_industry"]
+        deal_statuses = args["deal_status"]
         attitudes = args["attitude"]
-        deal_types = args["dealType"]
+        deal_types = args["deal_type"]
         purposes = args["purpose"]
-        target_pes = args["targetPe"]
-        acquirer_pes = args["acquirerPe"]
+        target_pes = args["target_pe"]
+        acquirer_pes = args["acquirer_pe"]
         # Text filters
-        agreement_uuid = args["agreementUuid"]
-        section_uuid = args["sectionUuid"]
+        agreement_uuid = args["agreement_uuid"]
+        section_uuid = args["section_uuid"]
         # Sort parameters
-        sort_by = args["sortBy"]
-        sort_direction = args["sortDirection"]
+        sort_by = args["sort_by"]
+        sort_direction = args["sort_direction"]
 
         # pagination parameters
         page = args["page"]
-        page_size = args["pageSize"]
+        page_size = args["page_size"]
 
         # Validate pagination parameters
         if page < 1:
@@ -3548,14 +3548,14 @@ class SearchResource(MethodView):
 
         # Pending filters (deactivated in Search UI)
         # Transaction Price filters - will be enabled when frontend is ready
-        # if args["transactionPriceTotal"]:
-        #     q = q.filter(Agreements.transaction_price_total.in_(args["transactionPriceTotal"]))
-        # if args["transactionPriceStock"]:
-        #     q = q.filter(Agreements.transaction_price_stock.in_(args["transactionPriceStock"]))
-        # if args["transactionPriceCash"]:
-        #     q = q.filter(Agreements.transaction_price_cash.in_(args["transactionPriceCash"]))
-        # if args["transactionPriceAssets"]:
-        #     q = q.filter(Agreements.transaction_price_assets.in_(args["transactionPriceAssets"]))
+        # if args["transaction_price_total"]:
+        #     q = q.filter(Agreements.transaction_price_total.in_(args["transaction_price_total"]))
+        # if args["transaction_price_stock"]:
+        #     q = q.filter(Agreements.transaction_price_stock.in_(args["transaction_price_stock"]))
+        # if args["transaction_price_cash"]:
+        #     q = q.filter(Agreements.transaction_price_cash.in_(args["transaction_price_cash"]))
+        # if args["transaction_price_assets"]:
+        #     q = q.filter(Agreements.transaction_price_assets.in_(args["transaction_price_assets"]))
 
         # Transaction Consideration filter
         if transaction_considerations:
@@ -3653,12 +3653,12 @@ class SearchResource(MethodView):
         results = [
             {
                 "id": r.section_uuid,
-                "agreementUuid": r.agreement_uuid,
-                "sectionUuid": r.section_uuid,
-                "standardId": _parse_section_standard_ids(r.section_standard_ids),
+                "agreement_uuid": r.agreement_uuid,
+                "section_uuid": r.section_uuid,
+                "standard_id": _parse_section_standard_ids(r.section_standard_ids),
                 "xml": r.xml_content,
-                "articleTitle": r.article_title,
-                "sectionTitle": r.section_title,
+                "article_title": r.article_title,
+                "section_title": r.section_title,
                 "acquirer": r.acquirer,
                 "target": r.target,
                 "year": r.year,

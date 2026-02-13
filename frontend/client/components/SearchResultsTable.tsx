@@ -44,17 +44,17 @@ interface SearchResultsTableProps {
   searchResults: SearchResult[];
   selectedResults: Set<string>;
   clauseTypePathByStandardId: Record<string, readonly string[]>;
-  sortBy?: "year" | "target" | "acquirer";
-  sortDirection: "asc" | "desc";
+  sort_by?: "year" | "target" | "acquirer";
+  sort_direction: "asc" | "desc";
   onToggleResultSelection: (resultId: string) => void;
   onToggleSelectAll: () => void;
   onOpenAgreement: (result: SearchResult, position: number) => void;
-  onSortResults: (sortBy: "year" | "target" | "acquirer") => void;
+  onSortResults: (sort_by: "year" | "target" | "acquirer") => void;
   onToggleSortDirection: () => void;
   density?: "comfy" | "compact";
   onDensityChange?: (density: "comfy" | "compact") => void;
   currentPage?: number;
-  pageSize?: number;
+  page_size?: number;
   className?: string;
 }
 
@@ -62,8 +62,8 @@ export function SearchResultsTable({
   searchResults,
   selectedResults,
   clauseTypePathByStandardId,
-  sortBy = "year",
-  sortDirection,
+  sort_by = "year",
+  sort_direction,
   onToggleResultSelection,
   onToggleSelectAll,
   onOpenAgreement,
@@ -72,7 +72,7 @@ export function SearchResultsTable({
   density = "comfy",
   onDensityChange,
   currentPage = 1,
-  pageSize = 25,
+  page_size = 25,
   className,
 }: SearchResultsTableProps) {
   const { toast } = useToast();
@@ -111,11 +111,11 @@ export function SearchResultsTable({
   }, []);
 
   const buildSectionLinkUrl = useCallback(
-    (agreementUuid: string, sectionUuid: string) => {
+    (agreement_uuid: string, section_uuid: string) => {
       if (typeof window === "undefined") return "";
       const u = new URL("/search", window.location.origin);
-      u.searchParams.set("agreementUuid", agreementUuid);
-      u.searchParams.set("sectionUuid", sectionUuid);
+      u.searchParams.set("agreement_uuid", agreement_uuid);
+      u.searchParams.set("section_uuid", section_uuid);
       return u.toString();
     },
     [],
@@ -315,7 +315,7 @@ export function SearchResultsTable({
                 Sort by:
               </label>
               <Select
-                value={sortBy}
+                value={sort_by}
                 onValueChange={(value) =>
                   onSortResults(value as "year" | "target" | "acquirer")
                 }
@@ -334,10 +334,10 @@ export function SearchResultsTable({
                 size="sm"
                 onClick={onToggleSortDirection}
                 className="h-10 w-10 p-1 hover:bg-muted/40 sm:h-8 sm:w-8"
-                title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-                aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+                title={`Sort ${sort_direction === "asc" ? "descending" : "ascending"}`}
+                aria-label={`Sort ${sort_direction === "asc" ? "descending" : "ascending"}`}
               >
-                {sortDirection === "asc" ? (
+                {sort_direction === "asc" ? (
                   <ArrowUp className="w-4 h-4" aria-hidden="true" />
                 ) : (
                   <ArrowDown className="w-4 h-4" aria-hidden="true" />
@@ -363,17 +363,17 @@ export function SearchResultsTable({
             const isSelected = selectedResults.has(result.id);
             const isExpanded = expandedResults.has(result.id);
             const canExpand = expandableResults.has(result.id) || isExpanded;
-            const resultNumber = (currentPage - 1) * pageSize + index + 1;
-            const standardIds = result.standardId
+            const resultNumber = (currentPage - 1) * page_size + index + 1;
+            const standardIds = result.standard_id
               .map((value) => value.trim())
               .filter(Boolean);
             const matchedStandardId = standardIds.find(
               (value) => clauseTypePathByStandardId[value],
             );
-            const standardId =
+            const standard_id =
               matchedStandardId ?? standardIds[0] ?? null;
-            const clauseTypePath = standardId
-              ? clauseTypePathByStandardId[standardId]
+            const clauseTypePath = standard_id
+              ? clauseTypePathByStandardId[standard_id]
               : undefined;
             const clauseTypeLabel = clauseTypePath
               ?.map((part) => part.trim())
@@ -381,7 +381,7 @@ export function SearchResultsTable({
             const clauseTypeText = clauseTypeLabel
               ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
               : null;
-            const sectionSummary = `${result.articleTitle} \u2192 ${result.sectionTitle}`;
+            const sectionSummary = `${result.article_title} \u2192 ${result.section_title}`;
             const sectionSummaryText = truncateText(sectionSummary, LONG_TRUNCATION_LENGTH);
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
@@ -495,9 +495,9 @@ export function SearchResultsTable({
                                 </button>
                               }
                               content={
-                                standardId ? (
+                                standard_id ? (
                                   <>
-                                    <p>standardId: {standardId}</p>
+                                    <p>standard_id: {standard_id}</p>
                                     <p>
                                       Not found in the clause-type mapping used
                                       by the frontend.
@@ -505,11 +505,11 @@ export function SearchResultsTable({
                                   </>
                                 ) : (
                                   <>
-                                    <p>Missing standardId in search results.</p>
+                                    <p>Missing standard_id in search results.</p>
                                     <p>
                                       Restart the Flask API or deploy the latest
                                       backend so `/api/search` returns
-                                      `standardId`.
+                                      `standard_id`.
                                     </p>
                                   </>
                                 )
@@ -588,19 +588,19 @@ export function SearchResultsTable({
                           <Badge
                             variant="outline"
                             className="hidden sm:inline-flex px-2 py-0.5 text-xs"
-                            title={result.articleTitle}
+                            title={result.article_title}
                           >
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                              {truncateText(result.articleTitle, DEFAULT_TRUNCATION_LENGTH).truncated}
+                              {truncateText(result.article_title, DEFAULT_TRUNCATION_LENGTH).truncated}
                             </span>
                           </Badge>
                           <Badge
                             variant="outline"
                             className="px-2 py-0.5 text-xs"
-                            title={result.sectionTitle}
+                            title={result.section_title}
                           >
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                              {truncateText(result.sectionTitle, DEFAULT_TRUNCATION_LENGTH).truncated}
+                              {truncateText(result.section_title, DEFAULT_TRUNCATION_LENGTH).truncated}
                             </span>
                           </Badge>
                         </div>
@@ -652,8 +652,8 @@ export function SearchResultsTable({
                     <div className="flex items-center gap-1 sm:ml-4 sm:justify-end">
                       <FlagAsInaccurateButton
                         source="search_result"
-                        agreementUuid={result.agreementUuid}
-                        sectionUuid={result.sectionUuid}
+                        agreement_uuid={result.agreement_uuid}
+                        section_uuid={result.section_uuid}
                         className="shrink-0"
                       />
                       <Button
@@ -725,7 +725,7 @@ export function SearchResultsTable({
                               <DropdownMenuItem
                                 onClick={() =>
                                   performCopy(
-                                    result.sectionUuid,
+                                    result.section_uuid,
                                     "Section UUID",
                                     result.id,
                                     "section",
@@ -745,15 +745,15 @@ export function SearchResultsTable({
                                 </span>
                                 <span
                                   className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
-                                  title={result.sectionUuid}
+                                  title={result.section_uuid}
                                 >
-                                  …{tailUuid(result.sectionUuid)}
+                                  …{tailUuid(result.section_uuid)}
                                 </span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
                                   performCopy(
-                                    result.agreementUuid,
+                                    result.agreement_uuid,
                                     "Agreement UUID",
                                     result.id,
                                     "agreement",
@@ -773,9 +773,9 @@ export function SearchResultsTable({
                                 </span>
                                 <span
                                   className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
-                                  title={result.agreementUuid}
+                                  title={result.agreement_uuid}
                                 >
-                                  …{tailUuid(result.agreementUuid)}
+                                  …{tailUuid(result.agreement_uuid)}
                                 </span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -811,8 +811,8 @@ export function SearchResultsTable({
                                 onClick={() =>
                                   performCopy(
                                     buildSectionLinkUrl(
-                                      result.agreementUuid,
-                                      result.sectionUuid,
+                                      result.agreement_uuid,
+                                      result.section_uuid,
                                     ),
                                     "Agreement link",
                                     result.id,

@@ -5,28 +5,28 @@ export interface SearchFilters {
   target?: string[];
   acquirer?: string[];
   clauseType?: string[];
-  standardId?: string[];
+  standard_id?: string[];
   // Transaction price filters (disabled for now)
-  transactionPriceTotal?: string[];
-  transactionPriceStock?: string[];
-  transactionPriceCash?: string[];
-  transactionPriceAssets?: string[];
+  transaction_price_total?: string[];
+  transaction_price_stock?: string[];
+  transaction_price_cash?: string[];
+  transaction_price_assets?: string[];
   // New filters from DB definition
-  transactionConsideration?: string[];
-  targetType?: string[];
-  acquirerType?: string[];
-  targetIndustry?: string[];
-  acquirerIndustry?: string[];
-  dealStatus?: string[];
+  transaction_consideration?: string[];
+  target_type?: string[];
+  acquirer_type?: string[];
+  target_industry?: string[];
+  acquirer_industry?: string[];
+  deal_status?: string[];
   attitude?: string[];
-  dealType?: string[];
+  deal_type?: string[];
   purpose?: string[];
-  targetPe?: string[];
-  acquirerPe?: string[];
-  agreementUuid?: string;
-  sectionUuid?: string;
+  target_pe?: string[];
+  acquirer_pe?: string[];
+  agreement_uuid?: string;
+  section_uuid?: string;
   page?: number;
-  pageSize?: number;
+  page_size?: number;
 }
 
 export interface SearchResult {
@@ -34,12 +34,12 @@ export interface SearchResult {
   year: string;
   target: string;
   acquirer: string;
-  articleTitle: string;
-  sectionTitle: string;
-  standardId: string[];
+  article_title: string;
+  section_title: string;
+  standard_id: string[];
   xml: string;
-  sectionUuid: string;
-  agreementUuid: string;
+  section_uuid: string;
+  agreement_uuid: string;
   verified: boolean;
   transaction_price_total?: string | null;
   deal_status?: string | null;
@@ -53,22 +53,22 @@ export interface SearchResponse {
     tier: "anonymous" | "user" | "api_key";
     message?: string | null;
   };
-  totalCount: number;
+  total_count: number;
   page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-  nextNum: number | null;
-  prevNum: number | null;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+  next_num: number | null;
+  prev_num: number | null;
 }
 
 // Filter options response from API
 export interface FilterOptionsResponse {
   targets: string[];
   acquirers: string[];
-  targetIndustries: string[];
-  acquirerIndustries: string[];
+  target_industries: string[];
+  acquirer_industries: string[];
 }
 
 // Filter options (to be populated from API)
@@ -84,9 +84,9 @@ export interface CSVRow {
   year: string;
   target: string;
   acquirer: string;
-  articleTitle: string;
-  sectionTitle: string;
+  article_title: string;
+  section_title: string;
   text: string;
-  sectionUuid: string;
-  agreementUuid: string;
+  section_uuid: string;
+  agreement_uuid: string;
 }

@@ -7,7 +7,7 @@ class AuthRegisterSchema(Schema):
     email = fields.Str(required=True)
     password = fields.Str(required=True)
     legal = fields.Dict(required=False, allow_none=True)
-    captchaToken = fields.Str(required=False, allow_none=True)
+    captcha_token = fields.Str(required=False, allow_none=True)
 
 
 class AuthLoginSchema(Schema):
@@ -43,8 +43,8 @@ class AuthGoogleCredentialSchema(Schema):
 
 class AuthFlagInaccurateSchema(Schema):
     source = fields.Str(required=True)
-    agreementUuid = fields.Str(required=True)
-    sectionUuid = fields.Str(required=False, allow_none=True)
+    agreement_uuid = fields.Str(required=True)
+    section_uuid = fields.Str(required=False, allow_none=True)
     message = fields.Str(required=False, allow_none=True)
-    requestFollowUp = fields.Bool(required=False, allow_none=True)
-    issueTypes = fields.List(fields.Str(), required=True)
+    request_follow_up = fields.Bool(required=False, allow_none=True)
+    issue_types = fields.List(fields.Str(), required=True)

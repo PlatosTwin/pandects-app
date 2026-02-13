@@ -41,17 +41,17 @@ class PaginationAndAccessTests(unittest.TestCase):
 
     def test_pagination_metadata_basic(self):
         meta = backend_app._pagination_metadata(total_count=101, page=1, page_size=25)
-        self.assertEqual(meta["totalPages"], 5)
-        self.assertTrue(meta["hasNext"])
-        self.assertFalse(meta["hasPrev"])
-        self.assertEqual(meta["nextNum"], 2)
-        self.assertIsNone(meta["prevNum"])
+        self.assertEqual(meta["total_pages"], 5)
+        self.assertTrue(meta["has_next"])
+        self.assertFalse(meta["has_prev"])
+        self.assertEqual(meta["next_num"], 2)
+        self.assertIsNone(meta["prev_num"])
 
     def test_pagination_metadata_empty(self):
         meta = backend_app._pagination_metadata(total_count=0, page=1, page_size=25)
-        self.assertEqual(meta["totalPages"], 0)
-        self.assertFalse(meta["hasNext"])
-        self.assertFalse(meta["hasPrev"])
+        self.assertEqual(meta["total_pages"], 0)
+        self.assertFalse(meta["has_next"])
+        self.assertFalse(meta["has_prev"])
 
     def test_csrf_required_cookie_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"

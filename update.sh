@@ -49,7 +49,8 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+npm run clean-api
 npm run gen-api
 
 # ── Done ─────────────────────────────────────────────────────────────────────
-echo "✅ Done! OpenAPI spec generated and synced, requirements.txt updated, and docs API artifacts regenerated."
+echo "✅ Done! OpenAPI spec generated and synced, requirements.txt updated, and docs API artifacts cleaned + regenerated."

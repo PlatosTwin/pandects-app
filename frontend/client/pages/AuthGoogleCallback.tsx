@@ -25,7 +25,7 @@ export default function AuthGoogleCallback() {
   }, []);
 
   useEffect(() => {
-    const sessionToken = params.get("sessionToken");
+    const session_token = params.get("session_token");
     const next = safeNextPath(params.get("next"));
     const callbackError = params.get("error");
 
@@ -41,13 +41,13 @@ export default function AuthGoogleCallback() {
       return;
     }
 
-    if (!sessionToken) {
+    if (!session_token) {
       setError("missing_session_token");
       setBusy(false);
       return;
     }
 
-    setSessionToken(sessionToken);
+    setSessionToken(session_token);
     void refresh().finally(() => {
       navigate(next, { replace: true });
     });
