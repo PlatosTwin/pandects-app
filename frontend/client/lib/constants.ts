@@ -65,6 +65,7 @@ export const DEAL_TYPE_OPTIONS = [
   "stock_acquisition",
   "asset_acquisition",
   "tender_offer",
+  "membership_interest_purchase",
 ];
 
 export const PURPOSE_OPTIONS = ["strategic", "financial"];

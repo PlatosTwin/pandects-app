@@ -355,7 +355,6 @@ export function SearchSidebar({
           selectedValues={filters.dealType || []}
           onToggle={(value) => onToggleFilterValue("dealType", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>

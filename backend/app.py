@@ -2623,10 +2623,7 @@ class SearchArgsSchema(Schema):
         fields.Str(),
         load_default=[],
         metadata={
-            "description": (
-                "Pending: currently deactivated in the Search UI. Deal type values "
-                "from agreement metadata."
-            )
+            "description": "Deal type values from agreement metadata."
         },
     )
     purpose = fields.List(
@@ -3468,7 +3465,7 @@ class SearchResource(MethodView):
         targets = args["target"]
         acquirers = args["acquirer"]
         standard_ids = args["standardId"]
-        # Pending filters from the Search UI
+        # Additional metadata filters (some are still deactivated in the Search UI)
         transaction_considerations = args["transactionConsideration"]
         target_types = args["targetType"]
         acquirer_types = args["acquirerType"]

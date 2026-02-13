@@ -196,8 +196,7 @@ paths:
         style: form
       - in: query
         name: dealType
-        description: 'Pending: currently deactivated in the Search UI. Deal type values
-          from agreement metadata.'
+        description: Deal type values from agreement metadata.
         schema:
           type: array
           default: []

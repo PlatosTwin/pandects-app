@@ -118,7 +118,9 @@ export function CheckboxFilter({
                       onSelect={() => onToggle(option)}
                     >
                       <Check className="mr-2 h-4 w-4 text-primary" aria-hidden="true" />
-                      <span className="flex-1">{option}</span>
+                      <span className="flex-1">
+                        {formatValues ? formatFilterOption(option) : option}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -131,7 +133,9 @@ export function CheckboxFilter({
                     onSelect={() => onToggle(option)}
                   >
                     <span className="mr-2 h-4 w-4" aria-hidden="true" />
-                    <span className="flex-1">{option}</span>
+                    <span className="flex-1">
+                      {formatValues ? formatFilterOption(option) : option}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>
