@@ -13,7 +13,6 @@ Tables created if missing (MariaDB):
 
 import io
 import json
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Set, Optional
 
 import dagster as dg
@@ -50,7 +49,7 @@ DDL_CREATE = [
     """
     CREATE TABLE IF NOT EXISTS pdx.ai_repair_batches (
         batch_id          VARCHAR(128) PRIMARY KEY,
-        created_at        DATETIME NOT NULL,
+        created_at        DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
         status            VARCHAR(32) NOT NULL,
         input_file_id     VARCHAR(128) NULL,
         output_file_id    VARCHAR(128) NULL,
@@ -69,7 +68,7 @@ DDL_CREATE = [
         mode         ENUM('full','excerpt') NOT NULL,
         excerpt_start INT NULL,
         excerpt_end   INT NULL,
-        created_at   DATETIME NOT NULL,
+        created_at   DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
         status       VARCHAR(32) NOT NULL,
         token_usage  JSON NULL
     )
@@ -108,7 +107,7 @@ DDL_CREATE = [
         request_id          VARCHAR(256) NOT NULL,
         batch_id            VARCHAR(128) NOT NULL,
         status              VARCHAR(32) NOT NULL,
-        created_at          DATETIME NOT NULL,
+        created_at          DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
         PRIMARY KEY (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold)
     )
     """,
@@ -331,7 +330,7 @@ def _insert_batch_row(
             (batch_id, created_at, status, input_file_id, output_file_id, error_file_id,
              completion_window, request_total, request_failed)
         VALUES
-            (:batch_id, :created_at, :status, :input_file_id, :output_file_id, :error_file_id,
+            (:batch_id, UTC_TIMESTAMP(), :status, :input_file_id, :output_file_id, :error_file_id,
              :cw, :rt, 0)
         ON DUPLICATE KEY UPDATE
             status = VALUES(status),
@@ -346,7 +345,6 @@ def _insert_batch_row(
         q,
         {
             "batch_id": batch.id,
-            "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
             "status": batch.status,
             "input_file_id": getattr(batch, "input_file_id", None),
             "output_file_id": getattr(batch, "output_file_id", None),
@@ -376,7 +374,7 @@ def _insert_requests(
         INSERT INTO {ai_repair_requests_table}
             (request_id, batch_id, page_uuid, mode, excerpt_start, excerpt_end, created_at, status)
         VALUES
-            (:rid, :bid, :pid, :mode, :xs, :xe, :ts, 'queued')
+            (:rid, :bid, :pid, :mode, :xs, :xe, UTC_TIMESTAMP(), 'queued')
         ON DUPLICATE KEY UPDATE
             batch_id = CASE
                 WHEN status IN ('queued', 'running') THEN batch_id
@@ -388,7 +386,6 @@ def _insert_requests(
             END
         """
     )
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     for m in lines_meta:
         _ = conn.execute(
             q,
@@ -399,7 +396,6 @@ def _insert_requests(
                 "mode": m["mode"],
                 "xs": m["excerpt_start"],
                 "xe": m["excerpt_end"],
-                "ts": now,
             },
         )
 
@@ -427,7 +423,7 @@ def _insert_processed_spans(
             (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold,
              request_id, batch_id, status, created_at)
         VALUES
-            (:pid, :entity, :start, :end, :ef, :ct, :rid, :bid, 'queued', :ts)
+            (:pid, :entity, :start, :end, :ef, :ct, :rid, :bid, 'queued', UTC_TIMESTAMP())
         ON DUPLICATE KEY UPDATE
             request_id = VALUES(request_id),
             batch_id = VALUES(batch_id),
@@ -437,7 +433,6 @@ def _insert_processed_spans(
             END
         """
     )
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     for span in spans:
         _ = conn.execute(
             q,
@@ -450,7 +445,6 @@ def _insert_processed_spans(
                 "ct": confidence_threshold,
                 "rid": request_id,
                 "bid": batch_id,
-                "ts": now,
             },
         )
 

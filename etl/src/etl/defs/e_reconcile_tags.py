@@ -451,6 +451,7 @@ def reconcile_tags(
                 UPDATE {tagged_outputs_table}
                 SET tagged_text_corrected = :txt
                 WHERE page_uuid = :pid
+                  AND NOT (tagged_text_corrected <=> :txt)
                 """
             )
             update_label_error = text(
@@ -458,6 +459,7 @@ def reconcile_tags(
                 UPDATE {tagged_outputs_table}
                 SET label_error = 1
                 WHERE page_uuid = :pid
+                  AND NOT (label_error <=> 1)
                 """
             )
 

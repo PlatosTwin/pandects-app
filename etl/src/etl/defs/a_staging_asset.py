@@ -7,7 +7,7 @@ Returns the number of new filings processed.
 """
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, cast
 
@@ -134,8 +134,6 @@ def staging_asset(
         if last_run is None:
             last_run = datetime(2020, 12, 31)
 
-    now = datetime.now(timezone.utc)
-
     # Load exhibit classifier once for all days
     classifier = ExhibitClassifier.load(_get_exhibit_classifier_path())
     staging_context = _DagsterContextAdapter(context)
@@ -152,11 +150,10 @@ def staging_asset(
                 f"""
                 INSERT INTO {pipeline_runs_table}
                 (run_time, last_pulled_from, last_pulled_to, status, rows_inserted)
-                VALUES (:run_time, :from_ts, :to_ts, 'STARTED', 0)
+                VALUES (UTC_TIMESTAMP(), :from_ts, :to_ts, 'STARTED', 0)
                 """
             ),
             {
-                "run_time": now,
                 "from_ts": last_run_date,
                 "to_ts": last_run_date,  # Will be updated after successful completion
             },

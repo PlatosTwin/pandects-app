@@ -85,6 +85,13 @@ def apply_pages_gating(conn: Connection, schema: str) -> int:
             WHEN g.agreement_uuid IS NULL THEN 0
             ELSE 1
         END
+        WHERE (
+            p.gated IS NULL
+            OR p.gated != CASE
+                WHEN g.agreement_uuid IS NULL THEN 0
+                ELSE 1
+            END
+        )
         """
     )
     result = conn.execute(stmt)
@@ -94,22 +101,33 @@ def apply_pages_gating(conn: Connection, schema: str) -> int:
 def apply_tagged_outputs_gating(conn: Connection, schema: str) -> int:
     tagged_outputs_table = f"{schema}.tagged_outputs"
     pages_table = f"{schema}.pages"
-    gated_agreements = sorted(_fetch_label_error_agreements(conn, schema))
-
-    _ = conn.execute(text(f"UPDATE {tagged_outputs_table} SET gated = 0"))
-    if not gated_agreements:
-        return 0
-
     stmt = text(
         f"""
         UPDATE {tagged_outputs_table} t
         JOIN {pages_table} p
             ON t.page_uuid = p.page_uuid
-        SET t.gated = 1
-        WHERE p.agreement_uuid IN :gated_agreements
+        LEFT JOIN (
+            SELECT DISTINCT p2.agreement_uuid
+            FROM {tagged_outputs_table} t2
+            JOIN {pages_table} p2
+                ON t2.page_uuid = p2.page_uuid
+            WHERE t2.label_error = 1
+        ) g
+            ON g.agreement_uuid = p.agreement_uuid
+        SET t.gated = CASE
+            WHEN g.agreement_uuid IS NULL THEN 0
+            ELSE 1
+        END
+        WHERE (
+            t.gated IS NULL
+            OR t.gated != CASE
+                WHEN g.agreement_uuid IS NULL THEN 0
+                ELSE 1
+            END
+        )
         """
-    ).bindparams(bindparam("gated_agreements", expanding=True))
-    result = conn.execute(stmt, {"gated_agreements": gated_agreements})
+    )
+    result = conn.execute(stmt)
     return int(result.rowcount or 0)
 
 
@@ -143,23 +161,6 @@ def apply_xml_gating(
         ).bindparams(bindparam("low_article_uuids", expanding=True))
         result = conn.execute(stmt, {"low_article_uuids": sorted(low_article_uuids)})
     return int(result.rowcount or 0)
-
-
-def _fetch_label_error_agreements(conn: Connection, schema: str) -> set[str]:
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    pages_table = f"{schema}.pages"
-    rows = conn.execute(
-        text(
-            f"""
-            SELECT DISTINCT p.agreement_uuid
-            FROM {tagged_outputs_table} t
-            JOIN {pages_table} p
-                ON t.page_uuid = p.page_uuid
-            WHERE t.label_error = 1
-            """
-        )
-    ).scalars()
-    return {row for row in rows if row is not None}
 
 
 def _fetch_low_article_agreements(
@@ -222,7 +223,13 @@ def _fetch_low_article_agreements(
 
 def _set_validation_priority(conn: Connection, schema: str) -> None:
     _ = conn.execute(
-        text(f"UPDATE {schema}.agreements SET validation_priority = 1 - prob_filing")
+        text(
+            f"""
+            UPDATE {schema}.agreements
+            SET validation_priority = 1 - prob_filing
+            WHERE NOT (validation_priority <=> (1 - prob_filing))
+            """
+        )
     )
     _ = conn.execute(
         text(
@@ -236,6 +243,7 @@ def _set_validation_priority(conn: Connection, schema: str) -> None:
             ) g
                 ON g.agreement_uuid = p.agreement_uuid
             SET p.validation_priority = g.ct_flagged
+            WHERE NOT (p.validation_priority <=> g.ct_flagged)
             """
         )
     )
@@ -253,7 +261,16 @@ def _set_validation_priority(conn: Connection, schema: str) -> None:
             ) g
                 ON g.agreement_uuid = p.agreement_uuid
             SET t.validation_priority = COALESCE(g.ct_flagged, 0)
+            WHERE NOT (t.validation_priority <=> COALESCE(g.ct_flagged, 0))
             """
         )
     )
-    _ = conn.execute(text(f"UPDATE {schema}.xml SET validation_priority = 1"))
+    _ = conn.execute(
+        text(
+            f"""
+            UPDATE {schema}.xml
+            SET validation_priority = 1
+            WHERE NOT (validation_priority <=> 1)
+            """
+        )
+    )

@@ -112,6 +112,7 @@ def pre_processing_asset(
                         UPDATE {agreements_table}
                         SET paginated = :paginated
                         WHERE agreement_uuid = :agreement_uuid
+                          AND NOT (paginated <=> :paginated)
                         """
                         ),
                         [

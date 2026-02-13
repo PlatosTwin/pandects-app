@@ -17,7 +17,6 @@ import io
 import json
 import os
 import time
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 import dagster as dg
@@ -76,7 +75,7 @@ def _ensure_offline_batches_table(conn: Connection, schema: str) -> None:
             f"""
             CREATE TABLE IF NOT EXISTS {schema}.tx_metadata_offline_batches (
                 batch_id VARCHAR(128) PRIMARY KEY,
-                created_at DATETIME NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
                 status VARCHAR(32) NOT NULL,
                 input_file_id VARCHAR(128) NULL,
                 output_file_id VARCHAR(128) NULL,
@@ -139,7 +138,7 @@ def _upsert_offline_batch_row(
             )
             VALUES (
                 :batch_id,
-                :created_at,
+                UTC_TIMESTAMP(),
                 :status,
                 :input_file_id,
                 :output_file_id,
@@ -159,7 +158,6 @@ def _upsert_offline_batch_row(
         ),
         {
             "batch_id": batch.id,
-            "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
             "status": batch.status,
             "input_file_id": getattr(batch, "input_file_id", None),
             "output_file_id": getattr(batch, "output_file_id", None),
@@ -175,14 +173,11 @@ def _mark_offline_batch_applied(conn: Connection, schema: str, batch_id: str) ->
         text(
             f"""
             UPDATE {schema}.tx_metadata_offline_batches
-            SET applied = 1, applied_at = :applied_at
+            SET applied = 1, applied_at = UTC_TIMESTAMP()
             WHERE batch_id = :batch_id
             """
         ),
-        {
-            "batch_id": batch_id,
-            "applied_at": datetime.now(timezone.utc).replace(tzinfo=None),
-        },
+        {"batch_id": batch_id},
     )
 
 
@@ -294,6 +289,11 @@ def _apply_offline_batch_output(
             acquirer = COALESCE(acquirer, :acquirer),
             deal_type = COALESCE(deal_type, :deal_type)
         WHERE agreement_uuid = :uuid
+          AND (
+            NOT (target <=> COALESCE(target, :target))
+            OR NOT (acquirer <=> COALESCE(acquirer, :acquirer))
+            OR NOT (deal_type <=> COALESCE(deal_type, :deal_type))
+          )
         """
     )
     updated = 0
@@ -423,11 +423,22 @@ def _run_offline_mode(
     select_q = text(
         f"""
         SELECT agreement_uuid
-        FROM {agreements_table}
+        FROM {agreements_table} a
         WHERE 
-            (target IS NULL OR acquirer IS NULL OR deal_type IS NULL)
-            AND (paginated = True or paginated IS NULL)
-            AND gated = 0
+            (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
+            AND (a.paginated = True OR a.paginated IS NULL)
+            AND a.gated = 0
+            AND EXISTS (
+                SELECT 1
+                FROM {pages_table} p
+                WHERE p.agreement_uuid = a.agreement_uuid
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM {pages_table} p
+                WHERE p.agreement_uuid = a.agreement_uuid
+                  AND p.gated = 1
+            )
         ORDER BY agreement_uuid ASC
         LIMIT :lim
         """
@@ -619,6 +630,26 @@ def _run_web_search_mode(
             metadata_sources = :metadata_sources,
             metadata = 1
         WHERE agreement_uuid = :uuid
+          AND (
+            NOT (transaction_consideration <=> :consideration)
+            OR NOT (transaction_price_cash <=> :price_cash)
+            OR NOT (transaction_price_stock <=> :price_stock)
+            OR NOT (transaction_price_assets <=> :price_assets)
+            OR NOT (transaction_price_total <=> :price_total)
+            OR NOT (target_type <=> :target_type)
+            OR NOT (acquirer_type <=> :acquirer_type)
+            OR NOT (target_pe <=> :target_pe)
+            OR NOT (acquirer_pe <=> :acquirer_pe)
+            OR NOT (target_industry <=> :target_industry)
+            OR NOT (acquirer_industry <=> :acquirer_industry)
+            OR NOT (announce_date <=> :announce_date)
+            OR NOT (close_date <=> :close_date)
+            OR NOT (deal_status <=> :deal_status)
+            OR NOT (attitude <=> :attitude)
+            OR NOT (purpose <=> :purpose)
+            OR NOT (metadata_sources <=> :metadata_sources)
+            OR NOT (metadata <=> 1)
+          )
         """
     )
     updated = 0
