@@ -171,7 +171,7 @@ export function SearchSidebar({
               trigger={
                 <button
                   type="button"
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/60 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="tooltip-help-trigger"
                   aria-label="Learn more about the taxonomy"
                 >
                   ?

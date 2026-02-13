@@ -64,8 +64,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
+const STAGE_TOOLTIP_COPY = {
+  "0_staging":
+    "Agreements awaiting pre-processing (splitting into pages, classifying, etc.).",
+  "1_pre_processing":
+    "Agreements that have been pre-processed and are awaiting tagging via the NER model.",
+  "2_tagging":
+    "Agreements that have been tagged and are awaiting compilation into XML.",
+  "3_xml":
+    "Agreements that have been compiled into XML and are awaiting an upsert to the sections table.",
+} as const;
 
 type AgreementIndexRow = {
   agreement_uuid: string;
@@ -497,6 +509,33 @@ export default function AgreementIndex() {
     return stageOrder.map((stage) => stageMap.get(stage.key)!);
   }, [statusSummary]);
 
+  const renderStageLabel = (row: (typeof stageSummaryRows)[number]) => (
+    <span className="inline-flex items-center gap-1">
+      <span>{row.label}</span>
+      <AdaptiveTooltip
+        trigger={
+          <button
+            type="button"
+            aria-label={`${row.label} stage details`}
+            className="tooltip-help-trigger-compact"
+          >
+            ?
+          </button>
+        }
+        content={<p>{STAGE_TOOLTIP_COPY[row.key]}</p>}
+        tooltipProps={{
+          side: "top",
+          className: "max-w-[260px] text-xs",
+        }}
+        popoverProps={{
+          side: "top",
+          className: "w-auto max-w-[260px] p-2 text-xs",
+        }}
+        delayDuration={0}
+      />
+    </span>
+  );
+
   const renderStagedChart = (className?: string) => (
     <div
       className={cn(
@@ -774,7 +813,7 @@ export default function AgreementIndex() {
             className="rounded-md border border-border/60 bg-background/70 p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {row.label}
+              {renderStageLabel(row)}
             </dt>
             <div className="mt-2 grid grid-cols-2 gap-3">
               <div>
@@ -828,7 +867,7 @@ export default function AgreementIndex() {
             {stageSummaryRows.map((row) => (
               <TableRow key={row.key}>
                 <TableCell className="font-medium text-foreground">
-                  {row.label}
+                  {renderStageLabel(row)}
                 </TableCell>
                 <TableCell className="font-mono tabular-nums text-foreground">
                   {row.staged.toLocaleString("en-US")}

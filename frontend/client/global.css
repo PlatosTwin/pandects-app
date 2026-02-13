@@ -167,6 +167,16 @@
   }
 }
 
+@layer components {
+  .tooltip-help-trigger {
+    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .tooltip-help-trigger-compact {
+    @apply tooltip-help-trigger h-4 w-4 text-[9px];
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
   .animate-spin-custom,
