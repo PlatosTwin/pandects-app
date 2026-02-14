@@ -3,7 +3,7 @@ import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import text
 
-from etl.defs.f_xml_asset import xml_asset
+from etl.defs.f_xml_asset import xml_verify_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.domain.z_gating import apply_gating, apply_xml_gating
@@ -12,7 +12,7 @@ from etl.utils.run_config import is_batched
 from etl.utils.summary_data import refresh_summary_data
 
 
-@dg.asset(deps=[xml_asset], name="7_sections_asset")
+@dg.asset(deps=[xml_verify_asset], name="7_sections_asset")
 def sections_asset(
     context: AssetExecutionContext,
     db: DBResource,

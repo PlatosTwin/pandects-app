@@ -1,10 +1,105 @@
 """Refresh the summary_data table from agreement-level aggregates."""
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
-from dagster import AssetExecutionContext
+from dagster import AssetExecutionContext, DagsterRunStatus, RunsFilter
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from etl.defs.resources import DBResource
+
+
+SUMMARY_DEAL_TYPE_ALLOWED = (
+    "stock_acquisition",
+    "merger",
+    "membership_interest_purchase",
+    "asset_acquisition",
+    "tender_offer",
+)
+
+IN_FLIGHT_RUN_STATUSES = (
+    DagsterRunStatus.QUEUED,
+    DagsterRunStatus.NOT_STARTED,
+    DagsterRunStatus.MANAGED,
+    DagsterRunStatus.STARTING,
+    DagsterRunStatus.STARTED,
+    DagsterRunStatus.CANCELING,
+)
+
+
+def _get_other_in_flight_run_ids(context: AssetExecutionContext) -> list[str]:
+    """Return in-flight Dagster run ids excluding the current run."""
+    runs_filter = RunsFilter(statuses=list(IN_FLIGHT_RUN_STATUSES))
+    in_flight_runs = context.instance.get_runs(filters=runs_filter)
+    return [run.run_id for run in in_flight_runs if run.run_id != context.run_id]
+
+
+def _parse_enum_values(column_type: str) -> list[str]:
+    """Parse enum literals from INFORMATION_SCHEMA column_type like enum('a','b')."""
+    if not column_type.startswith("enum(") or not column_type.endswith(")"):
+        return []
+    inner = column_type[len("enum(") : -1]
+    if not inner:
+        return []
+    items = []
+    for part in inner.split("','"):
+        token = part
+        if token.startswith("'"):
+            token = token[1:]
+        if token.endswith("'"):
+            token = token[:-1]
+        items.append(token.replace("''", "'"))
+    return items
+
+
+def _ensure_summary_data_deal_type_enum(
+    conn: Connection,
+    *,
+    schema: str,
+    table: str,
+) -> None:
+    """
+    Keep summary_data.deal_type enum aligned with current deal_type values used by ETL.
+    """
+    row = conn.execute(
+        text(
+            """
+            SELECT data_type, column_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = :schema
+              AND table_name = :table
+              AND column_name = 'deal_type'
+            """
+        ),
+        {"schema": schema, "table": table},
+    ).mappings().first()
+    if row is None:
+        return
+
+    data_type_raw = row.get("data_type")
+    data_type = data_type_raw.lower() if isinstance(data_type_raw, str) else ""
+    if data_type != "enum":
+        return
+
+    column_type_raw = row.get("column_type")
+    if not isinstance(column_type_raw, str):
+        return
+    existing = _parse_enum_values(column_type_raw)
+    missing = [v for v in SUMMARY_DEAL_TYPE_ALLOWED if v not in existing]
+    if not missing:
+        return
+
+    merged_values = existing + missing
+    quoted_values = ", ".join("'" + v.replace("'", "''") + "'" for v in merged_values)
+
+    is_nullable_raw = row.get("is_nullable")
+    nullable_sql = (
+        "NULL"
+        if isinstance(is_nullable_raw, str) and is_nullable_raw.upper() == "YES"
+        else "NOT NULL"
+    )
+
+    alter_sql = f"ALTER TABLE {schema}.{table} MODIFY COLUMN deal_type ENUM({quoted_values}) {nullable_sql}"
+    _ = conn.execute(text(alter_sql))
 
 
 def refresh_summary_data(
@@ -12,6 +107,16 @@ def refresh_summary_data(
     db: DBResource,
 ) -> None:
     """Rebuild summary_data from current agreements, pages, and sections."""
+    if context is not None:
+        other_in_flight_run_ids = _get_other_in_flight_run_ids(context)
+        if other_in_flight_run_ids:
+            context.log.info(
+                "Skipping summary_data refresh for run %s; %d other Dagster run(s) are still in flight.",
+                context.run_id,
+                len(other_in_flight_run_ids),
+            )
+            return
+
     schema = db.database
     engine = db.get_engine()
 
@@ -40,6 +145,9 @@ def refresh_summary_data(
             return
 
         try:
+            _ensure_summary_data_deal_type_enum(
+                conn, schema=schema, table="summary_data"
+            )
             _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
             _ = conn.execute(
@@ -119,7 +227,8 @@ def refresh_summary_data(
                     year,
                     color,
                     current_stage,
-                    count
+                    count,
+                    status_source
                 )
                 WITH green AS (
                     SELECT
@@ -127,13 +236,12 @@ def refresh_summary_data(
                         'green' AS color,
                         'processed' AS current_stage,
                         COUNT(DISTINCT x.agreement_uuid) AS count
-                    FROM {xml_table} x
+                    FROM {sections_table} x
                     JOIN {agreements_table} a
                         ON x.agreement_uuid = a.agreement_uuid
-                    WHERE (x.status IS NULL OR x.status = 'verified')
-                        AND x.latest = 1
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement staged, awaiting pre-processing
                 yellow_a AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -148,6 +256,7 @@ def refresh_summary_data(
                         AND (a.paginated IS NULL OR a.paginated = TRUE)
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement staged, but needs validation
                 red_a AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -180,6 +289,7 @@ def refresh_summary_data(
                         ON t.page_uuid = p.page_uuid
                     WHERE t.gated = 1
                 ),
+                -- agreement in pages and ready to get tagged
                 yellow_b AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -197,6 +307,7 @@ def refresh_summary_data(
                         AND tagged.agreement_uuid is null
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement in pages but page classes need validation before tagging
                 red_b AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -208,8 +319,12 @@ def refresh_summary_data(
                         ON a.agreement_uuid = p.agreement_uuid
                     JOIN gated_pages
                         ON p.agreement_uuid = gated_pages.agreement_uuid
+                    LEFT JOIN tagged on a.agreement_uuid = tagged.agreement_uuid
+                    WHERE
+                        tagged.agreement_uuid is null
                     GROUP BY 1, 2, 3
                 ),
+                -- non-paginated agreements
                 gray_b AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -220,6 +335,7 @@ def refresh_summary_data(
                     WHERE paginated = False
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement tagged and ready to XML
                 yellow_c AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -250,6 +366,7 @@ def refresh_summary_data(
                     AND gated_tagged.agreement_uuid IS NULL
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement tagged but needs validation before getting XML'd
                 red_c AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -265,6 +382,23 @@ def refresh_summary_data(
                         ON a.agreement_uuid = gated_tagged.agreement_uuid
                     GROUP BY 1, 2, 3
                 ),
+                -- agreement XML'd and ready to get section'd
+                yellow_d as (
+                    SELECT
+                         YEAR(DATE(filing_date)) AS year,
+                        'yellow' AS color,
+                        '3_xml' AS current_stage,
+                        COUNT(x.agreement_uuid) AS count
+                    FROM {xml_table} x
+                    JOIN {agreements_table} a
+                        ON x.agreement_uuid = a.agreement_uuid
+                    LEFT JOIN {sections_table} s on s.agreement_uuid = a.agreement_uuid
+                    WHERE x.gated = 0
+                        AND latest
+                        AND s.agreement_uuid IS NULL
+                    GROUP BY 1, 2, 3
+                ),
+                -- agreement XML'd but needs validation before getting section'd
                 red_d AS (
                     SELECT
                         YEAR(DATE(filing_date)) AS year,
@@ -277,15 +411,24 @@ def refresh_summary_data(
                     WHERE x.gated = 1
                     GROUP BY 1, 2, 3
                 )
-                SELECT * FROM green
-                UNION ALL SELECT * FROM yellow_a
-                UNION ALL SELECT * FROM red_a
-                UNION ALL SELECT * FROM yellow_b
-                UNION ALL SELECT * FROM red_b
-                UNION ALL SELECT * FROM gray_b
-                UNION ALL SELECT * FROM yellow_c
-                UNION ALL SELECT * FROM red_c
-                UNION ALL SELECT * FROM red_d
+                SELECT
+                    unioned.year,
+                    unioned.color,
+                    unioned.current_stage,
+                    unioned.count,
+                    'asset' AS status_source
+                FROM (
+                    SELECT * FROM green
+                    UNION ALL SELECT * FROM yellow_a
+                    UNION ALL SELECT * FROM red_a
+                    UNION ALL SELECT * FROM yellow_b
+                    UNION ALL SELECT * FROM red_b
+                    UNION ALL SELECT * FROM gray_b
+                    UNION ALL SELECT * FROM yellow_c
+                    UNION ALL SELECT * FROM red_c
+                    UNION ALL SELECT * from yellow_d
+                    UNION ALL SELECT * FROM red_d
+                ) AS unioned
                 """
                 )
             )

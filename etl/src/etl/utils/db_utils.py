@@ -1,5 +1,5 @@
 from sqlalchemy.engine import Connection
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from collections.abc import Sequence, Mapping
 from typing import Protocol
 import json
@@ -59,7 +59,7 @@ def upsert_agreements(
     conn: Connection,
 ) -> None:
     agreements_table = f"{schema}.agreements"
-    upsert_sql = text(
+    insert_sql = text(
         f"""
             INSERT INTO {agreements_table} (
               agreement_uuid,
@@ -92,21 +92,48 @@ def upsert_agreements(
               :source,
               DEFAULT
             )
-            ON DUPLICATE KEY UPDATE
-              url                      = COALESCE(VALUES(url), url),
-              filing_date              = COALESCE(VALUES(filing_date), filing_date),
-              target                   = COALESCE(VALUES(target), target),
-              acquirer                 = COALESCE(VALUES(acquirer), acquirer),
-              announce_date            = COALESCE(VALUES(announce_date), announce_date),
-              prob_filing              = COALESCE(VALUES(prob_filing), prob_filing),
-              filing_company_name      = COALESCE(VALUES(filing_company_name), filing_company_name),
-              filing_company_cik       = COALESCE(VALUES(filing_company_cik), filing_company_cik),
-              form_type                = COALESCE(VALUES(form_type), form_type),
-              exhibit_type             = COALESCE(VALUES(exhibit_type), exhibit_type),
-              secondary_filing_url     = COALESCE(VALUES(secondary_filing_url), secondary_filing_url),
-              source                   = COALESCE(VALUES(source), source)
         """
     )
+    update_sql = text(
+        f"""
+        UPDATE {agreements_table}
+        SET
+            url = COALESCE(:url, url),
+            filing_date = COALESCE(:filing_date, filing_date),
+            target = COALESCE(:target, target),
+            acquirer = COALESCE(:acquirer, acquirer),
+            announce_date = COALESCE(:announce_date, announce_date),
+            prob_filing = COALESCE(:prob_filing, prob_filing),
+            filing_company_name = COALESCE(:filing_company_name, filing_company_name),
+            filing_company_cik = COALESCE(:filing_company_cik, filing_company_cik),
+            form_type = COALESCE(:form_type, form_type),
+            exhibit_type = COALESCE(:exhibit_type, exhibit_type),
+            secondary_filing_url = COALESCE(:secondary_filing_url, secondary_filing_url),
+            source = COALESCE(:source, source)
+        WHERE agreement_uuid = :agreement_uuid
+          AND (
+            NOT (url <=> COALESCE(:url, url))
+            OR NOT (filing_date <=> COALESCE(:filing_date, filing_date))
+            OR NOT (target <=> COALESCE(:target, target))
+            OR NOT (acquirer <=> COALESCE(:acquirer, acquirer))
+            OR NOT (announce_date <=> COALESCE(:announce_date, announce_date))
+            OR NOT (prob_filing <=> COALESCE(:prob_filing, prob_filing))
+            OR NOT (filing_company_name <=> COALESCE(:filing_company_name, filing_company_name))
+            OR NOT (filing_company_cik <=> COALESCE(:filing_company_cik, filing_company_cik))
+            OR NOT (form_type <=> COALESCE(:form_type, form_type))
+            OR NOT (exhibit_type <=> COALESCE(:exhibit_type, exhibit_type))
+            OR NOT (secondary_filing_url <=> COALESCE(:secondary_filing_url, secondary_filing_url))
+            OR NOT (source <=> COALESCE(:source, source))
+          )
+        """
+    )
+    select_existing_sql = text(
+        f"""
+        SELECT agreement_uuid
+        FROM {agreements_table}
+        WHERE agreement_uuid IN :uuids
+        """
+    ).bindparams(bindparam("uuids", expanding=True))
 
     count = len(staged_agreements)
     # HARDCODED: source value is set to "edgar" for all agreements during staging
@@ -133,7 +160,22 @@ def upsert_agreements(
     # execute in batches of 250
     for i in range(0, count, 250):
         batch = rows[i : i + 250]
-        _ = conn.execute(upsert_sql, batch)
+        if not batch:
+            continue
+        deduped_batch_by_uuid: dict[object, dict[str, object]] = {}
+        for row in batch:
+            deduped_batch_by_uuid[row["agreement_uuid"]] = row
+        batch = list(deduped_batch_by_uuid.values())
+        uuids = [row["agreement_uuid"] for row in batch]
+        existing_uuids = set(
+            conn.execute(select_existing_sql, {"uuids": uuids}).scalars().all()
+        )
+        rows_insert = [row for row in batch if row["agreement_uuid"] not in existing_uuids]
+        rows_update = [row for row in batch if row["agreement_uuid"] in existing_uuids]
+        if rows_insert:
+            _ = conn.execute(insert_sql, rows_insert)
+        if rows_update:
+            _ = conn.execute(update_sql, rows_update)
 
 
 def upsert_pages(
@@ -176,58 +218,138 @@ def upsert_pages(
         "postprocess_modified",
     ]
 
+    pages_table = f"{schema}.pages"
+
     if operation_type == "insert":
         operation_cols = insert_cols
 
         cols = ",\n    ".join(insert_cols)
         value_placeholders = ",\n    ".join(f":{c}" for c in insert_cols)
-        update_clause = ",\n    ".join(f"{c}=VALUES({c})" for c in insert_cols)
-
-        pages_table = f"{schema}.pages"
-        upsert_sql = text(
+        insert_sql = text(
             f"""
         INSERT INTO {pages_table} (
             {cols}
         ) VALUES (
             {value_placeholders}
         )
-        ON DUPLICATE KEY UPDATE
-            {update_clause}
         """
         )
+        update_sql = text(
+            f"""
+            UPDATE {pages_table}
+            SET
+                raw_page_content = :raw_page_content,
+                processed_page_content = :processed_page_content,
+                source_is_txt = :source_is_txt,
+                source_is_html = :source_is_html,
+                source_page_type = :source_page_type,
+                page_type_prob_front_matter = :page_type_prob_front_matter,
+                page_type_prob_toc = :page_type_prob_toc,
+                page_type_prob_body = :page_type_prob_body,
+                page_type_prob_sig = :page_type_prob_sig,
+                page_type_prob_back_matter = :page_type_prob_back_matter,
+                postprocess_modified = :postprocess_modified
+            WHERE agreement_uuid = :agreement_uuid
+              AND page_order = :page_order
+              AND (
+                NOT (raw_page_content <=> :raw_page_content)
+                OR NOT (processed_page_content <=> :processed_page_content)
+                OR NOT (source_is_txt <=> :source_is_txt)
+                OR NOT (source_is_html <=> :source_is_html)
+                OR NOT (source_page_type <=> :source_page_type)
+                OR NOT (page_type_prob_front_matter <=> :page_type_prob_front_matter)
+                OR NOT (page_type_prob_toc <=> :page_type_prob_toc)
+                OR NOT (page_type_prob_body <=> :page_type_prob_body)
+                OR NOT (page_type_prob_sig <=> :page_type_prob_sig)
+                OR NOT (page_type_prob_back_matter <=> :page_type_prob_back_matter)
+                OR NOT (postprocess_modified <=> :postprocess_modified)
+              )
+            """
+        )
+        select_existing_sql = text(
+            f"""
+            SELECT agreement_uuid, page_order
+            FROM {pages_table}
+            WHERE agreement_uuid IN :agreement_uuids
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+
+        rows: list[dict[str, object]] = [
+            {col: getattr(page, col) for col in operation_cols} for page in staged_pages
+        ]
+        for i in range(0, len(rows), 250):
+            batch = rows[i : i + 250]
+            if not batch:
+                continue
+            deduped_batch_by_key: dict[tuple[object, object], dict[str, object]] = {}
+            for row in batch:
+                deduped_batch_by_key[(row["agreement_uuid"], row["page_order"])] = row
+            batch = list(deduped_batch_by_key.values())
+            agreement_uuids = sorted(
+                {
+                    str(row["agreement_uuid"])
+                    for row in batch
+                    if row["agreement_uuid"] is not None
+                }
+            )
+            if not agreement_uuids:
+                continue
+            existing_rows = conn.execute(
+                select_existing_sql,
+                {"agreement_uuids": agreement_uuids},
+            ).mappings().fetchall()
+            existing_keys = {
+                (row["agreement_uuid"], row["page_order"]) for row in existing_rows
+            }
+            rows_insert = [
+                row
+                for row in batch
+                if (row["agreement_uuid"], row["page_order"]) not in existing_keys
+            ]
+            rows_update = [
+                row
+                for row in batch
+                if (row["agreement_uuid"], row["page_order"]) in existing_keys
+            ]
+            if rows_insert:
+                _ = conn.execute(insert_sql, rows_insert)
+            if rows_update:
+                _ = conn.execute(update_sql, rows_update)
+        return
 
     elif operation_type == "update":
         operation_cols = update_cols
 
         # build a SET clause for all cols except the pk
-        cols = ",\n    ".join(update_cols)
         set_clause = ",\n    ".join(
             f"{c} = :{c}" for c in update_cols if c != "page_uuid"
         )
+        where_changed = " OR ".join(
+            f"NOT ({c} <=> :{c})" for c in update_cols if c != "page_uuid"
+        )
 
-        pages_table = f"{schema}.pages"
-        upsert_sql = text(
+        update_sql = text(
             f"""
         UPDATE {pages_table}
         SET
             {set_clause}
         WHERE page_uuid = :page_uuid
+          AND ({where_changed})
         """
         )
+        rows = [
+            {col: getattr(page, col) for col in operation_cols} for page in staged_pages
+        ]
+        for i in range(0, len(rows), 250):
+            batch = rows[i : i + 250]
+            if not batch:
+                continue
+            _ = conn.execute(update_sql, batch)
+        return
 
-    else:
-        raise RuntimeError(
-            f"Unknown value provided for 'operation_type': {operation_type}"
-        )
-
-    rows: list[dict[str, object]] = [
-        {col: getattr(page, col) for col in operation_cols} for page in staged_pages
-    ]
-
-    # execute in batches of 250
-    for i in range(0, len(rows), 250):
-        batch = rows[i : i + 250]
-        _ = conn.execute(upsert_sql, batch)
+    raise RuntimeError(
+        f"Unknown value provided for 'operation_type': {operation_type}"
+    )
 
 
 def upsert_tags(
@@ -243,7 +365,7 @@ def upsert_tags(
         conn (Connection): SQLAlchemy connection.
     """
     tagged_outputs_table = f"{schema}.tagged_outputs"
-    upsert_sql_tags = text(
+    insert_sql_tags = text(
         f"""
         INSERT INTO {tagged_outputs_table} (
             page_uuid,
@@ -260,13 +382,32 @@ def upsert_tags(
             :tokens,
             DEFAULT
         )
-        ON DUPLICATE KEY UPDATE
-            tagged_text   = VALUES(tagged_text),
-            low_count     = VALUES(low_count),
-            spans         = VALUES(spans),
-            tokens        = VALUES(tokens)
         """
     )
+    update_sql_tags = text(
+        f"""
+        UPDATE {tagged_outputs_table}
+        SET
+            tagged_text = :tagged_text,
+            low_count = :low_count,
+            spans = :spans,
+            tokens = :tokens
+        WHERE page_uuid = :page_uuid
+          AND (
+            NOT (tagged_text <=> :tagged_text)
+            OR NOT (low_count <=> :low_count)
+            OR NOT (spans <=> :spans)
+            OR NOT (tokens <=> :tokens)
+          )
+        """
+    )
+    select_existing_sql = text(
+        f"""
+        SELECT page_uuid
+        FROM {tagged_outputs_table}
+        WHERE page_uuid IN :pids
+        """
+    ).bindparams(bindparam("pids", expanding=True))
 
     rows_tags: list[dict[str, object]] = [
         {
@@ -282,7 +423,26 @@ def upsert_tags(
     # execute in batches of 250
     for i in range(0, len(rows_tags), 250):
         batch_tags = rows_tags[i : i + 250]
-        _ = conn.execute(upsert_sql_tags, batch_tags)
+        if not batch_tags:
+            continue
+        deduped_batch_by_pid: dict[object, dict[str, object]] = {}
+        for row in batch_tags:
+            deduped_batch_by_pid[row["page_uuid"]] = row
+        batch_tags = list(deduped_batch_by_pid.values())
+        page_uuids = [str(row["page_uuid"]) for row in batch_tags]
+        existing_page_uuids = set(
+            conn.execute(select_existing_sql, {"pids": page_uuids}).scalars().all()
+        )
+        rows_insert = [
+            row for row in batch_tags if row["page_uuid"] not in existing_page_uuids
+        ]
+        rows_update = [
+            row for row in batch_tags if row["page_uuid"] in existing_page_uuids
+        ]
+        if rows_insert:
+            _ = conn.execute(insert_sql_tags, rows_insert)
+        if rows_update:
+            _ = conn.execute(update_sql_tags, rows_update)
 
 
 def upsert_xml(
