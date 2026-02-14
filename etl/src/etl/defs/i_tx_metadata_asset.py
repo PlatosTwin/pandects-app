@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from openai import OpenAI
 
@@ -419,65 +419,62 @@ def _run_offline_mode(
         )
         return
 
-    # Select agreements where target IS NULL OR acquirer IS NULL OR deal_type IS NULL
-    select_q = text(
-        f"""
-        SELECT agreement_uuid
-        FROM {agreements_table} a
-        WHERE 
-            (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
-            AND (a.paginated = True OR a.paginated IS NULL)
-            AND a.gated = 0
-            AND EXISTS (
-                SELECT 1
-                FROM {pages_table} p
-                WHERE p.agreement_uuid = a.agreement_uuid
-            )
-            AND NOT EXISTS (
-                SELECT 1
-                FROM {pages_table} p
-                WHERE p.agreement_uuid = a.agreement_uuid
-                  AND p.gated = 1
-            )
-        ORDER BY agreement_uuid ASC
-        LIMIT :lim
-        """
-    )
-    with engine.begin() as conn:
-        rows = conn.execute(select_q, {"lim": batch_size}).mappings().fetchall()
-    agreement_uuids = [r["agreement_uuid"] for r in rows]
-    if not agreement_uuids:
-        context.log.info("tx_metadata_asset (offline): no agreements need target/acquirer/deal_type.")
-        return
-
-    # Fetch for each agreement: all front_matter + first 2 body pages (by page_order)
-    # Use same text source as XML: coalesce(tagged_text_gold, tagged_text_corrected, tagged_text, processed_page_content)
+    # Select page payloads for agreements that are actually runnable in offline mode:
+    # target/acquirer/deal_type missing, not gated, and has non-empty text in
+    # (all front_matter + first 2 body pages). Then cap at batch_size agreements.
     pages_q = text(
         f"""
-        WITH ordered AS (
+        WITH candidate_pages AS (
             SELECT
-                p.agreement_uuid,
+                a.agreement_uuid,
                 p.page_order,
                 coalesce(p.gold_label, p.source_page_type) AS source_page_type,
                 coalesce(t.tagged_text_gold, t.tagged_text_corrected, t.tagged_text, p.processed_page_content) AS page_text,
                 ROW_NUMBER() OVER (
-                    PARTITION BY p.agreement_uuid, coalesce(p.gold_label, p.source_page_type)
+                    PARTITION BY a.agreement_uuid, coalesce(p.gold_label, p.source_page_type)
                     ORDER BY p.page_order
                 ) AS rn
-            FROM {pages_table} p
+            FROM {agreements_table} a
+            JOIN {pages_table} p
+                ON p.agreement_uuid = a.agreement_uuid
             LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
-            WHERE p.agreement_uuid IN :uuids
+            WHERE
+                (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
+                AND (a.paginated = True OR a.paginated IS NULL)
+                AND a.gated = 0
               AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
+        ),
+        selected_pages AS (
+            SELECT agreement_uuid, page_order, page_text
+            FROM candidate_pages
+            WHERE source_page_type = 'front_matter'
+               OR (source_page_type = 'body' AND rn <= 2)
+        ),
+        selected_agreements AS (
+            SELECT agreement_uuid
+            FROM selected_pages
+            GROUP BY agreement_uuid
+            HAVING SUM(
+                CASE
+                    WHEN TRIM(COALESCE(page_text, '')) <> '' THEN 1
+                    ELSE 0
+                END
+            ) > 0
+            ORDER BY agreement_uuid ASC
+            LIMIT :lim
         )
-        SELECT agreement_uuid, page_order, page_text
-        FROM ordered
-        WHERE source_page_type = 'front_matter'
-           OR (source_page_type = 'body' AND rn <= 2)
-        ORDER BY agreement_uuid, page_order
+        SELECT sp.agreement_uuid, sp.page_order, sp.page_text
+        FROM selected_pages sp
+        JOIN selected_agreements sa
+            ON sa.agreement_uuid = sp.agreement_uuid
+        ORDER BY sp.agreement_uuid ASC, sp.page_order ASC
         """
-    ).bindparams(bindparam("uuids", expanding=True))
+    )
     with engine.begin() as conn:
-        page_rows = conn.execute(pages_q, {"uuids": tuple(agreement_uuids)}).mappings().fetchall()
+        page_rows = conn.execute(pages_q, {"lim": batch_size}).mappings().fetchall()
+    if not page_rows:
+        context.log.info("tx_metadata_asset (offline): no runnable agreements need target/acquirer/deal_type.")
+        return
 
     # Group by agreement_uuid and concatenate text (order preserved by ORDER BY above)
     by_agr: Dict[str, List[str]] = {}
@@ -485,6 +482,12 @@ def _run_offline_mode(
         agr_uuid = r["agreement_uuid"]
         text_val = r["page_text"] or ""
         by_agr.setdefault(agr_uuid, []).append(text_val)
+    agreement_uuids = list(by_agr.keys())
+    context.log.info(
+        "tx_metadata_asset (offline): selected %s runnable agreements (batch_size=%s).",
+        len(agreement_uuids),
+        batch_size,
+    )
     agreement_texts = {
         agr_uuid: "\n\n".join(texts)
         for agr_uuid, texts in by_agr.items()
