@@ -489,10 +489,11 @@ def _apply_xml_verify_batch_output(
     update_q = text(
         f"""
         UPDATE {xml_table}
-        SET status = :status
+        SET status = :status,
+            status_source = 'asset'
         WHERE agreement_uuid = :agreement_uuid
           AND version = :version
-          AND NOT (status <=> :status)
+          AND (NOT (status <=> :status) OR NOT (status_source <=> 'asset'))
         """
     )
 
@@ -875,10 +876,11 @@ def xml_verify_asset(
         hard_invalidate_q = text(
             f"""
             UPDATE {xml_table}
-            SET status = 'invalid'
+            SET status = 'invalid',
+                status_source = 'asset'
             WHERE agreement_uuid = :agreement_uuid
               AND version = :version
-              AND NOT (status <=> 'invalid')
+              AND (NOT (status <=> 'invalid') OR NOT (status_source <=> 'asset'))
             """
         )
         with engine.begin() as conn:
