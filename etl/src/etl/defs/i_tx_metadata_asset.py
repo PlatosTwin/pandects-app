@@ -327,7 +327,7 @@ def _apply_offline_batch_output(
     return updated, parse_errors
 
 
-@dg.asset(deps=[], name="9_tx_metadata_asset")
+@dg.asset(deps=[], name="8_tx_metadata_asset")
 def tx_metadata_asset(
     context: AssetExecutionContext,
     db: DBResource,

@@ -17,7 +17,14 @@ base_resources = get_resources()
 etl_pipeline = dg.define_asset_job(
     name="etl_pipeline",
     selection=dg.AssetSelection.assets(
-        staging_asset, pre_processing_asset, tagging_asset, xml_asset, xml_verify_asset
+        staging_asset,
+        pre_processing_asset,
+        tagging_asset,
+        xml_asset,
+        xml_verify_asset,
+        ai_repair_enqueue_asset,
+        ai_repair_poll_asset,
+        reconcile_tags,
     ),
 )
 

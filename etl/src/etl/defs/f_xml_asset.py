@@ -744,7 +744,7 @@ def xml_asset(
     refresh_summary_data(context, db)
 
 
-@dg.asset(deps=[xml_asset], name="6-2_verify_xml")
+@dg.asset(deps=[xml_asset], name="4-2_verify_xml")
 def xml_verify_asset(
     context: AssetExecutionContext,
     db: DBResource,

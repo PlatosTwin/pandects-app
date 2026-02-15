@@ -466,7 +466,7 @@ def _mark_completed(conn: Connection, schema: str, request_ids: Set[str]) -> Non
     _ = conn.execute(q_spans, {"ids": list(request_ids)})
 
 
-@dg.asset(deps=[], name="4-1_ai_repair_enqueue_asset")
+@dg.asset(deps=[xml_verify_asset], name="5-1_ai_repair_enqueue_asset")
 def ai_repair_enqueue_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -798,7 +798,7 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     return rid, out
 
 
-@dg.asset(deps=[ai_repair_enqueue_asset], name="4-2_ai_repair_poll_asset")
+@dg.asset(deps=[ai_repair_enqueue_asset], name="5-2_ai_repair_poll_asset")
 def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None:
     """
     Poll terminal batches, read output/error JSONL, persist parsed entities strictly.

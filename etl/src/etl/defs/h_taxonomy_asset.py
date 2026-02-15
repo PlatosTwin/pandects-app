@@ -19,7 +19,7 @@ from etl.utils.db_utils import upsert_xml
 from etl.utils.run_config import is_batched, is_cleanup_mode
 from etl.utils.summary_data import refresh_summary_data
 
-@dg.asset(deps=[sections_asset], name="8_taxonomy_asset")
+@dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
 def taxonomy_asset(
     context: AssetExecutionContext,
     db: DBResource,

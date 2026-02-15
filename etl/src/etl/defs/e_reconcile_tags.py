@@ -325,7 +325,7 @@ def _merge_with_rulings(
     return _render_tags(base_raw_text, final_spans)
 
 
-@dg.asset(deps=[ai_repair_poll_asset], name="5_reconcile_tags")
+@dg.asset(deps=[ai_repair_poll_asset], name="5-3_reconcile_tags")
 def reconcile_tags(
     context: AssetExecutionContext,
     db: DBResource,
