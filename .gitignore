@@ -54,6 +54,7 @@ _t.*
 ############################
 
 **/tb_logs/
+**/logs/
 **/lightning_logs/
 **/*.tmp_dagster*
 
