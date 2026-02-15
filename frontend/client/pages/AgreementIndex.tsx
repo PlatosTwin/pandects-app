@@ -1397,7 +1397,11 @@ export default function AgreementIndex() {
               />
             }
           />
-          <ChartLegend content={<ChartLegendContent />} />
+          <ChartLegend
+            content={
+              <ChartLegendContent className="flex-wrap justify-start gap-x-4 gap-y-1 sm:justify-center" />
+            }
+          />
           {dealTypeSeries.map((series) => (
             <Bar
               key={series.key}
