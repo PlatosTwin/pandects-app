@@ -3,7 +3,6 @@ import unittest
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import Mock
-from unittest.mock import patch
 
 from etl.defs.resources import DBResource
 from etl.utils.summary_data import IN_FLIGHT_RUN_STATUSES, _get_other_in_flight_run_ids, refresh_summary_data
@@ -47,7 +46,7 @@ class SummaryDataTests(unittest.TestCase):
             context.log.info.call_args.args[0],
         )
 
-    def test_refresh_summary_data_sets_status_source_to_asset(self) -> None:
+    def test_refresh_summary_data_updates_deal_type_summary(self) -> None:
         class _ScalarResult:
             def __init__(self, value: object):
                 self._value = value
@@ -87,15 +86,25 @@ class SummaryDataTests(unittest.TestCase):
         engine = _FakeEngine(conn)
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
 
-        with patch("etl.utils.summary_data._ensure_summary_data_deal_type_enum") as ensure_enum:
-            ensure_enum.return_value = None
-            refresh_summary_data(None, cast(DBResource, cast(object, db)))
+        refresh_summary_data(None, cast(DBResource, cast(object, db)))
 
-        status_insert_sql = next(
-            sql for sql in conn.executed_sql if "INSERT INTO pdx.agreement_status_summary" in sql
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_deal_type_summary" in sql for sql in conn.executed_sql)
         )
-        self.assertIn("status_source", status_insert_sql)
-        self.assertIn("'asset' AS status_source", status_insert_sql)
+        summary_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.summary_data" in sql
+        )
+        self.assertIn("FROM pdx.agreements AS a", summary_insert_sql)
+        deal_type_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_deal_type_summary" in sql
+        )
+        self.assertIn("WITH eligible_xml AS", deal_type_insert_sql)
+        self.assertIn("COALESCE(a.deal_type, 'unknown')", deal_type_insert_sql)
+        self.assertIn("COUNT(*) AS `count`", deal_type_insert_sql)
 
 
 if __name__ == "__main__":

@@ -41,13 +41,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
@@ -58,7 +61,7 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
 import { AgreementModal } from "@/components/AgreementModal";
-import { formatDateValue } from "@/lib/format-utils";
+import { formatDateValue, formatEnumValue } from "@/lib/format-utils";
 import {
   Tooltip,
   TooltipContent,
@@ -119,8 +122,28 @@ type AgreementStatusSummaryResponse = {
   latest_filing_date: string | null;
 };
 
+type AgreementDealTypeYearRow = {
+  year: number;
+  deal_type: string;
+  count: number;
+};
+
+type AgreementDealTypeSummaryResponse = {
+  years: AgreementDealTypeYearRow[];
+};
+
+type DealTypeSeries = {
+  dealType: string;
+  key: string;
+  label: string;
+  color: string;
+  total: number;
+};
+
 type SortColumn = "year" | "target" | "acquirer";
 type SortDirection = "asc" | "desc";
+type OverviewTab = "processing-status" | "deal-types";
+type DealTypeChartMode = "count" | "percent";
 
 const formatValue = (value: string | number | null | undefined) => {
   if (value === null || value === undefined || value === "") return "—";
@@ -138,7 +161,7 @@ const summaryCards = [
     key: "agreements",
     label: "Agreements",
     icon: FileText,
-    description: "Total agreements processed",
+    description: "Total agreements ingested",
   },
   {
     key: "sections",
@@ -154,9 +177,47 @@ const summaryCards = [
   },
 ] as const;
 
+const DEAL_TYPE_DISPLAY_ORDER = [
+  "merger",
+  "stock_acquisition",
+  "asset_acquisition",
+  "membership_interest_purchase",
+  "tender_offer",
+  "unknown",
+];
+
+const DEAL_TYPE_COLORS: Record<string, string> = {
+  merger: "hsl(212 93% 50%)",
+  stock_acquisition: "hsl(170 84% 36%)",
+  asset_acquisition: "hsl(35 92% 52%)",
+  membership_interest_purchase: "hsl(196 83% 42%)",
+  tender_offer: "hsl(0 84% 60%)",
+  unknown: "hsl(220 9% 60%)",
+};
+
+const normalizeDealType = (dealType: string | null | undefined) => {
+  if (!dealType) return "unknown";
+  const normalized = dealType.trim();
+  return normalized.length ? normalized : "unknown";
+};
+
+const formatDealTypeLabel = (dealType: string) =>
+  dealType === "unknown" ? "Unclassified" : formatEnumValue(dealType);
+
+const dealTypeSeriesKey = (dealType: string) =>
+  `dealType_${dealType.replace(/[^a-z0-9]+/gi, "_")}`;
+const PERCENT_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
+
 export default function AgreementIndex() {
   const isMobile = useIsMobile();
-  const [isChartModalOpen, setIsChartModalOpen] = useState(false);
+  const [isProcessingChartModalOpen, setIsProcessingChartModalOpen] =
+    useState(false);
+  const [isDealTypesChartModalOpen, setIsDealTypesChartModalOpen] =
+    useState(false);
+  const [overviewTab, setOverviewTab] =
+    useState<OverviewTab>("processing-status");
+  const [dealTypeChartMode, setDealTypeChartMode] =
+    useState<DealTypeChartMode>("count");
   const [summary, setSummary] = useState<AgreementIndexSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -170,6 +231,14 @@ export default function AgreementIndex() {
   );
   const [statusSummaryLatestFilingDate, setStatusSummaryLatestFilingDate] =
     useState<string | null>(null);
+  const [dealTypeSummary, setDealTypeSummary] = useState<
+    AgreementDealTypeYearRow[]
+  >([]);
+  const [dealTypeSummaryLoading, setDealTypeSummaryLoading] = useState(false);
+  const [dealTypeSummaryLoaded, setDealTypeSummaryLoaded] = useState(false);
+  const [dealTypeSummaryError, setDealTypeSummaryError] = useState<
+    string | null
+  >(null);
   const [statusAccordionValue, setStatusAccordionValue] = useState<
     string | undefined
   >(undefined);
@@ -193,6 +262,8 @@ export default function AgreementIndex() {
   } | null>(null);
   const stagedChartDescriptionId = useId();
   const stagedChartTableId = useId();
+  const dealTypeChartDescriptionId = useId();
+  const dealTypeChartTableId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -230,6 +301,7 @@ export default function AgreementIndex() {
   }, []);
 
   const statusAccordionOpen = statusAccordionValue === "staged";
+  const dealTypesTabOpen = overviewTab === "deal-types";
 
   useEffect(() => {
     if (!statusAccordionOpen || statusSummaryLoaded || statusSummaryLoading)
@@ -277,6 +349,62 @@ export default function AgreementIndex() {
       controller.abort();
     };
   }, [statusAccordionOpen, statusSummaryLoaded]);
+
+  useEffect(() => {
+    if (
+      !statusAccordionOpen ||
+      !dealTypesTabOpen ||
+      dealTypeSummaryLoaded ||
+      dealTypeSummaryLoading
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const fetchDealTypeSummary = async () => {
+      try {
+        setDealTypeSummaryLoading(true);
+        setDealTypeSummaryError(null);
+        const res = await authFetch(
+          apiUrl("v1/agreements-deal-types-summary"),
+          {
+            signal: controller.signal,
+          },
+        );
+        if (!res.ok) {
+          throw new Error(`Deal type summary request failed (${res.status})`);
+        }
+        const data = (await res.json()) as AgreementDealTypeSummaryResponse;
+        if (!cancelled) {
+          setDealTypeSummary(data.years ?? []);
+          setDealTypeSummaryLoaded(true);
+        }
+      } catch (err) {
+        if (
+          !cancelled &&
+          !(err instanceof DOMException && err.name === "AbortError")
+        ) {
+          setDealTypeSummaryError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load deal type summary.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDealTypeSummaryLoading(false);
+        }
+      }
+    };
+
+    fetchDealTypeSummary();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [statusAccordionOpen, dealTypesTabOpen, dealTypeSummaryLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -481,6 +609,133 @@ export default function AgreementIndex() {
     }
     return ticks.length ? ticks : undefined;
   }, [stagedYearRange, stagedChartData]);
+  const dealTypeSeries = useMemo(() => {
+    const totalsByType = new Map<string, number>();
+    dealTypeSummary.forEach((row) => {
+      const dealType = normalizeDealType(row.deal_type);
+      const count = Math.max(0, Number(row.count || 0));
+      totalsByType.set(dealType, (totalsByType.get(dealType) ?? 0) + count);
+    });
+
+    const orderedKnown = DEAL_TYPE_DISPLAY_ORDER.filter((dealType) =>
+      totalsByType.has(dealType),
+    );
+    const orderedRemaining = Array.from(totalsByType.keys())
+      .filter((dealType) => !DEAL_TYPE_DISPLAY_ORDER.includes(dealType))
+      .sort((a, b) => a.localeCompare(b));
+    const orderedDealTypes = [...orderedKnown, ...orderedRemaining];
+
+    return orderedDealTypes.map((dealType, index) => ({
+      dealType,
+      key: dealTypeSeriesKey(dealType),
+      label: formatDealTypeLabel(dealType),
+      color:
+        DEAL_TYPE_COLORS[dealType] ??
+        (index % 2 === 0 ? "hsl(226 80% 58%)" : "hsl(191 82% 45%)"),
+      total: totalsByType.get(dealType) ?? 0,
+    }));
+  }, [dealTypeSummary]);
+  const dealTypeChartData = useMemo(() => {
+    const seriesByType = new Map(
+      dealTypeSeries.map((series) => [series.dealType, series]),
+    );
+    const yearMap = new Map<
+      number,
+      { year: number } & Record<string, number>
+    >();
+
+    dealTypeSummary.forEach((row) => {
+      if (!Number.isFinite(row.year)) return;
+      const year = Number(row.year);
+      const dealType = normalizeDealType(row.deal_type);
+      const series = seriesByType.get(dealType);
+      if (!series) return;
+      const count = Math.max(0, Number(row.count || 0));
+      const entry = yearMap.get(year) ?? { year };
+      entry[series.key] = (entry[series.key] ?? 0) + count;
+      yearMap.set(year, entry);
+    });
+
+    const rows = Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
+    rows.forEach((row) => {
+      dealTypeSeries.forEach((series) => {
+        row[series.key] = row[series.key] ?? 0;
+      });
+    });
+    return rows;
+  }, [dealTypeSummary, dealTypeSeries]);
+  const dealTypeChartDataByYear = useMemo(
+    () => new Map(dealTypeChartData.map((row) => [row.year, row])),
+    [dealTypeChartData],
+  );
+  const dealTypeChartDisplayData = useMemo(() => {
+    if (dealTypeChartMode === "count") {
+      return dealTypeChartData;
+    }
+    return dealTypeChartData.map((row) => {
+      const total = dealTypeSeries.reduce(
+        (sum, series) => sum + Number(row[series.key] ?? 0),
+        0,
+      );
+      const pctRow: { year: number } & Record<string, number> = {
+        year: row.year,
+      };
+      dealTypeSeries.forEach((series) => {
+        const value = Number(row[series.key] ?? 0);
+        pctRow[series.key] =
+          total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
+      });
+      return pctRow;
+    });
+  }, [dealTypeChartData, dealTypeSeries, dealTypeChartMode]);
+  const dealTypeTotals = useMemo(() => {
+    const total = dealTypeSeries.reduce((sum, series) => sum + series.total, 0);
+    const metrics = dealTypeSeries.map((series) => {
+      const pct =
+        total > 0 ? Math.round((series.total / total) * 1000) / 10 : 0;
+      return {
+        key: series.key,
+        label: series.label,
+        value: series.total,
+        pct,
+      };
+    });
+    return { total, metrics };
+  }, [dealTypeSeries]);
+  const dealTypeYearRange = useMemo(() => {
+    if (dealTypeChartData.length === 0) return null;
+    const minYear = dealTypeChartData[0].year;
+    const maxYear = dealTypeChartData[dealTypeChartData.length - 1].year;
+    return { minYear, maxYear };
+  }, [dealTypeChartData]);
+  const showDealTypeSourceSplit =
+    dealTypeYearRange !== null &&
+    dealTypeYearRange.minYear <= 2020 &&
+    dealTypeYearRange.maxYear >= 2021;
+  const dealTypeYearTicks = useMemo(() => {
+    if (!dealTypeYearRange) return undefined;
+    const start = 2000;
+    const end = dealTypeYearRange.maxYear;
+    const availableYears = new Set(dealTypeChartData.map((row) => row.year));
+    const ticks: number[] = [];
+    for (let year = start; year <= end; year += 5) {
+      if (year >= dealTypeYearRange.minYear && availableYears.has(year)) {
+        ticks.push(year);
+      }
+    }
+    return ticks.length ? ticks : undefined;
+  }, [dealTypeYearRange, dealTypeChartData]);
+  const dealTypeChartConfig = useMemo<ChartConfig>(
+    () =>
+      dealTypeSeries.reduce<ChartConfig>((acc, series) => {
+        acc[series.key] = {
+          label: series.label,
+          color: series.color,
+        };
+        return acc;
+      }, {}),
+    [dealTypeSeries],
+  );
 
   const stageSummaryRows = useMemo(() => {
     const stageOrder = [
@@ -490,7 +745,10 @@ export default function AgreementIndex() {
       { key: "3_xml", label: "XML validation" },
     ] as const;
     type StageKey = (typeof stageOrder)[number]["key"];
-    const stageMap = new Map<StageKey, { key: StageKey; label: string; staged: number; awaiting: number }>(
+    const stageMap = new Map<
+      StageKey,
+      { key: StageKey; label: string; staged: number; awaiting: number }
+    >(
       stageOrder.map((stage) => [
         stage.key,
         { ...stage, staged: 0, awaiting: 0 },
@@ -639,7 +897,7 @@ export default function AgreementIndex() {
                           : getPct(notPaginated);
 
                   return (
-                    <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
+                    <div className="grid grid-cols-[auto_minmax(0,4.5rem)_minmax(0,1fr)] items-center gap-x-3">
                       {colorBlock}
                       <span className="text-left font-mono font-medium tabular-nums text-foreground">
                         {countValue.toLocaleString()}
@@ -729,7 +987,10 @@ export default function AgreementIndex() {
   );
   const renderStagedSummaryTable = (className?: string) => (
     <div
-      className={cn("rounded-lg border border-border/60 bg-muted/20 p-3", className)}
+      className={cn(
+        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        className,
+      )}
     >
       <div className="grid gap-2 sm:hidden">
         {stagedSummaryMetrics.map((metric) => (
@@ -756,8 +1017,8 @@ export default function AgreementIndex() {
       <div className="hidden overflow-x-auto sm:block">
         <Table className="min-w-[520px]">
           <caption className="sr-only">
-            Summary totals for staged, awaiting validation, and processed agreements,
-            plus the latest ingested filing date.
+            Summary totals for staged, awaiting validation, and processed
+            agreements, plus the latest ingested filing date.
           </caption>
           <TableHeader>
             <TableRow>
@@ -796,6 +1057,279 @@ export default function AgreementIndex() {
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+
+  const renderDealTypeSummaryTable = (className?: string) => (
+    <div
+      className={cn(
+        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        className,
+      )}
+    >
+      <div className="grid gap-2 sm:hidden">
+        {dealTypeTotals.metrics.map((metric) => (
+          <dl
+            key={metric.key}
+            className="rounded-md border border-border/60 bg-background/70 p-3"
+          >
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {metric.label}
+            </dt>
+            <dd className="mt-1 text-base font-semibold text-foreground">
+              {metric.value.toLocaleString("en-US")}
+            </dd>
+            <dd className="text-xs text-muted-foreground">
+              {metric.pct.toFixed(1)}% of total
+            </dd>
+          </dl>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto sm:block">
+        <Table className="min-w-[520px]">
+          <caption className="sr-only">
+            Deal counts by deal type across all filing years.
+          </caption>
+          <TableHeader>
+            <TableRow>
+              {dealTypeTotals.metrics.map((metric) => (
+                <TableHead
+                  key={metric.key}
+                  scope="col"
+                  className="text-xs uppercase tracking-wide text-muted-foreground"
+                >
+                  {metric.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              {dealTypeTotals.metrics.map((metric) => (
+                <TableCell key={metric.key} className="align-top">
+                  <div className="text-base font-semibold text-foreground">
+                    {metric.value.toLocaleString("en-US")}
+                  </div>
+                  <div className="text-xs font-mono tabular-nums text-muted-foreground">
+                    {metric.pct.toFixed(1)}% of total
+                  </div>
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+
+  const renderDealTypeChart = (className?: string) => (
+    <div
+      className={cn(
+        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        className,
+      )}
+    >
+      <div className="mb-3 flex items-center justify-end gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Chart mode
+        </span>
+        <ToggleGroup
+          type="single"
+          value={dealTypeChartMode}
+          onValueChange={(value) => {
+            if (value === "count" || value === "percent") {
+              setDealTypeChartMode(value);
+            }
+          }}
+          variant="outline"
+          size="xs"
+          aria-label="Deal type chart mode"
+          className="justify-start"
+        >
+          <ToggleGroupItem
+            value="count"
+            aria-label="Stacked counts"
+            className="text-muted-foreground data-[state=on]:text-foreground"
+          >
+            Counts
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="percent"
+            aria-label="100 percent stacked"
+            className="text-muted-foreground data-[state=on]:text-foreground"
+          >
+            100%
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <ChartContainer
+        className="h-[240px] w-full aspect-auto sm:h-[300px] lg:h-[340px]"
+        config={dealTypeChartConfig}
+        role="img"
+        aria-label={
+          dealTypeChartMode === "percent"
+            ? "100 percent stacked bar chart showing deal type share by filing year."
+            : "Stacked bar chart showing deal type counts by filing year."
+        }
+        aria-describedby={`${dealTypeChartDescriptionId} ${dealTypeChartTableId}`}
+      >
+        <BarChart
+          data={dealTypeChartDisplayData}
+          margin={{ top: 6, right: 16, left: 6, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="year"
+            type="number"
+            allowDecimals={false}
+            domain={
+              dealTypeYearRange
+                ? [dealTypeYearRange.minYear, dealTypeYearRange.maxYear]
+                : ["dataMin", "dataMax"]
+            }
+            padding={{ left: 20, right: 20 }}
+            tickFormatter={(value) => String(value)}
+            tickMargin={6}
+            minTickGap={16}
+            interval="preserveStartEnd"
+            ticks={dealTypeYearTicks}
+          />
+          <YAxis
+            tickMargin={6}
+            width={dealTypeChartMode === "percent" ? 44 : 32}
+            allowDecimals={dealTypeChartMode !== "percent"}
+            domain={dealTypeChartMode === "percent" ? [0, 100] : undefined}
+            ticks={
+              dealTypeChartMode === "percent" ? PERCENT_AXIS_TICKS : undefined
+            }
+            tickFormatter={(value) => {
+              const numericValue = Number(value);
+              if (!Number.isFinite(numericValue)) return "";
+              if (dealTypeChartMode === "percent") {
+                return `${Math.round(numericValue)}%`;
+              }
+              return String(numericValue);
+            }}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                indicator="dashed"
+                labelFormatter={(_, payload) => {
+                  const year = payload?.[0]?.payload?.year;
+                  return `Filing year ${year ?? "—"}`;
+                }}
+                formatter={(value, _name, item) => {
+                  const indicatorColor = item?.payload?.fill || item?.color;
+                  const payload = item?.payload as
+                    | { year?: number }
+                    | undefined;
+                  const year = Number(payload?.year ?? NaN);
+                  const dataKey =
+                    typeof item.dataKey === "string" ? item.dataKey : "";
+                  const rawRow = Number.isFinite(year)
+                    ? dealTypeChartDataByYear.get(year)
+                    : undefined;
+                  const rawCount = Number(
+                    rawRow && dataKey ? (rawRow[dataKey] ?? 0) : 0,
+                  );
+                  const rawTotal = dealTypeSeries.reduce(
+                    (sum, series) => sum + Number(rawRow?.[series.key] ?? 0),
+                    0,
+                  );
+                  const rawPct =
+                    rawTotal > 0
+                      ? Math.round((rawCount / rawTotal) * 1000) / 10
+                      : 0;
+                  const valueNumber = Number(value);
+                  const valueLabel =
+                    dealTypeChartMode === "percent"
+                      ? `${valueNumber.toFixed(1)}%`
+                      : rawCount.toLocaleString();
+                  const metaLabel =
+                    dealTypeChartMode === "percent"
+                      ? rawCount.toLocaleString()
+                      : `${rawPct.toFixed(1)}%`;
+                  return (
+                    <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                        style={
+                          indicatorColor
+                            ? { backgroundColor: indicatorColor }
+                            : undefined
+                        }
+                        aria-hidden="true"
+                      />
+                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
+                        {valueLabel}
+                      </span>
+                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {metaLabel}
+                      </span>
+                    </div>
+                  );
+                }}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          {dealTypeSeries.map((series) => (
+            <Bar
+              key={series.key}
+              dataKey={series.key}
+              stackId="deal-types"
+              fill={`var(--color-${series.key})`}
+              name={series.label}
+            />
+          ))}
+          {showDealTypeSourceSplit ? (
+            <ReferenceLine
+              x={2020.5}
+              stroke="hsl(var(--foreground))"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              isFront
+              label={(props) => {
+                if (!props.viewBox) return null;
+                const text = isMobile ? "2020/21" : "2020/2021 split";
+                const paddingX = isMobile ? 6 : 4;
+                const rectHeight = isMobile ? 16 : 14;
+                const charWidth = isMobile ? 6.1 : 5.4;
+                const textWidth = text.length * charWidth;
+                const rectWidth = textWidth + paddingX * 2;
+                const rectX = props.viewBox.x - rectWidth - 8;
+                const rectY = props.viewBox.y + 8;
+                const textX = rectX + rectWidth / 2;
+                const textY = rectY + rectHeight / 2 + 0.5;
+                return (
+                  <g pointerEvents="none">
+                    <rect
+                      x={rectX}
+                      y={rectY}
+                      width={rectWidth}
+                      height={rectHeight}
+                      rx={4}
+                      fill="hsl(var(--background))"
+                      stroke="hsl(var(--border))"
+                    />
+                    <text
+                      x={textX}
+                      y={textY}
+                      fill="hsl(var(--muted-foreground))"
+                      fontSize={10}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {text}
+                    </text>
+                  </g>
+                );
+              }}
+            />
+          ) : null}
+        </BarChart>
+      </ChartContainer>
     </div>
   );
 
@@ -945,141 +1479,298 @@ export default function AgreementIndex() {
                 Agreement overview
               </AccordionTrigger>
               <AccordionContent className="pt-3">
-                <div className="space-y-3">
-                  <p
-                    id={stagedChartDescriptionId}
-                    className="text-base text-muted-foreground"
+                <Tabs
+                  value={overviewTab}
+                  onValueChange={(value) => {
+                    if (
+                      value === "processing-status" ||
+                      value === "deal-types"
+                    ) {
+                      setOverviewTab(value);
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <TabsList className="grid h-auto w-full grid-cols-2">
+                    <TabsTrigger value="processing-status">
+                      Processing status
+                    </TabsTrigger>
+                    <TabsTrigger value="deal-types">Deal types</TabsTrigger>
+                  </TabsList>
+                  <TabsContent
+                    value="processing-status"
+                    className="mt-0 space-y-3"
                   >
-                    Staged agreements have not yet gone through our pipelines.
-                    Agreements that are awaiting validation have made it through
-                    at least one step of the pipeline but tripped one of our
-                    validations and are awaiting manual review. Agreements that
-                    are staged or awaiting validation do not show up in the{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      /v1/search
-                    </span>
-                    ,{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      /v1/agreements
-                    </span>
-                    , or{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      /v1/sections
-                    </span>{" "}
-                    routes, and are not included in the agreement statistics at
-                    the top of this page. The dashed vertical divider marks the 2020/2021
-                    boundary: from 2000 through 2020, we use data from the DMA
-                    Corpus; beginning 2021, we source data ourselves from EDGAR.
-                  </p>
-                  {statusSummaryLoading ? (
-                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
-                    </div>
-                  ) : statusSummaryError ? (
-                    <div
-                      className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
-                      role="alert"
+                    <p
+                      id={stagedChartDescriptionId}
+                      className="text-base text-muted-foreground"
                     >
-                      {statusSummaryError}
-                    </div>
-                  ) : stagedChartData.length === 0 ? (
-                    <div
-                      className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
-                      role="status"
-                    >
-                      No staged agreement data available yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {renderStagedSummaryTable()}
-                      {isMobile ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setIsChartModalOpen(true)}
-                            aria-haspopup="dialog"
-                            aria-describedby={stagedChartDescriptionId}
-                          >
-                            Click to view on mobile
-                          </Button>
-                          <Dialog
-                            open={isChartModalOpen}
-                            onOpenChange={setIsChartModalOpen}
-                          >
-                            <DialogContent
-                              className="left-0 top-0 h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 rounded-none p-4"
+                      Staged agreements have not yet gone through our pipelines.
+                      Agreements that are awaiting validation have made it
+                      through at least one step of the pipeline but tripped one
+                      of our validations and are awaiting manual review.
+                      Agreements that are staged or awaiting validation do not
+                      show up in the{" "}
+                      <span className="font-mono text-sm text-foreground">
+                        /v1/search
+                      </span>
+                      ,{" "}
+                      <span className="font-mono text-sm text-foreground">
+                        /v1/agreements
+                      </span>
+                      , or{" "}
+                      <span className="font-mono text-sm text-foreground">
+                        /v1/sections
+                      </span>{" "}
+                      routes. The dashed vertical divider marks the 2020/2021
+                      boundary: from 2000 through 2020, we use data from the DMA
+                      Corpus; beginning 2021, we source data ourselves from
+                      EDGAR.
+                    </p>
+                    {statusSummaryLoading ? (
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
+                      </div>
+                    ) : statusSummaryError ? (
+                      <div
+                        className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                        role="alert"
+                      >
+                        {statusSummaryError}
+                      </div>
+                    ) : stagedChartData.length === 0 ? (
+                      <div
+                        className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                        role="status"
+                      >
+                        No staged agreement data available yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {renderStagedSummaryTable()}
+                        {isMobile ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() =>
+                                setIsProcessingChartModalOpen(true)
+                              }
+                              aria-haspopup="dialog"
                               aria-describedby={stagedChartDescriptionId}
                             >
-                              <DialogTitle className="text-base font-semibold">
-                                Agreement overview
-                              </DialogTitle>
-                              {renderStagedChart("border-0 bg-background p-0")}
-                            </DialogContent>
-                          </Dialog>
-                        </>
-                      ) : (
-                        renderStagedChart()
-                      )}
-                      {renderStageFunnelTable()}
-                      <table id={stagedChartTableId} className="sr-only">
-                        <caption>
-                          Processed, awaiting validation, staged, and not paginated
-                          agreements by filing year
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Year</th>
-                            <th scope="col">Processed</th>
-                            <th scope="col">Awaiting validation</th>
-                            <th scope="col">Staged</th>
-                            <th scope="col">Not paginated</th>
-                            <th scope="col">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stagedChartData.map((row) => (
-                            <tr key={`staged-row-${row.year}`}>
-                              <th scope="row">{row.year}</th>
-                              <td>{row.processed.toLocaleString("en-US")}</td>
-                              <td>{row.awaiting.toLocaleString("en-US")}</td>
-                              <td>{row.staged.toLocaleString("en-US")}</td>
-                              <td>{row.notPaginated.toLocaleString("en-US")}</td>
+                              Click to view on mobile
+                            </Button>
+                            <Dialog
+                              open={isProcessingChartModalOpen}
+                              onOpenChange={setIsProcessingChartModalOpen}
+                            >
+                              <DialogContent
+                                className="inset-0 flex h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 flex-col items-center justify-center overflow-y-auto rounded-none p-4"
+                                aria-describedby={stagedChartDescriptionId}
+                              >
+                                <DialogTitle className="text-base font-semibold">
+                                  Processing status
+                                </DialogTitle>
+                                <div className="w-full max-w-[980px]">
+                                  {renderStagedChart(
+                                    "border-0 bg-background p-0",
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </>
+                        ) : (
+                          renderStagedChart()
+                        )}
+                        {renderStageFunnelTable()}
+                        <table id={stagedChartTableId} className="sr-only">
+                          <caption>
+                            Processed, awaiting validation, staged, and not
+                            paginated agreements by filing year
+                          </caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              <th scope="col">Processed</th>
+                              <th scope="col">Awaiting validation</th>
+                              <th scope="col">Staged</th>
+                              <th scope="col">Not paginated</th>
+                              <th scope="col">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stagedChartData.map((row) => (
+                              <tr key={`staged-row-${row.year}`}>
+                                <th scope="row">{row.year}</th>
+                                <td>{row.processed.toLocaleString("en-US")}</td>
+                                <td>{row.awaiting.toLocaleString("en-US")}</td>
+                                <td>{row.staged.toLocaleString("en-US")}</td>
+                                <td>
+                                  {row.notPaginated.toLocaleString("en-US")}
+                                </td>
+                                <td>
+                                  {(
+                                    row.processed +
+                                    row.awaiting +
+                                    row.staged +
+                                    row.notPaginated
+                                  ).toLocaleString("en-US")}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr>
+                              <th scope="row">Total</th>
                               <td>
-                                {(
-                                  row.processed +
-                                  row.awaiting +
-                                  row.staged +
-                                  row.notPaginated
-                                ).toLocaleString("en-US")}
+                                {stagedTotals.processed.toLocaleString("en-US")}
+                              </td>
+                              <td>
+                                {stagedTotals.awaiting.toLocaleString("en-US")}
+                              </td>
+                              <td>
+                                {stagedTotals.staged.toLocaleString("en-US")}
+                              </td>
+                              <td>
+                                {stagedTotals.notPaginated.toLocaleString(
+                                  "en-US",
+                                )}
+                              </td>
+                              <td>
+                                {stagedTotals.total.toLocaleString("en-US")}
                               </td>
                             </tr>
-                          ))}
-                          <tr>
-                            <th scope="row">Total</th>
-                            <td>
-                              {stagedTotals.processed.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.awaiting.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.staged.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.notPaginated.toLocaleString("en-US")}
-                            </td>
-                            <td>
-                              {stagedTotals.total.toLocaleString("en-US")}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="deal-types" className="mt-0 space-y-3">
+                    <p
+                      id={dealTypeChartDescriptionId}
+                      className="text-base text-muted-foreground"
+                    >
+                      Deal type counts are precomputed from processed agreements
+                      and grouped by filing year. The dashed vertical divider
+                      marks the 2020/2021 boundary: from 2000 through 2020, we
+                      use data from the DMA Corpus; beginning 2021, we source
+                      data ourselves from EDGAR.
+                    </p>
+                    {dealTypeSummaryLoading ||
+                    (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
+                      </div>
+                    ) : dealTypeSummaryError ? (
+                      <div
+                        className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                        role="alert"
+                      >
+                        {dealTypeSummaryError}
+                      </div>
+                    ) : dealTypeChartData.length === 0 ||
+                      dealTypeSeries.length === 0 ? (
+                      <div
+                        className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+                        role="status"
+                      >
+                        No deal type data available yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {renderDealTypeSummaryTable()}
+                        {isMobile ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setIsDealTypesChartModalOpen(true)}
+                              aria-haspopup="dialog"
+                              aria-describedby={dealTypeChartDescriptionId}
+                            >
+                              Click to view on mobile
+                            </Button>
+                            <Dialog
+                              open={isDealTypesChartModalOpen}
+                              onOpenChange={setIsDealTypesChartModalOpen}
+                            >
+                              <DialogContent
+                                className="inset-0 flex h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 flex-col items-center justify-center overflow-y-auto rounded-none p-4"
+                                aria-describedby={dealTypeChartDescriptionId}
+                              >
+                                <DialogTitle className="text-base font-semibold">
+                                  Deal types
+                                </DialogTitle>
+                                <div className="w-full max-w-[980px]">
+                                  {renderDealTypeChart(
+                                    "border-0 bg-background p-0",
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </>
+                        ) : (
+                          renderDealTypeChart()
+                        )}
+                        <table id={dealTypeChartTableId} className="sr-only">
+                          <caption>Deal type counts by filing year</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Year</th>
+                              {dealTypeSeries.map((series) => (
+                                <th
+                                  key={`deal-type-head-${series.key}`}
+                                  scope="col"
+                                >
+                                  {series.label}
+                                </th>
+                              ))}
+                              <th scope="col">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dealTypeChartData.map((row) => {
+                              const rowTotal = dealTypeSeries.reduce(
+                                (sum, series) =>
+                                  sum + Number(row[series.key] ?? 0),
+                                0,
+                              );
+                              return (
+                                <tr key={`deal-type-row-${row.year}`}>
+                                  <th scope="row">{row.year}</th>
+                                  {dealTypeSeries.map((series) => (
+                                    <td
+                                      key={`deal-type-cell-${row.year}-${series.key}`}
+                                    >
+                                      {Number(
+                                        row[series.key] ?? 0,
+                                      ).toLocaleString("en-US")}
+                                    </td>
+                                  ))}
+                                  <td>{rowTotal.toLocaleString("en-US")}</td>
+                                </tr>
+                              );
+                            })}
+                            <tr>
+                              <th scope="row">Total</th>
+                              {dealTypeSeries.map((series) => (
+                                <td key={`deal-type-total-${series.key}`}>
+                                  {series.total.toLocaleString("en-US")}
+                                </td>
+                              ))}
+                              <td>
+                                {dealTypeTotals.total.toLocaleString("en-US")}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </AccordionContent>
             </AccordionItem>
           </Accordion>

@@ -7,15 +7,6 @@ from sqlalchemy.engine import Connection
 
 from etl.defs.resources import DBResource
 
-
-SUMMARY_DEAL_TYPE_ALLOWED = (
-    "stock_acquisition",
-    "merger",
-    "membership_interest_purchase",
-    "asset_acquisition",
-    "tender_offer",
-)
-
 IN_FLIGHT_RUN_STATUSES = (
     DagsterRunStatus.QUEUED,
     DagsterRunStatus.NOT_STARTED,
@@ -33,73 +24,25 @@ def _get_other_in_flight_run_ids(context: AssetExecutionContext) -> list[str]:
     return [run.run_id for run in in_flight_runs if run.run_id != context.run_id]
 
 
-def _parse_enum_values(column_type: str) -> list[str]:
-    """Parse enum literals from INFORMATION_SCHEMA column_type like enum('a','b')."""
-    if not column_type.startswith("enum(") or not column_type.endswith(")"):
-        return []
-    inner = column_type[len("enum(") : -1]
-    if not inner:
-        return []
-    items = []
-    for part in inner.split("','"):
-        token = part
-        if token.startswith("'"):
-            token = token[1:]
-        if token.endswith("'"):
-            token = token[:-1]
-        items.append(token.replace("''", "'"))
-    return items
-
-
-def _ensure_summary_data_deal_type_enum(
+def _ensure_deal_type_summary_table(
     conn: Connection,
     *,
     schema: str,
     table: str,
 ) -> None:
-    """
-    Keep summary_data.deal_type enum aligned with current deal_type values used by ETL.
-    """
-    row = conn.execute(
+    """Ensure deal type summary table exists."""
+    _ = conn.execute(
         text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {schema}.{table} (
+                year INT NOT NULL,
+                deal_type VARCHAR(64) NOT NULL,
+                `count` BIGINT NOT NULL,
+                PRIMARY KEY (year, deal_type)
+            )
             """
-            SELECT data_type, column_type, is_nullable
-            FROM information_schema.columns
-            WHERE table_schema = :schema
-              AND table_name = :table
-              AND column_name = 'deal_type'
-            """
-        ),
-        {"schema": schema, "table": table},
-    ).mappings().first()
-    if row is None:
-        return
-
-    data_type_raw = row.get("data_type")
-    data_type = data_type_raw.lower() if isinstance(data_type_raw, str) else ""
-    if data_type != "enum":
-        return
-
-    column_type_raw = row.get("column_type")
-    if not isinstance(column_type_raw, str):
-        return
-    existing = _parse_enum_values(column_type_raw)
-    missing = [v for v in SUMMARY_DEAL_TYPE_ALLOWED if v not in existing]
-    if not missing:
-        return
-
-    merged_values = existing + missing
-    quoted_values = ", ".join("'" + v.replace("'", "''") + "'" for v in merged_values)
-
-    is_nullable_raw = row.get("is_nullable")
-    nullable_sql = (
-        "NULL"
-        if isinstance(is_nullable_raw, str) and is_nullable_raw.upper() == "YES"
-        else "NOT NULL"
+        )
     )
-
-    alter_sql = f"ALTER TABLE {schema}.{table} MODIFY COLUMN deal_type ENUM({quoted_values}) {nullable_sql}"
-    _ = conn.execute(text(alter_sql))
 
 
 def refresh_summary_data(
@@ -122,6 +65,7 @@ def refresh_summary_data(
 
     summary_table = f"{schema}.summary_data"
     status_summary_table = f"{schema}.agreement_status_summary"
+    deal_type_summary_table = f"{schema}.agreement_deal_type_summary"
     agreements_table = f"{schema}.agreements"
     xml_table = f"{schema}.xml"
     pages_table = f"{schema}.pages"
@@ -145,11 +89,14 @@ def refresh_summary_data(
             return
 
         try:
-            _ensure_summary_data_deal_type_enum(
-                conn, schema=schema, table="summary_data"
+            _ensure_deal_type_summary_table(
+                conn,
+                schema=schema,
+                table="agreement_deal_type_summary",
             )
             _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {deal_type_summary_table}"))
             _ = conn.execute(
                 text(
                     f"""
@@ -170,11 +117,6 @@ def refresh_summary_data(
                     sum_transaction_value_total,
                     count_verified
                 )
-                WITH eligible_xml AS (
-                    SELECT DISTINCT agreement_uuid
-                    FROM {xml_table}
-                    WHERE status IS NULL OR status = 'verified'
-                )
                 SELECT
                     year(date(filing_date)) as year,
                     a.form_type,
@@ -191,20 +133,16 @@ def refresh_summary_data(
                     COUNT(DISTINCT a.target) AS count_distinct_target,
                     COALESCE(SUM(a.transaction_price_total), 0) AS sum_transaction_value_total,
                     SUM(CASE WHEN a.verified THEN 1 ELSE 0 END) AS count_verified
-                FROM eligible_xml AS x
-                JOIN {agreements_table} AS a
-                    ON a.agreement_uuid = x.agreement_uuid
+                FROM {agreements_table} AS a
                 LEFT JOIN (
                     SELECT p.agreement_uuid, COUNT(*) AS page_count
                     FROM {pages_table} AS p
-                    WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM eligible_xml)
                     GROUP BY p.agreement_uuid
                 ) AS p
                     ON p.agreement_uuid = a.agreement_uuid
                 LEFT JOIN (
                     SELECT s.agreement_uuid, COUNT(*) AS section_count
                     FROM {sections_table} AS s
-                    WHERE s.agreement_uuid IN (SELECT agreement_uuid FROM eligible_xml)
                     GROUP BY s.agreement_uuid
                 ) AS s
                     ON s.agreement_uuid = a.agreement_uuid
@@ -227,8 +165,7 @@ def refresh_summary_data(
                     year,
                     color,
                     current_stage,
-                    count,
-                    status_source
+                    count
                 )
                 WITH green AS (
                     SELECT
@@ -411,24 +348,43 @@ def refresh_summary_data(
                     WHERE x.gated = 1
                     GROUP BY 1, 2, 3
                 )
+                SELECT * FROM green
+                UNION ALL SELECT * FROM yellow_a
+                UNION ALL SELECT * FROM red_a
+                UNION ALL SELECT * FROM yellow_b
+                UNION ALL SELECT * FROM red_b
+                UNION ALL SELECT * FROM gray_b
+                UNION ALL SELECT * FROM yellow_c
+                UNION ALL SELECT * FROM red_c
+                UNION ALL SELECT * from yellow_d
+                UNION ALL SELECT * FROM red_d
+                """
+                )
+            )
+            _ = conn.execute(
+                text(
+                    f"""
+                INSERT INTO {deal_type_summary_table} (
+                    year,
+                    deal_type,
+                    `count`
+                )
+                WITH eligible_xml AS (
+                    SELECT DISTINCT agreement_uuid
+                    FROM {xml_table}
+                    WHERE status IS NULL OR status = 'verified'
+                )
                 SELECT
-                    unioned.year,
-                    unioned.color,
-                    unioned.current_stage,
-                    unioned.count,
-                    'asset' AS status_source
-                FROM (
-                    SELECT * FROM green
-                    UNION ALL SELECT * FROM yellow_a
-                    UNION ALL SELECT * FROM red_a
-                    UNION ALL SELECT * FROM yellow_b
-                    UNION ALL SELECT * FROM red_b
-                    UNION ALL SELECT * FROM gray_b
-                    UNION ALL SELECT * FROM yellow_c
-                    UNION ALL SELECT * FROM red_c
-                    UNION ALL SELECT * from yellow_d
-                    UNION ALL SELECT * FROM red_d
-                ) AS unioned
+                    YEAR(DATE(a.filing_date)) AS year,
+                    COALESCE(a.deal_type, 'unknown') AS deal_type,
+                    COUNT(*) AS `count`
+                FROM eligible_xml AS x
+                JOIN {agreements_table} AS a
+                    ON a.agreement_uuid = x.agreement_uuid
+                WHERE YEAR(DATE(a.filing_date)) IS NOT NULL
+                GROUP BY
+                    YEAR(DATE(a.filing_date)),
+                    COALESCE(a.deal_type, 'unknown')
                 """
                 )
             )

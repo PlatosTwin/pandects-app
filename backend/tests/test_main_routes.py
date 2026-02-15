@@ -74,6 +74,19 @@ class MainRoutesTests(unittest.TestCase):
                         "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]')"
                     )
                 )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_deal_type_summary ("
+                        "year INTEGER NOT NULL, deal_type TEXT NOT NULL, count INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
+                        "(2020, 'merger', 1), "
+                        "(2021, 'stock_acquisition', 2)"
+                    )
+                )
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
@@ -114,6 +127,19 @@ class MainRoutesTests(unittest.TestCase):
         self.assertTrue(body.get("is_redacted"))
         xml = body.get("xml", "")
         self.assertIn("[REDACTED]", xml)
+
+    def test_agreements_deal_types_summary(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-deal-types-summary")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body.get("years"),
+            [
+                {"year": 2020, "deal_type": "merger", "count": 1},
+                {"year": 2021, "deal_type": "stock_acquisition", "count": 2},
+            ],
+        )
 
 
 if __name__ == "__main__":

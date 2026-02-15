@@ -3217,6 +3217,36 @@ def get_agreements_status_summary() -> dict[str, object]:
     return {"years": years, "latest_filing_date": latest_filing_date}
 
 
+def get_agreements_deal_types_summary() -> dict[str, object]:
+    rows = (
+        db.session.execute(
+            text(
+                f"""
+                SELECT
+                    year,
+                    deal_type,
+                    `count`
+                FROM {_schema_prefix()}agreement_deal_type_summary
+                WHERE year IS NOT NULL
+                ORDER BY year ASC, deal_type ASC
+                """
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    years = [
+        {
+            "year": int(row["year"]),
+            "deal_type": str(row["deal_type"] or "unknown"),
+            "count": int(row["count"] or 0),
+        }
+        for row in rows
+    ]
+    return {"years": years}
+
+
 def get_agreements_summary() -> dict[str, int]:
     now = time.time()
     with _agreements_summary_lock:
@@ -3440,6 +3470,11 @@ def _register_main_routes(target_app: Flask) -> None:
     target_app.add_url_rule(
         "/v1/agreements-status-summary",
         view_func=get_agreements_status_summary,
+        methods=["GET"],
+    )
+    target_app.add_url_rule(
+        "/v1/agreements-deal-types-summary",
+        view_func=get_agreements_deal_types_summary,
         methods=["GET"],
     )
     target_app.add_url_rule(
