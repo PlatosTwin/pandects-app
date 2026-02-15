@@ -106,6 +106,14 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
 
+    def test_search_by_standard_id(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search?standard_id=s1&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        self.assertEqual(len(body.get("results", [])), 1)
+
     def test_get_section_by_uuid(self):
         client = self.app.test_client()
         section_uuid = "00000000-0000-0000-0000-000000000001"

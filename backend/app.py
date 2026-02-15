@@ -3,6 +3,7 @@ import sys
 from typing import cast
 from pathlib import Path
 import time
+from functools import lru_cache
 import random
 import hmac
 import hashlib
@@ -2434,6 +2435,49 @@ def _expand_taxonomy_standard_ids(standard_ids: list[str]) -> list[str]:
     )
 
 
+@lru_cache(maxsize=512)
+def _expand_taxonomy_standard_ids_cached(standard_ids_key: tuple[str, ...]) -> tuple[str, ...]:
+    if not standard_ids_key:
+        return ()
+    return tuple(_expand_taxonomy_standard_ids(list(standard_ids_key)))
+
+
+def _standard_id_storage_candidates(expanded_standard_ids: list[str]) -> list[str]:
+    """
+    Candidate serialized values for section_standard_id storage.
+    Supports scalar IDs and legacy JSON single-item arrays.
+    """
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for value in expanded_standard_ids:
+        scalar = value
+        json_array = json.dumps([value], separators=(",", ":"))
+        for candidate in (scalar, json_array):
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+    return candidates
+
+
+def _standard_id_filter_expr(expanded_standard_ids: list[str]):
+    """
+    Build an index-friendly clause-type predicate.
+    Supports scalar IDs and legacy JSON single-item array storage.
+    """
+    candidates = _standard_id_storage_candidates(expanded_standard_ids)
+    gold_label_col = Sections.__table__.c.get("section_standard_id_gold_label")
+    if gold_label_col is None:
+        return Sections.section_standard_id.in_(candidates)
+    return or_(
+        gold_label_col.in_(candidates),
+        and_(
+            gold_label_col.is_(None),
+            Sections.section_standard_id.in_(candidates),
+        ),
+    )
+
+
 # ── Define search blueprint and schemas ──────────────────────────────────
 search_blp = Blueprint(
     "search",
@@ -3531,23 +3575,20 @@ class SearchResource(MethodView):
             page_size = min(25, max_page_size)
 
         section_standard_ids_expr = _coalesced_section_standard_ids()
-
         year_expr = _agreement_year_expr()
 
-        # build the base ORM query
+        # Build a lightweight base query for filtering, counting, and sorting.
+        # Section text and taxonomy payload are fetched in a second query for
+        # only the paged section UUIDs.
         xml_agreements = _xml_agreements_subquery()
         q = (
             db.session.query(
-                Sections.section_uuid,
-                Sections.agreement_uuid,
-                section_standard_ids_expr.label("section_standard_ids"),
-                Sections.xml_content,
-                Sections.article_title,
-                Sections.section_title,
-                Agreements.acquirer,
-                Agreements.target,
-                year_expr.label("year"),
-                Agreements.verified,
+                Sections.section_uuid.label("section_uuid"),
+                Sections.agreement_uuid.label("agreement_uuid"),
+                Agreements.acquirer.label("acquirer"),
+                Agreements.target.label("target"),
+                Agreements.verified.label("verified"),
+                Agreements.filing_date.label("filing_date"),
             )
             .join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
             .join(
@@ -3558,7 +3599,15 @@ class SearchResource(MethodView):
 
         # apply filters only when provided - now handling multiple values
         if years:
-            q = q.filter(year_expr.in_(years))
+            year_filters = []
+            for year in years:
+                year_filters.append(
+                    and_(
+                        Agreements.filing_date >= f"{year:04d}-01-01",
+                        Agreements.filing_date < f"{year + 1:04d}-01-01",
+                    )
+                )
+            q = q.filter(or_(*year_filters))
 
         if targets:
             q = q.filter(Agreements.target.in_(targets))
@@ -3567,15 +3616,12 @@ class SearchResource(MethodView):
             q = q.filter(Agreements.acquirer.in_(acquirers))
 
         if standard_ids:
-            expanded_standard_ids = _expand_taxonomy_standard_ids(standard_ids)
+            standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
+            expanded_standard_ids = list(
+                _expand_taxonomy_standard_ids_cached(standard_ids_key)
+            )
             if expanded_standard_ids:
-                json_filters = [
-                    func.json_contains(
-                        section_standard_ids_expr, func.json_quote(value)
-                    )
-                    for value in expanded_standard_ids
-                ]
-                q = q.filter(or_(*json_filters))
+                q = q.filter(_standard_id_filter_expr(expanded_standard_ids))
 
         # Target Type filter
         if target_types:
@@ -3654,53 +3700,84 @@ class SearchResource(MethodView):
         if section_uuid and section_uuid.strip():
             q = q.filter(Sections.section_uuid == section_uuid.strip())
 
-        # Apply sorting based on sort_by and sort_direction
+        descending = sort_direction == "desc"
         if sort_by == "year":
-            year_expr = _agreement_year_expr()
-            if sort_direction == "desc":
-                q = q.order_by(desc(year_expr))
-            else:
-                q = q.order_by(asc(year_expr))
+            primary_sort = Agreements.filing_date
         elif sort_by == "target":
-            if sort_direction == "desc":
-                q = q.order_by(desc(Agreements.target))
-            else:
-                q = q.order_by(asc(Agreements.target))
-        elif sort_by == "acquirer":
-            if sort_direction == "desc":
-                q = q.order_by(desc(Agreements.acquirer))
-            else:
-                q = q.order_by(asc(Agreements.acquirer))
+            primary_sort = Agreements.target
+        else:
+            primary_sort = Agreements.acquirer
+        if descending:
+            q = q.order_by(desc(primary_sort), desc(Sections.section_uuid))
+        else:
+            q = q.order_by(asc(primary_sort), asc(Sections.section_uuid))
 
-        count_subquery = (
+        total_count = (
             q.order_by(None)
-            .with_entities(Sections.section_uuid)
-            .distinct()
-            .subquery()
+            .with_entities(func.count(Sections.section_uuid))
+            .scalar()
         )
-        total_count = db.session.query(func.count()).select_from(count_subquery).scalar()
         total_count = int(total_count or 0)
         offset = (page - 1) * page_size
-        items = q.offset(offset).limit(page_size).all()
+        items = (
+            q.with_entities(
+                Sections.section_uuid.label("section_uuid"),
+                Sections.agreement_uuid.label("agreement_uuid"),
+                Agreements.acquirer.label("acquirer"),
+                Agreements.target.label("target"),
+                year_expr.label("year"),
+                Agreements.verified.label("verified"),
+            )
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
+
+        section_uuids = [item.section_uuid for item in items]
+        sections_by_uuid = {}
+        if section_uuids:
+            section_rows = (
+                db.session.query(
+                    Sections.section_uuid.label("section_uuid"),
+                    section_standard_ids_expr.label("section_standard_ids"),
+                    Sections.xml_content.label("xml_content"),
+                    Sections.article_title.label("article_title"),
+                    Sections.section_title.label("section_title"),
+                )
+                .filter(Sections.section_uuid.in_(section_uuids))
+                .all()
+            )
+            sections_by_uuid = {row.section_uuid: row for row in section_rows}
+
         meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
         # marshal into JSON with pagination metadata
-        results = [
-            {
-                "id": r.section_uuid,
-                "agreement_uuid": r.agreement_uuid,
-                "section_uuid": r.section_uuid,
-                "standard_id": _parse_section_standard_ids(r.section_standard_ids),
-                "xml": r.xml_content,
-                "article_title": r.article_title,
-                "section_title": r.section_title,
-                "acquirer": r.acquirer,
-                "target": r.target,
-                "year": r.year,
-                "verified": r.verified,
-            }
-            for r in items
-        ]
+        results = []
+        for item in items:
+            section_row = sections_by_uuid.get(item.section_uuid)
+            if section_row is None:
+                raise RuntimeError(
+                    f"Section UUID {item.section_uuid} missing from detail lookup."
+                )
+            results.append(
+                {
+                    "id": item.section_uuid,
+                    "agreement_uuid": item.agreement_uuid,
+                    "section_uuid": item.section_uuid,
+                    "standard_id": _parse_section_standard_ids(
+                        section_row.section_standard_ids
+                    ),
+                    "xml": section_row.xml_content,
+                    "article_title": section_row.article_title,
+                    "section_title": section_row.section_title,
+                    "acquirer": item.acquirer,
+                    "target": item.target,
+                    "year": item.year,
+                    "verified": (
+                        bool(item.verified) if item.verified is not None else False
+                    ),
+                }
+            )
 
         # Return results with pagination metadata
         return {
