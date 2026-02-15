@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -8,6 +9,7 @@ import {
   FileText,
   Layers,
   Search,
+  X,
 } from "lucide-react";
 import {
   Bar,
@@ -69,7 +71,6 @@ import {
 } from "@/components/ui/tooltip";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const STAGE_TOOLTIP_COPY = {
   "0_staging":
@@ -207,6 +208,129 @@ const formatDealTypeLabel = (dealType: string) =>
 const dealTypeSeriesKey = (dealType: string) =>
   `dealType_${dealType.replace(/[^a-z0-9]+/gi, "_")}`;
 const PERCENT_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
+
+type MobileChartModalProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  describedBy?: string;
+  children: React.ReactNode;
+};
+
+function MobileChartModal({
+  open,
+  onOpenChange,
+  title,
+  describedBy,
+  children,
+}: MobileChartModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !mounted) return;
+
+    const activeElement = document.activeElement as HTMLElement | null;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const root = document.getElementById("root");
+    const currentModalCount = Number(body.dataset.mobileChartModalCount ?? "0");
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+      touchAction: body.style.touchAction,
+    };
+
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    body.style.touchAction = "none";
+    body.dataset.mobileChartModalCount = String(currentModalCount + 1);
+    if (root) {
+      root.setAttribute("aria-hidden", "true");
+      root.setAttribute("inert", "");
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onOpenChange(false);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      body.style.touchAction = prev.touchAction;
+      const nextModalCount = Math.max(
+        0,
+        Number(body.dataset.mobileChartModalCount ?? "1") - 1,
+      );
+      body.dataset.mobileChartModalCount = String(nextModalCount);
+      if (nextModalCount === 0 && root) {
+        root.removeAttribute("aria-hidden");
+        root.removeAttribute("inert");
+      }
+      window.scrollTo(0, scrollY);
+      activeElement?.focus?.();
+    };
+  }, [open, mounted, onOpenChange]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      <div
+        className="absolute inset-0 bg-black/80"
+        onClick={() => onOpenChange(false)}
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        aria-describedby={describedBy}
+        className="absolute inset-0 bg-background"
+      >
+        <button
+          ref={closeButtonRef}
+          type="button"
+          onClick={() => onOpenChange(false)}
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <div className="flex h-full w-full items-center justify-center p-4">
+          <div className="w-full">{children}</div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 export default function AgreementIndex() {
   const isMobile = useIsMobile();
@@ -802,7 +926,7 @@ export default function AgreementIndex() {
       )}
     >
       <ChartContainer
-        className="h-[240px] w-full aspect-auto sm:h-[300px] lg:h-[340px]"
+        className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
         config={{
           processed: {
             label: "Processed",
@@ -827,7 +951,7 @@ export default function AgreementIndex() {
       >
         <BarChart
           data={stagedChartData}
-          margin={{ top: 6, right: 16, left: 6, bottom: 0 }}
+          margin={{ top: 6, right: 24, left: 8, bottom: 0 }}
         >
           <CartesianGrid vertical={false} />
           <XAxis
@@ -1163,7 +1287,7 @@ export default function AgreementIndex() {
         </ToggleGroup>
       </div>
       <ChartContainer
-        className="h-[240px] w-full aspect-auto sm:h-[300px] lg:h-[340px]"
+        className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
         config={dealTypeChartConfig}
         role="img"
         aria-label={
@@ -1175,7 +1299,7 @@ export default function AgreementIndex() {
       >
         <BarChart
           data={dealTypeChartDisplayData}
-          margin={{ top: 6, right: 16, left: 6, bottom: 0 }}
+          margin={{ top: 6, right: 24, left: 8, bottom: 0 }}
         >
           <CartesianGrid vertical={false} />
           <XAxis
@@ -1563,24 +1687,21 @@ export default function AgreementIndex() {
                             >
                               Click to view on mobile
                             </Button>
-                            <Dialog
+                            <MobileChartModal
                               open={isProcessingChartModalOpen}
                               onOpenChange={setIsProcessingChartModalOpen}
+                              title="Processing status"
+                              describedBy={stagedChartDescriptionId}
                             >
-                              <DialogContent
-                                className="inset-0 flex h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 flex-col items-center justify-center overflow-y-auto rounded-none p-4"
-                                aria-describedby={stagedChartDescriptionId}
-                              >
-                                <DialogTitle className="text-base font-semibold">
+                              <div className="mx-auto w-full max-w-[980px]">
+                                <h2 className="mb-2 text-base font-semibold">
                                   Processing status
-                                </DialogTitle>
-                                <div className="w-full max-w-[980px]">
-                                  {renderStagedChart(
-                                    "border-0 bg-background p-0",
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                                </h2>
+                                {renderStagedChart(
+                                  "border-0 bg-background p-0",
+                                )}
+                              </div>
+                            </MobileChartModal>
                           </>
                         ) : (
                           renderStagedChart()
@@ -1693,24 +1814,21 @@ export default function AgreementIndex() {
                             >
                               Click to view on mobile
                             </Button>
-                            <Dialog
+                            <MobileChartModal
                               open={isDealTypesChartModalOpen}
                               onOpenChange={setIsDealTypesChartModalOpen}
+                              title="Deal types"
+                              describedBy={dealTypeChartDescriptionId}
                             >
-                              <DialogContent
-                                className="inset-0 flex h-[100dvh] w-[100dvw] max-w-none translate-x-0 translate-y-0 flex-col items-center justify-center overflow-y-auto rounded-none p-4"
-                                aria-describedby={dealTypeChartDescriptionId}
-                              >
-                                <DialogTitle className="text-base font-semibold">
+                              <div className="mx-auto w-full max-w-[980px]">
+                                <h2 className="mb-2 text-base font-semibold">
                                   Deal types
-                                </DialogTitle>
-                                <div className="w-full max-w-[980px]">
-                                  {renderDealTypeChart(
-                                    "border-0 bg-background p-0",
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                                </h2>
+                                {renderDealTypeChart(
+                                  "border-0 bg-background p-0",
+                                )}
+                              </div>
+                            </MobileChartModal>
                           </>
                         ) : (
                           renderDealTypeChart()
