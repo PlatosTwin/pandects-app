@@ -41,7 +41,6 @@ from sqlalchemy import (
     text,
     or_,
     and_,
-    case,
     func,
     cast as sql_cast,
     desc,
@@ -259,15 +258,6 @@ def _set_auth_cookies(resp: Response, *, session_token: str) -> None:
         samesite=samesite.capitalize() if samesite != "none" else "None",
         path="/",
     )
-
-
-def _ensure_csrf_cookie(resp: Response) -> None:
-    existing = request.cookies.get(_CSRF_COOKIE_NAME)
-    if isinstance(existing, str) and existing.strip():
-        return
-    max_age = 60 * 60 * 24 * 14
-    csrf_token = secrets.token_urlsafe(32)
-    _set_csrf_cookie(resp, csrf_token, max_age=max_age)
 
 
 def _set_csrf_cookie(resp: Response, value: str, *, max_age: int) -> None:
@@ -830,13 +820,6 @@ class _MockAuthStore:
 
 
 _mock_auth = _MockAuthStore()
-
-
-def _auth_serializer() -> URLSafeTimedSerializer | None:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        return None
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-auth")
 
 
 def _email_verification_serializer() -> URLSafeTimedSerializer:
