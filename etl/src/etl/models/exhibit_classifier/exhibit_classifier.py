@@ -171,43 +171,64 @@ class ExhibitClassifier:
             "securities purchase agreement",
             "share purchase agreement",
             "stock purchase agreement",
-            "stock purchase and sale agreement"
+            "stock purchase and sale agreement",
         ]
 
         self.ma_hard_negative_phrases = [
-            "amendment",
             "amended and restated",
+            "amendment",
+            "co-operation agreement",
+            "commercial lease",
+            "compensation",
+            "confidentiality agreement",
             "consulting agreement",
             "contractor agreement",
             "cooperation agreement",
-            "confidentiality agreement",
-            "co-operation agreement",
-            "credit agreement",
             "covenant agreement",
+            "credit agreement",
+            "deferred compensation",
             "distribution agreement",
+            "employee stock",
             "employment agreement",
+            "equity plan",
             "exchange agreement",
+            "exhibit",
             "general release of claims",
+            "guaranty agreement",
+            "incentive",
             "indemnification agreement",
             "indemnity agreement",
+            "investment management trust agreement",
             "joint venture agreement",
             "lease agreement",
             "letter agreement",
             "letter of intent",
             "license agreement",
             "loan agreement",
+            "loan and security agreement",
             "management agreement",
             "memorandum agreement",
             "memorandum of understanding",
             "non-competition",
             "non-solicitation agreement",
             "note purchase agreement",
+            "option",
+            "performance",
+            "please see pdf version",
+            "private placement",
             "promissory note",
             "real estate",
             "registration rights agreement",
+            "restricted shares",
+            "restricted stock",
+            "retirement plan",
+            "royalty",
+            "schedule",
+            "securities subscription agreement",
+            "separation",
+            "separation and general release agreement",
             "service agreement",
             "services agreement",
-            "separation and general release agreement",
             "shareholder rights agreements",
             "side letter agreement",
             "sponsor agreement",
@@ -215,8 +236,10 @@ class ExhibitClassifier:
             "supply agreement",
             "support agreement",
             "support letter",
+            "term loan",
             "termination agreement",
             "voting agreement",
+            "warrant",
         ]
 
     @staticmethod
@@ -598,7 +621,9 @@ class ExhibitClassifier:
         classifier.training_tfidf_matrix = None
         classifier.binary_classifier = model_data["binary_classifier"]
         classifier.ma_keywords = model_data["ma_keywords"]
-        classifier.start_agreement_title_phrases = model_data["start_agreement_title_phrases"]
+        classifier.start_agreement_title_phrases = model_data[
+            "start_agreement_title_phrases"
+        ]
         classifier.ma_hard_negative_phrases = model_data["ma_hard_negative_phrases"]
         classifier.start_scan_chars = int(model_data["start_scan_chars"])
         classifier.decision_threshold = model_data["decision_threshold"]
