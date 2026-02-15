@@ -142,7 +142,7 @@ def apply_xml_gating(
         stmt = text(
             f"""
             UPDATE {xml_table} x
-            SET x.gated = CASE WHEN x.status = 'invalid' THEN 1 ELSE 0 END
+            SET x.gated = CASE WHEN x.status = 'invalid' or x.status is null THEN 1 ELSE 0 END
             """
         )
         result = conn.execute(stmt)
@@ -151,7 +151,7 @@ def apply_xml_gating(
             f"""
             UPDATE {xml_table} x
             SET x.gated = CASE
-                WHEN x.status = 'invalid' THEN 1
+                WHEN x.status = 'invalid' or x.status is null THEN 1
                 WHEN x.agreement_uuid IN :low_article_uuids
                     AND (x.status IS NULL OR x.status != 'verified')
                 THEN 1
