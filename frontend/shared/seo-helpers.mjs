@@ -115,16 +115,16 @@ function getSeoConfigForPath(pathname, origin) {
           pageDescription:
             "Share feedback, report issues, or suggest improvements for the Pandects platform.",
         };
-      case "/donate":
+      case "/contribute":
         return {
-          title: "Donate | Pandects",
+          title: "Contribute | Pandects",
           description:
-            "Support Pandects to help maintain and expand open access to M&A agreement research data.",
+            "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
           robots: "index,follow,max-image-preview:large",
           pageType: "WebPage",
-          pageName: "Donate",
+          pageName: "Contribute",
           pageDescription:
-            "Support Pandects to help maintain and expand open access to M&A agreement research data.",
+            "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
         };
       case "/privacy-policy":
         return {

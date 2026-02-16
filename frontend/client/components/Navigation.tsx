@@ -64,7 +64,7 @@ function NavigationComponent() {
     () => [
       { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
-      { to: "/donate", label: "Donate", pandaTarget: "nav-donate" },
+      { to: "/contribute", label: "Contribute", pandaTarget: "nav-contribute" },
     ],
     [],
   );

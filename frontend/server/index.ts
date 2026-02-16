@@ -129,7 +129,7 @@ function loadPrerenderedTemplates(staticPath: string): Map<string, string> {
     { route: "/", file: "index.html" },
     { route: "/about", file: "about.html" },
     { route: "/bulk-data", file: "bulk-data.html" },
-    { route: "/donate", file: "donate.html" },
+    { route: "/contribute", file: "contribute.html" },
     { route: "/feedback", file: "feedback.html" },
     { route: "/sources-methods", file: "sources-methods.html" },
     { route: "/xml-schema", file: "xml-schema.html" },

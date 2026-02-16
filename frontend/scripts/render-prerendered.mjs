@@ -29,7 +29,7 @@ const routes = [
   { pathname: "/", filename: "index.html" },
   { pathname: "/about", filename: "about.html" },
   { pathname: "/bulk-data", filename: "bulk-data.html" },
-  { pathname: "/donate", filename: "donate.html" },
+  { pathname: "/contribute", filename: "contribute.html" },
   { pathname: "/feedback", filename: "feedback.html" },
   { pathname: "/sources-methods", filename: "sources-methods.html" },
   { pathname: "/xml-schema", filename: "xml-schema.html" },

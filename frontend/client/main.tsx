@@ -20,7 +20,7 @@ const SourcesMethods = lazy(() => import("./pages/SourcesMethods"));
 const XmlSchema = lazy(() => import("./pages/XmlSchema"));
 const Taxonomy = lazy(() => import("./pages/Taxonomy"));
 const Feedback = lazy(() => import("./pages/Feedback"));
-const Donate = lazy(() => import("./pages/Donate"));
+const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
 const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
@@ -98,7 +98,7 @@ const App = () => {
                 <Route path="/taxonomy" element={<Taxonomy />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/feedback" element={<Feedback />} />
-                <Route path="/donate" element={<Donate />} />
+                <Route path="/contribute" element={<Contribute />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />

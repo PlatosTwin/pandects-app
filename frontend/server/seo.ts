@@ -30,7 +30,7 @@ const KNOWN_ROUTES = new Set([
   "/sources-methods",
   "/xml-schema",
   "/feedback",
-  "/donate",
+  "/contribute",
   "/privacy-policy",
   "/terms",
   "/license",

@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Coffee } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 
-export default function Donate() {
+export default function Contribute() {
   return (
     <PageShell
       size="xl"
-      title="Donate"
+      title="Contribute"
     >
       <div className="mb-8">
         <div className="prose max-w-none space-y-4 text-muted-foreground">
@@ -23,9 +23,8 @@ export default function Donate() {
             use.
           </p>
           <p className="italic">
-            Disclaimer: Although the navigation says "Donate," Pandects is not
-            a registered nonprofit, so contributions via Buy Me a Coffee are
-            not tax-deductible.
+            Disclaimer: Pandects is not a registered nonprofit, so
+            contributions via Buy Me a Coffee are not tax-deductible.
           </p>
         </div>
       </div>

@@ -14,7 +14,7 @@ const routeConfig = {
   "/taxonomy": { priority: "0.7", changefreq: "monthly" },
   "/about": { priority: "0.7", changefreq: "monthly" },
   "/feedback": { priority: "0.6", changefreq: "monthly" },
-  "/donate": { priority: "0.6", changefreq: "monthly" },
+  "/contribute": { priority: "0.6", changefreq: "monthly" },
   "/privacy-policy": { priority: "0.5", changefreq: "yearly" },
   "/terms": { priority: "0.5", changefreq: "yearly" },
   "/license": { priority: "0.5", changefreq: "yearly" },
