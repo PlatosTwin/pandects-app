@@ -2,7 +2,7 @@
 Taxonomy (section type) classification models and datasets.
 
 This mirrors the structure of the NER modules but focuses on strict
-multi-class classification of sections. Supports two modes:
+multi-label classification of sections. Supports two modes:
   - transformer: ModernBERT (or any HF encoder) via sequence classification
   - tfidf: TF-IDF vectorization with a small MLP classifier
 """
@@ -23,7 +23,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
-from torchmetrics.classification import Accuracy, F1Score as F1
+from torchmetrics.classification import F1Score as F1
 import numpy as np
 
 from transformers import (
@@ -50,7 +50,7 @@ class TextLabelDataset(Dataset[dict[str, object]]):
         article_title: list[str],
         section_title: list[str],
         section_text: list[str],
-        labels: list[int],
+        labels: list[list[int]],
         tokenizer: PreTrainedTokenizerBase | None,
         max_length: int,
         mode: Literal["transformer", "tfidf"],
@@ -74,7 +74,7 @@ class TextLabelDataset(Dataset[dict[str, object]]):
 
     def __getitem__(self, idx: int) -> dict[str, object]:
         txt = self._combine(self.article_title[idx], self.section_title[idx], self.section_text[idx])
-        y = int(self.labels[idx])
+        y = self.labels[idx]
 
         if self.mode == "transformer":
             assert self.tokenizer is not None
@@ -106,8 +106,8 @@ class TransformerDataModule(pl.LightningDataModule):
     def __init__(
         self,
         model_name: str,
-        train_rows: dict[str, list[str] | list[int]],
-        val_rows: dict[str, list[str] | list[int]],
+        train_rows: dict[str, list[str] | list[list[int]]],
+        val_rows: dict[str, list[str] | list[list[int]]],
         label_list: list[str],
         batch_size: int,
         max_length: int,
@@ -135,7 +135,7 @@ class TransformerDataModule(pl.LightningDataModule):
             article_title=[str(x) for x in self.train_rows["article_title"]],
             section_title=[str(x) for x in self.train_rows["section_title"]],
             section_text=[str(x) for x in self.train_rows["section_text"]],
-            labels=[int(x) for x in self.train_rows["label_ids"]],
+            labels=[list(cast(list[int], x)) for x in self.train_rows["label_vectors"]],
             tokenizer=self.tokenizer,
             max_length=self.max_length,
             mode="transformer",
@@ -144,7 +144,7 @@ class TransformerDataModule(pl.LightningDataModule):
             article_title=[str(x) for x in self.val_rows["article_title"]],
             section_title=[str(x) for x in self.val_rows["section_title"]],
             section_text=[str(x) for x in self.val_rows["section_text"]],
-            labels=[int(x) for x in self.val_rows["label_ids"]],
+            labels=[list(cast(list[int], x)) for x in self.val_rows["label_vectors"]],
             tokenizer=self.tokenizer,
             max_length=self.max_length,
             mode="transformer",
@@ -176,7 +176,7 @@ class TransformerDataModule(pl.LightningDataModule):
 class TfidfDataModule(pl.LightningDataModule):
     """
     DataModule for TF-IDF-based taxonomy classification. Expects pre-transformed
-    dense float32 arrays for X (features) and int64 for y (labels).
+    dense float32 arrays for X (features) and multi-hot float32 for y (labels).
     """
 
     def __init__(
@@ -200,9 +200,9 @@ class TfidfDataModule(pl.LightningDataModule):
 
     def setup(self, stage: str | None = None) -> None:
         Xtr = torch.tensor(self.X_train, dtype=torch.float32)
-        ytr = torch.tensor(self.y_train, dtype=torch.long)
+        ytr = torch.tensor(self.y_train, dtype=torch.float32)
         Xva = torch.tensor(self.X_val, dtype=torch.float32)
-        yva = torch.tensor(self.y_val, dtype=torch.long)
+        yva = torch.tensor(self.y_val, dtype=torch.float32)
         self.train_dataset = TensorDataset(Xtr, ytr)
         self.val_dataset = TensorDataset(Xva, yva)
 
@@ -229,7 +229,7 @@ class TfidfDataModule(pl.LightningDataModule):
 
 class TaxonomyClassifier(pl.LightningModule):
     """
-    LightningModule for strict multi-class taxonomy classification.
+    LightningModule for multi-label taxonomy classification.
     Supports two modes: transformer or tfidf.
     """
 
@@ -248,6 +248,8 @@ class TaxonomyClassifier(pl.LightningModule):
         hidden_dim: int = 512,
         dropout: float = 0.1,
         vectorizer_path: str | None = None,
+        decision_threshold: float = 0.5,
+        pos_weight: list[float] | None = None,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -256,6 +258,9 @@ class TaxonomyClassifier(pl.LightningModule):
         self.id2label = id2label
         self.label2id = {v: k for k, v in id2label.items()}
         self.model: torch.nn.Module
+        self.decision_threshold = decision_threshold
+        self.model_score_macro_weight = 0.6
+        self.model_score_weighted_weight = 0.4
 
         if self.mode == "transformer":
             assert model_name is not None, "model_name must be provided for transformer mode"
@@ -270,6 +275,7 @@ class TaxonomyClassifier(pl.LightningModule):
                     num_labels=self.num_labels,
                     id2label=self.id2label,
                     label2id=self.label2id,
+                    problem_type="multi_label_classification",
                 ),
             )
         else:
@@ -282,16 +288,49 @@ class TaxonomyClassifier(pl.LightningModule):
             ]
             self.model = torch.nn.Sequential(*layers)
 
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        loss_pos_weight = None
+        if pos_weight is not None:
+            loss_pos_weight = torch.tensor(pos_weight, dtype=torch.float32)
+        self.loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=loss_pos_weight)
 
         # Metrics
-        self.train_acc = Accuracy(task="multiclass", num_classes=self.num_labels)
-        self.train_f1_micro = F1(task="multiclass", num_classes=self.num_labels, average="micro")
-        self.train_f1_macro = F1(task="multiclass", num_classes=self.num_labels, average="macro")
+        self.train_f1_micro = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="micro",
+            threshold=self.decision_threshold,
+        )
+        self.train_f1_macro = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="macro",
+            threshold=self.decision_threshold,
+        )
+        self.train_f1_weighted = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="weighted",
+            threshold=self.decision_threshold,
+        )
 
-        self.val_acc = Accuracy(task="multiclass", num_classes=self.num_labels)
-        self.val_f1_micro = F1(task="multiclass", num_classes=self.num_labels, average="micro")
-        self.val_f1_macro = F1(task="multiclass", num_classes=self.num_labels, average="macro")
+        self.val_f1_micro = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="micro",
+            threshold=self.decision_threshold,
+        )
+        self.val_f1_macro = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="macro",
+            threshold=self.decision_threshold,
+        )
+        self.val_f1_weighted = F1(
+            task="multilabel",
+            num_labels=self.num_labels,
+            average="weighted",
+            threshold=self.decision_threshold,
+        )
 
     def forward(self, **kwargs: object) -> _LogitsOutput:
         if self.mode == "transformer":
@@ -304,7 +343,7 @@ class TaxonomyClassifier(pl.LightningModule):
     # -------- TRAIN --------
     def training_step(
         self,
-        batch: dict[str, torch.Tensor] | tuple[torch.Tensor, torch.Tensor],
+        batch: dict[str, torch.Tensor] | tuple[torch.Tensor, torch.Tensor] | list[torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         if self.mode == "transformer":
@@ -319,13 +358,19 @@ class TaxonomyClassifier(pl.LightningModule):
             logits = outputs.logits
             labels = batch["labels"]
         else:
-            assert isinstance(batch, tuple)
+            assert isinstance(batch, (tuple, list))
+            if len(batch) != 2:
+                raise ValueError(
+                    f"Expected TF-IDF batch of length 2, got {len(batch)}."
+                )
             features, labels = batch
             outputs = self.forward(features=features)
             logits = outputs.logits
 
-        loss = cast(torch.Tensor, self.loss_fn(logits, labels))
-        preds = torch.argmax(logits, dim=-1)
+        labels_float = labels.to(dtype=torch.float32)
+        labels_int = labels_float.to(dtype=torch.int)
+        probs = torch.sigmoid(logits)
+        loss = cast(torch.Tensor, self.loss_fn(logits, labels_float))
 
         self.log(
             "train_loss",
@@ -335,26 +380,31 @@ class TaxonomyClassifier(pl.LightningModule):
             on_epoch=True,
             batch_size=labels.size(0),
         )
-        self.train_acc(preds, labels)
-        self.train_f1_micro(preds, labels)
-        self.train_f1_macro(preds, labels)
+        self.train_f1_micro(probs, labels_int)
+        self.train_f1_macro(probs, labels_int)
+        self.train_f1_weighted(probs, labels_int)
         return loss
 
     def on_train_epoch_end(self) -> None:
-        train_acc = cast(torch.Tensor, self.train_acc.compute())
         train_f1_micro = cast(torch.Tensor, self.train_f1_micro.compute())
         train_f1_macro = cast(torch.Tensor, self.train_f1_macro.compute())
-        self.log("train_acc", train_acc, prog_bar=True)
+        train_f1_weighted = cast(torch.Tensor, self.train_f1_weighted.compute())
+        train_model_score = (
+            self.model_score_macro_weight * train_f1_macro
+            + self.model_score_weighted_weight * train_f1_weighted
+        )
         self.log("train_f1_micro", train_f1_micro, prog_bar=True)
         self.log("train_f1_macro", train_f1_macro, prog_bar=True)
-        self.train_acc.reset()
+        self.log("train_f1_weighted", train_f1_weighted, prog_bar=False)
+        self.log("train_model_score", train_model_score, prog_bar=True)
         self.train_f1_micro.reset()
         self.train_f1_macro.reset()
+        self.train_f1_weighted.reset()
 
     # -------- VAL --------
     def validation_step(
         self,
-        batch: dict[str, torch.Tensor] | tuple[torch.Tensor, torch.Tensor],
+        batch: dict[str, torch.Tensor] | tuple[torch.Tensor, torch.Tensor] | list[torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         if self.mode == "transformer":
@@ -369,13 +419,19 @@ class TaxonomyClassifier(pl.LightningModule):
             logits = outputs.logits
             labels = batch["labels"]
         else:
-            assert isinstance(batch, tuple)
+            assert isinstance(batch, (tuple, list))
+            if len(batch) != 2:
+                raise ValueError(
+                    f"Expected TF-IDF batch of length 2, got {len(batch)}."
+                )
             features, labels = batch
             outputs = self.forward(features=features)
             logits = outputs.logits
 
-        loss = cast(torch.Tensor, self.loss_fn(logits, labels))
-        preds = torch.argmax(logits, dim=-1)
+        labels_float = labels.to(dtype=torch.float32)
+        labels_int = labels_float.to(dtype=torch.int)
+        probs = torch.sigmoid(logits)
+        loss = cast(torch.Tensor, self.loss_fn(logits, labels_float))
 
         self.log(
             "val_loss",
@@ -385,21 +441,26 @@ class TaxonomyClassifier(pl.LightningModule):
             on_epoch=True,
             batch_size=labels.size(0),
         )
-        self.val_acc(preds, labels)
-        self.val_f1_micro(preds, labels)
-        self.val_f1_macro(preds, labels)
+        self.val_f1_micro(probs, labels_int)
+        self.val_f1_macro(probs, labels_int)
+        self.val_f1_weighted(probs, labels_int)
         return loss
 
     def on_validation_epoch_end(self) -> None:
-        val_acc = cast(torch.Tensor, self.val_acc.compute())
         val_f1_micro = cast(torch.Tensor, self.val_f1_micro.compute())
         val_f1_macro = cast(torch.Tensor, self.val_f1_macro.compute())
-        self.log("val_acc", val_acc, prog_bar=True)
+        val_f1_weighted = cast(torch.Tensor, self.val_f1_weighted.compute())
+        val_model_score = (
+            self.model_score_macro_weight * val_f1_macro
+            + self.model_score_weighted_weight * val_f1_weighted
+        )
         self.log("val_f1_micro", val_f1_micro, prog_bar=True)
         self.log("val_f1_macro", val_f1_macro, prog_bar=True)
-        self.val_acc.reset()
+        self.log("val_f1_weighted", val_f1_weighted, prog_bar=True)
+        self.log("val_model_score", val_model_score, prog_bar=True)
         self.val_f1_micro.reset()
         self.val_f1_macro.reset()
+        self.val_f1_weighted.reset()
 
     # -------- OPTIM --------
     def configure_optimizers(self) -> tuple[list[Optimizer], list[LRSchedulerConfig]]:
