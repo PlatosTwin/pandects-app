@@ -24,6 +24,16 @@ import os
 import time
 
 from etl.defs.resources import DBResource, PipelineConfig, AiRepairMode
+from etl.defs.f_xml_asset import (
+    XML_REASON_BODY_STARTS_NON_ARTICLE,
+    XML_REASON_FIRST_ARTICLE_NOT_ONE,
+    XML_REASON_LLM_INVALID,
+    XML_REASON_SECTION_ARTICLE_MISMATCH,
+    XML_REASON_SECTION_NON_SEQUENTIAL,
+    XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
+    XML_REASON_XML_PARSE_FAILURE,
+    xml_verify_asset,
+)
 from etl.utils.run_config import is_batched
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.domain.d_ai_repair import (
@@ -112,6 +122,16 @@ DDL_CREATE = [
     """,
 ]
 
+AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
+    XML_REASON_XML_PARSE_FAILURE,
+    XML_REASON_LLM_INVALID,
+    XML_REASON_BODY_STARTS_NON_ARTICLE,
+    XML_REASON_FIRST_ARTICLE_NOT_ONE,
+    XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
+    XML_REASON_SECTION_ARTICLE_MISMATCH,
+    XML_REASON_SECTION_NON_SEQUENTIAL,
+)
+
 
 def _ensure_tables(conn: Connection, schema: str) -> None:
     for ddl in DDL_CREATE:
@@ -127,20 +147,27 @@ def _fetch_candidates(
     confidence_threshold: float,
 ) -> List[Dict[str, Any]]:
     """
-    Pull pages with uncertain spans that match entity_focus and confidence_threshold
-    and have at least one unprocessed span (regardless of prior threshold).
-    Returns pages from the first N agreements that have unprocessed matching spans.
+    Pull pages from agreements whose latest XML is invalid for a repair-eligible reason,
+    with uncertain spans that match entity_focus and confidence_threshold and have
+    at least one unprocessed span.
     """
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
+    xml_table = f"{schema}.xml"
+    if not AI_REPAIR_ELIGIBLE_XML_REASON_CODES:
+        raise ValueError("AI repair eligible XML reason codes must not be empty.")
+
     # Find agreements that have pages with unprocessed spans matching the criteria
     agreements_q = text(
         f"""
-        SELECT DISTINCT
+        SELECT
             p.agreement_uuid
         FROM
             {pages_table} p
+            JOIN {xml_table} x
+                ON x.agreement_uuid = p.agreement_uuid
+               AND x.latest = 1
             JOIN {tagged_outputs_table} t USING (page_uuid)
             CROSS JOIN JSON_TABLE(
                 t.spans,
@@ -152,6 +179,9 @@ def _fetch_candidates(
                 )
             ) AS jt
         WHERE
+            x.status = 'invalid'
+            AND x.status_reason_code IN :reason_codes
+            AND
             CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
             AND jt.avg_confidence < :ct
             AND NOT EXISTS (
@@ -167,15 +197,17 @@ def _fetch_candidates(
         GROUP BY
             p.agreement_uuid
         ORDER BY
+            COUNT(DISTINCT p.page_uuid) ASC,
             p.agreement_uuid
         LIMIT
             :lim
         """
-    )
+    ).bindparams(bindparam("reason_codes", expanding=True))
     agreement_uuids = conn.execute(
         agreements_q,
         {
             "lim": agreement_limit,
+            "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
             "ef": entity_focus,
             "ct": confidence_threshold,
         },

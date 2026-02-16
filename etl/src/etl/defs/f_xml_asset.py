@@ -18,7 +18,6 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
 from etl.defs.c_tagging_asset import tagging_asset
-from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.domain.z_gating import apply_tagged_outputs_gating
@@ -29,6 +28,19 @@ from etl.utils.run_config import is_batched, is_cleanup_mode
 
 TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 TAG_TREE_SKIP_TAGS = {"text", "page", "definition", "pageUUID"}
+XML_REASON_XML_PARSE_FAILURE = "xml_parse_failure"
+XML_REASON_TAG_TREE_RENDER_FAILURE = "tag_tree_render_failure"
+XML_REASON_LLM_INVALID = "llm_invalid"
+XML_REASON_MISSING_BODY = "missing_body"
+XML_REASON_BODY_HAS_NO_STRUCTURAL_CHILDREN = "body_has_no_structural_children"
+XML_REASON_BODY_STARTS_NON_ARTICLE = "body_starts_non_article"
+XML_REASON_BODY_CONTAINS_NON_ARTICLE_CHILDREN = "body_contains_non_article_children"
+XML_REASON_BODY_HAS_NO_ARTICLES = "body_has_no_articles"
+XML_REASON_FIRST_ARTICLE_NOT_ONE = "first_article_not_one"
+XML_REASON_SECTION_TITLE_INVALID_NUMBERING = "section_title_invalid_numbering"
+XML_REASON_SECTION_ARTICLE_MISMATCH = "section_article_mismatch"
+XML_REASON_SECTION_NON_SEQUENTIAL = "section_non_sequential"
+XML_REASON_TOO_MANY_EMPTY_ARTICLES = "too_many_empty_articles"
 XML_VERIFY_INSTRUCTIONS = (
     "Validate an agreement XML tag tree and return JSON with key `status` only. "
     "Apply these hard rules exactly: "
@@ -324,29 +336,43 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     return article_num, section_num
 
 
-def _find_hard_rule_violations(root: ET.Element) -> List[str]:
-    violations: List[str] = []
+def _find_hard_rule_violations(root: ET.Element) -> List[Tuple[str, str]]:
+    violations: List[Tuple[str, str]] = []
     body = root.find("body")
     if body is None:
-        return ["Missing <body>."]
+        return [(XML_REASON_MISSING_BODY, "Missing <body>.")]
 
     body_children = [child for child in list(body) if child.tag not in TAG_TREE_SKIP_TAGS]
     if not body_children:
-        return ["<body> has no structural children."]
+        return [
+            (
+                XML_REASON_BODY_HAS_NO_STRUCTURAL_CHILDREN,
+                "<body> has no structural children.",
+            )
+        ]
 
     if body_children[0].tag != "article":
-        violations.append("<body> must start with <article>.")
+        violations.append(
+            (XML_REASON_BODY_STARTS_NON_ARTICLE, "<body> must start with <article>.")
+        )
     if any(child.tag != "article" for child in body_children):
-        violations.append("<body> contains non-article structural elements.")
+        violations.append(
+            (
+                XML_REASON_BODY_CONTAINS_NON_ARTICLE_CHILDREN,
+                "<body> contains non-article structural elements.",
+            )
+        )
 
     articles = [child for child in body_children if child.tag == "article"]
     if not articles:
-        violations.append("<body> has no articles.")
+        violations.append((XML_REASON_BODY_HAS_NO_ARTICLES, "<body> has no articles."))
         return violations
 
     first_article_num = _extract_article_number_from_elem(articles[0])
     if first_article_num != 1:
-        violations.append("First body article is not Article I/1.")
+        violations.append(
+            (XML_REASON_FIRST_ARTICLE_NOT_ONE, "First body article is not Article I/1.")
+        )
 
     empty_article_count = 0
     for article_elem in articles:
@@ -363,18 +389,27 @@ def _find_hard_rule_violations(root: ET.Element) -> List[str]:
             parsed_numbers = _extract_section_numbers(section_title)
             if parsed_numbers is None:
                 violations.append(
-                    f"Section title is not a valid numbered section: {section_title!r} in article {article_title!r}."
+                    (
+                        XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
+                        f"Section title is not a valid numbered section: {section_title!r} in article {article_title!r}.",
+                    )
                 )
                 continue
 
             section_article_num, section_num = parsed_numbers
             if article_num is not None and section_article_num != article_num:
                 violations.append(
-                    f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r})."
+                    (
+                        XML_REASON_SECTION_ARTICLE_MISMATCH,
+                        f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r}).",
+                    )
                 )
             if section_num != expected_section_num:
                 violations.append(
-                    f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}."
+                    (
+                        XML_REASON_SECTION_NON_SEQUENTIAL,
+                        f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
+                    )
                 )
                 expected_section_num = section_num + 1
             else:
@@ -382,7 +417,10 @@ def _find_hard_rule_violations(root: ET.Element) -> List[str]:
 
     if empty_article_count > 1:
         violations.append(
-            f"Too many empty articles: found {empty_article_count}, maximum allowed is 1."
+            (
+                XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+                f"Too many empty articles: found {empty_article_count}, maximum allowed is 1.",
+            )
         )
     return violations
 
@@ -490,10 +528,17 @@ def _apply_xml_verify_batch_output(
         f"""
         UPDATE {xml_table}
         SET status = :status,
-            status_source = 'asset'
+            status_source = 'asset',
+            status_reason_code = :reason_code,
+            status_reason_detail = :reason_detail
         WHERE agreement_uuid = :agreement_uuid
           AND version = :version
-          AND (NOT (status <=> :status) OR NOT (status_source <=> 'asset'))
+          AND (
+            NOT (status <=> :status)
+            OR NOT (status_source <=> 'asset')
+            OR NOT (status_reason_code <=> :reason_code)
+            OR NOT (status_reason_detail <=> :reason_detail)
+          )
         """
     )
 
@@ -519,6 +564,7 @@ def _apply_xml_verify_batch_output(
 
                 raw_text = _extract_output_text_from_batch_body(body)
                 parsed_status = _parse_xml_verify_response_text(raw_text)
+                reason_code = XML_REASON_LLM_INVALID if parsed_status == "invalid" else None
 
                 result = conn.execute(
                     update_q,
@@ -526,6 +572,8 @@ def _apply_xml_verify_batch_output(
                         "agreement_uuid": agreement_uuid,
                         "version": version,
                         "status": parsed_status,
+                        "reason_code": reason_code,
+                        "reason_detail": None,
                     },
                 )
                 updated += int(result.rowcount or 0)
@@ -535,7 +583,7 @@ def _apply_xml_verify_batch_output(
     return updated, parse_errors
 
 
-@dg.asset(deps=[tagging_asset, reconcile_tags], name="6-1_build_xml")
+@dg.asset(deps=[tagging_asset], name="4-1_build_xml")
 def xml_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -798,7 +846,6 @@ def xml_verify_asset(
         SELECT agreement_uuid, version, xml
         FROM {xml_table}
         WHERE status IS NULL
-          AND gated = 0
           AND latest = 1
         ORDER BY agreement_uuid ASC
         LIMIT :lim
@@ -820,22 +867,27 @@ def xml_verify_asset(
         try:
             root = ET.fromstring(str(xml_text))
         except Exception as e:
+            reason_detail = f"XML parse failure: {e}"
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason": f"XML parse failure: {e}",
+                    "reason_code": XML_REASON_XML_PARSE_FAILURE,
+                    "reason_detail": reason_detail,
                 }
             )
             continue
 
         hard_rule_violations = _find_hard_rule_violations(root)
         if hard_rule_violations:
+            reason_code = hard_rule_violations[0][0]
+            reason_detail = "; ".join(detail for _, detail in hard_rule_violations[:3])
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason": "; ".join(hard_rule_violations[:3]),
+                    "reason_code": reason_code,
+                    "reason_detail": reason_detail,
                 }
             )
             continue
@@ -843,11 +895,13 @@ def xml_verify_asset(
         try:
             tag_tree = _render_tag_tree_from_root(root)
         except Exception as e:
+            reason_detail = f"Tag tree render failure: {e}"
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason": f"Tag tree render failure: {e}",
+                    "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
+                    "reason_detail": reason_detail,
                 }
             )
             continue
@@ -867,10 +921,17 @@ def xml_verify_asset(
             f"""
             UPDATE {xml_table}
             SET status = 'invalid',
-                status_source = 'asset'
+                status_source = 'asset',
+                status_reason_code = :reason_code,
+                status_reason_detail = :reason_detail
             WHERE agreement_uuid = :agreement_uuid
               AND version = :version
-              AND (NOT (status <=> 'invalid') OR NOT (status_source <=> 'asset'))
+              AND (
+                NOT (status <=> 'invalid')
+                OR NOT (status_source <=> 'asset')
+                OR NOT (status_reason_code <=> :reason_code)
+                OR NOT (status_reason_detail <=> :reason_detail)
+              )
             """
         )
         with engine.begin() as conn:
@@ -880,18 +941,28 @@ def xml_verify_asset(
                     {
                         "agreement_uuid": row["agreement_uuid"],
                         "version": row["version"],
+                        "reason_code": row["reason_code"],
+                        "reason_detail": row["reason_detail"],
                     },
                 )
                 hard_invalid_updated += int(result.rowcount or 0)
 
         sample_reasons = ", ".join(
-            f"{r['agreement_uuid']}@v{r['version']}: {r['reason']}"
+            f"{r['agreement_uuid']}@v{r['version']}[{r['reason_code']}]: {r['reason_detail']}"
             for r in hard_invalid_rows[:3]
         )
         context.log.info(
             "xml_verify_asset: hard-rule invalidated %s XML rows before LLM. samples=%s",
             len(hard_invalid_rows),
             sample_reasons,
+        )
+        reason_counts: Dict[str, int] = {}
+        for row in hard_invalid_rows:
+            reason_code = str(row["reason_code"])
+            reason_counts[reason_code] = reason_counts.get(reason_code, 0) + 1
+        context.log.info(
+            "xml_verify_asset: hard-rule reason counts=%s",
+            reason_counts,
         )
 
     if not lines:
