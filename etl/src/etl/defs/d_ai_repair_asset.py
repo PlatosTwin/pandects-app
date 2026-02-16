@@ -25,8 +25,7 @@ import time
 
 from etl.defs.resources import DBResource, PipelineConfig, AiRepairMode
 from etl.utils.run_config import is_batched
-from etl.domain.z_gating import apply_gating
-from etl.utils.summary_data import refresh_summary_data
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
@@ -502,8 +501,7 @@ def ai_repair_enqueue_asset(
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
-            _ = apply_gating(conn, db.database)
-            refresh_summary_data(context, db)
+            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
             return
 
         candidates = _fetch_candidates(
@@ -515,8 +513,7 @@ def ai_repair_enqueue_asset(
         )
         if not candidates:
             context.log.info("ai_repair_enqueue_asset: no candidates.")
-            _ = apply_gating(conn, db.database)
-            refresh_summary_data(context, db)
+            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
             return
 
         # 2) batch-fetch processed spans for all candidates (one query instead of per-page)
@@ -611,8 +608,7 @@ def ai_repair_enqueue_asset(
                 )
             else:
                 context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
-            _ = apply_gating(conn, db.database)
-            refresh_summary_data(context, db)
+            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
             return
 
         def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
@@ -668,9 +664,7 @@ def ai_repair_enqueue_asset(
                 f"ai_repair_enqueue_asset: deferred {deferred_full_pages} full-page candidates in EXCERPT mode."
             )
 
-    with engine.begin() as conn:
-        _ = apply_gating(conn, db.database)
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)
 
 
 def _read_file_text(client: OpenAI, file_id: str) -> str:
@@ -799,7 +793,11 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
 
 
 @dg.asset(deps=[ai_repair_enqueue_asset], name="5-2_ai_repair_poll_asset")
-def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None:
+def ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> None:
     """
     Poll terminal batches, read output/error JSONL, persist parsed entities strictly.
 
@@ -1090,6 +1088,4 @@ def ai_repair_poll_asset(context: AssetExecutionContext, db: DBResource) -> None
 
         time.sleep(min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds))
 
-    with engine.begin() as conn:
-        _ = apply_gating(conn, db.database)
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)

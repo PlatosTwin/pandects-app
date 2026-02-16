@@ -3,6 +3,7 @@ resources:
     config:
       mode: from_scratch
       scope: batched
+      refresh: true
       tagging_agreement_batch_size: 10
       pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10

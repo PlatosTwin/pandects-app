@@ -20,10 +20,10 @@ from etl.domain.b_pre_processing import (
     cleanup,
     pre_process,
 )
-from etl.domain.z_gating import apply_agreement_gating, apply_gating, apply_pages_gating
+from etl.domain.z_gating import apply_agreement_gating
 from etl.utils.db_utils import upsert_pages
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_cleanup_mode
-from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -233,8 +233,4 @@ def pre_processing_asset(
                         context.log.error(f"Error upserting pages: {e}")
                         raise RuntimeError(e)
 
-    with engine.begin() as conn:
-        _ = apply_pages_gating(conn, db.database)
-        _ = apply_gating(conn, db.database)
-
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)

@@ -21,10 +21,10 @@ from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
-from etl.domain.z_gating import apply_gating, apply_tagged_outputs_gating, apply_xml_gating
+from etl.domain.z_gating import apply_tagged_outputs_gating
 from etl.utils.db_utils import upsert_xml
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_batched, is_cleanup_mode
-from etl.utils.summary_data import refresh_summary_data
 
 
 TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
@@ -737,11 +737,7 @@ def xml_asset(
         if batched:
             break
 
-    with engine.begin() as conn:
-        _ = apply_xml_gating(conn, db.database)
-        _ = apply_gating(conn, db.database)
-
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)
 
 
 @dg.asset(deps=[xml_asset], name="4-2_verify_xml")
@@ -794,10 +790,7 @@ def xml_verify_asset(
                 f"xml_verify_asset: resumed batch {batch.id} completed; updated={updated}, parse_errors={parse_errors}"
             )
 
-        with engine.begin() as conn:
-            _ = apply_xml_gating(conn, db.database)
-            _ = apply_gating(conn, db.database)
-        refresh_summary_data(context, db)
+        run_post_asset_refresh(context, db, pipeline_config)
         return
 
     select_q = text(
@@ -814,11 +807,8 @@ def xml_verify_asset(
     with engine.begin() as conn:
         rows = conn.execute(select_q, {"lim": agreement_batch_size}).mappings().fetchall()
     if not rows:
-        context.log.info("xml_verify_asset: no XML rows with status IS NULL and gated=0.")
-        with engine.begin() as conn:
-            _ = apply_xml_gating(conn, db.database)
-            _ = apply_gating(conn, db.database)
-        refresh_summary_data(context, db)
+        context.log.info("xml_verify_asset: no XML rows with status IS NULL and latest=1.")
+        run_post_asset_refresh(context, db, pipeline_config)
         return
 
     lines: List[Dict[str, Any]] = []
@@ -909,10 +899,7 @@ def xml_verify_asset(
             "xml_verify_asset: no LLM submissions required after hard-rule checks; hard_invalid_updated=%s",
             hard_invalid_updated,
         )
-        with engine.begin() as conn:
-            _ = apply_xml_gating(conn, db.database)
-            _ = apply_gating(conn, db.database)
-        refresh_summary_data(context, db)
+        run_post_asset_refresh(context, db, pipeline_config)
         return
 
     jsonl_buf = io.StringIO()
@@ -956,10 +943,7 @@ def xml_verify_asset(
         )
         with engine.begin() as conn:
             _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)
-        with engine.begin() as conn:
-            _ = apply_xml_gating(conn, db.database)
-            _ = apply_gating(conn, db.database)
-        refresh_summary_data(context, db)
+        run_post_asset_refresh(context, db, pipeline_config)
         return
 
     updated, parse_errors = _apply_xml_verify_batch_output(
@@ -975,7 +959,4 @@ def xml_verify_asset(
         f"xml_verify_asset: batch {final_batch.id} completed; updated={updated}, parse_errors={parse_errors}, hard_invalid_updated={hard_invalid_updated}"
     )
 
-    with engine.begin() as conn:
-        _ = apply_xml_gating(conn, db.database)
-        _ = apply_gating(conn, db.database)
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)

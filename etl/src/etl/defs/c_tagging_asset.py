@@ -15,10 +15,10 @@ from etl.domain.c_tagging import (
     ContextProtocol as TaggingContext,
     tag,
 )
-from etl.domain.z_gating import apply_gating, apply_pages_gating, apply_tagged_outputs_gating
+from etl.domain.z_gating import apply_pages_gating
 from etl.utils.db_utils import upsert_tags
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_batched, is_cleanup_mode
-from etl.utils.summary_data import refresh_summary_data
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -122,8 +122,4 @@ def tagging_asset(
         if batched:
             break
 
-    with engine.begin() as conn:
-        _ = apply_tagged_outputs_gating(conn, db.database)
-        _ = apply_gating(conn, db.database)
-
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)

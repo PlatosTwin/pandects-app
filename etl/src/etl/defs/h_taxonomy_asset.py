@@ -14,10 +14,9 @@ from etl.domain.h_taxonomy import (
     predict_taxonomy,
 )
 from etl.domain.f_xml import XMLData
-from etl.domain.z_gating import apply_gating
 from etl.utils.db_utils import upsert_xml
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_batched, is_cleanup_mode
-from etl.utils.summary_data import refresh_summary_data
 
 @dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
 def taxonomy_asset(
@@ -183,6 +182,4 @@ def taxonomy_asset(
         if batched:
             break
 
-    with engine.begin() as conn:
-        _ = apply_gating(conn, db.database)
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)

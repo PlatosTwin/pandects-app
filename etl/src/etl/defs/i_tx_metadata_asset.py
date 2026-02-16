@@ -34,9 +34,8 @@ from etl.domain.i_tx_metadata import (
     parse_offline_tx_metadata_response_text,
     parse_tx_metadata_response_text_web_search,
 )
-from etl.domain.z_gating import apply_gating
+from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_batched
-from etl.utils.summary_data import refresh_summary_data
 
 
 TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
@@ -335,9 +334,7 @@ def tx_metadata_asset(
 ) -> None:
     if not is_batched(context, pipeline_config):
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
-        with db.get_engine().begin() as conn:
-            _ = apply_gating(conn, db.database)
-        refresh_summary_data(context, db)
+        run_post_asset_refresh(context, db, pipeline_config)
         return
 
     mode = pipeline_config.tx_metadata_mode
@@ -361,9 +358,7 @@ def tx_metadata_asset(
             agreements_table, batch_size,
         )
 
-    with engine.begin() as conn:
-        _ = apply_gating(conn, db.database)
-    refresh_summary_data(context, db)
+    run_post_asset_refresh(context, db, pipeline_config)
 
 
 def _run_offline_mode(
