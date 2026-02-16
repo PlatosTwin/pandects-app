@@ -6,6 +6,32 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 
+const XML_ELEMENT_TREE = String.raw`<document uuid="agreement-uuid">
+  <metadata>
+    <acquirer>...</acquirer>
+    <target>...</target>
+    <filingDate>YYYY-MM-DD</filingDate>
+    <url>...</url>
+    <sourceFormat>html|txt</sourceFormat>
+  </metadata>
+  <frontMatter>...</frontMatter>
+  <tableOfContents>...</tableOfContents>
+  <body>
+    <article title="..." uuid="..." order="1" standardId="...">
+      <section title="..." uuid="..." order="1" standardId="...">
+        <text>...</text>
+        <pageUUID>...</pageUUID>
+        <definition term="..." standardID="...">
+          <text>...</text>
+          <pageUUID>...</pageUUID>
+        </definition>
+      </section>
+    </article>
+  </body>
+  <sigPages>...</sigPages>
+  <backMatter>...</backMatter>
+</document>`;
+
 export default function XmlSchema() {
   return (
     <PageShell
@@ -84,32 +110,8 @@ export default function XmlSchema() {
                 tabIndex={0}
                 className="rounded-lg border border-border/60 bg-muted/40 p-4 overflow-x-auto"
               >
-                <pre className="whitespace-pre-wrap text-sm font-mono text-muted-foreground">
-                  &lt;document uuid="agreement-uuid"&gt;
-                  {"\n"}  &lt;metadata&gt;
-                  {"\n"}    &lt;acquirer&gt;...&lt;/acquirer&gt;
-                  {"\n"}    &lt;target&gt;...&lt;/target&gt;
-                  {"\n"}    &lt;filingDate&gt;YYYY-MM-DD&lt;/filingDate&gt;
-                  {"\n"}    &lt;url&gt;...&lt;/url&gt;
-                  {"\n"}    &lt;sourceFormat&gt;html|txt&lt;/sourceFormat&gt;
-                  {"\n"}  &lt;/metadata&gt;
-                  {"\n"}  &lt;frontMatter&gt;...&lt;/frontMatter&gt;
-                  {"\n"}  &lt;tableOfContents&gt;...&lt;/tableOfContents&gt;
-                  {"\n"}  &lt;body&gt;
-                  {"\n"}    &lt;article title="..." uuid="..." order="1" standardId="..."&gt;
-                  {"\n"}      &lt;section title="..." uuid="..." order="1" standardId="..."&gt;
-                  {"\n"}        &lt;text&gt;...&lt;/text&gt;
-                  {"\n"}        &lt;pageUUID&gt;...&lt;/pageUUID&gt;
-                  {"\n"}        &lt;definition term="..." standardID="..."&gt;
-                  {"\n"}          &lt;text&gt;...&lt;/text&gt;
-                  {"\n"}          &lt;pageUUID&gt;...&lt;/pageUUID&gt;
-                  {"\n"}        &lt;/definition&gt;
-                  {"\n"}      &lt;/section&gt;
-                  {"\n"}    &lt;/article&gt;
-                  {"\n"}  &lt;/body&gt;
-                  {"\n"}  &lt;sigPages&gt;...&lt;/sigPages&gt;
-                  {"\n"}  &lt;backMatter&gt;...&lt;/backMatter&gt;
-                  {"\n"}&lt;/document&gt;
+                <pre className="whitespace-pre text-sm font-mono text-muted-foreground">
+                  {XML_ELEMENT_TREE}
                 </pre>
               </div>
             </CardContent>
