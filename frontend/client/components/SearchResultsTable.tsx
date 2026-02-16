@@ -377,7 +377,7 @@ export function SearchResultsTable({
               : undefined;
             const clauseTypeLabel = clauseTypePath
               ?.map((part) => part.trim())
-              .join("\u2022 ");
+              .join(" \u2022 ");
             const clauseTypeText = clauseTypeLabel
               ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
               : null;
