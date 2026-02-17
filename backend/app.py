@@ -1926,9 +1926,9 @@ def _user_id_is_verified(user_id: str) -> bool:
 
 def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
     if ctx.tier == "api_key" and ctx.api_key_id:
-        return f"api_key:{ctx.api_key_id}", 120
+        return f"api_key:{ctx.api_key_id}", 300
     if ctx.tier == "user" and ctx.user_id:
-        return f"user:{ctx.user_id}", 300
+        return f"user:{ctx.user_id}", 120
     ip = _request_ip_address() or "unknown"
     return f"anon:{ip}", 60
 
