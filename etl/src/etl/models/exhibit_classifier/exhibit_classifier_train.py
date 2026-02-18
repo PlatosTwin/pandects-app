@@ -600,8 +600,9 @@ def _write_class_error_urls(
     class_1_false_negatives = [
         url for url, y_val, p_val in zip(urls, true_list, pred_list) if y_val == 1 and p_val == 0
     ]
-    # In binary classification, class_0 false positives are the same examples as class_1 false negatives.
-    class_0_false_positives = list(class_1_false_negatives)
+    class_0_false_positives = [
+        url for url, y_val, p_val in zip(urls, true_list, pred_list) if y_val == 0 and p_val == 1
+    ]
     payload = {
         "class_1_false_negatives": {
             "count": len(class_1_false_negatives),
