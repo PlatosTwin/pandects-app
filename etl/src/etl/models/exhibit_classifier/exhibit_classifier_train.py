@@ -34,6 +34,7 @@ DEFAULT_MODEL_PATH = BASE_DIR / "model_files" / "exhibit-classifier.joblib"
 DEFAULT_SPLIT_PATH = BASE_DIR / "data" / "exhibit-splits.json"
 EVAL_METRICS_DIR = BASE_DIR / "eval_metrics"
 DEFAULT_OPTUNA_PATH = EVAL_METRICS_DIR / "exhibit_classifier_optuna_best.yaml"
+DEFAULT_ERROR_URLS_PATH = EVAL_METRICS_DIR / "exhibit_classifier_test_error_urls.yaml"
 TUNE_CV_FOLDS = 3
 
 
@@ -587,6 +588,35 @@ def _print_false_positives(
         print(url)
 
 
+def _write_class_error_urls(
+    *,
+    y_true: np.ndarray,
+    preds: np.ndarray,
+    urls: list[str],
+    output_file: Path,
+) -> None:
+    true_list = cast(list[int], y_true.tolist())
+    pred_list = cast(list[int], preds.tolist())
+    class_1_false_negatives = [
+        url for url, y_val, p_val in zip(urls, true_list, pred_list) if y_val == 1 and p_val == 0
+    ]
+    # In binary classification, class_0 false positives are the same examples as class_1 false negatives.
+    class_0_false_positives = list(class_1_false_negatives)
+    payload = {
+        "class_1_false_negatives": {
+            "count": len(class_1_false_negatives),
+            "urls": class_1_false_negatives,
+        },
+        "class_0_false_positives": {
+            "count": len(class_0_false_positives),
+            "urls": class_0_false_positives,
+        },
+    }
+    with open(output_file, "w", encoding="utf-8") as f:
+        yaml.dump(payload, f, default_flow_style=False, sort_keys=False)
+    print(f"Saved class-specific error URLs to {output_file}")
+
+
 def main() -> None:
     args = parse_args()
     min_recall = cast(float, args.min_recall)
@@ -670,6 +700,7 @@ def main() -> None:
         tune_idx = train_idx + val_idx
         tune_texts = [texts[i] for i in tune_idx]
         test_texts = [texts[i] for i in test_idx]
+        test_urls = [urls[i] for i in test_idx]
         y_tune = y[tune_idx]
         y_test = y[test_idx]
         print(f"Tune pool (train+val): {len(tune_texts)} examples, Test set: {len(test_texts)} examples")
@@ -723,6 +754,13 @@ def main() -> None:
             probs=probs_test,
             threshold=threshold,
             metrics_file=metrics_file,
+        )
+        error_urls_file = DEFAULT_ERROR_URLS_PATH
+        _write_class_error_urls(
+            y_true=y_test,
+            preds=preds,
+            urls=test_urls,
+            output_file=error_urls_file,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         classifier.decision_threshold = float(threshold)
@@ -812,6 +850,13 @@ def main() -> None:
         probs=probs_test,
         threshold=threshold,
         metrics_file=metrics_file,
+    )
+    error_urls_file = DEFAULT_ERROR_URLS_PATH
+    _write_class_error_urls(
+        y_true=y_test,
+        preds=preds,
+        urls=test_urls,
+        output_file=error_urls_file,
     )
     _print_false_negatives(y_true=y_test, preds=preds, urls=test_urls)
     _print_false_positives(y_true=y_test, preds=preds, urls=test_urls)
