@@ -78,9 +78,9 @@ const STAGE_TOOLTIP_COPY = {
   "1_pre_processing":
     "Agreements that have been pre-processed and are awaiting tagging via the NER model.",
   "2_tagging":
-    "Agreements that have been tagged and are awaiting compilation into XML.",
+    "Agreements that have been tagged and are awaiting compilation into XML. All tag validation is done at the XML level.",
   "3_xml":
-    "Agreements that have been compiled into XML and are awaiting an upsert to the sections table.",
+    "Agreements that have been compiled into XML and are awaiting verification (via AI or manually, if that fails) before an upsert to the sections table.",
 } as const;
 
 type AgreementIndexRow = {
