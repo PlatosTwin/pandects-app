@@ -50,11 +50,11 @@ class MainRoutesTests(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(
                     text(
-                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type) "
                         "VALUES "
-                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1'), "
-                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2'), "
-                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3')"
+                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger'), "
+                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', NULL), "
+                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', NULL)"
                     )
                 )
                 conn.execute(
@@ -113,6 +113,21 @@ class MainRoutesTests(unittest.TestCase):
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
         self.assertEqual(len(body.get("results", [])), 1)
+
+    def test_search_with_requested_metadata(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search?year=2020&metadata=deal_type&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("metadata"), {"deal_type": "merger"})
+
+    def test_search_with_invalid_metadata_field(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search?metadata=not_a_field&page=1&page_size=10")
+        self.assertEqual(res.status_code, 422)
 
     def test_get_section_by_uuid(self):
         client = self.app.test_client()

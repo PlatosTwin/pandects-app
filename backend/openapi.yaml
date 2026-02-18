@@ -242,6 +242,46 @@ paths:
         explode: true
         style: form
       - in: query
+        name: metadata
+        description: Additional agreement metadata fields to include in each result
+          under `results[].metadata`. Repeat query key for multiple values.
+        schema:
+          type: array
+          default: []
+          example:
+          - deal_type
+          - target_industry
+          items:
+            type: string
+            enum:
+            - filing_date
+            - prob_filing
+            - filing_company_name
+            - filing_company_cik
+            - form_type
+            - exhibit_type
+            - transaction_price_total
+            - transaction_price_stock
+            - transaction_price_cash
+            - transaction_price_assets
+            - transaction_consideration
+            - target_type
+            - acquirer_type
+            - target_industry
+            - acquirer_industry
+            - announce_date
+            - close_date
+            - deal_status
+            - attitude
+            - deal_type
+            - purpose
+            - target_pe
+            - acquirer_pe
+            - url
+        required: false
+        explode: true
+        style: form
+      - in: query
         name: agreement_uuid
         description: Filter to one agreement UUID.
         schema:
@@ -469,6 +509,105 @@ components:
           type: integer
         next_page:
           type: integer
+    SearchResultMetadata:
+      type: object
+      properties:
+        filing_date:
+          type: string
+          description: SEC filing date, when available.
+          nullable: true
+        prob_filing:
+          type: number
+          description: Model confidence score for filing linkage.
+          nullable: true
+        filing_company_name:
+          type: string
+          description: Filing entity name in SEC metadata.
+          nullable: true
+        filing_company_cik:
+          type: string
+          description: Filing entity CIK in SEC metadata.
+          nullable: true
+        form_type:
+          type: string
+          description: SEC form type.
+          nullable: true
+        exhibit_type:
+          type: string
+          description: SEC exhibit type.
+          nullable: true
+        transaction_price_total:
+          type: number
+          description: Total transaction value when available.
+          nullable: true
+        transaction_price_stock:
+          type: number
+          description: Stock portion of transaction consideration.
+          nullable: true
+        transaction_price_cash:
+          type: number
+          description: Cash portion of transaction consideration.
+          nullable: true
+        transaction_price_assets:
+          type: number
+          description: Asset portion of transaction consideration.
+          nullable: true
+        transaction_consideration:
+          type: string
+          description: High-level consideration type classification.
+          nullable: true
+        target_type:
+          type: string
+          description: Target company type.
+          nullable: true
+        acquirer_type:
+          type: string
+          description: Acquirer company type.
+          nullable: true
+        target_industry:
+          type: string
+          description: Target industry classification.
+          nullable: true
+        acquirer_industry:
+          type: string
+          description: Acquirer industry classification.
+          nullable: true
+        announce_date:
+          type: string
+          description: Public deal announcement date.
+          nullable: true
+        close_date:
+          type: string
+          description: Deal close date, when available.
+          nullable: true
+        deal_status:
+          type: string
+          description: Current status of the deal.
+          nullable: true
+        attitude:
+          type: string
+          description: Deal attitude classification.
+          nullable: true
+        deal_type:
+          type: string
+          description: Deal type classification.
+          nullable: true
+        purpose:
+          type: string
+          description: Deal purpose classification.
+          nullable: true
+        target_pe:
+          type: boolean
+          description: Whether target is private-equity backed.
+          nullable: true
+        acquirer_pe:
+          type: boolean
+          description: Whether acquirer is private-equity backed.
+          nullable: true
+        url:
+          type: string
+          description: Source filing URL.
+          nullable: true
     SectionItem:
       type: object
       properties:
@@ -507,6 +646,13 @@ components:
         verified:
           type: boolean
           description: Whether this result is from verified content.
+        metadata:
+          description: Requested agreement metadata fields for this result. Included
+            only when the `metadata` query parameter is provided.
+          anyOf:
+          - $ref: '#/components/schemas/SearchResultMetadata'
+          - type: object
+            nullable: true
     AccessInfo:
       type: object
       properties:

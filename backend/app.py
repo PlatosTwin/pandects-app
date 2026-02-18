@@ -23,7 +23,7 @@ from flask_smorest import Blueprint
 from flask.views import MethodView
 from boto3.session import Session
 from collections import defaultdict
-from marshmallow import Schema, fields, ValidationError, EXCLUDE
+from marshmallow import Schema, fields, ValidationError, EXCLUDE, validate
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException, InternalServerError
@@ -2497,6 +2497,71 @@ sections_blp = Blueprint(
     description="Retrieve full text for a given section",
 )
 
+_SEARCH_RESULT_METADATA_FIELDS = (
+    "filing_date",
+    "prob_filing",
+    "filing_company_name",
+    "filing_company_cik",
+    "form_type",
+    "exhibit_type",
+    "transaction_price_total",
+    "transaction_price_stock",
+    "transaction_price_cash",
+    "transaction_price_assets",
+    "transaction_consideration",
+    "target_type",
+    "acquirer_type",
+    "target_industry",
+    "acquirer_industry",
+    "announce_date",
+    "close_date",
+    "deal_status",
+    "attitude",
+    "deal_type",
+    "purpose",
+    "target_pe",
+    "acquirer_pe",
+    "url",
+)
+
+_SEARCH_RESULT_METADATA_COLUMN_BY_FIELD = {
+    "filing_date": Agreements.filing_date,
+    "prob_filing": Agreements.prob_filing,
+    "filing_company_name": Agreements.filing_company_name,
+    "filing_company_cik": Agreements.filing_company_cik,
+    "form_type": Agreements.form_type,
+    "exhibit_type": Agreements.exhibit_type,
+    "transaction_price_total": Agreements.transaction_price_total,
+    "transaction_price_stock": Agreements.transaction_price_stock,
+    "transaction_price_cash": Agreements.transaction_price_cash,
+    "transaction_price_assets": Agreements.transaction_price_assets,
+    "transaction_consideration": Agreements.transaction_consideration,
+    "target_type": Agreements.target_type,
+    "acquirer_type": Agreements.acquirer_type,
+    "target_industry": Agreements.target_industry,
+    "acquirer_industry": Agreements.acquirer_industry,
+    "announce_date": Agreements.announce_date,
+    "close_date": Agreements.close_date,
+    "deal_status": Agreements.deal_status,
+    "attitude": Agreements.attitude,
+    "deal_type": Agreements.deal_type,
+    "purpose": Agreements.purpose,
+    "target_pe": Agreements.target_pe,
+    "acquirer_pe": Agreements.acquirer_pe,
+    "url": Agreements.url,
+}
+
+
+def _dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
 
 class SearchArgsSchema(Schema):
     year = fields.List(
@@ -2683,6 +2748,17 @@ class SearchArgsSchema(Schema):
             )
         },
     )
+    metadata = fields.List(
+        fields.Str(validate=validate.OneOf(_SEARCH_RESULT_METADATA_FIELDS)),
+        load_default=[],
+        metadata={
+            "description": (
+                "Additional agreement metadata fields to include in each result under "
+                "`results[].metadata`. Repeat query key for multiple values."
+            ),
+            "example": ["deal_type", "target_industry"],
+        },
+    )
     # Text filters
     agreement_uuid = fields.Str(
         load_default=None,
@@ -2738,6 +2814,71 @@ class SectionItemSchema(Schema):
     target = fields.Str(metadata={"description": "Target company name."})
     year = fields.Int(metadata={"description": "Agreement year."})
     verified = fields.Bool(metadata={"description": "Whether this result is from verified content."})
+    metadata = fields.Nested(
+        lambda: SearchResultMetadataSchema(),
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Requested agreement metadata fields for this result. Included only when "
+                "the `metadata` query parameter is provided."
+            )
+        },
+    )
+
+
+class SearchResultMetadataSchema(Schema):
+    filing_date = fields.Str(allow_none=True, metadata={"description": "SEC filing date, when available."})
+    prob_filing = fields.Float(allow_none=True, metadata={"description": "Model confidence score for filing linkage."})
+    filing_company_name = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity name in SEC metadata."},
+    )
+    filing_company_cik = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity CIK in SEC metadata."},
+    )
+    form_type = fields.Str(allow_none=True, metadata={"description": "SEC form type."})
+    exhibit_type = fields.Str(allow_none=True, metadata={"description": "SEC exhibit type."})
+    transaction_price_total = fields.Float(
+        allow_none=True,
+        metadata={"description": "Total transaction value when available."},
+    )
+    transaction_price_stock = fields.Float(
+        allow_none=True,
+        metadata={"description": "Stock portion of transaction consideration."},
+    )
+    transaction_price_cash = fields.Float(
+        allow_none=True,
+        metadata={"description": "Cash portion of transaction consideration."},
+    )
+    transaction_price_assets = fields.Float(
+        allow_none=True,
+        metadata={"description": "Asset portion of transaction consideration."},
+    )
+    transaction_consideration = fields.Str(
+        allow_none=True,
+        metadata={"description": "High-level consideration type classification."},
+    )
+    target_type = fields.Str(allow_none=True, metadata={"description": "Target company type."})
+    acquirer_type = fields.Str(allow_none=True, metadata={"description": "Acquirer company type."})
+    target_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Target industry classification."},
+    )
+    acquirer_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Acquirer industry classification."},
+    )
+    announce_date = fields.Str(allow_none=True, metadata={"description": "Public deal announcement date."})
+    close_date = fields.Str(allow_none=True, metadata={"description": "Deal close date, when available."})
+    deal_status = fields.Str(allow_none=True, metadata={"description": "Current status of the deal."})
+    attitude = fields.Str(allow_none=True, metadata={"description": "Deal attitude classification."})
+    deal_type = fields.Str(allow_none=True, metadata={"description": "Deal type classification."})
+    purpose = fields.Str(allow_none=True, metadata={"description": "Deal purpose classification."})
+    target_pe = fields.Bool(allow_none=True, metadata={"description": "Whether target is private-equity backed."})
+    acquirer_pe = fields.Bool(allow_none=True, metadata={"description": "Whether acquirer is private-equity backed."})
+    url = fields.Str(allow_none=True, metadata={"description": "Source filing URL."})
 
 
 class AccessInfoSchema(Schema):
@@ -3539,6 +3680,7 @@ class SearchResource(MethodView):
         purposes = args["purpose"]
         target_pes = args["target_pe"]
         acquirer_pes = args["acquirer_pe"]
+        requested_metadata_fields = _dedupe_preserve_order(args["metadata"])
         # Text filters
         agreement_uuid = args["agreement_uuid"]
         section_uuid = args["section_uuid"]
@@ -3702,19 +3844,19 @@ class SearchResource(MethodView):
         )
         total_count = int(total_count or 0)
         offset = (page - 1) * page_size
-        items = (
-            q.with_entities(
-                Sections.section_uuid.label("section_uuid"),
-                Sections.agreement_uuid.label("agreement_uuid"),
-                Agreements.acquirer.label("acquirer"),
-                Agreements.target.label("target"),
-                year_expr.label("year"),
-                Agreements.verified.label("verified"),
+        item_columns = [
+            Sections.section_uuid.label("section_uuid"),
+            Sections.agreement_uuid.label("agreement_uuid"),
+            Agreements.acquirer.label("acquirer"),
+            Agreements.target.label("target"),
+            year_expr.label("year"),
+            Agreements.verified.label("verified"),
+        ]
+        for field_name in requested_metadata_fields:
+            item_columns.append(
+                _SEARCH_RESULT_METADATA_COLUMN_BY_FIELD[field_name].label(field_name)
             )
-            .offset(offset)
-            .limit(page_size)
-            .all()
-        )
+        items = q.with_entities(*item_columns).offset(offset).limit(page_size).all()
 
         section_uuids = [item.section_uuid for item in items]
         sections_by_uuid = {}
@@ -3742,25 +3884,29 @@ class SearchResource(MethodView):
                 raise RuntimeError(
                     f"Section UUID {item.section_uuid} missing from detail lookup."
                 )
-            results.append(
-                {
-                    "id": item.section_uuid,
-                    "agreement_uuid": item.agreement_uuid,
-                    "section_uuid": item.section_uuid,
-                    "standard_id": _parse_section_standard_ids(
-                        section_row.section_standard_ids
-                    ),
-                    "xml": section_row.xml_content,
-                    "article_title": section_row.article_title,
-                    "section_title": section_row.section_title,
-                    "acquirer": item.acquirer,
-                    "target": item.target,
-                    "year": item.year,
-                    "verified": (
-                        bool(item.verified) if item.verified is not None else False
-                    ),
+            result_payload = {
+                "id": item.section_uuid,
+                "agreement_uuid": item.agreement_uuid,
+                "section_uuid": item.section_uuid,
+                "standard_id": _parse_section_standard_ids(
+                    section_row.section_standard_ids
+                ),
+                "xml": section_row.xml_content,
+                "article_title": section_row.article_title,
+                "section_title": section_row.section_title,
+                "acquirer": item.acquirer,
+                "target": item.target,
+                "year": item.year,
+                "verified": (
+                    bool(item.verified) if item.verified is not None else False
+                ),
+            }
+            if requested_metadata_fields:
+                result_payload["metadata"] = {
+                    field_name: getattr(item, field_name)
+                    for field_name in requested_metadata_fields
                 }
-            )
+            results.append(result_payload)
 
         # Return results with pagination metadata
         return {
