@@ -3,7 +3,7 @@ AI Repair assets:
 - ai_repair_enqueue_asset: decides full page vs excerpt and enqueues OpenAI Batch jobs
 - ai_repair_poll_asset: polls batches, downloads outputs, and persists results
 
-Tables created if missing (MariaDB):
+Required tables (managed via migrations):
 - pdx.ai_repair_batches     (batch-level tracking)
 - pdx.ai_repair_requests    (one row per JSONL line / custom_id)
 - pdx.ai_repair_rulings     (excerpt-mode rulings at page-level coords)
@@ -23,7 +23,7 @@ from openai import OpenAI
 import os
 import time
 
-from etl.defs.resources import DBResource, PipelineConfig, AiRepairMode
+from etl.defs.resources import DBResource, PipelineConfig
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_FIRST_ARTICLE_NOT_ONE,
@@ -32,15 +32,20 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_XML_PARSE_FAILURE,
-    xml_verify_asset,
 )
 from etl.utils.run_config import is_batched
 from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
+from etl.utils.batch_keys import agreement_batch_key
+from etl.utils.openai_batch import (
+    extract_output_text_from_batch_body,
+    read_openai_file_text,
+)
+from etl.utils.schema_guards import assert_tables_exist
 from etl.domain.d_ai_repair import (
     UncertainSpan,
     RepairDecision,
     decide_repair_windows,
-    filter_uncertain_spans,
     build_jsonl_lines_for_page,
 )
 
@@ -53,75 +58,6 @@ def _oai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-DDL_CREATE = [
-    # batches: one row per batch create
-    """
-    CREATE TABLE IF NOT EXISTS pdx.ai_repair_batches (
-        batch_id          VARCHAR(128) PRIMARY KEY,
-        created_at        DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-        status            VARCHAR(32) NOT NULL,
-        input_file_id     VARCHAR(128) NULL,
-        output_file_id    VARCHAR(128) NULL,
-        error_file_id     VARCHAR(128) NULL,
-        completion_window VARCHAR(16) NOT NULL,
-        request_total     INT DEFAULT 0,
-        request_failed    INT DEFAULT 0
-    )
-    """,
-    # requests: one row per custom_id (JSONL line). We also store offsets if excerpt mode.
-    """
-    CREATE TABLE IF NOT EXISTS pdx.ai_repair_requests (
-        request_id   VARCHAR(256) PRIMARY KEY,  -- custom_id
-        batch_id     VARCHAR(128) NOT NULL,
-        page_uuid    CHAR(36) NOT NULL,
-        mode         ENUM('full','excerpt') NOT NULL,
-        excerpt_start INT NULL,
-        excerpt_end   INT NULL,
-        created_at   DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-        status       VARCHAR(32) NOT NULL,
-        token_usage  JSON NULL
-    )
-    """,
-    
-    # excerpt rulings: one row per ruled span (page-level coords)
-    """
-    CREATE TABLE IF NOT EXISTS pdx.ai_repair_rulings (
-        request_id   VARCHAR(256) NOT NULL,
-        page_uuid    CHAR(36) NOT NULL,
-        start_char   INT NOT NULL,
-        end_char     INT NOT NULL,
-        label        ENUM('article','section','page','none') NOT NULL,
-        batch_id     VARCHAR(128) NOT NULL,
-        PRIMARY KEY (request_id, start_char, end_char)
-    )
-    """,
-    # full-page tagged outputs
-    """
-    CREATE TABLE IF NOT EXISTS pdx.ai_repair_full_pages (
-        request_id   VARCHAR(256) PRIMARY KEY,
-        page_uuid    CHAR(36) NOT NULL,
-        tagged_text  LONGTEXT NOT NULL,
-        batch_id     VARCHAR(128) NOT NULL
-    )
-    """,
-    # processed spans: tracks which spans have been sent to repair LLM
-    """
-    CREATE TABLE IF NOT EXISTS pdx.ai_repair_processed_spans (
-        page_uuid           CHAR(36) NOT NULL,
-        entity              VARCHAR(32) NOT NULL,
-        start_char          INT NOT NULL,
-        end_char            INT NOT NULL,
-        entity_focus       VARCHAR(32) NOT NULL,
-        confidence_threshold DECIMAL(5,4) NOT NULL,
-        request_id          VARCHAR(256) NOT NULL,
-        batch_id            VARCHAR(128) NOT NULL,
-        status              VARCHAR(32) NOT NULL,
-        created_at          DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-        PRIMARY KEY (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold)
-    )
-    """,
-]
-
 AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_XML_PARSE_FAILURE,
     XML_REASON_LLM_INVALID,
@@ -131,85 +67,42 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_SECTION_ARTICLE_MISMATCH,
     XML_REASON_SECTION_NON_SEQUENTIAL,
 )
+# Persisted only as metadata on ai_repair_processed_spans; not used for filtering.
+AI_REPAIR_ENTITY_FOCUS = "all"
+AI_REPAIR_CONFIDENCE_THRESHOLD = 1.0
 
-
-def _ensure_tables(conn: Connection, schema: str) -> None:
-    for ddl in DDL_CREATE:
-        ddl_with_schema = ddl.replace("pdx.", f"{schema}.")
-        _ = conn.execute(text(ddl_with_schema))
+_AI_REPAIR_TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 
 
 def _fetch_candidates(
     conn: Connection,
     schema: str,
     agreement_limit: int,
-    entity_focus: str,
-    confidence_threshold: float,
+    exclude_in_flight: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Pull pages from agreements whose latest XML is invalid for a repair-eligible reason,
-    with uncertain spans that match entity_focus and confidence_threshold and have
-    at least one unprocessed span.
+    and that have at least one unprocessed tagged span.
     """
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
-    xml_table = f"{schema}.xml"
     if not AI_REPAIR_ELIGIBLE_XML_REASON_CODES:
         raise ValueError("AI repair eligible XML reason codes must not be empty.")
 
-    # Find agreements that have pages with unprocessed spans matching the criteria
+    status_clause = "('completed', 'queued', 'running')" if exclude_in_flight else "('completed')"
+
     agreements_q = text(
-        f"""
-        SELECT
-            p.agreement_uuid
-        FROM
-            {pages_table} p
-            JOIN {xml_table} x
-                ON x.agreement_uuid = p.agreement_uuid
-               AND x.latest = 1
-            JOIN {tagged_outputs_table} t USING (page_uuid)
-            CROSS JOIN JSON_TABLE(
-                t.spans,
-                '$[*]' COLUMNS (
-                    entity VARCHAR(255) PATH '$.entity',
-                    start_char INT PATH '$.start_char',
-                    end_char INT PATH '$.end_char',
-                    avg_confidence DOUBLE PATH '$.avg_confidence'
-                )
-            ) AS jt
-        WHERE
-            x.status = 'invalid'
-            AND x.status_reason_code IN :reason_codes
-            AND
-            CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
-            AND jt.avg_confidence < :ct
-            AND NOT EXISTS (
-                SELECT 1
-                FROM {ai_repair_processed_spans_table} ps
-                WHERE ps.page_uuid = p.page_uuid
-                  AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
-                  AND ps.start_char = jt.start_char
-                  AND ps.end_char = jt.end_char
-                  AND ps.entity_focus = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
-                  AND ps.status IN ('completed', 'queued', 'running')
-            )
-        GROUP BY
-            p.agreement_uuid
-        ORDER BY
-            COUNT(DISTINCT p.page_uuid) ASC,
-            p.agreement_uuid
-        LIMIT
-            :lim
-        """
+        canonical_ai_repair_enqueue_queue_sql(
+            schema,
+            status_clause_sql=status_clause,
+        )
     ).bindparams(bindparam("reason_codes", expanding=True))
     agreement_uuids = conn.execute(
         agreements_q,
         {
             "lim": agreement_limit,
             "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
-            "ef": entity_focus,
-            "ct": confidence_threshold,
         },
     ).scalars().all()
     if not agreement_uuids:
@@ -231,14 +124,11 @@ def _fetch_candidates(
                 '$[*]' COLUMNS (
                     entity VARCHAR(255) PATH '$.entity',
                     start_char INT PATH '$.start_char',
-                    end_char INT PATH '$.end_char',
-                    avg_confidence DOUBLE PATH '$.avg_confidence'
+                    end_char INT PATH '$.end_char'
                 )
             ) AS jt
         WHERE
             p.agreement_uuid IN :uuids
-            AND CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
-            AND jt.avg_confidence < :ct
             AND NOT EXISTS (
                 SELECT 1
                 FROM {ai_repair_processed_spans_table} ps
@@ -246,8 +136,7 @@ def _fetch_candidates(
                   AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
                   AND ps.start_char = jt.start_char
                   AND ps.end_char = jt.end_char
-                  AND ps.entity_focus = CAST(:ef AS CHAR) COLLATE utf8mb4_unicode_ci
-                  AND ps.status IN ('completed', 'queued', 'running')
+                  AND ps.status IN {status_clause}
             )
         ORDER BY
             p.agreement_uuid,
@@ -259,18 +148,141 @@ def _fetch_candidates(
         pages_q,
         {
             "uuids": tuple(agreement_uuids),
-            "ef": entity_focus,
-            "ct": confidence_threshold,
         },
     ).mappings().fetchall()
     return [dict(r) for r in rows]
+
+
+def _fetch_open_ai_repair_batch(
+    conn: Connection,
+    schema: str,
+    *,
+    batch_key: str | None = None,
+) -> Dict[str, Any] | None:
+    ai_repair_batches_table = f"{schema}.ai_repair_batches"
+    if batch_key is None:
+        q = text(
+            f"""
+            SELECT
+                batch_id,
+                status,
+                completion_window,
+                request_total,
+                batch_key
+            FROM {ai_repair_batches_table}
+            WHERE status NOT IN :terminal_statuses
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ).bindparams(bindparam("terminal_statuses", expanding=True))
+        row = conn.execute(q, {"terminal_statuses": list(_AI_REPAIR_TERMINAL_BATCH_STATUSES)}).mappings().first()
+    else:
+        q = text(
+            f"""
+            SELECT
+                batch_id,
+                status,
+                completion_window,
+                request_total,
+                batch_key
+            FROM {ai_repair_batches_table}
+            WHERE status NOT IN :terminal_statuses
+              AND batch_key = :batch_key
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        ).bindparams(bindparam("terminal_statuses", expanding=True))
+        row = conn.execute(
+            q,
+            {
+                "terminal_statuses": list(_AI_REPAIR_TERMINAL_BATCH_STATUSES),
+                "batch_key": batch_key,
+            },
+        ).mappings().first()
+
+    if row is None:
+        return None
+    return dict(row)
+
+
+def _fetch_open_ai_repair_batch_by_agreement_overlap(
+    conn: Connection,
+    schema: str,
+    *,
+    agreement_uuids: List[str],
+) -> Dict[str, Any] | None:
+    if not agreement_uuids:
+        return None
+    ai_repair_batches_table = f"{schema}.ai_repair_batches"
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    pages_table = f"{schema}.pages"
+    q = text(
+        f"""
+        SELECT
+            b.batch_id,
+            b.status,
+            b.completion_window,
+            b.request_total,
+            b.batch_key,
+            COUNT(DISTINCT p.agreement_uuid) AS matched_agreements
+        FROM {ai_repair_batches_table} b
+        JOIN {ai_repair_requests_table} r
+            ON r.batch_id = b.batch_id
+        JOIN {pages_table} p
+            ON p.page_uuid = r.page_uuid
+        WHERE b.status NOT IN :terminal_statuses
+          AND p.agreement_uuid IN :auuids
+        GROUP BY
+            b.batch_id,
+            b.status,
+            b.completion_window,
+            b.request_total,
+            b.batch_key
+        ORDER BY
+            matched_agreements DESC,
+            b.created_at ASC
+        LIMIT 1
+        """
+    ).bindparams(
+        bindparam("terminal_statuses", expanding=True),
+        bindparam("auuids", expanding=True),
+    )
+    row = conn.execute(
+        q,
+        {
+            "terminal_statuses": list(_AI_REPAIR_TERMINAL_BATCH_STATUSES),
+            "auuids": agreement_uuids,
+        },
+    ).mappings().first()
+    if row is None:
+        return None
+    return dict(row)
+
+
+def _fetch_batch_agreement_uuids(
+    conn: Connection,
+    schema: str,
+    batch_id: str,
+) -> List[str]:
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    pages_table = f"{schema}.pages"
+    q = text(
+        f"""
+        SELECT DISTINCT p.agreement_uuid
+        FROM {ai_repair_requests_table} r
+        JOIN {pages_table} p
+            ON p.page_uuid = r.page_uuid
+        WHERE r.batch_id = :batch_id
+        ORDER BY p.agreement_uuid
+        """
+    )
+    return [str(v) for v in conn.execute(q, {"batch_id": batch_id}).scalars().all()]
 
 
 def _fetch_processed_spans_batch(
     conn: Connection,
     schema: str,
     page_uuids: List[str],
-    entity_focus: str,
 ) -> Dict[str, Set[Tuple[str, int, int]]]:
     """
     Batch-fetch processed spans for multiple pages.
@@ -284,11 +296,10 @@ def _fetch_processed_spans_batch(
         SELECT page_uuid, entity, start_char, end_char
         FROM {ai_repair_processed_spans_table}
         WHERE page_uuid IN :pids
-          AND entity_focus = :ef
           AND status IN ('completed', 'queued', 'running')
         """
     ).bindparams(bindparam("pids", expanding=True))
-    rows = conn.execute(q, {"pids": page_uuids, "ef": entity_focus}).mappings().fetchall()
+    rows = conn.execute(q, {"pids": page_uuids}).mappings().fetchall()
     out: Dict[str, Set[Tuple[str, int, int]]] = {}
     for r in rows:
         pid = r["page_uuid"]
@@ -325,7 +336,6 @@ def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
         entity = s["entity"]
         start_char = s["start_char"]
         end_char = s["end_char"]
-        avg_confidence = s["avg_confidence"]
 
         if not isinstance(entity, str):
             raise ValueError("Span entity must be a string.")
@@ -333,15 +343,13 @@ def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
             raise ValueError("Span start/end must be integers.")
         if end_char < start_char:
             raise ValueError("Span end_char must be >= start_char.")
-        if not isinstance(avg_confidence, (int, float)):
-            raise ValueError("Span avg_confidence must be numeric.")
 
         spans.append(
             UncertainSpan(
                 entity=entity,
                 start_char=start_char,
                 end_char=end_char,
-                avg_confidence=float(avg_confidence),
+                avg_confidence=0.0,
             )
         )
     return spans
@@ -353,23 +361,25 @@ def _insert_batch_row(
     batch: Any,
     completion_window: str,
     request_total: int,
+    batch_key: str,
 ) -> None:
     ai_repair_batches_table = f"{schema}.ai_repair_batches"
     q = text(
         f"""
         INSERT INTO {ai_repair_batches_table}
             (batch_id, created_at, status, input_file_id, output_file_id, error_file_id,
-             completion_window, request_total, request_failed)
+             completion_window, request_total, request_failed, batch_key)
         VALUES
             (:batch_id, UTC_TIMESTAMP(), :status, :input_file_id, :output_file_id, :error_file_id,
-             :cw, :rt, 0)
+             :cw, :rt, 0, :batch_key)
         ON DUPLICATE KEY UPDATE
             status = VALUES(status),
             input_file_id = VALUES(input_file_id),
             output_file_id = VALUES(output_file_id),
             error_file_id  = VALUES(error_file_id),
             completion_window = VALUES(completion_window),
-            request_total  = VALUES(request_total)
+            request_total  = VALUES(request_total),
+            batch_key = VALUES(batch_key)
         """
     )
     _ = conn.execute(
@@ -382,6 +392,7 @@ def _insert_batch_row(
             "error_file_id": getattr(batch, "error_file_id", None),
             "cw": completion_window,
             "rt": request_total,
+            "batch_key": batch_key,
         },
     )
 
@@ -497,12 +508,36 @@ def _mark_completed(conn: Connection, schema: str, request_ids: Set[str]) -> Non
     _ = conn.execute(q_spans, {"ids": list(request_ids)})
 
 
-@dg.asset(deps=[xml_verify_asset], name="5-1_ai_repair_enqueue_asset")
+def _mark_xml_ai_repair_attempted(
+    conn: Connection,
+    schema: str,
+    agreement_uuids: Set[str],
+) -> int:
+    """
+    Mark latest XML rows as having entered the AI-repair cycle.
+    """
+    if not agreement_uuids:
+        return 0
+    xml_table = f"{schema}.xml"
+    q = text(
+        f"""
+        UPDATE {xml_table}
+        SET ai_repair_attempted = 1
+        WHERE latest = 1
+          AND agreement_uuid IN :auuids
+          AND NOT (ai_repair_attempted <=> 1)
+        """
+    ).bindparams(bindparam("auuids", expanding=True))
+    result = conn.execute(q, {"auuids": sorted(agreement_uuids)})
+    return int(result.rowcount or 0)
+
+
+@dg.asset(name="5-1_ai_repair_enqueue_asset")
 def ai_repair_enqueue_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
+) -> List[str]:
     """
     Decide full-page vs. surgical excerpt using uncertainty spans, then enqueue OpenAI Batch job(s).
 
@@ -517,198 +552,273 @@ def ai_repair_enqueue_asset(
     client = _oai_client()
 
     batch_completion_window = "24h"
-    full_page_model = "gpt-5"
+    full_page_model = "gpt-5.1"
     excerpt_model = "gpt-5-mini"
+    should_exit_after_tx = False
+    resume_open_batches = pipeline_config.resume_open_batches
+
+    enqueued_agreement_uuids: Set[str] = set()
 
     with engine.begin() as conn:
-        _ensure_tables(conn, db.database)
+        assert_tables_exist(
+            conn,
+            schema=db.database,
+            table_names=(
+                "ai_repair_batches",
+                "ai_repair_requests",
+                "ai_repair_rulings",
+                "ai_repair_full_pages",
+                "ai_repair_processed_spans",
+            ),
+        )
 
         # 1) fetch candidate pages needing AI repair
-        batch_size = pipeline_config.ai_repair_agreement_batch_size
-        ai_repair_mode = pipeline_config.ai_repair_mode
-        entity_focus = pipeline_config.ai_repair_entity_focus.value
-        confidence_threshold = pipeline_config.ai_repair_confidence_threshold
+        batch_size = pipeline_config.xml_agreement_batch_size
+        entity_focus = AI_REPAIR_ENTITY_FOCUS
+        confidence_threshold = AI_REPAIR_CONFIDENCE_THRESHOLD
         batched = is_batched(context, pipeline_config)
-        send_full_pages = ai_repair_mode == AiRepairMode.ALL
+        candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         if not batched:
             context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
-            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
-            return
-
-        candidates = _fetch_candidates(
-            conn,
-            db.database,
-            agreement_limit=batch_size,
-            entity_focus=entity_focus,
-            confidence_threshold=confidence_threshold,
-        )
-        if not candidates:
-            context.log.info("ai_repair_enqueue_asset: no candidates.")
-            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
-            return
-
-        # 2) batch-fetch processed spans for all candidates (one query instead of per-page)
-        candidate_page_uuids = [r["page_uuid"] for r in candidates]
-        processed_by_page = _fetch_processed_spans_batch(
-            conn, db.database, candidate_page_uuids, entity_focus
-        )
-
-        # 3) build JSONL in-memory, split by mode to keep batch models consistent
-        jsonl_full_buf = io.StringIO()
-        jsonl_excerpt_buf = io.StringIO()
-        lines_meta_full: List[Dict[str, Any]] = []
-        lines_meta_excerpt: List[Dict[str, Any]] = []
-        # Track which spans are included in each request: request_id -> List[UncertainSpan]
-        spans_by_request: Dict[str, List[UncertainSpan]] = {}
-        deferred_full_pages = 0
-
-        for row in candidates:
-            page_uuid = row["page_uuid"]
-            text = row["text"]
-            spans = _parse_uncertain_spans(row["spans"])
-            focused_spans = filter_uncertain_spans(
-                spans,
-                entity_focus=entity_focus,
-                confidence_threshold=confidence_threshold,
-            )
-            if not focused_spans:
-                continue
-
-            # Filter out spans that have already been processed with these parameters
-            processed_set = processed_by_page.get(page_uuid, set())
-            unprocessed_spans = _filter_already_processed_spans(
-                focused_spans,
-                processed_set,
-            )
-            if not unprocessed_spans:
-                continue
-
-            decision: RepairDecision = decide_repair_windows(
-                text=text,
-                uncertain_spans=unprocessed_spans,
-            )
-
-            if decision.mode == "full":
-                if not send_full_pages:
-                    deferred_full_pages += 1
-                    continue
-                batch_lines, metas = build_jsonl_lines_for_page(
-                    page_uuid=page_uuid,
-                    text=text,
-                    decision=decision,
-                    model=full_page_model,
-                    uncertain_spans=unprocessed_spans,
-                )
-                for line in batch_lines:
-                    _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
-                lines_meta_full.extend(metas)
-                # For full-page mode, all unprocessed_spans are included
-                for meta in metas:
-                    spans_by_request[meta["request_id"]] = unprocessed_spans
-            elif decision.mode == "excerpt":
-                batch_lines, metas = build_jsonl_lines_for_page(
-                    page_uuid=page_uuid,
-                    text=text,
-                    decision=decision,
-                    model=excerpt_model,
-                    uncertain_spans=unprocessed_spans,
-                )
-                for line in batch_lines:
-                    _ = jsonl_excerpt_buf.write(
-                        json.dumps(line, ensure_ascii=False) + "\n"
-                    )
-                lines_meta_excerpt.extend(metas)
-                # For excerpt mode, track which spans intersect with each window
-                for meta in metas:
-                    cs = meta["excerpt_start"]
-                    ce = meta["excerpt_end"]
-                    # Find spans that intersect with this excerpt window
-                    intersecting_spans = [
-                        span
-                        for span in unprocessed_spans
-                        if span.start_char < ce and span.end_char > cs
-                    ]
-                    spans_by_request[meta["request_id"]] = intersecting_spans
-            else:
-                raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
-
-        if not lines_meta_full and not lines_meta_excerpt:
-            if deferred_full_pages > 0 and not send_full_pages:
-                context.log.info(
-                    f"ai_repair_enqueue_asset: deferred {deferred_full_pages} full-page candidates in EXCERPT mode."
-                )
-            else:
-                context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
-            run_post_asset_refresh(context, db, pipeline_config, conn=conn)
-            return
-
-        def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
-            if not lines_meta:
-                return
-            jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
-            jsonl_bytes.name = f"ai_repair_requests_{label}.jsonl"
-
-            in_file = client.files.create(purpose="batch", file=jsonl_bytes)
-            batch = client.batches.create(
-                input_file_id=in_file.id,
-                endpoint="/v1/responses",
-                completion_window=batch_completion_window,
-            )
-
-            request_total = len(lines_meta)
-            _insert_batch_row(
-                conn, db.database, batch, batch_completion_window, request_total
-            )
-            _insert_requests(conn, db.database, batch.id, lines_meta)
-            
-            # Record which spans are being processed in each request
-            for meta in lines_meta:
-                request_id = meta["request_id"]
-                page_uuid = meta["page_uuid"]
-                if request_id not in spans_by_request:
-                    raise ValueError(
-                        f"Missing span tracking for request {request_id}, page {page_uuid}. "
-                        + "This indicates a bug in the span tracking logic."
-                    )
-                spans_for_request = spans_by_request[request_id]
-                _insert_processed_spans(
+            should_exit_after_tx = True
+        else:
+            if resume_open_batches:
+                resume_probe_candidates = _fetch_candidates(
                     conn,
                     db.database,
-                    batch.id,
-                    request_id,
-                    page_uuid,
-                    spans_for_request,
-                    entity_focus,
-                    confidence_threshold,
+                    agreement_limit=batch_size,
+                    exclude_in_flight=False,
+                )
+                resume_probe_agreement_uuids = sorted(
+                    {str(r["agreement_uuid"]) for r in resume_probe_candidates}
+                )
+                matched_open_batch: Dict[str, Any] | None = None
+                match_strategy = ""
+                if resume_probe_agreement_uuids:
+                    probe_key = agreement_batch_key(resume_probe_agreement_uuids)
+                    matched_open_batch = _fetch_open_ai_repair_batch(
+                        conn,
+                        db.database,
+                        batch_key=probe_key,
+                    )
+                    if matched_open_batch is not None:
+                        match_strategy = "exact_batch_key"
+                    else:
+                        matched_open_batch = _fetch_open_ai_repair_batch_by_agreement_overlap(
+                            conn,
+                            db.database,
+                            agreement_uuids=resume_probe_agreement_uuids,
+                        )
+                        if matched_open_batch is not None:
+                            match_strategy = "agreement_overlap"
+
+                if matched_open_batch is None and not resume_probe_agreement_uuids:
+                    matched_open_batch = _fetch_open_ai_repair_batch(
+                        conn,
+                        db.database,
+                    )
+                    if matched_open_batch is not None:
+                        match_strategy = "oldest_open_batch"
+                if matched_open_batch is not None:
+                    resumed_batch_id = str(matched_open_batch["batch_id"])
+                    resumed_agreement_uuids = _fetch_batch_agreement_uuids(
+                        conn,
+                        db.database,
+                        resumed_batch_id,
+                    )
+                    if resumed_agreement_uuids:
+                        enqueued_agreement_uuids.update(resumed_agreement_uuids)
+                        context.log.info(
+                            "ai_repair_enqueue_asset: resuming open batch %s for %s agreements (strategy=%s).",
+                            resumed_batch_id,
+                            len(resumed_agreement_uuids),
+                            match_strategy or "unknown",
+                        )
+                        should_exit_after_tx = True
+
+            if should_exit_after_tx:
+                pass
+            else:
+                candidates = _fetch_candidates(
+                    conn,
+                    db.database,
+                    agreement_limit=batch_size,
+                )
+                if not candidates:
+                    context.log.info("ai_repair_enqueue_asset: no candidates.")
+                    should_exit_after_tx = True
+                else:
+                    candidate_agreement_by_page_uuid = {
+                        str(r["page_uuid"]): str(r["agreement_uuid"])
+                        for r in candidates
+                    }
+
+                # 2) batch-fetch processed spans for all candidates (one query instead of per-page)
+                candidate_page_uuids = [r["page_uuid"] for r in candidates]
+                processed_by_page = _fetch_processed_spans_batch(
+                    conn, db.database, candidate_page_uuids
                 )
 
-            context.log.info(
-                f"Enqueued OpenAI Batch {batch.id} ({label}) with {request_total} requests; input_file_id={in_file.id}"
-            )
+                # 3) build JSONL in-memory, split by mode to keep batch models consistent
+                jsonl_full_buf = io.StringIO()
+                jsonl_excerpt_buf = io.StringIO()
+                lines_meta_full: List[Dict[str, Any]] = []
+                lines_meta_excerpt: List[Dict[str, Any]] = []
+                # Track which spans are included in each request: request_id -> List[UncertainSpan]
+                spans_by_request: Dict[str, List[UncertainSpan]] = {}
 
-        # 3) upload JSONL + create Batch per mode
-        _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
-        _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
+                for row in candidates:
+                    page_uuid = row["page_uuid"]
+                    text = row["text"]
+                    spans = _parse_uncertain_spans(row["spans"])
+                    if not spans:
+                        continue
 
-        if deferred_full_pages > 0 and not send_full_pages:
-            context.log.info(
-                f"ai_repair_enqueue_asset: deferred {deferred_full_pages} full-page candidates in EXCERPT mode."
-            )
+                    # Filter out spans that have already been processed with these parameters
+                    processed_set = processed_by_page.get(page_uuid, set())
+                    unprocessed_spans = _filter_already_processed_spans(
+                        spans,
+                        processed_set,
+                    )
+                    if not unprocessed_spans:
+                        continue
+
+                    decision: RepairDecision = decide_repair_windows(
+                        text=text,
+                        uncertain_spans=unprocessed_spans,
+                    )
+
+                    if decision.mode == "full":
+                        batch_lines, metas = build_jsonl_lines_for_page(
+                            page_uuid=page_uuid,
+                            text=text,
+                            decision=decision,
+                            model=full_page_model,
+                            uncertain_spans=unprocessed_spans,
+                        )
+                        for line in batch_lines:
+                            _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+                        lines_meta_full.extend(metas)
+                        # For full-page mode, all unprocessed_spans are included
+                        for meta in metas:
+                            spans_by_request[meta["request_id"]] = unprocessed_spans
+                    elif decision.mode == "excerpt":
+                        batch_lines, metas = build_jsonl_lines_for_page(
+                            page_uuid=page_uuid,
+                            text=text,
+                            decision=decision,
+                            model=excerpt_model,
+                            uncertain_spans=unprocessed_spans,
+                        )
+                        for line in batch_lines:
+                            _ = jsonl_excerpt_buf.write(
+                                json.dumps(line, ensure_ascii=False) + "\n"
+                            )
+                        lines_meta_excerpt.extend(metas)
+                        # For excerpt mode, track which spans intersect with each window
+                        for meta in metas:
+                            cs = meta["excerpt_start"]
+                            ce = meta["excerpt_end"]
+                            # Find spans that intersect with this excerpt window
+                            intersecting_spans = [
+                                span
+                                for span in unprocessed_spans
+                                if span.start_char < ce and span.end_char > cs
+                            ]
+                            spans_by_request[meta["request_id"]] = intersecting_spans
+                    else:
+                        raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
+
+                if not lines_meta_full and not lines_meta_excerpt:
+                    context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+                    should_exit_after_tx = True
+                else:
+                    llm_agreement_uuids = sorted(
+                        {
+                            str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
+                            for meta in (lines_meta_full + lines_meta_excerpt)
+                        }
+                    )
+                    if not llm_agreement_uuids:
+                        raise ValueError("ai_repair_enqueue_asset: failed to derive agreement UUIDs for enqueued lines.")
+                    repair_batch_key = agreement_batch_key(llm_agreement_uuids)
+
+                    def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
+                        if not lines_meta:
+                            return
+                        jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+                        jsonl_bytes.name = f"ai_repair_requests_{label}.jsonl"
+
+                        in_file = client.files.create(purpose="batch", file=jsonl_bytes)
+                        batch = client.batches.create(
+                            input_file_id=in_file.id,
+                            endpoint="/v1/responses",
+                            completion_window=batch_completion_window,
+                        )
+
+                        request_total = len(lines_meta)
+                        _insert_batch_row(
+                            conn,
+                            db.database,
+                            batch,
+                            batch_completion_window,
+                            request_total,
+                            repair_batch_key,
+                        )
+                        _insert_requests(conn, db.database, batch.id, lines_meta)
+
+                        # Record which spans are being processed in each request
+                        for meta in lines_meta:
+                            request_id = meta["request_id"]
+                            page_uuid = meta["page_uuid"]
+                            if request_id not in spans_by_request:
+                                raise ValueError(
+                                    f"Missing span tracking for request {request_id}, page {page_uuid}. "
+                                    + "This indicates a bug in the span tracking logic."
+                                )
+                            spans_for_request = spans_by_request[request_id]
+                            _insert_processed_spans(
+                                conn,
+                                db.database,
+                                batch.id,
+                                request_id,
+                                page_uuid,
+                                spans_for_request,
+                                entity_focus,
+                                confidence_threshold,
+                            )
+
+                        context.log.info(
+                            f"Enqueued OpenAI Batch {batch.id} ({label}) with {request_total} requests; input_file_id={in_file.id}"
+                        )
+
+                    # 3) upload JSONL + create Batch per mode
+                    _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
+                    _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
+
+                    for meta in lines_meta_full + lines_meta_excerpt:
+                        page_uuid = str(meta["page_uuid"])
+                        if page_uuid not in candidate_agreement_by_page_uuid:
+                            raise ValueError(
+                                f"Missing agreement mapping for page_uuid={page_uuid} while marking XML AI-repair attempts."
+                            )
+                        enqueued_agreement_uuids.add(candidate_agreement_by_page_uuid[page_uuid])
+                    marked_rows = _mark_xml_ai_repair_attempted(
+                        conn, db.database, enqueued_agreement_uuids
+                    )
+                    context.log.info(
+                        "ai_repair_enqueue_asset: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                        marked_rows,
+                        len(enqueued_agreement_uuids),
+                    )
+
+    if should_exit_after_tx:
+        run_post_asset_refresh(context, db, pipeline_config)
+        return sorted(enqueued_agreement_uuids)
 
     run_post_asset_refresh(context, db, pipeline_config)
-
-
-def _read_file_text(client: OpenAI, file_id: str) -> str:
-    """Minimal reader: rely on SDK's .text or .content→utf-8 bytes."""
-    resp = client.files.content(file_id)
-    if hasattr(resp, "text"):
-        t = resp.text
-        text_val = t() if callable(t) else t
-        if not isinstance(text_val, str):
-            raise ValueError("Expected text response from OpenAI file content.")
-        return text_val
-    return resp.content.decode("utf-8")
+    return sorted(enqueued_agreement_uuids)
 
 
 def _request_counts(batch: Any) -> Tuple[int, int, int]:
@@ -742,26 +852,6 @@ def _bulk_update_status(
     _ = conn.execute(q_spans, {"st": status, "ids": list(request_ids)})
 
 
-def _extract_message_text(body: Dict[str, Any]) -> str:
-    """Pull the assistant message first text block from body.output."""
-    output = body["output"]
-    if not isinstance(output, list):
-        raise ValueError(f"Expected body.output to be a list, got {type(output).__name__}")
-    msg_blocks = [o for o in output if o.get("type") == "message"]
-    if not msg_blocks:
-        raise ValueError("No assistant message block in output.")
-    contents = msg_blocks[0]["content"]
-    if not isinstance(contents, list):
-        raise ValueError(f"Expected message content to be a list, got {type(contents).__name__}")
-    text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
-    if not text_items:
-        raise ValueError("Assistant message has no text content.")
-    raw_text = text_items[0]["text"]
-    if not isinstance(raw_text, str):
-        raise ValueError(f"Expected text to be a string, got {type(raw_text).__name__}")
-    return raw_text
-
-
 def _extract_usage(body: Dict[str, Any]) -> Dict[str, Any]:
     usage = body["usage"]
     if not isinstance(usage, dict):
@@ -787,7 +877,7 @@ def _parse_full_page_tagged_text(raw: Dict[str, Any]) -> Tuple[str, str]:
     if sc not in (200, 201, 202):
         raise ValueError(f"Non-success status_code: {sc}")
     body = resp["body"]
-    raw_text = _extract_message_text(body)
+    raw_text = extract_output_text_from_batch_body(body)
     obj = json.loads(raw_text)
     if not isinstance(obj, dict) or "tagged_text" not in obj or "warnings" not in obj:
         raise ValueError("Missing 'tagged_text' or 'warnings' in full-page output.")
@@ -802,7 +892,7 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     if sc not in (200, 201, 202):
         raise ValueError(f"Non-success status_code: {sc}")
     body = resp["body"]
-    raw_text = _extract_message_text(body)
+    raw_text = extract_output_text_from_batch_body(body)
     obj = json.loads(raw_text)
     if not isinstance(obj, dict) or "rulings" not in obj or "warnings" not in obj:
         raise ValueError("Missing 'rulings' or 'warnings' in excerpt output.")
@@ -824,12 +914,16 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     return rid, out
 
 
-@dg.asset(deps=[ai_repair_enqueue_asset], name="5-2_ai_repair_poll_asset")
+@dg.asset(
+    name="5-2_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
+)
 def ai_repair_poll_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
     """
     Poll terminal batches, read output/error JSONL, persist parsed entities strictly.
 
@@ -846,7 +940,14 @@ def ai_repair_poll_asset(
     ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
     ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
     ai_repair_rulings_table = f"{schema}.ai_repair_rulings"
+    pages_table = f"{schema}.pages"
     client = _oai_client()
+    target_agreement_uuids = sorted(set(enqueued_agreement_uuids))
+
+    if not target_agreement_uuids:
+        context.log.info("ai_repair_poll_asset: no upstream agreements from enqueue.")
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
 
     base_sleep_seconds = 5
     backoff_level = 0
@@ -860,13 +961,19 @@ def ai_repair_poll_asset(
                 conn.execute(
                     text(
                         f"""
-                        SELECT batch_id
-                        FROM {ai_repair_batches_table}
-                        WHERE status NOT IN ('completed','failed','cancelled','expired')
-                        ORDER BY created_at ASC
+                        SELECT DISTINCT b.batch_id
+                        FROM {ai_repair_batches_table} b
+                        JOIN {ai_repair_requests_table} r
+                            ON r.batch_id = b.batch_id
+                        JOIN {pages_table} p
+                            ON p.page_uuid = r.page_uuid
+                        WHERE b.status NOT IN ('completed','failed','cancelled','expired')
+                          AND p.agreement_uuid IN :auuids
+                        ORDER BY b.created_at ASC
                         LIMIT 20
                         """
-                    )
+                    ).bindparams(bindparam("auuids", expanding=True)),
+                    {"auuids": target_agreement_uuids},
                 )
                 .mappings()
                 .fetchall()
@@ -949,7 +1056,7 @@ def ai_repair_poll_asset(
                 # Process output JSONL (success lines)
                 ofid = getattr(b, "output_file_id", None)
                 if ofid:
-                    out_text = _read_file_text(client, ofid).strip()
+                    out_text = read_openai_file_text(client.files.content(ofid)).strip()
                     if out_text:
                         for line in out_text.splitlines():
                             raw = json.loads(line)
@@ -991,7 +1098,7 @@ def ai_repair_poll_asset(
                 # Process error JSONL (explicit failures)
                 efid = getattr(b, "error_file_id", None)
                 if efid:
-                    err_text = _read_file_text(client, efid).strip()
+                    err_text = read_openai_file_text(client.files.content(efid)).strip()
                     if err_text:
                         for line in err_text.splitlines():
                             err = json.loads(line)
@@ -1121,3 +1228,4 @@ def ai_repair_poll_asset(
         time.sleep(min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds))
 
     run_post_asset_refresh(context, db, pipeline_config)
+    return target_agreement_uuids

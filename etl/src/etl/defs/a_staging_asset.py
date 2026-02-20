@@ -2,7 +2,6 @@
 # pyright: reportMissingTypeStubs=false
 """Stage new filings and record pipeline run metadata.
 
-Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
 Returns the number of new filings processed.
 """
 
@@ -26,7 +25,6 @@ from etl.domain.a_staging import (
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_cleanup_mode
 
 UpsertAgreements = Callable[[Sequence[FilingMetadata], str, Connection], None]
 upsert_agreements = cast(UpsertAgreements, _upsert_agreements)
@@ -91,28 +89,18 @@ def staging_asset(
     mid-way (e.g., on day 89 of 90), the next run resumes from where it left off
     rather than re-processing all days.
     
-    In cleanup mode, skips fetching new filings and only processes existing 
-    unprocessed agreements.
-    
     Args:
         context: Dagster execution context.
         db: Database resource for connection.
-        pipeline_config: Pipeline configuration for mode.
+        pipeline_config: Pipeline configuration.
         
     Returns:
         Total number of new filings processed across all days.
     """
-    is_cleanup = is_cleanup_mode(context, pipeline_config)
-
-    if is_cleanup:
-        context.log.info("CLEANUP mode. Skipping staging step.")
-        run_post_asset_refresh(context, db, pipeline_config)
-        return 0
-
     engine = db.get_engine()
     schema = db.database
     pipeline_runs_table = f"{schema}.pipeline_runs"
-    context.log.info("Running staging in FROM_SCRATCH mode")
+    context.log.info("Running staging")
 
     # Get the most recent pull timestamp (even from a failed/terminated run)
     with engine.begin() as conn:

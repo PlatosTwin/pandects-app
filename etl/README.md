@@ -1,248 +1,115 @@
-## Overview
-1. Stage 1: stage agreements ([defs/staging](src/etl/defs/a_staging_asset.py))
-    * Identify and pull new agreements from EDGAR
-2. Stage 2: pre-process staged agreements ([defs/pre_process](src/etl/defs/b_pre_processing_asset.py))
-    * Split to pages
-    * Classify pages
-    * Format text
-3. Stage 3: tag entities (via NER model) ([defs/tagging](src/etl/defs/c_tagging_asset.py))
-    * Feed `body` pages to NER model
-4. Stage 4: validate uncertain spans ([defs/ai_repair](src/etl/defs/d_ai_repair_asset.py))
-    * Feed uncertain spans to LLM to validate
-5. Stage 5: reconcile tags ([defs/reconcile_tags](src/etl/defs/e_reconcile_tages_asset.py))
-6. Stage 6: create XML ([defs/xml](src/etl/defs/xml_asset.py))
-    * Assemble XML from tagged pages
-7. Stage 7: split XML to sections ([defs/sections](src/etl/defs/g_sections_asset.py))
-    * Splits XML into sections and upsert to DB
-8. Stage 8: taxonomize sections ([defs/taxonomy](src/etl/defs/h_taxonomy_asset.py))
-    * Assign each section to a taxonomy and update table + XML accordingly
-9. Stage 9: Enrich ([defs/taxonomy](src/etl/defs/h_taxonomy_asset.py))
-    * Enrich each agreement with metadata, e.g., transaction value, party industries, etc.
+## ETL Overview
 
-## Running the ETL with config
+Current ETL execution is split across three jobs (there is no all-in-one `etl_pipeline` job):
 
-Run config is centralized in `etl/configs/etl_pipeline.yaml`. Edit `mode`, `scope`,
-and batch sizes there, then execute:
+1. `cleanup_pipeline`
+   - `1_staging_asset` -> `2_pre_processing_asset` -> `3_tagging_asset`
+2. `xml_fresh_pipeline`
+   - `4-1_build_xml` -> `4-2_verify_xml` -> `6-1_sections_from_fresh_xml`
+3. `xml_repair_cycle_pipeline`
+   - `5-1_ai_repair_enqueue_asset` -> `5-2_ai_repair_poll_asset` -> `5-3_reconcile_tags`
+   - `5-4_post_repair_build_xml` -> `5-5_post_repair_verify_xml` -> `6-2_sections_from_repair_xml`
+
+Core definitions live in `etl/src/etl/defs/jobs.py`.
+
+## Run With Config
+
+Default run config lives in `etl/configs/pipeline_config.yaml`.
 
 ```bash
-dagster job execute -f etl/src/etl/defs/jobs.py -j etl_pipeline -c etl/configs/etl_pipeline.yaml
+dagster job execute -f etl/src/etl/defs/jobs.py -j cleanup_pipeline -c etl/configs/pipeline_config.yaml
+dagster job execute -f etl/src/etl/defs/jobs.py -j xml_fresh_pipeline -c etl/configs/pipeline_config.yaml
+dagster job execute -f etl/src/etl/defs/jobs.py -j xml_repair_cycle_pipeline -c etl/configs/pipeline_config.yaml
 ```
 
-If you're using `dg dev`, open the asset (or job) in the UI, click the arrow near Materialize, open the Launchpad, and edit config values in the JSON block, then click Materialize.
+With `dg dev`, open the target asset/job in Launchpad and override config there.
 
-## Stage 1—Stage agreements
+## Pipeline Flow
 
-**Description**: Checks <em>n</em> days' worth of EDGAR daily index files since the last daily index file we checked. E.g., if the last asset ran up to and including 1/13/25, the next run would begin by looking for the daily index for 1/14/25. Sometimes daily index files contain duplicate filings—i.e., two companies each filed the same agreement. We identify duplicate filings using minhash and take as the primary filing either the filing that has pages, or else if both have or do not have pages, then the filing that appears earlier in the index file.
+1. Stage agreements: `src/etl/defs/a_staging_asset.py`
+2. Pre-process pages: `src/etl/defs/b_pre_processing_asset.py`
+3. Tag body pages: `src/etl/defs/c_tagging_asset.py`
+4. Fresh XML lane:
+   - build XML (`src/etl/defs/f_xml_asset.py`, `4-1_build_xml`)
+   - verify XML (`src/etl/defs/f_xml_asset.py`, `4-2_verify_xml`)
+   - upload sections for verified XML only (`src/etl/defs/g_sections_asset.py`, `6-1_sections_from_fresh_xml`)
+5. Repair lane (for invalid XML):
+   - enqueue LLM repair for selected invalid XML agreements (`src/etl/defs/d_ai_repair_asset.py`, `5-1_ai_repair_enqueue_asset`)
+   - poll results (`src/etl/defs/d_ai_repair_asset.py`, `5-2_ai_repair_poll_asset`)
+   - reconcile repaired tags (`src/etl/defs/e_reconcile_tags.py`, `5-3_reconcile_tags`)
+   - rebuild XML on repaired agreements (`src/etl/defs/f_xml_repair_cycle_asset.py`, `5-4_post_repair_build_xml`)
+   - re-verify rebuilt XML (`src/etl/defs/f_xml_repair_cycle_asset.py`, `5-5_post_repair_verify_xml`)
+   - upload sections for re-verified XML only (`src/etl/defs/g_sections_asset.py`, `6-2_sections_from_repair_xml`)
 
-**Models**: This stage uses the [Exhibit Model](etl/src/etl/models/exhibit_classifier/) to identify Exhibit 2 and Exhibit 10 filings as M&A agreements vs. not. For each agreement identified as a positive sample, we store the model's output probability.
+Optional downstream assets:
+- Taxonomy: `src/etl/defs/h_taxonomy_asset.py` (`7_taxonomy_asset`)
+- Transaction metadata: `src/etl/defs/i_tx_metadata_asset.py` (`8_tx_metadata_asset`)
 
-**Validation**: We manually validate all agreements with probability <= 0.75. Agreements flagged for validation do not move on in the pipeline until validated.
+## Fresh XML vs Repair XML
 
-**Output**:
-* Agreement UUID (generated from the url)
-* EDGAR link
-* Associated SEC form
-* Exhibit number
-* Filing company's name + CIK
+Fresh XML assets (`4-1`, `4-2`) operate on agreements that are not yet marked as AI-repair attempted:
+- build/refresh when no latest XML exists, or body-tagged pages are newer than latest XML
+- verify only latest rows with `status IS NULL` and `COALESCE(ai_repair_attempted, 0) = 0`
 
-**ETL processes**:
-* `insert into pdx.agreements` + `on duplicate key update`
+Repair XML assets (`5-4`, `5-5`) operate on agreements already in the repair cycle:
+- rebuild only when latest XML is `invalid`, `ai_repair_attempted = 1`, and tags were updated since XML creation
+- verify only latest rows with `status IS NULL` and `ai_repair_attempted = 1`
 
-**Tables**:
-* pdf.agreements
-    * agreement_uuid
-    * url
-    * filing_date
-    * prob_filing
-    * filing_company_name
-    * filing_company_cik
-    * form_type
-    * exhibit_type
+## AI Repair Selection
 
-## Stage 2—Pre-process staged agreements
+`5-1_ai_repair_enqueue_asset` currently:
+- targets agreements whose latest XML is `invalid`
+- limits to a hardcoded list of repair-eligible XML reason codes
+- includes all unresolved spans (no entity-type filter, no confidence-threshold filter)
+- orders agreements by fewest affected pages first:
+  - `ORDER BY COUNT(DISTINCT p.page_uuid) ASC, p.agreement_uuid`
 
-**Description**: Pulls the .txt or .html source of all agreements with URLs in `pdx.agreements` but no pages in `pdx.pages`, then splits paginated agreements into pages, classifies page type, and processes HTML into formatted text.
+Batch size for selection is `xml_agreement_batch_size`.
 
-**Models**: This stage uses the [Page Classifier Model](etl/src/etl/models/page_classifier/) to classify pages into one of five classes: `front_matter`, `toc`, `body`, `sig`, `back_matter`.
+## Sections Upload Behavior
 
-**Validation**: We do not process agreements unless they are Exhibit 2, 10, or 99 filings; this is relevant only to agreements from the DMA corpus, where 11 URLs point to other types of exhibit. Additionally, and more importantly, e manually validate all agreements where either:
-1. Page labels are applied out of order—e.g., `back_matter` comes before `sig`; or
-2. There is at least one low-confidence page prior to a high-confidence `sig` block (we trust that high-confidence `sig` blocks are accurate, and thus that all pages after the `sig` block are safely assumed to be `back_matter`). Agreements with pages flagged for validation do not get ingested until validated.
+Sections are inserted only from latest verified XML versions:
+- `6-1_sections_from_fresh_xml` consumes verified UUIDs from `4-2_verify_xml`
+- `6-2_sections_from_repair_xml` consumes verified UUIDs from `5-5_post_repair_verify_xml`
 
-**Output**:
-* Main body pages only.
-    * Agreement UUID
-    * Page UUID (auto-increments)
-    * Raw page content
-    * Formatted page content
-    * Predicted class
-    * Probabilities for all classes
+`6_sections_asset` still exists as a backward-compatible generic sections run.
 
-**Tables**:
-* pdx.pages
-    * agreement_uuid
-    * page_uuid
-    * page_order
-    * raw_page_content
-    * processed_page_content
-    * source_is_txt
-    * source_is_html
-    * source_page_type
-    * page_type_prob_front_matter
-    * page_type_prob_toc
-    * page_type_prob_body
-    * page_type_prob_sig 
-    * page_type_prob_back_matter
+## Gating + Summary Refresh
 
-## Stage 3—Tag pre-processed agreements via NER
+`z_gating` (`src/etl/defs/z_gating_asset.py`) applies gating and refreshes summary data.
 
-**Description**: Feeds pre-processed page batches to the NER model.
+Stage math and stage selectors are now intended to share one canonical SQL source
+in `src/etl/utils/pipeline_state_sql.py`. The same predicates drive:
+- stage/color classification in `agreement_status_summary`,
+- persisted gating flags,
+- queue selection in pre-processing/tagging/XML/AI-repair enqueue.
 
-**Models**: This stage uses the [NER Model](etl/src/etl/models/ner/) to identify Article, Section, and Page entities in `body` pages.
+Post-run refresh (`run_post_asset_refresh`) is currently automatic only for stage-ending assets:
+- `1_staging_asset`
+- `2_pre_processing_asset`
+- `3_tagging_asset`
+- `6_sections_asset`
+- `6-1_sections_from_fresh_xml`
+- `6-2_sections_from_repair_xml`
 
-**Validation**: All validation happens as part of Stage 4.
+## Key Config Knobs
 
-**Output**:
-* Agreement UUID
-* Page UUID
-* NER model output: tagged text + uncertain spans
+Defined in `src/etl/defs/resources.py` and loaded from `etl/configs/pipeline_config.yaml`:
 
-**Tables**:
-* pdx.tagged_outputs
-    * page_uuid
-    * tagged_output
-    * low_count
-    * spans
-    * tokens
+- `pre_processing_mode`: `from_scratch` | `cleanup`
+- `scope`: `batched` | `full`
+- `resume_open_batches`: resume compatible in-flight OpenAI batches when possible
+- `pre_processing_agreement_batch_size`
+- `tagging_agreement_batch_size`
+- `xml_agreement_batch_size`
+- `taxonomy_agreement_batch_size`
+- `tx_metadata_agreement_batch_size`
+- `tx_metadata_mode`: `offline` | `web_search`
+- Staging controls:
+  - `staging_days_to_fetch`
+  - `staging_rate_limit_max_requests`
+  - `staging_rate_limit_window_seconds`
+  - `staging_max_workers`
+  - `staging_use_keyword_filter`
 
-## Stage 4—Validate uncertain NER spans via LLM
-**Description**: Sends uncertain NER spans to an LLM for validation, and then reconciles NER tags with LLM-validated tags. Depending on the density of uncertain spans on a given page, we send to the LLM either a single span with context on either side or the full text of the page.
-
-**Models**: OpenAI's `gpt-5-mini` for individual spans and `gpt-5` for full pages.
-
-**Validation**: Page with span conflicts are labeled as such, and reviewed manually. Agreements containing such pages do not move on to the next stage until validated.
-
-**Output**:
-* Page UUID
-* Either span ruling or full-page tagged text
-
-**Tables**:
-* pdx.ai_repair_requests
-* pdx.ai_repair_batches
-* pdx.ai_repair_rulings
-    * page_uid
-    * start_char
-    * end_char
-    * label
-* pdx.ai_repair_full_pages
-    * page_uuid
-    * tagged_text
-
-## Stage 5—Assemble XML from tagged text
-
-**Description**: Compiles tagged outputs into agreement XML
-
-**Models**: None.
-
-**Validation**: Agreements with fewer than 5 tagger Article sections are filtered out on the assumption that they were mis-tagged.
-
-**Output**:
-* Agreement UUID
-* XML
-
-**Tables**:
-* pdx.xml
-    * agreement_uuid
-    * xml
-
-**Tables**:
-* pdx.xml
-    * agreement_uuid
-    * xml
-    * version
-    * updated_at (pending)
-
-## Stage 6—Split XML into sections
-
-**Description**: Splits XML into sections.
-
-**Models**: None.
-
-**Validation**: Methodology pending...
-
-**Output**:
-* Agreement UUID
-* XML
-
-**Tables**:
-* pdx.sections
-    * agreement_uuid
-    * section_uuid
-    * article_title
-    * article_title_normed
-    * article_order
-    * section_title
-    * section_title_normed
-    * section_order
-    * xml_content
-
-## Stage 7—Assign sections into taxonomy
-
-**Description**: Assigns individual section to classes from a taxonomy.
-
-**Models**: This stage uses the [Taxonomy Model](etl/src/etl/models/taxonomy/) to associate sections with one or more classes in the Pandects taxonomy.
-
-**Validation**: Methodology pending...
-
-**Output**:
-* Section UUID
-* Taxonomy class or classes
-
-**Tables**:
-* pdx.sections
-    * section_standard_id
-
-## Stage 8—Enrich agreement metadata
-
-**Description**: Uses an LLM with web-search functionality to enrich agreements with transaction metadata, such as total transaction price, party industries, consideration types, etc.
-
-**Models**: OpenAI's `gpt-5.1` with web-search tooling.
-
-**Validation**: Methodology pending...
-
-**Output**:
-* Considertion fields
-    * Value: total, stock, cash, assets
-    * Type: stock, cash, assets, mixed, unknown
-* Party fields
-    * Target name, industry, public/private, and whether it's owned by a PE shop
-    * Acquirer name, industry, public/private, and whether it's a PE shop
-* Deal fields
-    * Announcement date
-    * Close date
-    * Deal status
-    * Attitude (friendly, hostile, unsolicited)
-    * Deal type
-    * Purpose
-
-
-**Tables**:
-* pdx.agreements
-    * transaction_price_total
-    * transaction_price_stock
-    * transaction_price_stock
-    * transaction_price_cash
-    * transaction_price_assets
-    * transaction_consideration
-    * target_type
-    * acquirer_type
-    * target_industry
-    * acquirer_industry
-    * announce_date
-    * close_date
-    * deal_status
-    * attitude
-    * deal_type
-    * purpose
-    * target_pe
-    * acquirer_pe
+`refresh` remains present in config schema for compatibility, but post-asset refresh routing is currently controlled by asset name in `src/etl/utils/post_asset_refresh.py`.

@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from etl.domain.f_xml import count_article_tags
-
+from etl.utils.pipeline_state_sql import canonical_stage_state_sql
 
 MIN_ARTICLE_TAGS = 5
 
@@ -25,10 +24,29 @@ def apply_gating(
     schema: str,
     min_article_tags: int = MIN_ARTICLE_TAGS,
 ) -> GatingCounts:
-    agreements_gated = apply_agreement_gating(conn, schema)
-    pages_gated = apply_pages_gating(conn, schema)
+    _ = min_article_tags
+    stage_state_table = "tmp_stage_state_for_gating"
+    _ = conn.execute(text(f"DROP TEMPORARY TABLE IF EXISTS {stage_state_table}"))
+    _ = conn.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE {stage_state_table} AS
+            {canonical_stage_state_sql(schema)}
+            """
+        )
+    )
+    _ = conn.execute(
+        text(f"ALTER TABLE {stage_state_table} ADD PRIMARY KEY (agreement_uuid)")
+    )
+
+    agreements_gated = apply_agreement_gating(
+        conn, schema, stage_state_table=stage_state_table
+    )
+    pages_gated = apply_pages_gating(
+        conn, schema, stage_state_table=stage_state_table
+    )
     tagged_outputs_gated = apply_tagged_outputs_gating(conn, schema)
-    xml_gated = apply_xml_gating(conn, schema, min_article_tags)
+    xml_gated = apply_xml_gating(conn, schema, stage_state_table=stage_state_table)
     _set_validation_priority(conn, schema)
     return GatingCounts(
         agreements_gated=agreements_gated,
@@ -38,58 +56,56 @@ def apply_gating(
     )
 
 
-def apply_agreement_gating(conn: Connection, schema: str) -> int:
+def apply_agreement_gating(
+    conn: Connection,
+    schema: str,
+    *,
+    stage_state_table: str,
+) -> int:
     agreements_table = f"{schema}.agreements"
     stmt = text(
         f"""
-        UPDATE {agreements_table}
-        SET gated = CASE
-            WHEN source = 'dma' THEN 0
-            WHEN status IS NULL THEN 1
+        UPDATE {agreements_table} a
+        LEFT JOIN {stage_state_table} s
+            ON s.agreement_uuid = a.agreement_uuid
+        SET a.gated = CASE
+            WHEN s.current_stage = '0_staging' AND s.color = 'red' THEN 1
             ELSE 0
         END
-        WHERE (gated IS NULL OR gated != CASE
-            WHEN source = 'dma' THEN 0
-            WHEN status IS NULL THEN 1
-            ELSE 0
-        END)
+        WHERE (
+            a.gated IS NULL
+            OR a.gated != CASE
+                WHEN s.current_stage = '0_staging' AND s.color = 'red' THEN 1
+                ELSE 0
+            END
+        )
         """
     )
     result = conn.execute(stmt)
     return int(result.rowcount or 0)
 
 
-def apply_pages_gating(conn: Connection, schema: str) -> int:
+def apply_pages_gating(
+    conn: Connection,
+    schema: str,
+    *,
+    stage_state_table: str,
+) -> int:
     pages_table = f"{schema}.pages"
     stmt = text(
         f"""
         UPDATE {pages_table} p
-        LEFT JOIN (
-            WITH sigs AS (
-                SELECT
-                    agreement_uuid,
-                    COUNT(page_uuid) AS ct_pages,
-                    MAX(CASE WHEN source_page_type = 'sig' THEN page_type_prob_sig ELSE 0 END) AS prob_sig,
-                    SUM(CASE WHEN source_page_type = 'sig' THEN 1 ELSE 0 END) AS ct_sig,
-                    SUM(CASE WHEN source_page_type = 'back_matter' THEN 1 ELSE 0 END) AS ct_back_matter,
-                    SUM(CASE WHEN gold_label IS NOT NULL THEN 1 ELSE 0 END) AS ct_gold
-                FROM {pages_table}
-                GROUP BY agreement_uuid
-            )
-            SELECT DISTINCT agreement_uuid
-            FROM sigs
-            WHERE ct_back_matter >= 1 AND ct_sig = 0 AND ct_gold = 0
-        ) g
-            ON g.agreement_uuid = p.agreement_uuid
+        LEFT JOIN {stage_state_table} s
+            ON s.agreement_uuid = p.agreement_uuid
         SET p.gated = CASE
-            WHEN g.agreement_uuid IS NULL THEN 0
-            ELSE 1
+            WHEN s.current_stage = '1_pre_processing' AND s.color = 'red' THEN 1
+            ELSE 0
         END
         WHERE (
             p.gated IS NULL
             OR p.gated != CASE
-                WHEN g.agreement_uuid IS NULL THEN 0
-                ELSE 1
+                WHEN s.current_stage = '1_pre_processing' AND s.color = 'red' THEN 1
+                ELSE 0
             END
         )
         """
@@ -101,18 +117,36 @@ def apply_pages_gating(conn: Connection, schema: str) -> int:
 def apply_tagged_outputs_gating(conn: Connection, schema: str) -> int:
     tagged_outputs_table = f"{schema}.tagged_outputs"
     pages_table = f"{schema}.pages"
+    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_flagged_tagged_agreements"))
+    _ = conn.execute(
+        text(
+            """
+            CREATE TEMPORARY TABLE tmp_flagged_tagged_agreements (
+                agreement_uuid VARCHAR(64) NOT NULL PRIMARY KEY
+            ) ENGINE=MEMORY
+            """
+        )
+    )
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO tmp_flagged_tagged_agreements (agreement_uuid)
+            SELECT DISTINCT p.agreement_uuid
+            FROM {tagged_outputs_table} t
+            JOIN {pages_table} p
+                ON t.page_uuid = p.page_uuid
+            WHERE t.label_error = 1
+              AND p.agreement_uuid IS NOT NULL
+            """
+        )
+    )
+
     stmt = text(
         f"""
         UPDATE {tagged_outputs_table} t
         JOIN {pages_table} p
             ON t.page_uuid = p.page_uuid
-        LEFT JOIN (
-            SELECT DISTINCT p2.agreement_uuid
-            FROM {tagged_outputs_table} t2
-            JOIN {pages_table} p2
-                ON t2.page_uuid = p2.page_uuid
-            WHERE t2.label_error = 1
-        ) g
+        LEFT JOIN tmp_flagged_tagged_agreements g
             ON g.agreement_uuid = p.agreement_uuid
         SET t.gated = CASE
             WHEN g.agreement_uuid IS NULL THEN 0
@@ -134,94 +168,61 @@ def apply_tagged_outputs_gating(conn: Connection, schema: str) -> int:
 def apply_xml_gating(
     conn: Connection,
     schema: str,
-    min_article_tags: int = MIN_ARTICLE_TAGS,
+    *,
+    stage_state_table: str,
 ) -> int:
     xml_table = f"{schema}.xml"
-    low_article_uuids = _fetch_low_article_agreements(conn, schema, min_article_tags)
-    if not low_article_uuids:
-        stmt = text(
-            f"""
-            UPDATE {xml_table} x
-            SET x.gated = CASE WHEN x.status = 'invalid' or x.status is null THEN 1 ELSE 0 END
-            """
+    stmt = text(
+        f"""
+        UPDATE {xml_table} x
+        JOIN {stage_state_table} s
+            ON s.agreement_uuid = x.agreement_uuid
+        SET x.gated = CASE
+            WHEN s.current_stage = '3_xml' AND s.color = 'red' THEN 1
+            ELSE 0
+        END
+        WHERE (
+            x.latest = 1
+            AND (
+                x.gated IS NULL
+                OR x.gated != CASE
+                    WHEN s.current_stage = '3_xml' AND s.color = 'red' THEN 1
+                    ELSE 0
+                END
+            )
         )
-        result = conn.execute(stmt)
-    else:
-        stmt = text(
-            f"""
-            UPDATE {xml_table} x
-            SET x.gated = CASE
-                WHEN x.status = 'invalid' or x.status is null THEN 1
-                WHEN x.agreement_uuid IN :low_article_uuids
-                    AND (x.status IS NULL OR x.status != 'verified')
-                THEN 1
-                ELSE 0
-            END
-            """
-        ).bindparams(bindparam("low_article_uuids", expanding=True))
-        result = conn.execute(stmt, {"low_article_uuids": sorted(low_article_uuids)})
+        """
+    )
+    result = conn.execute(stmt)
     return int(result.rowcount or 0)
 
 
-def _fetch_low_article_agreements(
-    conn: Connection,
-    schema: str,
-    min_article_tags: int,
-) -> set[str]:
-    pages_table = f"{schema}.pages"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    rows = conn.execute(
+def _set_validation_priority(conn: Connection, schema: str) -> None:
+    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_page_flag_counts"))
+    _ = conn.execute(
         text(
-            f"""
-            WITH eligible AS (
-                SELECT p.agreement_uuid
-                FROM {pages_table} p
-                LEFT JOIN {tagged_outputs_table} t
-                    ON t.page_uuid = p.page_uuid
-                WHERE p.source_page_type = 'body'
-                GROUP BY p.agreement_uuid
-                HAVING SUM(
-                    CASE
-                        WHEN COALESCE(
-                            t.tagged_text_gold,
-                            t.tagged_text_corrected,
-                            t.tagged_text
-                        ) IS NOT NULL
-                        THEN 1 ELSE 0
-                    END
-                ) = SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END)
-            )
-            SELECT
-                p.agreement_uuid,
-                COALESCE(
-                    t.tagged_text_gold,
-                    t.tagged_text_corrected,
-                    t.tagged_text,
-                    p.processed_page_content
-                ) AS tagged_output
-            FROM {pages_table} p
-            LEFT JOIN {tagged_outputs_table} t
-                ON t.page_uuid = p.page_uuid
-            JOIN eligible e
-                ON e.agreement_uuid = p.agreement_uuid
-            WHERE p.source_page_type = 'body'
-            ORDER BY p.agreement_uuid, p.page_order
+            """
+            CREATE TEMPORARY TABLE tmp_page_flag_counts (
+                agreement_uuid VARCHAR(64) NOT NULL PRIMARY KEY,
+                ct_flagged BIGINT NOT NULL
+            ) ENGINE=MEMORY
             """
         )
-    ).mappings()
-
-    counts: dict[str, int] = {}
-    for row in rows:
-        agreement_uuid = row["agreement_uuid"]
-        tagged_output = row["tagged_output"] or ""
-        counts[agreement_uuid] = counts.get(agreement_uuid, 0) + count_article_tags(
-            tagged_output
+    )
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO tmp_page_flag_counts (agreement_uuid, ct_flagged)
+            SELECT
+                agreement_uuid,
+                SUM(CASE WHEN gated = 1 THEN 1 ELSE 0 END) AS ct_flagged
+            FROM {schema}.pages
+            WHERE agreement_uuid IS NOT NULL
+            GROUP BY agreement_uuid
+            """
         )
+    )
 
-    return {uuid for uuid, count in counts.items() if count < min_article_tags}
-
-
-def _set_validation_priority(conn: Connection, schema: str) -> None:
     _ = conn.execute(
         text(
             f"""
@@ -235,12 +236,7 @@ def _set_validation_priority(conn: Connection, schema: str) -> None:
         text(
             f"""
             UPDATE {schema}.pages p
-            JOIN (
-                SELECT agreement_uuid,
-                    SUM(CASE WHEN gated = 1 THEN 1 ELSE 0 END) AS ct_flagged
-                FROM {schema}.pages
-                GROUP BY agreement_uuid
-            ) g
+            JOIN tmp_page_flag_counts g
                 ON g.agreement_uuid = p.agreement_uuid
             SET p.validation_priority = g.ct_flagged
             WHERE NOT (p.validation_priority <=> g.ct_flagged)
@@ -253,12 +249,7 @@ def _set_validation_priority(conn: Connection, schema: str) -> None:
             UPDATE {schema}.tagged_outputs t
             JOIN {schema}.pages p
                 ON p.page_uuid = t.page_uuid
-            LEFT JOIN (
-                SELECT agreement_uuid,
-                    SUM(CASE WHEN gated = 1 THEN 1 ELSE 0 END) AS ct_flagged
-                FROM {schema}.pages
-                GROUP BY agreement_uuid
-            ) g
+            LEFT JOIN tmp_page_flag_counts g
                 ON g.agreement_uuid = p.agreement_uuid
             SET t.validation_priority = COALESCE(g.ct_flagged, 0)
             WHERE NOT (t.validation_priority <=> COALESCE(g.ct_flagged, 0))

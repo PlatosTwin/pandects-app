@@ -1,6 +1,6 @@
 """Split agreements into pages, classify page types, and format text.
 
-Respects CLEANUP vs FROM_SCRATCH modes via `PipelineConfig`.
+Respects pre_processing_mode via `PipelineConfig`.
 Writes pages to `pdx.pages`; FROM_SCRATCH inserts, CLEANUP updates.
 """
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
@@ -9,7 +9,7 @@ from typing import cast
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etl.defs.a_staging_asset import staging_asset
 from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
@@ -20,10 +20,10 @@ from etl.domain.b_pre_processing import (
     cleanup,
     pre_process,
 )
-from etl.domain.z_gating import apply_agreement_gating
 from etl.utils.db_utils import upsert_pages
-from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_cleanup_mode
+from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
+from etl.utils.pipeline_state_sql import canonical_pre_processing_queue_sql
+from etl.utils.run_config import is_pre_processing_cleanup_mode
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -41,21 +41,20 @@ def pre_processing_asset(
         context: Dagster execution context.
         db: Database resource for connection.
         classifier_model: Model for page classification.
-        pipeline_config: Pipeline configuration for mode.
+        pipeline_config: Pipeline configuration.
     """
     last_uuid: str = ""
     engine = db.get_engine()
     inference_model = classifier_model.model()
 
-    is_cleanup = is_cleanup_mode(context, pipeline_config)
+    is_cleanup = is_pre_processing_cleanup_mode(context, pipeline_config)
 
     batch_size = pipeline_config.pre_processing_agreement_batch_size
     schema = db.database
     agreements_table = f"{schema}.agreements"
     pages_table = f"{schema}.pages"
 
-    with engine.begin() as conn:
-        _ = apply_agreement_gating(conn, db.database)
+    run_pre_asset_gating(context, db)
     
     # FROM_SCRATCH mode
     # Just like CLEANUP mode, but we split the agreement into pages first
@@ -65,30 +64,31 @@ def pre_processing_asset(
 
         while True:
             with engine.begin() as conn:
-                # Fetch agreements that do not yet have any pages (idempotent)
-                result = conn.execute(
-                    text(
-                        f"""
-                    SELECT
-                        a.agreement_uuid,
-                        a.url
-                    FROM
-                        {agreements_table} a
-                    LEFT JOIN {pages_table} p ON p.agreement_uuid = a.agreement_uuid
-                    WHERE
-                        a.agreement_uuid > :last_uuid
-                        AND p.page_uuid IS NULL
-                        AND a.gated = 0
-                        AND (a.paginated IS NULL OR a.paginated = TRUE)
-                    ORDER BY
-                        a.agreement_uuid ASC
-                    LIMIT
-                        :batch_size
-                    """
-                    ),
-                    {"last_uuid": last_uuid, "batch_size": batch_size},
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_pre_processing_queue_sql(schema)),
+                        {"last_uuid": last_uuid, "batch_size": batch_size},
+                    )
+                    .scalars()
+                    .all()
                 )
-                rows = result.fetchall()
+                if not agreement_uuids:
+                    break
+
+                rows = (
+                    conn.execute(
+                        text(
+                            f"""
+                            SELECT agreement_uuid, url
+                            FROM {agreements_table}
+                            WHERE agreement_uuid IN :uuids
+                            ORDER BY agreement_uuid ASC
+                            """
+                        ).bindparams(bindparam("uuids", expanding=True)),
+                        {"uuids": agreement_uuids},
+                    )
+                    .fetchall()
+                )
 
                 if not rows:
                     break

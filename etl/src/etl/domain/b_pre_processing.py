@@ -93,6 +93,19 @@ class PageMetadata:
     postprocess_modified: bool | None = None
 
 
+def _is_semantically_hidden_tag(tag: Tag) -> bool:
+    if getattr(tag, "attrs", None) is None:
+        return False
+    if tag.has_attr("hidden"):
+        return True
+    aria_attr = tag.get("aria-hidden")
+    if isinstance(aria_attr, list):
+        aria_val = " ".join(aria_attr)
+    else:
+        aria_val = str(aria_attr or "")
+    return aria_val.strip().lower() == "true"
+
+
 def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     """
     Fetch the HTML content at the given URL with rate limiting.
@@ -219,41 +232,10 @@ def strip_formatting_tags(
     for c in soup.find_all(string=lambda text: isinstance(text, Comment)):
         _ = c.extract()
 
-    def _style_value(style: str, prop: str) -> str | None:
-        for part in style.split(";"):
-            if ":" not in part:
-                continue
-            key, value = part.split(":", 1)
-            if key.strip().lower() == prop:
-                return value.strip().lower()
-        return None
-
-    def _style_from_tag(tag: Tag) -> str:
-        style_attr = tag.get("style")
-        if style_attr is None:
-            return ""
-        if isinstance(style_attr, list):
-            return " ".join(style_attr)
-        return str(style_attr)
-
     def _is_hidden_self(tag: Tag) -> bool:
-        if getattr(tag, "attrs", None) is None:
-            return False
-        if tag.has_attr("hidden"):
-            return True
-        aria_attr = tag.get("aria-hidden")
-        if isinstance(aria_attr, list):
-            aria_val = " ".join(aria_attr)
-        else:
-            aria_val = str(aria_attr or "")
-        if aria_val.strip().lower() == "true":
-            return True
-        style = _style_from_tag(tag)
-        if not style:
-            return False
-        return _style_value(style, "display") == "none" or _style_value(
-            style, "visibility"
-        ) == "hidden"
+        # Keep CSS-hidden text. Some SEC filings place agreement body in a display:none
+        # container that still represents the canonical document text.
+        return _is_semantically_hidden_tag(tag)
 
     def _has_hidden_ancestor(tag: Tag) -> bool:
         if _is_hidden_self(tag):
@@ -518,6 +500,29 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def _extract_relaxed_html_text(content: str) -> str:
+    soup = BeautifulSoup(content, "html.parser")
+    for c in soup.find_all(string=lambda t: isinstance(t, Comment)):
+        _ = c.extract()
+    for tag in soup.find_all(["script", "style", "noscript", "template"]):
+        tag.decompose()
+    for tag in list(soup.find_all(True)):
+        if _is_semantically_hidden_tag(tag):
+            tag.decompose()
+    text = soup.get_text(separator="\n\n", strip=False).strip()
+    return normalize_text(text)
+
+
+def _should_use_relaxed_html_fallback(primary_text: str, relaxed_text: str) -> bool:
+    primary_len = len(primary_text)
+    relaxed_len = len(relaxed_text)
+    return (
+        primary_len <= 2000
+        and relaxed_len >= 20000
+        and primary_len * 10 < relaxed_len
+    )
+
+
 def format_content(content: str, is_txt: bool, is_html: bool) -> str:
     """
     Format content based on its source type.
@@ -539,8 +544,14 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         html = BeautifulSoup(content, "html.parser")
         cleaned = strip_formatting_tags(html)
         cleaned = collapse_tables(cleaned)
-        text = block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
-        return normalize_text(text)
+        primary_text = normalize_text(
+            block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
+        )
+        if len(primary_text) <= 2000:
+            relaxed_text = _extract_relaxed_html_text(content)
+            if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
+                return relaxed_text
+        return primary_text
     else:
         raise RuntimeError("Unknown page source type.")
 

@@ -16,7 +16,7 @@ from etl.domain.h_taxonomy import (
 from etl.domain.f_xml import XMLData
 from etl.utils.db_utils import upsert_xml
 from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_batched, is_cleanup_mode
+from etl.utils.run_config import is_batched
 
 @dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
 def taxonomy_asset(
@@ -36,10 +36,7 @@ def taxonomy_asset(
     last_uuid = ""
 
     model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
-    is_cleanup = is_cleanup_mode(context, pipeline_config)
-    context.log.info(
-        f"Running taxonomy in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
-    )
+    context.log.info("Running taxonomy")
 
     while True:
         with engine.begin() as conn:

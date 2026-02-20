@@ -5,7 +5,7 @@ from typing import cast
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etl.defs.b_pre_processing_asset import pre_processing_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaggingModel
@@ -15,10 +15,10 @@ from etl.domain.c_tagging import (
     ContextProtocol as TaggingContext,
     tag,
 )
-from etl.domain.z_gating import apply_pages_gating
 from etl.utils.db_utils import upsert_tags
 from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_batched, is_cleanup_mode
+from etl.utils.pipeline_state_sql import canonical_tagging_queue_sql
+from etl.utils.run_config import is_batched
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -30,13 +30,11 @@ def tagging_asset(
 ) -> None:
     """Apply NER tagging to processed pages.
 
-    In cleanup mode, processes only existing unprocessed pages.
-
     Args:
         context: Dagster execution context.
         db: Database resource for connection.
         tagging_model: Model for page tagging.
-        pipeline_config: Pipeline configuration for mode.
+        pipeline_config: Pipeline configuration.
     """
     inference_model = cast(
         TaggingModelProtocol, cast(object, tagging_model.model())
@@ -51,49 +49,40 @@ def tagging_asset(
     schema = db.database
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
-    is_cleanup = is_cleanup_mode(context, pipeline_config)
-
-    context.log.info(
-        f"Running tagging in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
-    )
-
-    with engine.begin() as conn:
-        _ = apply_pages_gating(conn, db.database)
+    context.log.info("Running tagging")
 
     while True:
         with engine.begin() as conn:
-            # Single query: agreements + body pages missing tags via CTE
+            agreement_uuids = (
+                conn.execute(
+                    text(canonical_tagging_queue_sql(schema)),
+                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
+                )
+                .scalars()
+                .all()
+            )
+            if not agreement_uuids:
+                break
+
             rows_mapping = (
                 conn.execute(
                     text(
                         f"""
-                        WITH agreement_batch AS (
-                            SELECT p.agreement_uuid
-                            FROM {pages_table} p
-                            LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
-                            WHERE p.agreement_uuid > :last_uuid
-                              AND coalesce(p.gold_label, p.source_page_type) = 'body'
-                              AND p.processed_page_content IS NOT NULL
-                              AND t.page_uuid IS NULL
-                              AND p.gated = 0
-                            GROUP BY p.agreement_uuid
-                            ORDER BY p.agreement_uuid ASC
-                            LIMIT :batch_size
-                        )
                         SELECT
                             p.agreement_uuid,
                             p.page_uuid,
                             p.processed_page_content
                         FROM {pages_table} p
-                        LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
-                        WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM agreement_batch)
-                          AND coalesce(p.gold_label, p.source_page_type) = 'body'
+                        LEFT JOIN {tagged_outputs_table} t
+                            ON t.page_uuid = p.page_uuid
+                        WHERE p.agreement_uuid IN :uuids
+                          AND COALESCE(p.gold_label, p.source_page_type) = 'body'
                           AND p.processed_page_content IS NOT NULL
                           AND t.page_uuid IS NULL
                         ORDER BY p.agreement_uuid ASC, p.page_order ASC, p.page_uuid ASC
                         """
-                    ),
-                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
+                    ).bindparams(bindparam("uuids", expanding=True)),
+                    {"uuids": agreement_uuids},
                 )
                 .mappings()
                 .fetchall()
@@ -117,7 +106,7 @@ def tagging_asset(
                 context.log.error(f"Error upserting tags: {e}")
                 raise RuntimeError(e)
 
-            last_uuid = max(r["agreement_uuid"] for r in rows_mapping)
+            last_uuid = str(agreement_uuids[-1])
 
         if batched:
             break

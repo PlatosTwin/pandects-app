@@ -5,7 +5,6 @@ import io
 import json
 import os
 import re
-import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Tuple
 
@@ -20,13 +19,22 @@ from sqlalchemy.engine import Connection
 from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
-from etl.domain.z_gating import apply_tagged_outputs_gating
 from etl.utils.db_utils import upsert_xml
+from etl.utils.batch_keys import agreement_batch_key
+from etl.utils.openai_batch import (
+    extract_output_text_from_batch_body,
+    poll_batch_until_terminal,
+    read_openai_file_text,
+)
 from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_batched, is_cleanup_mode
+from etl.utils.pipeline_state_sql import (
+    canonical_fresh_xml_build_queue_sql,
+    canonical_fresh_xml_verify_queue_sql,
+)
+from etl.utils.run_config import is_batched
+from etl.utils.schema_guards import assert_tables_exist
 
 
-TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 TAG_TREE_SKIP_TAGS = {"text", "page", "definition", "pageUUID"}
 XML_REASON_XML_PARSE_FAILURE = "xml_parse_failure"
 XML_REASON_TAG_TREE_RENDER_FAILURE = "tag_tree_render_failure"
@@ -41,6 +49,8 @@ XML_REASON_SECTION_TITLE_INVALID_NUMBERING = "section_title_invalid_numbering"
 XML_REASON_SECTION_ARTICLE_MISMATCH = "section_article_mismatch"
 XML_REASON_SECTION_NON_SEQUENTIAL = "section_non_sequential"
 XML_REASON_TOO_MANY_EMPTY_ARTICLES = "too_many_empty_articles"
+XML_VERIFY_BATCH_SCOPE_DEFAULT = "default"
+XML_VERIFY_BATCH_SCOPE_REPAIR = "repair"
 XML_VERIFY_INSTRUCTIONS = (
     "Validate an agreement XML tag tree and return JSON with key `status` only. "
     "Apply these hard rules exactly: "
@@ -69,46 +79,59 @@ def _oai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-def _ensure_xml_verify_batches_table(conn: Connection, schema: str) -> None:
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema}.xml_verify_batches (
-                batch_id VARCHAR(128) PRIMARY KEY,
-                created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-                status VARCHAR(32) NOT NULL,
-                input_file_id VARCHAR(128) NULL,
-                output_file_id VARCHAR(128) NULL,
-                error_file_id VARCHAR(128) NULL,
-                completion_window VARCHAR(16) NOT NULL,
-                request_total INT NOT NULL,
-                pulled TINYINT(1) NOT NULL DEFAULT 0,
-                pulled_at DATETIME NULL
-            )
-            """
-        )
-    )
-
-
-def _fetch_unpulled_xml_verify_batch(conn: Connection, schema: str) -> Dict[str, Any] | None:
-    row = conn.execute(
-        text(
-            f"""
-            SELECT
-                batch_id,
-                status,
-                input_file_id,
-                output_file_id,
-                error_file_id,
-                completion_window,
-                request_total
-            FROM {schema}.xml_verify_batches
-            WHERE pulled = 0
-            ORDER BY created_at ASC
-            LIMIT 1
-            """
-        )
-    ).mappings().first()
+def _fetch_unpulled_xml_verify_batch(
+    conn: Connection,
+    schema: str,
+    batch_scope: str,
+    batch_key: str | None = None,
+) -> Dict[str, Any] | None:
+    if batch_key is None:
+        row = conn.execute(
+            text(
+                f"""
+                SELECT
+                    batch_id,
+                    status,
+                    input_file_id,
+                    output_file_id,
+                    error_file_id,
+                    completion_window,
+                    request_total,
+                    batch_scope,
+                    batch_key
+                FROM {schema}.xml_verify_batches
+                WHERE pulled = 0
+                  AND batch_scope = :batch_scope
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            ),
+            {"batch_scope": batch_scope},
+        ).mappings().first()
+    else:
+        row = conn.execute(
+            text(
+                f"""
+                SELECT
+                    batch_id,
+                    status,
+                    input_file_id,
+                    output_file_id,
+                    error_file_id,
+                    completion_window,
+                    request_total,
+                    batch_scope,
+                    batch_key
+                FROM {schema}.xml_verify_batches
+                WHERE pulled = 0
+                  AND batch_scope = :batch_scope
+                  AND batch_key = :batch_key
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            ),
+            {"batch_scope": batch_scope, "batch_key": batch_key},
+        ).mappings().first()
     if row is None:
         return None
     return dict(row)
@@ -121,6 +144,8 @@ def _upsert_xml_verify_batch_row(
     batch: Any,
     completion_window: str,
     request_total: int,
+    batch_scope: str,
+    batch_key: str | None,
 ) -> None:
     _ = conn.execute(
         text(
@@ -134,6 +159,8 @@ def _upsert_xml_verify_batch_row(
                 error_file_id,
                 completion_window,
                 request_total,
+                batch_scope,
+                batch_key,
                 pulled
             )
             VALUES (
@@ -145,6 +172,8 @@ def _upsert_xml_verify_batch_row(
                 :error_file_id,
                 :completion_window,
                 :request_total,
+                :batch_scope,
+                :batch_key,
                 0
             )
             ON DUPLICATE KEY UPDATE
@@ -153,7 +182,9 @@ def _upsert_xml_verify_batch_row(
                 output_file_id = VALUES(output_file_id),
                 error_file_id = VALUES(error_file_id),
                 completion_window = VALUES(completion_window),
-                request_total = VALUES(request_total)
+                request_total = VALUES(request_total),
+                batch_scope = VALUES(batch_scope),
+                batch_key = VALUES(batch_key)
             """
         ),
         {
@@ -164,6 +195,8 @@ def _upsert_xml_verify_batch_row(
             "error_file_id": getattr(batch, "error_file_id", None),
             "completion_window": completion_window,
             "request_total": request_total,
+            "batch_scope": batch_scope,
+            "batch_key": batch_key,
         },
     )
 
@@ -179,110 +212,6 @@ def _mark_xml_verify_batch_pulled(conn: Connection, schema: str, batch_id: str) 
         ),
         {"batch_id": batch_id},
     )
-
-
-def _extract_output_text_from_batch_body(body: Dict[str, Any]) -> str:
-    output = body.get("output")
-    if not isinstance(output, list):
-        raise ValueError(f"Expected body.output to be a list, got {type(output).__name__}")
-    msg_blocks = [o for o in output if o.get("type") == "message"]
-    if not msg_blocks:
-        raise ValueError("No assistant message block in output.")
-    contents = msg_blocks[0].get("content")
-    if not isinstance(contents, list):
-        raise ValueError(f"Expected message content to be a list, got {type(contents).__name__}")
-    text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
-    if not text_items:
-        raise ValueError("Assistant message has no text content.")
-    raw_text = text_items[0]["text"]
-    if not isinstance(raw_text, str):
-        raise ValueError(f"Expected text to be a string, got {type(raw_text).__name__}")
-    return raw_text
-
-
-def _read_file_text(resp: Any) -> str:
-    text_attr = getattr(resp, "text", None)
-    if callable(text_attr):
-        out_text = text_attr()
-    elif isinstance(text_attr, str):
-        out_text = text_attr
-    else:
-        content_attr = getattr(resp, "content", None)
-        if isinstance(content_attr, bytes):
-            out_text = content_attr.decode("utf-8")
-        else:
-            read_attr = getattr(resp, "read", None)
-            if not callable(read_attr):
-                raise TypeError("Batch output content has no text/content/read interface.")
-            raw_bytes = read_attr()
-            if not isinstance(raw_bytes, bytes):
-                raise TypeError("Batch output read() did not return bytes.")
-            out_text = raw_bytes.decode("utf-8")
-    if not isinstance(out_text, str):
-        raise TypeError("Batch output text is not a string.")
-    return out_text
-
-
-def _poll_batch_until_terminal(
-    context: AssetExecutionContext,
-    client: OpenAI,
-    batch_id: str,
-) -> Any:
-    base_sleep_seconds = 5
-    backoff_level = 0
-    no_update_polls = 0
-    last_progress_snapshot: Tuple[Any, ...] | None = None
-    max_sleep_seconds = 30 * 60
-
-    while True:
-        batch = client.batches.retrieve(batch_id)
-        if batch.status in TERMINAL_BATCH_STATUSES:
-            return batch
-
-        rc = getattr(batch, "request_counts", None)
-        if rc is not None:
-            completed = getattr(rc, "completed", 0) or 0
-            failed = getattr(rc, "failed", 0) or 0
-            progress_snapshot = (batch.status, completed, failed)
-        else:
-            progress_snapshot = (batch.status,)
-
-        if progress_snapshot == last_progress_snapshot:
-            no_update_polls += 1
-        else:
-            if backoff_level > 0:
-                prev_sleep = min(
-                    base_sleep_seconds * (2**backoff_level),
-                    max_sleep_seconds,
-                )
-                context.log.info(
-                    f"xml_verify_asset: backoff reset: interval {prev_sleep}s -> {base_sleep_seconds}s"
-                )
-            no_update_polls = 0
-            backoff_level = 0
-            last_progress_snapshot = progress_snapshot
-
-        if no_update_polls >= 10:
-            prev_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            backoff_level += 1
-            no_update_polls = 0
-            new_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            if new_sleep > prev_sleep:
-                context.log.info(
-                    f"xml_verify_asset: backoff increased: interval {prev_sleep}s -> {new_sleep}s"
-                )
-
-        sleep_seconds = min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds)
-        context.log.info(
-            f"xml_verify_asset: batch {batch_id} status={batch.status}; sleeping {sleep_seconds}s"
-        )
-        time.sleep(sleep_seconds)
 
 
 def _roman_to_int(value: str) -> int | None:
@@ -522,7 +451,7 @@ def _apply_xml_verify_batch_output(
         return 0, 0
 
     out_content = client.files.content(output_file_id)
-    out_text = _read_file_text(out_content)
+    out_text = read_openai_file_text(out_content)
 
     update_q = text(
         f"""
@@ -562,7 +491,7 @@ def _apply_xml_verify_batch_output(
                 if not isinstance(body, dict):
                     raise ValueError("Missing response body.")
 
-                raw_text = _extract_output_text_from_batch_body(body)
+                raw_text = extract_output_text_from_batch_body(body)
                 parsed_status = _parse_xml_verify_response_text(raw_text)
                 reason_code = XML_REASON_LLM_INVALID if parsed_status == "invalid" else None
 
@@ -588,7 +517,7 @@ def xml_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
+) -> List[str]:
     """
     Assemble tagged sections into XML documents.
 
@@ -598,7 +527,7 @@ def xml_asset(
     Args:
         context: Dagster execution context.
         db: Database resource for connection.
-        pipeline_config: Pipeline configuration for mode.
+        pipeline_config: Pipeline configuration.
     """
     # batching controls
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
@@ -610,73 +539,15 @@ def xml_asset(
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     xml_table = f"{schema}.xml"
-    is_cleanup = is_cleanup_mode(context, pipeline_config)
-
-    context.log.info(
-        f"Running XML generation in {'CLEANUP' if is_cleanup else 'FROM_SCRATCH'} mode"
-    )
-
-    with engine.begin() as conn:
-        _ = apply_tagged_outputs_gating(conn, db.database)
+    context.log.info("Running XML generation")
 
     last_uuid = ''
+    built_agreement_uuids: List[str] = []
     while True:
         with engine.begin() as conn:
-            # Fetch batch of agreements where:
-            # 1. Either no XML exists yet, OR
-            # 2. tagged_outputs have been updated after the last XML creation date
             agreement_uuids = (
                 conn.execute(
-                    text(
-                        f"""
-                        SELECT DISTINCT
-                            a.agreement_uuid
-                        FROM
-                            {agreements_table} a
-                        JOIN {pages_table} p
-                            ON p.agreement_uuid = a.agreement_uuid
-                        LEFT JOIN {tagged_outputs_table} t
-                            ON t.page_uuid = p.page_uuid
-                        LEFT JOIN {xml_table} x
-                            ON x.agreement_uuid = a.agreement_uuid
-                            AND x.latest = 1
-                        LEFT JOIN (
-                            SELECT DISTINCT p2.agreement_uuid
-                            FROM {tagged_outputs_table} t2
-                            JOIN {pages_table} p2
-                                ON t2.page_uuid = p2.page_uuid
-                            WHERE t2.gated = 1
-                        ) gated
-                            ON gated.agreement_uuid = a.agreement_uuid
-                        WHERE a.agreement_uuid > :last_uuid
-                        AND p.source_page_type = 'body'
-                        AND COALESCE(t.tagged_text_gold, t.tagged_text_corrected, t.tagged_text) IS NOT NULL
-                        AND gated.agreement_uuid IS NULL
-                        AND (
-                            x.agreement_uuid IS NULL
-                            OR EXISTS (
-                                SELECT 1
-                                FROM {pages_table} p_upd
-                                JOIN {tagged_outputs_table} t_upd
-                                    ON t_upd.page_uuid = p_upd.page_uuid
-                                WHERE p_upd.agreement_uuid = a.agreement_uuid
-                                AND p_upd.source_page_type = 'body'
-                                AND t_upd.updated_date > x.created_date
-                            )
-                        )
-                        GROUP BY a.agreement_uuid
-                        HAVING
-                        -- ensure that there is at least one body page and that all body pages are tagged
-                        SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END) > 0
-                        AND SUM(
-                            CASE WHEN p.source_page_type = 'body'
-                                AND COALESCE(t.tagged_text_corrected, t.tagged_text) IS NOT NULL
-                                THEN 1 ELSE 0 END
-                        ) = SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END)
-                        ORDER BY a.agreement_uuid
-                        LIMIT :limit;
-                """
-                    ),
+                    text(canonical_fresh_xml_build_queue_sql(schema)),
                     {"limit": agreement_batch_size, "last_uuid": last_uuid},
                 )
                 .scalars()
@@ -751,7 +622,8 @@ def xml_asset(
                     break
                 continue
 
-            generated_agreement_uuids = [item.agreement_uuid for item in xml]
+            generated_agreement_uuids = [str(item.agreement_uuid) for item in xml]
+            built_agreement_uuids.extend(generated_agreement_uuids)
 
             try:
                 upsert_xml(xml, db.database, conn)
@@ -786,77 +658,66 @@ def xml_asset(
             break
 
     run_post_asset_refresh(context, db, pipeline_config)
+    return sorted(set(built_agreement_uuids))
 
 
-@dg.asset(deps=[xml_asset], name="4-2_verify_xml")
+@dg.asset(
+    name="4-2_verify_xml",
+    ins={"built_xml_agreement_uuids": dg.AssetIn(key=xml_asset.key)},
+)
 def xml_verify_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
-    agreement_batch_size = pipeline_config.xml_verify_batch_size
+    built_xml_agreement_uuids: List[str],
+) -> List[str]:
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    resume_open_batches = pipeline_config.resume_open_batches
+    target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
+    if not target_agreement_uuids:
+        context.log.info("xml_verify_asset: no upstream agreements from xml_asset.")
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
+
     engine = db.get_engine()
     schema = db.database
     xml_table = f"{schema}.xml"
     client = _oai_client()
 
     with engine.begin() as conn:
-        _ensure_xml_verify_batches_table(conn, schema)
-        existing_batch = _fetch_unpulled_xml_verify_batch(conn, schema)
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches",))
 
-    if existing_batch is not None:
-        existing_batch_id = str(existing_batch["batch_id"])
-        context.log.info(f"xml_verify_asset: resuming existing batch {existing_batch_id}.")
-        batch = _poll_batch_until_terminal(context, client, existing_batch_id)
-        request_total = int(existing_batch["request_total"])
-        with engine.begin() as conn:
-            _upsert_xml_verify_batch_row(
-                conn,
-                schema,
-                batch=batch,
-                completion_window=str(existing_batch["completion_window"]),
-                request_total=request_total,
-            )
-
-        if batch.status != "completed":
-            context.log.warning(
-                f"xml_verify_asset: batch {batch.id} ended with status={batch.status}; no status updates applied."
-            )
-            with engine.begin() as conn:
-                _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-        else:
-            updated, parse_errors = _apply_xml_verify_batch_output(
-                context=context,
-                engine=engine,
-                client=client,
-                xml_table=xml_table,
-                batch=batch,
-            )
-            with engine.begin() as conn:
-                _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-            context.log.info(
-                f"xml_verify_asset: resumed batch {batch.id} completed; updated={updated}, parse_errors={parse_errors}"
-            )
-
+    queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
+        bindparam("auuids", expanding=True)
+    )
+    with engine.begin() as conn:
+        eligible_uuids = conn.execute(
+            queue_q,
+            {"lim": agreement_batch_size, "auuids": target_agreement_uuids},
+        ).scalars().all()
+    if not eligible_uuids:
+        context.log.info(
+            "xml_verify_asset: no upstream-selected XML rows with status IS NULL, latest=1, and ai_repair_attempted=0."
+        )
         run_post_asset_refresh(context, db, pipeline_config)
-        return
+        return []
 
     select_q = text(
         f"""
         SELECT agreement_uuid, version, xml
         FROM {xml_table}
-        WHERE status IS NULL
+        WHERE agreement_uuid IN :auuids
           AND latest = 1
         ORDER BY agreement_uuid ASC
-        LIMIT :lim
         """
-    )
+    ).bindparams(bindparam("auuids", expanding=True))
     with engine.begin() as conn:
-        rows = conn.execute(select_q, {"lim": agreement_batch_size}).mappings().fetchall()
-    if not rows:
-        context.log.info("xml_verify_asset: no XML rows with status IS NULL and latest=1.")
-        run_post_asset_refresh(context, db, pipeline_config)
-        return
+        rows = conn.execute(
+            select_q,
+            {"auuids": tuple(eligible_uuids)},
+        ).mappings().fetchall()
+
+    selected_for_verify = [str(row["agreement_uuid"]) for row in rows]
 
     lines: List[Dict[str, Any]] = []
     hard_invalid_rows: List[Dict[str, Any]] = []
@@ -971,7 +832,79 @@ def xml_verify_asset(
             hard_invalid_updated,
         )
         run_post_asset_refresh(context, db, pipeline_config)
-        return
+        return selected_for_verify
+
+    llm_agreement_uuids = sorted(
+        {
+            str(_parse_custom_id(str(line["custom_id"]))[0])
+            for line in lines
+        }
+    )
+    if not llm_agreement_uuids:
+        raise ValueError("xml_verify_asset: no agreement UUIDs derived from LLM lines.")
+    verify_batch_key = agreement_batch_key(llm_agreement_uuids)
+
+    if resume_open_batches:
+        with engine.begin() as conn:
+            existing_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_key=verify_batch_key,
+            )
+        if existing_batch is not None:
+            existing_batch_id = str(existing_batch["batch_id"])
+            context.log.info(
+                "xml_verify_asset: resuming matching unpulled batch %s for batch_key=%s.",
+                existing_batch_id,
+                verify_batch_key[:12],
+            )
+            batch = poll_batch_until_terminal(
+                context,
+                client,
+                existing_batch_id,
+                log_prefix="xml_verify_asset",
+            )
+            request_total = int(existing_batch["request_total"])
+            with engine.begin() as conn:
+                _upsert_xml_verify_batch_row(
+                    conn,
+                    schema,
+                    batch=batch,
+                    completion_window=str(existing_batch["completion_window"]),
+                    request_total=request_total,
+                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                    batch_key=verify_batch_key,
+                )
+
+            if batch.status != "completed":
+                context.log.warning(
+                    "xml_verify_asset: resumed batch %s ended with status=%s; no status updates applied.",
+                    batch.id,
+                    batch.status,
+                )
+                with engine.begin() as conn:
+                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
+            else:
+                updated, parse_errors = _apply_xml_verify_batch_output(
+                    context=context,
+                    engine=engine,
+                    client=client,
+                    xml_table=xml_table,
+                    batch=batch,
+                )
+                with engine.begin() as conn:
+                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
+                context.log.info(
+                    "xml_verify_asset: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
+                    batch.id,
+                    updated,
+                    parse_errors,
+                    hard_invalid_updated,
+                )
+
+            run_post_asset_refresh(context, db, pipeline_config)
+            return selected_for_verify
 
     jsonl_buf = io.StringIO()
     for line in lines:
@@ -993,12 +926,19 @@ def xml_verify_asset(
             batch=batch,
             completion_window=completion_window,
             request_total=len(lines),
+            batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            batch_key=verify_batch_key,
         )
     context.log.info(
         f"xml_verify_asset: created batch {batch.id} with {len(lines)} requests; polling until complete."
     )
 
-    final_batch = _poll_batch_until_terminal(context, client, batch.id)
+    final_batch = poll_batch_until_terminal(
+        context,
+        client,
+        batch.id,
+        log_prefix="xml_verify_asset",
+    )
     with engine.begin() as conn:
         _upsert_xml_verify_batch_row(
             conn,
@@ -1006,6 +946,8 @@ def xml_verify_asset(
             batch=final_batch,
             completion_window=completion_window,
             request_total=len(lines),
+            batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            batch_key=verify_batch_key,
         )
 
     if final_batch.status != "completed":
@@ -1015,7 +957,7 @@ def xml_verify_asset(
         with engine.begin() as conn:
             _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)
         run_post_asset_refresh(context, db, pipeline_config)
-        return
+        return selected_for_verify
 
     updated, parse_errors = _apply_xml_verify_batch_output(
         context=context,
@@ -1031,3 +973,4 @@ def xml_verify_asset(
     )
 
     run_post_asset_refresh(context, db, pipeline_config)
+    return selected_for_verify

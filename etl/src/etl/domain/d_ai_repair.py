@@ -36,30 +36,6 @@ class RepairDecision:
     token_map: List[Tuple[int, int]]
 
 
-_ALLOWED_ENTITY_FOCUS = {"article", "section", "page", "o"}
-
-
-def filter_uncertain_spans(
-    uncertain_spans: List[UncertainSpan],
-    *,
-    entity_focus: str,
-    confidence_threshold: float,
-) -> List[UncertainSpan]:
-    if entity_focus not in _ALLOWED_ENTITY_FOCUS:
-        raise ValueError(
-            f"ai_repair_entity_focus must be one of {sorted(_ALLOWED_ENTITY_FOCUS)}; got {entity_focus!r}."
-        )
-    if not 0 <= confidence_threshold <= 1:
-        raise ValueError(
-            f"ai_repair_confidence_threshold must be between 0 and 1; got {confidence_threshold!r}."
-        )
-    return [
-        s
-        for s in uncertain_spans
-        if s.entity == entity_focus and s.avg_confidence < confidence_threshold
-    ]
-
-
 # ------------------------------
 # Token <-> char mapping
 # ------------------------------
@@ -342,7 +318,7 @@ def _system_prompt_excerpt() -> str:
         You are an expert legal tagging assistant specializing in M&A agreements.
 
         # Task
-        * Your task is to review low-confidence candidate spans from an NER model. Each span includes its start/end offsets relative to the excerpt, the actual text in the span, and the NER model's predicted label. The spans represent tokens, so some words may be split across multiple spans; this is normal.
+        * Your task is to review candidate spans from an NER model. Each span includes its start/end offsets relative to the excerpt, the actual text in the span, and the NER model's predicted label. The spans represent tokens, so some words may be split across multiple spans; this is normal.
         * Using the below entity identification rules and core principles, return a JSON object with "rulings" (each candidate plus a "label" from ["article","section","page","none"]) and "warnings" if needed.
 
         # Core principles

@@ -224,11 +224,25 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 self._rows = rows or []
                 self.rowcount = rowcount
 
+            class _Scalars:
+                def __init__(self, values: list[object]) -> None:
+                    self._values = values
+
+                def all(self) -> list[object]:
+                    return self._values
+
             def mappings(self) -> "_Result":
                 return self
 
             def fetchall(self) -> list[dict[str, object]]:
                 return self._rows
+
+            def scalars(self) -> "_Result._Scalars":
+                values: list[object] = []
+                for row in self._rows:
+                    first = next(iter(row.values()), None)
+                    values.append(first)
+                return _Result._Scalars(values)
 
         class _FakeConn:
             def __init__(self) -> None:
@@ -242,6 +256,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 sql = str(statement)
                 query_params = params or {}
                 self.executed.append((sql, query_params))
+                if "FROM state_components" in sql and "latest_xml_status IS NULL" in sql:
+                    return _Result(rows=[{"agreement_uuid": "agreement-hard-invalid"}])
                 if "SELECT agreement_uuid, version, xml" in sql:
                     return _Result(
                         rows=[
@@ -274,12 +290,12 @@ class XMLVerifyAssetTests(unittest.TestCase):
         conn = _FakeConn()
         engine = _FakeEngine(conn)
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
-        pipeline_config = SimpleNamespace(xml_verify_batch_size=10)
+        pipeline_config = SimpleNamespace(xml_agreement_batch_size=10, resume_open_batches=True)
         context = SimpleNamespace(log=_FakeLog())
 
         with (
             patch("etl.defs.f_xml_asset._oai_client", return_value=SimpleNamespace()),
-            patch("etl.defs.f_xml_asset._ensure_xml_verify_batches_table", return_value=None),
+            patch("etl.defs.f_xml_asset.assert_tables_exist", return_value=None),
             patch("etl.defs.f_xml_asset._fetch_unpulled_xml_verify_batch", return_value=None),
             patch("etl.defs.f_xml_asset.run_post_asset_refresh", return_value=None),
         ):
@@ -287,6 +303,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 cast(AssetExecutionContext, cast(object, context)),
                 cast(DBResource, cast(object, db)),
                 cast(PipelineConfig, cast(object, pipeline_config)),
+                ["agreement-hard-invalid"],
             )
 
         hard_invalid_update_sql, hard_invalid_params = next(

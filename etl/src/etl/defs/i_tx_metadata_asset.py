@@ -16,7 +16,6 @@ Runs in batched mode only. Mode and batch size via PipelineConfig.
 import io
 import json
 import os
-import time
 from typing import Any, Dict, List, Tuple
 
 import dagster as dg
@@ -34,11 +33,14 @@ from etl.domain.i_tx_metadata import (
     parse_offline_tx_metadata_response_text,
     parse_tx_metadata_response_text_web_search,
 )
-from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.openai_batch import (
+    extract_output_text_from_batch_body,
+    poll_batch_until_terminal,
+    read_openai_file_text,
+)
+from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import is_batched
-
-
-TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
+from etl.utils.schema_guards import assert_tables_exist
 
 
 def _oai_client() -> OpenAI:
@@ -46,47 +48,6 @@ def _oai_client() -> OpenAI:
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for tx_metadata_asset.")
     return OpenAI(api_key=api_key)
-
-
-def _extract_output_text_from_batch_body(body: Dict[str, Any]) -> str:
-    """Pull the assistant message first text block from batch response body.output."""
-    output = body.get("output")
-    if not isinstance(output, list):
-        raise ValueError(f"Expected body.output to be a list, got {type(output).__name__}")
-    msg_blocks = [o for o in output if o.get("type") == "message"]
-    if not msg_blocks:
-        raise ValueError("No assistant message block in output.")
-    contents = msg_blocks[0].get("content")
-    if not isinstance(contents, list):
-        raise ValueError(f"Expected message content to be a list, got {type(contents).__name__}")
-    text_items = [c for c in contents if isinstance(c, dict) and "text" in c]
-    if not text_items:
-        raise ValueError("Assistant message has no text content.")
-    raw_text = text_items[0]["text"]
-    if not isinstance(raw_text, str):
-        raise ValueError(f"Expected text to be a string, got {type(raw_text).__name__}")
-    return raw_text
-
-
-def _ensure_offline_batches_table(conn: Connection, schema: str) -> None:
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema}.tx_metadata_offline_batches (
-                batch_id VARCHAR(128) PRIMARY KEY,
-                created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-                status VARCHAR(32) NOT NULL,
-                input_file_id VARCHAR(128) NULL,
-                output_file_id VARCHAR(128) NULL,
-                error_file_id VARCHAR(128) NULL,
-                completion_window VARCHAR(16) NOT NULL,
-                request_total INT NOT NULL,
-                applied TINYINT(1) NOT NULL DEFAULT 0,
-                applied_at DATETIME NULL
-            )
-            """
-        )
-    )
 
 
 def _fetch_unapplied_offline_batch(conn: Connection, schema: str) -> Dict[str, Any] | None:
@@ -180,91 +141,6 @@ def _mark_offline_batch_applied(conn: Connection, schema: str, batch_id: str) ->
     )
 
 
-def _read_file_text(resp: Any) -> str:
-    text_attr = getattr(resp, "text", None)
-    if callable(text_attr):
-        out_text = text_attr()
-    elif isinstance(text_attr, str):
-        out_text = text_attr
-    else:
-        content_attr = getattr(resp, "content", None)
-        if isinstance(content_attr, bytes):
-            out_text = content_attr.decode("utf-8")
-        else:
-            read_attr = getattr(resp, "read", None)
-            if not callable(read_attr):
-                raise TypeError("Batch output content has no text/content/read interface.")
-            raw_bytes = read_attr()
-            if not isinstance(raw_bytes, bytes):
-                raise TypeError("Batch output read() did not return bytes.")
-            out_text = raw_bytes.decode("utf-8")
-    if not isinstance(out_text, str):
-        raise TypeError("Batch output text is not a string.")
-    return out_text
-
-
-def _poll_batch_until_terminal(
-    context: AssetExecutionContext,
-    client: OpenAI,
-    batch_id: str,
-) -> Any:
-    base_sleep_seconds = 5
-    backoff_level = 0
-    no_update_polls = 0
-    last_progress_snapshot: Tuple[Any, ...] | None = None
-    max_sleep_seconds = 30 * 60
-
-    while True:
-        b = client.batches.retrieve(batch_id)
-        if b.status in TERMINAL_BATCH_STATUSES:
-            return b
-
-        rc = getattr(b, "request_counts", None)
-        if rc is not None:
-            completed = getattr(rc, "completed", 0) or 0
-            failed = getattr(rc, "failed", 0) or 0
-            progress_snapshot = (b.status, completed, failed)
-        else:
-            progress_snapshot = (b.status,)
-
-        if progress_snapshot == last_progress_snapshot:
-            no_update_polls += 1
-        else:
-            if backoff_level > 0:
-                prev_sleep = min(
-                    base_sleep_seconds * (2**backoff_level),
-                    max_sleep_seconds,
-                )
-                context.log.info(
-                    f"tx_metadata_asset (offline): backoff reset: interval {prev_sleep}s -> {base_sleep_seconds}s"
-                )
-            no_update_polls = 0
-            backoff_level = 0
-            last_progress_snapshot = progress_snapshot
-
-        if no_update_polls >= 10:
-            prev_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            backoff_level += 1
-            no_update_polls = 0
-            new_sleep = min(
-                base_sleep_seconds * (2**backoff_level),
-                max_sleep_seconds,
-            )
-            if new_sleep > prev_sleep:
-                context.log.info(
-                    f"tx_metadata_asset (offline): backoff increased: interval {prev_sleep}s -> {new_sleep}s"
-                )
-
-        sleep_seconds = min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds)
-        context.log.info(
-            f"tx_metadata_asset (offline): batch {batch_id} status={b.status}; sleeping {sleep_seconds}s"
-        )
-        time.sleep(sleep_seconds)
-
-
 def _apply_offline_batch_output(
     context: AssetExecutionContext,
     engine: Any,
@@ -278,7 +154,7 @@ def _apply_offline_batch_output(
         return 0, 0
 
     out_content = client.files.content(ofid)
-    out_text = _read_file_text(out_content)
+    out_text = read_openai_file_text(out_content)
 
     update_offline_q = text(
         f"""
@@ -314,7 +190,7 @@ def _apply_offline_batch_output(
             parse_errors += 1
             continue
         try:
-            raw_text = _extract_output_text_from_batch_body(body)
+            raw_text = extract_output_text_from_batch_body(body)
             parsed = parse_offline_tx_metadata_response_text(raw_text)
             params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
             with engine.begin() as conn:
@@ -332,6 +208,8 @@ def tx_metadata_asset(
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:
+    run_pre_asset_gating(context, db)
+
     if not is_batched(context, pipeline_config):
         context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
         run_post_asset_refresh(context, db, pipeline_config)
@@ -373,7 +251,11 @@ def _run_offline_mode(
     """Offline mode with resumable batch polling and idempotent updates."""
     client = _oai_client()
     with engine.begin() as conn:
-        _ensure_offline_batches_table(conn, schema)
+        assert_tables_exist(
+            conn,
+            schema=schema,
+            table_names=("tx_metadata_offline_batches",),
+        )
         existing_batch = _fetch_unapplied_offline_batch(conn, schema)
 
     if existing_batch is not None:
@@ -381,7 +263,12 @@ def _run_offline_mode(
         context.log.info(
             f"tx_metadata_asset (offline): resuming existing batch {existing_batch_id}."
         )
-        batch = _poll_batch_until_terminal(context, client, existing_batch_id)
+        batch = poll_batch_until_terminal(
+            context,
+            client,
+            existing_batch_id,
+            log_prefix="tx_metadata_asset (offline)",
+        )
         request_total = int(existing_batch["request_total"])
         with engine.begin() as conn:
             _upsert_offline_batch_row(
@@ -526,7 +413,12 @@ def _run_offline_mode(
         f"tx_metadata_asset (offline): created batch {batch.id} with {len(lines)} requests; polling until complete."
     )
 
-    final_batch = _poll_batch_until_terminal(context, client, batch.id)
+    final_batch = poll_batch_until_terminal(
+        context,
+        client,
+        batch.id,
+        log_prefix="tx_metadata_asset (offline)",
+    )
     with engine.begin() as conn:
         _upsert_offline_batch_row(
             conn,
@@ -584,7 +476,7 @@ def _run_web_search_mode(
         return
 
     context.log.info(f"tx_metadata_asset (web_search): selected {len(agreements)} agreements for enrichment")
-    model_name = "gpt-5"
+    model_name = "gpt-5.1"
     client = _oai_client()
 
     success_data: List[Tuple[str, Dict[str, Any]]] = []

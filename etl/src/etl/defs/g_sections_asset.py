@@ -1,70 +1,88 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
+from typing import List, Optional
+
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.f_xml_asset import xml_verify_asset
+from etl.defs.f_xml_repair_cycle_asset import post_repair_verify_xml_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
-from etl.domain.z_gating import apply_gating, apply_xml_gating
 from etl.utils.db_utils import upsert_sections
 from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
 from etl.utils.run_config import is_batched
 
 
-@dg.asset(deps=[xml_verify_asset, reconcile_tags], name="6_sections_asset")
-def sections_asset(
+def _run_sections_for_agreements(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
-    # batching controls
-    agreement_batch_size = pipeline_config.sections_agreement_batch_size
+    *,
+    target_agreement_uuids: Optional[List[str]],
+    log_prefix: str,
+) -> List[str]:
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
     batched = is_batched(context, pipeline_config)
 
     engine = db.get_engine()
     schema = db.database
     xml_table = f"{schema}.xml"
-    sections_table = f"{schema}.sections"
     last_uuid = ""
+    processed_agreement_uuids: List[str] = []
 
-    with engine.begin() as conn:
-        _ = apply_xml_gating(conn, db.database)
-        _ = apply_gating(conn, db.database)
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    use_scope = len(scoped_uuids) > 0
 
     while True:
         with engine.begin() as conn:
+            if use_scope:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_fresh_sections_queue_sql(schema, scoped=True)).bindparams(
+                            bindparam("auuids", expanding=True)
+                        ),
+                        {"auuids": tuple(scoped_uuids), "lim": agreement_batch_size},
+                    )
+                    .scalars()
+                    .all()
+                )
+            else:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_fresh_sections_queue_sql(schema, scoped=False)),
+                        {"last_uuid": last_uuid, "lim": agreement_batch_size},
+                    )
+                    .scalars()
+                    .all()
+                )
+
+            if not agreement_uuids:
+                break
+
             rows = (
                 conn.execute(
                     text(
                         f"""
                         SELECT m.xml, m.agreement_uuid, m.version AS xml_version
                         FROM {xml_table} AS m
-                        LEFT JOIN {sections_table} AS s
-                          ON m.agreement_uuid = s.agreement_uuid
-                            AND s.xml_version = m.version
-                        WHERE m.agreement_uuid > :last
-                          AND s.agreement_uuid IS NULL
+                        WHERE m.agreement_uuid IN :auuids
                           AND m.latest = 1
-                          AND m.gated = 0
                         ORDER BY m.agreement_uuid
-                        LIMIT :lim
                         """
-                    ),
-                    {"last": last_uuid, "lim": agreement_batch_size},
+                    ).bindparams(bindparam("auuids", expanding=True)),
+                    {"auuids": tuple(agreement_uuids)},
                 )
                 .mappings()
                 .fetchall()
             )
 
-            if not rows:
-                break
-
             staged = []
             for r in rows:
                 xml_str = r["xml"]
-                agr_uuid = r["agreement_uuid"]
+                agr_uuid = str(r["agreement_uuid"])
                 xml_version = r["xml_version"]
                 secs = extract_sections_from_xml(xml_str)
                 for s in secs:
@@ -82,14 +100,78 @@ def sections_asset(
                             "xml_version": xml_version,
                         }
                     )
+                processed_agreement_uuids.append(agr_uuid)
 
             if staged:
                 upsert_sections(staged, db.database, conn)
-                context.log.info(f"sections_asset: upserted {len(staged)} sections from {len(rows)} agreements")
+                context.log.info(
+                    "%s: upserted %s sections from %s agreements",
+                    log_prefix,
+                    len(staged),
+                    len(rows),
+                )
 
-            last_uuid = rows[-1]["agreement_uuid"]
+            if use_scope:
+                break
+
+            last_uuid = str(agreement_uuids[-1])
 
         if batched:
             break
 
     run_post_asset_refresh(context, db, pipeline_config)
+    return sorted(set(processed_agreement_uuids))
+
+
+@dg.asset(deps=[xml_verify_asset, reconcile_tags, post_repair_verify_xml_asset], name="6_sections_asset")
+def sections_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    # Backward-compatible generic sections run (not run-scoped).
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=None,
+        log_prefix="sections_asset",
+    )
+
+
+@dg.asset(
+    name="6-1_sections_from_fresh_xml",
+    ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=xml_verify_asset.key)},
+)
+def sections_from_fresh_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_fresh_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_fresh_agreement_uuids,
+        log_prefix="sections_from_fresh_xml_asset",
+    )
+
+
+@dg.asset(
+    name="6-2_sections_from_repair_xml",
+    ins={"verified_repair_agreement_uuids": dg.AssetIn(key=post_repair_verify_xml_asset.key)},
+)
+def sections_from_repair_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_repair_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_repair_agreement_uuids,
+        log_prefix="sections_from_repair_xml_asset",
+    )

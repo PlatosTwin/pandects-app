@@ -95,6 +95,40 @@ class PreProcessingTests(unittest.TestCase):
 
         self.assertEqual(text, "Section 6.2)")
 
+    def test_format_content_keeps_css_hidden_text(self) -> None:
+        body_text = " ".join(["agreement clause"] * 2000)
+        html = f"<div style='display:none'>{body_text}</div><p>Visible heading</p>"
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("Visible heading", text)
+        self.assertIn("agreement clause", text)
+        self.assertGreater(len(text), 20000)
+
+    def test_format_content_drops_semantically_hidden_text(self) -> None:
+        body_text = " ".join(["agreement clause"] * 2000)
+        html = f"<div hidden>{body_text}</div><p>Visible heading</p>"
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("Visible heading", text)
+        self.assertNotIn("agreement clause", text)
+        self.assertLess(len(text), 20000)
+
+    def test_format_content_uses_relaxed_fallback_on_suspicious_shrink(self) -> None:
+        body_text = " ".join(["agreement clause"] * 2000)
+        html = (
+            "<html><head><title>"
+            f"{body_text}"
+            "</title></head><body><p>Visible heading</p></body></html>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("Visible heading", text)
+        self.assertIn("agreement clause", text)
+        self.assertGreater(len(text), 20000)
+
 
 if __name__ == "__main__":
     _ = unittest.main()

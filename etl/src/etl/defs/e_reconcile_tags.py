@@ -324,12 +324,16 @@ def _merge_with_rulings(
     return _render_tags(base_raw_text, final_spans)
 
 
-@dg.asset(deps=[ai_repair_poll_asset], name="5-3_reconcile_tags")
+@dg.asset(
+    name="5-3_reconcile_tags",
+    ins={"polled_agreement_uuids": dg.AssetIn(key=ai_repair_poll_asset.key)},
+)
 def reconcile_tags(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
-) -> None:
+    polled_agreement_uuids: List[str],
+) -> List[str]:
     """
     Merge LLM outputs into corrected tagged text per page and update
     pdx.tagged_outputs.tagged_text_corrected.
@@ -341,205 +345,167 @@ def reconcile_tags(
     ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
     ai_repair_rulings_table = f"{schema}.ai_repair_rulings"
 
-    # batching controls
-    batch_size = pipeline_config.reconcile_tags_agreement_batch_size
-    is_batched = pipeline_config.is_batched()
+    target_agreement_uuids = sorted(set(polled_agreement_uuids))
+    if not target_agreement_uuids:
+        context.log.info("reconcile_tags: no upstream agreements from poll.")
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
 
-    last_uuid = ""
-    while True:
-        with engine.begin() as conn:
-            # Identify agreements to reconcile: those with rulings or full-page outputs
-            agreement_rows = (
-                conn.execute(
-                    text(
-                        f"""
-                        SELECT DISTINCT p.agreement_uuid
-                        FROM {pages_table} p
-                        LEFT JOIN {ai_repair_full_pages_table} f USING(page_uuid)
-                        LEFT JOIN {ai_repair_rulings_table} r USING(page_uuid)
-                        LEFT JOIN {tagged_outputs_table} t USING(page_uuid)
-                        WHERE p.agreement_uuid > :last
-                          AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
-                          AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
-                          AND (t.label_error IS NULL OR t.label_error = 0)
-                        ORDER BY p.agreement_uuid
-                        LIMIT :lim
-                        """
-                    ),
-                    {"last": last_uuid, "lim": batch_size},
-                )
-                .scalars()
-                .all()
+    with engine.begin() as conn:
+        # Fetch pages to reconcile for the selected agreements only
+        page_rows = (
+            conn.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT p.page_uuid
+                    FROM {pages_table} p
+                    LEFT JOIN {ai_repair_full_pages_table} f USING(page_uuid)
+                    LEFT JOIN {ai_repair_rulings_table} r USING(page_uuid)
+                    LEFT JOIN {tagged_outputs_table} t USING(page_uuid)
+                    WHERE p.agreement_uuid IN :auuids
+                      AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
+                      AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
+                      AND (t.label_error IS NULL OR t.label_error = 0)
+                    ORDER BY p.agreement_uuid, p.page_uuid
+                    """
+                ).bindparams(bindparam("auuids", expanding=True)),
+                {"auuids": tuple(target_agreement_uuids)},
+            )
+            .scalars()
+            .all()
+        )
+        page_uuid_list = list(page_rows)
+
+        if not page_uuid_list:
+            run_post_asset_refresh(context, db, pipeline_config)
+            return target_agreement_uuids
+
+        # Batch-fetch page metadata, full-page text, and rulings (avoid N+1)
+        meta_rows = conn.execute(
+            text(
+                f"""
+                SELECT p.page_uuid, p.processed_page_content AS text,
+                       t.tagged_text, t.tagged_text_corrected
+                FROM {pages_table} p
+                LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
+                WHERE p.page_uuid IN :pids
+                """
+            ).bindparams(bindparam("pids", expanding=True)),
+            {"pids": page_uuid_list},
+        ).mappings().fetchall()
+        page_meta = {r["page_uuid"]: r for r in meta_rows}
+
+        full_rows = conn.execute(
+            text(
+                f"SELECT page_uuid, tagged_text FROM {ai_repair_full_pages_table} WHERE page_uuid IN :pids"
+            ).bindparams(bindparam("pids", expanding=True)),
+            {"pids": page_uuid_list},
+        ).mappings().fetchall()
+        full_by_page = {r["page_uuid"]: r["tagged_text"] for r in full_rows}
+
+        rulings_rows = conn.execute(
+            text(
+                f"""
+                SELECT page_uuid, start_char, end_char, label
+                FROM {ai_repair_rulings_table} WHERE page_uuid IN :pids
+                ORDER BY page_uuid, start_char, end_char
+                """
+            ).bindparams(bindparam("pids", expanding=True)),
+            {"pids": page_uuid_list},
+        ).mappings().fetchall()
+        rulings_by_page: dict[str, list[Tuple[int, int, str]]] = defaultdict(list)
+        for r in rulings_rows:
+            rulings_by_page[r["page_uuid"]].append(
+                (int(r["start_char"]), int(r["end_char"]), str(r["label"]))
             )
 
-            if not agreement_rows:
-                break
-            agreement_uuids = list(agreement_rows)
+        update_corrected = text(
+            f"""
+            UPDATE {tagged_outputs_table}
+            SET tagged_text_corrected = :txt
+            WHERE page_uuid = :pid
+              AND NOT (tagged_text_corrected <=> :txt)
+            """
+        )
+        update_label_error = text(
+            f"""
+            UPDATE {tagged_outputs_table}
+            SET label_error = 1
+            WHERE page_uuid = :pid
+              AND NOT (label_error <=> 1)
+            """
+        )
 
-            # Fetch pages to reconcile for the selected agreements
-            page_rows = (
-                conn.execute(
-                    text(
-                        f"""
-                        SELECT DISTINCT p.page_uuid
-                        FROM {pages_table} p
-                        LEFT JOIN {ai_repair_full_pages_table} f USING(page_uuid)
-                        LEFT JOIN {ai_repair_rulings_table} r USING(page_uuid)
-                        LEFT JOIN {tagged_outputs_table} t USING(page_uuid)
-                        WHERE p.agreement_uuid IN :auuids
-                          AND (f.request_id IS NOT NULL OR r.request_id IS NOT NULL)
-                          AND (t.tagged_text_corrected IS NULL OR t.tagged_text_corrected = '')
-                          AND (t.label_error IS NULL OR t.label_error = 0)
-                        ORDER BY p.agreement_uuid, p.page_uuid
-                        """
-                    ).bindparams(bindparam("auuids", expanding=True)),
-                    {"auuids": tuple(agreement_uuids)},
-                )
-                .scalars()
-                .all()
-            )
-            page_uuid_list = list(page_rows)
+        rulings_success_count = 0
+        rulings_fail_count = 0
+        pages_success_count = 0
+        pages_fail_count = 0
 
-            if not page_uuid_list:
-                last_uuid = agreement_uuids[-1]
-                if is_batched:
-                    break
+        for pid in page_uuid_list:
+            meta = page_meta.get(pid)
+            if not meta:
+                continue
+            raw_text = meta.get("text") or ""
+            tagged_text_orig = meta.get("tagged_text") or ""
+
+            # Full-page output wins
+            full = full_by_page.get(pid)
+            if full:
+                _ = conn.execute(update_corrected, {"pid": pid, "txt": full})
                 continue
 
-            # Batch-fetch page metadata, full-page text, and rulings (avoid N+1)
-            meta_rows = conn.execute(
-                text(
-                    f"""
-                    SELECT p.page_uuid, p.processed_page_content AS text,
-                           t.tagged_text, t.tagged_text_corrected
-                    FROM {pages_table} p
-                    LEFT JOIN {tagged_outputs_table} t ON t.page_uuid = p.page_uuid
-                    WHERE p.page_uuid IN :pids
-                    """
-                ).bindparams(bindparam("pids", expanding=True)),
-                {"pids": page_uuid_list},
-            ).mappings().fetchall()
-            page_meta = {r["page_uuid"]: r for r in meta_rows}
+            # Else overlay excerpt rulings
+            rulings = rulings_by_page.get(pid, [])
+            if not rulings:
+                continue
+            rulings_count_for_page = len(rulings)
 
-            full_rows = conn.execute(
-                text(
-                    f"SELECT page_uuid, tagged_text FROM {ai_repair_full_pages_table} WHERE page_uuid IN :pids"
-                ).bindparams(bindparam("pids", expanding=True)),
-                {"pids": page_uuid_list},
-            ).mappings().fetchall()
-            full_by_page = {r["page_uuid"]: r["tagged_text"] for r in full_rows}
+            if tagged_text_orig:
+                base_raw, base_spans = _strip_tags_and_spans(tagged_text_orig)
+            else:
+                base_raw = raw_text
+                base_spans = []
 
-            rulings_rows = conn.execute(
-                text(
-                    f"""
-                    SELECT page_uuid, start_char, end_char, label
-                    FROM {ai_repair_rulings_table} WHERE page_uuid IN :pids
-                    ORDER BY page_uuid, start_char, end_char
-                    """
-                ).bindparams(bindparam("pids", expanding=True)),
-                {"pids": page_uuid_list},
-            ).mappings().fetchall()
-            rulings_by_page: dict[str, list[Tuple[int, int, str]]] = defaultdict(list)
-            for r in rulings_rows:
-                rulings_by_page[r["page_uuid"]].append(
-                    (int(r["start_char"]), int(r["end_char"]), str(r["label"]))
-                )
-
-            update_corrected = text(
-                f"""
-                UPDATE {tagged_outputs_table}
-                SET tagged_text_corrected = :txt
-                WHERE page_uuid = :pid
-                  AND NOT (tagged_text_corrected <=> :txt)
-                """
-            )
-            update_label_error = text(
-                f"""
-                UPDATE {tagged_outputs_table}
-                SET label_error = 1
-                WHERE page_uuid = :pid
-                  AND NOT (label_error <=> 1)
-                """
-            )
-
-            # per-batch reconciliation counters
-            rulings_success_count = 0
-            rulings_fail_count = 0
-            pages_success_count = 0
-            pages_fail_count = 0
-
-            for pid in page_uuid_list:
-                meta = page_meta.get(pid)
-                if not meta:
-                    continue
-                raw_text = meta.get("text") or ""
-                tagged_text_orig = meta.get("tagged_text") or ""
-
-                # Full-page output wins
-                full = full_by_page.get(pid)
-                if full:
-                    _ = conn.execute(update_corrected, {"pid": pid, "txt": full})
-                    continue
-
-                # Else overlay excerpt rulings
-                rulings = rulings_by_page.get(pid, [])
-                if not rulings:
-                    # nothing to change
-                    continue
-                rulings_count_for_page = len(rulings)
-
-                if tagged_text_orig:
-                    base_raw, base_spans = _strip_tags_and_spans(tagged_text_orig)
-                else:
-                    base_raw = raw_text
-                    base_spans = []
-
+            try:
+                corrected = _merge_with_rulings(base_raw, base_spans, rulings)
+            except ValueError as e:
+                context.log.warning(f"Reconciliation conflict for page {pid}: {e}")
                 try:
-                    corrected = _merge_with_rulings(base_raw, base_spans, rulings)
-                except ValueError as e:
-                    # Expected: reconciliation conflicts (overlapping rulings, label mismatches)
-                    context.log.warning(f"Reconciliation conflict for page {pid}: {e}")
-                    # Flag the page as having a label error, but do not abort the run
-                    try:
-                        _ = conn.execute(update_label_error, {"pid": pid})
-                    except Exception as db_err:
-                        context.log.warning(
-                            f"Failed to set label_error for page {pid}: {db_err}"
-                        )
-                    # Skip writing corrected text for this page
-                    rulings_fail_count += rulings_count_for_page
-                    pages_fail_count += 1
-                    continue
-                except Exception as e:
-                    # Unexpected errors: log with full traceback
-                    context.log.error(
-                        f"Unexpected error reconciling page {pid}: {e}",
-                        exc_info=True,
+                    _ = conn.execute(update_label_error, {"pid": pid})
+                except Exception as db_err:
+                    context.log.warning(
+                        f"Failed to set label_error for page {pid}: {db_err}"
                     )
-                    # Still flag as error and skip
-                    try:
-                        _ = conn.execute(update_label_error, {"pid": pid})
-                    except Exception as db_err:
-                        context.log.warning(
-                            f"Failed to set label_error for page {pid}: {db_err}"
-                        )
-                    rulings_fail_count += rulings_count_for_page
-                    pages_fail_count += 1
-                    continue
-                _ = conn.execute(update_corrected, {"pid": pid, "txt": corrected})
-                rulings_success_count += rulings_count_for_page
-                pages_success_count += 1
-
-            last_uuid = agreement_uuids[-1]
-            total_rulings = rulings_success_count + rulings_fail_count
-            total_pages = pages_success_count + pages_fail_count
-            if total_rulings > 0 or total_pages > 0:
-                page_err_pct = int((pages_fail_count / total_pages) * 100) if total_pages else 0
-                rul_err_pct = int((rulings_fail_count / total_rulings) * 100) if total_rulings else 0
-                context.log.info(
-                    f"Batch statistics: pages success={pages_success_count}, failed={pages_fail_count}, total={total_pages}, error rate={page_err_pct}% ; rulings success={rulings_success_count}, failed={rulings_fail_count}, total={total_rulings}, error rate={rul_err_pct}%"
+                rulings_fail_count += rulings_count_for_page
+                pages_fail_count += 1
+                continue
+            except Exception as e:
+                context.log.error(
+                    f"Unexpected error reconciling page {pid}: {e}",
+                    exc_info=True,
                 )
-        if is_batched:
-            break
+                try:
+                    _ = conn.execute(update_label_error, {"pid": pid})
+                except Exception as db_err:
+                    context.log.warning(
+                        f"Failed to set label_error for page {pid}: {db_err}"
+                    )
+                rulings_fail_count += rulings_count_for_page
+                pages_fail_count += 1
+                continue
+
+            _ = conn.execute(update_corrected, {"pid": pid, "txt": corrected})
+            rulings_success_count += rulings_count_for_page
+            pages_success_count += 1
+
+        total_rulings = rulings_success_count + rulings_fail_count
+        total_pages = pages_success_count + pages_fail_count
+        if total_rulings > 0 or total_pages > 0:
+            page_err_pct = int((pages_fail_count / total_pages) * 100) if total_pages else 0
+            rul_err_pct = int((rulings_fail_count / total_rulings) * 100) if total_rulings else 0
+            context.log.info(
+                f"Batch statistics: pages success={pages_success_count}, failed={pages_fail_count}, total={total_pages}, error rate={page_err_pct}% ; rulings success={rulings_success_count}, failed={rulings_fail_count}, total={total_rulings}, error rate={rul_err_pct}%"
+            )
 
     run_post_asset_refresh(context, db, pipeline_config)
+    return target_agreement_uuids

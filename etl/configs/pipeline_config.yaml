@@ -1,20 +1,14 @@
 resources:
   pipeline_config:
     config:
-      mode: from_scratch
+      pre_processing_mode: from_scratch
       scope: batched
-      refresh: true
+      refresh: false
+      resume_open_batches: true
       tagging_agreement_batch_size: 10
       pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10
-      xml_verify_batch_size: 10
-      sections_agreement_batch_size: 10
       taxonomy_agreement_batch_size: 10
-      ai_repair_agreement_batch_size: 10
-      ai_repair_mode: excerpt
-      ai_repair_entity_focus: o
-      ai_repair_confidence_threshold: 1.0
-      reconcile_tags_agreement_batch_size: 10
       tx_metadata_agreement_batch_size: 10
       tx_metadata_mode: offline
       staging_days_to_fetch: 7
