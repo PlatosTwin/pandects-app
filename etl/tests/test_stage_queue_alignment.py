@@ -22,6 +22,8 @@ class StageQueueAlignmentTests(unittest.TestCase):
         src = self._read("src/etl/defs/f_xml_asset.py")
         self.assertIn("canonical_fresh_xml_build_queue_sql", src)
         self.assertIn("canonical_fresh_xml_verify_queue_sql", src)
+        self.assertIn("when coalesce(p.gold_label, p.source_page_type) = 'body' then", src.lower())
+        self.assertIn("else p.processed_page_content", src.lower())
 
     def test_verify_assets_select_latest_xml_only(self) -> None:
         fresh_src = self._read("src/etl/defs/f_xml_asset.py")
@@ -47,6 +49,21 @@ class StageQueueAlignmentTests(unittest.TestCase):
         self.assertIn("canonical_ai_repair_enqueue_queue_sql", repair_src)
         self.assertIn("canonical_post_repair_build_queue_sql", cycle_src)
         self.assertIn("canonical_post_repair_verify_queue_sql", cycle_src)
+        self.assertIn("when coalesce(p.gold_label, p.source_page_type) = 'body' then", cycle_src.lower())
+        self.assertIn("else p.processed_page_content", cycle_src.lower())
+
+    def test_scoped_xml_and_repair_assets_require_batched_scope(self) -> None:
+        fresh_src = self._read("src/etl/defs/f_xml_asset.py")
+        repair_src = self._read("src/etl/defs/f_xml_repair_cycle_asset.py")
+        sections_src = self._read("src/etl/defs/g_sections_asset.py")
+        ai_repair_src = self._read("src/etl/defs/d_ai_repair_asset.py")
+        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"xml_verify_asset\")", fresh_src)
+        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"post_repair_build_xml_asset\")", repair_src)
+        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"post_repair_verify_xml_asset\")", repair_src)
+        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"ai_repair_enqueue_asset\")", ai_repair_src)
+        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=log_prefix)", sections_src)
+        self.assertIn("agreement_version_batch_key", fresh_src)
+        self.assertIn("agreement_version_batch_key", repair_src)
 
 
 if __name__ == "__main__":

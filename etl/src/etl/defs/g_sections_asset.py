@@ -14,6 +14,7 @@ from etl.utils.db_utils import upsert_sections
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
 from etl.utils.run_config import is_batched
+from etl.utils.run_config import ensure_batched_scope
 
 
 def _run_sections_for_agreements(
@@ -35,6 +36,13 @@ def _run_sections_for_agreements(
 
     scoped_uuids = sorted(set(target_agreement_uuids or []))
     use_scope = len(scoped_uuids) > 0
+    if use_scope:
+        ensure_batched_scope(context, pipeline_config, asset_name=log_prefix)
+        if len(scoped_uuids) > agreement_batch_size:
+            raise ValueError(
+                f"{log_prefix}: received more upstream agreements than xml_agreement_batch_size; "
+                + "scope='full' is not supported for scoped XML pipelines."
+            )
 
     while True:
         with engine.begin() as conn:

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
@@ -20,7 +21,7 @@ from etl.defs.c_tagging_asset import tagging_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
-from etl.utils.batch_keys import agreement_batch_key
+from etl.utils.batch_keys import agreement_version_batch_key
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
     poll_batch_until_terminal,
@@ -31,7 +32,7 @@ from etl.utils.pipeline_state_sql import (
     canonical_fresh_xml_build_queue_sql,
     canonical_fresh_xml_verify_queue_sql,
 )
-from etl.utils.run_config import is_batched
+from etl.utils.run_config import ensure_batched_scope, is_batched
 from etl.utils.schema_guards import assert_tables_exist
 
 
@@ -70,6 +71,13 @@ SECTION_NUMBER_RE = re.compile(
     re.IGNORECASE,
 )
 ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+
+@dataclass(frozen=True)
+class XMLHardRuleViolation:
+    reason_code: str
+    reason_detail: str
+    page_uuids: Tuple[str, ...]
 
 
 def _oai_client() -> OpenAI:
@@ -265,62 +273,104 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     return article_num, section_num
 
 
-def _find_hard_rule_violations(root: ET.Element) -> List[Tuple[str, str]]:
-    violations: List[Tuple[str, str]] = []
+def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
+    page_uuids: List[str] = []
+    seen: set[str] = set()
+    for node in root.iter("pageUUID"):
+        text_val = (node.text or "").strip()
+        if not text_val:
+            continue
+        if text_val in seen:
+            continue
+        seen.add(text_val)
+        page_uuids.append(text_val)
+    return tuple(page_uuids)
+
+
+def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
+    violations: List[XMLHardRuleViolation] = []
     body = root.find("body")
     if body is None:
-        return [(XML_REASON_MISSING_BODY, "Missing <body>.")]
+        return [
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_MISSING_BODY,
+                reason_detail="Missing <body>.",
+                page_uuids=(),
+            )
+        ]
 
     body_children = [child for child in list(body) if child.tag not in TAG_TREE_SKIP_TAGS]
     if not body_children:
         return [
-            (
-                XML_REASON_BODY_HAS_NO_STRUCTURAL_CHILDREN,
-                "<body> has no structural children.",
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_BODY_HAS_NO_STRUCTURAL_CHILDREN,
+                reason_detail="<body> has no structural children.",
+                page_uuids=(),
             )
         ]
 
     if body_children[0].tag != "article":
         violations.append(
-            (XML_REASON_BODY_STARTS_NON_ARTICLE, "<body> must start with <article>.")
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_BODY_STARTS_NON_ARTICLE,
+                reason_detail="<body> must start with <article>.",
+                page_uuids=_collect_page_uuids(body_children[0]),
+            )
         )
     if any(child.tag != "article" for child in body_children):
         violations.append(
-            (
-                XML_REASON_BODY_CONTAINS_NON_ARTICLE_CHILDREN,
-                "<body> contains non-article structural elements.",
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_BODY_CONTAINS_NON_ARTICLE_CHILDREN,
+                reason_detail="<body> contains non-article structural elements.",
+                page_uuids=_collect_page_uuids(body),
             )
         )
 
     articles = [child for child in body_children if child.tag == "article"]
     if not articles:
-        violations.append((XML_REASON_BODY_HAS_NO_ARTICLES, "<body> has no articles."))
+        violations.append(
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_BODY_HAS_NO_ARTICLES,
+                reason_detail="<body> has no articles.",
+                page_uuids=_collect_page_uuids(body),
+            )
+        )
         return violations
 
     first_article_num = _extract_article_number_from_elem(articles[0])
     if first_article_num != 1:
         violations.append(
-            (XML_REASON_FIRST_ARTICLE_NOT_ONE, "First body article is not Article I/1.")
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_FIRST_ARTICLE_NOT_ONE,
+                reason_detail="First body article is not Article I/1.",
+                page_uuids=_collect_page_uuids(articles[0]),
+            )
         )
 
     empty_article_count = 0
+    empty_article_page_uuids: List[str] = []
     for article_elem in articles:
         article_title = article_elem.attrib.get("title", "")
         article_num = _extract_article_number_from_elem(article_elem)
         section_children = [c for c in list(article_elem) if c.tag == "section"]
         if not section_children:
             empty_article_count += 1
+            for page_uuid in _collect_page_uuids(article_elem):
+                if page_uuid not in empty_article_page_uuids:
+                    empty_article_page_uuids.append(page_uuid)
             continue
 
         expected_section_num = 1
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
+            section_page_uuids = _collect_page_uuids(section_elem)
             parsed_numbers = _extract_section_numbers(section_title)
             if parsed_numbers is None:
                 violations.append(
-                    (
-                        XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
-                        f"Section title is not a valid numbered section: {section_title!r} in article {article_title!r}.",
+                    XMLHardRuleViolation(
+                        reason_code=XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
+                        reason_detail=f"Section title is not a valid numbered section: {section_title!r} in article {article_title!r}.",
+                        page_uuids=section_page_uuids,
                     )
                 )
                 continue
@@ -328,16 +378,18 @@ def _find_hard_rule_violations(root: ET.Element) -> List[Tuple[str, str]]:
             section_article_num, section_num = parsed_numbers
             if article_num is not None and section_article_num != article_num:
                 violations.append(
-                    (
-                        XML_REASON_SECTION_ARTICLE_MISMATCH,
-                        f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r}).",
+                    XMLHardRuleViolation(
+                        reason_code=XML_REASON_SECTION_ARTICLE_MISMATCH,
+                        reason_detail=f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r}).",
+                        page_uuids=section_page_uuids,
                     )
                 )
             if section_num != expected_section_num:
                 violations.append(
-                    (
-                        XML_REASON_SECTION_NON_SEQUENTIAL,
-                        f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
+                    XMLHardRuleViolation(
+                        reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
+                        reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
+                        page_uuids=section_page_uuids,
                     )
                 )
                 expected_section_num = section_num + 1
@@ -346,9 +398,10 @@ def _find_hard_rule_violations(root: ET.Element) -> List[Tuple[str, str]]:
 
     if empty_article_count > 1:
         violations.append(
-            (
-                XML_REASON_TOO_MANY_EMPTY_ARTICLES,
-                f"Too many empty articles: found {empty_article_count}, maximum allowed is 1.",
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+                reason_detail=f"Too many empty articles: found {empty_article_count}, maximum allowed is 1.",
+                page_uuids=tuple(empty_article_page_uuids),
             )
         )
     return violations
@@ -438,11 +491,138 @@ def _parse_custom_id(custom_id: str) -> Tuple[str, int]:
     return agreement_uuid, version
 
 
+def _dedupe_reason_rows(reason_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    deduped: List[Dict[str, Any]] = []
+    seen: set[Tuple[str, str, str]] = set()
+    for row in reason_rows:
+        reason_code = str(row["reason_code"])
+        reason_detail = None if row.get("reason_detail") is None else str(row["reason_detail"])
+        page_uuid = None if row.get("page_uuid") is None else str(row["page_uuid"])
+        key = (reason_code, reason_detail or "", page_uuid or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(
+            {
+                "reason_code": reason_code,
+                "reason_detail": reason_detail,
+                "page_uuid": page_uuid,
+            }
+        )
+    return deduped
+
+
+def _replace_xml_status_reasons(
+    conn: Connection,
+    xml_status_reasons_table: str,
+    *,
+    agreement_uuid: str,
+    version: int,
+    reason_rows: List[Dict[str, Any]],
+) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            DELETE FROM {xml_status_reasons_table}
+            WHERE agreement_uuid = :agreement_uuid
+              AND xml_version = :version
+            """
+        ),
+        {"agreement_uuid": agreement_uuid, "version": version},
+    )
+
+    deduped_rows = _dedupe_reason_rows(reason_rows)
+    if not deduped_rows:
+        return
+
+    insert_q = text(
+        f"""
+        INSERT INTO {xml_status_reasons_table} (
+            agreement_uuid,
+            xml_version,
+            reason_code,
+            reason_detail,
+            page_uuid,
+            created_at
+        )
+        VALUES (
+            :agreement_uuid,
+            :version,
+            :reason_code,
+            :reason_detail,
+            :page_uuid,
+            UTC_TIMESTAMP()
+        )
+        """
+    )
+    for row in deduped_rows:
+        _ = conn.execute(
+            insert_q,
+            {
+                "agreement_uuid": agreement_uuid,
+                "version": version,
+                "reason_code": row["reason_code"],
+                "reason_detail": row["reason_detail"],
+                "page_uuid": row["page_uuid"],
+            },
+        )
+
+
+def _set_xml_status_with_reasons(
+    conn: Connection,
+    xml_table: str,
+    xml_status_reasons_table: str,
+    *,
+    agreement_uuid: str,
+    version: int,
+    status: str | None,
+    reason_rows: List[Dict[str, Any]],
+) -> int:
+    deduped_rows = _dedupe_reason_rows(reason_rows)
+    primary_reason_code = deduped_rows[0]["reason_code"] if status == "invalid" and deduped_rows else None
+    primary_reason_detail = deduped_rows[0]["reason_detail"] if status == "invalid" and deduped_rows else None
+    result = conn.execute(
+        text(
+            f"""
+            UPDATE {xml_table}
+            SET status = :status,
+                status_source = 'asset',
+                status_reason_code = :reason_code,
+                status_reason_detail = :reason_detail
+            WHERE agreement_uuid = :agreement_uuid
+              AND version = :version
+              AND (
+                NOT (status <=> :status)
+                OR NOT (status_source <=> 'asset')
+                OR NOT (status_reason_code <=> :reason_code)
+                OR NOT (status_reason_detail <=> :reason_detail)
+              )
+            """
+        ),
+        {
+            "agreement_uuid": agreement_uuid,
+            "version": version,
+            "status": status,
+            "reason_code": primary_reason_code,
+            "reason_detail": primary_reason_detail,
+        },
+    )
+    _replace_xml_status_reasons(
+        conn,
+        xml_status_reasons_table,
+        agreement_uuid=agreement_uuid,
+        version=version,
+        reason_rows=deduped_rows if status == "invalid" else [],
+    )
+    return int(result.rowcount or 0)
+
+
 def _apply_xml_verify_batch_output(
     context: AssetExecutionContext,
     engine: Any,
     client: OpenAI,
     xml_table: str,
+    xml_status_reasons_table: str,
     batch: Any,
 ) -> Tuple[int, int]:
     output_file_id = getattr(batch, "output_file_id", None)
@@ -452,24 +632,6 @@ def _apply_xml_verify_batch_output(
 
     out_content = client.files.content(output_file_id)
     out_text = read_openai_file_text(out_content)
-
-    update_q = text(
-        f"""
-        UPDATE {xml_table}
-        SET status = :status,
-            status_source = 'asset',
-            status_reason_code = :reason_code,
-            status_reason_detail = :reason_detail
-        WHERE agreement_uuid = :agreement_uuid
-          AND version = :version
-          AND (
-            NOT (status <=> :status)
-            OR NOT (status_source <=> 'asset')
-            OR NOT (status_reason_code <=> :reason_code)
-            OR NOT (status_reason_detail <=> :reason_detail)
-          )
-        """
-    )
 
     updated = 0
     parse_errors = 0
@@ -493,19 +655,25 @@ def _apply_xml_verify_batch_output(
 
                 raw_text = extract_output_text_from_batch_body(body)
                 parsed_status = _parse_xml_verify_response_text(raw_text)
-                reason_code = XML_REASON_LLM_INVALID if parsed_status == "invalid" else None
+                reason_rows: List[Dict[str, Any]] = []
+                if parsed_status == "invalid":
+                    reason_rows.append(
+                        {
+                            "reason_code": XML_REASON_LLM_INVALID,
+                            "reason_detail": None,
+                            "page_uuid": None,
+                        }
+                    )
 
-                result = conn.execute(
-                    update_q,
-                    {
-                        "agreement_uuid": agreement_uuid,
-                        "version": version,
-                        "status": parsed_status,
-                        "reason_code": reason_code,
-                        "reason_detail": None,
-                    },
+                updated += _set_xml_status_with_reasons(
+                    conn,
+                    xml_table,
+                    xml_status_reasons_table,
+                    agreement_uuid=agreement_uuid,
+                    version=version,
+                    status=parsed_status,
+                    reason_rows=reason_rows,
                 )
-                updated += int(result.rowcount or 0)
             except Exception as e:
                 parse_errors += 1
                 context.log.warning(f"xml_verify_asset: parse/apply error: {e}")
@@ -568,7 +736,16 @@ def xml_asset(
                     p.page_uuid,
                     p.page_order,
                     coalesce(p.gold_label, p.source_page_type) as source_page_type,
-                    coalesce(tgo.tagged_text_gold, tgo.tagged_text_corrected, tgo.tagged_text, p.processed_page_content) as tagged_output,
+                    case
+                        when coalesce(p.gold_label, p.source_page_type) = 'body' then
+                            coalesce(
+                                tgo.tagged_text_gold,
+                                tgo.tagged_text_corrected,
+                                tgo.tagged_text,
+                                p.processed_page_content
+                            )
+                        else p.processed_page_content
+                    end as tagged_output,
                     url,
                     acquirer,
                     target,
@@ -671,6 +848,7 @@ def xml_verify_asset(
     pipeline_config: PipelineConfig,
     built_xml_agreement_uuids: List[str],
 ) -> List[str]:
+    ensure_batched_scope(context, pipeline_config, asset_name="xml_verify_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_open_batches = pipeline_config.resume_open_batches
     target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
@@ -678,6 +856,11 @@ def xml_verify_asset(
         context.log.info("xml_verify_asset: no upstream agreements from xml_asset.")
         run_post_asset_refresh(context, db, pipeline_config)
         return []
+    if len(target_agreement_uuids) > agreement_batch_size:
+        raise ValueError(
+            "xml_verify_asset received more upstream agreements than xml_agreement_batch_size; "
+            + "scope='full' is not supported for xml_fresh_pipeline."
+        )
 
     engine = db.get_engine()
     schema = db.database
@@ -685,7 +868,7 @@ def xml_verify_asset(
     client = _oai_client()
 
     with engine.begin() as conn:
-        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches",))
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
         bindparam("auuids", expanding=True)
@@ -728,27 +911,47 @@ def xml_verify_asset(
         try:
             root = ET.fromstring(str(xml_text))
         except Exception as e:
-            reason_detail = f"XML parse failure: {e}"
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": XML_REASON_XML_PARSE_FAILURE,
-                    "reason_detail": reason_detail,
+                    "reason_rows": [
+                        {
+                            "reason_code": XML_REASON_XML_PARSE_FAILURE,
+                            "reason_detail": f"XML parse failure: {e}",
+                            "page_uuid": None,
+                        }
+                    ],
                 }
             )
             continue
 
-        hard_rule_violations = _find_hard_rule_violations(root)
+        hard_rule_violations = find_hard_rule_violations(root)
         if hard_rule_violations:
-            reason_code = hard_rule_violations[0][0]
-            reason_detail = "; ".join(detail for _, detail in hard_rule_violations[:3])
+            reason_rows: List[Dict[str, Any]] = []
+            for violation in hard_rule_violations:
+                if violation.page_uuids:
+                    for page_uuid in violation.page_uuids:
+                        reason_rows.append(
+                            {
+                                "reason_code": violation.reason_code,
+                                "reason_detail": violation.reason_detail,
+                                "page_uuid": page_uuid,
+                            }
+                        )
+                else:
+                    reason_rows.append(
+                        {
+                            "reason_code": violation.reason_code,
+                            "reason_detail": violation.reason_detail,
+                            "page_uuid": None,
+                        }
+                    )
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": reason_code,
-                    "reason_detail": reason_detail,
+                    "reason_rows": reason_rows,
                 }
             )
             continue
@@ -756,13 +959,17 @@ def xml_verify_asset(
         try:
             tag_tree = _render_tag_tree_from_root(root)
         except Exception as e:
-            reason_detail = f"Tag tree render failure: {e}"
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
-                    "reason_detail": reason_detail,
+                    "reason_rows": [
+                        {
+                            "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
+                            "reason_detail": f"Tag tree render failure: {e}",
+                            "page_uuid": None,
+                        }
+                    ],
                 }
             )
             continue
@@ -778,38 +985,21 @@ def xml_verify_asset(
 
     hard_invalid_updated = 0
     if hard_invalid_rows:
-        hard_invalidate_q = text(
-            f"""
-            UPDATE {xml_table}
-            SET status = 'invalid',
-                status_source = 'asset',
-                status_reason_code = :reason_code,
-                status_reason_detail = :reason_detail
-            WHERE agreement_uuid = :agreement_uuid
-              AND version = :version
-              AND (
-                NOT (status <=> 'invalid')
-                OR NOT (status_source <=> 'asset')
-                OR NOT (status_reason_code <=> :reason_code)
-                OR NOT (status_reason_detail <=> :reason_detail)
-              )
-            """
-        )
+        xml_status_reasons_table = f"{schema}.xml_status_reasons"
         with engine.begin() as conn:
             for row in hard_invalid_rows:
-                result = conn.execute(
-                    hard_invalidate_q,
-                    {
-                        "agreement_uuid": row["agreement_uuid"],
-                        "version": row["version"],
-                        "reason_code": row["reason_code"],
-                        "reason_detail": row["reason_detail"],
-                    },
+                hard_invalid_updated += _set_xml_status_with_reasons(
+                    conn,
+                    xml_table,
+                    xml_status_reasons_table,
+                    agreement_uuid=str(row["agreement_uuid"]),
+                    version=int(row["version"]),
+                    status="invalid",
+                    reason_rows=list(row["reason_rows"]),
                 )
-                hard_invalid_updated += int(result.rowcount or 0)
 
         sample_reasons = ", ".join(
-            f"{r['agreement_uuid']}@v{r['version']}[{r['reason_code']}]: {r['reason_detail']}"
+            f"{r['agreement_uuid']}@v{r['version']}[{r['reason_rows'][0]['reason_code']}]: {r['reason_rows'][0]['reason_detail']}"
             for r in hard_invalid_rows[:3]
         )
         context.log.info(
@@ -819,8 +1009,12 @@ def xml_verify_asset(
         )
         reason_counts: Dict[str, int] = {}
         for row in hard_invalid_rows:
-            reason_code = str(row["reason_code"])
-            reason_counts[reason_code] = reason_counts.get(reason_code, 0) + 1
+            reason_codes = {
+                str(reason_row["reason_code"])
+                for reason_row in list(row["reason_rows"])
+            }
+            for reason_code in reason_codes:
+                reason_counts[reason_code] = reason_counts.get(reason_code, 0) + 1
         context.log.info(
             "xml_verify_asset: hard-rule reason counts=%s",
             reason_counts,
@@ -834,15 +1028,10 @@ def xml_verify_asset(
         run_post_asset_refresh(context, db, pipeline_config)
         return selected_for_verify
 
-    llm_agreement_uuids = sorted(
-        {
-            str(_parse_custom_id(str(line["custom_id"]))[0])
-            for line in lines
-        }
-    )
-    if not llm_agreement_uuids:
-        raise ValueError("xml_verify_asset: no agreement UUIDs derived from LLM lines.")
-    verify_batch_key = agreement_batch_key(llm_agreement_uuids)
+    llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
+    if not llm_targets:
+        raise ValueError("xml_verify_asset: no (agreement_uuid, version) targets derived from LLM lines.")
+    verify_batch_key = agreement_version_batch_key(llm_targets)
 
     if resume_open_batches:
         with engine.begin() as conn:
@@ -891,6 +1080,7 @@ def xml_verify_asset(
                     engine=engine,
                     client=client,
                     xml_table=xml_table,
+                    xml_status_reasons_table=f"{schema}.xml_status_reasons",
                     batch=batch,
                 )
                 with engine.begin() as conn:
@@ -964,6 +1154,7 @@ def xml_verify_asset(
         engine=engine,
         client=client,
         xml_table=xml_table,
+        xml_status_reasons_table=f"{schema}.xml_status_reasons",
         batch=final_batch,
     )
     with engine.begin() as conn:

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from dagster import AssetExecutionContext
 from openai import OpenAI
-from etl.defs.resources import DBResource, PipelineConfig
+from etl.defs.resources import DBResource, PipelineConfig, ProcessingScope
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_LLM_INVALID,
@@ -98,12 +98,13 @@ class XMLVerifyAssetTests(unittest.TestCase):
             engine=engine,
             client=cast(OpenAI, cast(object, client)),
             xml_table="pdx.xml",
+            xml_status_reasons_table="pdx.xml_status_reasons",
             batch=batch,
         )
 
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
-        self.assertEqual(len(conn.executed), 1)
+        self.assertEqual(len(conn.executed), 2)
         executed_sql, params = conn.executed[0]
         self.assertIn("status_source = 'asset'", executed_sql)
         self.assertIn("status_reason_code = :reason_code", executed_sql)
@@ -113,6 +114,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertEqual(params["status"], "verified")
         self.assertIsNone(params["reason_code"])
         self.assertIsNone(params["reason_detail"])
+        delete_sql, _ = conn.executed[1]
+        self.assertIn("DELETE FROM pdx.xml_status_reasons", delete_sql)
 
     def test_apply_xml_verify_batch_output_sets_llm_invalid_reason_code(self) -> None:
         class _FakeContent:
@@ -193,18 +196,22 @@ class XMLVerifyAssetTests(unittest.TestCase):
             engine=engine,
             client=cast(OpenAI, cast(object, client)),
             xml_table="pdx.xml",
+            xml_status_reasons_table="pdx.xml_status_reasons",
             batch=batch,
         )
 
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
-        self.assertEqual(len(conn.executed), 1)
+        self.assertEqual(len(conn.executed), 3)
         _, params = conn.executed[0]
         self.assertEqual(params["agreement_uuid"], "agreement-2")
         self.assertEqual(params["version"], 4)
         self.assertEqual(params["status"], "invalid")
         self.assertEqual(params["reason_code"], XML_REASON_LLM_INVALID)
         self.assertIsNone(params["reason_detail"])
+        insert_sql, insert_params = conn.executed[2]
+        self.assertIn("INSERT INTO pdx.xml_status_reasons", insert_sql)
+        self.assertEqual(insert_params["reason_code"], XML_REASON_LLM_INVALID)
 
     def test_xml_verify_asset_hard_invalid_sets_status_source_to_asset(self) -> None:
         class _FakeLog:
@@ -290,7 +297,11 @@ class XMLVerifyAssetTests(unittest.TestCase):
         conn = _FakeConn()
         engine = _FakeEngine(conn)
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
-        pipeline_config = SimpleNamespace(xml_agreement_batch_size=10, resume_open_batches=True)
+        pipeline_config = SimpleNamespace(
+            xml_agreement_batch_size=10,
+            resume_open_batches=True,
+            scope=ProcessingScope.BATCHED,
+        )
         context = SimpleNamespace(log=_FakeLog())
 
         with (
@@ -307,7 +318,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
             )
 
         hard_invalid_update_sql, hard_invalid_params = next(
-            (sql, params) for sql, params in conn.executed if "SET status = 'invalid'" in sql
+            (sql, params)
+            for sql, params in conn.executed
+            if "status_reason_code = :reason_code" in sql
         )
         self.assertIn("status_source = 'asset'", hard_invalid_update_sql)
         self.assertIn("status_source <=> 'asset'", hard_invalid_update_sql)
@@ -319,6 +332,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertIn(
             "<body> must start with <article>.",
             str(hard_invalid_params["reason_detail"]),
+        )
+        self.assertTrue(
+            any("INSERT INTO pdx.xml_status_reasons" in sql for sql, _ in conn.executed)
         )
 
 

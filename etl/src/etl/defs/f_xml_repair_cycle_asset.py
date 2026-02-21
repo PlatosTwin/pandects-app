@@ -19,22 +19,25 @@ from etl.defs.f_xml_asset import (
     _apply_xml_verify_batch_output,
     _build_xml_verify_batch_request_body,
     _fetch_unpulled_xml_verify_batch,
-    _find_hard_rule_violations,
+    find_hard_rule_violations,
     _mark_xml_verify_batch_pulled,
     _oai_client,
+    _parse_custom_id,
     _render_tag_tree_from_root,
+    _set_xml_status_with_reasons,
     _upsert_xml_verify_batch_row,
 )
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
-from etl.utils.batch_keys import agreement_batch_key
+from etl.utils.batch_keys import agreement_version_batch_key
 from etl.utils.openai_batch import poll_batch_until_terminal
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import (
     canonical_post_repair_build_queue_sql,
     canonical_post_repair_verify_queue_sql,
 )
+from etl.utils.run_config import ensure_batched_scope
 from etl.utils.schema_guards import assert_tables_exist
 
 
@@ -54,12 +57,18 @@ def post_repair_build_xml_asset(
       - have been attempted by AI repair, and
       - have newer tagged outputs than that invalid XML version.
     """
+    ensure_batched_scope(context, pipeline_config, asset_name="post_repair_build_xml_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     target_agreement_uuids = sorted(set(reconciled_agreement_uuids))
     if not target_agreement_uuids:
         context.log.info("post_repair_build_xml_asset: no upstream agreements from reconcile_tags.")
         run_post_asset_refresh(context, db, pipeline_config)
         return []
+    if len(target_agreement_uuids) > agreement_batch_size:
+        raise ValueError(
+            "post_repair_build_xml_asset received more upstream agreements than xml_agreement_batch_size; "
+            + "scope='full' is not supported for xml_repair_cycle_pipeline."
+        )
 
     engine = db.get_engine()
     schema = db.database
@@ -93,12 +102,16 @@ def post_repair_build_xml_asset(
                         p.page_uuid,
                         p.page_order,
                         COALESCE(p.gold_label, p.source_page_type) AS source_page_type,
-                        COALESCE(
-                            tgo.tagged_text_gold,
-                            tgo.tagged_text_corrected,
-                            tgo.tagged_text,
-                            p.processed_page_content
-                        ) AS tagged_output,
+                        CASE
+                            WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN
+                                COALESCE(
+                                    tgo.tagged_text_gold,
+                                    tgo.tagged_text_corrected,
+                                    tgo.tagged_text,
+                                    p.processed_page_content
+                                )
+                            ELSE p.processed_page_content
+                        END AS tagged_output,
                         url,
                         acquirer,
                         target,
@@ -209,6 +222,7 @@ def post_repair_verify_xml_asset(
     """
     Verify only latest XML rows that came through the AI-repair cycle.
     """
+    ensure_batched_scope(context, pipeline_config, asset_name="post_repair_verify_xml_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_open_batches = pipeline_config.resume_open_batches
     target_agreement_uuids = sorted(set(rebuilt_agreement_uuids))
@@ -216,6 +230,11 @@ def post_repair_verify_xml_asset(
         context.log.info("post_repair_verify_xml_asset: no upstream agreements from post_repair_build_xml_asset.")
         run_post_asset_refresh(context, db, pipeline_config)
         return []
+    if len(target_agreement_uuids) > agreement_batch_size:
+        raise ValueError(
+            "post_repair_verify_xml_asset received more upstream agreements than xml_agreement_batch_size; "
+            + "scope='full' is not supported for xml_repair_cycle_pipeline."
+        )
 
     engine = db.get_engine()
     schema = db.database
@@ -223,7 +242,7 @@ def post_repair_verify_xml_asset(
     client = _oai_client()
 
     with engine.begin() as conn:
-        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches",))
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     queue_q = text(canonical_post_repair_verify_queue_sql(schema, scoped=True)).bindparams(
         bindparam("auuids", expanding=True)
@@ -270,22 +289,43 @@ def post_repair_verify_xml_asset(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": XML_REASON_XML_PARSE_FAILURE,
-                    "reason_detail": f"XML parse failure: {e}",
+                    "reason_rows": [
+                        {
+                            "reason_code": XML_REASON_XML_PARSE_FAILURE,
+                            "reason_detail": f"XML parse failure: {e}",
+                            "page_uuid": None,
+                        }
+                    ],
                 }
             )
             continue
 
-        hard_rule_violations = _find_hard_rule_violations(root)
+        hard_rule_violations = find_hard_rule_violations(root)
         if hard_rule_violations:
-            reason_code = hard_rule_violations[0][0]
-            reason_detail = "; ".join(detail for _, detail in hard_rule_violations[:3])
+            reason_rows: List[Dict[str, Any]] = []
+            for violation in hard_rule_violations:
+                if violation.page_uuids:
+                    for page_uuid in violation.page_uuids:
+                        reason_rows.append(
+                            {
+                                "reason_code": violation.reason_code,
+                                "reason_detail": violation.reason_detail,
+                                "page_uuid": page_uuid,
+                            }
+                        )
+                else:
+                    reason_rows.append(
+                        {
+                            "reason_code": violation.reason_code,
+                            "reason_detail": violation.reason_detail,
+                            "page_uuid": None,
+                        }
+                    )
             hard_invalid_rows.append(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": reason_code,
-                    "reason_detail": reason_detail,
+                    "reason_rows": reason_rows,
                 }
             )
             continue
@@ -297,8 +337,13 @@ def post_repair_verify_xml_asset(
                 {
                     "agreement_uuid": agreement_uuid,
                     "version": version,
-                    "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
-                    "reason_detail": f"Tag tree render failure: {e}",
+                    "reason_rows": [
+                        {
+                            "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
+                            "reason_detail": f"Tag tree render failure: {e}",
+                            "page_uuid": None,
+                        }
+                    ],
                 }
             )
             continue
@@ -314,35 +359,18 @@ def post_repair_verify_xml_asset(
 
     hard_invalid_updated = 0
     if hard_invalid_rows:
-        hard_invalidate_q = text(
-            f"""
-            UPDATE {xml_table}
-            SET status = 'invalid',
-                status_source = 'asset',
-                status_reason_code = :reason_code,
-                status_reason_detail = :reason_detail
-            WHERE agreement_uuid = :agreement_uuid
-              AND version = :version
-              AND (
-                NOT (status <=> 'invalid')
-                OR NOT (status_source <=> 'asset')
-                OR NOT (status_reason_code <=> :reason_code)
-                OR NOT (status_reason_detail <=> :reason_detail)
-              )
-            """
-        )
+        xml_status_reasons_table = f"{schema}.xml_status_reasons"
         with engine.begin() as conn:
             for row in hard_invalid_rows:
-                result = conn.execute(
-                    hard_invalidate_q,
-                    {
-                        "agreement_uuid": row["agreement_uuid"],
-                        "version": row["version"],
-                        "reason_code": row["reason_code"],
-                        "reason_detail": row["reason_detail"],
-                    },
+                hard_invalid_updated += _set_xml_status_with_reasons(
+                    conn,
+                    xml_table,
+                    xml_status_reasons_table,
+                    agreement_uuid=str(row["agreement_uuid"]),
+                    version=int(row["version"]),
+                    status="invalid",
+                    reason_rows=list(row["reason_rows"]),
                 )
-                hard_invalid_updated += int(result.rowcount or 0)
 
         context.log.info(
             "post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM.",
@@ -357,15 +385,12 @@ def post_repair_verify_xml_asset(
         run_post_asset_refresh(context, db, pipeline_config)
         return selected_for_verify
 
-    llm_agreement_uuids = sorted(
-        {
-            str(line["custom_id"]).split("|", 1)[0]
-            for line in lines
-        }
-    )
-    if not llm_agreement_uuids:
-        raise ValueError("post_repair_verify_xml_asset: no agreement UUIDs derived from LLM lines.")
-    verify_batch_key = agreement_batch_key(llm_agreement_uuids)
+    llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
+    if not llm_targets:
+        raise ValueError(
+            "post_repair_verify_xml_asset: no (agreement_uuid, version) targets derived from LLM lines."
+        )
+    verify_batch_key = agreement_version_batch_key(llm_targets)
 
     if resume_open_batches:
         with engine.begin() as conn:
@@ -414,6 +439,7 @@ def post_repair_verify_xml_asset(
                     engine=engine,
                     client=client,
                     xml_table=xml_table,
+                    xml_status_reasons_table=f"{schema}.xml_status_reasons",
                     batch=batch,
                 )
                 with engine.begin() as conn:
@@ -491,6 +517,7 @@ def post_repair_verify_xml_asset(
         engine=engine,
         client=client,
         xml_table=xml_table,
+        xml_status_reasons_table=f"{schema}.xml_status_reasons",
         batch=final_batch,
     )
     with engine.begin() as conn:
