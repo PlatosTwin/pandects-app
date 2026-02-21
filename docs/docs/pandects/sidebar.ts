@@ -24,38 +24,6 @@ const sidebar: SidebarsConfig = {
     },
     {
       type: "category",
-      label: "dumps",
-      link: {
-        type: "doc",
-        id: "pandects/dumps",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "pandects/list-dumps",
-          label: "/v1/dumps",
-          className: "api-method get",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "taxonomy",
-      link: {
-        type: "doc",
-        id: "pandects/taxonomy",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "pandects/get-taxonomy",
-          label: "/v1/taxonomy",
-          className: "api-method get",
-        },
-      ],
-    },
-    {
-      type: "category",
       label: "agreements",
       link: {
         type: "doc",
@@ -82,6 +50,54 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "pandects/get-section",
           label: "/v1/sections/{section_uuid}",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "taxonomy",
+      link: {
+        type: "doc",
+        id: "pandects/taxonomy",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-taxonomy",
+          label: "/v1/taxonomy",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "naics",
+      link: {
+        type: "doc",
+        id: "pandects/naics",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-naics",
+          label: "/v1/naics",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "dumps",
+      link: {
+        type: "doc",
+        id: "pandects/dumps",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/list-dumps",
+          label: "/v1/dumps",
           className: "api-method get",
         },
       ],

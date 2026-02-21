@@ -1,1 +1,1 @@
-{"parameters":[{"in":"path","name":"section_uuid","required":true,"schema":{"type":"string","minLength":1},"description":"Section UUID.","example":"0006660d-c622-5fbf-a9b9-c220335f0197"}]}
+{"parameters":[{"in":"path","name":"section_uuid","required":true,"schema":{"type":"string","minLength":1},"description":"Section UUID.","example":"5e59453aaa9255c4"}]}

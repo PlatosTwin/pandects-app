@@ -295,6 +295,7 @@ paths:
         schema:
           type: string
           default: null
+          example: 5e59453aaa9255c4
           nullable: true
         required: false
       - in: query
@@ -345,53 +346,6 @@ paths:
       summary: Search agreement sections
       description: Searches sections using structured filters and taxonomy IDs. For
         list filters, repeat query keys (for example `year=2023&year=2024`).
-  /v1/dumps:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DumpEntry'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - dumps
-      operationId: listDumps
-      summary: List available bulk dumps
-      description: Returns newest-first metadata for publicly available database dump
-        artifacts.
-  /v1/taxonomy:
-    get:
-      responses:
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  required:
-                  - id
-                  properties:
-                    id:
-                      type: string
-                    children:
-                      type: object
-                      additionalProperties:
-                        type: object
-      tags:
-      - taxonomy
-      operationId: getTaxonomy
-      summary: Retrieve clause taxonomy
-      description: Returns the hierarchical Pandects taxonomy tree keyed by standard
-        ID.
   /v1/agreements/{agreement_uuid}:
     get:
       parameters:
@@ -451,7 +405,7 @@ paths:
           type: string
           minLength: 1
         description: Section UUID.
-        example: 0006660d-c622-5fbf-a9b9-c220335f0197
+        example: 5e59453aaa9255c4
     parameters:
     - in: path
       name: section_uuid
@@ -459,20 +413,85 @@ paths:
       schema:
         type: string
         minLength: 1
+  /v1/taxonomy:
+    get:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                  - id
+                  properties:
+                    id:
+                      type: string
+                    children:
+                      type: object
+                      additionalProperties:
+                        type: object
+      tags:
+      - taxonomy
+      operationId: getTaxonomy
+      summary: Retrieve clause taxonomy
+      description: Returns the hierarchical Pandects taxonomy tree keyed by standard
+        ID.
+  /v1/naics:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NaicsResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - naics
+      operationId: getNaics
+      summary: Retrieve NAICS sectors and subsectors
+      description: Returns NAICS sectors with nested subsectors.
+  /v1/dumps:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DumpEntry'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - dumps
+      operationId: listDumps
+      summary: List available bulk dumps
+      description: Returns newest-first metadata for publicly available database dump
+        artifacts.
 info:
   title: Pandects API
   version: v1
 tags:
 - name: search
   description: Search merger agreement sections
-- name: dumps
-  description: Access metadata about bulk data on Cloudflare
-- name: taxonomy
-  description: Access the Pandects agreement taxonomy
 - name: agreements
   description: Retrieve full text for a given agreement
 - name: sections
   description: Retrieve full text for a given section
+- name: taxonomy
+  description: Access the Pandects agreement taxonomy
+- name: naics
+  description: Access the NAICS sector and subsector taxonomy
+- name: dumps
+  description: Access metadata about bulk data on Cloudflare
 openapi: 3.0.2
 components:
   schemas:
@@ -703,41 +722,6 @@ components:
           type: integer
           description: Previous page number when `has_prev` is true.
           nullable: true
-    DumpEntry:
-      type: object
-      properties:
-        timestamp:
-          type: string
-          description: Dump timestamp label (derived from object prefix).
-        sql:
-          type: string
-          format: url
-          description: Public URL for the compressed SQL dump file.
-          nullable: true
-        sha256:
-          type: string
-          description: SHA-256 digest value for the dump when available.
-          nullable: true
-        sha256_url:
-          type: string
-          format: url
-          description: Public URL to a `.sha256` checksum file.
-          nullable: true
-        manifest:
-          type: string
-          format: url
-          description: Public URL to a manifest JSON file for the dump.
-          nullable: true
-        size_bytes:
-          type: integer
-          description: Dump file size in bytes when available.
-          nullable: true
-        warning:
-          type: string
-          description: Warning message when metadata is incomplete.
-          nullable: true
-      required:
-      - timestamp
     AgreementResponse:
       type: object
       properties:
@@ -874,6 +858,89 @@ components:
         section_title:
           type: string
           description: Section heading text.
+    NaicsSubSector:
+      type: object
+      properties:
+        sub_sector_code:
+          type: string
+          description: Three-digit NAICS subsector code.
+        sub_sector_desc:
+          type: string
+          description: NAICS subsector description.
+      required:
+      - sub_sector_code
+      - sub_sector_desc
+    NaicsSector:
+      type: object
+      properties:
+        sector_code:
+          type: string
+          description: Two-digit NAICS sector code.
+        sector_desc:
+          type: string
+          description: NAICS sector description.
+        sector_group:
+          type: string
+          description: Sector group label.
+        super_sector:
+          type: string
+          description: High-level sector bucket label.
+        sub_sectors:
+          type: array
+          description: All subsectors that belong to this sector.
+          items:
+            $ref: '#/components/schemas/NaicsSubSector'
+      required:
+      - sector_code
+      - sector_desc
+      - sector_group
+      - sub_sectors
+      - super_sector
+    NaicsResponse:
+      type: object
+      properties:
+        sectors:
+          type: array
+          description: NAICS sectors with nested subsectors.
+          items:
+            $ref: '#/components/schemas/NaicsSector'
+      required:
+      - sectors
+    DumpEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: Dump timestamp label (derived from object prefix).
+        sql:
+          type: string
+          format: url
+          description: Public URL for the compressed SQL dump file.
+          nullable: true
+        sha256:
+          type: string
+          description: SHA-256 digest value for the dump when available.
+          nullable: true
+        sha256_url:
+          type: string
+          format: url
+          description: Public URL to a `.sha256` checksum file.
+          nullable: true
+        manifest:
+          type: string
+          format: url
+          description: Public URL to a manifest JSON file for the dump.
+          nullable: true
+        size_bytes:
+          type: integer
+          description: Dump file size in bytes when available.
+          nullable: true
+        warning:
+          type: string
+          description: Warning message when metadata is incomplete.
+          nullable: true
+      required:
+      - timestamp
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity

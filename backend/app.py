@@ -91,6 +91,9 @@ _filter_options_lock = Lock()
 _TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
 _taxonomy_cache = {"ts": 0.0, "payload": None}
 _taxonomy_lock = Lock()
+_NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
+_naics_cache = {"ts": 0.0, "payload": None}
+_naics_lock = Lock()
 _AGREEMENTS_SUMMARY_TTL_SECONDS = int(
     os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60")
 )
@@ -1223,8 +1226,8 @@ def _revoke_session_token(token: str) -> None:
         return
 
 
-_UUID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+_SECTION_ID_RE = re.compile(
+    r"^(?:[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
 )
 
 
@@ -2134,6 +2137,18 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    naics_sectors_table = Table(
+        "naics_sectors",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    naics_sub_sectors_table = Table(
+        "naics_sub_sectors",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
     sections_table = Table(
         "sections",
         metadata,
@@ -2218,6 +2233,23 @@ else:
         Column("parent_id", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    naics_sectors_table = Table(
+        "naics_sectors",
+        metadata,
+        Column("super_sector", TEXT, nullable=True),
+        Column("sector_group", TEXT, nullable=True),
+        Column("sector_desc", TEXT, nullable=True),
+        Column("sector_code", Integer, primary_key=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    naics_sub_sectors_table = Table(
+        "naics_sub_sectors",
+        metadata,
+        Column("sub_sector_desc", TEXT, nullable=True),
+        Column("sub_sector_code", Integer, primary_key=True),
+        Column("sector_code", Integer, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
     sections_table = Table(
         "sections",
         metadata,
@@ -2259,6 +2291,14 @@ class TaxonomyL2(db.Model):
 
 class TaxonomyL3(db.Model):
     __table__ = taxonomy_l3_table
+
+
+class NaicsSector(db.Model):
+    __table__ = naics_sectors_table
+
+
+class NaicsSubSector(db.Model):
+    __table__ = naics_sub_sectors_table
 
 
 def _coalesced_section_standard_ids():
@@ -2481,6 +2521,13 @@ taxonomy_blp = Blueprint(
     "taxonomy",
     url_prefix="/v1/taxonomy",
     description="Access the Pandects agreement taxonomy",
+)
+
+naics_blp = Blueprint(
+    "naics",
+    "naics",
+    url_prefix="/v1/naics",
+    description="Access the NAICS sector and subsector taxonomy",
 )
 
 agreements_blp = Blueprint(
@@ -2768,7 +2815,10 @@ class SearchArgsSchema(Schema):
     section_uuid = fields.Str(
         load_default=None,
         allow_none=True,
-        metadata={"description": "Filter to one section UUID."},
+        metadata={
+            "description": "Filter to one section UUID.",
+            "example": "5e59453aaa9255c4",
+        },
     )
     # Sort parameters
     sort_by = fields.Str(
@@ -2955,6 +3005,49 @@ class DumpEntrySchema(Schema):
     )
 
 
+class NaicsSubSectorSchema(Schema):
+    sub_sector_code = fields.Str(
+        required=True,
+        metadata={"description": "Three-digit NAICS subsector code."},
+    )
+    sub_sector_desc = fields.Str(
+        required=True,
+        metadata={"description": "NAICS subsector description."},
+    )
+
+
+class NaicsSectorSchema(Schema):
+    sector_code = fields.Str(
+        required=True,
+        metadata={"description": "Two-digit NAICS sector code."},
+    )
+    sector_desc = fields.Str(
+        required=True,
+        metadata={"description": "NAICS sector description."},
+    )
+    sector_group = fields.Str(
+        required=True,
+        metadata={"description": "Sector group label."},
+    )
+    super_sector = fields.Str(
+        required=True,
+        metadata={"description": "High-level sector bucket label."},
+    )
+    sub_sectors = fields.List(
+        fields.Nested(NaicsSubSectorSchema),
+        required=True,
+        metadata={"description": "All subsectors that belong to this sector."},
+    )
+
+
+class NaicsResponseSchema(Schema):
+    sectors = fields.List(
+        fields.Nested(NaicsSectorSchema),
+        required=True,
+        metadata={"description": "NAICS sectors with nested subsectors."},
+    )
+
+
 class AgreementArgsSchema(Schema):
     focus_section_uuid = fields.Str(
         required=False,
@@ -2963,7 +3056,8 @@ class AgreementArgsSchema(Schema):
             "description": (
                 "Optional section UUID used when redacting anonymous responses to keep a "
                 "focused neighborhood visible."
-            )
+            ),
+            "example": "5e59453aaa9255c4",
         },
     )
     neighbor_sections = fields.Int(
@@ -3090,7 +3184,7 @@ class AgreementResource(MethodView):
         focus_section_uuid = args.get("focus_section_uuid")
         if focus_section_uuid is not None:
             focus_section_uuid = focus_section_uuid.strip()
-            if not _UUID_RE.match(focus_section_uuid):
+            if not _SECTION_ID_RE.match(focus_section_uuid):
                 abort(400, description="Invalid focus_section_uuid.")
         neighbor_sections_int = args["neighbor_sections"]
 
@@ -3199,14 +3293,14 @@ class SectionResource(MethodView):
                 "required": True,
                 "schema": {"type": "string", "minLength": 1},
                 "description": "Section UUID.",
-                "example": "0006660d-c622-5fbf-a9b9-c220335f0197",
+                "example": "5e59453aaa9255c4",
             }
         ],
     )
     @sections_blp.response(200, SectionResponseSchema)
     def get(self, section_uuid: str) -> dict[str, object]:
         section_uuid = section_uuid.strip()
-        if not _UUID_RE.match(section_uuid):
+        if not _SECTION_ID_RE.match(section_uuid):
             abort(400, description="Invalid section_uuid.")
 
         section_cols = Sections.__table__.c
@@ -3609,6 +3703,88 @@ def _taxonomy_tree() -> dict[str, object]:
     return tree
 
 
+def _naics_tree() -> dict[str, object]:
+    sector_rows = db.session.query(
+        NaicsSector.sector_code,
+        NaicsSector.sector_desc,
+        NaicsSector.sector_group,
+        NaicsSector.super_sector,
+    ).all()
+    sub_sector_rows = db.session.query(
+        NaicsSubSector.sub_sector_code,
+        NaicsSubSector.sub_sector_desc,
+        NaicsSubSector.sector_code,
+    ).all()
+
+    sector_by_code: dict[int, dict[str, object]] = {}
+    for row in sector_rows:
+        if not isinstance(row.sector_code, int):
+            raise ValueError("naics_sectors.sector_code must be an integer.")
+        if not isinstance(row.sector_desc, str):
+            raise ValueError("naics_sectors.sector_desc must be a string.")
+        if not isinstance(row.sector_group, str):
+            raise ValueError("naics_sectors.sector_group must be a string.")
+        if not isinstance(row.super_sector, str):
+            raise ValueError("naics_sectors.super_sector must be a string.")
+        sector_by_code[row.sector_code] = {
+            "sector_code": str(row.sector_code),
+            "sector_desc": row.sector_desc,
+            "sector_group": row.sector_group,
+            "super_sector": row.super_sector,
+            "sub_sectors": [],
+        }
+
+    for row in sub_sector_rows:
+        if not isinstance(row.sector_code, int):
+            raise ValueError("naics_sub_sectors.sector_code must be an integer.")
+        if not isinstance(row.sub_sector_code, int):
+            raise ValueError("naics_sub_sectors.sub_sector_code must be an integer.")
+        if not isinstance(row.sub_sector_desc, str):
+            raise ValueError("naics_sub_sectors.sub_sector_desc must be a string.")
+        parent = sector_by_code.get(row.sector_code)
+        if parent is None:
+            raise ValueError("naics_sub_sectors has sector_code with no matching sector.")
+        parent_sub_sectors = cast(list[dict[str, str]], parent["sub_sectors"])
+        parent_sub_sectors.append(
+            {
+                "sub_sector_code": str(row.sub_sector_code),
+                "sub_sector_desc": row.sub_sector_desc,
+            }
+        )
+
+    sorted_sector_codes = sorted(sector_by_code.keys())
+    sectors: list[dict[str, object]] = []
+    for code in sorted_sector_codes:
+        sector = sector_by_code[code]
+        sub_sectors = cast(list[dict[str, str]], sector["sub_sectors"])
+        sector["sub_sectors"] = sorted(
+            sub_sectors,
+            key=lambda sub_sector: int(sub_sector["sub_sector_code"]),
+        )
+        sectors.append(sector)
+
+    return {"sectors": sectors}
+
+
+def _get_naics_payload_cached() -> tuple[dict[str, object], bool]:
+    now = time.time()
+    with _naics_lock:
+        cached_payload = _naics_cache["payload"]
+        cached_ts = _naics_cache["ts"]
+        cache_is_valid = cached_payload is not None and (
+            now - cached_ts < _NAICS_TTL_SECONDS
+        )
+    if cache_is_valid:
+        return cached_payload, True
+
+    payload = _naics_tree()
+    with _naics_lock:
+        _naics_cache["payload"] = payload
+        _naics_cache["ts"] = now
+
+    return payload, False
+
+
 def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
     now = time.time()
     with _taxonomy_lock:
@@ -3960,6 +4136,23 @@ class TaxonomyResource(MethodView):
         return resp
 
 
+@naics_blp.route("")
+class NaicsResource(MethodView):
+    @naics_blp.doc(
+        operationId="getNaics",
+        summary="Retrieve NAICS sectors and subsectors",
+        description=(
+            "Returns NAICS sectors with nested subsectors."
+        ),
+    )
+    @naics_blp.response(200, NaicsResponseSchema)
+    def get(self) -> Response:
+        payload, _ = _get_naics_payload_cached()
+        resp = jsonify(payload)
+        resp.headers["Cache-Control"] = f"public, max-age={_NAICS_TTL_SECONDS}"
+        return resp
+
+
 @dumps_blp.route("")  # blueprint already has url_prefix="/v1/dumps"
 class DumpListResource(MethodView):
     @dumps_blp.doc(
@@ -4071,10 +4264,11 @@ class DumpListResource(MethodView):
 
 def _register_blueprints() -> None:
     api.register_blueprint(search_blp)
-    api.register_blueprint(dumps_blp)
-    api.register_blueprint(taxonomy_blp)
     api.register_blueprint(agreements_blp)
     api.register_blueprint(sections_blp)
+    api.register_blueprint(taxonomy_blp)
+    api.register_blueprint(naics_blp)
+    api.register_blueprint(dumps_blp)
 
 
 def _register_app(target_app: Flask) -> None:

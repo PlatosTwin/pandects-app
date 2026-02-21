@@ -87,6 +87,23 @@ class MainRoutesTests(unittest.TestCase):
                         "(2021, 'stock_acquisition', 2)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "INSERT INTO naics_sectors (super_sector, sector_group, sector_desc, sector_code) VALUES "
+                        "('Goods-Producing Industries', 'Natural Resources and Mining', "
+                        "'Agriculture, Forestry, Fishing and Hunting', 11), "
+                        "('Goods-Producing Industries', 'Natural Resources and Mining', "
+                        "'Mining, Quarrying, and Oil and Gas Extraction', 21)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO naics_sub_sectors (sub_sector_desc, sub_sector_code, sector_code) VALUES "
+                        "('Crop Production', 111, 11), "
+                        "('Animal Production', 112, 11), "
+                        "('Oil and Gas Extraction', 211, 21)"
+                    )
+                )
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
@@ -162,6 +179,47 @@ class MainRoutesTests(unittest.TestCase):
                 {"year": 2020, "deal_type": "merger", "count": 1},
                 {"year": 2021, "deal_type": "stock_acquisition", "count": 2},
             ],
+        )
+
+    def test_naics_hierarchy(self):
+        client = self.app.test_client()
+        res = client.get("/v1/naics")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "sectors": [
+                    {
+                        "sector_code": "11",
+                        "sector_desc": "Agriculture, Forestry, Fishing and Hunting",
+                        "sector_group": "Natural Resources and Mining",
+                        "super_sector": "Goods-Producing Industries",
+                        "sub_sectors": [
+                            {
+                                "sub_sector_code": "111",
+                                "sub_sector_desc": "Crop Production",
+                            },
+                            {
+                                "sub_sector_code": "112",
+                                "sub_sector_desc": "Animal Production",
+                            },
+                        ],
+                    },
+                    {
+                        "sector_code": "21",
+                        "sector_desc": "Mining, Quarrying, and Oil and Gas Extraction",
+                        "sector_group": "Natural Resources and Mining",
+                        "super_sector": "Goods-Producing Industries",
+                        "sub_sectors": [
+                            {
+                                "sub_sector_code": "211",
+                                "sub_sector_desc": "Oil and Gas Extraction",
+                            }
+                        ],
+                    },
+                ]
+            },
         )
 
 
