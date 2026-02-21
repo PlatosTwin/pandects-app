@@ -26,6 +26,8 @@
   --openapi-card-border-radius: 10px;
   --openapi-explorer-border-color: #d7deea;
   --openapi-required: #ef4444;
+  --code-tab-logo-width: 20px;
+  --code-tab-logo-height: 20px;
 
   --docs-sidebar-bg: var(--brand-sidebar-bg);
   --docs-sidebar-active: var(--brand-sidebar-active);
