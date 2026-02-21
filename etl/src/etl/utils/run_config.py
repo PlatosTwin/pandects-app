@@ -32,3 +32,13 @@ def is_batched(
     return (
         get_processing_scope(_context, pipeline_config) == ProcessingScope.BATCHED
     )
+
+
+def ensure_batched_scope(
+    context: dg.AssetExecutionContext,
+    pipeline_config: PipelineConfig,
+    *,
+    asset_name: str,
+) -> None:
+    if not is_batched(context, pipeline_config):
+        raise ValueError(f"{asset_name} requires pipeline_config.scope='batched'.")

@@ -50,7 +50,8 @@ def run_post_asset_refresh(
 
     For non-stage-ending assets this is a no-op by design.
     """
-    _ = pipeline_config
+    if not pipeline_config.refresh:
+        return
     asset_name = context.asset_key.path[-1] if context.asset_key.path else ""
     if asset_name not in _MAIN_STAGE_REFRESH_ASSET_NAMES:
         return
