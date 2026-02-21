@@ -32,7 +32,6 @@ def _ensure_deal_type_summary_table(
 def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
     pages_table = f"{schema}.pages"
     sections_table = f"{schema}.sections"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
     xml_table = f"{schema}.xml"
 
     _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_page_counts"))
@@ -51,22 +50,6 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
     )
     _ = conn.execute(text("ALTER TABLE tmp_page_counts ADD PRIMARY KEY (agreement_uuid)"))
 
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_gated_page_agreements"))
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TEMPORARY TABLE tmp_gated_page_agreements AS
-            SELECT DISTINCT agreement_uuid
-            FROM {pages_table}
-            WHERE gated = 1
-              AND agreement_uuid IS NOT NULL
-            """
-        )
-    )
-    _ = conn.execute(
-        text("ALTER TABLE tmp_gated_page_agreements ADD PRIMARY KEY (agreement_uuid)")
-    )
-
     _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_pages_agg"))
     _ = conn.execute(
         text(
@@ -74,14 +57,8 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
             CREATE TEMPORARY TABLE tmp_pages_agg AS
             SELECT
                 pc.agreement_uuid,
-                pc.page_count,
-                CASE
-                    WHEN gp.agreement_uuid IS NULL THEN 0
-                    ELSE 1
-                END AS has_gated_page
+                pc.page_count
             FROM tmp_page_counts pc
-            LEFT JOIN tmp_gated_page_agreements gp
-                ON gp.agreement_uuid = pc.agreement_uuid
             """
         )
     )
@@ -107,84 +84,6 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
     )
     _ = conn.execute(text("ALTER TABLE tmp_sections_agg ADD PRIMARY KEY (agreement_uuid)"))
 
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_tagged_agreements"))
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TEMPORARY TABLE tmp_tagged_agreements AS
-            SELECT DISTINCT p.agreement_uuid
-            FROM {tagged_outputs_table} t
-            JOIN {pages_table} p
-                ON p.page_uuid = t.page_uuid
-            WHERE p.agreement_uuid IS NOT NULL
-            """
-        )
-    )
-    _ = conn.execute(
-        text("ALTER TABLE tmp_tagged_agreements ADD PRIMARY KEY (agreement_uuid)")
-    )
-
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_tagged_body_updated"))
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TEMPORARY TABLE tmp_tagged_body_updated AS
-            SELECT
-                p.agreement_uuid,
-                MAX(t.updated_date) AS max_body_tagged_updated_date
-            FROM {tagged_outputs_table} t
-            JOIN {pages_table} p
-                ON p.page_uuid = t.page_uuid
-            WHERE p.agreement_uuid IS NOT NULL
-              AND p.source_page_type = 'body'
-            GROUP BY p.agreement_uuid
-            """
-        )
-    )
-    _ = conn.execute(
-        text("ALTER TABLE tmp_tagged_body_updated ADD PRIMARY KEY (agreement_uuid)")
-    )
-
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_tagged_agg"))
-    _ = conn.execute(
-        text(
-            """
-            CREATE TEMPORARY TABLE tmp_tagged_agg AS
-            SELECT
-                ta.agreement_uuid,
-                bu.max_body_tagged_updated_date
-            FROM tmp_tagged_agreements ta
-            LEFT JOIN tmp_tagged_body_updated bu
-                ON bu.agreement_uuid = ta.agreement_uuid
-            """
-        )
-    )
-    _ = conn.execute(text("ALTER TABLE tmp_tagged_agg ADD PRIMARY KEY (agreement_uuid)"))
-
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_body_tag_state"))
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TEMPORARY TABLE tmp_body_tag_state AS
-            SELECT
-                p.agreement_uuid,
-                SUM(CASE WHEN p.source_page_type = 'body' THEN 1 ELSE 0 END) AS body_page_count,
-                SUM(
-                    CASE
-                        WHEN p.source_page_type = 'body' AND t.page_uuid IS NOT NULL THEN 1
-                        ELSE 0
-                    END
-                ) AS tagged_body_page_count
-            FROM {pages_table} p
-            LEFT JOIN {tagged_outputs_table} t
-                ON t.page_uuid = p.page_uuid
-            WHERE p.agreement_uuid IS NOT NULL
-            GROUP BY p.agreement_uuid
-            """
-        )
-    )
-    _ = conn.execute(text("ALTER TABLE tmp_body_tag_state ADD PRIMARY KEY (agreement_uuid)"))
-
     _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_xml_latest"))
     _ = conn.execute(
         text(
@@ -202,24 +101,6 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
         )
     )
     _ = conn.execute(text("ALTER TABLE tmp_xml_latest ADD PRIMARY KEY (agreement_uuid)"))
-
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_sections_latest"))
-    _ = conn.execute(
-        text(
-            f"""
-            CREATE TEMPORARY TABLE tmp_sections_latest AS
-            SELECT
-                x.agreement_uuid,
-                COUNT(s.section_uuid) AS section_count
-            FROM tmp_xml_latest x
-            LEFT JOIN {sections_table} s
-                ON s.agreement_uuid = x.agreement_uuid
-               AND s.xml_version = x.version
-            GROUP BY x.agreement_uuid
-            """
-        )
-    )
-    _ = conn.execute(text("ALTER TABLE tmp_sections_latest ADD PRIMARY KEY (agreement_uuid)"))
 
     _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_xml_eligible"))
     _ = conn.execute(
