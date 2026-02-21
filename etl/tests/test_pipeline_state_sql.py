@@ -16,6 +16,7 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("WHEN latest_xml_status = 'invalid' THEN '3_xml'", sql)
         self.assertIn("WHEN latest_xml_status IS NULL THEN 'red'", sql)
         self.assertIn("WHEN latest_xml_status = 'invalid' THEN 'red'", sql)
+        self.assertIn("WHERE COALESCE(LOWER(a.status), '') <> 'invalid'", sql)
 
     def test_stage_sql_marks_no_body_as_preproc_red(self) -> None:
         sql = canonical_stage_state_sql("pdx")
@@ -37,14 +38,18 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("latest_xml_status = 'verified'", sql)
         self.assertIn("has_stale_body_tags = 1", sql)
 
-    def test_ai_repair_queue_orders_by_fewest_flagged_pages(self) -> None:
-        sql = canonical_ai_repair_enqueue_queue_sql(
-            "pdx",
-            status_clause_sql="('completed', 'queued', 'running')",
-        )
+    def test_ai_repair_queue_selects_latest_invalid_xml_rows(self) -> None:
+        sql = canonical_ai_repair_enqueue_queue_sql("pdx")
+        self.assertIn("SELECT", sql)
+        self.assertIn("x.version AS xml_version", sql)
+        self.assertIn("s.latest_xml_ai_repair_attempted AS ai_repair_attempted", sql)
+        self.assertIn("r.reason_code", sql)
+        self.assertIn("r.page_uuid", sql)
+        self.assertIn("x.latest = 1", sql)
         self.assertIn("latest_xml_status = 'invalid'", sql)
-        self.assertIn("latest_xml_reason_code IN :reason_codes", sql)
-        self.assertIn("COUNT(DISTINCT p.page_uuid) ASC", sql)
+        self.assertIn("JOIN pdx.xml_status_reasons r", sql)
+        self.assertIn("r.reason_code IN :reason_codes", sql)
+        self.assertIn("r.page_uuid IS NOT NULL", sql)
 
 
 if __name__ == "__main__":

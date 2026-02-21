@@ -424,6 +424,7 @@ def build_jsonl_lines_for_page(
     *,
     model: str,
     uncertain_spans: List[UncertainSpan],
+    xml_version: int | None = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Returns:
@@ -436,7 +437,8 @@ def build_jsonl_lines_for_page(
     metas: List[Dict[str, Any]] = []
 
     if decision.mode == "full":
-        custom_id = f"{page_uuid}::full::0"
+        version_token = int(xml_version) if xml_version is not None else 0
+        custom_id = f"{page_uuid}::full::{version_token}"
         body = {
             "model": model,
             "reasoning": {"effort": "high"},

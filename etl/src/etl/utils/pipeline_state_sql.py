@@ -9,6 +9,7 @@ def _table_names(schema: str) -> dict[str, str]:
         "pages": f"{schema}.pages",
         "tagged_outputs": f"{schema}.tagged_outputs",
         "xml": f"{schema}.xml",
+        "xml_status_reasons": f"{schema}.xml_status_reasons",
         "sections": f"{schema}.sections",
         "ai_repair_processed_spans": f"{schema}.ai_repair_processed_spans",
     }
@@ -163,6 +164,7 @@ def canonical_components_cte_sql(schema: str) -> str:
             ON sl.agreement_uuid = a.agreement_uuid
         LEFT JOIN page_gating_agreements pga
             ON pga.agreement_uuid = a.agreement_uuid
+        WHERE COALESCE(LOWER(a.status), '') <> 'invalid'
     )
     """
 
@@ -334,56 +336,33 @@ def canonical_post_repair_verify_queue_sql(schema: str, *, scoped: bool = False)
     """
 
 
-def canonical_ai_repair_enqueue_queue_sql(
-    schema: str,
-    *,
-    status_clause_sql: str,
-) -> str:
+def canonical_ai_repair_enqueue_queue_sql(schema: str) -> str:
     tables = _table_names(schema)
-    pages_table = tables["pages"]
-    tagged_outputs_table = tables["tagged_outputs"]
-    ai_repair_processed_spans_table = tables["ai_repair_processed_spans"]
+    xml_table = tables["xml"]
+    xml_status_reasons_table = tables["xml_status_reasons"]
 
     return f"""
-    {canonical_components_cte_sql(schema)},
-    eligible_agreements AS (
-        SELECT agreement_uuid
-        FROM state_components
-        WHERE has_latest_xml = 1
-          AND latest_xml_status = 'invalid'
-          AND latest_xml_reason_code IN :reason_codes
-    )
+    {canonical_components_cte_sql(schema)}
     SELECT
-        p.agreement_uuid
-    FROM
-        {pages_table} p
-        JOIN eligible_agreements ea
-            ON ea.agreement_uuid = p.agreement_uuid
-        JOIN {tagged_outputs_table} t
-            USING (page_uuid)
-        CROSS JOIN JSON_TABLE(
-            t.spans,
-            '$[*]' COLUMNS (
-                entity VARCHAR(255) PATH '$.entity',
-                start_char INT PATH '$.start_char',
-                end_char INT PATH '$.end_char'
-            )
-        ) AS jt
+        x.agreement_uuid,
+        x.version AS xml_version,
+        s.latest_xml_ai_repair_attempted AS ai_repair_attempted,
+        r.reason_code,
+        r.page_uuid
+    FROM {xml_table} x
+    JOIN state_components s
+        ON s.agreement_uuid = x.agreement_uuid
+    JOIN {xml_status_reasons_table} r
+        ON r.agreement_uuid = x.agreement_uuid
+       AND r.xml_version = x.version
     WHERE
-        NOT EXISTS (
-            SELECT 1
-            FROM {ai_repair_processed_spans_table} ps
-            WHERE ps.page_uuid = p.page_uuid
-              AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
-              AND ps.start_char = jt.start_char
-              AND ps.end_char = jt.end_char
-              AND ps.status IN {status_clause_sql}
-        )
-    GROUP BY
-        p.agreement_uuid
+        x.latest = 1
+        AND x.status = 'invalid'
+        AND latest_xml_status = 'invalid'
+        AND r.reason_code IN :reason_codes
+        AND r.page_uuid IS NOT NULL
     ORDER BY
-        COUNT(DISTINCT p.page_uuid) ASC,
-        p.agreement_uuid
-    LIMIT
-        :lim
+        x.agreement_uuid,
+        x.version,
+        r.page_uuid
     """

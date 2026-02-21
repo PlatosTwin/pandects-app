@@ -1,6 +1,6 @@
 """
 AI Repair assets:
-- ai_repair_enqueue_asset: decides full page vs excerpt and enqueues OpenAI Batch jobs
+- ai_repair_enqueue_asset: enqueues full-page AI retagging for XML-targeted pages
 - ai_repair_poll_asset: polls batches, downloads outputs, and persists results
 
 Required tables (managed via migrations):
@@ -8,6 +8,7 @@ Required tables (managed via migrations):
 - pdx.ai_repair_requests    (one row per JSONL line / custom_id)
 - pdx.ai_repair_rulings     (excerpt-mode rulings at page-level coords)
 - pdx.ai_repair_full_pages  (full-page tagged_text outputs)
+- pdx.xml_status_reasons    (invalid XML reason rows with page_uuid targets)
 """
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 
@@ -27,13 +28,12 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_FIRST_ARTICLE_NOT_ONE,
-    XML_REASON_LLM_INVALID,
     XML_REASON_SECTION_ARTICLE_MISMATCH,
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
-    XML_REASON_XML_PARSE_FAILURE,
+    XML_REASON_TOO_MANY_EMPTY_ARTICLES,
 )
-from etl.utils.run_config import is_batched
+from etl.utils.run_config import ensure_batched_scope
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
 from etl.utils.batch_keys import agreement_batch_key
@@ -43,9 +43,7 @@ from etl.utils.openai_batch import (
 )
 from etl.utils.schema_guards import assert_tables_exist
 from etl.domain.d_ai_repair import (
-    UncertainSpan,
     RepairDecision,
-    decide_repair_windows,
     build_jsonl_lines_for_page,
 )
 
@@ -59,19 +57,39 @@ def _oai_client() -> OpenAI:
 
 
 AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
-    XML_REASON_XML_PARSE_FAILURE,
-    XML_REASON_LLM_INVALID,
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_FIRST_ARTICLE_NOT_ONE,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_SECTION_ARTICLE_MISMATCH,
     XML_REASON_SECTION_NON_SEQUENTIAL,
+    XML_REASON_TOO_MANY_EMPTY_ARTICLES,
 )
-# Persisted only as metadata on ai_repair_processed_spans; not used for filtering.
-AI_REPAIR_ENTITY_FOCUS = "all"
-AI_REPAIR_CONFIDENCE_THRESHOLD = 1.0
+
+AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
+AI_REPAIR_RETRY_MODEL = "gpt-5.1"
 
 _AI_REPAIR_TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
+_AI_REPAIR_FAILED_BATCH_STATUSES = ("failed", "cancelled", "expired")
+
+
+def _full_request_id(page_uuid: str, xml_version: int) -> str:
+    return f"{page_uuid}::full::{int(xml_version)}"
+
+
+def _repair_model_for_attempted(ai_repair_attempted: int) -> str:
+    if ai_repair_attempted in (0, 1):
+        return AI_REPAIR_FIRST_PASS_MODEL
+    raise ValueError(f"Invalid ai_repair_attempted value: {ai_repair_attempted!r}")
+
+
+def _repair_model_for_candidate(
+    ai_repair_attempted: int,
+    *,
+    has_completed_requests: bool,
+) -> str:
+    if has_completed_requests:
+        return AI_REPAIR_RETRY_MODEL
+    return _repair_model_for_attempted(ai_repair_attempted)
 
 
 def _fetch_candidates(
@@ -81,76 +99,198 @@ def _fetch_candidates(
     exclude_in_flight: bool = True,
 ) -> List[Dict[str, Any]]:
     """
-    Pull pages from agreements whose latest XML is invalid for a repair-eligible reason,
-    and that have at least one unprocessed tagged span.
+    Pull page-level AI-repair targets derived from invalid latest XML reasons.
+    Targets come from xml_status_reasons.page_uuid rows and are ordered by
+    unattempted agreements first, then by fewest unresolved target pages.
     """
     pages_table = f"{schema}.pages"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
     if not AI_REPAIR_ELIGIBLE_XML_REASON_CODES:
         raise ValueError("AI repair eligible XML reason codes must not be empty.")
 
-    status_clause = "('completed', 'queued', 'running')" if exclude_in_flight else "('completed')"
+    blocked_statuses: Tuple[str, ...]
+    if exclude_in_flight:
+        blocked_statuses = ("completed", "queued", "running")
+    else:
+        blocked_statuses = ("completed",)
 
-    agreements_q = text(
-        canonical_ai_repair_enqueue_queue_sql(
-            schema,
-            status_clause_sql=status_clause,
-        )
-    ).bindparams(bindparam("reason_codes", expanding=True))
-    agreement_uuids = conn.execute(
-        agreements_q,
+    invalid_rows = conn.execute(
+        text(
+            canonical_ai_repair_enqueue_queue_sql(schema)
+        ).bindparams(bindparam("reason_codes", expanding=True)),
         {
-            "lim": agreement_limit,
             "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
         },
-    ).scalars().all()
-    if not agreement_uuids:
+    ).mappings().fetchall()
+    if not invalid_rows:
         return []
 
-    # Fetch all pages from those agreements that have matching spans
-    pages_q = text(
-        f"""
-        SELECT DISTINCT
-            p.page_uuid,
-            p.agreement_uuid,
-            p.processed_page_content AS text,
-            t.spans AS spans
-        FROM
-            {pages_table} p
-            JOIN {tagged_outputs_table} t USING (page_uuid)
-            CROSS JOIN JSON_TABLE(
-                t.spans,
-                '$[*]' COLUMNS (
-                    entity VARCHAR(255) PATH '$.entity',
-                    start_char INT PATH '$.start_char',
-                    end_char INT PATH '$.end_char'
-                )
-            ) AS jt
-        WHERE
-            p.agreement_uuid IN :uuids
-            AND NOT EXISTS (
-                SELECT 1
-                FROM {ai_repair_processed_spans_table} ps
-                WHERE ps.page_uuid = p.page_uuid
-                  AND ps.entity = CAST(jt.entity AS CHAR) COLLATE utf8mb4_unicode_ci
-                  AND ps.start_char = jt.start_char
-                  AND ps.end_char = jt.end_char
-                  AND ps.status IN {status_clause}
+    xml_version_by_agreement: Dict[str, int] = {}
+    ai_repair_attempted_by_agreement: Dict[str, int] = {}
+    page_uuids_by_agreement: Dict[str, List[str]] = {}
+    request_ids: List[str] = []
+
+    for row in invalid_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        xml_version = int(row["xml_version"])
+        attempted_raw = row.get("ai_repair_attempted")
+        attempted = int(attempted_raw or 0)
+        if attempted not in (0, 1):
+            raise ValueError(
+                f"Invalid ai_repair_attempted value for agreement {agreement_uuid}: {attempted_raw!r}."
             )
-        ORDER BY
-            p.agreement_uuid,
-            p.page_order,
-            p.page_uuid
-        """
+        page_uuid_raw = row.get("page_uuid")
+        if page_uuid_raw is None:
+            continue
+        page_uuid = str(page_uuid_raw).strip()
+        if not page_uuid:
+            continue
+
+        payload_version = xml_version_by_agreement.get(agreement_uuid)
+        if payload_version is None:
+            xml_version_by_agreement[agreement_uuid] = xml_version
+            payload_version = xml_version
+        elif payload_version != xml_version:
+            raise ValueError(
+                f"Multiple latest xml versions for agreement {agreement_uuid}: {payload_version} and {xml_version}."
+            )
+        payload_attempted = ai_repair_attempted_by_agreement.get(agreement_uuid)
+        if payload_attempted is None:
+            ai_repair_attempted_by_agreement[agreement_uuid] = attempted
+        elif payload_attempted != attempted:
+            raise ValueError(
+                f"Inconsistent ai_repair_attempted values for agreement {agreement_uuid}: {payload_attempted} and {attempted}."
+            )
+
+        page_uuids = page_uuids_by_agreement.setdefault(agreement_uuid, [])
+        if page_uuid in page_uuids:
+            continue
+        page_uuids.append(page_uuid)
+        req_id = _full_request_id(page_uuid, xml_version)
+        request_ids.append(req_id)
+
+    if not request_ids:
+        return []
+
+    existing_request_ids = set(
+        str(v)
+        for v in conn.execute(
+            text(
+                f"""
+                SELECT request_id
+                FROM {ai_repair_requests_table}
+                WHERE request_id IN :rids
+                  AND status IN :statuses
+                """
+            ).bindparams(
+                bindparam("rids", expanding=True),
+                bindparam("statuses", expanding=True),
+            ),
+            {"rids": request_ids, "statuses": list(blocked_statuses)},
+        ).scalars().all()
     )
-    rows = conn.execute(
-        pages_q,
-        {
-            "uuids": tuple(agreement_uuids),
-        },
+    completed_request_ids = set(
+        str(v)
+        for v in conn.execute(
+            text(
+                f"""
+                SELECT request_id
+                FROM {ai_repair_requests_table}
+                WHERE request_id IN :rids
+                  AND status = 'completed'
+                """
+            ).bindparams(bindparam("rids", expanding=True)),
+            {"rids": request_ids},
+        ).scalars().all()
+    )
+
+    unresolved_by_agreement: Dict[str, Tuple[int, int, int, List[str]]] = {}
+    for agreement_uuid, page_uuids in page_uuids_by_agreement.items():
+        attempted = int(ai_repair_attempted_by_agreement[agreement_uuid])
+        xml_version = int(xml_version_by_agreement[agreement_uuid])
+        has_completed_requests = any(
+            _full_request_id(page_uuid, xml_version) in completed_request_ids
+            for page_uuid in page_uuids
+        )
+        unresolved_page_uuids: List[str] = []
+        for page_uuid in page_uuids:
+            req_id = _full_request_id(page_uuid, xml_version)
+            if req_id in existing_request_ids:
+                continue
+            unresolved_page_uuids.append(page_uuid)
+        if not unresolved_page_uuids:
+            continue
+        unresolved_by_agreement[agreement_uuid] = (
+            attempted,
+            int(has_completed_requests),
+            xml_version,
+            unresolved_page_uuids,
+        )
+
+    if not unresolved_by_agreement:
+        return []
+
+    ranked_agreements = sorted(
+        unresolved_by_agreement.items(),
+        key=lambda item: (item[1][0], len(item[1][3]), item[0]),
+    )[:agreement_limit]
+    selected_page_rows: List[Dict[str, Any]] = []
+    page_uuid_to_target: Dict[str, Tuple[str, int, int, int]] = {}
+    for agreement_uuid, payload in ranked_agreements:
+        attempted, has_completed_requests, xml_version, unresolved_page_uuids = payload
+        for page_uuid in unresolved_page_uuids:
+            page_uuid_to_target[page_uuid] = (
+                agreement_uuid,
+                attempted,
+                has_completed_requests,
+                xml_version,
+            )
+
+    if not page_uuid_to_target:
+        return []
+
+    page_rows = conn.execute(
+        text(
+            f"""
+            SELECT
+                p.page_uuid,
+                p.agreement_uuid,
+                p.page_order,
+                p.processed_page_content AS text
+            FROM {pages_table} p
+            WHERE p.page_uuid IN :pids
+            ORDER BY p.agreement_uuid, p.page_order, p.page_uuid
+            """
+        ).bindparams(bindparam("pids", expanding=True)),
+        {"pids": list(page_uuid_to_target.keys())},
     ).mappings().fetchall()
-    return [dict(r) for r in rows]
+
+    for row in page_rows:
+        page_uuid = str(row["page_uuid"])
+        target = page_uuid_to_target.get(page_uuid)
+        if target is None:
+            continue
+        agreement_uuid, attempted, has_completed_requests, xml_version = target
+        selected_page_rows.append(
+            {
+                "page_uuid": page_uuid,
+                "agreement_uuid": agreement_uuid,
+                "text": str(row.get("text") or ""),
+                "ai_repair_attempted": attempted,
+                "has_completed_requests": has_completed_requests,
+                "xml_version": xml_version,
+                "page_order": int(row.get("page_order") or 0),
+            }
+        )
+
+    selected_page_rows.sort(
+        key=lambda row: (
+            row["agreement_uuid"],
+            int(row["page_order"]),
+            row["page_uuid"],
+        )
+    )
+    return selected_page_rows
 
 
 def _fetch_open_ai_repair_batch(
@@ -279,82 +419,6 @@ def _fetch_batch_agreement_uuids(
     return [str(v) for v in conn.execute(q, {"batch_id": batch_id}).scalars().all()]
 
 
-def _fetch_processed_spans_batch(
-    conn: Connection,
-    schema: str,
-    page_uuids: List[str],
-) -> Dict[str, Set[Tuple[str, int, int]]]:
-    """
-    Batch-fetch processed spans for multiple pages.
-    Returns dict: page_uuid -> set of (entity, start_char, end_char).
-    """
-    if not page_uuids:
-        return {}
-    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
-    q = text(
-        f"""
-        SELECT page_uuid, entity, start_char, end_char
-        FROM {ai_repair_processed_spans_table}
-        WHERE page_uuid IN :pids
-          AND status IN ('completed', 'queued', 'running')
-        """
-    ).bindparams(bindparam("pids", expanding=True))
-    rows = conn.execute(q, {"pids": page_uuids}).mappings().fetchall()
-    out: Dict[str, Set[Tuple[str, int, int]]] = {}
-    for r in rows:
-        pid = r["page_uuid"]
-        key = (r["entity"], r["start_char"], r["end_char"])
-        out.setdefault(pid, set()).add(key)
-    return out
-
-
-def _filter_already_processed_spans(
-    spans: List[UncertainSpan],
-    processed_set: Set[Tuple[str, int, int]],
-) -> List[UncertainSpan]:
-    """
-    Filter out spans that are in processed_set (completed, queued, or running).
-    """
-    if not spans:
-        return []
-    return [
-        span
-        for span in spans
-        if (span.entity, span.start_char, span.end_char) not in processed_set
-    ]
-
-
-def _parse_uncertain_spans(spans_json: str) -> List[UncertainSpan]:
-    spans_raw = json.loads(spans_json)
-    if not isinstance(spans_raw, list):
-        raise ValueError("Spans JSON must decode to a list.")
-
-    spans: List[UncertainSpan] = []
-    for s in spans_raw:
-        if not isinstance(s, dict):
-            raise ValueError("Span entries must be objects.")
-        entity = s["entity"]
-        start_char = s["start_char"]
-        end_char = s["end_char"]
-
-        if not isinstance(entity, str):
-            raise ValueError("Span entity must be a string.")
-        if not isinstance(start_char, int) or not isinstance(end_char, int):
-            raise ValueError("Span start/end must be integers.")
-        if end_char < start_char:
-            raise ValueError("Span end_char must be >= start_char.")
-
-        spans.append(
-            UncertainSpan(
-                entity=entity,
-                start_char=start_char,
-                end_char=end_char,
-                avg_confidence=0.0,
-            )
-        )
-    return spans
-
-
 def _insert_batch_row(
     conn: Connection,
     schema: str,
@@ -442,55 +506,6 @@ def _insert_requests(
         )
 
 
-def _insert_processed_spans(
-    conn: Connection,
-    schema: str,
-    batch_id: str,
-    request_id: str,
-    page_uuid: str,
-    spans: List[UncertainSpan],
-    entity_focus: str,
-    confidence_threshold: float,
-) -> None:
-    """
-    Record which spans are being processed in this request.
-    """
-    if not spans:
-        return
-
-    ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
-    q = text(
-        f"""
-        INSERT INTO {ai_repair_processed_spans_table}
-            (page_uuid, entity, start_char, end_char, entity_focus, confidence_threshold,
-             request_id, batch_id, status, created_at)
-        VALUES
-            (:pid, :entity, :start, :end, :ef, :ct, :rid, :bid, 'queued', UTC_TIMESTAMP())
-        ON DUPLICATE KEY UPDATE
-            request_id = VALUES(request_id),
-            batch_id = VALUES(batch_id),
-            status = CASE
-                WHEN status IN ('queued', 'running') THEN status
-                ELSE VALUES(status)
-            END
-        """
-    )
-    for span in spans:
-        _ = conn.execute(
-            q,
-            {
-                "pid": page_uuid,
-                "entity": span.entity,
-                "start": span.start_char,
-                "end": span.end_char,
-                "ef": entity_focus,
-                "ct": confidence_threshold,
-                "rid": request_id,
-                "bid": batch_id,
-            },
-        )
-
-
 def _mark_completed(conn: Connection, schema: str, request_ids: Set[str]) -> None:
     if not request_ids:
         return
@@ -539,21 +554,14 @@ def ai_repair_enqueue_asset(
     pipeline_config: PipelineConfig,
 ) -> List[str]:
     """
-    Decide full-page vs. surgical excerpt using uncertainty spans, then enqueue OpenAI Batch job(s).
-
-    Strategy:
-      - If uncertainty coverage is diffuse (wide breadth / many clusters), send FULL page.
-      - Else, send merged excerpt windows with before/after context.
-      - Requests are batched into a single .jsonl, uploaded, and created as one Batch job.
-
-    Tuning knobs in domain decide_repair_windows().
+    Enqueue full-page AI retagging for XML-invalid target pages (by pageUUID).
+    Target pages are derived from hard-rule XML violations for the latest invalid XML.
     """
     engine = db.get_engine()
     client = _oai_client()
+    ensure_batched_scope(context, pipeline_config, asset_name="ai_repair_enqueue_asset")
 
     batch_completion_window = "24h"
-    full_page_model = "gpt-5.1"
-    excerpt_model = "gpt-5-mini"
     should_exit_after_tx = False
     resume_open_batches = pipeline_config.resume_open_batches
 
@@ -569,249 +577,204 @@ def ai_repair_enqueue_asset(
                 "ai_repair_rulings",
                 "ai_repair_full_pages",
                 "ai_repair_processed_spans",
+                "xml_status_reasons",
             ),
         )
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.xml_agreement_batch_size
-        entity_focus = AI_REPAIR_ENTITY_FOCUS
-        confidence_threshold = AI_REPAIR_CONFIDENCE_THRESHOLD
-        batched = is_batched(context, pipeline_config)
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
-        if not batched:
-            context.log.warning("ai_repair_enqueue_asset runs only in batched mode; skipping.")
-            should_exit_after_tx = True
-        else:
-            if resume_open_batches:
-                resume_probe_candidates = _fetch_candidates(
+        if resume_open_batches:
+            resume_probe_candidates = _fetch_candidates(
+                conn,
+                db.database,
+                agreement_limit=batch_size,
+                exclude_in_flight=False,
+            )
+            resume_probe_agreement_uuids = sorted(
+                {str(r["agreement_uuid"]) for r in resume_probe_candidates}
+            )
+            matched_open_batch: Dict[str, Any] | None = None
+            match_strategy = ""
+            if resume_probe_agreement_uuids:
+                probe_key = agreement_batch_key(resume_probe_agreement_uuids)
+                matched_open_batch = _fetch_open_ai_repair_batch(
                     conn,
                     db.database,
-                    agreement_limit=batch_size,
-                    exclude_in_flight=False,
+                    batch_key=probe_key,
                 )
-                resume_probe_agreement_uuids = sorted(
-                    {str(r["agreement_uuid"]) for r in resume_probe_candidates}
-                )
-                matched_open_batch: Dict[str, Any] | None = None
-                match_strategy = ""
-                if resume_probe_agreement_uuids:
-                    probe_key = agreement_batch_key(resume_probe_agreement_uuids)
-                    matched_open_batch = _fetch_open_ai_repair_batch(
-                        conn,
-                        db.database,
-                        batch_key=probe_key,
-                    )
-                    if matched_open_batch is not None:
-                        match_strategy = "exact_batch_key"
-                    else:
-                        matched_open_batch = _fetch_open_ai_repair_batch_by_agreement_overlap(
-                            conn,
-                            db.database,
-                            agreement_uuids=resume_probe_agreement_uuids,
-                        )
-                        if matched_open_batch is not None:
-                            match_strategy = "agreement_overlap"
-
-                if matched_open_batch is None and not resume_probe_agreement_uuids:
-                    matched_open_batch = _fetch_open_ai_repair_batch(
-                        conn,
-                        db.database,
-                    )
-                    if matched_open_batch is not None:
-                        match_strategy = "oldest_open_batch"
                 if matched_open_batch is not None:
-                    resumed_batch_id = str(matched_open_batch["batch_id"])
-                    resumed_agreement_uuids = _fetch_batch_agreement_uuids(
+                    match_strategy = "exact_batch_key"
+                else:
+                    matched_open_batch = _fetch_open_ai_repair_batch_by_agreement_overlap(
                         conn,
                         db.database,
-                        resumed_batch_id,
+                        agreement_uuids=resume_probe_agreement_uuids,
                     )
-                    if resumed_agreement_uuids:
-                        enqueued_agreement_uuids.update(resumed_agreement_uuids)
-                        context.log.info(
-                            "ai_repair_enqueue_asset: resuming open batch %s for %s agreements (strategy=%s).",
-                            resumed_batch_id,
-                            len(resumed_agreement_uuids),
-                            match_strategy or "unknown",
-                        )
-                        should_exit_after_tx = True
+                    if matched_open_batch is not None:
+                        match_strategy = "agreement_overlap"
 
-            if should_exit_after_tx:
-                pass
-            else:
-                candidates = _fetch_candidates(
+            if matched_open_batch is None and not resume_probe_agreement_uuids:
+                matched_open_batch = _fetch_open_ai_repair_batch(
                     conn,
                     db.database,
-                    agreement_limit=batch_size,
                 )
-                if not candidates:
-                    context.log.info("ai_repair_enqueue_asset: no candidates.")
+                if matched_open_batch is not None:
+                    match_strategy = "oldest_open_batch"
+            if matched_open_batch is not None:
+                resumed_batch_id = str(matched_open_batch["batch_id"])
+                resumed_agreement_uuids = _fetch_batch_agreement_uuids(
+                    conn,
+                    db.database,
+                    resumed_batch_id,
+                )
+                if resumed_agreement_uuids:
+                    enqueued_agreement_uuids.update(resumed_agreement_uuids)
+                    context.log.info(
+                        "ai_repair_enqueue_asset: resuming open batch %s for %s agreements (strategy=%s).",
+                        resumed_batch_id,
+                        len(resumed_agreement_uuids),
+                        match_strategy or "unknown",
+                    )
                     should_exit_after_tx = True
-                else:
-                    candidate_agreement_by_page_uuid = {
-                        str(r["page_uuid"]): str(r["agreement_uuid"])
-                        for r in candidates
+
+        if should_exit_after_tx:
+            pass
+        else:
+            candidates = _fetch_candidates(
+                conn,
+                db.database,
+                agreement_limit=batch_size,
+            )
+            if not candidates:
+                context.log.info("ai_repair_enqueue_asset: no candidates.")
+                should_exit_after_tx = True
+            else:
+                candidate_agreement_by_page_uuid = {
+                    str(r["page_uuid"]): str(r["agreement_uuid"])
+                    for r in candidates
+                }
+                candidate_attempted_by_agreement = {
+                    str(r["agreement_uuid"]): int(r["ai_repair_attempted"])
+                    for r in candidates
+                }
+                candidate_agreement_count = len(candidate_attempted_by_agreement)
+                candidate_already_attempted = sum(
+                    1 for attempted in candidate_attempted_by_agreement.values() if attempted == 1
+                )
+                context.log.info(
+                    "ai_repair_enqueue_asset: selected agreements total=%s unattempted=%s already_attempted=%s target_pages=%s",
+                    candidate_agreement_count,
+                    candidate_agreement_count - candidate_already_attempted,
+                    candidate_already_attempted,
+                    len(candidates),
+                )
+
+            # 2) build full-page JSONL for targeted pages
+            request_lines_by_model: Dict[str, List[Dict[str, Any]]] = {}
+            lines_meta_by_model: Dict[str, List[Dict[str, Any]]] = {}
+            request_count_by_model: Dict[str, int] = {}
+
+            for row in candidates:
+                page_uuid = str(row["page_uuid"])
+                text = str(row["text"])
+                attempted = int(row["ai_repair_attempted"])
+                has_completed_requests = bool(int(row["has_completed_requests"]))
+                xml_version = int(row["xml_version"])
+                model = _repair_model_for_candidate(
+                    attempted,
+                    has_completed_requests=has_completed_requests,
+                )
+                request_count_by_model[model] = request_count_by_model.get(model, 0) + 1
+                full_decision = RepairDecision(
+                    mode="full",
+                    windows=[(0, len(text))],
+                    token_map=[],
+                )
+                batch_lines, metas = build_jsonl_lines_for_page(
+                    page_uuid=page_uuid,
+                    text=text,
+                    decision=full_decision,
+                    model=model,
+                    uncertain_spans=[],
+                    xml_version=xml_version,
+                )
+                request_lines_by_model.setdefault(model, []).extend(batch_lines)
+                lines_meta_by_model.setdefault(model, []).extend(metas)
+
+            all_lines_meta = [
+                meta
+                for metas in lines_meta_by_model.values()
+                for meta in metas
+            ]
+            if not all_lines_meta:
+                context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+                should_exit_after_tx = True
+            else:
+                llm_agreement_uuids = sorted(
+                    {
+                        str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
+                        for meta in all_lines_meta
                     }
-
-                # 2) batch-fetch processed spans for all candidates (one query instead of per-page)
-                candidate_page_uuids = [r["page_uuid"] for r in candidates]
-                processed_by_page = _fetch_processed_spans_batch(
-                    conn, db.database, candidate_page_uuids
+                )
+                if not llm_agreement_uuids:
+                    raise ValueError("ai_repair_enqueue_asset: failed to derive agreement UUIDs for enqueued lines.")
+                context.log.info(
+                    "ai_repair_enqueue_asset: prepared requests by model=%s",
+                    dict(sorted(request_count_by_model.items())),
                 )
 
-                # 3) build JSONL in-memory, split by mode to keep batch models consistent
-                jsonl_full_buf = io.StringIO()
-                jsonl_excerpt_buf = io.StringIO()
-                lines_meta_full: List[Dict[str, Any]] = []
-                lines_meta_excerpt: List[Dict[str, Any]] = []
-                # Track which spans are included in each request: request_id -> List[UncertainSpan]
-                spans_by_request: Dict[str, List[UncertainSpan]] = {}
-
-                for row in candidates:
-                    page_uuid = row["page_uuid"]
-                    text = row["text"]
-                    spans = _parse_uncertain_spans(row["spans"])
-                    if not spans:
-                        continue
-
-                    # Filter out spans that have already been processed with these parameters
-                    processed_set = processed_by_page.get(page_uuid, set())
-                    unprocessed_spans = _filter_already_processed_spans(
-                        spans,
-                        processed_set,
+                for model, model_lines in sorted(request_lines_by_model.items()):
+                    model_metas = lines_meta_by_model[model]
+                    model_batch_key = agreement_batch_key(
+                        [*llm_agreement_uuids, f"model:{model}"]
                     )
-                    if not unprocessed_spans:
-                        continue
-
-                    decision: RepairDecision = decide_repair_windows(
-                        text=text,
-                        uncertain_spans=unprocessed_spans,
+                    jsonl_full_buf = io.StringIO()
+                    for line in model_lines:
+                        _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+                    jsonl_bytes = io.BytesIO(jsonl_full_buf.getvalue().encode("utf-8"))
+                    jsonl_bytes.name = f"ai_repair_requests_full_{model}.jsonl"
+                    in_file = client.files.create(purpose="batch", file=jsonl_bytes)
+                    batch = client.batches.create(
+                        input_file_id=in_file.id,
+                        endpoint="/v1/responses",
+                        completion_window=batch_completion_window,
                     )
 
-                    if decision.mode == "full":
-                        batch_lines, metas = build_jsonl_lines_for_page(
-                            page_uuid=page_uuid,
-                            text=text,
-                            decision=decision,
-                            model=full_page_model,
-                            uncertain_spans=unprocessed_spans,
-                        )
-                        for line in batch_lines:
-                            _ = jsonl_full_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
-                        lines_meta_full.extend(metas)
-                        # For full-page mode, all unprocessed_spans are included
-                        for meta in metas:
-                            spans_by_request[meta["request_id"]] = unprocessed_spans
-                    elif decision.mode == "excerpt":
-                        batch_lines, metas = build_jsonl_lines_for_page(
-                            page_uuid=page_uuid,
-                            text=text,
-                            decision=decision,
-                            model=excerpt_model,
-                            uncertain_spans=unprocessed_spans,
-                        )
-                        for line in batch_lines:
-                            _ = jsonl_excerpt_buf.write(
-                                json.dumps(line, ensure_ascii=False) + "\n"
-                            )
-                        lines_meta_excerpt.extend(metas)
-                        # For excerpt mode, track which spans intersect with each window
-                        for meta in metas:
-                            cs = meta["excerpt_start"]
-                            ce = meta["excerpt_end"]
-                            # Find spans that intersect with this excerpt window
-                            intersecting_spans = [
-                                span
-                                for span in unprocessed_spans
-                                if span.start_char < ce and span.end_char > cs
-                            ]
-                            spans_by_request[meta["request_id"]] = intersecting_spans
-                    else:
-                        raise ValueError(f"Unexpected repair decision mode: {decision.mode!r}")
-
-                if not lines_meta_full and not lines_meta_excerpt:
-                    context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
-                    should_exit_after_tx = True
-                else:
-                    llm_agreement_uuids = sorted(
-                        {
-                            str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
-                            for meta in (lines_meta_full + lines_meta_excerpt)
-                        }
+                    request_total = len(model_metas)
+                    _insert_batch_row(
+                        conn,
+                        db.database,
+                        batch,
+                        batch_completion_window,
+                        request_total,
+                        model_batch_key,
                     )
-                    if not llm_agreement_uuids:
-                        raise ValueError("ai_repair_enqueue_asset: failed to derive agreement UUIDs for enqueued lines.")
-                    repair_batch_key = agreement_batch_key(llm_agreement_uuids)
+                    _insert_requests(conn, db.database, batch.id, model_metas)
+                    context.log.info(
+                        "Enqueued OpenAI Batch %s (full, model=%s) with %s requests; input_file_id=%s",
+                        batch.id,
+                        model,
+                        request_total,
+                        in_file.id,
+                    )
 
-                    def _enqueue_batch(jsonl_buf: io.StringIO, lines_meta: List[Dict[str, Any]], label: str) -> None:
-                        if not lines_meta:
-                            return
-                        jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
-                        jsonl_bytes.name = f"ai_repair_requests_{label}.jsonl"
-
-                        in_file = client.files.create(purpose="batch", file=jsonl_bytes)
-                        batch = client.batches.create(
-                            input_file_id=in_file.id,
-                            endpoint="/v1/responses",
-                            completion_window=batch_completion_window,
-                        )
-
-                        request_total = len(lines_meta)
-                        _insert_batch_row(
-                            conn,
-                            db.database,
-                            batch,
-                            batch_completion_window,
-                            request_total,
-                            repair_batch_key,
-                        )
-                        _insert_requests(conn, db.database, batch.id, lines_meta)
-
-                        # Record which spans are being processed in each request
-                        for meta in lines_meta:
-                            request_id = meta["request_id"]
-                            page_uuid = meta["page_uuid"]
-                            if request_id not in spans_by_request:
-                                raise ValueError(
-                                    f"Missing span tracking for request {request_id}, page {page_uuid}. "
-                                    + "This indicates a bug in the span tracking logic."
-                                )
-                            spans_for_request = spans_by_request[request_id]
-                            _insert_processed_spans(
-                                conn,
-                                db.database,
-                                batch.id,
-                                request_id,
-                                page_uuid,
-                                spans_for_request,
-                                entity_focus,
-                                confidence_threshold,
-                            )
-
-                        context.log.info(
-                            f"Enqueued OpenAI Batch {batch.id} ({label}) with {request_total} requests; input_file_id={in_file.id}"
-                        )
-
-                    # 3) upload JSONL + create Batch per mode
-                    _enqueue_batch(jsonl_full_buf, lines_meta_full, "full")
-                    _enqueue_batch(jsonl_excerpt_buf, lines_meta_excerpt, "excerpt")
-
-                    for meta in lines_meta_full + lines_meta_excerpt:
+                    for meta in model_metas:
                         page_uuid = str(meta["page_uuid"])
                         if page_uuid not in candidate_agreement_by_page_uuid:
                             raise ValueError(
                                 f"Missing agreement mapping for page_uuid={page_uuid} while marking XML AI-repair attempts."
                             )
                         enqueued_agreement_uuids.add(candidate_agreement_by_page_uuid[page_uuid])
-                    marked_rows = _mark_xml_ai_repair_attempted(
-                        conn, db.database, enqueued_agreement_uuids
-                    )
-                    context.log.info(
-                        "ai_repair_enqueue_asset: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
-                        marked_rows,
-                        len(enqueued_agreement_uuids),
-                    )
+                marked_rows = _mark_xml_ai_repair_attempted(
+                    conn, db.database, enqueued_agreement_uuids
+                )
+                context.log.info(
+                    "ai_repair_enqueue_asset: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                    marked_rows,
+                    len(enqueued_agreement_uuids),
+                )
 
     if should_exit_after_tx:
         run_post_asset_refresh(context, db, pipeline_config)
@@ -925,13 +888,16 @@ def ai_repair_poll_asset(
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
     """
-    Poll terminal batches, read output/error JSONL, persist parsed entities strictly.
+    Poll terminal batches, read output/error JSONL, and persist parsed entities strictly.
 
     Status handling:
-      - Parsed OK → persisted via _persist_results (assumed to set success status)
+      - Parsed OK → status = 'completed'
       - HTTP success but parse failed → status = 'parse_error'
       - Error-file entries → status = 'failed'
       - No output/no error → status = 'completed_no_output'
+
+    Returns:
+      - request_ids for full-page outputs successfully parsed in this poll run.
     """
     engine = db.get_engine()
     schema = db.database
@@ -948,6 +914,9 @@ def ai_repair_poll_asset(
         context.log.info("ai_repair_poll_asset: no upstream agreements from enqueue.")
         run_post_asset_refresh(context, db, pipeline_config)
         return []
+
+    successful_request_ids: Set[str] = set()
+    terminal_failed_batches: List[Tuple[str, str, int, int]] = []
 
     base_sleep_seconds = 5
     backoff_level = 0
@@ -1042,6 +1011,17 @@ def ai_repair_poll_asset(
                     for row in conn.execute(select_req, {"bid": bid}).mappings().fetchall()
                 }
                 req_ids_all = set(req_info.keys())
+
+                if b.status in _AI_REPAIR_FAILED_BATCH_STATUSES:
+                    _bulk_update_status(conn, db.database, req_ids_all, "failed")
+                    terminal_failed_batches.append((str(bid), str(b.status), total, failed))
+                    context.log.error(
+                        "Batch %s ended with status=%s; marked %s requests as failed.",
+                        bid,
+                        b.status,
+                        len(req_ids_all),
+                    )
+                    continue
 
                 success_ids: Set[str] = set()
                 http_success_ids: Set[str] = set()
@@ -1153,10 +1133,12 @@ def ai_repair_poll_asset(
                                 {"rid": rid2, "pid": pid, "s": s_adj, "e": e_adj, "lab": r["label"], "bid": bid},
                             )
 
-                parsed_ids = set(rid for rid, _, _ in parsed_full_pages) | set(rid for rid, _, _ in parsed_rulings)
+                parsed_full_ids = set(rid for rid, _, _ in parsed_full_pages)
+                parsed_ids = parsed_full_ids | set(rid for rid, _, _ in parsed_rulings)
 
                 # Mark requests completed that produced outputs (either kind)
                 _mark_completed(conn, db.database, parsed_ids)
+                successful_request_ids.update(parsed_full_ids)
 
                 # Completed with HTTP success but no parsed record (and not failed/parse_error)
                 no_output_ids = (
@@ -1227,5 +1209,35 @@ def ai_repair_poll_asset(
 
         time.sleep(min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds))
 
+    with engine.begin() as conn:
+        unresolved_requests = int(
+            conn.execute(
+                text(
+                    f"""
+                    SELECT COUNT(*)
+                    FROM {ai_repair_requests_table} r
+                    JOIN {pages_table} p
+                        ON p.page_uuid = r.page_uuid
+                    WHERE p.agreement_uuid IN :auuids
+                      AND r.status IN ('queued', 'running')
+                    """
+                ).bindparams(bindparam("auuids", expanding=True)),
+                {"auuids": target_agreement_uuids},
+            ).scalar_one()
+        )
+    if unresolved_requests > 0:
+        raise RuntimeError(
+            f"ai_repair_poll_asset: {unresolved_requests} queued/running requests remain unresolved for this run."
+        )
+    if terminal_failed_batches:
+        batch_summaries = ", ".join(
+            f"{batch_id}[{status} total={total} failed={failed}]"
+            for batch_id, status, total, failed in terminal_failed_batches
+        )
+        raise RuntimeError(
+            "ai_repair_poll_asset: terminal failed/cancelled/expired batches detected; "
+            + f"stopping run. batches={batch_summaries}"
+        )
+
     run_post_asset_refresh(context, db, pipeline_config)
-    return target_agreement_uuids
+    return sorted(successful_request_ids)
