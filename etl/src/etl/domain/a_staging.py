@@ -20,6 +20,9 @@ from datasketch import MinHash, MinHashLSH
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+from requests.api import get as requests_get
+from requests.models import Response
+from requests.sessions import Session
 
 from etl.domain.b_pre_processing import format_content, split_to_pages
 from etl.defs.resources import PipelineConfig, ProcessingScope
@@ -479,7 +482,7 @@ def _fetch_exhibit_content(
     
     for attempt in range(_FETCH_MAX_RETRIES):
         try:
-            response = requests.get(exhibit_url, headers=headers, timeout=timeout)
+            response = requests_get(exhibit_url, headers=headers, timeout=timeout)
             response.raise_for_status()
             content = response.text
 
@@ -556,7 +559,7 @@ def parse_index_file(
     index_url: str,
     user_agent: str,
     context: _Context,
-    rate_limited_get: Callable[..., requests.Response],
+    rate_limited_get: Callable[..., Response],
 ) -> list[IndexFiling]:
     """Download and parse a daily index file for specific form types."""
     target_forms = {
@@ -618,7 +621,7 @@ def check_filing_for_keywords(
     file_relative_path: str,
     user_agent: str,
     context: _Context,
-    rate_limited_get: Callable[..., requests.Response],
+    rate_limited_get: Callable[..., Response],
 ) -> bool:
     """Scan a filing stream for material definitive agreement keywords."""
     base_url = "https://www.sec.gov/Archives/"
@@ -634,7 +637,7 @@ def check_filing_for_keywords(
         re.IGNORECASE,
     )
 
-    response: requests.Response | None = None
+    response: Response | None = None
     try:
         response = rate_limited_get(
             full_url, headers=headers, stream=True, timeout=10.0
@@ -656,7 +659,7 @@ def get_exhibit_links_from_index_page(
     file_path: str,
     user_agent: str,
     context: _Context,
-    rate_limited_get: Callable[..., requests.Response],
+    rate_limited_get: Callable[..., Response],
 ) -> list[tuple[str, str]]:
     """Visit the filing's index page and scrape Exhibit 10.* and 2.* links.
     
@@ -690,7 +693,7 @@ def get_exhibit_links_from_index_page(
         context.log.info(f"Error parsing index page {index_page_url}: {exc}")
         return final_links
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = BeautifulSoup(response.text, "html.parser")
     tables = soup.find_all("table", class_="tableFile")
     document_table: Tag | None = None
     for table in tables:
@@ -750,7 +753,7 @@ def fetch_material_exhibit_links(
     request_times: deque[float] = deque()
     rate_lock = threading.Lock()
     thread_local = threading.local()
-    sessions: list[requests.Session] = []
+    sessions: list[Session] = []
     sessions_lock = threading.Lock()
 
     def acquire_rate_slot() -> None:
@@ -767,17 +770,17 @@ def fetch_material_exhibit_links(
                 wait_seconds = rate_limit_window_seconds - (now - request_times[0])
             time.sleep(wait_seconds)
 
-    def get_session() -> requests.Session:
+    def get_session() -> Session:
         session = getattr(thread_local, "session", None)
         if session is None:
-            session = requests.Session()
+            session = Session()
             thread_local.session = session
             with sessions_lock:
                 sessions.append(session)
         return session
 
-    def make_rate_limited_get(session: requests.Session) -> Callable[..., requests.Response]:
-        def rate_limited_get(url: str, **kwargs: Any) -> requests.Response:
+    def make_rate_limited_get(session: Session) -> Callable[..., Response]:
+        def rate_limited_get(url: str, **kwargs: Any) -> Response:
             acquire_rate_slot()
             last_exception: Exception | None = None
             for attempt in range(_FETCH_MAX_RETRIES):

@@ -7,14 +7,15 @@ import time
 from collections import deque
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import NotRequired, Protocol, TypedDict, cast
+from typing import Protocol, TypedDict, cast
 from urllib.parse import urlparse
 
 # Third-party libraries
 import pandas as pd
-import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment, NavigableString, Tag
+from requests.api import get as requests_get
+from typing_extensions import NotRequired
 
 # Rate limiting configuration
 _request_times: deque[float] = deque()
@@ -142,7 +143,7 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
         "Host": "www.sec.gov",
         "Connection": "keep-alive",
     }
-    resp = requests.get(url, headers=headers, timeout=timeout)
+    resp = requests_get(url, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.text
 
@@ -574,7 +575,12 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
     if is_txt:
         fragments = re.split(r"<PAGE>", content)
         # Filter out entirely empty fragments but preserve original order indices
-        return [{"content": page, "order": i} for i, page in enumerate(fragments) if page.strip()]
+        txt_pages: list[PageFragment] = [
+            {"content": page, "order": i}
+            for i, page in enumerate(fragments)
+            if page.strip()
+        ]
+        return txt_pages
     elif is_html:
         soup = BeautifulSoup(content, "html.parser")
 
@@ -651,7 +657,12 @@ def split_to_pages(content: str, is_txt: bool, is_html: bool) -> list[PageFragme
         )
 
         # Filter out entirely empty fragments (from consecutive page breaks or page breaks at start/end)
-        return [{"content": frag} for frag in fragments if frag.strip()]
+        html_pages: list[PageFragment] = [
+            {"content": frag}
+            for frag in fragments
+            if frag.strip()
+        ]
+        return html_pages
     else:
         raise RuntimeError("Unknown page source type.")
 

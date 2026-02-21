@@ -1,7 +1,8 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, NotRequired, Protocol, TypedDict
+from typing import Dict, Protocol, TypedDict
+from typing_extensions import NotRequired
 
 
 _TAG_RE = re.compile(r"<[^>]+>")

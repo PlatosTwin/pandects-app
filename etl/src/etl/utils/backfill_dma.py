@@ -11,10 +11,10 @@ from urllib.parse import unquote
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import cast
+from typing import Protocol, cast
 
-import requests
 from bs4 import BeautifulSoup, Tag
+from requests.sessions import Session
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
@@ -35,6 +35,16 @@ _COMMIT_EVERY = 100
 _RATE_LIMIT_MAX_REQUESTS = 10
 _RATE_LIMIT_WINDOW_SECONDS = 1.0
 _ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.env"))
+
+
+class _ResponseLike(Protocol):
+    text: str
+
+    def raise_for_status(self) -> None: ...
+
+
+class _SessionLike(Protocol):
+    def get(self, url: str, **kwargs: object) -> _ResponseLike: ...
 
 
 @dataclass(frozen=True)
@@ -104,17 +114,18 @@ def parse_sec_url(url: str) -> SecUrlParts | None:
 
 
 def fetch_index_page(
-    session: requests.Session,
+    session: Session,
     url_parts: SecUrlParts,
     rate_limiter: RateLimiter,
 ) -> str | None:
     headers = {"User-Agent": SEC_USER_AGENT}
+    typed_session = cast(_SessionLike, cast(object, session))
     try:
         rate_limiter.acquire()
-        response = session.get(
+        response = typed_session.get(
             url_parts.index_url, headers=headers, timeout=_REQUEST_TIMEOUT_SECONDS
         )
-        response.raise_for_status()
+        _ = response.raise_for_status()
     except Exception as exc:
         logging.warning("Failed to fetch %s: %s", url_parts.index_url, exc)
         return None
@@ -374,7 +385,7 @@ def backfill_dma() -> None:
         logging.info("No rows found for backfill.")
         return
 
-    session = requests.Session()
+    session = Session()
     updated = 0
     with engine.connect() as conn:
         transaction = conn.begin()
