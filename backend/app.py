@@ -1,6 +1,8 @@
 import os
 import sys
-from typing import cast
+import importlib
+from typing import Callable, ClassVar, Protocol, TypedDict, cast
+from collections.abc import Iterable
 from pathlib import Path
 import time
 from functools import lru_cache
@@ -9,7 +11,7 @@ import hmac
 import hashlib
 import base64
 from threading import Lock
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import uuid
 import re
 import click
@@ -46,11 +48,13 @@ from sqlalchemy import (
     desc,
     asc,
 )
+from sqlalchemy.orm import Mapped
 from dotenv import load_dotenv
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import secrets
+from werkzeug.wrappers.response import Response as WerkzeugResponse
 
 from backend.extensions import db, api
 from backend.models import (
@@ -77,27 +81,172 @@ from backend.schemas.auth import (
     AuthTokenSchema,
 )
 from backend.services.async_tasks import AsyncTaskRunner
-from backend.services.usage import UsageBuffer, record_api_key_usage
+from backend.services.usage import UsageBuffer
+
+# Exported for `backend.routes.auth` via app_module indirection.
+_AUTH_SCHEMA_EXPORTS = (
+    AuthApiKeySchema,
+    AuthDeleteAccountSchema,
+    AuthEmailSchema,
+    AuthFlagInaccurateSchema,
+    AuthGoogleCredentialSchema,
+    AuthLoginSchema,
+    AuthPasswordResetSchema,
+    AuthRegisterSchema,
+    AuthTokenSchema,
+)
+
+
+class _FilterOptionsPayload(TypedDict):
+    targets: list[str]
+    acquirers: list[str]
+    target_industries: list[str]
+    acquirer_industries: list[str]
+
+
+class _FilterOptionsCache(TypedDict):
+    ts: float
+    payload: _FilterOptionsPayload | None
+
+
+class _ObjectPayloadCache(TypedDict):
+    ts: float
+    payload: dict[str, object] | None
+
+
+class _AgreementsSummaryPayload(TypedDict):
+    agreements: int
+    sections: int
+    pages: int
+
+
+class _AgreementsSummaryCache(TypedDict):
+    ts: float
+    payload: _AgreementsSummaryPayload | None
+
+
+class _DumpsCache(TypedDict):
+    ts: float
+    payload: list[dict[str, object]] | None
+
+
+class _DumpsManifestCacheEntry(TypedDict):
+    etag: str
+    payload: dict[str, object]
+    ts: float
+
+
+class _DumpFiles(TypedDict, total=False):
+    manifest: str
+    manifest_etag: str
+    sha256: str
+    sql: str
+
+
+class _S3ListObject(TypedDict, total=False):
+    Key: str
+    ETag: str
+
+
+class _S3ListPage(TypedDict, total=False):
+    Contents: list[_S3ListObject]
+
+
+class _S3Paginator(Protocol):
+    def paginate(self, *, Bucket: str, Prefix: str) -> Iterable[_S3ListPage]:
+        ...
+
+
+class _S3BodyReader(Protocol):
+    def read(self) -> bytes:
+        ...
+
+
+class _S3GetObjectResult(TypedDict):
+    Body: _S3BodyReader
+
+
+class _S3Client(Protocol):
+    def get_paginator(self, operation_name: str) -> _S3Paginator:
+        ...
+
+    def get_object(self, *, Bucket: str, Key: str) -> _S3GetObjectResult:
+        ...
+
+
+class _HttpResponseReader(Protocol):
+    def __enter__(self) -> "_HttpResponseReader":
+        ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> bool | None:
+        ...
+
+    def read(self, amt: int | None = None) -> bytes:
+        ...
+
+
+class _Boto3SessionLike(Protocol):
+    def client(
+        self,
+        service_name: str,
+        *,
+        aws_access_key_id: str,
+        aws_secret_access_key: str,
+        endpoint_url: str,
+    ) -> object:
+        ...
+
+
+class _JwkSigningKeyLike(Protocol):
+    key: str | bytes
+
+
+class _JwkClientLike(Protocol):
+    def get_signing_key_from_jwt(self, token: str) -> _JwkSigningKeyLike:
+        ...
+
+
+class _FlaskExtension(Protocol):
+    def init_app(self, app: Flask, **kwargs: object) -> None:
+        ...
+
+
+class _ApiExtension(_FlaskExtension, Protocol):
+    def register_blueprint(
+        self, blp: Blueprint, *, parameters: object | None = None, **options: object
+    ) -> None:
+        ...
+
+
+class _RegisterAuthRoutesFn(Protocol):
+    def __call__(self, app: Flask, *, app_module: object) -> Blueprint:
+        ...
+
 
 # Load env vars from `backend/.env` regardless of the process working directory.
-load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+_ = load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 # Also allow a repo/root `.env` (or process env) to supply values without overriding.
-load_dotenv()
+_ = load_dotenv()
 
 # ── Simple in-process caching ─────────────────────────────────────────────
 _FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
-_filter_options_cache = {"ts": 0.0, "payload": None}
+_filter_options_cache: _FilterOptionsCache = {"ts": 0.0, "payload": None}
 _filter_options_lock = Lock()
 _TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
-_taxonomy_cache = {"ts": 0.0, "payload": None}
+_taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _taxonomy_lock = Lock()
 _NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
-_naics_cache = {"ts": 0.0, "payload": None}
+_naics_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _naics_lock = Lock()
 _AGREEMENTS_SUMMARY_TTL_SECONDS = int(
     os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60")
 )
-_agreements_summary_cache = {"ts": 0.0, "payload": None}
+_agreements_summary_cache: _AgreementsSummaryCache = {"ts": 0.0, "payload": None}
 _agreements_summary_lock = Lock()
 
 # ── Simple in-process rate limiting ──────────────────────────────────────
@@ -107,12 +256,12 @@ _endpoint_rate_limit_state: dict[str, dict[str, float | int]] = {}
 
 # ── Simple in-process caching for dumps ───────────────────────────────────
 _DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
-_dumps_cache = {"ts": 0.0, "payload": None}
+_dumps_cache: _DumpsCache = {"ts": 0.0, "payload": None}
 _dumps_cache_lock = Lock()
 _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
     os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
 )
-_dumps_manifest_cache: dict[str, dict[str, object]] = {}
+_dumps_manifest_cache: dict[str, _DumpsManifestCacheEntry] = {}
 _dumps_manifest_cache_lock = Lock()
 
 # ── API usage logging ─────────────────────────────────────────────────────
@@ -133,7 +282,7 @@ def _usage_buffer() -> UsageBuffer | None:
         return None
     buffer = current_app.extensions.get("usage_buffer")
     if buffer is None:
-        app_obj = cast(Flask, current_app._get_current_object())  # pyright: ignore[reportAttributeAccessIssue]
+        app_obj = _current_app_object()
         buffer = UsageBuffer(
             app=app_obj,
             db=db,
@@ -154,7 +303,7 @@ def _async_task_runner() -> AsyncTaskRunner | None:
         return None
     runner = current_app.extensions.get("async_task_runner")
     if runner is None:
-        app_obj = cast(Flask, current_app._get_current_object())  # pyright: ignore[reportAttributeAccessIssue]
+        app_obj = _current_app_object()
         runner = AsyncTaskRunner(
             app=app_obj,
             max_queue_size=_ASYNC_SIDE_EFFECTS_MAX_QUEUE,
@@ -189,9 +338,61 @@ def _cors_origins() -> list[str]:
     if "*" in origins:
         raise RuntimeError(
             "CORS_ORIGINS cannot include '*' when supports_credentials=True. "
-            "Specify explicit origins instead."
+            + "Specify explicit origins instead."
         )
     return origins or list(_DEFAULT_CORS_ORIGINS)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _urlopen_read_bytes(req: Request, *, timeout: float = 15) -> bytes:
+    with cast(_HttpResponseReader, urlopen(req, timeout=timeout)) as resp:
+        return resp.read()
+
+
+def _current_app_object() -> Flask:
+    app_obj = cast(object, current_app)
+    getter = getattr(app_obj, "_get_current_object", None)
+    if callable(getter):
+        return cast(Flask, getter())
+    return cast(Flask, app_obj)
+
+
+def _app_config_map(app: Flask) -> dict[str, object]:
+    return cast(dict[str, object], app.config)
+
+
+def _to_int(value: object, *, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _row_mapping_as_dict(row: object) -> dict[str, object]:
+    if isinstance(row, dict):
+        return cast(dict[str, object], row)
+    mapping_obj = cast(object, getattr(row, "_mapping", None))
+    if mapping_obj is None:
+        return {}
+    items = getattr(mapping_obj, "items", None)
+    if not callable(items):
+        return {}
+    result: dict[str, object] = {}
+    for key, value in cast(Iterable[tuple[object, object]], items()):
+        if isinstance(key, str):
+            result[key] = value
+    return result
 
 
 # ── Auth mode ─────────────────────────────────────────────────────────────
@@ -207,6 +408,7 @@ _CSRF_COOKIE_NAME = "pdcts_csrf"
 _GOOGLE_OAUTH_COOKIE_NAME = "pdcts_google_oauth"
 _GOOGLE_OAUTH_NONCE_COOKIE_NAME = "pdcts_google_nonce"
 _GOOGLE_OAUTH_COOKIE_MAX_AGE = 60 * 10
+_google_jwk_client: object | None = None
 
 
 def _auth_session_transport() -> str:
@@ -239,7 +441,7 @@ def _cookie_settings() -> tuple[str, bool]:
     return samesite, secure
 
 
-def _set_auth_cookies(resp: Response, *, session_token: str) -> None:
+def _set_auth_cookies(resp: WerkzeugResponse, *, session_token: str) -> None:
     max_age = 60 * 60 * 24 * 14
     csrf_token = secrets.token_urlsafe(32)
     samesite, secure = _cookie_settings()
@@ -263,7 +465,7 @@ def _set_auth_cookies(resp: Response, *, session_token: str) -> None:
     )
 
 
-def _set_csrf_cookie(resp: Response, value: str, *, max_age: int) -> None:
+def _set_csrf_cookie(resp: WerkzeugResponse, value: str, *, max_age: int) -> None:
     samesite, secure = _cookie_settings()
     resp.set_cookie(
         _CSRF_COOKIE_NAME,
@@ -283,7 +485,7 @@ def _csrf_cookie_value() -> str | None:
     return None
 
 
-def _clear_auth_cookies(resp: Response) -> None:
+def _clear_auth_cookies(resp: WerkzeugResponse) -> None:
     samesite, secure = _cookie_settings()
     resp.delete_cookie(
         _SESSION_COOKIE_NAME,
@@ -352,16 +554,18 @@ AUTH_DATABASE_URI = _effective_auth_database_uri()
 
 
 def _configure_auth_bind(target_app: Flask) -> None:
+    config = _app_config_map(target_app)
     if AUTH_DATABASE_URI is not None:
-        target_app.config["SQLALCHEMY_BINDS"] = {"auth": AUTH_DATABASE_URI}
+        config["SQLALCHEMY_BINDS"] = {"auth": AUTH_DATABASE_URI}
     else:
-        target_app.config["SQLALCHEMY_BINDS"] = {
+        config["SQLALCHEMY_BINDS"] = {
             "auth": f"sqlite:///{Path(__file__).with_name('auth_dev.sqlite')}"
         }
 
 # ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
 def _configure_openapi(target_app: Flask) -> None:
-    target_app.config.update(
+    config = _app_config_map(target_app)
+    config.update(
         {
             "API_TITLE": "Pandects API",
             "API_VERSION": "v1",
@@ -384,7 +588,7 @@ def _configure_openapi(target_app: Flask) -> None:
             "MAX_CONTENT_LENGTH": None,
         }
     )
-    target_app.config["MAX_CONTENT_LENGTH"] = _max_content_length()
+    config["MAX_CONTENT_LENGTH"] = _max_content_length()
 
 
 def _max_content_length() -> int:
@@ -425,7 +629,8 @@ def _schema_translate_map(schema: str | None) -> dict[str, str | None]:
 
 def _schema_prefix() -> str:
     if has_app_context():
-        raw = current_app.config.get("MAIN_DB_SCHEMA", "")
+        config = _app_config_map(_current_app_object())
+        raw = config.get("MAIN_DB_SCHEMA", "")
         value = raw.strip() if isinstance(raw, str) else ""
     else:
         value = _main_db_schema_from_env()
@@ -433,27 +638,38 @@ def _schema_prefix() -> str:
 
 
 def _configure_main_db(target_app: Flask) -> None:
-    if "SQLALCHEMY_DATABASE_URI" not in target_app.config:
-        target_app.config["SQLALCHEMY_DATABASE_URI"] = _main_db_uri_from_env()
-    target_app.config.setdefault("MAIN_DB_SCHEMA", _main_db_schema_from_env())
-    target_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    engine_options = dict(target_app.config.get("SQLALCHEMY_ENGINE_OPTIONS", {}) or {})
-    execution_options = dict(engine_options.get("execution_options", {}) or {})
-    execution_options.setdefault(
+    config = _app_config_map(target_app)
+    if "SQLALCHEMY_DATABASE_URI" not in config:
+        config["SQLALCHEMY_DATABASE_URI"] = _main_db_uri_from_env()
+    _ = config.setdefault("MAIN_DB_SCHEMA", _main_db_schema_from_env())
+    config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    configured_engine_options = config.get("SQLALCHEMY_ENGINE_OPTIONS", {})
+    engine_options = (
+        dict(cast(dict[str, object], configured_engine_options))
+        if isinstance(configured_engine_options, dict)
+        else {}
+    )
+    raw_execution_options = engine_options.get("execution_options", {})
+    execution_options = (
+        dict(cast(dict[str, object], raw_execution_options))
+        if isinstance(raw_execution_options, dict)
+        else {}
+    )
+    _ = execution_options.setdefault(
         "schema_translate_map",
-        _schema_translate_map(target_app.config.get("MAIN_DB_SCHEMA")),
+        _schema_translate_map(cast(str | None, config.get("MAIN_DB_SCHEMA"))),
     )
     engine_options["execution_options"] = execution_options
-    target_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+    config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
 
 def _configure_extensions(target_app: Flask) -> None:
-    api.init_app(target_app)
-    db.init_app(target_app)
+    cast(_FlaskExtension, cast(object, api)).init_app(target_app)
+    cast(_FlaskExtension, cast(object, db)).init_app(target_app)
 
 
 def _configure_cors(target_app: Flask) -> None:
-    CORS(
+    _ = CORS(
         target_app,
         resources={
             r"/v1/*": {
@@ -472,7 +688,8 @@ def _configure_app(
     _configure_auth_bind(target_app)
     _configure_openapi(target_app)
     if config_overrides:
-        target_app.config.update(config_overrides)
+        config = _app_config_map(target_app)
+        config.update(config_overrides)
     _configure_main_db(target_app)
     _configure_extensions(target_app)
     _configure_cors(target_app)
@@ -537,15 +754,16 @@ R2_BUCKET_NAME = "pandects-bulk"
 R2_ENDPOINT = "https://7b5e7846d94ee35b35e21999fc4fad5b.r2.cloudflarestorage.com"
 PUBLIC_DEV_BASE = "https://bulk.pandects.org"
 
-client = None
+client: _S3Client | None = None
 if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY"):
-    session = Session()
-    client = session.client(
+    session = cast(_Boto3SessionLike, Session())
+    raw_client = session.client(
         service_name="s3",
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
         endpoint_url=R2_ENDPOINT,
     )
+    client = cast(_S3Client, raw_client)
 
 # ── Database configuration ───────────────────────────────────────────────
 
@@ -582,7 +800,8 @@ def _require_auth_db() -> None:
         if _auth_is_mocked():
             return
         try:
-            AuthUser.query.limit(1).all()
+            if AuthUser.query.limit(1).first() is not None:
+                pass
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
         else:
@@ -652,7 +871,7 @@ class _MockAuthStore:
             email=email,
             password_hash=generate_password_hash(password),
             email_verified_at=None,
-            created_at=datetime.utcnow(),
+            created_at=_utc_now(),
         )
         with self._lock:
             if email in self._users_by_email:
@@ -689,7 +908,7 @@ class _MockAuthStore:
                 id=user.id,
                 email=user.email,
                 password_hash=user.password_hash,
-                email_verified_at=datetime.utcnow(),
+                email_verified_at=_utc_now(),
                 created_at=user.created_at,
             )
             return True
@@ -706,17 +925,17 @@ class _MockAuthStore:
 
     def revoke_session_token(self, token: str) -> None:
         with self._lock:
-            self._tokens.pop(token, None)
+            _ = self._tokens.pop(token, None)
 
     def issue_password_reset_token(self, *, user_id: str, email: str) -> str:
         token = secrets.token_urlsafe(48)
-        expires_at = datetime.utcnow() + timedelta(seconds=_password_reset_max_age_seconds())
+        expires_at = _utc_now() + timedelta(seconds=_password_reset_max_age_seconds())
         with self._lock:
             self._reset_tokens[token] = (user_id, email, expires_at, False)
         return token
 
     def consume_password_reset_token(self, token: str) -> tuple[str, str] | None:
-        now = datetime.utcnow()
+        now = _utc_now()
         with self._lock:
             entry = self._reset_tokens.get(token)
             if entry is None:
@@ -736,7 +955,7 @@ class _MockAuthStore:
                 id=user.id,
                 email=user.email,
                 password_hash=generate_password_hash(password),
-                email_verified_at=user.email_verified_at or datetime.utcnow(),
+                email_verified_at=user.email_verified_at or _utc_now(),
                 created_at=user.created_at,
             )
         return True
@@ -752,7 +971,7 @@ class _MockAuthStore:
             name=name.strip() if isinstance(name, str) and name.strip() else None,
             prefix=prefix,
             key_hash=generate_password_hash(token),
-            created_at=datetime.utcnow(),
+            created_at=_utc_now(),
         )
         with self._lock:
             self._api_keys_by_id[key.id] = key
@@ -770,7 +989,7 @@ class _MockAuthStore:
             if key is None or key.user_id != user_id:
                 return False
             if key.revoked_at is None:
-                key.revoked_at = datetime.utcnow()
+                key.revoked_at = _utc_now()
             return True
 
     def lookup_api_key(self, raw_key: str) -> _MockApiKey | None:
@@ -788,10 +1007,10 @@ class _MockAuthStore:
                 continue
             checks += 1
             if check_password_hash(candidate.key_hash, raw_key):
-                candidate.last_used_at = datetime.utcnow()
+                candidate.last_used_at = _utc_now()
                 return candidate
         for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
-            check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
+            _ = check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
         return None
 
     def record_usage(self, *, api_key_id: str) -> None:
@@ -873,9 +1092,14 @@ def _issue_email_verification_token(*, user_id: str, email: str) -> str:
 def _load_email_verification_token(token: str) -> tuple[str, str] | None:
     serializer = _email_verification_serializer()
     try:
-        payload = serializer.loads(token, max_age=_email_verification_max_age_seconds())
+        raw_payload_obj = cast(
+            object, serializer.loads(token, max_age=_email_verification_max_age_seconds())
+        )
     except (BadSignature, SignatureExpired):
         return None
+    if not isinstance(raw_payload_obj, dict):
+        return None
+    payload = cast(dict[str, object], raw_payload_obj)
     user_id = payload.get("user_id")
     email = payload.get("email")
     if not isinstance(user_id, str) or not isinstance(email, str):
@@ -888,7 +1112,7 @@ def _issue_password_reset_token(*, user_id: str, email: str) -> str:
         return _mock_auth.issue_password_reset_token(user_id=user_id, email=email)
     serializer = _password_reset_serializer()
     reset_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = _utc_now()
     expires_at = now + timedelta(seconds=_password_reset_max_age_seconds())
     reset_token = AuthPasswordResetToken()
     reset_token.id = reset_id
@@ -913,22 +1137,31 @@ def _load_password_reset_token(
         return user_id, email, None
     serializer = _password_reset_serializer()
     try:
-        payload = serializer.loads(token, max_age=_password_reset_max_age_seconds())
+        raw_payload_obj = cast(
+            object, serializer.loads(token, max_age=_password_reset_max_age_seconds())
+        )
     except (BadSignature, SignatureExpired):
         return None
+    if not isinstance(raw_payload_obj, dict):
+        return None
+    payload = cast(dict[str, object], raw_payload_obj)
     user_id = payload.get("user_id")
     email = payload.get("email")
     reset_id = payload.get("reset_id")
     if not isinstance(user_id, str) or not isinstance(email, str) or not isinstance(reset_id, str):
         return None
     try:
-        row = (
+        row = cast(
+            AuthPasswordResetToken | None,
             AuthPasswordResetToken.query.filter_by(id=reset_id, user_id=user_id, used_at=None)
             .first()
         )
     except SQLAlchemyError:
         return None
-    if row is None or row.expires_at <= datetime.utcnow():
+    if row is None:
+        return None
+    expires_at = cast(object, row.expires_at)
+    if not isinstance(expires_at, datetime) or expires_at <= _utc_now():
         return None
     return user_id, email, row
 
@@ -997,8 +1230,7 @@ def _send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
         method="POST",
     )
     try:
-        with urlopen(req, timeout=15) as resp:
-            resp.read()
+        _ = _urlopen_read_bytes(req, timeout=15)
     except HTTPError as e:
         try:
             details = e.read().decode("utf-8", errors="replace")
@@ -1082,7 +1314,7 @@ def _send_resend_template_email(
     api_key = _resend_api_key()
     sender = _resend_from_email()
     if api_key is None or sender is None:
-        missing = []
+        missing: list[str] = []
         if api_key is None:
             missing.append("RESEND_API_KEY")
         if sender is None:
@@ -1120,8 +1352,7 @@ def _send_resend_template_email(
         method="POST",
     )
     try:
-        with urlopen(req, timeout=15) as resp:
-            resp.read()
+        _ = _urlopen_read_bytes(req, timeout=15)
     except HTTPError as e:
         try:
             details = e.read().decode("utf-8", errors="replace")
@@ -1137,7 +1368,7 @@ def _send_resend_template_email(
 def _send_email_verification_email(*, to_email: str, token: str) -> None:
     verify_url = f"{_frontend_base_url()}/auth/verify-email#token={quote(token)}"
     subject = "Verify your email for Pandects"
-    year = str(datetime.utcnow().year)
+    year = str(_utc_now().year)
     template_id = _resend_template_id()
     if template_id is None:
         abort(503, description="Email is not configured (missing RESEND_TEMPLATE_ID).")
@@ -1152,7 +1383,7 @@ def _send_email_verification_email(*, to_email: str, token: str) -> None:
 def _send_password_reset_email(*, to_email: str, token: str) -> None:
     reset_url = f"{_frontend_base_url()}/auth/reset-password#token={quote(token)}"
     subject = "Reset your Pandects password"
-    year = str(datetime.utcnow().year)
+    year = str(_utc_now().year)
     _send_resend_template_email(
         to_email=to_email,
         subject=subject,
@@ -1173,7 +1404,7 @@ def _issue_session_token(user_id: str) -> str:
     if _auth_is_mocked():
         return _mock_auth.issue_session_token(user_id=user_id)
     token = secrets.token_urlsafe(48)
-    now = datetime.utcnow()
+    now = _utc_now()
     expires_at = now + timedelta(days=14)
     ip_address = _request_ip_address()
     user_agent = _request_user_agent()
@@ -1195,18 +1426,21 @@ def _load_session_token(token: str) -> str | None:
     if not token:
         return None
     try:
-        session = (
-            AuthSession.query.filter_by(token_hash=_session_token_hash(token))
-            .filter(AuthSession.revoked_at.is_(None))
-            .first()
+        session = cast(
+            AuthSession | None,
+            AuthSession.query.filter_by(
+                token_hash=_session_token_hash(token), revoked_at=None
+            ).first()
         )
     except SQLAlchemyError:
         return None
     if session is None:
         return None
-    if session.expires_at <= datetime.utcnow():
+    expires_at = cast(object, session.expires_at)
+    if not isinstance(expires_at, datetime) or expires_at <= _utc_now():
         return None
-    return session.user_id
+    user_id = cast(object, session.user_id)
+    return user_id if isinstance(user_id, str) else None
 
 
 def _revoke_session_token(token: str) -> None:
@@ -1215,9 +1449,9 @@ def _revoke_session_token(token: str) -> None:
         return
     if not token:
         return
-    now = datetime.utcnow()
+    now = _utc_now()
     try:
-        AuthSession.query.filter_by(token_hash=_session_token_hash(token)).update(
+        _ = AuthSession.query.filter_by(token_hash=_session_token_hash(token)).update(
             {"revoked_at": now}, synchronize_session=False
         )
         db.session.commit()
@@ -1305,7 +1539,7 @@ def _google_oauth_pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
-def _set_google_oauth_cookie(resp: Response, payload: dict[str, str]) -> None:
+def _set_google_oauth_cookie(resp: WerkzeugResponse, payload: dict[str, str]) -> None:
     value = _google_oauth_cookie_serializer().dumps(payload)
     samesite, secure = _cookie_settings()
     resp.set_cookie(
@@ -1324,17 +1558,23 @@ def _load_google_oauth_cookie() -> dict[str, str] | None:
     if not isinstance(raw, str) or not raw.strip():
         return None
     try:
-        payload = _google_oauth_cookie_serializer().loads(
-            raw, max_age=_GOOGLE_OAUTH_COOKIE_MAX_AGE
+        raw_payload_obj = cast(
+            object,
+            _google_oauth_cookie_serializer().loads(
+                raw, max_age=_GOOGLE_OAUTH_COOKIE_MAX_AGE
+            ),
         )
     except (BadSignature, SignatureExpired):
         return None
-    if not isinstance(payload, dict):
+    if not isinstance(raw_payload_obj, dict):
         return None
-    return payload
+    payload = cast(dict[str, object], raw_payload_obj)
+    if not all(isinstance(v, str) for v in payload.values()):
+        return None
+    return cast(dict[str, str], payload)
 
 
-def _clear_google_oauth_cookie(resp: Response) -> None:
+def _clear_google_oauth_cookie(resp: WerkzeugResponse) -> None:
     samesite, secure = _cookie_settings()
     resp.delete_cookie(
         _GOOGLE_OAUTH_COOKIE_NAME,
@@ -1344,7 +1584,7 @@ def _clear_google_oauth_cookie(resp: Response) -> None:
     )
 
 
-def _set_google_nonce_cookie(resp: Response, nonce: str) -> None:
+def _set_google_nonce_cookie(resp: WerkzeugResponse, nonce: str) -> None:
     samesite, secure = _cookie_settings()
     resp.set_cookie(
         _GOOGLE_OAUTH_NONCE_COOKIE_NAME,
@@ -1364,7 +1604,7 @@ def _google_nonce_cookie_value() -> str | None:
     return raw.strip()
 
 
-def _clear_google_nonce_cookie(resp: Response) -> None:
+def _clear_google_nonce_cookie(resp: WerkzeugResponse) -> None:
     samesite, secure = _cookie_settings()
     resp.delete_cookie(
         _GOOGLE_OAUTH_NONCE_COOKIE_NAME,
@@ -1401,7 +1641,7 @@ def _turnstile_secret_key() -> str:
     return secret
 
 
-def _require_captcha_token(data: dict) -> str:
+def _require_captcha_token(data: dict[str, object]) -> str:
     token = data.get("captcha_token")
     if not isinstance(token, str) or not token.strip():
         abort(
@@ -1427,15 +1667,23 @@ def _verify_turnstile_token(*, token: str) -> None:
         method="POST",
     )
     try:
-        with urlopen(req, timeout=15) as resp:
-            raw = resp.read().decode("utf-8")
+        raw = _urlopen_read_bytes(req, timeout=15).decode("utf-8")
     except (HTTPError, URLError):
         abort(503, description="Captcha verification is unavailable right now.")
     try:
-        result = json.loads(raw)
+        result_obj = cast(object, json.loads(raw))
     except json.JSONDecodeError:
         abort(503, description="Captcha verification returned invalid data.")
-    if not isinstance(result, dict) or result.get("success") is not True:
+    if not isinstance(result_obj, dict):
+        abort(
+            _json_error(
+                412,
+                error="captcha_failed",
+                message="Captcha verification failed. Please retry.",
+            )
+        )
+    result = cast(dict[str, object], result_obj)
+    if result.get("success") is not True:
         abort(
             _json_error(
                 412,
@@ -1474,14 +1722,16 @@ def _google_fetch_json(url: str, *, data: dict[str, str] | None = None) -> dict[
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     req = Request(url, data=body, headers=headers, method="POST" if data is not None else "GET")
     try:
-        with urlopen(req, timeout=15) as resp:
-            raw = resp.read().decode("utf-8")
+        raw = _urlopen_read_bytes(req, timeout=15).decode("utf-8")
     except HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         try:
-            err_payload = json.loads(raw)
+            err_parsed_obj = cast(object, json.loads(raw))
         except json.JSONDecodeError:
-            err_payload = None
+            err_parsed_obj = None
+        err_payload: dict[str, object] | None = (
+            cast(dict[str, object], err_parsed_obj) if isinstance(err_parsed_obj, dict) else None
+        )
         if isinstance(err_payload, dict):
             err_code = err_payload.get("error")
             err_desc = err_payload.get("error_description")
@@ -1496,10 +1746,10 @@ def _google_fetch_json(url: str, *, data: dict[str, str] | None = None) -> dict[
     except URLError as e:
         abort(502, description="Google auth failed (network error).")
     try:
-        payload = json.loads(raw)
+        parsed_obj = cast(object, json.loads(raw))
     except json.JSONDecodeError:
         abort(502, description="Google auth failed (invalid JSON response).")
-    return payload if isinstance(payload, dict) else {}
+    return cast(dict[str, object], parsed_obj) if isinstance(parsed_obj, dict) else {}
 
 
 def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None) -> str:
@@ -1512,29 +1762,33 @@ def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None)
         abort(503, description="Google auth is unavailable (missing PyJWT dependency).")
 
     global _google_jwk_client
-    try:
-        client = _google_jwk_client
-    except NameError:
-        client = None
-
+    client = _google_jwk_client
     if client is None:
         client = PyJWKClient("https://www.googleapis.com/oauth2/v3/certs")
         _google_jwk_client = client
 
+    client_obj = cast(_JwkClientLike, client)
     try:
-        signing_key = client.get_signing_key_from_jwt(id_token).key
-        payload = jwt.decode(
+        signing_key = client_obj.get_signing_key_from_jwt(id_token).key
+        payload_obj = cast(
+            object,
+            jwt.decode(
             id_token,
             signing_key,
             algorithms=["RS256"],
             audience=_google_oauth_client_id(),
             issuer=["accounts.google.com", "https://accounts.google.com"],
             leeway=60,
+            ),
         )
     except PyJWKClientError:
         abort(503, description="Google auth is temporarily unavailable.")
     except InvalidTokenError:
         abort(401, description="Invalid Google credential.")
+
+    if not isinstance(payload_obj, dict):
+        abort(401, description="Invalid Google credential.")
+    payload = cast(dict[str, object], payload_obj)
 
     email = payload.get("email")
     if not isinstance(email, str) or not email.strip():
@@ -1559,8 +1813,6 @@ def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None)
 
 def _safe_next_path(value: str | None) -> str | None:
     if not value:
-        return None
-    if not isinstance(value, str):
         return None
     value = value.strip()
     if not value.startswith("/"):
@@ -1592,31 +1844,37 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def _require_json() -> dict:
+def _require_json() -> dict[str, object]:
     """Read a JSON object body or abort with a 400 error."""
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         abort(400, description="Expected JSON object body.")
-    return data
+    return cast(dict[str, object], data)
 
 
-def _load_json(schema: Schema) -> dict:
+def _load_json(schema: Schema) -> dict[str, object]:
     """Validate a JSON body against a Marshmallow schema."""
     data = _require_json()
     try:
-        return schema.load(data, unknown=EXCLUDE)
+        loaded = cast(object, schema.load(data, unknown=EXCLUDE))
     except ValidationError as exc:
-        current_app.logger.debug("Validation error: %s", exc.messages)
+        current_app.logger.debug("Validation error: %s", cast(object, exc.messages))
         abort(_json_error(400, error="validation_error", message="Invalid request body."))
+    if not isinstance(loaded, dict):
+        abort(400, description="Expected JSON object body.")
+    return cast(dict[str, object], loaded)
 
 
-def _load_query(schema: Schema) -> dict:
+def _load_query(schema: Schema) -> dict[str, object]:
     """Validate query args against a Marshmallow schema."""
     try:
-        return schema.load(request.args, unknown=EXCLUDE)
+        loaded = cast(object, schema.load(request.args, unknown=EXCLUDE))
     except ValidationError as exc:
-        current_app.logger.debug("Validation error: %s", exc.messages)
+        current_app.logger.debug("Validation error: %s", cast(object, exc.messages))
         abort(_json_error(400, error="validation_error", message="Invalid query parameters."))
+    if not isinstance(loaded, dict):
+        abort(400, description="Expected query object.")
+    return cast(dict[str, object], loaded)
 
 
 def _pagination_metadata(*, total_count: int, page: int, page_size: int) -> dict[str, object]:
@@ -1650,7 +1908,7 @@ def _utc_datetime_from_ms(value: object, *, field: str) -> datetime:
     seconds = value / 1000.0
     if not math.isfinite(seconds):
         abort(400, description=f"{field} must be a finite integer.")
-    return datetime.utcfromtimestamp(seconds)
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).replace(tzinfo=None)
 
 
 def _request_ip_address() -> str | None:
@@ -1680,12 +1938,12 @@ def _request_user_agent() -> str | None:
 
 
 def _utc_today() -> date:
-    return datetime.utcnow().date()
+    return _utc_now().date()
 
 
 
 
-def _require_legal_acceptance(data: dict) -> datetime:
+def _require_legal_acceptance(data: dict[str, object]) -> datetime:
     legal = data.get("legal")
     if not isinstance(legal, dict):
         abort(
@@ -1695,13 +1953,15 @@ def _require_legal_acceptance(data: dict) -> datetime:
                 message="Legal acceptance required to create an account.",
             )
         )
-    checked_at_ms = legal.get("checked_at_ms")
+    legal_dict = cast(dict[str, object], legal)
+    checked_at_ms = legal_dict.get("checked_at_ms")
     checked_at = _utc_datetime_from_ms(checked_at_ms, field="legal.checked_at_ms")
-    docs = legal.get("docs")
+    docs = legal_dict.get("docs")
     if not isinstance(docs, list):
         abort(400, description="legal.docs must be an array.")
-    normalized = []
-    for doc in docs:
+    docs_list = cast(list[object], docs)
+    normalized: list[str] = []
+    for doc in docs_list:
         if not isinstance(doc, str):
             abort(400, description="legal.docs must contain strings.")
         normalized.append(doc.strip().lower())
@@ -1713,7 +1973,8 @@ def _require_legal_acceptance(data: dict) -> datetime:
 def _user_has_current_legal_acceptances(*, user_id: str) -> bool:
     expected_rows = {(doc, meta["version"], meta["sha256"]) for doc, meta in _LEGAL_DOCS.items()}
     try:
-        rows = (
+        rows = cast(
+            list[tuple[object, object, object]],
             LegalAcceptance.query.with_entities(
                 LegalAcceptance.document,
                 LegalAcceptance.version,
@@ -1725,16 +1986,22 @@ def _user_has_current_legal_acceptances(*, user_id: str) -> bool:
         )
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
-    found = {(doc, ver, (h or "").strip()) for (doc, ver, h) in rows}
+    found: set[tuple[str, str, str]] = set()
+    for doc_raw, ver_raw, hash_raw in rows:
+        if not isinstance(doc_raw, str) or not isinstance(ver_raw, str):
+            continue
+        hash_value = hash_raw if isinstance(hash_raw, str) else ""
+        found.add((doc_raw, ver_raw, hash_value.strip()))
     return expected_rows.issubset(found)
 
 
 def _ensure_current_legal_acceptances(*, user_id: str, checked_at: datetime) -> None:
-    now = datetime.utcnow()
+    now = _utc_now()
     ip_address = _request_ip_address()
     user_agent = _request_user_agent()
     try:
-        existing = (
+        existing = cast(
+            list[tuple[object, object, object]],
             LegalAcceptance.query.with_entities(
                 LegalAcceptance.document, LegalAcceptance.version, LegalAcceptance.document_hash
             )
@@ -1742,23 +2009,26 @@ def _ensure_current_legal_acceptances(*, user_id: str, checked_at: datetime) -> 
             .filter(LegalAcceptance.document.in_(list(_LEGAL_DOCS.keys())))
             .all()
         )
-        existing_set = {(doc, ver, (h or "").strip()) for (doc, ver, h) in existing}
+        existing_set: set[tuple[str, str, str]] = set()
+        for doc_raw, ver_raw, hash_raw in existing:
+            if not isinstance(doc_raw, str) or not isinstance(ver_raw, str):
+                continue
+            hash_value = hash_raw if isinstance(hash_raw, str) else ""
+            existing_set.add((doc_raw, ver_raw, hash_value.strip()))
         for doc, meta in _LEGAL_DOCS.items():
             key = (doc, meta["version"], meta["sha256"])
             if key in existing_set:
                 continue
-            db.session.add(
-                LegalAcceptance(
-                    user_id=user_id,
-                    document=doc,
-                    version=meta["version"],
-                    document_hash=meta["sha256"],
-                    checked_at=checked_at,
-                    submitted_at=now,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                )
-            )
+            acceptance = LegalAcceptance()
+            acceptance.user_id = user_id
+            acceptance.document = doc
+            acceptance.version = meta["version"]
+            acceptance.document_hash = meta["sha256"]
+            acceptance.checked_at = checked_at
+            acceptance.submitted_at = now
+            acceptance.ip_address = ip_address
+            acceptance.user_agent = user_agent
+            db.session.add(acceptance)
     except SQLAlchemyError:
         abort(503, description="Auth backend is unavailable right now.")
 
@@ -1768,15 +2038,13 @@ def _record_signon_event(*, user_id: str, provider: str, action: str) -> None:
         return
     ip_address = _request_ip_address()
     user_agent = _request_user_agent()
-    db.session.add(
-        AuthSignonEvent(
-            user_id=user_id,
-            provider=provider,
-            action=action,
-            ip_address=ip_address,
-            user_agent=user_agent,
-        )
-    )
+    event = AuthSignonEvent()
+    event.user_id = user_id
+    event.provider = provider
+    event.action = action
+    event.ip_address = ip_address
+    event.user_agent = user_agent
+    db.session.add(event)
 
 
 def _lookup_api_key(raw_key: str) -> ApiKey | None:
@@ -1786,16 +2054,20 @@ def _lookup_api_key(raw_key: str) -> ApiKey | None:
     if not raw_key.startswith("pdcts_"):
         return None
     prefix = raw_key[: 6 + 12]  # "pdcts_" + 12 chars
-    candidates = ApiKey.query.filter_by(prefix=prefix, revoked_at=None).limit(25).all()
+    candidates = cast(
+        list[ApiKey],
+        ApiKey.query.filter_by(prefix=prefix, revoked_at=None).limit(25).all(),
+    )
     checks = 0
     for candidate in candidates:
         checks += 1
-        if check_password_hash(candidate.key_hash, raw_key):
-            candidate.last_used_at = datetime.utcnow()
+        key_hash = cast(object, candidate.key_hash)
+        if isinstance(key_hash, str) and check_password_hash(key_hash, raw_key):
+            candidate.last_used_at = _utc_now()
             db.session.commit()
             return candidate
     for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
-        check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
+        _ = check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
     return None
 
 
@@ -1819,7 +2091,7 @@ def _current_access_context() -> AccessContext:
                         user = db.session.get(AuthUser, user_id)
                     except SQLAlchemyError:
                         user = None
-                    if user is not None and user.email_verified_at is not None:
+                    if user is not None and cast(object, user.email_verified_at) is not None:
                         return AccessContext(tier="user", user_id=user_id)
 
     api_key_raw = request.headers.get("X-API-Key")
@@ -1828,9 +2100,13 @@ def _current_access_context() -> AccessContext:
         if _auth_is_mocked():
             api_key = _mock_auth.lookup_api_key(api_key_raw)
             if api_key is not None:
-                if _user_id_is_verified(api_key.user_id):
+                api_key_user_id = cast(object, api_key.user_id)
+                api_key_id = cast(object, api_key.id)
+                if isinstance(api_key_user_id, str) and _user_id_is_verified(api_key_user_id):
                     return AccessContext(
-                        tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
+                        tier="api_key",
+                        user_id=api_key_user_id,
+                        api_key_id=api_key_id if isinstance(api_key_id, str) else None,
                     )
         elif _auth_db_is_configured():
             try:
@@ -1838,9 +2114,13 @@ def _current_access_context() -> AccessContext:
             except SQLAlchemyError:
                 api_key = None
             if api_key is not None:
-                if _user_id_is_verified(api_key.user_id):
+                api_key_user_id = cast(object, api_key.user_id)
+                api_key_id = cast(object, api_key.id)
+                if isinstance(api_key_user_id, str) and _user_id_is_verified(api_key_user_id):
                     return AccessContext(
-                        tier="api_key", user_id=api_key.user_id, api_key_id=api_key.id
+                        tier="api_key",
+                        user_id=api_key_user_id,
+                        api_key_id=api_key_id if isinstance(api_key_id, str) else None,
                     )
 
     auth_header = request.headers.get("Authorization", "")
@@ -1857,7 +2137,7 @@ def _current_access_context() -> AccessContext:
                     user = db.session.get(AuthUser, user_id)
                 except SQLAlchemyError:
                     user = None
-                if user is not None and user.email_verified_at is not None:
+                if user is not None and cast(object, user.email_verified_at) is not None:
                     return AccessContext(tier="user", user_id=user_id)
 
     return AccessContext(tier="anonymous")
@@ -1866,12 +2146,11 @@ def _current_access_context() -> AccessContext:
 def _create_api_key(*, user_id: str, name: str | None) -> tuple[ApiKey, str]:
     token = f"pdcts_{uuid.uuid4().hex}{uuid.uuid4().hex}"
     prefix = token[: 6 + 12]
-    key = ApiKey(
-        user_id=user_id,
-        name=name.strip() if isinstance(name, str) and name.strip() else None,
-        prefix=prefix,
-        key_hash=generate_password_hash(token),
-    )
+    key = ApiKey()
+    key.user_id = user_id
+    key.name = name.strip() if isinstance(name, str) and name.strip() else None
+    key.prefix = prefix
+    key.key_hash = generate_password_hash(token)
     db.session.add(key)
     db.session.commit()
     return key, token
@@ -1887,13 +2166,13 @@ def _require_user() -> tuple[AuthUser, AccessContext]:
             abort(401, description="Invalid session.")
         if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
             abort(401, description="Account deleted.")
+        auth_user = AuthUser()
+        auth_user.id = user.id
+        auth_user.email = user.email
+        auth_user.email_verified_at = user.email_verified_at
+        auth_user.created_at = user.created_at
         return (
-            AuthUser(
-                id=user.id,
-                email=user.email,
-                email_verified_at=user.email_verified_at,
-                created_at=user.created_at,
-            ),
+            auth_user,
             ctx,
         )
     try:
@@ -1902,14 +2181,19 @@ def _require_user() -> tuple[AuthUser, AccessContext]:
         abort(503, description="Auth backend is unavailable right now.")
     if user is None:
         abort(401, description="Invalid session.")
-    if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
+    user_email = cast(object, user.email)
+    if (
+        isinstance(user_email, str)
+        and user_email.startswith("deleted+")
+        and user_email.endswith("@deleted.invalid")
+    ):
         abort(401, description="Account deleted.")
     return user, ctx
 
 
 def _require_verified_user() -> tuple[AuthUser, AccessContext]:
     user, ctx = _require_user()
-    if user.email_verified_at is None:
+    if cast(object, user.email_verified_at) is None:
         abort(403, description="Email address not verified.")
     return user, ctx
 
@@ -1924,7 +2208,9 @@ def _user_id_is_verified(user_id: str) -> bool:
         user = db.session.get(AuthUser, user_id)
     except SQLAlchemyError:
         return False
-    return user is not None and user.email_verified_at is not None
+    if user is None:
+        return False
+    return cast(object, user.email_verified_at) is not None
 
 
 def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
@@ -2037,7 +2323,11 @@ def _auth_rate_limit_guard():
     _check_endpoint_rate_limit()
 
 
-def _record_api_key_usage(response):
+def _record_api_key_usage(response: Response) -> Response:
+    usage_module = importlib.import_module("backend.services.usage")
+    record_api_key_usage = cast(
+        Callable[..., Response], getattr(usage_module, "record_api_key_usage")
+    )
     ctx = _current_access_context()
     return record_api_key_usage(
         ctx=ctx,
@@ -2059,9 +2349,9 @@ def _record_api_key_usage(response):
 
 
 def _set_security_headers(response: Response):
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    _ = response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    _ = response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    _ = response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     origin = request.headers.get("Origin")
     if isinstance(origin, str) and origin.strip():
         existing = response.headers.get("Vary")
@@ -2071,12 +2361,12 @@ def _set_security_headers(response: Response):
         else:
             response.headers["Vary"] = "Origin"
     if request.path.startswith("/v1/"):
-        response.headers.setdefault(
+        _ = response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
         )
     if _is_running_on_fly():
-        response.headers.setdefault(
+        _ = response.headers.setdefault(
             "Strict-Transport-Security",
             "max-age=15552000; includeSubDomains",
         )
@@ -2084,10 +2374,10 @@ def _set_security_headers(response: Response):
 
 
 def _register_request_hooks(target_app: Flask) -> None:
-    target_app.before_request(_capture_request_start)
-    target_app.before_request(_auth_rate_limit_guard)
-    target_app.after_request(_record_api_key_usage)
-    target_app.after_request(_set_security_headers)
+    _before_req_start: object = target_app.before_request(_capture_request_start)
+    _before_req_guard: object = target_app.before_request(_auth_rate_limit_guard)
+    _after_req_usage: object = target_app.after_request(_record_api_key_usage)
+    _after_req_headers: object = target_app.after_request(_set_security_headers)
 
 # ── Reflect existing tables via standalone engine ─────────────────────────
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
@@ -2254,34 +2544,91 @@ else:
 # ── SQLAlchemy models mapping ───────────────────────────────────────
 class Sections(db.Model):
     __table__ = sections_table
+    agreement_uuid: ClassVar[Mapped[str]]
+    section_uuid: ClassVar[Mapped[str]]
+    article_title: ClassVar[Mapped[str]]
+    section_title: ClassVar[Mapped[str]]
+    xml_content: ClassVar[Mapped[str]]
+    section_standard_id: ClassVar[Mapped[str]]
+    section_standard_id_gold_label: ClassVar[Mapped[str | None]]
 
 
 class Agreements(db.Model):
     __table__ = agreements_table
+    agreement_uuid: ClassVar[Mapped[str]]
+    filing_date: ClassVar[Mapped[str | None]]
+    prob_filing: ClassVar[Mapped[str | None]]
+    filing_company_name: ClassVar[Mapped[str | None]]
+    filing_company_cik: ClassVar[Mapped[str | None]]
+    form_type: ClassVar[Mapped[str | None]]
+    exhibit_type: ClassVar[Mapped[str | None]]
+    target: ClassVar[Mapped[str | None]]
+    acquirer: ClassVar[Mapped[str | None]]
+    transaction_price_total: ClassVar[Mapped[str | None]]
+    transaction_price_stock: ClassVar[Mapped[str | None]]
+    transaction_price_cash: ClassVar[Mapped[str | None]]
+    transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_consideration: ClassVar[Mapped[str | None]]
+    target_type: ClassVar[Mapped[str | None]]
+    acquirer_type: ClassVar[Mapped[str | None]]
+    target_industry: ClassVar[Mapped[str | None]]
+    acquirer_industry: ClassVar[Mapped[str | None]]
+    announce_date: ClassVar[Mapped[str | None]]
+    close_date: ClassVar[Mapped[str | None]]
+    deal_status: ClassVar[Mapped[str | None]]
+    attitude: ClassVar[Mapped[str | None]]
+    deal_type: ClassVar[Mapped[str | None]]
+    purpose: ClassVar[Mapped[str | None]]
+    target_pe: ClassVar[Mapped[int | None]]
+    acquirer_pe: ClassVar[Mapped[int | None]]
+    verified: ClassVar[Mapped[int | None]]
+    transaction_size: ClassVar[Mapped[int | None]]
+    transaction_type: ClassVar[Mapped[str | None]]
+    consideration_type: ClassVar[Mapped[str | None]]
+    url: ClassVar[Mapped[str | None]]
 
 
 class XML(db.Model):
     __table__ = xml_table
+    agreement_uuid: ClassVar[Mapped[str]]
+    xml: ClassVar[Mapped[str | None]]
+    version: ClassVar[Mapped[int | None]]
+    status: ClassVar[Mapped[str | None]]
 
 
 class TaxonomyL1(db.Model):
     __table__ = taxonomy_l1_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
 
 
 class TaxonomyL2(db.Model):
     __table__ = taxonomy_l2_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
+    parent_id: ClassVar[Mapped[str | None]]
 
 
 class TaxonomyL3(db.Model):
     __table__ = taxonomy_l3_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
+    parent_id: ClassVar[Mapped[str | None]]
 
 
 class NaicsSector(db.Model):
     __table__ = naics_sectors_table
+    super_sector: ClassVar[Mapped[str | None]]
+    sector_group: ClassVar[Mapped[str | None]]
+    sector_desc: ClassVar[Mapped[str | None]]
+    sector_code: ClassVar[Mapped[int]]
 
 
 class NaicsSubSector(db.Model):
     __table__ = naics_sub_sectors_table
+    sub_sector_desc: ClassVar[Mapped[str | None]]
+    sub_sector_code: ClassVar[Mapped[int]]
+    sector_code: ClassVar[Mapped[int]]
 
 
 def _coalesced_section_standard_ids():
@@ -2293,7 +2640,7 @@ def _coalesced_section_standard_ids():
 
 def _agreement_year_expr():
     bind = db.session.get_bind()
-    if bind is not None and bind.dialect.name == "sqlite":
+    if bind.dialect.name == "sqlite":
         return sql_cast(func.substr(Agreements.filing_date, 1, 4), Integer)
     return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
 
@@ -2372,16 +2719,17 @@ def _parse_section_standard_ids(raw: object) -> list[str]:
     if raw is None:
         return []
     if isinstance(raw, list):
-        if not all(isinstance(item, str) for item in raw):
+        raw_items = cast(list[object], raw)
+        if not all(isinstance(item, str) for item in raw_items):
             raise ValueError("section_standard_id must contain string values.")
-        return raw
+        return cast(list[str], raw_items)
     if isinstance(raw, str):
-        parsed = json.loads(raw)
-        if not isinstance(parsed, list) or not all(
-            isinstance(item, str) for item in parsed
+        parsed_obj = cast(object, json.loads(raw))
+        if not isinstance(parsed_obj, list) or not all(
+            isinstance(item, str) for item in cast(list[object], parsed_obj)
         ):
             raise ValueError("section_standard_id must be a JSON list of strings.")
-        return parsed
+        return cast(list[str], parsed_obj)
     raise TypeError(f"Unsupported section_standard_id type: {type(raw)!r}")
 
 
@@ -2393,47 +2741,63 @@ def _expand_taxonomy_standard_ids(standard_ids: list[str]) -> list[str]:
     if not standard_ids_set:
         return []
 
-    l1_ids = {
-        row.standard_id
-        for row in db.session.query(TaxonomyL1.standard_id)
+    l1_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxonomyL1.standard_id)
         .filter(TaxonomyL1.standard_id.in_(standard_ids_set))
-        .all()
-    }
-    l2_ids = {
-        row.standard_id
-        for row in db.session.query(TaxonomyL2.standard_id)
+        .all(),
+    )
+    l1_ids = {standard_id for (standard_id,) in l1_rows if isinstance(standard_id, str)}
+    l2_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxonomyL2.standard_id)
         .filter(TaxonomyL2.standard_id.in_(standard_ids_set))
-        .all()
-    }
-    l3_ids = {
-        row.standard_id
-        for row in db.session.query(TaxonomyL3.standard_id)
+        .all(),
+    )
+    l2_ids = {standard_id for (standard_id,) in l2_rows if isinstance(standard_id, str)}
+    l3_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxonomyL3.standard_id)
         .filter(TaxonomyL3.standard_id.in_(standard_ids_set))
-        .all()
-    }
+        .all(),
+    )
+    l3_ids = {standard_id for (standard_id,) in l3_rows if isinstance(standard_id, str)}
 
-    expanded_l2_ids = set()
-    expanded_l3_ids = set()
+    expanded_l2_ids: set[str] = set()
+    expanded_l3_ids: set[str] = set()
     if l1_ids:
-        expanded_l2_ids.update(
-            row.standard_id
-            for row in db.session.query(TaxonomyL2.standard_id)
+        expanded_l2_rows = cast(
+            list[tuple[object]],
+            db.session.query(TaxonomyL2.standard_id)
             .filter(TaxonomyL2.parent_id.in_(l1_ids))
-            .all()
+            .all(),
         )
-        expanded_l3_ids.update(
-            row.standard_id
-            for row in db.session.query(TaxonomyL3.standard_id)
+        expanded_l2_ids.update(
+            standard_id for (standard_id,) in expanded_l2_rows if isinstance(standard_id, str)
+        )
+        expanded_l3_rows_from_l1 = cast(
+            list[tuple[object]],
+            db.session.query(TaxonomyL3.standard_id)
             .join(TaxonomyL2, TaxonomyL3.parent_id == TaxonomyL2.standard_id)
             .filter(TaxonomyL2.parent_id.in_(l1_ids))
-            .all()
+            .all(),
+        )
+        expanded_l3_ids.update(
+            standard_id
+            for (standard_id,) in expanded_l3_rows_from_l1
+            if isinstance(standard_id, str)
         )
     if l2_ids:
-        expanded_l3_ids.update(
-            row.standard_id
-            for row in db.session.query(TaxonomyL3.standard_id)
+        expanded_l3_rows_from_l2 = cast(
+            list[tuple[object]],
+            db.session.query(TaxonomyL3.standard_id)
             .filter(TaxonomyL3.parent_id.in_(l2_ids))
-            .all()
+            .all(),
+        )
+        expanded_l3_ids.update(
+            standard_id
+            for (standard_id,) in expanded_l3_rows_from_l2
+            if isinstance(standard_id, str)
         )
 
     return list(
@@ -2806,12 +3170,12 @@ class SearchArgsSchema(Schema):
     # Sort parameters
     sort_by = fields.Str(
         load_default="year",
-        validate=lambda x: x in ["year", "target", "acquirer"],
+        validate=validate.OneOf(["year", "target", "acquirer"]),
         metadata={"description": "Sort key. One of: `year`, `target`, `acquirer`."},
     )
     sort_direction = fields.Str(
         load_default="desc",
-        validate=lambda x: x in ["asc", "desc"],
+        validate=validate.OneOf(["asc", "desc"]),
         metadata={"description": "Sort direction. One of: `asc`, `desc`."},
     )
     page = fields.Int(
@@ -2927,9 +3291,12 @@ class AccessInfoSchema(Schema):
 
 
 class SearchResponseSchema(Schema):
-    results = fields.List(
+    results: object = cast(
+        object,
+        fields.List(
         fields.Nested(SectionItemSchema),
         metadata={"description": "Page of search results."},
+        ),
     )
     access = fields.Nested(
         AccessInfoSchema,
@@ -3016,18 +3383,24 @@ class NaicsSectorSchema(Schema):
         required=True,
         metadata={"description": "High-level sector bucket label."},
     )
-    sub_sectors = fields.List(
+    sub_sectors: object = cast(
+        object,
+        fields.List(
         fields.Nested(NaicsSubSectorSchema),
         required=True,
         metadata={"description": "All subsectors that belong to this sector."},
+        ),
     )
 
 
 class NaicsResponseSchema(Schema):
-    sectors = fields.List(
+    sectors: object = cast(
+        object,
+        fields.List(
         fields.Nested(NaicsSectorSchema),
         required=True,
         metadata={"description": "NAICS sectors with nested subsectors."},
+        ),
     )
 
 
@@ -3061,6 +3434,36 @@ class AgreementsIndexArgsSchema(Schema):
     sort_by = fields.Str(load_default="year")
     sort_dir = fields.Str(load_default="desc")
     query = fields.Str(load_default="")
+
+
+class _AgreementArgsPayload(TypedDict):
+    focus_section_uuid: str | None
+    neighbor_sections: int
+
+
+class _SearchArgsPayload(TypedDict):
+    year: list[int]
+    target: list[str]
+    acquirer: list[str]
+    standard_id: list[str]
+    transaction_consideration: list[str]
+    target_type: list[str]
+    acquirer_type: list[str]
+    target_industry: list[str]
+    acquirer_industry: list[str]
+    deal_status: list[str]
+    attitude: list[str]
+    deal_type: list[str]
+    purpose: list[str]
+    target_pe: list[str]
+    acquirer_pe: list[str]
+    metadata: list[str]
+    agreement_uuid: str | None
+    section_uuid: str | None
+    sort_by: str
+    sort_direction: str
+    page: int
+    page_size: int
 
 
 class AgreementResponseSchema(Schema):
@@ -3162,14 +3565,15 @@ class AgreementResource(MethodView):
     )
     @agreements_blp.arguments(AgreementArgsSchema, location="query")
     @agreements_blp.response(200, AgreementResponseSchema)
-    def get(self, args, agreement_uuid) -> dict[str, object]:
+    def get(self, args: dict[str, object], agreement_uuid: str) -> dict[str, object]:
         ctx = _current_access_context()
-        focus_section_uuid = args.get("focus_section_uuid")
+        parsed_args = cast(_AgreementArgsPayload, cast(object, args))
+        focus_section_uuid = parsed_args.get("focus_section_uuid")
         if focus_section_uuid is not None:
             focus_section_uuid = focus_section_uuid.strip()
             if not _SECTION_ID_RE.match(focus_section_uuid):
                 abort(400, description="Invalid focus_section_uuid.")
-        neighbor_sections_int = args["neighbor_sections"]
+        neighbor_sections_int = parsed_args["neighbor_sections"]
 
         # Only serve agreements with pdx.xml status null or 'verified' (latest version).
         year_expr = _agreement_year_expr().label("year")
@@ -3220,35 +3624,37 @@ class AgreementResource(MethodView):
         if row is None:
             abort(404)
 
-        xml_content = row.xml
+        row_map = _row_mapping_as_dict(cast(object, row))
+        xml_content_obj = row_map.get("xml")
+        xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
         payload = {
-            "year": row.year,
-            "target": row.target,
-            "acquirer": row.acquirer,
-            "filing_date": row.filing_date,
-            "prob_filing": row.prob_filing,
-            "filing_company_name": row.filing_company_name,
-            "filing_company_cik": row.filing_company_cik,
-            "form_type": row.form_type,
-            "exhibit_type": row.exhibit_type,
-            "transaction_price_total": row.transaction_price_total,
-            "transaction_price_stock": row.transaction_price_stock,
-            "transaction_price_cash": row.transaction_price_cash,
-            "transaction_price_assets": row.transaction_price_assets,
-            "transaction_consideration": row.transaction_consideration,
-            "target_type": row.target_type,
-            "acquirer_type": row.acquirer_type,
-            "target_industry": row.target_industry,
-            "acquirer_industry": row.acquirer_industry,
-            "announce_date": row.announce_date,
-            "close_date": row.close_date,
-            "deal_status": row.deal_status,
-            "attitude": row.attitude,
-            "deal_type": row.deal_type,
-            "purpose": row.purpose,
-            "target_pe": row.target_pe,
-            "acquirer_pe": row.acquirer_pe,
-            "url": row.url,
+            "year": row_map.get("year"),
+            "target": row_map.get("target"),
+            "acquirer": row_map.get("acquirer"),
+            "filing_date": row_map.get("filing_date"),
+            "prob_filing": row_map.get("prob_filing"),
+            "filing_company_name": row_map.get("filing_company_name"),
+            "filing_company_cik": row_map.get("filing_company_cik"),
+            "form_type": row_map.get("form_type"),
+            "exhibit_type": row_map.get("exhibit_type"),
+            "transaction_price_total": row_map.get("transaction_price_total"),
+            "transaction_price_stock": row_map.get("transaction_price_stock"),
+            "transaction_price_cash": row_map.get("transaction_price_cash"),
+            "transaction_price_assets": row_map.get("transaction_price_assets"),
+            "transaction_consideration": row_map.get("transaction_consideration"),
+            "target_type": row_map.get("target_type"),
+            "acquirer_type": row_map.get("acquirer_type"),
+            "target_industry": row_map.get("target_industry"),
+            "acquirer_industry": row_map.get("acquirer_industry"),
+            "announce_date": row_map.get("announce_date"),
+            "close_date": row_map.get("close_date"),
+            "deal_status": row_map.get("deal_status"),
+            "attitude": row_map.get("attitude"),
+            "deal_type": row_map.get("deal_type"),
+            "purpose": row_map.get("purpose"),
+            "target_pe": row_map.get("target_pe"),
+            "acquirer_pe": row_map.get("acquirer_pe"),
+            "url": row_map.get("url"),
         }
         if not ctx.is_authenticated:
             redacted_xml = _redact_agreement_xml(
@@ -3313,18 +3719,21 @@ class SectionResource(MethodView):
 
         (
             agreement_uuid,
-            section_uuid,
+            section_uuid_value,
             section_standard_ids_raw,
             xml_content,
             article_title,
             section_title,
-        ) = row
+        ) = cast(
+            tuple[object, object, object, object, object, object],
+            cast(object, row),
+        )
 
         section_standard_ids = _parse_section_standard_ids(section_standard_ids_raw)
 
         return {
             "agreement_uuid": agreement_uuid,
-            "section_uuid": section_uuid,
+            "section_uuid": section_uuid_value,
             "section_standard_id": section_standard_ids,
             "xml": xml_content,
             "article_title": article_title,
@@ -3335,8 +3744,8 @@ class SectionResource(MethodView):
 def get_agreements_index() -> dict[str, object]:
     ctx = _current_access_context()
     args = _load_query(AgreementsIndexArgsSchema())
-    page = int(args["page"])
-    page_size = int(args["page_size"])
+    page = cast(int, args["page"])
+    page_size = cast(int, args["page_size"])
     sort_by = str(args["sort_by"] or "year")
     sort_dir = str(args["sort_dir"] or "desc")
     query = str(args.get("query") or "").strip()
@@ -3397,35 +3806,38 @@ def get_agreements_index() -> dict[str, object]:
 
     q = q.order_by(order_by, Agreements.agreement_uuid)
 
-    total_count = count_q.scalar()
-    total_count = int(total_count or 0)
+    total_count = _to_int(cast(object, count_q.scalar()))
     offset = (page - 1) * page_size
     items = q.offset(offset).limit(page_size).all()
     meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
-    results = [
-        {
-            "agreement_uuid": row.agreement_uuid,
-            "year": row.year,
-            "target": row.target,
-            "acquirer": row.acquirer,
-            "consideration_type": None,
-            "total_consideration": None,
-            "target_industry": None,
-            "acquirer_industry": None,
-            "verified": bool(row.verified) if row.verified is not None else False,
-        }
-        for row in items
-    ]
+    results: list[dict[str, object]] = []
+    for row in items:
+        row_map = _row_mapping_as_dict(cast(object, row))
+        verified_value = row_map.get("verified")
+        results.append(
+            {
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "year": row_map.get("year"),
+                "target": row_map.get("target"),
+                "acquirer": row_map.get("acquirer"),
+                "consideration_type": None,
+                "total_consideration": None,
+                "target_industry": None,
+                "acquirer_industry": None,
+                "verified": bool(verified_value) if verified_value is not None else False,
+            }
+        )
 
     return {"results": results, **meta}
 
 
 def get_agreements_status_summary() -> dict[str, object]:
-    latest_filing_date: object | None = (
+    latest_filing_date = cast(
+        object | None,
         db.session.query(func.max(Agreements.filing_date))
         .filter(Agreements.filing_date.isnot(None), Agreements.filing_date != "")
-        .scalar()
+        .scalar(),
     )
     if isinstance(latest_filing_date, (date, datetime)):
         latest_filing_date = latest_filing_date.isoformat()
@@ -3450,15 +3862,17 @@ def get_agreements_status_summary() -> dict[str, object]:
         .all()
     )
 
-    years = [
-        {
-            "year": int(row["year"]),
-            "color": row["color"],
-            "current_stage": row["current_stage"],
-            "count": int(row["count"] or 0),
-        }
-        for row in rows
-    ]
+    years: list[dict[str, object]] = []
+    for row in rows:
+        row_dict = _row_mapping_as_dict(cast(object, row))
+        years.append(
+            {
+                "year": _to_int(cast(object, row_dict.get("year"))),
+                "color": row_dict.get("color"),
+                "current_stage": row_dict.get("current_stage"),
+                "count": _to_int(cast(object, row_dict.get("count"))),
+            }
+        )
     return {"years": years, "latest_filing_date": latest_filing_date}
 
 
@@ -3481,18 +3895,20 @@ def get_agreements_deal_types_summary() -> dict[str, object]:
         .all()
     )
 
-    years = [
-        {
-            "year": int(row["year"]),
-            "deal_type": str(row["deal_type"] or "unknown"),
-            "count": int(row["count"] or 0),
-        }
-        for row in rows
-    ]
+    years: list[dict[str, object]] = []
+    for row in rows:
+        row_dict = _row_mapping_as_dict(cast(object, row))
+        years.append(
+            {
+                "year": _to_int(cast(object, row_dict.get("year"))),
+                "deal_type": str(row_dict.get("deal_type") or "unknown"),
+                "count": _to_int(cast(object, row_dict.get("count"))),
+            }
+        )
     return {"years": years}
 
 
-def get_agreements_summary() -> dict[str, int]:
+def get_agreements_summary() -> _AgreementsSummaryPayload:
     now = time.time()
     with _agreements_summary_lock:
         cached_payload = _agreements_summary_cache["payload"]
@@ -3500,7 +3916,7 @@ def get_agreements_summary() -> dict[str, int]:
         cache_is_valid = cached_payload is not None and (
             now - cached_ts < _AGREEMENTS_SUMMARY_TTL_SECONDS
         )
-    if cache_is_valid:
+    if cache_is_valid and cached_payload is not None:
         return cached_payload
 
     row = db.session.execute(
@@ -3515,10 +3931,11 @@ def get_agreements_summary() -> dict[str, int]:
         )
     ).mappings().first()
 
-    payload = {
-        "agreements": int((row or {}).get("agreements", 0) or 0),
-        "sections": int((row or {}).get("sections", 0) or 0),
-        "pages": int((row or {}).get("pages", 0) or 0),
+    row_dict = _row_mapping_as_dict(cast(object, row)) if row is not None else {}
+    payload: _AgreementsSummaryPayload = {
+        "agreements": _to_int(cast(object, row_dict.get("agreements"))),
+        "sections": _to_int(cast(object, row_dict.get("sections"))),
+        "pages": _to_int(cast(object, row_dict.get("pages"))),
     }
     with _agreements_summary_lock:
         _agreements_summary_cache["payload"] = payload
@@ -3556,7 +3973,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         ")"
     ).format(t=_schema_prefix())
     targets = [
-        row[0]
+        cast(str, row[0])
         for row in db.session.execute(
             text(
                 f"""
@@ -3572,7 +3989,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         ).fetchall()
     ]
     acquirers = [
-        row[0]
+        cast(str, row[0])
         for row in db.session.execute(
             text(
                 f"""
@@ -3588,7 +4005,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         ).fetchall()
     ]
     target_industries = [
-        row[0]
+        cast(str, row[0])
         for row in db.session.execute(
             text(
                 f"""
@@ -3604,7 +4021,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         ).fetchall()
     ]
     acquirer_industries = [
-        row[0]
+        cast(str, row[0])
         for row in db.session.execute(
             text(
                 f"""
@@ -3620,7 +4037,7 @@ def get_filter_options() -> tuple[Response, int] | Response:
         ).fetchall()
     ]
 
-    payload = {
+    payload: _FilterOptionsPayload = {
         "targets": targets,
         "acquirers": acquirers,
         "target_industries": target_industries,
@@ -3636,102 +4053,112 @@ def get_filter_options() -> tuple[Response, int] | Response:
 
 
 def _taxonomy_tree() -> dict[str, object]:
-    l1_rows = db.session.query(
+    l1_rows = cast(list[tuple[object, object]], db.session.query(
         TaxonomyL1.standard_id,
         TaxonomyL1.label,
-    ).all()
-    l2_rows = db.session.query(
+    ).all())
+    l2_rows = cast(list[tuple[object, object, object]], db.session.query(
         TaxonomyL2.standard_id,
         TaxonomyL2.label,
         TaxonomyL2.parent_id,
-    ).all()
-    l3_rows = db.session.query(
+    ).all())
+    l3_rows = cast(list[tuple[object, object, object]], db.session.query(
         TaxonomyL3.standard_id,
         TaxonomyL3.label,
         TaxonomyL3.parent_id,
-    ).all()
+    ).all())
 
-    l2_by_parent: dict[str, list[object]] = defaultdict(list)
-    for row in l2_rows:
-        if not isinstance(row.parent_id, str) or not isinstance(row.label, str):
+    l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for standard_id, label, parent_id in l2_rows:
+        if (
+            not isinstance(standard_id, str)
+            or not isinstance(parent_id, str)
+            or not isinstance(label, str)
+        ):
             raise ValueError("taxonomy_l2 has invalid parent_id or label.")
-        l2_by_parent[row.parent_id].append(row)
+        l2_by_parent[parent_id].append((standard_id, label))
 
-    l3_by_parent: dict[str, list[object]] = defaultdict(list)
-    for row in l3_rows:
-        if not isinstance(row.parent_id, str) or not isinstance(row.label, str):
+    l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for standard_id, label, parent_id in l3_rows:
+        if (
+            not isinstance(standard_id, str)
+            or not isinstance(parent_id, str)
+            or not isinstance(label, str)
+        ):
             raise ValueError("taxonomy_l3 has invalid parent_id or label.")
-        l3_by_parent[row.parent_id].append(row)
+        l3_by_parent[parent_id].append((standard_id, label))
 
-    validated_l1_rows = []
-    for l1 in l1_rows:
-        if not isinstance(l1.standard_id, str) or not isinstance(l1.label, str):
+    validated_l1_rows: list[tuple[str, str]] = []
+    for standard_id, label in l1_rows:
+        if not isinstance(standard_id, str) or not isinstance(label, str):
             raise ValueError("taxonomy_l1 has invalid standard_id or label.")
-        validated_l1_rows.append(l1)
+        validated_l1_rows.append((standard_id, label))
 
     tree: dict[str, object] = {}
-    for l1 in sorted(validated_l1_rows, key=lambda r: r.label):
+    for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda r: r[1]):
         l2_children: dict[str, object] = {}
-        for l2 in sorted(l2_by_parent.get(l1.standard_id, []), key=lambda r: r.label):
-            if not isinstance(l2.standard_id, str) or not isinstance(l2.label, str):
-                raise ValueError("taxonomy_l2 has invalid standard_id or label.")
+        for l2_standard_id, l2_label in sorted(l2_by_parent.get(l1_standard_id, []), key=lambda r: r[1]):
             l3_children: dict[str, object] = {}
-            for l3 in sorted(l3_by_parent.get(l2.standard_id, []), key=lambda r: r.label):
-                if not isinstance(l3.standard_id, str) or not isinstance(l3.label, str):
-                    raise ValueError("taxonomy_l3 has invalid standard_id or label.")
-                l3_children[l3.label] = {"id": l3.standard_id}
-            l2_children[l2.label] = {"id": l2.standard_id, "children": l3_children}
-        tree[l1.label] = {"id": l1.standard_id, "children": l2_children}
+            for l3_standard_id, l3_label in sorted(l3_by_parent.get(l2_standard_id, []), key=lambda r: r[1]):
+                l3_children[l3_label] = {"id": l3_standard_id}
+            l2_children[l2_label] = {"id": l2_standard_id, "children": l3_children}
+        tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
 
     return tree
 
 
 def _naics_tree() -> dict[str, object]:
-    sector_rows = db.session.query(
-        NaicsSector.sector_code,
-        NaicsSector.sector_desc,
-        NaicsSector.sector_group,
-        NaicsSector.super_sector,
-    ).all()
-    sub_sector_rows = db.session.query(
-        NaicsSubSector.sub_sector_code,
-        NaicsSubSector.sub_sector_desc,
-        NaicsSubSector.sector_code,
-    ).all()
+    sector_rows = cast(
+        list[tuple[object, object, object, object]],
+        db.session.query(
+            NaicsSector.sector_code,
+            NaicsSector.sector_desc,
+            NaicsSector.sector_group,
+            NaicsSector.super_sector,
+        ).all(),
+    )
+    sub_sector_rows = cast(
+        list[tuple[object, object, object]],
+        db.session.query(
+            NaicsSubSector.sub_sector_code,
+            NaicsSubSector.sub_sector_desc,
+            NaicsSubSector.sector_code,
+        ).all(),
+    )
 
     sector_by_code: dict[int, dict[str, object]] = {}
-    for row in sector_rows:
-        if not isinstance(row.sector_code, int):
+    for sector_code, sector_desc, sector_group, super_sector in sector_rows:
+        if not isinstance(sector_code, int):
             raise ValueError("naics_sectors.sector_code must be an integer.")
-        if not isinstance(row.sector_desc, str):
+        if not isinstance(sector_desc, str):
             raise ValueError("naics_sectors.sector_desc must be a string.")
-        if not isinstance(row.sector_group, str):
+        if not isinstance(sector_group, str):
             raise ValueError("naics_sectors.sector_group must be a string.")
-        if not isinstance(row.super_sector, str):
+        if not isinstance(super_sector, str):
             raise ValueError("naics_sectors.super_sector must be a string.")
-        sector_by_code[row.sector_code] = {
-            "sector_code": str(row.sector_code),
-            "sector_desc": row.sector_desc,
-            "sector_group": row.sector_group,
-            "super_sector": row.super_sector,
+        sector_by_code[sector_code] = {
+            "sector_code": str(sector_code),
+            "sector_desc": sector_desc,
+            "sector_group": sector_group,
+            "super_sector": super_sector,
             "sub_sectors": [],
         }
 
-    for row in sub_sector_rows:
-        if not isinstance(row.sector_code, int):
+    for sub_sector_code, sub_sector_desc, sector_code in sub_sector_rows:
+        if not isinstance(sector_code, int):
             raise ValueError("naics_sub_sectors.sector_code must be an integer.")
-        if not isinstance(row.sub_sector_code, int):
+        if not isinstance(sub_sector_code, int):
             raise ValueError("naics_sub_sectors.sub_sector_code must be an integer.")
-        if not isinstance(row.sub_sector_desc, str):
+        if not isinstance(sub_sector_desc, str):
             raise ValueError("naics_sub_sectors.sub_sector_desc must be a string.")
-        parent = sector_by_code.get(row.sector_code)
+        parent = sector_by_code.get(sector_code)
         if parent is None:
             raise ValueError("naics_sub_sectors has sector_code with no matching sector.")
         parent_sub_sectors = cast(list[dict[str, str]], parent["sub_sectors"])
         parent_sub_sectors.append(
             {
-                "sub_sector_code": str(row.sub_sector_code),
-                "sub_sector_desc": row.sub_sector_desc,
+                "sub_sector_code": str(sub_sector_code),
+                "sub_sector_desc": sub_sector_desc,
             }
         )
 
@@ -3757,7 +4184,7 @@ def _get_naics_payload_cached() -> tuple[dict[str, object], bool]:
         cache_is_valid = cached_payload is not None and (
             now - cached_ts < _NAICS_TTL_SECONDS
         )
-    if cache_is_valid:
+    if cache_is_valid and cached_payload is not None:
         return cached_payload, True
 
     payload = _naics_tree()
@@ -3776,7 +4203,7 @@ def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
         cache_is_valid = cached_payload is not None and (
             now - cached_ts < _TAXONOMY_TTL_SECONDS
         )
-    if cache_is_valid:
+    if cache_is_valid and cached_payload is not None:
         return cached_payload, True
 
     payload = _taxonomy_tree()
@@ -3821,35 +4248,36 @@ class SearchResource(MethodView):
     )
     @search_blp.arguments(SearchArgsSchema, location="query")
     @search_blp.response(200, SearchResponseSchema)
-    def get(self, args) -> dict[str, object]:
+    def get(self, args: dict[str, object]) -> dict[str, object]:
         ctx = _current_access_context()
-        years = args["year"]
-        targets = args["target"]
-        acquirers = args["acquirer"]
-        standard_ids = args["standard_id"]
+        parsed_args = cast(_SearchArgsPayload, cast(object, args))
+        years = parsed_args["year"]
+        targets = parsed_args["target"]
+        acquirers = parsed_args["acquirer"]
+        standard_ids = parsed_args["standard_id"]
         # Additional metadata filters (some are still deactivated in the Search UI)
-        transaction_considerations = args["transaction_consideration"]
-        target_types = args["target_type"]
-        acquirer_types = args["acquirer_type"]
-        target_industries = args["target_industry"]
-        acquirer_industries = args["acquirer_industry"]
-        deal_statuses = args["deal_status"]
-        attitudes = args["attitude"]
-        deal_types = args["deal_type"]
-        purposes = args["purpose"]
-        target_pes = args["target_pe"]
-        acquirer_pes = args["acquirer_pe"]
-        requested_metadata_fields = _dedupe_preserve_order(args["metadata"])
+        transaction_considerations = parsed_args["transaction_consideration"]
+        target_types = parsed_args["target_type"]
+        acquirer_types = parsed_args["acquirer_type"]
+        target_industries = parsed_args["target_industry"]
+        acquirer_industries = parsed_args["acquirer_industry"]
+        deal_statuses = parsed_args["deal_status"]
+        attitudes = parsed_args["attitude"]
+        deal_types = parsed_args["deal_type"]
+        purposes = parsed_args["purpose"]
+        target_pes = parsed_args["target_pe"]
+        acquirer_pes = parsed_args["acquirer_pe"]
+        requested_metadata_fields = _dedupe_preserve_order(parsed_args["metadata"])
         # Text filters
-        agreement_uuid = args["agreement_uuid"]
-        section_uuid = args["section_uuid"]
+        agreement_uuid = parsed_args["agreement_uuid"]
+        section_uuid = parsed_args["section_uuid"]
         # Sort parameters
-        sort_by = args["sort_by"]
-        sort_direction = args["sort_direction"]
+        sort_by = parsed_args["sort_by"]
+        sort_direction = parsed_args["sort_direction"]
 
         # pagination parameters
-        page = args["page"]
-        page_size = args["page_size"]
+        page = parsed_args["page"]
+        page_size = parsed_args["page_size"]
 
         # Validate pagination parameters
         if page < 1:
@@ -3883,14 +4311,13 @@ class SearchResource(MethodView):
 
         # apply filters only when provided - now handling multiple values
         if years:
-            year_filters = []
-            for year in years:
-                year_filters.append(
-                    and_(
-                        Agreements.filing_date >= f"{year:04d}-01-01",
-                        Agreements.filing_date < f"{year + 1:04d}-01-01",
-                    )
+            year_filters = tuple(
+                and_(
+                    Agreements.filing_date >= f"{year:04d}-01-01",
+                    Agreements.filing_date < f"{year + 1:04d}-01-01",
                 )
+                for year in years
+            )
             q = q.filter(or_(*year_filters))
 
         if targets:
@@ -3956,7 +4383,7 @@ class SearchResource(MethodView):
 
         # Target PE filter
         if target_pes:
-            db_target_pes = []
+            db_target_pes: list[int] = []
             for pe in target_pes:
                 if pe == "true":
                     db_target_pes.append(1)
@@ -3967,7 +4394,7 @@ class SearchResource(MethodView):
 
         # Acquirer PE filter
         if acquirer_pes:
-            db_acquirer_pes = []
+            db_acquirer_pes: list[int] = []
             for pe in acquirer_pes:
                 if pe == "true":
                     db_acquirer_pes.append(1)
@@ -3996,12 +4423,14 @@ class SearchResource(MethodView):
         else:
             q = q.order_by(asc(primary_sort), asc(Sections.section_uuid))
 
-        total_count = (
-            q.order_by(None)
-            .with_entities(func.count(Sections.section_uuid))
-            .scalar()
+        total_count = _to_int(
+            cast(
+                object,
+                q.order_by(None)
+                .with_entities(func.count(Sections.section_uuid))
+                .scalar(),
+            )
         )
-        total_count = int(total_count or 0)
         offset = (page - 1) * page_size
         item_columns = [
             Sections.section_uuid.label("section_uuid"),
@@ -4017,8 +4446,15 @@ class SearchResource(MethodView):
             )
         items = q.with_entities(*item_columns).offset(offset).limit(page_size).all()
 
-        section_uuids = [item.section_uuid for item in items]
-        sections_by_uuid = {}
+        item_rows = cast(list[object], items)
+        item_maps = [_row_mapping_as_dict(item) for item in item_rows]
+        section_uuids = [
+            section_id
+            for item_map in item_maps
+            for section_id in [item_map.get("section_uuid")]
+            if isinstance(section_id, str)
+        ]
+        sections_by_uuid: dict[str, dict[str, object]] = {}
         if section_uuids:
             section_rows = (
                 db.session.query(
@@ -4031,38 +4467,47 @@ class SearchResource(MethodView):
                 .filter(Sections.section_uuid.in_(section_uuids))
                 .all()
             )
-            sections_by_uuid = {row.section_uuid: row for row in section_rows}
+            for row in section_rows:
+                row_map = _row_mapping_as_dict(cast(object, row))
+                row_section_uuid = row_map.get("section_uuid")
+                if isinstance(row_section_uuid, str):
+                    sections_by_uuid[row_section_uuid] = row_map
 
         meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
         # marshal into JSON with pagination metadata
-        results = []
-        for item in items:
-            section_row = sections_by_uuid.get(item.section_uuid)
+        results: list[dict[str, object]] = []
+        for item_map in item_maps:
+            section_uuid_value = item_map.get("section_uuid")
+            if not isinstance(section_uuid_value, str):
+                raise RuntimeError("Search query returned a row without section_uuid.")
+            section_row = sections_by_uuid.get(section_uuid_value)
             if section_row is None:
                 raise RuntimeError(
-                    f"Section UUID {item.section_uuid} missing from detail lookup."
+                    f"Section UUID {section_uuid_value} missing from detail lookup."
                 )
             result_payload = {
-                "id": item.section_uuid,
-                "agreement_uuid": item.agreement_uuid,
-                "section_uuid": item.section_uuid,
+                "id": section_uuid_value,
+                "agreement_uuid": item_map.get("agreement_uuid"),
+                "section_uuid": section_uuid_value,
                 "standard_id": _parse_section_standard_ids(
-                    section_row.section_standard_ids
+                    section_row.get("section_standard_ids")
                 ),
-                "xml": section_row.xml_content,
-                "article_title": section_row.article_title,
-                "section_title": section_row.section_title,
-                "acquirer": item.acquirer,
-                "target": item.target,
-                "year": item.year,
+                "xml": section_row.get("xml_content"),
+                "article_title": section_row.get("article_title"),
+                "section_title": section_row.get("section_title"),
+                "acquirer": item_map.get("acquirer"),
+                "target": item_map.get("target"),
+                "year": item_map.get("year"),
                 "verified": (
-                    bool(item.verified) if item.verified is not None else False
+                    bool(item_map.get("verified"))
+                    if item_map.get("verified") is not None
+                    else False
                 ),
             }
             if requested_metadata_fields:
                 result_payload["metadata"] = {
-                    field_name: getattr(item, field_name)
+                    field_name: item_map.get(field_name)
                     for field_name in requested_metadata_fields
                 }
             results.append(result_payload)
@@ -4154,42 +4599,64 @@ class DumpListResource(MethodView):
             cache_is_valid = cached_payload is not None and (
                 now - cached_ts < _DUMPS_CACHE_TTL_SECONDS
             )
-        if cache_is_valid:
+        if cache_is_valid and cached_payload is not None:
             return cached_payload
         if client is None:
             return []
-        paginator = client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix="dumps/")
+        s3_client = client
+        paginator: _S3Paginator = s3_client.get_paginator("list_objects_v2")
+        pages: Iterable[_S3ListPage] = paginator.paginate(
+            Bucket=R2_BUCKET_NAME, Prefix="dumps/"
+        )
 
-        dumps_map = defaultdict(dict)
+        dumps_map: dict[str, _DumpFiles] = {}
         for page in pages:
             for obj in page.get("Contents", []):
-                key = obj["Key"]
+                key = obj.get("Key")
+                if not isinstance(key, str):
+                    continue
                 etag = obj.get("ETag")
                 filename = key.rsplit("/", 1)[-1]
+                files: _DumpFiles | None = None
 
                 if filename.endswith(".sql.gz.manifest.json"):
                     prefix = filename[: -len(".sql.gz.manifest.json")]
-                    dumps_map[prefix]["manifest"] = key
+                    files = dumps_map.get(prefix)
+                    if files is None:
+                        files = {}
+                        dumps_map[prefix] = files
+                    files["manifest"] = key
                     if isinstance(etag, str):
-                        dumps_map[prefix]["manifest_etag"] = etag.strip('"')
+                        files["manifest_etag"] = etag.strip('"')
 
                 elif filename.endswith(".sql.gz.sha256"):
                     prefix = filename[: -len(".sql.gz.sha256")]
-                    dumps_map[prefix]["sha256"] = key
+                    files = dumps_map.get(prefix)
+                    if files is None:
+                        files = {}
+                        dumps_map[prefix] = files
+                    files["sha256"] = key
 
                 elif filename.endswith(".sql.gz"):
                     prefix = filename[: -len(".sql.gz")]
-                    dumps_map[prefix]["sql"] = key
+                    files = dumps_map.get(prefix)
+                    if files is None:
+                        files = {}
+                        dumps_map[prefix] = files
+                    files["sql"] = key
 
                 elif filename.endswith(".json"):
                     prefix = filename[: -len(".json")]
-                    dumps_map[prefix]["manifest"] = key
+                    files = dumps_map.get(prefix)
+                    if files is None:
+                        files = {}
+                        dumps_map[prefix] = files
+                    files["manifest"] = key
 
-        dump_list = []
+        dump_list: list[dict[str, object]] = []
         for prefix, files in sorted(dumps_map.items(), reverse=True):
             label = prefix.replace("db_dump_", "")
-            entry = {"timestamp": label}
+            entry: dict[str, object] = {"timestamp": label}
 
             if "sql" in files:
                 entry["sql"] = f"{PUBLIC_DEV_BASE}/{files['sql']}"
@@ -4217,10 +4684,15 @@ class DumpListResource(MethodView):
                     data = cached_manifest.get("payload") or {}
                 else:
                     try:
-                        body = client.get_object(
+                        body = s3_client.get_object(
                             Bucket=R2_BUCKET_NAME, Key=files["manifest"]
                         )["Body"].read()
-                        data = json.loads(body)
+                        parsed_data = cast(object, json.loads(body))
+                        data = (
+                            cast(dict[str, object], parsed_data)
+                            if isinstance(parsed_data, dict)
+                            else {}
+                        )
                         if manifest_key and isinstance(manifest_etag, str):
                             with _dumps_manifest_cache_lock:
                                 _dumps_manifest_cache[manifest_key] = {
@@ -4246,22 +4718,72 @@ class DumpListResource(MethodView):
 
 
 def _register_blueprints() -> None:
-    api.register_blueprint(search_blp)
-    api.register_blueprint(agreements_blp)
-    api.register_blueprint(sections_blp)
-    api.register_blueprint(taxonomy_blp)
-    api.register_blueprint(naics_blp)
-    api.register_blueprint(dumps_blp)
+    api_ext = cast(_ApiExtension, cast(object, api))
+    api_ext.register_blueprint(search_blp)
+    api_ext.register_blueprint(agreements_blp)
+    api_ext.register_blueprint(sections_blp)
+    api_ext.register_blueprint(taxonomy_blp)
+    api_ext.register_blueprint(naics_blp)
+    api_ext.register_blueprint(dumps_blp)
+
+
+# Exported for `backend.routes.auth` via app_module indirection.
+_AUTH_ROUTE_HELPERS = (
+    _set_auth_cookies,
+    _set_csrf_cookie,
+    _csrf_cookie_value,
+    _clear_auth_cookies,
+    _status_response,
+    _require_auth_db,
+    _issue_email_verification_token,
+    _load_email_verification_token,
+    _issue_password_reset_token,
+    _load_password_reset_token,
+    _send_signup_notification_email,
+    _send_flag_notification_email,
+    _send_email_verification_email,
+    _send_password_reset_email,
+    _issue_session_token,
+    _revoke_session_token,
+    _google_oauth_client_secret,
+    _google_oauth_redirect_uri,
+    _google_oauth_flow_enabled,
+    _google_oauth_pkce_pair,
+    _set_google_oauth_cookie,
+    _load_google_oauth_cookie,
+    _set_google_nonce_cookie,
+    _google_nonce_cookie_value,
+    _clear_google_nonce_cookie,
+    _turnstile_enabled,
+    _turnstile_site_key,
+    _require_captcha_token,
+    _verify_turnstile_token,
+    _frontend_google_callback_redirect,
+    _google_fetch_json,
+    _google_verify_id_token,
+    _safe_next_path,
+    _load_json,
+    _auth_enumeration_delay,
+    _require_legal_acceptance,
+    _user_has_current_legal_acceptances,
+    _ensure_current_legal_acceptances,
+    _record_signon_event,
+    _create_api_key,
+    _require_verified_user,
+)
 
 
 def _register_app(target_app: Flask) -> None:
-    from backend.routes.auth import register_auth_routes
+    auth_routes = importlib.import_module("backend.routes.auth")
 
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)
     _register_blueprints()
     _register_main_routes(target_app)
-    register_auth_routes(target_app, app_module=sys.modules[__name__])
+    register_auth_routes = cast(
+        _RegisterAuthRoutesFn, getattr(auth_routes, "register_auth_routes")
+    )
+    _ = register_auth_routes(target_app, app_module=sys.modules[__name__])
 
 
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
@@ -4321,8 +4843,11 @@ def init_auth_db():
 def gen_openapi():
     """Generate an OpenAPI3 YAML spec for your Flask-Smorest API."""
     with app.test_request_context():
-        yaml_spec = api.spec.to_yaml()
-        Path("openapi.yaml").write_text(yaml_spec)
+        spec = api.spec
+        if spec is None:
+            raise click.ClickException("OpenAPI spec is unavailable.")
+        yaml_spec = spec.to_yaml()
+        _ = Path("openapi.yaml").write_text(yaml_spec)
         click.echo("Wrote openapi.yaml")
 
 
