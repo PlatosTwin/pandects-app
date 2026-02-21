@@ -2107,12 +2107,6 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
-    pages_table = Table(
-        "pages",
-        metadata,
-        schema=_MAIN_SCHEMA_TOKEN,
-        autoload_with=engine,
-    )
     xml_table = Table(
         "xml",
         metadata,
@@ -2194,13 +2188,6 @@ else:
         Column("url", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
-    pages_table = Table(
-        "pages",
-        metadata,
-        Column("page_uuid", CHAR(36), primary_key=True),
-        Column("agreement_uuid", CHAR(36), nullable=False),
-        schema=_MAIN_SCHEMA_TOKEN,
-    )
     xml_table = Table(
         "xml",
         metadata,
@@ -2275,10 +2262,6 @@ class Agreements(db.Model):
 
 class XML(db.Model):
     __table__ = xml_table
-
-
-class Pages(db.Model):
-    __table__ = pages_table
 
 
 class TaxonomyL1(db.Model):
