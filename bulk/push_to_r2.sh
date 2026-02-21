@@ -23,6 +23,30 @@ TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 SESSION_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
 
 SQL_DUMP_FILE="${SESSION_DIR}/public_${TIMESTAMP}.sql.gz"
+TARGET_DB="${MARIADB_DATABASE:-pdx}"
+
+# API-facing table allowlist (all and only what backend API currently requires).
+API_TABLES=(
+  agreement_deal_type_summary
+  agreement_status_summary
+  agreements
+  naics_sectors
+  naics_sub_sectors
+  sections
+  summary_data
+  taxonomy_l1
+  taxonomy_l2
+  taxonomy_l3
+  xml
+)
+
+TABLES_LIST=""
+for table in "${API_TABLES[@]}"; do
+  if [ -n "$TABLES_LIST" ]; then
+    TABLES_LIST+=","
+  fi
+  TABLES_LIST+="${TARGET_DB}.${table}"
+done
 
 # ── Checks ──────────────────────────────────────────────────────
 if ! command -v mydumper &> /dev/null; then
@@ -38,6 +62,7 @@ if [ -z "${R2_ACCESS_KEY_ID:-}" ] || [ -z "${R2_SECRET_ACCESS_KEY:-}" ]; then
 fi
 
 echo "🚀 Starting Full Sync: Local -> R2 (Logical + SQL)"
+echo "📚 Export table allowlist (${#API_TABLES[@]} tables): ${API_TABLES[*]}"
 
 LOGICAL_DIR="${SESSION_DIR}/logical"
 LOGICAL_ARCHIVE="${SESSION_DIR}/logical_backup_${TIMESTAMP}.tar.gz"
@@ -51,7 +76,8 @@ mydumper \
   --port="${MARIADB_PORT:-3306}" \
   --user="${MARIADB_USER:-root}" \
   --password="${MARIADB_PASSWORD:-}" \
-  --database="${MARIADB_DATABASE:-pdx}" \
+  --database="${TARGET_DB}" \
+  --tables-list="${TABLES_LIST}" \
   --outputdir="$LOGICAL_DIR" \
   --threads="${MYDUMPER_THREADS:-6}" \
   --rows="${MYDUMPER_ROWS:-500000}" \
@@ -93,7 +119,8 @@ mysqldump \
   --quick \
   --lock-tables=false \
   --routines \
-  --databases "${MARIADB_DATABASE:-pdx}" \
+  "${TARGET_DB}" \
+  "${API_TABLES[@]}" \
   | gzip > "$SQL_DUMP_FILE"
 
 echo "✅ SQL Dump Ready: $(du -h "$SQL_DUMP_FILE" | cut -f1)"
