@@ -75,6 +75,7 @@ __pycache__/
 TODO.md
 NOTES.md
 AGENTS.md
+dev-all.sh
 
 
 ############################
@@ -84,3 +85,9 @@ AGENTS.md
 .vscode/
 .cursor/
 .DS_Store
+*.code-workspace
+
+# Local type-checker helper configs (developer machine specific)
+pyrightconfig.backend.json
+pyrightconfig.etl.json
+etl/pyrightconfig.json

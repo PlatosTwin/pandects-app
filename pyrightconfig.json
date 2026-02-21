@@ -1,9 +1,16 @@
 {
-  "venvPath": "etl",
-  "venv": ".venv",
-  "pythonVersion": "3.11",
+  "venvPath": "backend",
+  "venv": "venv",
+  "pythonVersion": "3.10",
   "useLibraryCodeForTypes": true,
+  "extraPaths": [
+    ".",
+    "etl/src",
+    "etl/.venv/lib/python3.11/site-packages"
+  ],
+  "include": ["backend", "etl/src", "etl/tests"],
   "reportMissingTypeStubs": "none",
+  "reportImplicitRelativeImport": "none",
   "reportImplicitOverride": "none",
   "reportUnannotatedClassAttribute": "none"
 }
