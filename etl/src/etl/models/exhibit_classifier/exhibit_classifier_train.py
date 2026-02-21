@@ -296,6 +296,7 @@ def _select_threshold(
     probs: np.ndarray,
     min_recall: float,
     threshold_step: float,
+    forced_negative_mask: np.ndarray | None = None,
 ) -> tuple[float, dict[str, float]]:
     if threshold_step <= 0 or threshold_step > 1:
         raise ValueError("threshold_step must be in (0, 1].")
@@ -303,7 +304,11 @@ def _select_threshold(
     best: tuple[float, dict[str, float]] | None = None
 
     for threshold in thresholds:
-        preds = (probs >= threshold).astype(int)
+        preds = _preds_from_probs(
+            probs=probs,
+            threshold=float(threshold),
+            forced_negative_mask=forced_negative_mask,
+        )
         cm = np.asarray(confusion_matrix(y_true, preds), dtype=int)
         if cm.shape != (2, 2):
             continue
@@ -351,8 +356,13 @@ def _compute_threshold_metrics(
     y_true: np.ndarray,
     probs: np.ndarray,
     threshold: float,
+    forced_negative_mask: np.ndarray | None = None,
 ) -> dict[str, float]:
-    preds = (probs >= threshold).astype(int)
+    preds = _preds_from_probs(
+        probs=probs,
+        threshold=threshold,
+        forced_negative_mask=forced_negative_mask,
+    )
     cm = np.asarray(confusion_matrix(y_true, preds), dtype=int)
     if cm.shape != (2, 2):
         raise RuntimeError("Threshold metrics require binary labels with both classes present.")
@@ -371,6 +381,65 @@ def _compute_threshold_metrics(
         "f1": float(f1),
         "false_positives": float(fp),
     }
+
+
+def _hard_negative_mask(
+    *,
+    texts: list[str],
+    min_chars_hard_negative: int,
+) -> np.ndarray:
+    return np.array(
+        [len(str(text)) < min_chars_hard_negative for text in texts], dtype=bool
+    )
+
+
+def _preds_from_probs(
+    *,
+    probs: np.ndarray,
+    threshold: float,
+    forced_negative_mask: np.ndarray | None = None,
+) -> np.ndarray:
+    preds = (probs >= threshold).astype(int)
+    if forced_negative_mask is None:
+        return preds
+    if forced_negative_mask.shape[0] != preds.shape[0]:
+        raise ValueError("forced_negative_mask must align with probs length.")
+    preds[forced_negative_mask] = 0
+    return preds
+
+
+def _drop_short_positive_examples(
+    *,
+    texts: list[str],
+    labels: np.ndarray,
+    urls: list[str] | None,
+    min_chars_hard_negative: int,
+) -> tuple[list[str], np.ndarray, list[str] | None, int]:
+    if labels.shape[0] != len(texts):
+        raise ValueError("labels length must match texts length.")
+    if urls is not None and len(urls) != len(texts):
+        raise ValueError("urls length must match texts length.")
+
+    label_list = cast(list[int], labels.tolist())
+    keep_mask_list = [
+        not (label == 1 and len(str(text)) < min_chars_hard_negative)
+        for text, label in zip(texts, label_list)
+    ]
+    keep_mask = np.array(keep_mask_list, dtype=bool)
+    dropped_count = int(np.count_nonzero(~keep_mask))
+    if dropped_count == 0:
+        return texts, labels, urls, 0
+
+    filtered_texts = [
+        text for text, keep in zip(texts, keep_mask_list) if keep
+    ]
+    filtered_labels = labels[keep_mask]
+    filtered_urls = (
+        [url for url, keep in zip(urls, keep_mask_list) if keep]
+        if urls is not None
+        else None
+    )
+    return filtered_texts, filtered_labels, filtered_urls, dropped_count
 
 
 def _ngram_from_key(key: str) -> tuple[int, int]:
@@ -405,6 +474,7 @@ def _run_optuna_search(
     min_recall: float,
     threshold_step: float,
     random_state: int,
+    min_chars_hard_negative: int,
     num_trials: int,
     tune_vectorizer: bool,
     cv_folds: int,
@@ -456,6 +526,7 @@ def _run_optuna_search(
             logreg_max_iter=fixed_logreg_max_iter,
             class_weight=class_weight,
             start_scan_chars=int(start_scan_chars),
+            min_chars_hard_negative=min_chars_hard_negative,
             random_state=random_state,
         )
         fold_thresholds: list[float] = []
@@ -475,12 +546,17 @@ def _run_optuna_search(
             y_fold_val = y_tune[fold_val_idx]
             _ = classifier.fit(fit_texts, labels=cast(list[int], y_fit.tolist()))
             probs_fold_val = np.array(classifier.predict_proba_batch(fold_val_texts))
+            fold_val_forced_negative_mask = _hard_negative_mask(
+                texts=fold_val_texts,
+                min_chars_hard_negative=min_chars_hard_negative,
+            )
             try:
                 threshold, metrics = _select_threshold(
                     y_true=y_fold_val,
                     probs=probs_fold_val,
                     min_recall=min_recall,
                     threshold_step=threshold_step,
+                    forced_negative_mask=fold_val_forced_negative_mask,
                 )
             except RuntimeError as exc:
                 raise TrialPruned(str(exc)) from exc
@@ -628,6 +704,7 @@ def main() -> None:
     val_split = 0.1
     test_split = 0.2
     random_state = 42
+    min_chars_hard_negative = 20000
     threshold_step = 0.01
     threshold = 0.5
     tune_threshold = True
@@ -638,6 +715,28 @@ def main() -> None:
 
     mode = cast(str, args.mode)
     y = _require_supervised_labels(labels)
+    texts, y, urls, dropped_short_positives = _drop_short_positive_examples(
+        texts=texts,
+        labels=y,
+        urls=urls,
+        min_chars_hard_negative=min_chars_hard_negative,
+    )
+    if dropped_short_positives > 0:
+        print(
+            f"Dropped {dropped_short_positives} positive examples shorter than {min_chars_hard_negative} chars to align training labels with hard-negative inference."
+        )
+        if split_path.exists():
+            split_path.unlink()
+            print(
+                f"Removed stale split manifest at {split_path} after dataset filtering; a new split will be created."
+            )
+    y_list = cast(list[int], y.tolist())
+    has_negative = 0 in y_list
+    has_positive = 1 in y_list
+    if not has_negative or not has_positive:
+        raise RuntimeError(
+            "Dataset has only one class after dropping short positive examples."
+        )
     if mode == "eval":
         if urls is None:
             raise RuntimeError("Evaluation requires a 'url' column in the dataset.")
@@ -651,10 +750,20 @@ def main() -> None:
         )
         print(f"Loading classifier from {output_path}...")
         classifier = ExhibitClassifier.load(output_path)
+        if classifier.min_chars_hard_negative != min_chars_hard_negative:
+            raise RuntimeError(
+                f"Loaded model min_chars_hard_negative={classifier.min_chars_hard_negative} does not match hardcoded training/eval value {min_chars_hard_negative}."
+            )
         print(f"Evaluating on {len(texts)} examples...")
         probs = np.array(classifier.predict_proba_batch(texts))
+        forced_negative_mask = _hard_negative_mask(
+            texts=texts,
+            min_chars_hard_negative=min_chars_hard_negative,
+        )
         val_probs = probs[val_idx]
         test_probs = probs[test_idx]
+        val_forced_negative_mask = forced_negative_mask[val_idx]
+        test_forced_negative_mask = forced_negative_mask[test_idx]
         y_val = y[val_idx]
         y_test = y[test_idx]
         if tune_threshold:
@@ -663,6 +772,7 @@ def main() -> None:
                 probs=val_probs,
                 min_recall=min_recall,
                 threshold_step=threshold_step,
+                forced_negative_mask=val_forced_negative_mask,
             )
             msg = (
                 f"Tuned threshold to {threshold:.2f} (min_recall={min_recall:.2f}, "
@@ -672,7 +782,11 @@ def main() -> None:
                 f"f1={tuning_metrics['f1']:.3f})"
             )
             print(msg)
-        preds = (test_probs >= threshold).astype(int)
+        preds = _preds_from_probs(
+            probs=test_probs,
+            threshold=threshold,
+            forced_negative_mask=test_forced_negative_mask,
+        )
 
         _compute_and_log_metrics(
             y_true=y_test,
@@ -712,6 +826,7 @@ def main() -> None:
             min_recall=min_recall,
             threshold_step=threshold_step,
             random_state=random_state,
+            min_chars_hard_negative=min_chars_hard_negative,
             num_trials=optuna_trials,
             tune_vectorizer=tune_vectorizer,
             cv_folds=TUNE_CV_FOLDS,
@@ -733,19 +848,33 @@ def main() -> None:
             logreg_max_iter=2000,
             class_weight=_class_weight_from_params(best_params),
             start_scan_chars=cast(int, best_params["start_scan_chars"]),
+            min_chars_hard_negative=min_chars_hard_negative,
             random_state=random_state,
         )
         _ = classifier.fit(tune_texts, labels=cast(list[int], y_tune.tolist()))
 
         threshold = float(best_threshold)
         probs_tune = np.array(classifier.predict_proba_batch(tune_texts))
+        tune_forced_negative_mask = _hard_negative_mask(
+            texts=tune_texts,
+            min_chars_hard_negative=min_chars_hard_negative,
+        )
         final_threshold_metrics = _compute_threshold_metrics(
             y_true=y_tune,
             probs=probs_tune,
             threshold=threshold,
+            forced_negative_mask=tune_forced_negative_mask,
         )
         probs_test = np.array(classifier.predict_proba_batch(test_texts))
-        preds = (probs_test >= threshold).astype(int)
+        test_forced_negative_mask = _hard_negative_mask(
+            texts=test_texts,
+            min_chars_hard_negative=min_chars_hard_negative,
+        )
+        preds = _preds_from_probs(
+            probs=probs_test,
+            threshold=threshold,
+            forced_negative_mask=test_forced_negative_mask,
+        )
         print("Computing metrics...")
         EVAL_METRICS_DIR.mkdir(parents=True, exist_ok=True)
         metrics_file = EVAL_METRICS_DIR / "exhibit_classifier_test_metrics.yaml"
@@ -783,6 +912,7 @@ def main() -> None:
                 "trials": int(optuna_trials),
                 "cv_folds": int(TUNE_CV_FOLDS),
                 "tune_pool_size": int(len(tune_texts)),
+                "min_chars_hard_negative": int(min_chars_hard_negative),
             },
         }
         with open(DEFAULT_OPTUNA_PATH, "w", encoding="utf-8") as f:
@@ -817,6 +947,7 @@ def main() -> None:
     print("Initializing classifier...")
     classifier = ExhibitClassifier(
         max_features=5000,
+        min_chars_hard_negative=min_chars_hard_negative,
         random_state=random_state,
     )
     y_train_list = cast(list[int], y_train.tolist())
@@ -826,12 +957,21 @@ def main() -> None:
     print(f"Evaluating on {len(test_texts)} test examples...")
     probs_val = np.array(classifier.predict_proba_batch(val_texts))
     probs_test = np.array(classifier.predict_proba_batch(test_texts))
+    val_forced_negative_mask = _hard_negative_mask(
+        texts=val_texts,
+        min_chars_hard_negative=min_chars_hard_negative,
+    )
+    test_forced_negative_mask = _hard_negative_mask(
+        texts=test_texts,
+        min_chars_hard_negative=min_chars_hard_negative,
+    )
     if tune_threshold:
         threshold, tuning_metrics = _select_threshold(
             y_true=y_val,
             probs=probs_val,
             min_recall=cast(float, args.min_recall),
             threshold_step=threshold_step,
+            forced_negative_mask=val_forced_negative_mask,
         )
         msg = (
             f"Tuned threshold to {threshold:.2f} (min_recall={cast(float, args.min_recall):.2f}, "
@@ -841,7 +981,11 @@ def main() -> None:
             f"f1={tuning_metrics['f1']:.3f})"
         )
         print(msg)
-    preds = (probs_test >= threshold).astype(int)
+    preds = _preds_from_probs(
+        probs=probs_test,
+        threshold=threshold,
+        forced_negative_mask=test_forced_negative_mask,
+    )
     print("Computing metrics...")
     EVAL_METRICS_DIR.mkdir(parents=True, exist_ok=True)
     metrics_file = EVAL_METRICS_DIR / "exhibit_classifier_test_metrics.yaml"

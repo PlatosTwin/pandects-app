@@ -14,7 +14,7 @@ Notes:
 import re
 import warnings
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
 import joblib
 import numpy as np
@@ -27,6 +27,30 @@ from scipy.sparse import csr_matrix, hstack as sparse_hstack
 from scipy.sparse import spmatrix
 
 
+class ExhibitClassifierModelData(TypedDict):
+    tfidf_vectorizer: HashingVectorizer
+    char_tfidf_vectorizer: HashingVectorizer
+    word_tfidf_transformer: TfidfTransformer
+    char_tfidf_transformer: TfidfTransformer
+    feature_scaler: StandardScaler
+    training_tfidf_matrix: spmatrix
+    binary_classifier: LogisticRegression
+    max_features: int
+    char_max_features: int
+    word_ngram_range: tuple[int, int]
+    char_ngram_range: tuple[int, int]
+    logreg_c: float
+    logreg_max_iter: int
+    class_weight: str | dict[int, float] | None
+    random_state: int
+    ma_keywords: list[str]
+    start_agreement_title_phrases: list[str]
+    ma_hard_negative_phrases: list[str]
+    start_scan_chars: int
+    min_chars_hard_negative: int
+    decision_threshold: float
+
+
 class ExhibitClassifier:
     """
     Supervised classifier for identifying M&A agreements from SEC filing text.
@@ -34,7 +58,7 @@ class ExhibitClassifier:
     Features extracted include:
     - Document structure indicators (sections, articles, exhibits)
     - Legal language patterns specific to M&A agreements
-    - Term frequencies of M&A-specific vocabulary
+    - Keyword hit counts across M&A-specific vocabulary
     - Document length and complexity metrics
     - Semantic similarity to known M&A agreements
 
@@ -60,13 +84,22 @@ class ExhibitClassifier:
         logreg_max_iter: int = 1000,
         class_weight: str | dict[int, float] | None = "balanced",
         start_scan_chars: int = 2000,
+        min_chars_hard_negative: int = 20000,
         random_state: int = 42,
     ):
         """
         Initialize the M&A agreement classifier.
 
         Args:
-            max_features: Maximum number of TF-IDF features to use
+            max_features: Number of hashed word TF-IDF features
+            char_max_features: Number of hashed char-level TF-IDF features
+            word_ngram_range: N-gram range for word hashing features
+            char_ngram_range: N-gram range for char hashing features
+            logreg_c: Inverse regularization strength for logistic regression
+            logreg_max_iter: Max iterations for logistic regression solver
+            class_weight: Class weighting strategy for logistic regression
+            start_scan_chars: Opening-character window used for title/negative features
+            min_chars_hard_negative: Documents shorter than this are forced negative
             random_state: Random seed for reproducibility
         """
         self.max_features = max_features
@@ -77,6 +110,7 @@ class ExhibitClassifier:
         self.logreg_max_iter = logreg_max_iter
         self.class_weight = class_weight
         self.start_scan_chars = start_scan_chars
+        self.min_chars_hard_negative = min_chars_hard_negative
         self.random_state = random_state
 
         # Initialize hashing-based text feature pipeline.
@@ -99,7 +133,6 @@ class ExhibitClassifier:
 
         self.feature_scaler = StandardScaler(with_mean=False)
         self.is_fitted = False
-        self.training_texts: list[str] = []  # Store for similarity computation
         self.training_tfidf_matrix: spmatrix | None = None
         self.binary_classifier: LogisticRegression | None = None
         # Decision threshold for predict(); set by train/tune and persisted in joblib.
@@ -110,7 +143,6 @@ class ExhibitClassifier:
             "merger",
             "acquisition",
             "merger agreement",
-            "purchase agreement",
             "stock purchase",
             "asset purchase",
             "merger consideration",
@@ -143,7 +175,6 @@ class ExhibitClassifier:
             "solvency opinion",
             "proxy statement",
             "definitive agreement",
-            "letter of intent",
             "due diligence",
             "antitrust clearance",
             "hsr act",
@@ -168,6 +199,7 @@ class ExhibitClassifier:
             "merger agreement",
             "plan of merger",
             "purchase and sale agreement",
+            "purchase agreement",
             "securities purchase agreement",
             "share purchase agreement",
             "stock purchase agreement",
@@ -209,13 +241,14 @@ class ExhibitClassifier:
             "limited partnership agreement",
             "loan agreement",
             "loan and security agreement",
+            "loan term",
             "management agreement",
             "master lease",
             "memorandum agreement",
             "memorandum of understanding",
             "non-competition",
             "non-solicitation agreement",
-            "note purchase agreement",
+            "note purchase",
             "option",
             "performance",
             "please see pdf version",
@@ -255,6 +288,23 @@ class ExhibitClassifier:
     def _normalize_for_feature_scan(text: str) -> str:
         return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
+    @staticmethod
+    def _normalize_for_case_sensitive_feature_scan(text: str) -> str:
+        return re.sub(r"[^A-Za-z0-9]+", " ", text).strip()
+
+    @staticmethod
+    def _count_phrase_occurrences(text: str, phrase: str) -> tuple[int, int]:
+        if not text or not phrase:
+            return 0, -1
+        pattern = rf"(?<!\w){re.escape(phrase)}(?!\w)"
+        matches = list(re.finditer(pattern, text))
+        if not matches:
+            return 0, -1
+        return len(matches), matches[0].start()
+
+    def _is_hard_negative_by_length(self, text: str) -> bool:
+        return len(text) < self.min_chars_hard_negative
+
     def _extract_document_features(self, text: str) -> np.ndarray:
         """
         Extract document-level features specific to M&A agreements.
@@ -266,11 +316,17 @@ class ExhibitClassifier:
             Feature vector as numpy array
         """
         # Normalize text
-        text = str(text).lower()
+        raw_text = str(text)
+        text = raw_text.lower()
 
         # Use first N chars as a proxy for the first page/start of document
         first_chunk = text[: self.start_scan_chars]
+        first_chunk_case_sensitive = raw_text[: self.start_scan_chars]
+        text_norm = self._normalize_for_feature_scan(text)
         first_chunk_norm = self._normalize_for_feature_scan(first_chunk)
+        first_chunk_case_sensitive_norm = (
+            self._normalize_for_case_sensitive_feature_scan(first_chunk_case_sensitive)
+        )
 
         # Basic document statistics
         words = text.split()
@@ -289,24 +345,49 @@ class ExhibitClassifier:
             float(title_pos) / max(first_chunk_len, 1) if has_start_title_hit else 0.0
         )
 
-        hard_negative_positions = [
-            first_chunk_norm.find(phrase)
+        hard_negative_counts_and_positions = [
+            self._count_phrase_occurrences(
+                first_chunk_norm, self._normalize_for_feature_scan(phrase)
+            )
             for phrase in self.ma_hard_negative_phrases
-            if first_chunk_norm.find(phrase) >= 0
+        ]
+        hard_negative_count = sum(
+            count for count, _ in hard_negative_counts_and_positions
+        )
+        hard_negative_positions = [
+            position
+            for count, position in hard_negative_counts_and_positions
+            if count > 0 and position >= 0
         ]
         has_start_hard_negative_hit = len(hard_negative_positions) > 0
         hard_negative_pos = (
             min(hard_negative_positions) if has_start_hard_negative_hit else -1
         )
         start_hard_negative = 1.0 if has_start_hard_negative_hit else 0.0
+        start_hard_negative_count = float(hard_negative_count)
         start_hard_negative_pos = (
             float(hard_negative_pos) / max(first_chunk_len, 1)
             if has_start_hard_negative_hit
             else 0.0
         )
+        hard_negative_all_caps_count = sum(
+            self._count_phrase_occurrences(
+                first_chunk_case_sensitive_norm,
+                self._normalize_for_feature_scan(phrase).upper(),
+            )[0]
+            for phrase in self.ma_hard_negative_phrases
+        )
+        start_hard_negative_all_caps = 1.0 if hard_negative_all_caps_count > 0 else 0.0
+        start_hard_negative_all_caps_count = float(hard_negative_all_caps_count)
 
         # M&A-specific language patterns
-        ma_keyword_count = sum(1 for keyword in self.ma_keywords if keyword in text)
+        ma_keyword_count = sum(
+            self._count_phrase_occurrences(
+                text_norm, self._normalize_for_feature_scan(keyword)
+            )[0]
+            > 0
+            for keyword in self.ma_keywords
+        )
         ma_keyword_density = ma_keyword_count / num_words if num_words > 0 else 0.0
 
         # Compile feature vector
@@ -317,7 +398,10 @@ class ExhibitClassifier:
             start_has_agreement_title,
             start_has_agreement_title_pos,
             start_hard_negative,
+            start_hard_negative_count,
             start_hard_negative_pos,
+            start_hard_negative_all_caps,
+            start_hard_negative_all_caps_count,
         ]
 
         return np.array(features, dtype=float)
@@ -338,11 +422,8 @@ class ExhibitClassifier:
         Returns:
             Similarity features as numpy array
         """
-        if not self.training_texts:
-            return np.array([0.0, 0.0, 0.0])  # No training data yet
-
         if self.training_tfidf_matrix is None:
-            self.training_tfidf_matrix = self._build_text_matrix(self.training_texts)
+            return np.array([0.0, 0.0, 0.0])  # No training data yet
 
         query_vector = self._build_text_matrix([text])
         training_vectors = self.training_tfidf_matrix
@@ -359,11 +440,8 @@ class ExhibitClassifier:
     def _compute_similarity_features_batch(self, texts: list[str]) -> np.ndarray:
         if not texts:
             return np.zeros((0, 3))
-        if not self.training_texts:
-            return np.zeros((len(texts), 3))
-
         if self.training_tfidf_matrix is None:
-            self.training_tfidf_matrix = self._build_text_matrix(self.training_texts)
+            return np.zeros((len(texts), 3))
 
         query_matrix = self._build_text_matrix(texts)
         training_vectors = self.training_tfidf_matrix
@@ -414,13 +492,34 @@ class ExhibitClassifier:
 
         print(f"Training M&A classifier with {len(texts)} agreements...")
 
-        if labels is None or not any(label == 0 for label in labels):
+        if labels is None:
             raise RuntimeError(
                 "Supervised training requires both positive and negative labels."
             )
-
-        # Store training texts for similarity computation
-        self.training_texts = texts.copy()
+        if len(labels) != len(texts):
+            raise ValueError(
+                f"Number of labels ({len(labels)}) must match number of texts ({len(texts)})."
+            )
+        has_negative = any(label == 0 for label in labels)
+        has_positive = any(label == 1 for label in labels)
+        if not has_negative or not has_positive:
+            raise RuntimeError(
+                "Supervised training requires both positive and negative labels."
+            )
+        short_positive_examples = [
+            i
+            for i, (text, label) in enumerate(zip(texts, labels))
+            if label == 1 and self._is_hard_negative_by_length(str(text))
+        ]
+        if short_positive_examples:
+            raise RuntimeError(
+                (
+                    f"Found {len(short_positive_examples)} positive labels with text length below "
+                    f"min_chars_hard_negative={self.min_chars_hard_negative}. This violates the hard-negative "
+                    f"rule and makes training inconsistent with inference. Remove/relabel those examples or "
+                    f"lower min_chars_hard_negative."
+                )
+            )
 
         # Fit hashing TF-IDF transformers.
         print("- Fitting hash TF-IDF transformers...")
@@ -435,7 +534,7 @@ class ExhibitClassifier:
             [self._extract_document_features(text) for text in texts]
         )
 
-        # Extract TF-IDF features (use smaller subset for efficiency)
+        # Extract TF-IDF features
         print("- Extract TF-IDF features...")
         tfidf_matrix = self._build_text_matrix(texts)
         self.training_tfidf_matrix = tfidf_matrix
@@ -477,10 +576,14 @@ class ExhibitClassifier:
             text: SEC filing text content
 
         Returns:
-            Probability score between 0 and 1 (higher = more likely M&A agreement)
+            Probability score between 0 and 1 (higher = more likely M&A agreement).
+            Returns 0.0 for texts shorter than min_chars_hard_negative.
         """
         if not self.is_fitted:
             raise RuntimeError("Classifier must be fitted before making predictions")
+        text = str(text)
+        if self._is_hard_negative_by_length(text):
+            return 0.0
 
         # Extract features
         doc_features = self._extract_document_features(text)
@@ -506,12 +609,20 @@ class ExhibitClassifier:
             raise RuntimeError("Classifier must be fitted before making predictions")
         if not texts:
             return []
+        texts = [str(text) for text in texts]
+        short_text_mask = [self._is_hard_negative_by_length(text) for text in texts]
+        non_short_indices = [
+            index for index, is_short in enumerate(short_text_mask) if not is_short
+        ]
+        if not non_short_indices:
+            return [0.0] * len(texts)
+        non_short_texts = [texts[index] for index in non_short_indices]
 
         doc_features = np.array(
-            [self._extract_document_features(text) for text in texts]
+            [self._extract_document_features(text) for text in non_short_texts]
         )
-        tfidf_matrix = self._build_text_matrix(texts)
-        similarity_features = self._compute_similarity_features_batch(texts)
+        tfidf_matrix = self._build_text_matrix(non_short_texts)
+        similarity_features = self._compute_similarity_features_batch(non_short_texts)
 
         doc_sparse = csr_matrix(doc_features)
         similarity_sparse = csr_matrix(similarity_features)
@@ -524,14 +635,23 @@ class ExhibitClassifier:
             raise RuntimeError("Classifier must be fitted before making predictions")
 
         probabilities = self.binary_classifier.predict_proba(scaled_features)[:, 1]
-        return [float(p) for p in np.clip(probabilities, 0.0, 1.0)]
+        probabilities = [float(p) for p in np.clip(probabilities, 0.0, 1.0)]
+
+        final_probabilities = [0.0] * len(texts)
+        for output_index, original_index in enumerate(non_short_indices):
+            final_probabilities[original_index] = probabilities[output_index]
+        return final_probabilities
 
     def predict_batch(
         self, texts: list[str], threshold: float | None = None
     ) -> list[bool]:
         threshold_value = self.decision_threshold if threshold is None else threshold
+        texts = [str(text) for text in texts]
         probabilities = self.predict_proba_batch(texts)
-        return [prob >= threshold_value for prob in probabilities]
+        return [
+            (not self._is_hard_negative_by_length(text)) and prob >= threshold_value
+            for text, prob in zip(texts, probabilities)
+        ]
 
     def predict(self, text: str, threshold: float | None = None) -> bool:
         """
@@ -544,6 +664,11 @@ class ExhibitClassifier:
         Returns:
             True if predicted to be M&A agreement, False otherwise
         """
+        if not self.is_fitted:
+            raise RuntimeError("Classifier must be fitted before making predictions")
+        text = str(text)
+        if self._is_hard_negative_by_length(text):
+            return False
         threshold_value = self.decision_threshold if threshold is None else threshold
         probability = self.predict_proba(text)
         return probability >= threshold_value
@@ -557,17 +682,25 @@ class ExhibitClassifier:
         """
         if not self.is_fitted:
             raise RuntimeError("Cannot save unfitted classifier")
+        if self.binary_classifier is None:
+            raise RuntimeError(
+                "Cannot save classifier: missing fitted logistic regression model"
+            )
+        if self.training_tfidf_matrix is None:
+            raise RuntimeError(
+                "Cannot save classifier: missing training similarity reference matrix"
+            )
 
         path = Path(filepath)
 
         # Save using joblib
-        model_data = {
+        model_data: ExhibitClassifierModelData = {
             "tfidf_vectorizer": self.tfidf_vectorizer,
             "char_tfidf_vectorizer": self.char_tfidf_vectorizer,
             "word_tfidf_transformer": self.word_tfidf_transformer,
             "char_tfidf_transformer": self.char_tfidf_transformer,
             "feature_scaler": self.feature_scaler,
-            "training_texts": self.training_texts,
+            "training_tfidf_matrix": self.training_tfidf_matrix,
             "binary_classifier": self.binary_classifier,
             "max_features": self.max_features,
             "char_max_features": self.char_max_features,
@@ -581,7 +714,8 @@ class ExhibitClassifier:
             "start_agreement_title_phrases": self.start_agreement_title_phrases,
             "ma_hard_negative_phrases": self.ma_hard_negative_phrases,
             "start_scan_chars": self.start_scan_chars,
-            "decision_threshold": getattr(self, "decision_threshold", 0.5),
+            "min_chars_hard_negative": self.min_chars_hard_negative,
+            "decision_threshold": self.decision_threshold,
         }
 
         _ = joblib.dump(model_data, path)
@@ -604,7 +738,41 @@ class ExhibitClassifier:
             raise FileNotFoundError(f"Classifier file not found: {path}")
 
         # Load model data
-        model_data = joblib.load(path)
+        model_data = cast(ExhibitClassifierModelData, joblib.load(path))
+        required_model_keys = (
+            "max_features",
+            "char_max_features",
+            "word_ngram_range",
+            "char_ngram_range",
+            "logreg_c",
+            "logreg_max_iter",
+            "class_weight",
+            "start_scan_chars",
+            "min_chars_hard_negative",
+            "random_state",
+            "decision_threshold",
+            "tfidf_vectorizer",
+            "char_tfidf_vectorizer",
+            "word_tfidf_transformer",
+            "char_tfidf_transformer",
+            "feature_scaler",
+            "training_tfidf_matrix",
+            "binary_classifier",
+            "ma_keywords",
+            "start_agreement_title_phrases",
+            "ma_hard_negative_phrases",
+        )
+        missing_model_keys = [
+            key for key in required_model_keys if key not in model_data
+        ]
+        if missing_model_keys:
+            missing_text = ", ".join(sorted(missing_model_keys))
+            raise ValueError(
+                (
+                    "Exhibit classifier model file is missing required fields: "
+                    f"{missing_text}. Retrain and save a new model artifact."
+                )
+            )
 
         # Create new instance
         classifier = cls(
@@ -616,6 +784,7 @@ class ExhibitClassifier:
             logreg_max_iter=model_data["logreg_max_iter"],
             class_weight=model_data["class_weight"],
             start_scan_chars=model_data["start_scan_chars"],
+            min_chars_hard_negative=model_data["min_chars_hard_negative"],
             random_state=model_data["random_state"],
         )
 
@@ -625,9 +794,7 @@ class ExhibitClassifier:
         classifier.word_tfidf_transformer = model_data["word_tfidf_transformer"]
         classifier.char_tfidf_transformer = model_data["char_tfidf_transformer"]
         classifier.feature_scaler = model_data["feature_scaler"]
-        classifier.training_texts = model_data["training_texts"]
-        # Recompute from training_texts so dimensions match _build_text_matrix.
-        classifier.training_tfidf_matrix = None
+        classifier.training_tfidf_matrix = model_data["training_tfidf_matrix"]
         classifier.binary_classifier = model_data["binary_classifier"]
         classifier.ma_keywords = model_data["ma_keywords"]
         classifier.start_agreement_title_phrases = model_data[
@@ -635,17 +802,16 @@ class ExhibitClassifier:
         ]
         classifier.ma_hard_negative_phrases = model_data["ma_hard_negative_phrases"]
         classifier.start_scan_chars = int(model_data["start_scan_chars"])
-        classifier.decision_threshold = model_data["decision_threshold"]
+        classifier.min_chars_hard_negative = int(model_data["min_chars_hard_negative"])
+        classifier.decision_threshold = float(model_data["decision_threshold"])
         classifier.is_fitted = True
 
         # Sanity check: pipeline output dim must match what the scaler was fitted on
-        sample = (
-            classifier.training_texts[0]
-            if classifier.training_texts
-            else "agreement merger acquisition consideration closing"
-        )
+        sample = "agreement merger acquisition consideration closing"
         doc_dim = len(classifier._extract_document_features(sample))
-        tfidf_cols = classifier._build_text_matrix([sample]).shape[1]
+        tfidf_cols = int(classifier.tfidf_vectorizer.n_features) + int(
+            classifier.char_tfidf_vectorizer.n_features
+        )
         pipeline_n_features = doc_dim + tfidf_cols + 3
         scaler_n_features = getattr(classifier.feature_scaler, "n_features_in_", None)
         if scaler_n_features is not None and pipeline_n_features != scaler_n_features:
@@ -672,7 +838,10 @@ class ExhibitClassifier:
             "start_has_agreement_title",
             "start_has_agreement_title_pos",
             "start_hard_negative",
+            "start_hard_negative_count",
             "start_hard_negative_pos",
+            "start_hard_negative_all_caps",
+            "start_hard_negative_all_caps_count",
         ]
 
         word_vocab = [f"hash_word:{i}" for i in range(self.max_features)]
