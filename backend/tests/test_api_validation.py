@@ -90,7 +90,7 @@ class ApiValidationTests(unittest.TestCase):
             os.environ.pop("TURNSTILE_SECRET_KEY", None)
 
     def test_dumps_cache_returns_cached_payload(self):
-        payload = [{"timestamp": "2025-01-01"}]
+        payload: list[dict[str, object]] = [{"timestamp": "2025-01-01"}]
         backend_app._dumps_cache["payload"] = payload
         backend_app._dumps_cache["ts"] = time.time()
 

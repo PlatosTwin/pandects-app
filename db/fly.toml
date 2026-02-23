@@ -10,7 +10,7 @@ primary_region = 'iad'
   image = 'mariadb:11.8.2'
 
 [env]
-  MARIADB_DATABASE = 'mna'
+  MARIADB_DATABASE = 'pdx'
   MARIADB_USER = 'panda'
 
 [processes]

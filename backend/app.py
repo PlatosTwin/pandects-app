@@ -1,8 +1,8 @@
 import os
 import sys
 import importlib
-from typing import Callable, ClassVar, Protocol, TypedDict, cast
-from collections.abc import Iterable
+from typing import Callable, ClassVar, Protocol, SupportsInt, TypedDict, cast
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 import time
 from functools import lru_cache
@@ -365,16 +365,25 @@ def _app_config_map(app: Flask) -> dict[str, object]:
 
 
 def _to_int(value: object, *, default: int = 0) -> int:
+    if value is None:
+        return default
     if isinstance(value, bool):
         return int(value)
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
     if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return default
+        try:
+            return int(stripped)
+        except ValueError:
+            try:
+                return int(float(stripped))
+            except ValueError:
+                return default
+    if isinstance(value, SupportsInt):
         try:
             return int(value)
-        except ValueError:
+        except (TypeError, ValueError, OverflowError):
             return default
     return default
 
@@ -382,6 +391,9 @@ def _to_int(value: object, *, default: int = 0) -> int:
 def _row_mapping_as_dict(row: object) -> dict[str, object]:
     if isinstance(row, dict):
         return cast(dict[str, object], row)
+    if isinstance(row, Mapping):
+        mapping_row = cast(Mapping[object, object], row)
+        return {str(key): value for key, value in mapping_row.items()}
     mapping_obj = cast(object, getattr(row, "_mapping", None))
     if mapping_obj is None:
         return {}
@@ -608,7 +620,11 @@ _MAIN_SCHEMA_TOKEN = "__main_schema__"
 
 
 def _main_db_schema_from_env() -> str:
-    return os.environ.get("MAIN_DB_SCHEMA", "pdx").strip()
+    raw = os.environ.get("MAIN_DB_SCHEMA")
+    if raw is None:
+        return "pdx"
+    value = raw.strip()
+    return value or "pdx"
 
 
 def _main_db_uri_from_env() -> str:

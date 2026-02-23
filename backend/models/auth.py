@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.extensions import db
+
+
+def _utc_now_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AuthUser(db.Model):
@@ -14,7 +18,7 @@ class AuthUser(db.Model):
     email = db.Column(db.String(320), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=True)
     email_verified_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
 
 
 class AuthSession(db.Model):
@@ -26,7 +30,7 @@ class AuthSession(db.Model):
         db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
     )
     token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     expires_at = db.Column(db.DateTime, nullable=False)
     revoked_at = db.Column(db.DateTime, nullable=True)
     last_used_at = db.Column(db.DateTime, nullable=True)
@@ -42,7 +46,7 @@ class AuthPasswordResetToken(db.Model):
     user_id = db.Column(
         db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
     )
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime, nullable=True)
     ip_address = db.Column(db.String(64), nullable=True)
@@ -60,7 +64,7 @@ class ApiKey(db.Model):
     name = db.Column(db.String(120), nullable=True)
     prefix = db.Column(db.String(18), index=True, nullable=False)
     key_hash = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     last_used_at = db.Column(db.DateTime, nullable=True)
     revoked_at = db.Column(db.DateTime, nullable=True)
 
@@ -180,6 +184,6 @@ class AuthSignonEvent(db.Model):
     )
     provider = db.Column(db.String(32), nullable=False)
     action = db.Column(db.String(32), nullable=False)
-    occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    occurred_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     ip_address = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(512), nullable=True)

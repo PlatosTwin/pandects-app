@@ -73,6 +73,12 @@ class AuthFlowTests(unittest.TestCase):
         )
         return nonce
 
+    def _require_user(self, email: str) -> AuthUser:
+        user = AuthUser.query.filter_by(email=email).first()
+        if user is None:
+            self.fail(f"Expected test user with email={email}")
+        return user
+
     def test_cookie_transport_register_login_csrf_and_logout(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
@@ -113,8 +119,7 @@ class AuthFlowTests(unittest.TestCase):
             self.assertIn("Expires=Thu, 01 Jan 1970", set_cookie)
 
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="a@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("a@example.com")
             token = backend_app._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
@@ -183,8 +188,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 201)
 
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="events@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("events@example.com")
             token = backend_app._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
@@ -229,8 +233,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 201)
 
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="bearer@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("bearer@example.com")
             token = backend_app._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
@@ -293,8 +296,7 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 201)
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="flag@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("flag@example.com")
             token = backend_app._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
@@ -426,8 +428,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 201)
 
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="reset@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("reset@example.com")
             token = backend_app._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
@@ -594,8 +595,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 403)
 
         with self.app.app_context():
-            user = AuthUser.query.filter_by(email="b@example.com").first()
-            self.assertIsNotNone(user)
+            user = self._require_user("b@example.com")
             verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
 
         res = client.post("/v1/auth/email/verify", json={"token": verify})

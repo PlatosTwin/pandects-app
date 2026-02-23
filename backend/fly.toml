@@ -9,7 +9,8 @@ primary_region = 'iad'
 [build]
 
 [env]
-  MARIADB_DATABASE = 'mna'
+  MARIADB_DATABASE = 'pdx'
+  MAIN_DB_SCHEMA = 'pdx'
   MARIADB_USER = 'panda'
   MARIADB_HOST = 'pandects-db.internal'
 

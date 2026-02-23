@@ -6,7 +6,7 @@ import os
 import random
 import time
 from dataclasses import dataclass
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from threading import Event, Lock, Thread
 
 from flask import request, g
@@ -50,6 +50,10 @@ def _latency_bucket_index(bounds: tuple[int, ...], elapsed_ms: int) -> int:
         if elapsed_ms <= bound:
             return idx
     return len(bounds)
+
+
+def _utc_now_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 @dataclass(frozen=True)
@@ -281,7 +285,7 @@ class UsageBuffer:
                                 api_key_id=api_key_id,
                                 day=day,
                                 ip_hash=ip_hash,
-                                first_seen_at=datetime.utcnow(),
+                                first_seen_at=_utc_now_naive(),
                             )
                         )
 
@@ -329,7 +333,7 @@ def build_usage_event(
     route = _api_route_template()
     if route is None:
         return None
-    now = datetime.utcnow()
+    now = _utc_now_naive()
     status_code = int(response.status_code)
     status_class = status_code // 100
     elapsed_ms = 0

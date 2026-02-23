@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from collections import defaultdict
 
 from flask import Blueprint, abort, jsonify, make_response, redirect, request, current_app
@@ -92,7 +92,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 app_module._clear_auth_cookies(resp)
                 return resp
 
-            now = datetime.utcnow()
+            now = app_module._utc_now()
             ip_address = app_module._request_ip_address()
             user_agent = app_module._request_user_agent()
             user = app_module.AuthUser(
@@ -326,8 +326,8 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 abort(400, description="Invalid or expired reset token.")
             user.password_hash = app_module.generate_password_hash(password)
             if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
-            now = datetime.utcnow()
+                user.email_verified_at = app_module._utc_now()
+            now = app_module._utc_now()
             if row is not None:
                 row.used_at = now
             app_module.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
@@ -374,7 +374,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
                 abort(400, description="Invalid verification token.")
             if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
+                user.email_verified_at = app_module._utc_now()
                 app_module.db.session.commit()
         except HTTPException:
             app_module.db.session.rollback()
@@ -555,7 +555,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             if key is None:
                 abort(404)
             if key.revoked_at is None:
-                key.revoked_at = datetime.utcnow()
+                key.revoked_at = app_module._utc_now()
                 app_module.db.session.commit()
             resp = app_module._status_response("revoked")
             resp.headers["Cache-Control"] = "no-store"
@@ -617,7 +617,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             abort(501, description="Account deletion is unavailable in mock auth mode.")
 
         try:
-            now = datetime.utcnow()
+            now = app_module._utc_now()
             tombstone = f"deleted+{uuid.uuid4().hex}@deleted.invalid"
             user.email = tombstone
             user.password_hash = None
@@ -800,7 +800,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                     token=None, next_path=next_path or "/account", error="legal_required"
                 )
             if user.email_verified_at is None:
-                user.email_verified_at = datetime.utcnow()
+                user.email_verified_at = app_module._utc_now()
             app_module._record_signon_event(user_id=user.id, provider="google", action="login")
             app_module.db.session.commit()
         except SQLAlchemyError:
@@ -837,7 +837,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             user = app_module.AuthUser.query.filter_by(email=normalized).first()
             if user is None:
                 checked_at = app_module._require_legal_acceptance(data)
-                now = datetime.utcnow()
+                now = app_module._utc_now()
                 ip_address = app_module._request_ip_address()
                 user_agent = app_module._request_user_agent()
                 user = app_module.AuthUser(
@@ -869,12 +869,12 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                     user_id=user.id, checked_at=checked_at
                 )
                 if user.email_verified_at is None:
-                    user.email_verified_at = datetime.utcnow()
+                    user.email_verified_at = app_module._utc_now()
                 app_module._record_signon_event(user_id=user.id, provider="google", action="login")
                 app_module.db.session.commit()
             else:
                 if user.email_verified_at is None:
-                    user.email_verified_at = datetime.utcnow()
+                    user.email_verified_at = app_module._utc_now()
                 app_module._record_signon_event(user_id=user.id, provider="google", action="login")
                 app_module.db.session.commit()
         except SQLAlchemyError:
@@ -960,7 +960,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 400,
                 description="Agreement or section not found or not eligible for flagging.",
             )
-        submitted_at = datetime.utcnow()
+        submitted_at = app_module._utc_now()
         app_module._send_flag_notification_email(
             user_email=user.email,
             submitted_at=submitted_at,
