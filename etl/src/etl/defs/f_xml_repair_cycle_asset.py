@@ -391,6 +391,12 @@ def post_repair_verify_xml_asset(
             "post_repair_verify_xml_asset: no (agreement_uuid, version) targets derived from LLM lines."
         )
     verify_batch_key = agreement_version_batch_key(llm_targets)
+    context.log.info(
+        "post_repair_verify_xml_asset: selected agreements=%s, llm_requests=%s, hard_invalid=%s",
+        len(selected_for_verify),
+        len(lines),
+        len(hard_invalid_rows),
+    )
 
     if resume_open_batches:
         with engine.begin() as conn:
@@ -441,6 +447,7 @@ def post_repair_verify_xml_asset(
                     xml_table=xml_table,
                     xml_status_reasons_table=f"{schema}.xml_status_reasons",
                     batch=batch,
+                    log_prefix="post_repair_verify_xml_asset",
                 )
                 with engine.begin() as conn:
                     _mark_xml_verify_batch_pulled(conn, schema, batch.id)
@@ -519,6 +526,7 @@ def post_repair_verify_xml_asset(
         xml_table=xml_table,
         xml_status_reasons_table=f"{schema}.xml_status_reasons",
         batch=final_batch,
+        log_prefix="post_repair_verify_xml_asset",
     )
     with engine.begin() as conn:
         _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)

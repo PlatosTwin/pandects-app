@@ -633,10 +633,12 @@ def _apply_xml_verify_batch_output(
     xml_table: str,
     xml_status_reasons_table: str,
     batch: Any,
+    *,
+    log_prefix: str = "xml_verify_asset",
 ) -> Tuple[int, int]:
     output_file_id = getattr(batch, "output_file_id", None)
     if not output_file_id:
-        context.log.warning("xml_verify_asset: batch has no output_file_id.")
+        context.log.warning("%s: batch has no output_file_id.", log_prefix)
         return 0, 0
 
     out_content = client.files.content(output_file_id)
@@ -645,6 +647,11 @@ def _apply_xml_verify_batch_output(
     updated = 0
     parse_errors = 0
     lines = [line for line in out_text.strip().splitlines() if line.strip()]
+    context.log.info(
+        "%s: applying batch output for responses_total=%s.",
+        log_prefix,
+        len(lines),
+    )
     with engine.begin() as conn:
         for line_str in lines:
             try:
@@ -685,7 +692,15 @@ def _apply_xml_verify_batch_output(
                 )
             except Exception as e:
                 parse_errors += 1
-                context.log.warning(f"xml_verify_asset: parse/apply error: {e}")
+                context.log.warning("%s: parse/apply error: %s", log_prefix, e)
+    context.log.info(
+        "%s: applied batch output responses=%s/%s, updated=%s, parse_errors=%s",
+        log_prefix,
+        len(lines),
+        len(lines),
+        updated,
+        parse_errors,
+    )
     return updated, parse_errors
 
 
@@ -1041,6 +1056,12 @@ def xml_verify_asset(
     if not llm_targets:
         raise ValueError("xml_verify_asset: no (agreement_uuid, version) targets derived from LLM lines.")
     verify_batch_key = agreement_version_batch_key(llm_targets)
+    context.log.info(
+        "xml_verify_asset: selected agreements=%s, llm_requests=%s, hard_invalid=%s",
+        len(selected_for_verify),
+        len(lines),
+        len(hard_invalid_rows),
+    )
 
     if resume_open_batches:
         with engine.begin() as conn:
@@ -1091,6 +1112,7 @@ def xml_verify_asset(
                     xml_table=xml_table,
                     xml_status_reasons_table=f"{schema}.xml_status_reasons",
                     batch=batch,
+                    log_prefix="xml_verify_asset",
                 )
                 with engine.begin() as conn:
                     _mark_xml_verify_batch_pulled(conn, schema, batch.id)
@@ -1165,6 +1187,7 @@ def xml_verify_asset(
         xml_table=xml_table,
         xml_status_reasons_table=f"{schema}.xml_status_reasons",
         batch=final_batch,
+        log_prefix="xml_verify_asset",
     )
     with engine.begin() as conn:
         _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)

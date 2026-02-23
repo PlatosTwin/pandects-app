@@ -77,16 +77,29 @@ def poll_batch_until_terminal(
 
     while True:
         batch = client.batches.retrieve(batch_id)
-        if batch.status in TERMINAL_BATCH_STATUSES:
-            return batch
-
         rc = getattr(batch, "request_counts", None)
+        progress_msg: str | None = None
         if rc is not None:
+            total = int(getattr(rc, "total", 0) or 0)
             completed = getattr(rc, "completed", 0) or 0
             failed = getattr(rc, "failed", 0) or 0
-            progress_snapshot = (batch.status, completed, failed)
+            done = int(completed) + int(failed)
+            pct = int((done / total) * 100) if total else 0
+            progress_snapshot = (batch.status, int(completed), int(failed), total)
+            progress_msg = (
+                f"progress={done}/{total} ({pct}%), completed={int(completed)}, failed={int(failed)}"
+            )
         else:
             progress_snapshot = (batch.status,)
+
+        if batch.status in TERMINAL_BATCH_STATUSES:
+            if progress_msg is None:
+                context.log.info(f"{log_prefix}: batch {batch_id} terminal status={batch.status}")
+            else:
+                context.log.info(
+                    f"{log_prefix}: batch {batch_id} terminal status={batch.status}; {progress_msg}"
+                )
+            return batch
 
         if progress_snapshot == last_progress_snapshot:
             no_update_polls += 1
@@ -111,7 +124,12 @@ def poll_batch_until_terminal(
                 )
 
         sleep_seconds = min(base_sleep_seconds * (2**backoff_level), max_sleep_seconds)
-        context.log.info(
-            f"{log_prefix}: batch {batch_id} status={batch.status}; sleeping {sleep_seconds}s"
-        )
+        if progress_msg is None:
+            context.log.info(
+                f"{log_prefix}: batch {batch_id} status={batch.status}; sleeping {sleep_seconds}s"
+            )
+        else:
+            context.log.info(
+                f"{log_prefix}: batch {batch_id} status={batch.status}; {progress_msg}; sleeping {sleep_seconds}s"
+            )
         time.sleep(sleep_seconds)

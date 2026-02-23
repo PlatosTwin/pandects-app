@@ -109,6 +109,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
         client = _FakeClient(out_text)
 
         class _FakeLog:
+            def info(self, *_args: object, **_kwargs: object) -> None:
+                return None
+
             def warning(self, *_args: object, **_kwargs: object) -> None:
                 return None
 
@@ -209,6 +212,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
         client = _FakeClient(out_text)
 
         class _FakeLog:
+            def info(self, *_args: object, **_kwargs: object) -> None:
+                return None
+
             def warning(self, *_args: object, **_kwargs: object) -> None:
                 return None
 
