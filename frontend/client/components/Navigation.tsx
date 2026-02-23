@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
 import { AuthMenu } from "@/components/AuthMenu";
-import { BETA_SAMPLE_AGREEMENTS_COUNT } from "@/lib/constants";
 import brandLinks from "@branding/links.json";
 import {
   DropdownMenu,
@@ -42,7 +41,7 @@ function NavigationComponent() {
   const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change. Currently, the public site includes ${BETA_SAMPLE_AGREEMENTS_COUNT} sample agreements as a proof of concept.`;
+  const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change.`;
 
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =

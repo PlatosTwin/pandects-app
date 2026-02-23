@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BETA_SAMPLE_AGREEMENTS_COUNT } from "@/lib/constants";
 
 export default function SiteBanner() {
   const [isVisible, setIsVisible] = useState(false);
@@ -53,9 +52,7 @@ export default function SiteBanner() {
             <p className="text-sm text-foreground text-justify sm:text-left">
               <span className="font-semibold text-foreground">Notice</span>:{" "}
               Pandects is in early development. Layout, API schema, and data
-              organization may change. Currently, the public site includes{" "}
-              {BETA_SAMPLE_AGREEMENTS_COUNT} sample agreements as a proof of
-              concept.
+              organization may change.
             </p>
           </div>
           <div className="ml-4 flex-shrink-0">

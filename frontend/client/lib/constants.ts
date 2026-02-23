@@ -2,9 +2,6 @@
  * Application constants
  */
 
-// Beta notice
-export const BETA_SAMPLE_AGREEMENTS_COUNT = 282;
-
 // Pagination
 export const DEFAULT_PAGE_SIZE = 25;
 export const DEFAULT_PAGE = 1;
