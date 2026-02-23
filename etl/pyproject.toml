@@ -19,6 +19,7 @@ dependencies = [
     "transformers>=4.54",
     "nltk>=3.9",
     "openai>=1.100",
+    "voyageai>=0.3",
     "optuna>=4.4",
     "optuna-integration[pytorch_lightning]>=4.4",
     "tensorboard>=2.20",
@@ -48,5 +49,4 @@ root_module = "etl"
 registry_modules = [
     "etl.components.*",
 ]
-
 

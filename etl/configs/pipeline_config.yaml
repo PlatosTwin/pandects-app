@@ -11,6 +11,10 @@ resources:
       taxonomy_agreement_batch_size: 10
       tx_metadata_agreement_batch_size: 10
       tx_metadata_mode: offline
+      embed_agreement_batch_size: 10
+      embed_focus_section: ""
+      embed_focus_section_batch_size: 100
+      embed_target: section
       staging_days_to_fetch: 7
       staging_rate_limit_max_requests: 10
       staging_rate_limit_window_seconds: 1.025

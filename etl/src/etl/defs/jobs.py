@@ -17,6 +17,7 @@ from etl.defs.g_sections_asset import (
 )
 from etl.defs.h_taxonomy_asset import taxonomy_asset
 from etl.defs.i_tx_metadata_asset import tx_metadata_asset
+from etl.defs.j_embed_sections_asset import embed_sections_asset
 from etl.defs.z_gating_asset import gating_asset
 from etl.defs.resources import get_resources
 
@@ -67,6 +68,7 @@ defs = dg.Definitions(
         sections_from_repair_xml_asset,
         taxonomy_asset,
         tx_metadata_asset,
+        embed_sections_asset,
         gating_asset,
     ],
     jobs=[xml_fresh_pipeline, xml_repair_cycle_pipeline, cleanup_pipeline],

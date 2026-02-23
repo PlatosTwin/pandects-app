@@ -48,6 +48,13 @@ class TxMetadataMode(Enum):
     WEB_SEARCH = "web_search"
 
 
+class EmbedTarget(Enum):
+    """Section embedding target: agreement batch or specific section-standard-id batch."""
+
+    AGREEMENT = "agreement"
+    SECTION = "section"
+
+
 class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pre-processing mode and batching behavior."""
 
@@ -61,6 +68,10 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
+    embed_agreement_batch_size: int = 10  # used in 9_embed_sections when embed_target=agreement
+    embed_focus_section: str = ""  # section_standard_id value when embed_target=section
+    embed_focus_section_batch_size: int = 100  # used in 9_embed_sections when embed_target=section
+    embed_target: EmbedTarget = EmbedTarget.SECTION  # agreement | section
     staging_days_to_fetch: int = 2  # used in staging_asset alt flow
     staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow
     staging_rate_limit_window_seconds: float = 1.025  # used in staging_asset alt flow
@@ -244,6 +255,10 @@ def get_resources() -> dict[str, object]:
         "taxonomy_agreement_batch_size",
         "tx_metadata_agreement_batch_size",
         "tx_metadata_mode",
+        "embed_agreement_batch_size",
+        "embed_focus_section",
+        "embed_focus_section_batch_size",
+        "embed_target",
         "staging_days_to_fetch",
         "staging_rate_limit_max_requests",
         "staging_rate_limit_window_seconds",
@@ -297,6 +312,19 @@ def get_resources() -> dict[str, object]:
     if "tx_metadata_mode" in yaml_config:
         mode_str = str(yaml_config["tx_metadata_mode"]).lower()
         pipeline_config_kwargs["tx_metadata_mode"] = TxMetadataMode(mode_str)
+
+    if "embed_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["embed_agreement_batch_size"] = int(yaml_config["embed_agreement_batch_size"])
+
+    if "embed_focus_section" in yaml_config:
+        pipeline_config_kwargs["embed_focus_section"] = str(yaml_config["embed_focus_section"]).strip()
+
+    if "embed_focus_section_batch_size" in yaml_config:
+        pipeline_config_kwargs["embed_focus_section_batch_size"] = int(yaml_config["embed_focus_section_batch_size"])
+
+    if "embed_target" in yaml_config:
+        target_str = str(yaml_config["embed_target"]).lower()
+        pipeline_config_kwargs["embed_target"] = EmbedTarget(target_str)
     
     if "staging_days_to_fetch" in yaml_config:
         pipeline_config_kwargs["staging_days_to_fetch"] = int(yaml_config["staging_days_to_fetch"])
