@@ -9,9 +9,9 @@ from sqlalchemy.engine.url import make_url
 
 
 # Load env vars from `backend/.env` regardless of the process working directory.
-load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+_ = load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 # Also allow a repo/root `.env` (or process env) to supply values without overriding.
-load_dotenv()
+_ = load_dotenv()
 
 
 def _normalize_database_uri(uri: str) -> str:
@@ -34,12 +34,21 @@ def _effective_database_uri(*, explicit_uri: str | None) -> str:
     if not raw:
         raise RuntimeError(
             "Missing AUTH_DATABASE_URI (or DATABASE_URL) for Postgres connection. "
-            "Set it in your environment or in backend/.env."
+            + "Set it in your environment or in backend/.env."
         )
     return _normalize_database_uri(raw)
 
 
-def _parse_args(argv: list[str]) -> argparse.Namespace:
+class _Args(argparse.Namespace):
+    uri: str | None = None
+    schema: str = ""
+    tables: list[str] | None = None
+    include_alembic_version: bool = False
+    dry_run: bool = False
+    yes: bool = False
+
+
+def _parse_args(argv: list[str]) -> _Args:
     parser = argparse.ArgumentParser(
         prog="nuke_auth_postgres.py",
         description=(
@@ -47,33 +56,33 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
             "Uses AUTH_DATABASE_URI (or DATABASE_URL) unless --uri is provided."
         ),
     )
-    parser.add_argument("--uri", help="Postgres connection URI (overrides env vars).")
-    parser.add_argument(
+    _ = parser.add_argument("--uri", help="Postgres connection URI (overrides env vars).")
+    _ = parser.add_argument(
         "--schema",
         default="public",
         help="Schema to truncate tables from (default: public).",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--tables",
         nargs="+",
         help="Optional explicit table list to truncate (default: all tables in schema).",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--include-alembic-version",
         action="store_true",
         help="Also truncate alembic_version if present (default: keep it).",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be truncated, without executing.",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--yes",
         action="store_true",
         help="Skip the safety check prompt.",
     )
-    return parser.parse_args(argv)
+    return parser.parse_args(argv, namespace=_Args())
 
 
 def main(argv: list[str]) -> int:
@@ -88,10 +97,10 @@ def main(argv: list[str]) -> int:
     engine = create_engine(uri, future=True)
 
     inspector = inspect(engine)
-    schema = args.schema.strip() if isinstance(args.schema, str) else "public"
+    schema = args.schema.strip()
     schema = schema or "public"
 
-    if args.tables:
+    if args.tables is not None:
         tables = list(dict.fromkeys(args.tables))
     else:
         tables = inspector.get_table_names(schema=schema)
@@ -125,7 +134,7 @@ def main(argv: list[str]) -> int:
     stmt = f"TRUNCATE TABLE {', '.join(qualified)} RESTART IDENTITY CASCADE"
 
     with engine.begin() as conn:
-        conn.execute(text(stmt))
+        _ = conn.execute(text(stmt))
 
     print(f"Truncated {len(tables_sorted)} tables ({safe_url}).")
     return 0

@@ -7,5 +7,21 @@
   "reportMissingTypeStubs": "none",
   "reportImplicitOverride": "none",
   "reportUnannotatedClassAttribute": "none",
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "reportAny": "none",
+      "reportUnusedCallResult": "none",
+      "reportPrivateUsage": "none",
+      "reportPrivateLocalImportUsage": "none",
+      "reportUnknownMemberType": "none",
+      "reportUnknownVariableType": "none",
+      "reportUnknownArgumentType": "none",
+      "reportUnknownParameterType": "none",
+      "reportUnknownLambdaType": "none",
+      "reportMissingParameterType": "none",
+      "reportImplicitStringConcatenation": "none"
+    }
+  ],
   "include": ["."]
 }

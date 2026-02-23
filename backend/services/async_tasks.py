@@ -4,9 +4,11 @@ import queue
 from threading import Event, Thread
 from typing import Callable
 
+from flask import Flask
+
 
 class AsyncTaskRunner:
-    def __init__(self, *, app, max_queue_size: int = 100) -> None:
+    def __init__(self, *, app: Flask, max_queue_size: int = 100) -> None:
         self._app = app
         self._queue: queue.Queue[Callable[[], None]] = queue.Queue(max_queue_size)
         self._stop_event = Event()

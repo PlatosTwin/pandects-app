@@ -2706,7 +2706,9 @@ def _xml_agreements_subquery():
     )
 
 
-def _is_agreement_section_eligible(agreement_uuid: str, section_uuid: str | None) -> bool:
+def _is_agreement_section_eligible(  # pyright: ignore[reportUnusedFunction]
+    agreement_uuid: str, section_uuid: str | None
+) -> bool:
     """True iff agreement has pdx.xml status null/verified and (if section_uuid) section exists."""
     xml_agreements = _xml_agreements_subquery()
     if not section_uuid:
@@ -3559,9 +3561,9 @@ class SectionResponseSchema(Schema):
 # ── Auth request schemas ──────────────────────────────────────────────────
 # ── Route definitions ───────────────────────────────────────
 
-@agreements_blp.route("/<string:agreement_uuid>")
+@agreements_blp.route("/<string:agreement_uuid>")  # pyright: ignore[reportUnknownMemberType]
 class AgreementResource(MethodView):
-    @agreements_blp.doc(
+    @agreements_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="getAgreement",
         summary="Retrieve agreement text by UUID",
         description=(
@@ -3579,8 +3581,8 @@ class AgreementResource(MethodView):
             }
         ],
     )
-    @agreements_blp.arguments(AgreementArgsSchema, location="query")
-    @agreements_blp.response(200, AgreementResponseSchema)
+    @agreements_blp.arguments(AgreementArgsSchema, location="query")  # pyright: ignore[reportUnknownMemberType]
+    @agreements_blp.response(200, AgreementResponseSchema)  # pyright: ignore[reportUnknownMemberType]
     def get(self, args: dict[str, object], agreement_uuid: str) -> dict[str, object]:
         ctx = _current_access_context()
         parsed_args = cast(_AgreementArgsPayload, cast(object, args))
@@ -3685,9 +3687,9 @@ class AgreementResource(MethodView):
         return payload
 
 
-@sections_blp.route("/<string:section_uuid>")
+@sections_blp.route("/<string:section_uuid>")  # pyright: ignore[reportUnknownMemberType]
 class SectionResource(MethodView):
-    @sections_blp.doc(
+    @sections_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="getSection",
         summary="Retrieve section text by UUID",
         description="Returns one section payload including taxonomy IDs and XML content.",
@@ -3702,7 +3704,7 @@ class SectionResource(MethodView):
             }
         ],
     )
-    @sections_blp.response(200, SectionResponseSchema)
+    @sections_blp.response(200, SectionResponseSchema)  # pyright: ignore[reportUnknownMemberType]
     def get(self, section_uuid: str) -> dict[str, object]:
         section_uuid = section_uuid.strip()
         if not _SECTION_ID_RE.match(section_uuid):
@@ -4252,9 +4254,9 @@ def _register_main_routes(target_app: Flask) -> None:
     )
 
 
-@search_blp.route("")
+@search_blp.route("")  # pyright: ignore[reportUnknownMemberType]
 class SearchResource(MethodView):
-    @search_blp.doc(
+    @search_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="searchSections",
         summary="Search agreement sections",
         description=(
@@ -4262,8 +4264,8 @@ class SearchResource(MethodView):
             "repeat query keys (for example `year=2023&year=2024`)."
         ),
     )
-    @search_blp.arguments(SearchArgsSchema, location="query")
-    @search_blp.response(200, SearchResponseSchema)
+    @search_blp.arguments(SearchArgsSchema, location="query")  # pyright: ignore[reportUnknownMemberType]
+    @search_blp.response(200, SearchResponseSchema)  # pyright: ignore[reportUnknownMemberType]
     def get(self, args: dict[str, object]) -> dict[str, object]:
         ctx = _current_access_context()
         parsed_args = cast(_SearchArgsPayload, cast(object, args))
@@ -4541,9 +4543,9 @@ class SearchResource(MethodView):
         }
 
 
-@taxonomy_blp.route("")
+@taxonomy_blp.route("")  # pyright: ignore[reportUnknownMemberType]
 class TaxonomyResource(MethodView):
-    @taxonomy_blp.doc(
+    @taxonomy_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="getTaxonomy",
         summary="Retrieve clause taxonomy",
         description=(
@@ -4580,16 +4582,16 @@ class TaxonomyResource(MethodView):
         return resp
 
 
-@naics_blp.route("")
+@naics_blp.route("")  # pyright: ignore[reportUnknownMemberType]
 class NaicsResource(MethodView):
-    @naics_blp.doc(
+    @naics_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="getNaics",
         summary="Retrieve NAICS sectors and subsectors",
         description=(
             "Returns NAICS sectors with nested subsectors."
         ),
     )
-    @naics_blp.response(200, NaicsResponseSchema)
+    @naics_blp.response(200, NaicsResponseSchema)  # pyright: ignore[reportUnknownMemberType]
     def get(self) -> Response:
         payload, _ = _get_naics_payload_cached()
         resp = jsonify(payload)
@@ -4597,16 +4599,16 @@ class NaicsResource(MethodView):
         return resp
 
 
-@dumps_blp.route("")  # blueprint already has url_prefix="/v1/dumps"
+@dumps_blp.route("")  # pyright: ignore[reportUnknownMemberType]  # blueprint already has url_prefix="/v1/dumps"
 class DumpListResource(MethodView):
-    @dumps_blp.doc(
+    @dumps_blp.doc(  # pyright: ignore[reportUnknownMemberType]
         operationId="listDumps",
         summary="List available bulk dumps",
         description=(
             "Returns newest-first metadata for publicly available database dump artifacts."
         ),
     )
-    @dumps_blp.response(200, DumpEntrySchema(many=True))
+    @dumps_blp.response(200, DumpEntrySchema(many=True))  # pyright: ignore[reportUnknownMemberType]
     def get(self) -> list[dict[str, object]]:
         now = time.time()
         with _dumps_cache_lock:

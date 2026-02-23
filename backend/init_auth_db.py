@@ -3,9 +3,10 @@ import os
 from sqlalchemy import inspect
 from sqlalchemy.engine.url import make_url
 
-os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
+_ = os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
 
-from backend.app import app, db  # noqa: E402
+from backend.app import app  # noqa: E402
+from backend.extensions import db  # noqa: E402
 
 
 def main() -> None:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false
 
 import hmac
 import hashlib
@@ -15,10 +16,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 def _api_route_template() -> str | None:
     rule = request.url_rule
-    if rule is not None and isinstance(rule.rule, str) and rule.rule:
+    if rule is not None and rule.rule:
         return rule.rule
     path = request.path
-    if isinstance(path, str) and path:
+    if path:
         return path
     return None
 
@@ -321,7 +322,6 @@ def build_usage_event(
     request_user_agent,
     sample_rate_2xx: float,
     sample_rate_3xx: float,
-    latency_bucket_bounds: tuple[int, ...],
 ) -> UsageEvent | None:
     if ctx.tier != "api_key" or not ctx.api_key_id:
         return None
@@ -398,7 +398,6 @@ def record_api_key_usage(
         request_user_agent=request_user_agent,
         sample_rate_2xx=sample_rate_2xx,
         sample_rate_3xx=sample_rate_3xx,
-        latency_bucket_bounds=latency_bucket_bounds,
     )
     if event is None:
         return response

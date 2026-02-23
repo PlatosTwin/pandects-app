@@ -1,4 +1,5 @@
 """Flask blueprint for auth: register, login, password reset, API keys, Google OAuth."""
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnusedFunction=false, reportRedeclaration=false
 
 from __future__ import annotations
 
