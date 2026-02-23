@@ -5,7 +5,7 @@ from dagster import AssetExecutionContext
 from sqlalchemy.engine import Connection
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.z_gating import MIN_ARTICLE_TAGS, apply_gating
+from etl.domain.z_gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 _MAIN_STAGE_REFRESH_ASSET_NAMES = {
@@ -26,9 +26,9 @@ def run_pre_asset_gating(
     """Run gating before asset logic to ensure gated filters are current."""
     if conn is None:
         with db.get_engine().begin() as gating_conn:
-            counts = apply_gating(gating_conn, db.database, min_article_tags=MIN_ARTICLE_TAGS)
+            counts = apply_gating(gating_conn, db.database)
     else:
-        counts = apply_gating(conn, db.database, min_article_tags=MIN_ARTICLE_TAGS)
+        counts = apply_gating(conn, db.database)
 
     context.log.info(
         "Pre-asset gating refreshed: agreements=%s pages=%s tagged_outputs=%s xml=%s",
@@ -58,7 +58,7 @@ def run_post_asset_refresh(
 
     if conn is None:
         with db.get_engine().begin() as refresh_conn:
-            _ = apply_gating(refresh_conn, db.database, min_article_tags=MIN_ARTICLE_TAGS)
+            _ = apply_gating(refresh_conn, db.database)
     else:
-        _ = apply_gating(conn, db.database, min_article_tags=MIN_ARTICLE_TAGS)
+        _ = apply_gating(conn, db.database)
     refresh_summary_data(context, db)

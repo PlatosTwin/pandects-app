@@ -8,8 +8,6 @@ from sqlalchemy.engine import Connection
 
 from etl.utils.pipeline_state_sql import canonical_stage_state_sql
 
-MIN_ARTICLE_TAGS = 5
-
 
 @dataclass(frozen=True)
 class GatingCounts:
@@ -22,9 +20,7 @@ class GatingCounts:
 def apply_gating(
     conn: Connection,
     schema: str,
-    min_article_tags: int = MIN_ARTICLE_TAGS,
 ) -> GatingCounts:
-    _ = min_article_tags
     stage_state_table = "tmp_stage_state_for_gating"
     _ = conn.execute(text(f"DROP TEMPORARY TABLE IF EXISTS {stage_state_table}"))
     _ = conn.execute(

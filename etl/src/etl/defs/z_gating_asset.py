@@ -3,7 +3,7 @@ import dagster as dg
 from dagster import AssetExecutionContext
 
 from etl.defs.resources import DBResource
-from etl.domain.z_gating import MIN_ARTICLE_TAGS, apply_gating
+from etl.domain.z_gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 
@@ -15,7 +15,7 @@ def gating_asset(
     engine = db.get_engine()
     with engine.begin() as conn:
         context.log.info("Gating: applying criteria + priority updates.")
-        gating_counts = apply_gating(conn, db.database, min_article_tags=MIN_ARTICLE_TAGS)
+        gating_counts = apply_gating(conn, db.database)
 
     context.log.info(
         "Gating refreshed: agreements=%s, pages=%s, tagged_outputs=%s, xml=%s",
