@@ -634,8 +634,8 @@ export default function AgreementIndex() {
       }
     >();
     statusSummary.forEach((row) => {
-      if (!Number.isFinite(row.year)) return;
       const year = Number(row.year);
+      if (!Number.isFinite(year)) return;
       const count = Math.max(0, Number(row.count || 0));
       const entry = yearMap.get(year) ?? {
         year,
@@ -769,8 +769,8 @@ export default function AgreementIndex() {
     >();
 
     dealTypeSummary.forEach((row) => {
-      if (!Number.isFinite(row.year)) return;
       const year = Number(row.year);
+      if (!Number.isFinite(year)) return;
       const dealType = normalizeDealType(row.deal_type);
       const series = seriesByType.get(dealType);
       if (!series) return;
