@@ -50,6 +50,8 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("JOIN pdx.xml_status_reasons r", sql)
         self.assertIn("r.reason_code IN :reason_codes", sql)
         self.assertIn("r.page_uuid IS NOT NULL", sql)
+        self.assertIn("CHAR_LENGTH(REPLACE(COALESCE(x.xml, ''), '<article', ''))", sql)
+        self.assertIn(") > 5", sql)
 
 
 if __name__ == "__main__":

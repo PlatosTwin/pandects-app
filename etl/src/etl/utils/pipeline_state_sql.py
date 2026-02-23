@@ -359,6 +359,12 @@ def canonical_ai_repair_enqueue_queue_sql(schema: str) -> str:
         x.latest = 1
         AND x.status = 'invalid'
         AND latest_xml_status = 'invalid'
+        AND (
+            (
+                CHAR_LENGTH(COALESCE(x.xml, ''))
+                - CHAR_LENGTH(REPLACE(COALESCE(x.xml, ''), '<article', ''))
+            ) / CHAR_LENGTH('<article')
+        ) > 5
         AND r.reason_code IN :reason_codes
         AND r.page_uuid IS NOT NULL
     ORDER BY
