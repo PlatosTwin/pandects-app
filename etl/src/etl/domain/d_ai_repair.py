@@ -250,9 +250,16 @@ def _system_prompt_full() -> str:
 
     # Instructions
 
-    First things first, if the page appears to be: 1) front matter; 2) part of the Table of Contents; 3) part of any signatures block sections; 4) part of a disclosure schedule in the Exhibits section; or 5) otherwise not from the main agreement——stop your analysis and return only the word "SKIP." This will be the case rarely, if at all. Note that the recitals section IS part of the main agreement and should NOT be skipped; the recitals section often has "WHEREAS" clauses or "W I T N E S E T H" or a general description of the transaction and the parties
+    First things first, if the page appears to be: 1) front matter; 2) part of the Table of Contents; 3) part of any signatures block sections; 4) part of a disclosure schedule in the Exhibits section; or 5) otherwise not from the main agreement, do not add tags. This will be the case rarely, if at all. Note that the recitals section IS part of the main agreement and should NOT be skipped; the recitals section often has "WHEREAS" clauses or "W I T N E S E T H" or a general description of the transaction and the parties.
 
-    If the page IS from the main agreement, then your task is to place a <section></section> tag around section HEADINGS (the number and title) and an <article></article> tag around article HEADINGS (the number and title). Note that articles are higher in the hierarchy than are sections, and that you are to ignore sub-sections. The tags should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy. Return only the original text plus the tags, if any. Do not make any modifications outside of adding tags.
+    If the page IS from the main agreement, then your task is to place a <section></section> tag around section HEADINGS (the number and title) and an <article></article> tag around article HEADINGS (the number and title). Note that articles are higher in the hierarchy than are sections, and that you are to ignore sub-sections. The tags should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy.
+
+    # Output invariants (MANDATORY)
+    1. Use the provided page text as the base string.
+    2. You may only insert these exact tags: <article>, </article>, <section>, </section>, <page>, </page>.
+    3. Do not add, remove, reorder, or rewrite any other characters.
+    4. Never include prompt or metadata text in the output (for example: PAGE_UUID=, Task:, CANDIDATES=, EXCERPT_BASE_CHAR_OFFSET=, JSON keys, markdown fences).
+    5. If no tags apply, return the input text unchanged and set warnings accordingly.
 
     Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, enclose that number in a <page> </page> tag.
 
@@ -380,12 +387,10 @@ def _system_prompt_excerpt() -> str:
 
 
 def _user_prompt_full(page_uuid: str, text: str) -> str:
-    return (
-        f"PAGE_UUID={page_uuid}\n"
-        "Task: Insert <article>, <section>, and <page> tags in accordance with the instructions you've been provided. "
-        "Return JSON with key 'tagged_text' containing the fully tagged text and 'warnings' as an array.\n\n"
-        f"{text}"
-    )
+    _ = page_uuid
+    # Pass only the source page text so the model cannot echo prompt scaffolding
+    # (e.g., PAGE_UUID/Task lines) into tagged_text.
+    return text
 
 
 def _user_prompt_excerpt(

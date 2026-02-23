@@ -274,6 +274,15 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
 
 
 def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
+    attr_uuid = (
+        root.attrib.get("pageUUID")
+        or root.attrib.get("page_uuid")
+        or root.attrib.get("sourcePageUUID")
+    )
+    if attr_uuid is not None:
+        attr_uuid = attr_uuid.strip()
+        if attr_uuid:
+            return (attr_uuid,)
     page_uuids: List[str] = []
     seen: set[str] = set()
     for node in root.iter("pageUUID"):

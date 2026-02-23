@@ -8,6 +8,7 @@ from etl.defs.d_ai_repair_asset import (
     _fetch_candidates,
     _repair_model_for_attempted,
     _repair_model_for_candidate,
+    _validate_full_page_tagged_text,
 )
 
 
@@ -174,6 +175,17 @@ class AiRepairTargetingTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 2)
         self.assertTrue(all(int(c["has_completed_requests"]) == 1 for c in candidates))
+
+    def test_full_page_validation_accepts_only_allowed_tag_insertions(self) -> None:
+        source = "Section 1.01 text."
+        tagged = "<section>Section 1.01</section> text."
+        _validate_full_page_tagged_text(source, tagged)
+
+    def test_full_page_validation_rejects_non_source_preserving_output(self) -> None:
+        source = "Section 1.01 text."
+        contaminated = "PAGE_UUID=123\\nTask: Insert\\n" + source
+        with self.assertRaises(ValueError):
+            _validate_full_page_tagged_text(source, contaminated)
 
 
 if __name__ == "__main__":

@@ -67,6 +67,14 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
 
 AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
 AI_REPAIR_RETRY_MODEL = "gpt-5.1"
+_ALLOWED_FULL_MODE_TAGS: Tuple[str, ...] = (
+    "<article>",
+    "</article>",
+    "<section>",
+    "</section>",
+    "<page>",
+    "</page>",
+)
 
 _AI_REPAIR_TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 _AI_REPAIR_FAILED_BATCH_STATUSES = ("failed", "cancelled", "expired")
@@ -847,6 +855,21 @@ def _parse_full_page_tagged_text(raw: Dict[str, Any]) -> Tuple[str, str]:
     return rid, obj["tagged_text"]
 
 
+def _strip_allowed_full_mode_tags(text: str) -> str:
+    out = text
+    for tag in _ALLOWED_FULL_MODE_TAGS:
+        out = out.replace(tag, "")
+    return out
+
+
+def _validate_full_page_tagged_text(source_text: str, tagged_text: str) -> None:
+    reconstructed_source = _strip_allowed_full_mode_tags(tagged_text)
+    if reconstructed_source != source_text:
+        raise ValueError(
+            "tagged_text is not source-preserving after removing allowed tags."
+        )
+
+
 def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
     """Return (request_id, rulings) strictly or raise."""
     rid = raw["custom_id"]
@@ -1011,6 +1034,27 @@ def ai_repair_poll_asset(
                     for row in conn.execute(select_req, {"bid": bid}).mappings().fetchall()
                 }
                 req_ids_all = set(req_info.keys())
+                req_page_uuids = sorted({str(meta[0]) for meta in req_info.values()})
+                page_text_by_uuid: Dict[str, str] = {}
+                if req_page_uuids:
+                    page_rows = (
+                        conn.execute(
+                            text(
+                                f"""
+                                SELECT page_uuid, processed_page_content AS text
+                                FROM {pages_table}
+                                WHERE page_uuid IN :pids
+                                """
+                            ).bindparams(bindparam("pids", expanding=True)),
+                            {"pids": req_page_uuids},
+                        )
+                        .mappings()
+                        .fetchall()
+                    )
+                    page_text_by_uuid = {
+                        str(row["page_uuid"]): str(row.get("text") or "")
+                        for row in page_rows
+                    }
 
                 if b.status in _AI_REPAIR_FAILED_BATCH_STATUSES:
                     _bulk_update_status(conn, db.database, req_ids_all, "failed")
@@ -1051,6 +1095,14 @@ def ai_repair_poll_asset(
                                 pid, mode, xs = req_info[rid]
                                 if mode == "full":
                                     rid2, tagged_text = _parse_full_page_tagged_text(raw)
+                                    source_text = page_text_by_uuid.get(str(pid))
+                                    if source_text is None:
+                                        raise ValueError(
+                                            f"Missing page text for page_uuid={pid}."
+                                        )
+                                    _validate_full_page_tagged_text(
+                                        source_text, tagged_text
+                                    )
                                     parsed_full_pages.append((rid2, pid, tagged_text))
                                     success_ids.add(rid2)
                                 elif mode == "excerpt":

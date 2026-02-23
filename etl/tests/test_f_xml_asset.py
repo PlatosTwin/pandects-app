@@ -1,6 +1,7 @@
 # pyright: reportAny=false, reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false
 import json
 import unittest
+import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
@@ -10,13 +11,36 @@ from openai import OpenAI
 from etl.defs.resources import DBResource, PipelineConfig, ProcessingScope
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
+    XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
     _apply_xml_verify_batch_output,
+    find_hard_rule_violations,
     xml_verify_asset,
 )
 
 
 class XMLVerifyAssetTests(unittest.TestCase):
+    def test_find_hard_rule_violations_uses_section_page_uuid_attribute(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE III">
+                  <section title="AND" pageUUID="page-22">
+                    <text>Body text</text>
+                    <pageUUID>page-99</pageUUID>
+                  </section>
+                </article>
+              </body>
+            </document>
+            """
+        )
+        violations = find_hard_rule_violations(root)
+        target = next(
+            v for v in violations if v.reason_code == XML_REASON_SECTION_TITLE_INVALID_NUMBERING
+        )
+        self.assertEqual(target.page_uuids, ("page-22",))
+
     def test_apply_xml_verify_batch_output_sets_status_source_to_asset(self) -> None:
         class _FakeContent:
             def __init__(self, text_value: str) -> None:

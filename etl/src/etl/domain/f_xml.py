@@ -91,9 +91,25 @@ def convert_to_xml(
     Returns:
         XML string representation of the document.
     """
-    # Find all <article> or <section> headings and their positions
+    # Find all <article> or <section> headings and their positions.
+    # We infer each heading's source page UUID from the first page marker that
+    # appears after the heading start in the flattened body text.
     pattern = re.compile(r"<(article|section)>(.*?)</\1>", re.DOTALL)
+    page_uuid_pattern = re.compile(r"<pageUUID>(.*?)</pageUUID>", re.DOTALL)
     matches = list(pattern.finditer(tagged_text))
+    page_uuid_markers = [
+        (m.start(), m.group(1).strip())
+        for m in page_uuid_pattern.finditer(tagged_text)
+        if m.group(1).strip()
+    ]
+
+    def heading_page_uuid(heading_start: int) -> str | None:
+        if not page_uuid_markers:
+            return None
+        for marker_pos, marker_page_uuid in page_uuid_markers:
+            if heading_start < marker_pos:
+                return marker_page_uuid
+        return page_uuid_markers[-1][1]
 
     root = ET.Element("document", uuid=agreement_uuid)
 
@@ -199,6 +215,7 @@ def convert_to_xml(
         tag = m.group(1)
         raw_title = m.group(2).strip()
         title = " ".join(raw_title.split())
+        source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()
         next_start = matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
@@ -207,14 +224,15 @@ def convert_to_xml(
         if tag == "article":
             article_count += 1
 
-            current_article = ET.SubElement(
-                body,
-                "article",
-                title=title,
-                uuid=get_uuid(agreement_uuid + title),
-                order=str(article_count),
-                standardId="<placeholder>",
-            )
+            article_attrs = {
+                "title": title,
+                "uuid": get_uuid(agreement_uuid + title),
+                "order": str(article_count),
+                "standardId": "<placeholder>",
+            }
+            if source_page_uuid is not None:
+                article_attrs["pageUUID"] = source_page_uuid
+            current_article = ET.SubElement(body, "article", attrib=article_attrs)
 
             section_count = 0
             if content:
@@ -225,14 +243,15 @@ def convert_to_xml(
             container = current_article if current_article is not None else body
 
             section_count += 1
-            sec = ET.SubElement(
-                container,
-                "section",
-                title=title,
-                uuid=get_uuid(agreement_uuid + title + str(section_count)),
-                order=str(section_count),
-                standardId="<placeholder>",
-            )
+            section_attrs = {
+                "title": title,
+                "uuid": get_uuid(agreement_uuid + title + str(section_count)),
+                "order": str(section_count),
+                "standardId": "<placeholder>",
+            }
+            if source_page_uuid is not None:
+                section_attrs["pageUUID"] = source_page_uuid
+            sec = ET.SubElement(container, "section", attrib=section_attrs)
             if content:
                 add_text_nodes(sec, content)
 
