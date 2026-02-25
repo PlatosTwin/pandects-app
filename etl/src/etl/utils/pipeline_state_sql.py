@@ -263,7 +263,6 @@ def canonical_fresh_xml_build_queue_sql(schema: str) -> str:
             has_latest_xml = 0
             OR (
                 has_latest_xml = 1
-                AND latest_xml_status = 'verified'
                 AND has_stale_body_tags = 1
             )
       )
@@ -359,6 +358,7 @@ def canonical_ai_repair_enqueue_queue_sql(schema: str) -> str:
         x.latest = 1
         AND x.status = 'invalid'
         AND latest_xml_status = 'invalid'
+        AND s.has_stale_body_tags = 0
         AND (
             (
                 CHAR_LENGTH(COALESCE(x.xml, ''))

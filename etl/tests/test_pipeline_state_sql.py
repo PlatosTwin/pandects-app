@@ -32,11 +32,12 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("tagged_body_page_count < body_page_count", sql)
         self.assertIn("page_is_gated = 0", sql)
 
-    def test_fresh_xml_build_queue_handles_stale_verified_regardless_of_repair_attempt(self) -> None:
+    def test_fresh_xml_build_queue_handles_any_stale_latest_xml(self) -> None:
         sql = canonical_fresh_xml_build_queue_sql("pdx")
         self.assertIn("has_latest_xml = 0", sql)
-        self.assertIn("latest_xml_status = 'verified'", sql)
+        self.assertIn("has_latest_xml = 1", sql)
         self.assertIn("has_stale_body_tags = 1", sql)
+        self.assertNotIn("latest_xml_status = 'verified'", sql)
 
     def test_ai_repair_queue_selects_latest_invalid_xml_rows(self) -> None:
         sql = canonical_ai_repair_enqueue_queue_sql("pdx")
@@ -47,6 +48,7 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("r.page_uuid", sql)
         self.assertIn("x.latest = 1", sql)
         self.assertIn("latest_xml_status = 'invalid'", sql)
+        self.assertIn("s.has_stale_body_tags = 0", sql)
         self.assertIn("JOIN pdx.xml_status_reasons r", sql)
         self.assertIn("r.reason_code IN :reason_codes", sql)
         self.assertIn("r.page_uuid IS NOT NULL", sql)
