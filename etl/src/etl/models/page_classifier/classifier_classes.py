@@ -7,7 +7,7 @@ using CRF (Conditional Random Fields) on top of XGBoost emissions.
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false
 
 from functools import lru_cache
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import lightning.pytorch as pl
 import numpy as np
@@ -20,16 +20,32 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import F1Score, Precision, Recall, Metric
 import xgboost as xgb
-from joblib import Parallel, delayed
 
-try:
-    from .classifier_utils import extract_features
+if TYPE_CHECKING:
+    from .classifier_utils import (
+        augment_with_neighbor_context,
+        extract_base_feature_matrix,
+        feature_name_list,
+    )
     from .page_classifier_constants import CLASSIFIER_LABEL_LIST
     from .split_utils import build_agreement_split, load_split_manifest
-except ImportError:  # pragma: no cover - supports running as a script
-    from classifier_utils import extract_features  # pyright: ignore[reportMissingImports]
-    from page_classifier_constants import CLASSIFIER_LABEL_LIST  # pyright: ignore[reportMissingImports]
-    from split_utils import build_agreement_split, load_split_manifest  # pyright: ignore[reportMissingImports]
+else:
+    try:
+        from .classifier_utils import (
+            augment_with_neighbor_context,
+            extract_base_feature_matrix,
+            feature_name_list,
+        )
+        from .page_classifier_constants import CLASSIFIER_LABEL_LIST
+        from .split_utils import build_agreement_split, load_split_manifest
+    except ImportError:  # pragma: no cover - supports running as a script
+        from classifier_utils import (
+            augment_with_neighbor_context,
+            extract_base_feature_matrix,
+            feature_name_list,
+        )
+        from page_classifier_constants import CLASSIFIER_LABEL_LIST
+        from split_utils import build_agreement_split, load_split_manifest
 
 
 Prediction = dict[str, str | dict[str, float] | bool]
@@ -78,22 +94,34 @@ class PageDataset(Dataset[dict[str, Tensor]]):
             model: Pre-trained XGBoost model for feature extraction
             inference: If True, skip label loading for inference
         """
-        # Handle missing values safely
-        df = df.fillna({"text": "", "html": "", "order": 0})
+        df = df.fillna({"text": "", "html": "", "order": 0, "agreement_uuid": ""})
+        base_features, agreements, orders = extract_base_feature_matrix(df)
+        base_feature_names = feature_name_list()
+        model_feature_count = int(model.num_features())
 
-        # Extract features using parallel processing for better performance
-        features_list = cast(
-            list[np.ndarray],
-            list(
-                Parallel(n_jobs=-1, prefer="threads")(
-                    delayed(extract_features)(text, html, order)
-                    for text, html, order in zip(df["text"], df["html"], df["order"])
+        if model_feature_count == base_features.shape[1]:
+            features = base_features
+            feature_names = base_feature_names
+        else:
+            full_features, full_feature_names = augment_with_neighbor_context(
+                base_features,
+                agreements,
+                orders,
+                base_feature_names=base_feature_names,
+            )
+            if model_feature_count != full_features.shape[1]:
+                raise ValueError(
+                    "XGBoost model feature count does not match base or neighbor-augmented feature layouts."
                 )
-            ),
-        )
-        features = np.vstack(features_list)
-        dmatrix = xgb.DMatrix(features)
+            features = full_features
+            feature_names = full_feature_names
+
+        dmatrix = xgb.DMatrix(features, feature_names=feature_names)
         probabilities = model.predict(dmatrix)  # Shape: (N, C)
+        row_sums = probabilities.sum(axis=1, keepdims=True)
+        if np.any(row_sums <= 0):
+            raise ValueError("XGBoost predictions have non-positive row sums.")
+        probabilities = probabilities / row_sums
 
         # Convert to log probabilities, avoiding log(0) → -inf
         probs_tensor = torch.tensor(np.clip(probabilities, 1e-12, 1.0), dtype=torch.float)
@@ -101,9 +129,12 @@ class PageDataset(Dataset[dict[str, Tensor]]):
 
         # Handle labels for training
         if not inference and "label" in df.columns:
-            self.labels: torch.Tensor | None = torch.tensor(
-                [label2idx.get(label, 0) for label in df["label"]], dtype=torch.long
-            )
+            labels = []
+            for label in df["label"]:
+                if label not in label2idx:
+                    raise ValueError(f"Unknown label encountered: {label}")
+                labels.append(label2idx[label])
+            self.labels = torch.tensor(labels, dtype=torch.long)
         else:
             self.labels = None
 
@@ -383,9 +414,7 @@ class PageDataModule(pl.LightningDataModule):
         # Load pre-trained XGBoost model using cached loader
         self.xgb_model = load_xgb_model(self.xgb_path)
 
-        if stage in ("fit", "validate", "test", None) and (
-            self.val_split > 0 or self.test_split > 0
-        ):
+        if stage in ("fit", "validate", "test", None):
             self.train_dataset = DocumentDataset(
                 train_df, self.label2idx, self.xgb_model, inference=False
             )
@@ -484,20 +513,25 @@ class PageClassifier(pl.LightningModule):
         enforce_single_sig_block: bool = True,
         # Positional decoding preferences
         prefer_earliest_sig: bool = True,
-        sig_late_penalty: float = 1.5,
+        sig_late_penalty: float = 0.0,
         sig_penalty_center: float = 0.85,
         sig_penalty_sharpness: float = 12.0,
-        back_late_bonus: float = 0.5,
+        back_late_bonus: float = 0.0,
         back_bonus_center: float = 0.9,
         back_bonus_sharpness: float = 10.0,
+        back_requires_sig: bool = False,
         # Auxiliary training signal to learn first signature onset
         aux_sig_start_loss_weight: float = 1.0,
+        aux_sig_presence_loss_weight: float = 0.2,
         # Auxiliary training signal to learn back_matter onset (tail)
         aux_back_start_loss_weight: float = 0.1,
         # Learned positional prior (per-position per-class bias)
         use_positional_prior: bool = True,
         pos_prior_weight: float = 0.8,
         pos_prior_hidden: int = 32,
+        # Positional features appended to emissions
+        use_positional_features: bool = True,
+        pos_feature_dim: int = 6,
         # Decode-time signature block postprocessing
         enable_first_sig_postprocessing: bool = True,
         first_sig_threshold: float = 0.3,
@@ -527,11 +561,15 @@ class PageClassifier(pl.LightningModule):
             back_late_bonus: Bonus factor for late back matter blocks
             back_bonus_center: Center point for back matter bonus (fraction of sequence)
             back_bonus_sharpness: Sharpness of back matter bonus function
+            back_requires_sig: Whether back_matter is only allowed after sig
             aux_sig_start_loss_weight: Auxiliary loss weight for signature onset detection
+            aux_sig_presence_loss_weight: Auxiliary loss weight for sig presence detection
             aux_back_start_loss_weight: Auxiliary loss weight for back matter onset detection
             use_positional_prior: Whether to use learned positional bias
             pos_prior_weight: Weight for positional prior
             pos_prior_hidden: Hidden dimension for positional prior MLP
+            use_positional_features: Whether to append positional features to emissions
+            pos_feature_dim: Number of positional features to append
             enable_first_sig_postprocessing: Whether to apply decode-time first signature block fix
             first_sig_threshold: Probability threshold for signature block detection in postprocessing
             
@@ -570,8 +608,16 @@ class PageClassifier(pl.LightningModule):
         
         # Core model components
         self.C = num_classes  # number of classes
+        self.use_positional_features = bool(use_positional_features)
+        self.pos_feature_dim = int(pos_feature_dim)
+        if self.use_positional_features and self.pos_feature_dim <= 0:
+            raise ValueError("pos_feature_dim must be > 0 when use_positional_features is True")
+        if self.use_positional_features and self.pos_feature_dim != 6:
+            raise ValueError("pos_feature_dim must be 6 to match positional features.")
+        input_dim = num_classes + (self.pos_feature_dim if self.use_positional_features else 0)
+        self.input_norm = torch.nn.LayerNorm(input_dim)
         self.hidden = torch.nn.Sequential(
-            torch.nn.Linear(num_classes, hidden_dim),
+            torch.nn.Linear(input_dim, hidden_dim),
             torch.nn.ReLU(),
             torch.nn.Dropout(dropout),
             torch.nn.Linear(hidden_dim, hidden_dim),
@@ -610,11 +656,16 @@ class PageClassifier(pl.LightningModule):
         self.back_late_bonus = float(back_late_bonus)
         self.back_bonus_center = float(back_bonus_center)
         self.back_bonus_sharpness = float(back_bonus_sharpness)
+        self.back_requires_sig = bool(back_requires_sig)
         # Aux onset loss
         if aux_sig_start_loss_weight < 0:
             raise ValueError("aux_sig_start_loss_weight must be >= 0")
         self.aux_sig_start_loss_weight = float(aux_sig_start_loss_weight)
         self.sig_start_head = torch.nn.Linear(lstm_out_dim, 1)
+        if aux_sig_presence_loss_weight < 0:
+            raise ValueError("aux_sig_presence_loss_weight must be >= 0")
+        self.aux_sig_presence_loss_weight = float(aux_sig_presence_loss_weight)
+        self.sig_presence_head = torch.nn.Linear(lstm_out_dim, 1)
         if aux_back_start_loss_weight < 0:
             raise ValueError("aux_back_start_loss_weight must be >= 0")
         self.aux_back_start_loss_weight = float(aux_back_start_loss_weight)
@@ -668,6 +719,7 @@ class PageClassifier(pl.LightningModule):
         """
         C, ext_C = self.C, self.ext_C
         sig = self.sig_idx
+        back = self.back_idx
         allowed = torch.zeros((ext_C, ext_C), dtype=torch.bool)
         start_allowed = torch.zeros((ext_C,), dtype=torch.bool)
 
@@ -684,6 +736,9 @@ class PageClassifier(pl.LightningModule):
                     if sig is not None:
                         # If we're post-sig (f0=1), can't go back to sig
                         if f0 == 1 and y1 == sig:
+                            continue
+                        # Enforce back_matter only after sig when enabled
+                        if self.back_requires_sig and back is not None and f0 == 0 and y1 == back:
                             continue
                             
                         # Compute next flag - set to 1 if leaving sig section
@@ -799,6 +854,39 @@ class PageClassifier(pl.LightningModule):
             return emissions + bias_ext
         return emissions
 
+    def _apply_decoding_biases(
+        self, emissions: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
+        emissions = self._apply_learned_positional_prior(emissions, mask)
+        emissions = self._apply_sig_position_bias(emissions, mask)
+        return emissions
+
+    def _positional_features(
+        self, emissions: torch.Tensor, mask: torch.Tensor | None
+    ) -> torch.Tensor:
+        B, S, _ = emissions.shape
+        device = emissions.device
+        if mask is None:
+            mask = torch.ones((B, S), device=device, dtype=torch.bool)
+        seq_lens = mask.sum(dim=1).clamp(min=1)
+        positions = torch.arange(S, device=device).unsqueeze(0).expand(B, S)
+        denom = (seq_lens - 1).unsqueeze(1).clamp(min=1)
+        t = (positions / denom).masked_fill(~mask, 0.0)
+        two_pi_t = 2 * torch.pi * t
+        seq_len_frac = (seq_lens / max(1, S)).unsqueeze(1).expand(B, S)
+        feats = torch.stack(
+            [
+                t,
+                1.0 - t,
+                t * t,
+                torch.sin(two_pi_t),
+                torch.cos(two_pi_t),
+                seq_len_frac,
+            ],
+            dim=-1,
+        )
+        return feats
+
     def _extend_tags(self, labels: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         Derive the post_sig flag from gold labels, then pack into extended indices.
@@ -844,7 +932,13 @@ class PageClassifier(pl.LightningModule):
                 emissions = emissions.masked_fill(~mask.unsqueeze(-1), 0.0)
             
             # Transform through MLP
-            x = emissions.view(-1, self.C)  # (B*S, C)
+            if self.use_positional_features:
+                pos_feats = self._positional_features(emissions, mask)
+                x_in = torch.cat([emissions, pos_feats], dim=-1)
+            else:
+                x_in = emissions
+            x = self.input_norm(x_in)
+            x = x.view(batch_size * seq_len, -1)  # (B*S, C+pos)
             x = self.hidden(x)              # (B*S, H)
             x = x.view(batch_size, seq_len, -1)  # (B, S, H)
             
@@ -938,6 +1032,30 @@ class PageClassifier(pl.LightningModule):
             logits_b = scores[b, :seq_len]
             log_probs = F.log_softmax(logits_b, dim=0)
             losses.append(-log_probs[first_idx])
+        if not losses:
+            return torch.tensor(0.0, device=labels.device)
+        return torch.stack(losses).mean()
+
+    def _aux_sig_presence_loss(self, labels: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """
+        Auxiliary loss for detecting whether a sequence contains any signature pages.
+        """
+        if self.sig_idx is None or self.aux_sig_presence_loss_weight <= 0:
+            return torch.tensor(0.0, device=labels.device)
+        feats = getattr(self, "_last_lstm", None)
+        if feats is None:
+            return torch.tensor(0.0, device=labels.device)
+        B, _, _ = feats.shape
+        scores = self.sig_presence_head(feats).squeeze(-1)  # (B, S)
+        losses = []
+        for b in range(B):
+            seq_len = int(mask[b].sum().item())
+            if seq_len <= 0:
+                continue
+            labels_b = labels[b, :seq_len]
+            has_sig = float((labels_b == self.sig_idx).any().item())
+            logit = scores[b, :seq_len].max()
+            losses.append(F.binary_cross_entropy_with_logits(logit, torch.tensor(has_sig, device=logit.device)))
         if not losses:
             return torch.tensor(0.0, device=labels.device)
         return torch.stack(losses).mean()
@@ -1153,8 +1271,7 @@ class PageClassifier(pl.LightningModule):
         # Forward pass through neural networks
         emissions = self(emissions, mask=mask)  # (B, S, C) or (B, S, 2C)
         # Apply learned positional prior and small decoding bias
-        emissions = self._apply_learned_positional_prior(emissions, mask)
-        emissions = self._apply_sig_position_bias(emissions, mask)
+        emissions = self._apply_decoding_biases(emissions, mask)
         
         if self.use_crf:
             # Compute CRF loss
@@ -1170,6 +1287,10 @@ class PageClassifier(pl.LightningModule):
         aux_sig_loss = self._aux_sig_start_loss(labels, mask)
         if aux_sig_loss.requires_grad and self.aux_sig_start_loss_weight > 0:
             loss = loss + self.aux_sig_start_loss_weight * aux_sig_loss
+        # Auxiliary sig presence loss (training signal)
+        aux_sig_presence_loss = self._aux_sig_presence_loss(labels, mask)
+        if aux_sig_presence_loss.requires_grad and self.aux_sig_presence_loss_weight > 0:
+            loss = loss + self.aux_sig_presence_loss_weight * aux_sig_presence_loss
         # Auxiliary back-matter onset loss (training signal)
         aux_back_loss = self._aux_back_start_loss(labels, mask)
         if aux_back_loss.requires_grad and self.aux_back_start_loss_weight > 0:
@@ -1194,6 +1315,8 @@ class PageClassifier(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         if self.aux_sig_start_loss_weight > 0:
             self.log("train_aux_sig_start_loss", aux_sig_loss.detach(), prog_bar=False)
+        if self.aux_sig_presence_loss_weight > 0:
+            self.log("train_aux_sig_presence_loss", aux_sig_presence_loss.detach(), prog_bar=False)
         if hasattr(self, "aux_back_start_loss_weight") and self.aux_back_start_loss_weight > 0:
             self.log("train_aux_back_start_loss", aux_back_loss.detach(), prog_bar=False)
         
@@ -1212,8 +1335,7 @@ class PageClassifier(pl.LightningModule):
         # Forward pass through neural networks
         emissions = self(emissions, mask=mask)  # (B, S, C) or (B, S, 2C)
         # Apply learned positional prior and small decoding bias
-        emissions = self._apply_learned_positional_prior(emissions, mask)
-        emissions = self._apply_sig_position_bias(emissions, mask)
+        emissions = self._apply_decoding_biases(emissions, mask)
         
         if self.use_crf:
             # Compute CRF loss
@@ -1227,6 +1349,7 @@ class PageClassifier(pl.LightningModule):
 
         # Auxiliary earliest-sig loss (report only)
         aux_sig_loss = self._aux_sig_start_loss(labels, mask)
+        aux_sig_presence_loss = self._aux_sig_presence_loss(labels, mask)
         aux_back_loss = self._aux_back_start_loss(labels, mask)
         
         # Compute predictions (in original label space)
@@ -1248,6 +1371,8 @@ class PageClassifier(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True)
         if self.aux_sig_start_loss_weight > 0:
             self.log("val_aux_sig_start_loss", aux_sig_loss.detach(), prog_bar=False)
+        if self.aux_sig_presence_loss_weight > 0:
+            self.log("val_aux_sig_presence_loss", aux_sig_presence_loss.detach(), prog_bar=False)
         if hasattr(self, "aux_back_start_loss_weight") and self.aux_back_start_loss_weight > 0:
             self.log("val_aux_back_start_loss", aux_back_loss.detach(), prog_bar=False)
         
@@ -1378,8 +1503,7 @@ class PageClassifier(pl.LightningModule):
         
         # Forward pass
         emissions = self(emissions_in, mask=mask)  # (B, S, C) or (B, S, 2C)
-        emissions = self._apply_learned_positional_prior(emissions, mask)
-        emissions = self._apply_sig_position_bias(emissions, mask)
+        emissions = self._apply_decoding_biases(emissions, mask)
         
         # Viterbi decoding
         if self.use_crf:
