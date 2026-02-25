@@ -1,6 +1,6 @@
 import unittest
 
-from etl.domain.b_pre_processing import format_content
+from etl.domain.b_pre_processing import format_content, normalize_text
 
 
 class PreProcessingTests(unittest.TestCase):
@@ -128,6 +128,13 @@ class PreProcessingTests(unittest.TestCase):
         self.assertIn("Visible heading", text)
         self.assertIn("agreement clause", text)
         self.assertGreater(len(text), 20000)
+
+    def test_normalize_text_strips_disallowed_control_chars(self) -> None:
+        dirty = "A\x00B\x08C\x0bD\tE\n\nF\rG"
+
+        normalized = normalize_text(dirty)
+
+        self.assertEqual(normalized, "ABCD\tE\n\nF\rG")
 
 
 if __name__ == "__main__":

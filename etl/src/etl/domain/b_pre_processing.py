@@ -197,6 +197,8 @@ def normalize_text(text: str) -> str:
     Returns:
         The normalized text.
     """
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", text)
+
     # Collapse multi-newline clusters into a placeholder
     placeholder = "__NL__"
     text = re.sub(r"\n[ \t]*(?:\n[ \t]*)+", placeholder, text)
