@@ -168,7 +168,7 @@ export default function About() {
                   Jacobson Leadership Program in Law and Business
                 </a>{" "}
                 at NYU has also provided support, including a commitment to
-                substantially all of the funding. We are also thankful to NYU
+                substantially all of the startup funding. We are also thankful to NYU
                 Law professor Chris Sprigman. The concept and design for this
                 site borrow heavily from the{" "}
                 <a
@@ -223,6 +223,9 @@ export default function About() {
                   DMA corpus repository
                 </a>
                 .
+              </p>
+              <p className="prose max-w-none text-muted-foreground">
+                Finally, this project was supported in part through the NYU IT High Performance Computing resources, services, and staff expertise
               </p>
             </div>
           </section>
