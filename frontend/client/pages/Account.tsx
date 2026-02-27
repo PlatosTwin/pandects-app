@@ -35,20 +35,35 @@ import { loadGoogleIdentityServices } from "@/lib/google-identity";
 import { setSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
 import { authSessionTransport } from "@/lib/auth-transport";
+import { AuthApiError } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/format-utils";
+import { safeNextPath } from "@/lib/auth-next";
+import brandLinks from "@branding/links.json";
 
 export default function Account() {
   const { status, user, login, register, logout, refresh } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const requestedNextPath = useMemo(
+    () => safeNextPath(new URLSearchParams(location.search).get("next")),
+    [location.search],
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [authPending, setAuthPending] = useState(false);
+  const [apiKeysPending, setApiKeysPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [activeAuthTab, setActiveAuthTab] = useState<"signin" | "register">("signin");
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const [googleStatus, setGoogleStatus] = useState<
     "loading" | "ready" | "unavailable"
   >("loading");
@@ -56,6 +71,8 @@ export default function Account() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const refreshRef = useRef(refresh);
   const googleInitRunRef = useRef(0);
+  const accountForegroundRefreshInFlightRef = useRef(false);
+  const accountForegroundRefreshAtMsRef = useRef(0);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -79,6 +96,9 @@ export default function Account() {
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [usageByDay, setUsageByDay] = useState<UsageByDay[]>([]);
   const [usageTotal, setUsageTotal] = useState(0);
+  const [accountDataLoading, setAccountDataLoading] = useState(false);
+  const [accountDataLoaded, setAccountDataLoaded] = useState(false);
+  const [accountDataError, setAccountDataError] = useState<string | null>(null);
 
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -103,6 +123,8 @@ export default function Account() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [revokeTargetKey, setRevokeTargetKey] = useState<ApiKeySummary | null>(null);
 
   const hasAnyKey = apiKeys.some((k) => !k.revoked_at);
   const emailNotVerifiedMessage = "Email address not verified.";
@@ -156,40 +178,65 @@ export default function Account() {
     await poll();
   }, [pingAuthBackend]);
 
-  const loadAccountData = async () => {
-    const [keys, usage] = await Promise.all([listApiKeys(), fetchUsage()]);
-    setApiKeys(keys.keys);
-    setUsageByDay(usage.by_day);
-    setUsageTotal(usage.total);
-  };
+  const loadAccountData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setAccountDataLoading(true);
+    try {
+      const [keys, usage] = await Promise.all([listApiKeys(), fetchUsage()]);
+      setApiKeys(keys.keys);
+      setUsageByDay(usage.by_day);
+      setUsageTotal(usage.total);
+      setAccountDataLoaded(true);
+      setAccountDataError(null);
+    } catch (err) {
+      setAccountDataError(err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      if (!silent) setAccountDataLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setApiKeys([]);
+      setUsageByDay([]);
+      setUsageTotal(0);
+      setAccountDataLoaded(false);
+      setAccountDataLoading(false);
+      setAccountDataError(null);
+      return;
+    }
     void loadAccountData().catch((err) => {
       toast({ title: "Failed to load account", description: String(err) });
     });
-  }, [user]);
+  }, [loadAccountData, user]);
 
   useEffect(() => {
     if (!user) return;
 
-    const refreshAccountData = () => {
-      void loadAccountData().catch((err) => {
-        toast({ title: "Failed to load account", description: String(err) });
-      });
+    const refreshAccountDataIfVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (accountForegroundRefreshInFlightRef.current) return;
+      const now = Date.now();
+      if (now - accountForegroundRefreshAtMsRef.current < 1200) return;
+      accountForegroundRefreshInFlightRef.current = true;
+      accountForegroundRefreshAtMsRef.current = now;
+      void loadAccountData({ silent: true })
+        .catch(() => undefined)
+        .finally(() => {
+          accountForegroundRefreshInFlightRef.current = false;
+        });
     };
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refreshAccountData();
-    };
+    const onFocus = () => refreshAccountDataIfVisible();
+    const onVisibilityChange = () => refreshAccountDataIfVisible();
 
-    window.addEventListener("focus", refreshAccountData);
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      window.removeEventListener("focus", refreshAccountData);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [user]);
+  }, [loadAccountData, user]);
 
   useEffect(() => {
     setCopiedNewKey(false);
@@ -213,6 +260,20 @@ export default function Account() {
     if (hasAnyKey) return null;
     return "Create an API key to use the API programmatically.";
   }, [status, hasAnyKey]);
+
+  const redirectAfterAuth = useCallback(() => {
+    if (requestedNextPath !== "/account") {
+      navigate(requestedNextPath, { replace: true });
+    }
+  }, [navigate, requestedNextPath]);
+
+  const passwordTooShort = password.length > 0 && password.length < 8;
+  const confirmPasswordMismatch =
+    confirmPassword.length > 0 && confirmPassword !== password;
+  const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
+  const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
 
   useEffect(() => {
     if (user) return;
@@ -268,7 +329,8 @@ export default function Account() {
           nonce: clientInfo.nonce,
           callback: async ({ credential }) => {
             trackEvent("google_continue_click", { from_path: "/account" });
-            setBusy(true);
+            setAuthPending(true);
+            setSignInError(null);
             try {
               const res = await loginWithGoogleCredential(credential);
               if (authSessionTransport() === "bearer") {
@@ -277,9 +339,10 @@ export default function Account() {
               }
               await refreshRef.current();
               toast({ title: "Signed in" });
+              redirectAfterAuth();
             } catch (err) {
-              const msg = String(err);
-              if (msg.includes("legal_required")) {
+              const msg = err instanceof Error ? err.message : String(err);
+              if (err instanceof AuthApiError && err.code === "legal_required") {
                 setGooglePendingCredential(credential);
                 setGoogleNeedsLegal(true);
                 toast({
@@ -287,10 +350,11 @@ export default function Account() {
                   description: "Accept the Terms, Privacy Policy, and License to create your account.",
                 });
               } else {
+                setSignInError(msg);
                 toast({ title: "Google sign-in failed", description: msg });
               }
             } finally {
-              setBusy(false);
+              setAuthPending(false);
             }
           },
           cancel_on_tap_outside: true,
@@ -357,7 +421,7 @@ export default function Account() {
         }
       })
       .catch(() => setGoogleStatus("unavailable"));
-  }, [authBackendStatus, user]);
+  }, [authBackendStatus, redirectAfterAuth, user]);
 
   useEffect(() => {
     if (user) return;
@@ -397,6 +461,30 @@ export default function Account() {
         setCaptchaStatus("unavailable");
       });
   }, [authBackendStatus, user]);
+
+  const openRevokeDialog = useCallback((key: ApiKeySummary) => {
+    setRevokeTargetKey(key);
+    setRevokeDialogOpen(true);
+  }, []);
+
+  const confirmRevokeKey = useCallback(async () => {
+    if (!revokeTargetKey) return;
+    setApiKeysPending(true);
+    try {
+      await revokeApiKey(revokeTargetKey.id);
+      await loadAccountData();
+      setRevokeDialogOpen(false);
+      setRevokeTargetKey(null);
+      toast({ title: "API key revoked" });
+    } catch (err) {
+      toast({
+        title: "Failed to revoke key",
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setApiKeysPending(false);
+    }
+  }, [loadAccountData, revokeTargetKey]);
 
   return (
     <PageShell
@@ -494,10 +582,15 @@ export default function Account() {
                       }
                     }}
                   />
-                  <label htmlFor="legal-google" className="leading-relaxed">
+                  <div className="leading-relaxed">
+                    <Label htmlFor="legal-google" className="sr-only">
+                      Accept legal terms
+                    </Label>
                     I have read and agree to the{" "}
                     <Link
                       to="/terms"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "tos", context: "google_signup" })
@@ -508,6 +601,8 @@ export default function Account() {
                     ,{" "}
                     <Link
                       to="/privacy-policy"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "privacy", context: "google_signup" })
@@ -518,6 +613,8 @@ export default function Account() {
                     , and{" "}
                     <Link
                       to="/license"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "license", context: "google_signup" })
@@ -526,13 +623,14 @@ export default function Account() {
                       License
                     </Link>
                     .
-                  </label>
+                  </div>
                 </div>
                 <Button
-                  disabled={busy || !legalAccepted || !legalCheckedAtMs || !googlePendingCredential}
+                  disabled={authPending || !legalAccepted || !legalCheckedAtMs || !googlePendingCredential}
                   onClick={async () => {
                     if (!googlePendingCredential || !legalCheckedAtMs) return;
-                    setBusy(true);
+                    setAuthPending(true);
+                    setSignInError(null);
                     try {
                       trackEvent("legal_consent_submitted", {
                         context: "google_signup",
@@ -551,10 +649,13 @@ export default function Account() {
                       toast({ title: "Signed in" });
                       setGoogleNeedsLegal(false);
                       setGooglePendingCredential(null);
+                      redirectAfterAuth();
                     } catch (err) {
-                      toast({ title: "Google sign-in failed", description: String(err) });
+                      const message = err instanceof Error ? err.message : String(err);
+                      setSignInError(message);
+                      toast({ title: "Google sign-in failed", description: message });
                     } finally {
-                      setBusy(false);
+                      setAuthPending(false);
                     }
                   }}
                   className="w-64 justify-self-center"
@@ -584,7 +685,64 @@ export default function Account() {
             )}
           </div>
 
-            <Tabs defaultValue="signin" className="mt-6">
+            {pendingVerificationEmail ? (
+              <Alert className="mt-6">
+                <AlertTitle>Check your email</AlertTitle>
+                <AlertDescription className="grid gap-3">
+                  <p>
+                    We sent a verification link to <span className="font-medium">{pendingVerificationEmail}</span>.
+                    Verify your email, then sign in to continue.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={resendPending}
+                      onClick={async () => {
+                        if (!pendingVerificationEmail) return;
+                        setResendPending(true);
+                        try {
+                          await resendVerificationEmail(pendingVerificationEmail);
+                          toast({
+                            title: "Verification email resent",
+                            description: "Check your inbox for the latest link.",
+                          });
+                        } catch (err) {
+                          toast({
+                            title: "Could not resend email",
+                            description: err instanceof Error ? err.message : String(err),
+                          });
+                        } finally {
+                          setResendPending(false);
+                        }
+                      }}
+                    >
+                      Resend verification email
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setActiveAuthTab("register")}
+                    >
+                      Edit email
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Tabs
+              value={activeAuthTab}
+              onValueChange={(value) => {
+                const nextValue = value === "register" ? "register" : "signin";
+                setActiveAuthTab(nextValue);
+                setSignInError(null);
+                setRegisterError(null);
+              }}
+              className="mt-6"
+            >
               <TabsList className="grid w-full grid-cols-2 text-foreground">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
                 <TabsTrigger value="register">Create account</TabsTrigger>
@@ -596,14 +754,19 @@ export default function Account() {
                 onSubmit={async (e) => {
                   e.preventDefault();
                   trackEvent("signin_click", { from_path: "/account", method: "email" });
-                  setBusy(true);
+                  setSignInError(null);
+                  setAuthPending(true);
                   try {
                     await waitForAuthBackendReady();
                     await login(email, password);
                     toast({ title: "Signed in" });
+                    redirectAfterAuth();
                   } catch (err) {
                     const message = err instanceof Error ? err.message : String(err);
                     if (message.includes(emailNotVerifiedMessage)) {
+                      setSignInError(
+                        "Verify your email to sign in. Check your inbox and spam folder for the verification link.",
+                      );
                       toast({
                         title: "Verify your email to sign in",
                         description:
@@ -613,6 +776,7 @@ export default function Account() {
                             altText="Resend verification email"
                             onClick={async () => {
                               try {
+                                setResendPending(true);
                                 await resendVerificationEmail(email);
                                 toast({
                                   title: "Verification email resent",
@@ -623,6 +787,8 @@ export default function Account() {
                                   title: "Could not resend email",
                                   description: String(sendError),
                                 });
+                              } finally {
+                                setResendPending(false);
                               }
                             }}
                           >
@@ -631,10 +797,11 @@ export default function Account() {
                         ),
                       });
                     } else {
+                      setSignInError(message);
                       toast({ title: "Sign in failed", description: message });
                     }
                   } finally {
-                    setBusy(false);
+                    setAuthPending(false);
                   }
                 }}
               >
@@ -644,36 +811,44 @@ export default function Account() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setSignInError(null);
+                    }}
                     required
-                    disabled={busy || authBackendStatus !== "ready"}
+                    disabled={authPending || authBackendStatus !== "ready"}
                   />
                 </FormField>
-                <FormField label="Password" htmlFor="password" required>
+                <FormField label="Password" htmlFor="password" required error={signInError ?? undefined}>
                   <Input
                     id="password"
                     type="password"
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setSignInError(null);
+                    }}
                     required
-                    disabled={busy || authBackendStatus !== "ready"}
+                    disabled={authPending || authBackendStatus !== "ready"}
                   />
                 </FormField>
-                <Button
-                  type="submit"
-                  variant="default"
-                  disabled={busy || authBackendStatus !== "ready"}
-                  className="w-64 justify-self-center"
-                >
-                  Sign in
-                </Button>
-                <Link
-                  to="/auth/forgot-password"
-                  className="justify-self-center text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Forgot your password?
-                </Link>
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    variant="default"
+                    disabled={authPending || authBackendStatus !== "ready"}
+                    className="w-64"
+                  >
+                    Sign in
+                  </Button>
+                  <Link
+                    to="/auth/forgot-password"
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
               </form>
             </TabsContent>
 
@@ -683,14 +858,25 @@ export default function Account() {
                 onSubmit={async (e) => {
                   e.preventDefault();
                   trackEvent("create_account_click", { from_path: "/account", method: "email" });
-                  setBusy(true);
+                  setRegisterError(null);
+                  setAuthPending(true);
                   try {
                     await waitForAuthBackendReady();
+                    if (password.length < 8) {
+                      setRegisterError("Password must be at least 8 characters.");
+                      return;
+                    }
+                    if (password !== confirmPassword) {
+                      setRegisterError("Passwords do not match.");
+                      return;
+                    }
                     if (!legalCheckedAtMs) {
-                      throw new Error("Please accept the Terms, Privacy Policy, and License.");
+                      setRegisterError("Please accept the Terms, Privacy Policy, and License.");
+                      return;
                     }
                     if (captchaEnabled && !captcha_token) {
-                      throw new Error("Please complete the captcha.");
+                      setRegisterError("Please complete the captcha.");
+                      return;
                     }
                     trackEvent("legal_consent_submitted", {
                       context: "email_register",
@@ -710,14 +896,23 @@ export default function Account() {
                       title: "Check your email",
                       description: "Verify your email address to finish creating your account.",
                     });
-                    navigate("/");
+                    setPendingVerificationEmail(email.trim());
+                    setActiveAuthTab("signin");
+                    setPassword("");
+                    setConfirmPassword("");
+                    setLegalAccepted(false);
+                    setLegalCheckedAtMs(null);
+                    setCaptchaToken(null);
+                    setRegisterError(null);
                   } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    setRegisterError(message);
                     toast({
                       title: "Registration failed",
-                      description: String(err),
+                      description: message,
                     });
                   } finally {
-                    setBusy(false);
+                    setAuthPending(false);
                   }
                 }}
               >
@@ -727,20 +922,51 @@ export default function Account() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setRegisterError(null);
+                    }}
                     required
-                    disabled={busy || authBackendStatus !== "ready"}
+                    disabled={authPending || authBackendStatus !== "ready"}
                   />
                 </FormField>
-                <FormField label="Password" htmlFor="password2" required>
+                <FormField
+                  label="Password"
+                  htmlFor="password2"
+                  required
+                  helpText="At least 8 characters."
+                  error={passwordTooShort ? "Password must be at least 8 characters." : undefined}
+                >
                   <Input
                     id="password2"
                     type="password"
                     autoComplete="new-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setRegisterError(null);
+                    }}
                     required
-                    disabled={busy || authBackendStatus !== "ready"}
+                    disabled={authPending || authBackendStatus !== "ready"}
+                  />
+                </FormField>
+                <FormField
+                  label="Confirm password"
+                  htmlFor="password-confirm"
+                  required
+                  error={confirmPasswordMismatch ? "Passwords do not match." : undefined}
+                >
+                  <Input
+                    id="password-confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setRegisterError(null);
+                    }}
+                    required
+                    disabled={authPending || authBackendStatus !== "ready"}
                   />
                 </FormField>
                 {captchaEnabled ? (
@@ -766,10 +992,11 @@ export default function Account() {
                   <Checkbox
                     id="legal-register"
                     checked={legalAccepted}
-                    disabled={busy || authBackendStatus !== "ready"}
+                    disabled={authPending || authBackendStatus !== "ready"}
                     onCheckedChange={(next) => {
                       const isChecked = next === true;
                       setLegalAccepted(isChecked);
+                      setRegisterError(null);
                       if (isChecked) {
                         const ts = Date.now();
                         setLegalCheckedAtMs(ts);
@@ -782,10 +1009,15 @@ export default function Account() {
                       }
                     }}
                   />
-                  <label htmlFor="legal-register" className="leading-relaxed">
+                  <div className="leading-relaxed">
+                    <Label htmlFor="legal-register" className="sr-only">
+                      Accept legal terms
+                    </Label>
                     I have read and agree to the{" "}
                     <Link
                       to="/terms"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "tos", context: "email_register" })
@@ -796,6 +1028,8 @@ export default function Account() {
                     ,{" "}
                     <Link
                       to="/privacy-policy"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "privacy", context: "email_register" })
@@ -806,6 +1040,8 @@ export default function Account() {
                     , and{" "}
                     <Link
                       to="/license"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary hover:underline"
                       onClick={() =>
                         trackEvent("legal_link_click", { doc: "license", context: "email_register" })
@@ -814,20 +1050,29 @@ export default function Account() {
                       License
                     </Link>
                     .
-                  </label>
+                  </div>
                 </div>
-                <Button
-                  type="submit"
-                  disabled={
-                    busy ||
-                    authBackendStatus !== "ready" ||
-                    !legalAccepted ||
-                    (captchaEnabled && !captcha_token)
-                  }
-                  className="w-64 justify-self-center"
-                >
-                  Create account
-                </Button>
+                {registerError ? (
+                  <p className="text-sm text-destructive" role="alert" aria-live="polite">
+                    {registerError}
+                  </p>
+                ) : null}
+                <div className="flex justify-center pt-1">
+                  <Button
+                    type="submit"
+                    disabled={
+                      authPending ||
+                      authBackendStatus !== "ready" ||
+                      passwordTooShort ||
+                      confirmPasswordMismatch ||
+                      !legalAccepted ||
+                      (captchaEnabled && !captcha_token)
+                    }
+                    className="w-64"
+                  >
+                    Create account
+                  </Button>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
@@ -849,19 +1094,31 @@ export default function Account() {
                   Use `X-API-Key` for API access. Keep keys secret — you can view
                   a newly created key only once.
                 </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Full API examples and reference are on the{" "}
+                  <a
+                    href={docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    docs site
+                  </a>
+                  .
+                </p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setBusy(true);
+                    setApiKeysPending(true);
                     loadAccountData()
                       .catch((err) => {
                         toast({ title: "Failed to refresh", description: String(err) });
                       })
-                      .finally(() => setBusy(false));
+                      .finally(() => setApiKeysPending(false));
                   }}
-                  disabled={busy}
+                  disabled={apiKeysPending || accountDataLoading || accountDataBootstrapping}
                   className="w-full sm:w-auto"
                 >
                   Refresh
@@ -875,11 +1132,12 @@ export default function Account() {
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="Key name (optional)"
                   className="w-full sm:w-48"
+                  disabled={apiKeysPending || accountDataLoading || accountDataBootstrapping}
                 />
                 <Button
                   onClick={async () => {
                     trackEvent("api_key_new_click", { from_path: "/account" });
-                    setBusy(true);
+                    setApiKeysPending(true);
                     try {
                       const created = await createApiKey(newKeyName || undefined);
                       setRevealedKey(created.api_key_plaintext);
@@ -891,10 +1149,10 @@ export default function Account() {
                         description: String(err),
                       });
                     } finally {
-                      setBusy(false);
+                      setApiKeysPending(false);
                     }
                   }}
-                  disabled={busy}
+                  disabled={apiKeysPending || accountDataLoading || accountDataBootstrapping}
                   className="w-full sm:w-auto"
                 >
                   New key
@@ -902,125 +1160,202 @@ export default function Account() {
               </div>
             </div>
 
+            {accountDataError ? (
+              <Alert className="mt-4" variant="destructive">
+                <AlertTitle>Account data unavailable</AlertTitle>
+                <AlertDescription>{accountDataError}</AlertDescription>
+              </Alert>
+            ) : null}
+
             <div className="mt-4">
-              <div className="grid gap-3 sm:hidden">
-                {apiKeys.length === 0 ? (
+              <div className="grid gap-4 sm:hidden">
+                {accountDataBootstrapping ? (
                   <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    No API keys yet.
+                    Loading API keys…
                   </div>
                 ) : (
-                  apiKeys.map((k) => (
-                    <div
-                      key={k.id}
-                      className="rounded-md border border-border/60 p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-foreground">
-                            {k.name ?? "Untitled key"}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Prefix
-                          </div>
-                          <div className="font-mono text-xs text-foreground">
-                            {k.prefix}
-                          </div>
+                  <>
+                    <section className="grid gap-3">
+                      <h3 className="text-sm font-medium">Active keys</h3>
+                      {activeApiKeys.length === 0 ? (
+                        <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                          No active API keys.
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            setBusy(true);
-                            try {
-                              await revokeApiKey(k.id);
-                              await loadAccountData();
-                            } catch (err) {
-                              toast({
-                                title: "Failed to revoke key",
-                                description: String(err),
-                              });
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                          disabled={busy || !!k.revoked_at}
-                          className="shrink-0"
-                        >
-                          {k.revoked_at ? "Revoked" : "Revoke"}
-                        </Button>
-                      </div>
-                      <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center justify-between gap-3">
-                          <span>Created</span>
-                          <span className="text-foreground">
-                            {formatDate(k.created_at)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span>Last used</span>
-                          <span className="text-foreground">
-                            {formatDate(k.last_used_at)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+                      ) : (
+                        activeApiKeys.map((k) => (
+                          <div
+                            key={k.id}
+                            className="rounded-md border border-border/60 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-foreground">
+                                  {k.name ?? "Untitled key"}
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Prefix
+                                </div>
+                                <div className="font-mono text-xs text-foreground">
+                                  {k.prefix}
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openRevokeDialog(k)}
+                                disabled={apiKeysPending}
+                                className="shrink-0"
+                              >
+                                Revoke
+                              </Button>
+                            </div>
+                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Created</span>
+                                <span className="text-foreground">
+                                  {formatDate(k.created_at)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Last used</span>
+                                <span className="text-foreground">
+                                  {formatDate(k.last_used_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </section>
+                    {revokedApiKeys.length > 0 ? (
+                      <section className="grid gap-3">
+                        <h3 className="text-sm font-medium">Revoked keys</h3>
+                        {revokedApiKeys.map((k) => (
+                          <div
+                            key={k.id}
+                            className="rounded-md border border-border/60 bg-muted/20 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-foreground">
+                                  {k.name ?? "Untitled key"}
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Prefix
+                                </div>
+                                <div className="font-mono text-xs text-foreground">
+                                  {k.prefix}
+                                </div>
+                              </div>
+                              <div className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
+                                Revoked
+                              </div>
+                            </div>
+                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Created</span>
+                                <span className="text-foreground">
+                                  {formatDate(k.created_at)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Last used</span>
+                                <span className="text-foreground">
+                                  {formatDate(k.last_used_at)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span>Revoked</span>
+                                <span className="text-foreground">
+                                  {formatDate(k.revoked_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </section>
+                    ) : null}
+                  </>
                 )}
               </div>
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full text-sm">
-                  <caption className="sr-only">API keys</caption>
-                  <thead className="text-muted-foreground">
-                    <tr className="border-b">
-                      <th scope="col" className="py-2 text-left font-medium">Name</th>
-                      <th scope="col" className="py-2 text-left font-medium">Prefix</th>
-                      <th scope="col" className="py-2 text-left font-medium">Created</th>
-                      <th scope="col" className="py-2 text-left font-medium">Last used</th>
-                      <th scope="col" className="py-2 text-right font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {apiKeys.length === 0 ? (
-                      <tr>
-                        <td className="py-3 text-muted-foreground" colSpan={5}>
-                          No API keys yet.
-                        </td>
+              <div className="hidden sm:grid sm:gap-6">
+                <section className="overflow-x-auto">
+                  <h3 className="mb-2 text-sm font-medium">Active keys</h3>
+                  <table className="w-full text-sm">
+                    <caption className="sr-only">Active API keys</caption>
+                    <thead className="text-muted-foreground">
+                      <tr className="border-b">
+                        <th scope="col" className="py-2 text-left font-medium">Name</th>
+                        <th scope="col" className="py-2 text-left font-medium">Prefix</th>
+                        <th scope="col" className="py-2 text-left font-medium">Created</th>
+                        <th scope="col" className="py-2 text-left font-medium">Last used</th>
+                        <th scope="col" className="py-2 text-right font-medium">Actions</th>
                       </tr>
-                    ) : (
-                      apiKeys.map((k) => (
-                        <tr key={k.id} className="border-b last:border-b-0">
-                          <td className="py-3">{k.name ?? "—"}</td>
-                          <td className="py-3 font-mono">{k.prefix}</td>
-                          <td className="py-3">{formatDate(k.created_at)}</td>
-                          <td className="py-3">{formatDate(k.last_used_at)}</td>
-                          <td className="py-3 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                setBusy(true);
-                                try {
-                                  await revokeApiKey(k.id);
-                                  await loadAccountData();
-                                } catch (err) {
-                                  toast({
-                                    title: "Failed to revoke key",
-                                    description: String(err),
-                                  });
-                                } finally {
-                                  setBusy(false);
-                                }
-                              }}
-                              disabled={busy || !!k.revoked_at}
-                            >
-                              {k.revoked_at ? "Revoked" : "Revoke"}
-                            </Button>
+                    </thead>
+                    <tbody>
+                      {accountDataBootstrapping ? (
+                        <tr>
+                          <td className="py-3 text-muted-foreground" colSpan={5}>
+                            Loading API keys…
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : activeApiKeys.length === 0 ? (
+                        <tr>
+                          <td className="py-3 text-muted-foreground" colSpan={5}>
+                            No active API keys.
+                          </td>
+                        </tr>
+                      ) : (
+                        activeApiKeys.map((k) => (
+                          <tr key={k.id} className="border-b last:border-b-0">
+                            <td className="py-3">{k.name ?? "—"}</td>
+                            <td className="py-3 font-mono">{k.prefix}</td>
+                            <td className="py-3">{formatDate(k.created_at)}</td>
+                            <td className="py-3">{formatDate(k.last_used_at)}</td>
+                            <td className="py-3 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openRevokeDialog(k)}
+                                disabled={apiKeysPending}
+                              >
+                                Revoke
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </section>
+                {revokedApiKeys.length > 0 ? (
+                  <section className="overflow-x-auto">
+                    <h3 className="mb-2 text-sm font-medium">Revoked keys</h3>
+                    <table className="w-full text-sm">
+                      <caption className="sr-only">Revoked API keys</caption>
+                      <thead className="text-muted-foreground">
+                        <tr className="border-b">
+                          <th scope="col" className="py-2 text-left font-medium">Name</th>
+                          <th scope="col" className="py-2 text-left font-medium">Prefix</th>
+                          <th scope="col" className="py-2 text-left font-medium">Created</th>
+                          <th scope="col" className="py-2 text-left font-medium">Last used</th>
+                          <th scope="col" className="py-2 text-left font-medium">Revoked</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {revokedApiKeys.map((k) => (
+                          <tr key={k.id} className="border-b last:border-b-0">
+                            <td className="py-3">{k.name ?? "—"}</td>
+                            <td className="py-3 font-mono">{k.prefix}</td>
+                            <td className="py-3">{formatDate(k.created_at)}</td>
+                            <td className="py-3">{formatDate(k.last_used_at)}</td>
+                            <td className="py-3">{formatDate(k.revoked_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                ) : null}
               </div>
             </div>
           </Card>
@@ -1032,7 +1367,9 @@ export default function Account() {
             </p>
 
             <div className="mt-4 grid gap-2" role="list">
-              {usageByDay.length === 0 ? (
+              {accountDataBootstrapping ? (
+                <div className="text-sm text-muted-foreground">Loading usage…</div>
+              ) : usageByDay.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No usage yet.</div>
               ) : (
                 usageByDay.map((row) => (
@@ -1069,7 +1406,7 @@ export default function Account() {
                   setDeleteConfirmText("");
                   setDeleteDialogOpen(true);
                 }}
-                disabled={busy}
+                disabled={deletePending}
               >
                 Delete account
               </Button>
@@ -1121,6 +1458,44 @@ export default function Account() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={revokeDialogOpen}
+        onOpenChange={(open) => {
+          setRevokeDialogOpen(open);
+          if (!open) setRevokeTargetKey(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {revokeTargetKey ? (
+                <>
+                  This will immediately disable{" "}
+                  <span className="font-medium">
+                    {revokeTargetKey.name ?? `Key ${revokeTargetKey.prefix}`}
+                  </span>
+                  . This action cannot be undone.
+                </>
+              ) : (
+                "This action cannot be undone."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apiKeysPending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={apiKeysPending || !revokeTargetKey}
+              onClick={() => void confirmRevokeKey()}
+            >
+              Revoke key
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1143,13 +1518,13 @@ export default function Account() {
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
-              disabled={busy || deleteConfirmText !== "Delete"}
+              disabled={deletePending || deleteConfirmText !== "Delete"}
               onClick={async () => {
-                setBusy(true);
+                setDeletePending(true);
                 try {
                   await deleteAccount({ confirm: deleteConfirmText });
                   toast({ title: "Account deleted" });
@@ -1159,7 +1534,7 @@ export default function Account() {
                 } catch (err) {
                   toast({ title: "Delete failed", description: String(err) });
                 } finally {
-                  setBusy(false);
+                  setDeletePending(false);
                 }
               }}
             >

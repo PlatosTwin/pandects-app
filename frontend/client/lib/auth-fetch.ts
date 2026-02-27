@@ -4,6 +4,28 @@ import { authSessionTransport } from "@/lib/auth-transport";
 import { getSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
 
+export class AuthApiError extends Error {
+  status: number;
+  statusText: string;
+  code: string | null;
+  bodyText: string;
+
+  constructor(params: {
+    message: string;
+    status: number;
+    statusText: string;
+    code: string | null;
+    bodyText: string;
+  }) {
+    super(params.message);
+    this.name = "AuthApiError";
+    this.status = params.status;
+    this.statusText = params.statusText;
+    this.code = params.code;
+    this.bodyText = params.bodyText;
+  }
+}
+
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const parts = document.cookie.split(";").map((p) => p.trim());
@@ -82,20 +104,36 @@ export async function authFetchJson<T>(
   if (!res.ok) {
     const contentType = res.headers.get("Content-Type") || "";
     const bodyText = await res.text().catch(() => "");
+    let serverMessage: string | null = null;
+    let serverCode: string | null = null;
+
     if (contentType.includes("application/json") && bodyText) {
       try {
         const body = JSON.parse(bodyText) as unknown;
         if (body && typeof body === "object") {
           const message = (body as { message?: unknown }).message;
           if (typeof message === "string" && message.trim()) {
-            throw new Error(message);
+            serverMessage = message.trim();
+          }
+          const errorCode = (body as { error?: unknown }).error;
+          if (typeof errorCode === "string" && errorCode.trim()) {
+            serverCode = errorCode.trim();
           }
         }
       } catch {
-        // Fall through to generic error below.
+        serverMessage = null;
+        serverCode = null;
       }
     }
-    throw new Error(`HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`);
+    throw new AuthApiError({
+      message:
+        serverMessage ??
+        `HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`,
+      status: res.status,
+      statusText: res.statusText,
+      code: serverCode,
+      bodyText,
+    });
   }
   return (await res.json()) as T;
 }

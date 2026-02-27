@@ -8,6 +8,7 @@ import secrets
 import uuid
 from datetime import timedelta
 from collections import defaultdict
+from typing import Callable
 
 from flask import Blueprint, abort, jsonify, make_response, redirect, request, current_app
 from sqlalchemy.exc import SQLAlchemyError
@@ -16,6 +17,23 @@ from werkzeug.exceptions import HTTPException
 
 def register_auth_routes(app, *, app_module) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
+
+    def _run_email_side_effect(*, label: str, email: str, fn: Callable[[], None]) -> bool:
+        try:
+            fn()
+            return True
+        except HTTPException as exc:
+            current_app.logger.warning(
+                "%s failed for %s (HTTP %s): %s",
+                label,
+                email,
+                getattr(exc, "code", "unknown"),
+                getattr(exc, "description", ""),
+            )
+            return False
+        except Exception:
+            current_app.logger.exception("%s failed for %s.", label, email)
+            return False
 
     @auth_blp.route("/register", methods=["POST"])
     def auth_register():
@@ -64,35 +82,47 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
         try:
             existing = app_module.AuthUser.query.filter_by(email=email).first()
-            if existing is not None:
-                verify_token = None
-                if existing.email_verified_at is None:
-                    verify_token = app_module._issue_email_verification_token(
-                        user_id=existing.id, email=existing.email
-                    )
+        except SQLAlchemyError:
+            app_module.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+        if existing is not None:
+            verify_token = None
+            if existing.email_verified_at is None:
+                verify_token = app_module._issue_email_verification_token(
+                    user_id=existing.id, email=existing.email
+                )
+                def _send_existing_verification_email() -> None:
                     app_module._send_email_verification_email(
                         to_email=existing.email, token=verify_token
                     )
-                payload = {
-                    "status": "verification_required",
-                    "user": {
-                        "id": existing.id,
-                        "email": existing.email,
-                        "created_at": existing.created_at.isoformat(),
-                    },
-                }
-                if (
-                    verify_token
-                    and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
-                    and current_app.debug
-                ):
-                    payload["debug_token"] = verify_token
-                app_module._auth_enumeration_delay()
-                resp = make_response(jsonify(payload), 201)
-                resp.headers["Cache-Control"] = "no-store"
-                app_module._clear_auth_cookies(resp)
-                return resp
 
+                _ = _run_email_side_effect(
+                    label="Verification email delivery",
+                    email=existing.email,
+                    fn=_send_existing_verification_email,
+                )
+            payload = {
+                "status": "verification_required",
+                "user": {
+                    "id": existing.id,
+                    "email": existing.email,
+                    "created_at": existing.created_at.isoformat(),
+                },
+            }
+            if (
+                verify_token
+                and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
+                and current_app.debug
+            ):
+                payload["debug_token"] = verify_token
+            app_module._auth_enumeration_delay()
+            resp = make_response(jsonify(payload), 201)
+            resp.headers["Cache-Control"] = "no-store"
+            app_module._clear_auth_cookies(resp)
+            return resp
+
+        try:
             now = app_module._utc_now()
             ip_address = app_module._request_ip_address()
             user_agent = app_module._request_user_agent()
@@ -119,18 +149,30 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             app_module._record_signon_event(
                 user_id=user.id, provider="email", action="register"
             )
-            verify_token = app_module._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-            app_module._send_email_verification_email(to_email=user.email, token=verify_token)
-            app_module._send_signup_notification_email(new_user_email=user.email)
             app_module.db.session.commit()
-        except HTTPException:
-            app_module.db.session.rollback()
-            raise
         except SQLAlchemyError:
             app_module.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
+
+        verify_token = app_module._issue_email_verification_token(
+            user_id=user.id, email=user.email
+        )
+        def _send_new_user_verification_email() -> None:
+            app_module._send_email_verification_email(to_email=user.email, token=verify_token)
+
+        _ = _run_email_side_effect(
+            label="Verification email delivery",
+            email=user.email,
+            fn=_send_new_user_verification_email,
+        )
+        def _send_signup_notification() -> None:
+            app_module._send_signup_notification_email(new_user_email=user.email)
+
+        _ = _run_email_side_effect(
+            label="Signup notification delivery",
+            email=user.email,
+            fn=_send_signup_notification,
+        )
 
         payload = {
             "status": "verification_required",
@@ -226,19 +268,23 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
         try:
             user = app_module.AuthUser.query.filter_by(email=email).first()
-            if user is not None and user.email_verified_at is None:
-                verify_token = app_module._issue_email_verification_token(
-                    user_id=user.id, email=user.email
-                )
-                app_module._send_email_verification_email(
-                    to_email=user.email, token=verify_token
-                )
-        except HTTPException:
-            app_module.db.session.rollback()
-            raise
         except SQLAlchemyError:
             app_module.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
+        if user is not None and user.email_verified_at is None:
+            verify_token = app_module._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+            def _send_resend_email() -> None:
+                app_module._send_email_verification_email(
+                    to_email=user.email, token=verify_token
+                )
+
+            _ = _run_email_side_effect(
+                label="Verification resend delivery",
+                email=user.email,
+                fn=_send_resend_email,
+            )
 
         app_module._auth_enumeration_delay()
         resp = app_module._status_response("sent")
@@ -270,17 +316,21 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
         try:
             user = app_module.AuthUser.query.filter_by(email=email).first()
-            if user is not None and not (
-                user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
-            ):
-                token = app_module._issue_password_reset_token(user_id=user.id, email=user.email)
-                app_module._send_password_reset_email(to_email=user.email, token=token)
-        except HTTPException:
-            app_module.db.session.rollback()
-            raise
         except SQLAlchemyError:
             app_module.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
+        if user is not None and not (
+            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
+        ):
+            token = app_module._issue_password_reset_token(user_id=user.id, email=user.email)
+            def _send_password_reset() -> None:
+                app_module._send_password_reset_email(to_email=user.email, token=token)
+
+            _ = _run_email_side_effect(
+                label="Password reset email delivery",
+                email=user.email,
+                fn=_send_password_reset,
+            )
 
         app_module._auth_enumeration_delay()
         resp = app_module._status_response("sent")

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useId } from "react";
 import { createPortal } from "react-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   X,
   ArrowLeft,
@@ -36,6 +37,7 @@ import {
   formatTextValue,
   formatBooleanValue,
 } from "@/lib/format-utils";
+import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 interface AgreementModalProps {
   isOpen: boolean;
@@ -58,6 +60,7 @@ export function AgreementModal({
 }: AgreementModalProps) {
   const { agreement, isLoading, error, fetchAgreement, clearAgreement } =
     useAgreement();
+  const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [highlightedSection, setHighlightedSection] = useState<string | null>(
@@ -88,6 +91,9 @@ export function AgreementModal({
     if (counterparties) parts.push(counterparties);
     return parts.join(" · ");
   })();
+  const signInPath = buildAccountPathWithNext(
+    `${location.pathname}${location.search}${location.hash}`,
+  );
   const metadataSections = [
     {
       title: "Parties",
@@ -633,8 +639,17 @@ export function AgreementModal({
                       <Alert>
                         <AlertTitle>Preview mode</AlertTitle>
                         <AlertDescription>
-                          Showing the selected section and adjacent context. Sign in to
-                          view the full agreement.
+                          <div className="grid gap-2">
+                            <p>
+                              Showing the selected section and adjacent context. Sign in to
+                              view the full agreement.
+                            </p>
+                            <div>
+                              <Button asChild size="sm" variant="outline">
+                                <Link to={signInPath}>Sign in to view full agreement</Link>
+                              </Button>
+                            </div>
+                          </div>
                         </AlertDescription>
                       </Alert>
                     </div>

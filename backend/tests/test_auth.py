@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from sqlalchemy import text
+from werkzeug.exceptions import ServiceUnavailable
 
 
 def _set_default_env() -> None:
@@ -214,6 +215,95 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertIn(("email", "register"), rows)
             self.assertIn(("email", "login"), rows)
+
+    def test_register_persists_account_when_verification_email_delivery_fails(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        original_send = backend_app._send_email_verification_email
+
+        def _fail_send(*, to_email: str, token: str) -> None:
+            raise ServiceUnavailable(description="Email delivery failed.")
+
+        backend_app._send_email_verification_email = _fail_send
+        try:
+            res = client.post(
+                "/v1/auth/register",
+                json={
+                    "email": "delivery-fail@example.com",
+                    "password": "password123",
+                    "legal": {
+                        "checked_at_ms": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+        finally:
+            backend_app._send_email_verification_email = original_send
+
+        self.assertEqual(res.status_code, 201)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+        self.assertEqual(body.get("status"), "verification_required")
+
+        with self.app.app_context():
+            user = self._require_user("delivery-fail@example.com")
+            self.assertIsNone(user.email_verified_at)
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                legal_count = conn.execute(
+                    text("SELECT COUNT(*) FROM legal_acceptances WHERE user_id = :user_id"),
+                    {"user_id": user.id},
+                ).scalar_one()
+                signon_count = conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM auth_signon_events "
+                        "WHERE user_id = :user_id AND provider = 'email' AND action = 'register'"
+                    ),
+                    {"user_id": user.id},
+                ).scalar_one()
+            self.assertEqual(legal_count, len(backend_app._LEGAL_DOCS))
+            self.assertEqual(signon_count, 1)
+
+    def test_register_existing_user_still_succeeds_when_verification_email_delivery_fails(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        with self.app.app_context():
+            existing = AuthUser()
+            existing.email = "existing-unverified@example.com"
+            existing.password_hash = backend_app.generate_password_hash("password123")
+            existing.email_verified_at = None
+            db.session.add(existing)
+            db.session.commit()
+            existing_id = existing.id
+
+        original_send = backend_app._send_email_verification_email
+
+        def _fail_send(*, to_email: str, token: str) -> None:
+            raise ServiceUnavailable(description="Email delivery failed.")
+
+        backend_app._send_email_verification_email = _fail_send
+        try:
+            res = client.post(
+                "/v1/auth/register",
+                json={
+                    "email": "existing-unverified@example.com",
+                    "password": "password123",
+                    "legal": {
+                        "checked_at_ms": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+        finally:
+            backend_app._send_email_verification_email = original_send
+
+        self.assertEqual(res.status_code, 201)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+        user_payload = body.get("user")
+        self.assertIsInstance(user_payload, dict)
+        self.assertEqual(user_payload.get("id"), existing_id)
 
     def test_logout_revokes_bearer_session(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
@@ -460,6 +550,56 @@ class AuthFlowTests(unittest.TestCase):
             json={"email": "reset@example.com", "password": "newpassword123"},
         )
         self.assertEqual(res.status_code, 200)
+
+    def test_resend_verification_returns_sent_when_delivery_fails(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = "resend-fail@example.com"
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = None
+            db.session.add(user)
+            db.session.commit()
+
+        original_send = backend_app._send_email_verification_email
+
+        def _fail_send(*, to_email: str, token: str) -> None:
+            raise ServiceUnavailable(description="Email delivery failed.")
+
+        backend_app._send_email_verification_email = _fail_send
+        try:
+            res = client.post("/v1/auth/email/resend", json={"email": "resend-fail@example.com"})
+        finally:
+            backend_app._send_email_verification_email = original_send
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
+
+    def test_password_forgot_returns_sent_when_delivery_fails(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = "forgot-fail@example.com"
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = None
+            db.session.add(user)
+            db.session.commit()
+
+        original_send = backend_app._send_password_reset_email
+
+        def _fail_send(*, to_email: str, token: str) -> None:
+            raise ServiceUnavailable(description="Email delivery failed.")
+
+        backend_app._send_password_reset_email = _fail_send
+        try:
+            res = client.post("/v1/auth/password/forgot", json={"email": "forgot-fail@example.com"})
+        finally:
+            backend_app._send_password_reset_email = original_send
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
 
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

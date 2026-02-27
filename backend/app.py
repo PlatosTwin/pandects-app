@@ -1,7 +1,7 @@
 import os
 import sys
 import importlib
-from typing import Callable, ClassVar, Protocol, SupportsInt, TypedDict, cast
+from typing import Any, Callable, ClassVar, Protocol, SupportsInt, TypedDict, cast
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 import time
@@ -48,6 +48,8 @@ from sqlalchemy import (
     desc,
     asc,
 )
+from sqlalchemy.dialects import mysql as mysql_dialect
+from sqlalchemy.types import NullType
 from sqlalchemy.orm import Mapped
 from dotenv import load_dotenv
 from urllib.parse import urlencode, quote
@@ -1242,6 +1244,7 @@ def _send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "PandectsBackend/1.0 (+https://pandects.org)",
         },
         method="POST",
     )
@@ -1364,6 +1367,7 @@ def _send_resend_template_email(
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": "PandectsBackend/1.0 (+https://pandects.org)",
         },
         method="POST",
     )
@@ -2398,6 +2402,25 @@ def _register_request_hooks(target_app: Flask) -> None:
 # ── Reflect existing tables via standalone engine ─────────────────────────
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
 metadata = MetaData()
+
+
+class _MySQLVector(NullType):
+    """Opaque placeholder for MySQL/MariaDB VECTOR columns during reflection."""
+
+    cache_ok = True
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__()
+        self._vector_args = args
+        self._vector_kwargs = kwargs
+
+
+# SQLAlchemy's MySQL reflection parser doesn't recognize VECTOR yet.
+# Register a tolerant placeholder so reflected tables still load.
+_mysql_base_ischema_names = cast(dict[str, Any], mysql_dialect.base.ischema_names)
+_mysql_dialect_ischema_names = cast(dict[str, Any], mysql_dialect.dialect.ischema_names)
+_ = _mysql_base_ischema_names.setdefault("vector", _MySQLVector)
+_ = _mysql_dialect_ischema_names.setdefault("vector", _MySQLVector)
 
 if not _SKIP_MAIN_DB_REFLECTION:
     engine = create_engine(

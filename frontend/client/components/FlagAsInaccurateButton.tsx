@@ -1,4 +1,5 @@
 import { type FormEvent, useId, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +22,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { flagAsInaccurate, type FlagInaccurateSource } from "@/lib/auth-api";
 import { useToast } from "@/components/ui/use-toast";
+import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 const TOOLTIP_REST =
   " Click here to report an issue with this section or agreement; we'll look into it and correct the formatting or taxonomy classification by hand if something is amiss.";
@@ -51,6 +53,7 @@ export function FlagAsInaccurateButton({
   tooltipSide = "bottom",
 }: FlagAsInaccurateButtonProps) {
   const { status } = useAuth();
+  const location = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +63,9 @@ export function FlagAsInaccurateButton({
   const [issueSelections, setIssueSelections] = useState<string[]>([]);
   const textareaId = useId();
   const isLoggedIn = status === "authenticated";
+  const signInPath = buildAccountPathWithNext(
+    `${location.pathname}${location.search}${location.hash}`,
+  );
   const canSubmit = isLoggedIn && issueSelections.length > 0 && !submitting;
   const handleOpenChange = (nextOpen: boolean) => {
     setIsOpen(nextOpen);
@@ -233,9 +239,14 @@ export function FlagAsInaccurateButton({
               </Button>
             </div>
             {!isLoggedIn && (
-              <p className="text-center text-sm text-muted-foreground">
-                You must be signed in to submit.
-              </p>
+              <div className="grid justify-items-center gap-2">
+                <p className="text-center text-sm text-muted-foreground">
+                  You must be signed in to submit.
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <Link to={signInPath}>Sign in to continue</Link>
+                </Button>
+              </div>
             )}
           </form>
         </DialogContent>
@@ -344,9 +355,14 @@ export function FlagAsInaccurateButton({
             </Button>
           </div>
           {!isLoggedIn && (
-            <p className="text-center text-sm text-muted-foreground">
-              You must be signed in to submit.
-            </p>
+            <div className="grid justify-items-center gap-2">
+              <p className="text-center text-sm text-muted-foreground">
+                You must be signed in to submit.
+              </p>
+              <Button asChild variant="outline" size="sm">
+                <Link to={signInPath}>Sign in to continue</Link>
+              </Button>
+            </div>
           )}
         </form>
       </DialogContent>

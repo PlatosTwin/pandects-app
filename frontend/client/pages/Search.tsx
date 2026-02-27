@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
 import { trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
+import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 const SearchSidebar = lazy(() =>
   import("@/components/SearchSidebar").then((mod) => ({
@@ -52,6 +53,7 @@ const ErrorModal = lazy(() => import("@/components/ErrorModal"));
 
 export default function Search() {
   const { status: authStatus } = useAuth();
+  const location = useLocation();
   const {
     filters,
     isSearching,
@@ -170,6 +172,10 @@ export default function Search() {
   } = useFilterOptions({ deferMs: 1200 });
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const signInPath = useMemo(
+    () => buildAccountPathWithNext(`${location.pathname}${location.search}${location.hash}`),
+    [location.hash, location.pathname, location.search],
+  );
 
   // Agreement modal state
   const [selectedAgreement, setSelectedAgreement] = useState<{
@@ -424,8 +430,17 @@ export default function Search() {
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
                   <AlertTitle>Limited mode</AlertTitle>
                   <AlertDescription>
-                    Sign in to view clause text, open full agreements, and unlock
-                    higher page sizes.
+                    <div className="grid gap-2">
+                      <p>
+                        Sign in to view clause text, open full agreements, and unlock
+                        higher page sizes.
+                      </p>
+                      <div>
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={signInPath}>Sign in to unlock access</Link>
+                        </Button>
+                      </div>
+                    </div>
                   </AlertDescription>
                 </Alert>
               </div>
