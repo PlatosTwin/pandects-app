@@ -1,23 +1,34 @@
 """Create agreement training data from EDGAR exhibit links."""
 
 import argparse
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 from urllib.parse import urlparse
 
 import pandas as pd
-import requests
+import requests.api as requests_api
 
 from etl.domain.b_pre_processing import format_content, split_to_pages
 from etl.utils.sec_utils import SEC_USER_AGENT
+
+
+class _ResponseLike(Protocol):
+    text: str
+    headers: Mapping[str, str]
+
+    def raise_for_status(self) -> None: ...
+
+
+_REQUESTS_GET = cast(Callable[..., _ResponseLike], getattr(requests_api, "get"))
 
 
 def _fetch_exhibit_content(
     exhibit_url: str, user_agent: str, timeout: float = 10.0
 ) -> tuple[str, bool, bool]:
     headers = {"User-Agent": user_agent}
-    response = requests.get(exhibit_url, headers=headers, timeout=timeout)
-    response.raise_for_status()
+    response = _REQUESTS_GET(exhibit_url, headers=headers, timeout=timeout)
+    _ = response.raise_for_status()
     content = response.text
 
     path = urlparse(exhibit_url).path

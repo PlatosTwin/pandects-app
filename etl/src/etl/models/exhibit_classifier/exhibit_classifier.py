@@ -24,7 +24,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from scipy.sparse import csr_matrix, hstack as sparse_hstack
-from scipy.sparse import spmatrix
+from scipy.sparse._matrix import spmatrix
 
 
 class ExhibitClassifierModelData(TypedDict):

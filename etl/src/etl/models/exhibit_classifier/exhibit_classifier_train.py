@@ -152,7 +152,7 @@ def _compute_and_log_metrics(
     }
 
     with open(metrics_file, "w") as f:
-        yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
+        _ = yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
 
     print(f"Saved evaluation metrics to {metrics_file}")
 
@@ -690,7 +690,7 @@ def _write_class_error_urls(
         },
     }
     with open(output_file, "w", encoding="utf-8") as f:
-        yaml.dump(payload, f, default_flow_style=False, sort_keys=False)
+        _ = yaml.dump(payload, f, default_flow_style=False, sort_keys=False)
     print(f"Saved class-specific error URLs to {output_file}")
 
 
@@ -916,7 +916,7 @@ def main() -> None:
             },
         }
         with open(DEFAULT_OPTUNA_PATH, "w", encoding="utf-8") as f:
-            yaml.dump(optuna_payload, f, default_flow_style=False, sort_keys=False)
+            _ = yaml.dump(optuna_payload, f, default_flow_style=False, sort_keys=False)
         print(f"[optuna] wrote best hyperparameters to {DEFAULT_OPTUNA_PATH}")
         print("Done.")
         return
@@ -1012,7 +1012,7 @@ def main() -> None:
         sorted_coefs = dict(sorted(coefs.items(), key=lambda item: abs(item[1]), reverse=True))
         
         with open(importance_file, "w") as f:
-            yaml.dump(sorted_coefs, f, default_flow_style=False, sort_keys=False)
+            _ = yaml.dump(sorted_coefs, f, default_flow_style=False, sort_keys=False)
         print(f"Saved feature importance to {importance_file}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
