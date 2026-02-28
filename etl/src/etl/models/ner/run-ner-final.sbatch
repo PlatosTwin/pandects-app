@@ -6,13 +6,14 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --mem=8gb
 #SBATCH --gres=gpu:1
-#SBATCH --time=20:00:00
+#SBATCH --time=28:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=nmb9729@nyu.edu
+#SBATCH --account=torch_pr_744_general
 
 export PYTHONUNBUFFERED=1
 
 singularity exec --nv \
 	    --overlay /scratch/nmb9729/overlays/mna.ext3:ro \
-	    /scratch/work/public/singularity/cuda12.6.2-cudnn9.5.0-devel-ubuntu24.04.1.sif\
+	    /share/apps/images/cuda12.6.3-cudnn9.5.1-ubuntu22.04.5.sif\
 	    /bin/bash -c "source /ext3/env.sh; cd /scratch/nmb9729/mna/ner && python ner.py final-train --train-docs all --article-weight 1 --gating-mode raw --git-commit 96f83f522ff635dda854defebba4058a8a8a6888"
