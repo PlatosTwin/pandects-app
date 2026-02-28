@@ -15,6 +15,7 @@ import os
 import time
 import json
 import pickle
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +41,7 @@ from lightning.pytorch.callbacks import (
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from sklearn.feature_extraction.text import TfidfVectorizer
+from scipy.sparse import csr_matrix
 
 from optuna import Trial, create_study
 from optuna.integration import PyTorchLightningPruningCallback
@@ -55,6 +57,7 @@ if __package__ in (None, ""):
     from etl.models.taxonomy.taxonomy_constants import (  # type: ignore[reportMissingImports]
         TAXONOMY_CKPT_PATH,
         TAXONOMY_VECTORIZER_PATH,
+        TAXONOMY_TITLE_RULES_PATH,
         TAXONOMY_EVAL_METRICS_PATH,
     )
     from etl.models.taxonomy.taxonomy_classes import (  # type: ignore[reportMissingImports]
@@ -62,16 +65,27 @@ if __package__ in (None, ""):
         TfidfDataModule,
         TaxonomyClassifier,
     )
+    from etl.models.taxonomy.taxonomy_text import (  # type: ignore[reportMissingImports]
+        clean_article_title,
+        clean_section_title,
+        combine_taxonomy_text,
+    )
 else:
     from .taxonomy_constants import (
         TAXONOMY_CKPT_PATH,
         TAXONOMY_VECTORIZER_PATH,
+        TAXONOMY_TITLE_RULES_PATH,
         TAXONOMY_EVAL_METRICS_PATH,
     )
     from .taxonomy_classes import (
         TransformerDataModule,
         TfidfDataModule,
         TaxonomyClassifier,
+    )
+    from .taxonomy_text import (
+        clean_article_title,
+        clean_section_title,
+        combine_taxonomy_text,
     )
 
 _ = seed_everything(42, workers=True, verbose=False)
@@ -86,10 +100,7 @@ class _LogitsOutput(Protocol):
 
 
 def _combine_text(a: str, s: str, t: str) -> str:
-    a = a or ""
-    s = s or ""
-    t = t or ""
-    return f"[ARTICLE] {a}\n[SECTION] {s}\n[TEXT] {t}"
+    return combine_taxonomy_text(a, s, t)
 
 
 @dataclass
@@ -100,7 +111,6 @@ class TaxonomyConfig:
     mode: Literal["transformer", "tfidf"]
     num_trials: int
     max_epochs: int
-    batch_size: int = 16
     max_length: int = 1024
     labels_column: str = "labels"
     val_size: float = 0.2
@@ -109,15 +119,24 @@ class TaxonomyConfig:
     split_seed: int = 42
     eval_metrics_path: str | None = None
     decision_threshold: float = 0.5
-    # kept for backward compatibility with older config payloads; unused for multi-label
-    use_stratify: bool = False
     tfidf_max_features: int | None = 50_000
-
-
-class _DenseConvertible(Protocol):
-    def astype(self, dtype: str) -> "_DenseConvertible": ...
-
-    def toarray(self) -> np.ndarray: ...
+    empty_label_name: str = "__empty__"
+    threshold_tuning_min_support: int = 10
+    threshold_smoothing_support: int = 40
+    model_score_macro_weight: float = 0.45
+    model_score_weighted_weight: float = 0.25
+    model_score_micro_weight: float = 0.20
+    model_score_subset_weight: float = 0.10
+    model_score_recall_floor: float = 0.70
+    model_score_recall_penalty: float = 0.20
+    title_rule_min_support: int = 12
+    title_rule_min_precision: float = 0.985
+    title_rule_min_margin: int = 2
+    title_rule_boost_probability: float = 0.995
+    title_rule_enable_prefix_matching: bool = True
+    title_rule_prefix_min_support: int = 20
+    title_rules_path: str | None = None
+    dataloader_num_workers: int = 0
 
 
 IntArray = NDArray[np.int64]
@@ -131,6 +150,7 @@ class TaxonomyTrainer:
 
     def __init__(self, cfg: TaxonomyConfig) -> None:
         self.cfg: TaxonomyConfig = cfg
+        self._validate_model_score_config()
         if torch.backends.mps.is_available():
             self.device: str = "mps"
         elif torch.cuda.is_available():
@@ -140,15 +160,20 @@ class TaxonomyTrainer:
         self.train_rows: dict[str, list[str] | list[list[int]]] = {}
         self.val_rows: dict[str, list[str] | list[list[int]]] = {}
         self.test_rows: dict[str, list[str] | list[list[int]]] = {}
-        self.X_train: np.ndarray | None = None
+        self.X_train: csr_matrix | None = None
         self.y_train: np.ndarray | None = None
-        self.X_val: np.ndarray | None = None
+        self.X_val: csr_matrix | None = None
         self.y_val: np.ndarray | None = None
-        self.X_test: np.ndarray | None = None
+        self.X_test: csr_matrix | None = None
         self.y_test: np.ndarray | None = None
         self.class_pos_weight: list[float] | None = None
         self.tuned_decision_thresholds: list[float] | None = None
         self.vectorizer: TfidfVectorizer | None = None
+        self.title_rules_payload: dict[str, object] | None = None
+        self.section_title_rules: dict[str, str] = {}
+        self.article_section_title_rules: dict[tuple[str, str], str] = {}
+        self.section_title_prefix_rules: dict[str, str] = {}
+        self.section_title_prefix_rules_sorted: list[tuple[str, str]] = []
 
     @staticmethod
     def _parse_labels_cell(raw: object) -> list[str]:
@@ -220,6 +245,270 @@ class TaxonomyTrainer:
         if self.cfg.split_path:
             return Path(self.cfg.split_path)
         return Path(self.cfg.data_parquet).with_name("taxonomy-splits.json")
+
+    def _validate_model_score_config(self) -> None:
+        weights = [
+            float(self.cfg.model_score_macro_weight),
+            float(self.cfg.model_score_weighted_weight),
+            float(self.cfg.model_score_micro_weight),
+            float(self.cfg.model_score_subset_weight),
+        ]
+        if any(weight < 0.0 for weight in weights):
+            raise ValueError("Model-score weights must all be non-negative.")
+        if float(sum(weights)) <= 0.0:
+            raise ValueError("At least one model-score weight must be positive.")
+        if not 0.0 <= float(self.cfg.model_score_recall_floor) <= 1.0:
+            raise ValueError("`model_score_recall_floor` must be in [0, 1].")
+        if float(self.cfg.model_score_recall_penalty) < 0.0:
+            raise ValueError("`model_score_recall_penalty` must be >= 0.")
+        if int(self.cfg.threshold_smoothing_support) < 1:
+            raise ValueError("`threshold_smoothing_support` must be >= 1.")
+
+    def _resolve_title_rules_path(self) -> Path:
+        if self.cfg.title_rules_path:
+            return Path(self.cfg.title_rules_path)
+        return Path(TAXONOMY_TITLE_RULES_PATH)
+
+    def _validate_title_rule_config(self) -> None:
+        if self.cfg.title_rule_min_support < 1:
+            raise ValueError("`title_rule_min_support` must be >= 1.")
+        if not 0.0 < self.cfg.title_rule_min_precision <= 1.0:
+            raise ValueError("`title_rule_min_precision` must be in (0, 1].")
+        if self.cfg.title_rule_min_margin < 0:
+            raise ValueError("`title_rule_min_margin` must be >= 0.")
+        if not 0.0 < self.cfg.title_rule_boost_probability < 1.0:
+            raise ValueError("`title_rule_boost_probability` must be in (0, 1).")
+        if self.cfg.title_rule_prefix_min_support < 1:
+            raise ValueError("`title_rule_prefix_min_support` must be >= 1.")
+
+    def _select_rule_label(
+        self,
+        rows_labels: list[list[str]],
+    ) -> tuple[str, int, float, int] | None:
+        row_count = len(rows_labels)
+        if row_count < self.cfg.title_rule_min_support:
+            return None
+
+        label_row_counts: Counter[str] = Counter()
+        for row_labels in rows_labels:
+            for label in set(row_labels):
+                label_row_counts[label] += 1
+        if not label_row_counts:
+            return None
+
+        ranked = label_row_counts.most_common(2)
+        top_label, top_count = ranked[0]
+        second_count = ranked[1][1] if len(ranked) > 1 else 0
+        precision = float(top_count / row_count)
+        margin = top_count - second_count
+
+        if precision < self.cfg.title_rule_min_precision:
+            return None
+        if margin < self.cfg.title_rule_min_margin:
+            return None
+        return top_label, int(top_count), precision, int(margin)
+
+    def _build_title_rules(
+        self,
+        train_df: pd.DataFrame,
+        label_list: list[str],
+    ) -> None:
+        if "parsed_labels" not in train_df.columns:
+            raise RuntimeError(
+                "Training data is missing `parsed_labels` required to build title rules."
+            )
+        self._validate_title_rule_config()
+        label_set = set(label_list)
+        rules_df = train_df.copy()
+        rules_df["article_title_normed"] = (
+            cast(pd.Series, rules_df["article_title"])
+            .fillna("")
+            .astype(str)
+            .map(clean_article_title)
+        )
+        rules_df["section_title_normed"] = (
+            cast(pd.Series, rules_df["section_title"])
+            .fillna("")
+            .astype(str)
+            .map(clean_section_title)
+        )
+
+        section_rules: dict[str, str] = {}
+        section_rule_stats: dict[str, dict[str, float | int | str]] = {}
+        section_groups = rules_df.groupby("section_title_normed", sort=True)
+        for section_title_normed, group in section_groups:
+            section_key = str(section_title_normed).strip()
+            if not section_key:
+                continue
+            rows_labels: list[list[str]] = []
+            parsed_col = cast(pd.Series, group["parsed_labels"])
+            for labels_obj in parsed_col.tolist():
+                labels = cast(list[str], labels_obj)
+                filtered = [label for label in labels if label in label_set]
+                rows_labels.append(filtered)
+            selected = self._select_rule_label(rows_labels=rows_labels)
+            if selected is None:
+                continue
+            top_label, support, precision, margin = selected
+            section_rules[section_key] = top_label
+            section_rule_stats[section_key] = {
+                "label": top_label,
+                "support": int(support),
+                "precision": float(precision),
+                "margin": int(margin),
+                "rows": int(len(rows_labels)),
+            }
+
+        section_prefix_rules: dict[str, str] = {}
+        if self.cfg.title_rule_enable_prefix_matching:
+            required_precision = max(self.cfg.title_rule_min_precision, 0.995)
+            for section_key, stats in section_rule_stats.items():
+                support = int(stats["support"])
+                precision = float(stats["precision"])
+                token_count = len(section_key.split())
+                if support < self.cfg.title_rule_prefix_min_support:
+                    continue
+                if precision < required_precision:
+                    continue
+                if token_count < 1 or token_count > 4:
+                    continue
+                section_prefix_rules[section_key] = str(stats["label"])
+
+        article_section_rules: dict[tuple[str, str], str] = {}
+        article_section_rule_stats: dict[str, dict[str, float | int | str]] = {}
+        pair_groups = rules_df.groupby(
+            ["article_title_normed", "section_title_normed"], sort=True
+        )
+        for pair_key, group in pair_groups:
+            article_title_normed, section_title_normed = cast(
+                tuple[str, str], pair_key
+            )
+            article_key = str(article_title_normed).strip()
+            section_key = str(section_title_normed).strip()
+            if not section_key:
+                continue
+            rows_labels = []
+            parsed_col = cast(pd.Series, group["parsed_labels"])
+            for labels_obj in parsed_col.tolist():
+                labels = cast(list[str], labels_obj)
+                filtered = [label for label in labels if label in label_set]
+                rows_labels.append(filtered)
+            selected = self._select_rule_label(rows_labels=rows_labels)
+            if selected is None:
+                continue
+            top_label, support, precision, margin = selected
+            pair = (article_key, section_key)
+            article_section_rules[pair] = top_label
+            pair_key_json = f"{article_key}\t{section_key}"
+            article_section_rule_stats[pair_key_json] = {
+                "article_title_normed": article_key,
+                "section_title_normed": section_key,
+                "label": top_label,
+                "support": int(support),
+                "precision": float(precision),
+                "margin": int(margin),
+                "rows": int(len(rows_labels)),
+            }
+
+        article_section_rules_payload: dict[str, dict[str, str]] = {}
+        for (article_key, section_key), label in article_section_rules.items():
+            article_entry = article_section_rules_payload.setdefault(article_key, {})
+            article_entry[section_key] = label
+
+        self.section_title_rules = section_rules
+        self.article_section_title_rules = article_section_rules
+        self.section_title_prefix_rules = section_prefix_rules
+        self.section_title_prefix_rules_sorted = sorted(
+            self.section_title_prefix_rules.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        )
+        self.title_rules_payload = {
+            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "version": 1,
+            "title_rule_config": {
+                "min_support": int(self.cfg.title_rule_min_support),
+                "min_precision": float(self.cfg.title_rule_min_precision),
+                "min_margin": int(self.cfg.title_rule_min_margin),
+                "boost_probability": float(self.cfg.title_rule_boost_probability),
+                "enable_prefix_matching": bool(
+                    self.cfg.title_rule_enable_prefix_matching
+                ),
+                "prefix_min_support": int(self.cfg.title_rule_prefix_min_support),
+            },
+            "counts": {
+                "section_title_rules": int(len(section_rules)),
+                "article_section_title_rules": int(len(article_section_rules)),
+                "section_title_prefix_rules": int(len(section_prefix_rules)),
+            },
+            "section_title_rules": section_rules,
+            "section_title_prefix_rules": section_prefix_rules,
+            "article_section_title_rules": article_section_rules_payload,
+            "section_title_rule_stats": section_rule_stats,
+            "article_section_title_rule_stats": article_section_rule_stats,
+        }
+
+    def _save_title_rules(self) -> None:
+        if self.title_rules_payload is None:
+            raise RuntimeError("Title rules payload is not initialized.")
+        rules_path = self._resolve_title_rules_path()
+        rules_path.parent.mkdir(parents=True, exist_ok=True)
+        with rules_path.open("w") as f:
+            json.dump(self.title_rules_payload, f, indent=2)
+
+    def _resolve_title_rule_label(
+        self,
+        article_title: str,
+        section_title: str,
+    ) -> str | None:
+        section_key = clean_section_title(section_title or "")
+        if not section_key:
+            return None
+        article_key = clean_article_title(article_title or "")
+        pair_label = self.article_section_title_rules.get((article_key, section_key))
+        if pair_label is not None:
+            return pair_label
+        exact_label = self.section_title_rules.get(section_key)
+        if exact_label is not None:
+            return exact_label
+        for prefix, prefix_label in self.section_title_prefix_rules_sorted:
+            if section_key.startswith(f"{prefix} "):
+                return prefix_label
+        return None
+
+    def _apply_title_rule_boost(
+        self,
+        probs: NDArray[np.float64],
+        article_titles: list[str],
+        section_titles: list[str],
+        label_list: list[str],
+    ) -> NDArray[np.float64]:
+        if probs.shape[0] != len(article_titles) or probs.shape[0] != len(section_titles):
+            raise ValueError(
+                "Title-rule boost input size mismatch between probabilities and title columns."
+            )
+        if probs.shape[0] == 0:
+            return probs
+        if not self.section_title_rules and not self.article_section_title_rules:
+            return probs
+
+        label_to_id = {label: idx for idx, label in enumerate(label_list)}
+        boosted = probs.copy()
+        boost_probability = float(self.cfg.title_rule_boost_probability)
+        for row_idx, (article_title, section_title) in enumerate(
+            zip(article_titles, section_titles)
+        ):
+            rule_label = self._resolve_title_rule_label(
+                article_title=str(article_title),
+                section_title=str(section_title),
+            )
+            if rule_label is None:
+                continue
+            label_id = label_to_id.get(rule_label)
+            if label_id is None:
+                continue
+            boosted[row_idx, label_id] = max(boosted[row_idx, label_id], boost_probability)
+        return boosted
 
     def _iterative_stratified_binary_split(
         self,
@@ -343,6 +632,66 @@ class TaxonomyTrainer:
         )
         val_indices = holdout_indices[val_local]
         test_indices = holdout_indices[test_local]
+        return train_indices, val_indices, test_indices
+
+    def _build_duplicate_group_ids(self, df: pd.DataFrame) -> IntArray:
+        group_columns = cast(
+            pd.DataFrame,
+            df.loc[:, ["article_title", "section_title", "section_text"]],
+        )
+        key_index = pd.MultiIndex.from_frame(group_columns)
+        group_ids = pd.factorize(key_index, sort=False)[0]
+        return np.asarray(group_ids, dtype=np.int64)
+
+    def _split_train_val_test_grouped(
+        self,
+        label_matrix: IntArray,
+        group_ids: IntArray,
+    ) -> tuple[IntArray, IntArray, IntArray]:
+        if label_matrix.ndim != 2:
+            raise ValueError("`label_matrix` must be rank-2.")
+        if group_ids.ndim != 1:
+            raise ValueError("`group_ids` must be rank-1.")
+        if label_matrix.shape[0] != group_ids.shape[0]:
+            raise ValueError("`group_ids` length must match number of rows in labels.")
+        if group_ids.size < 2:
+            raise ValueError("Need at least 2 rows to split data.")
+
+        num_groups = int(group_ids.max()) + 1
+        if num_groups < 2:
+            raise ValueError(
+                "Need at least 2 unique text groups to split without leakage."
+            )
+
+        group_rows: list[list[int]] = [[] for _ in range(num_groups)]
+        group_label_matrix = np.zeros(
+            (num_groups, label_matrix.shape[1]),
+            dtype=np.int64,
+        )
+        for row_idx, group_id in enumerate(group_ids.tolist()):
+            gid = int(group_id)
+            group_rows[gid].append(int(row_idx))
+            group_label_matrix[gid] = np.maximum(
+                group_label_matrix[gid],
+                label_matrix[row_idx],
+            )
+
+        train_groups, val_groups, test_groups = self._split_train_val_test(
+            labels=group_label_matrix
+        )
+
+        def _expand_rows(group_indices: IntArray) -> IntArray:
+            if group_indices.size == 0:
+                return np.asarray([], dtype=np.int64)
+            rows = [
+                np.asarray(group_rows[int(group_id)], dtype=np.int64)
+                for group_id in group_indices.tolist()
+            ]
+            return np.sort(np.concatenate(rows).astype(np.int64))
+
+        train_indices = _expand_rows(train_groups)
+        val_indices = _expand_rows(val_groups)
+        test_indices = _expand_rows(test_groups)
         return train_indices, val_indices, test_indices
 
     def _counts_and_prevalence(
@@ -501,7 +850,7 @@ class TaxonomyTrainer:
         label_col = self.cfg.labels_column if self.cfg.labels_column in df.columns else "label"
         if label_col not in df.columns:
             raise ValueError(
-                f"Training parquet must contain `{self.cfg.labels_column}` or legacy `label` column."
+                f"Training parquet must contain `{self.cfg.labels_column}` or `label` column."
             )
 
         df = df.dropna(subset=["section_text"]).copy()
@@ -519,33 +868,41 @@ class TaxonomyTrainer:
                 ) from exc
             parsed_labels.append(parsed)
 
+        empty_label_name = self.cfg.empty_label_name.strip()
+        if not empty_label_name:
+            raise ValueError("`empty_label_name` must be a non-empty string.")
+        effective_labels = [
+            row_labels if row_labels else [empty_label_name]
+            for row_labels in parsed_labels
+        ]
+
         configured_label_list = self.cfg.label_list
         if configured_label_list is None:
             inferred_label_list = sorted(
                 {
                     label
-                    for row_labels in parsed_labels
+                    for row_labels in effective_labels
                     for label in row_labels
                 }
             )
-            if not inferred_label_list:
-                raise ValueError(
-                    "Could not infer `label_list` from data: all rows have empty labels."
-                )
             self.cfg.label_list = inferred_label_list
         else:
             if not configured_label_list:
                 raise ValueError("`label_list` must be non-empty when provided.")
             if len(set(configured_label_list)) != len(configured_label_list):
                 raise ValueError("`label_list` contains duplicate entries.")
+            normalized = list(configured_label_list)
+            if empty_label_name not in normalized:
+                normalized.append(empty_label_name)
+            self.cfg.label_list = normalized
 
-        label_list = cast(list[str], self.cfg.label_list)
+        label_list = self.cfg.label_list
         label2id = {label: i for i, label in enumerate(label_list)}
 
         unknown_labels = sorted(
             {
                 label
-                for row_labels in parsed_labels
+                for row_labels in effective_labels
                 for label in row_labels
                 if label not in label2id
             }
@@ -557,7 +914,7 @@ class TaxonomyTrainer:
             )
 
         label_id_rows: list[list[int]] = []
-        for row_labels in parsed_labels:
+        for row_labels in effective_labels:
             unique_ids: list[int] = []
             seen: set[int] = set()
             for label in row_labels:
@@ -568,16 +925,18 @@ class TaxonomyTrainer:
             label_id_rows.append(unique_ids)
 
         df = df.reset_index(drop=True)
+        df["parsed_labels"] = effective_labels
         df["label_vectors"] = [self._to_multi_hot(ids, len(label_list)) for ids in label_id_rows]
         label_matrix = np.asarray(df["label_vectors"].tolist(), dtype=np.int64)
-        empty_label_column = (label_matrix.sum(axis=1) == 0).astype(np.int64).reshape(-1, 1)
-        split_labels = np.concatenate((label_matrix, empty_label_column), axis=1)
-        train_indices, val_indices, test_indices = self._split_train_val_test(
-            labels=split_labels
+        duplicate_group_ids = self._build_duplicate_group_ids(df)
+        train_indices, val_indices, test_indices = self._split_train_val_test_grouped(
+            label_matrix=label_matrix,
+            group_ids=duplicate_group_ids,
         )
         tr = cast(pd.DataFrame, df.iloc[train_indices].copy()).reset_index(drop=True)
         va = cast(pd.DataFrame, df.iloc[val_indices].copy()).reset_index(drop=True)
         te = cast(pd.DataFrame, df.iloc[test_indices].copy()).reset_index(drop=True)
+        self._build_title_rules(train_df=tr, label_list=label_list)
         train_label_matrix = np.asarray(
             cast(list[list[int]], cast(pd.Series, tr["label_vectors"]).tolist()),
             dtype=np.int64,
@@ -649,30 +1008,27 @@ class TaxonomyTrainer:
                 for a, s, t in zip(article_title_te, section_title_te, section_text_te)
             ]
             self.vectorizer = TfidfVectorizer(
-                ngram_range=(1, 2),
-                min_df=2,
-                max_df=0.9,
+                ngram_range=(1, 3),
+                min_df=1,
+                max_df=0.98,
                 strip_accents="unicode",
                 lowercase=True,
+                sublinear_tf=True,
                 max_features=self.cfg.tfidf_max_features,
             )
-            Xtr = cast(
-                _DenseConvertible,
-                self.vectorizer.fit_transform(texts_tr),
-            )
-            Xva = cast(
-                _DenseConvertible,
-                self.vectorizer.transform(texts_va),
-            )
-            Xte = cast(
-                _DenseConvertible,
-                self.vectorizer.transform(texts_te),
-            )
-
-            # Convert to dense for a small MLP (could keep sparse for linear models)
-            self.X_train = Xtr.astype("float32").toarray()
-            self.X_val = Xva.astype("float32").toarray()
-            self.X_test = Xte.astype("float32").toarray()
+            Xtr = cast(csr_matrix, self.vectorizer.fit_transform(texts_tr))
+            feature_dim = int(Xtr.get_shape()[1])
+            if texts_va:
+                Xva = cast(csr_matrix, self.vectorizer.transform(texts_va))
+            else:
+                Xva = csr_matrix((0, feature_dim), dtype=np.float32)
+            if texts_te:
+                Xte = cast(csr_matrix, self.vectorizer.transform(texts_te))
+            else:
+                Xte = csr_matrix((0, feature_dim), dtype=np.float32)
+            self.X_train = Xtr.astype(np.float32).tocsr()
+            self.X_val = Xva.astype(np.float32).tocsr()
+            self.X_test = Xte.astype(np.float32).tocsr()
             self.y_train = np.asarray(
                 cast(list[list[int]], cast(pd.Series, tr["label_vectors"]).tolist()),
                 dtype="float32",
@@ -685,6 +1041,24 @@ class TaxonomyTrainer:
                 cast(list[list[int]], cast(pd.Series, te["label_vectors"]).tolist()),
                 dtype="float32",
             )
+            self.train_rows = {
+                "article_title": article_title_tr,
+                "section_title": section_title_tr,
+                "section_text": section_text_tr,
+                "label_vectors": cast(
+                    list[list[int]],
+                    cast(pd.Series, tr["label_vectors"]).tolist(),
+                ),
+            }
+            self.val_rows = {
+                "article_title": article_title_va,
+                "section_title": section_title_va,
+                "section_text": section_text_va,
+                "label_vectors": cast(
+                    list[list[int]],
+                    cast(pd.Series, va["label_vectors"]).tolist(),
+                ),
+            }
             self.test_rows = {
                 "article_title": article_title_te,
                 "section_title": section_title_te,
@@ -725,6 +1099,8 @@ class TaxonomyTrainer:
     def _build(
         self, params: dict[str, float | int]
     ) -> tuple[pl.LightningDataModule, pl.LightningModule]:
+        if self.cfg.dataloader_num_workers < 0:
+            raise ValueError("`dataloader_num_workers` must be >= 0.")
         label_list = self.cfg.label_list
         if not label_list:
             raise RuntimeError("`label_list` is not initialized. Call `_load_data()` first.")
@@ -737,7 +1113,7 @@ class TaxonomyTrainer:
                 label_list=label_list,
                 batch_size=int(params["batch_size"]),
                 max_length=int(params.get("max_length", self.cfg.max_length)),
-                num_workers=7,
+                num_workers=int(self.cfg.dataloader_num_workers),
             )
             model = TaxonomyClassifier(
                 mode="transformer",
@@ -749,6 +1125,14 @@ class TaxonomyTrainer:
                 warmup_steps_pct=float(params["warmup_steps_pct"]),
                 decision_threshold=self.cfg.decision_threshold,
                 pos_weight=self.class_pos_weight,
+                model_score_macro_weight=float(self.cfg.model_score_macro_weight),
+                model_score_weighted_weight=float(
+                    self.cfg.model_score_weighted_weight
+                ),
+                model_score_micro_weight=float(self.cfg.model_score_micro_weight),
+                model_score_subset_weight=float(self.cfg.model_score_subset_weight),
+                model_score_recall_floor=float(self.cfg.model_score_recall_floor),
+                model_score_recall_penalty=float(self.cfg.model_score_recall_penalty),
             )
         else:
             assert self.X_train is not None and self.y_train is not None
@@ -759,9 +1143,9 @@ class TaxonomyTrainer:
                 X_val=self.X_val,
                 y_val=self.y_val,
                 batch_size=int(params["batch_size"]),
-                num_workers=3,
+                num_workers=int(self.cfg.dataloader_num_workers),
             )
-            input_dim = int(cast(tuple[int, ...], self.X_train.shape)[1])
+            input_dim = int(self.X_train.get_shape()[1])
             model = TaxonomyClassifier(
                 mode="tfidf",
                 num_labels=len(label_list),
@@ -773,6 +1157,14 @@ class TaxonomyTrainer:
                 weight_decay=float(params.get("weight_decay", 0.0)),
                 decision_threshold=self.cfg.decision_threshold,
                 pos_weight=self.class_pos_weight,
+                model_score_macro_weight=float(self.cfg.model_score_macro_weight),
+                model_score_weighted_weight=float(
+                    self.cfg.model_score_weighted_weight
+                ),
+                model_score_micro_weight=float(self.cfg.model_score_micro_weight),
+                model_score_subset_weight=float(self.cfg.model_score_subset_weight),
+                model_score_recall_floor=float(self.cfg.model_score_recall_floor),
+                model_score_recall_penalty=float(self.cfg.model_score_recall_penalty),
             )
         return dm, model
 
@@ -786,8 +1178,8 @@ class TaxonomyTrainer:
         if self.cfg.mode == "tfidf":
             params.update(
                 {
-                    "hidden_dim": trial.suggest_categorical("hidden_dim", [256, 512, 768]),
-                    "dropout": trial.suggest_float("dropout", 0.0, 0.3),
+                    "hidden_dim": trial.suggest_categorical("hidden_dim", [384, 512, 768, 1024]),
+                    "dropout": trial.suggest_float("dropout", 0.0, 0.4),
                 }
             )
 
@@ -975,8 +1367,78 @@ class TaxonomyTrainer:
             "f1_weighted": f1_weighted,
         }
 
-    def _calibration_objective_score(self, f1_macro: float, f1_weighted: float) -> float:
-        return float((0.6 * f1_macro) + (0.4 * f1_weighted))
+    def _model_score_components(
+        self,
+        summary: dict[str, float],
+    ) -> tuple[float, float, float]:
+        macro_weight = float(self.cfg.model_score_macro_weight)
+        weighted_weight = float(self.cfg.model_score_weighted_weight)
+        micro_weight = float(self.cfg.model_score_micro_weight)
+        subset_weight = float(self.cfg.model_score_subset_weight)
+        total_weight = macro_weight + weighted_weight + micro_weight + subset_weight
+        normalized_macro = macro_weight / total_weight
+        normalized_weighted = weighted_weight / total_weight
+        normalized_micro = micro_weight / total_weight
+        normalized_subset = subset_weight / total_weight
+
+        raw_score = (
+            normalized_macro * float(summary["f1_macro"])
+            + normalized_weighted * float(summary["f1_weighted"])
+            + normalized_micro * float(summary["f1_micro"])
+            + normalized_subset * float(summary["subset_accuracy"])
+        )
+        recall_floor = float(self.cfg.model_score_recall_floor)
+        recall_penalty_weight = float(self.cfg.model_score_recall_penalty)
+        recall_gap = max(0.0, recall_floor - float(summary["recall_micro"]))
+        recall_penalty = recall_penalty_weight * recall_gap
+        score = raw_score - recall_penalty
+        return float(score), float(raw_score), float(recall_penalty)
+
+    def _build_objective_formula_text(self) -> str:
+        macro_weight = float(self.cfg.model_score_macro_weight)
+        weighted_weight = float(self.cfg.model_score_weighted_weight)
+        micro_weight = float(self.cfg.model_score_micro_weight)
+        subset_weight = float(self.cfg.model_score_subset_weight)
+        total_weight = macro_weight + weighted_weight + micro_weight + subset_weight
+        normalized_macro = macro_weight / total_weight
+        normalized_weighted = weighted_weight / total_weight
+        normalized_micro = micro_weight / total_weight
+        normalized_subset = subset_weight / total_weight
+        floor = float(self.cfg.model_score_recall_floor)
+        penalty = float(self.cfg.model_score_recall_penalty)
+        return (
+            f"{normalized_macro:.3f}*val_f1_macro + "
+            f"{normalized_weighted:.3f}*val_f1_weighted + "
+            f"{normalized_micro:.3f}*val_f1_micro + "
+            f"{normalized_subset:.3f}*val_subset_accuracy - "
+            f"{penalty:.3f}*max(0, {floor:.3f}-val_recall_micro)"
+        )
+
+    def _compute_prediction_summary(
+        self,
+        y_true: IntArray,
+        y_pred: IntArray,
+    ) -> dict[str, float]:
+        if y_true.shape != y_pred.shape:
+            raise ValueError(
+                f"Expected equal shapes; got y_true={y_true.shape}, y_pred={y_pred.shape}."
+            )
+        if y_true.ndim != 2:
+            raise ValueError(f"Expected 2D label matrices; got ndim={y_true.ndim}.")
+        f1_scores = self._compute_f1_scores(y_true=y_true, y_pred=y_pred)
+        tp = int(np.sum((y_true == 1) & (y_pred == 1)))
+        fn = int(np.sum((y_true == 1) & (y_pred == 0)))
+        recall_micro = 0.0 if (tp + fn) == 0 else float(tp / (tp + fn))
+        subset_accuracy = 0.0
+        if y_true.shape[0] > 0:
+            subset_accuracy = float(np.mean(np.all(y_true == y_pred, axis=1)))
+        return {
+            "f1_micro": float(f1_scores["f1_micro"]),
+            "f1_macro": float(f1_scores["f1_macro"]),
+            "f1_weighted": float(f1_scores["f1_weighted"]),
+            "recall_micro": recall_micro,
+            "subset_accuracy": subset_accuracy,
+        }
 
     def _tune_per_class_thresholds(
         self,
@@ -994,6 +1456,20 @@ class TaxonomyTrainer:
             raise RuntimeError(
                 "Validation probability width does not match `label_list` length."
             )
+        val_article_titles_obj = self.val_rows.get("article_title")
+        val_section_titles_obj = self.val_rows.get("section_title")
+        if not isinstance(val_article_titles_obj, list) or not isinstance(
+            val_section_titles_obj, list
+        ):
+            raise RuntimeError(
+                "Validation rows are missing title columns required for title-rule boosting."
+            )
+        probs = self._apply_title_rule_boost(
+            probs=probs,
+            article_titles=[str(x) for x in val_article_titles_obj],
+            section_titles=[str(x) for x in val_section_titles_obj],
+            label_list=label_list,
+        )
 
         thresholds = np.round(np.arange(0.05, 0.951, 0.01), 3)
         threshold_values = [float(t) for t in thresholds.tolist()]
@@ -1002,11 +1478,35 @@ class TaxonomyTrainer:
             threshold_values.append(baseline_threshold)
             threshold_values.sort()
 
+        min_support = int(self.cfg.threshold_tuning_min_support)
+        if min_support < 0:
+            raise ValueError("`threshold_tuning_min_support` must be >= 0.")
+        smoothing_support = max(
+            min_support,
+            int(self.cfg.threshold_smoothing_support),
+        )
         best_thresholds = np.full(probs.shape[1], baseline_threshold, dtype=np.float64)
-        per_label: dict[str, dict[str, float | int]] = {}
+        per_label: dict[str, dict[str, float | int | bool | str]] = {}
+        skipped_low_support = 0
         for idx, label in enumerate(label_list):
             y_true_col = y_true[:, idx]
             support = int(np.sum(y_true_col == 1))
+            if support < min_support:
+                skipped_low_support += 1
+                per_label[label] = {
+                    "support": support,
+                    "best_threshold": float(baseline_threshold),
+                    "best_f1": float(
+                        self._binary_f1_score(
+                            y_true=y_true_col,
+                            y_pred=(probs[:, idx] >= baseline_threshold).astype(np.int64),
+                        )
+                    ),
+                    "tuned": False,
+                    "skip_reason": "low_support",
+                }
+                continue
+
             best_threshold = baseline_threshold
             best_f1 = -1.0
             for threshold in threshold_values:
@@ -1021,26 +1521,32 @@ class TaxonomyTrainer:
                     ):
                         best_threshold = float(threshold)
 
-            best_thresholds[idx] = best_threshold
+            support_trust = min(1.0, float(support) / float(smoothing_support))
+            smoothed_threshold = float(
+                baseline_threshold + support_trust * (best_threshold - baseline_threshold)
+            )
+            best_thresholds[idx] = smoothed_threshold
             per_label[label] = {
                 "support": support,
-                "best_threshold": float(best_threshold),
+                "best_threshold": float(smoothed_threshold),
                 "best_f1": float(best_f1),
+                "tuned": True,
+                "best_threshold_raw": float(best_threshold),
+                "support_trust": float(support_trust),
             }
 
         y_pred_tuned = self._apply_thresholds_with_top1_fallback(
             probs=probs,
             thresholds=best_thresholds,
         )
-        val_scores = self._compute_f1_scores(y_true=y_true, y_pred=y_pred_tuned)
-        val_model_score = self._calibration_objective_score(
-            f1_macro=val_scores["f1_macro"],
-            f1_weighted=val_scores["f1_weighted"],
+        val_scores = self._compute_prediction_summary(y_true=y_true, y_pred=y_pred_tuned)
+        val_model_score, val_model_score_raw, val_model_score_recall_penalty = (
+            self._model_score_components(summary=val_scores)
         )
         return {
             "method": "per_class_f1_sweep",
             "objective_name": "val_model_score",
-            "objective_formula": "0.6 * val_f1_macro + 0.4 * val_f1_weighted",
+            "objective_formula": self._build_objective_formula_text(),
             "global_baseline_threshold": baseline_threshold,
             "decision_thresholds": [float(t) for t in best_thresholds.tolist()],
             "decision_thresholds_by_label": {
@@ -1050,16 +1556,25 @@ class TaxonomyTrainer:
                 "f1_micro": float(val_scores["f1_micro"]),
                 "f1_macro": float(val_scores["f1_macro"]),
                 "f1_weighted": float(val_scores["f1_weighted"]),
+                "recall_micro": float(val_scores["recall_micro"]),
+                "subset_accuracy": float(val_scores["subset_accuracy"]),
+                "val_model_score_raw": float(val_model_score_raw),
+                "val_model_score_recall_penalty": float(
+                    val_model_score_recall_penalty
+                ),
                 "val_model_score": float(val_model_score),
             },
-            # Backward-compatible key for existing analysis tooling.
-            "best_val_f1_micro": float(val_scores["f1_micro"]),
             "num_val_rows": int(y_true.shape[0]),
+            "threshold_tuning_min_support": min_support,
+            "threshold_smoothing_support": smoothing_support,
+            "num_labels_skipped_low_support": int(skipped_low_support),
             "per_label": per_label,
             "search_space": {
                 "min_threshold": 0.05,
                 "max_threshold": 0.95,
                 "step": 0.01,
+                "threshold_tuning_min_support": min_support,
+                "threshold_smoothing_support": smoothing_support,
             },
         }
 
@@ -1143,6 +1658,26 @@ class TaxonomyTrainer:
             "checkpoint_path": checkpoint_path,
             "decision_threshold": self.cfg.decision_threshold,
             "decision_thresholds": decision_thresholds,
+            "title_rules": {
+                "path": str(self._resolve_title_rules_path()),
+                "num_section_title_rules": int(len(self.section_title_rules)),
+                "num_article_section_title_rules": int(
+                    len(self.article_section_title_rules)
+                ),
+                "num_section_title_prefix_rules": int(
+                    len(self.section_title_prefix_rules)
+                ),
+                "boost_probability": float(self.cfg.title_rule_boost_probability),
+            },
+            "model_score_config": {
+                "macro_weight": float(self.cfg.model_score_macro_weight),
+                "weighted_weight": float(self.cfg.model_score_weighted_weight),
+                "micro_weight": float(self.cfg.model_score_micro_weight),
+                "subset_weight": float(self.cfg.model_score_subset_weight),
+                "recall_floor": float(self.cfg.model_score_recall_floor),
+                "recall_penalty": float(self.cfg.model_score_recall_penalty),
+                "objective_formula": self._build_objective_formula_text(),
+            },
             "counts": {
                 "num_rows": num_rows,
                 "num_labels": num_labels,
@@ -1231,6 +1766,7 @@ class TaxonomyTrainer:
             mode=self.cfg.mode,
             model_name=self.cfg.model_name if self.cfg.mode == "transformer" else None,
             vectorizer_path=TAXONOMY_VECTORIZER_PATH if self.cfg.mode == "tfidf" else None,
+            title_rules_path=str(self._resolve_title_rules_path()),
             max_length=self.cfg.max_length,
             decision_threshold=None,
             decision_thresholds=decision_thresholds,
@@ -1333,6 +1869,7 @@ class TaxonomyTrainer:
             decision_threshold=tuned_threshold_mean,
             decision_thresholds=self.tuned_decision_thresholds,
         )
+        self._save_title_rules()
 
         # Save TF-IDF vectorizer if needed
         if self.cfg.mode == "tfidf" and self.vectorizer is not None:
@@ -1365,6 +1902,7 @@ class TaxonomyInference:
         mode: Literal["transformer", "tfidf"],
         model_name: str | None = None,
         vectorizer_path: str | None = None,
+        title_rules_path: str | None = None,
         max_length: int = 1024,
         decision_threshold: float | None = None,
         decision_thresholds: list[float] | None = None,
@@ -1379,6 +1917,11 @@ class TaxonomyInference:
         self.mode: Literal["transformer", "tfidf"]
         self.tokenizer: PreTrainedTokenizerBase | None = None
         self.vectorizer: TfidfVectorizer | None = None
+        self.section_title_rules: dict[str, str] = {}
+        self.article_section_title_rules: dict[tuple[str, str], str] = {}
+        self.section_title_prefix_rules: dict[str, str] = {}
+        self.section_title_prefix_rules_sorted: list[tuple[str, str]] = []
+        self.title_rule_boost_probability: float = 0.995
 
         if mode == "transformer":
             model = TaxonomyClassifier.load_from_checkpoint(
@@ -1450,6 +1993,7 @@ class TaxonomyInference:
                     "Checkpoint `id2label` keys must be contiguous and start at 0."
                 )
             self.id2label = {idx: normalized_id2label[idx] for idx in expected_keys}
+        self.label2id = {label: idx for idx, label in self.id2label.items()}
         hparams = cast(object, self.model.hparams)
         resolved_thresholds: list[float] | None = decision_thresholds
         if resolved_thresholds is None:
@@ -1485,9 +2029,108 @@ class TaxonomyInference:
             dtype=torch.float32,
             device=self.device,
         )
+        self._load_title_rules(path=title_rules_path or TAXONOMY_TITLE_RULES_PATH)
 
     def _combine(self, a: str, s: str, t: str) -> str:
         return _combine_text(a, s, t)
+
+    def _load_title_rules(self, path: str) -> None:
+        rules_path = Path(path)
+        if not rules_path.exists():
+            return
+        payload = cast(object, json.loads(rules_path.read_text()))
+        if not isinstance(payload, dict):
+            return
+
+        section_rules_obj = payload.get("section_title_rules")
+        if isinstance(section_rules_obj, dict):
+            for raw_title, raw_label in section_rules_obj.items():
+                if isinstance(raw_title, str) and isinstance(raw_label, str):
+                    self.section_title_rules[raw_title] = raw_label
+        section_prefix_rules_obj = payload.get("section_title_prefix_rules")
+        if isinstance(section_prefix_rules_obj, dict):
+            for raw_prefix, raw_label in section_prefix_rules_obj.items():
+                if isinstance(raw_prefix, str) and isinstance(raw_label, str):
+                    self.section_title_prefix_rules[raw_prefix] = raw_label
+
+        article_section_obj = payload.get("article_section_title_rules")
+        if isinstance(article_section_obj, dict):
+            for raw_article, raw_section_map in article_section_obj.items():
+                if not isinstance(raw_article, str) or not isinstance(raw_section_map, dict):
+                    continue
+                for raw_section, raw_label in raw_section_map.items():
+                    if isinstance(raw_section, str) and isinstance(raw_label, str):
+                        self.article_section_title_rules[(raw_article, raw_section)] = raw_label
+
+        config_obj = payload.get("title_rule_config")
+        if isinstance(config_obj, dict):
+            boost_obj = config_obj.get("boost_probability")
+            if isinstance(boost_obj, (int, float)) and 0.0 < float(boost_obj) < 1.0:
+                self.title_rule_boost_probability = float(boost_obj)
+        self.section_title_prefix_rules_sorted = sorted(
+            self.section_title_prefix_rules.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        )
+
+    def _resolve_title_rule_label(
+        self,
+        article_title: str,
+        section_title: str,
+    ) -> str | None:
+        section_key = clean_section_title(section_title or "")
+        if not section_key:
+            return None
+        article_key = clean_article_title(article_title or "")
+        pair_label = self.article_section_title_rules.get((article_key, section_key))
+        if pair_label is not None:
+            return pair_label
+        exact_label = self.section_title_rules.get(section_key)
+        if exact_label is not None:
+            return exact_label
+        for prefix, prefix_label in self.section_title_prefix_rules_sorted:
+            if section_key.startswith(f"{prefix} "):
+                return prefix_label
+        return None
+
+    def _apply_title_rule_boost_to_batch(
+        self,
+        probs: torch.Tensor,
+        batch_rows: list[dict[str, str]],
+    ) -> tuple[torch.Tensor, list[str | None]]:
+        if probs.ndim != 2:
+            raise ValueError(f"Expected rank-2 probability tensor, got ndim={probs.ndim}.")
+        if probs.shape[0] != len(batch_rows):
+            raise ValueError(
+                "Probability batch row count does not match number of input rows."
+            )
+        if not self.section_title_rules and not self.article_section_title_rules:
+            return probs, [None for _ in batch_rows]
+
+        applied_rules: list[str | None] = []
+        boosted = probs.clone()
+        for row_idx, row in enumerate(batch_rows):
+            rule_label = self._resolve_title_rule_label(
+                article_title=str(row.get("article_title", "")),
+                section_title=str(row.get("section_title", "")),
+            )
+            if rule_label is None:
+                applied_rules.append(None)
+                continue
+            label_id = self.label2id.get(rule_label)
+            if label_id is None:
+                applied_rules.append(None)
+                continue
+            boosted[row_idx, label_id] = torch.maximum(
+                boosted[row_idx, label_id],
+                torch.tensor(
+                    self.title_rule_boost_probability,
+                    dtype=boosted.dtype,
+                    device=boosted.device,
+                ),
+            )
+            applied_rules.append(rule_label)
+        return boosted, applied_rules
 
     def predict(self, rows: list[dict[str, str]]) -> list[dict[str, object]]:
         out: list[dict[str, object]] = []
@@ -1528,14 +2171,13 @@ class TaxonomyInference:
                     )
                     logits = outputs.logits
                     probs = torch.sigmoid(logits)
-                    conf, pred = probs.max(dim=-1)
             else:
                 if self.vectorizer is None:
                     raise RuntimeError("Vectorizer not initialized for TF-IDF inference.")
                 features = cast(
-                    _DenseConvertible,
+                    csr_matrix,
                     self.vectorizer.transform(texts),
-                ).astype("float32").toarray()
+                ).astype(np.float32).toarray()
                 features_tensor = torch.tensor(
                     features, dtype=torch.float32, device=self.device
                 )
@@ -1545,7 +2187,12 @@ class TaxonomyInference:
                     )
                     logits = outputs.logits
                     probs = torch.sigmoid(logits)
-                    conf, pred = probs.max(dim=-1)
+
+            probs, applied_rule_labels = self._apply_title_rule_boost_to_batch(
+                probs=probs,
+                batch_rows=batch_rows,
+            )
+            conf, pred = probs.max(dim=-1)
 
             pred_mask = probs >= self.decision_threshold_tensor.unsqueeze(0)
 
@@ -1573,10 +2220,7 @@ class TaxonomyInference:
                         "top_pred_id": top_pred_id,
                         "top_pred_label": self.id2label[top_pred_id],
                         "top_confidence": float(conf[i].item()),
-                        # backward-compatible top-1 keys
-                        "pred_id": top_pred_id,
-                        "pred_label": self.id2label[top_pred_id],
-                        "confidence": float(conf[i].item()),
+                        "title_rule_label": applied_rule_labels[i],
                     }
                 )
         return out
@@ -1611,9 +2255,8 @@ def _parse_cli_args() -> argparse.Namespace:
         default="answerdotai/ModernBERT-base",
         help="Hugging Face model name (transformer mode).",
     )
-    _ = parser.add_argument("--num-trials", type=int, default=10)
-    _ = parser.add_argument("--max-epochs", type=int, default=6)
-    _ = parser.add_argument("--batch-size", type=int, default=16)
+    _ = parser.add_argument("--num-trials", type=int, default=15)
+    _ = parser.add_argument("--max-epochs", type=int, default=10)
     _ = parser.add_argument("--max-length", type=int, default=1024)
     _ = parser.add_argument("--labels-column", default="labels")
     _ = parser.add_argument("--val-size", type=float, default=0.2)
@@ -1623,49 +2266,33 @@ def _parse_cli_args() -> argparse.Namespace:
     _ = parser.add_argument("--eval-metrics-path", default=None)
     _ = parser.add_argument("--decision-threshold", type=float, default=None)
     _ = parser.add_argument("--tfidf-max-features", type=int, default=50_000)
+    _ = parser.add_argument("--empty-label-name", default="__empty__")
+    _ = parser.add_argument("--threshold-tuning-min-support", type=int, default=10)
+    _ = parser.add_argument("--title-rule-min-support", type=int, default=12)
+    _ = parser.add_argument("--title-rule-min-precision", type=float, default=0.985)
+    _ = parser.add_argument("--title-rule-min-margin", type=int, default=2)
+    _ = parser.add_argument("--title-rule-boost-probability", type=float, default=0.995)
+    _ = parser.add_argument("--title-rule-enable-prefix-matching", type=int, choices=(0, 1), default=1)
+    _ = parser.add_argument("--title-rule-prefix-min-support", type=int, default=20)
+    _ = parser.add_argument("--title-rules-path", default=None)
+    _ = parser.add_argument("--dataloader-num-workers", type=int, default=0)
 
-    _ = parser.add_argument("--ckpt-path", default=TAXONOMY_CKPT_PATH)
-    _ = parser.add_argument("--vectorizer-path", default=None)
-    _ = parser.add_argument(
-        "--samples-path",
-        default=None,
-        help="JSON path with inference samples for --mode test.",
-    )
     return parser.parse_args()
 
 
-def _load_test_samples(samples_path: str | None) -> list[dict[str, str]]:
-    if samples_path is None:
-        return [
-            {
-                "article_title": "Representations and Warranties",
-                "section_title": "Buyer Representations",
-                "section_text": "The Buyer represents that it is duly organized and in good standing...",
-            },
-            {
-                "article_title": "Miscellaneous",
-                "section_title": "Notices",
-                "section_text": "Any notice shall be deemed given when delivered by certified mail...",
-            },
-        ]
-
-    path = Path(samples_path)
-    payload = cast(object, json.loads(path.read_text()))
-    if not isinstance(payload, list):
-        raise ValueError("`samples_path` JSON must be a list of sample row objects.")
-
-    samples: list[dict[str, str]] = []
-    for idx, row in enumerate(payload):
-        if not isinstance(row, dict):
-            raise ValueError(f"Sample row {idx} is not an object.")
-        samples.append(
-            {
-                "article_title": str(row.get("article_title", "")),
-                "section_title": str(row.get("section_title", "")),
-                "section_text": str(row.get("section_text", "")),
-            }
-        )
-    return samples
+def _load_test_samples() -> list[dict[str, str]]:
+    return [
+        {
+            "article_title": "Representations and Warranties",
+            "section_title": "Buyer Representations",
+            "section_text": "The Buyer represents that it is duly organized and in good standing...",
+        },
+        {
+            "article_title": "Miscellaneous",
+            "section_title": "Notices",
+            "section_text": "Any notice shall be deemed given when delivered by certified mail...",
+        },
+    ]
 
 
 def main() -> None:
@@ -1681,7 +2308,6 @@ def main() -> None:
             mode=cast(Literal["transformer", "tfidf"], args.model_mode),
             num_trials=int(args.num_trials),
             max_epochs=int(args.max_epochs),
-            batch_size=int(args.batch_size),
             max_length=int(args.max_length),
             labels_column=str(args.labels_column),
             val_size=float(args.val_size),
@@ -1695,21 +2321,34 @@ def main() -> None:
                 else 0.5
             ),
             tfidf_max_features=int(args.tfidf_max_features),
+            empty_label_name=str(args.empty_label_name),
+            threshold_tuning_min_support=int(args.threshold_tuning_min_support),
+            title_rule_min_support=int(args.title_rule_min_support),
+            title_rule_min_precision=float(args.title_rule_min_precision),
+            title_rule_min_margin=int(args.title_rule_min_margin),
+            title_rule_boost_probability=float(args.title_rule_boost_probability),
+            title_rule_enable_prefix_matching=bool(
+                int(args.title_rule_enable_prefix_matching)
+            ),
+            title_rule_prefix_min_support=int(args.title_rule_prefix_min_support),
+            title_rules_path=cast(str | None, args.title_rules_path),
+            dataloader_num_workers=int(args.dataloader_num_workers),
         )
         trainer = TaxonomyTrainer(cfg)
         trainer.run()
         return
 
     inf = TaxonomyInference(
-        ckpt_path=str(args.ckpt_path),
+        ckpt_path=TAXONOMY_CKPT_PATH,
         label_list=None,
         mode=cast(Literal["transformer", "tfidf"], args.model_mode),
         model_name=str(args.model_name) if args.model_mode == "transformer" else None,
-        vectorizer_path=cast(str | None, args.vectorizer_path),
+        vectorizer_path=None,
+        title_rules_path=cast(str | None, args.title_rules_path),
         max_length=int(args.max_length),
         decision_threshold=cast(float | None, args.decision_threshold),
     )
-    samples = _load_test_samples(cast(str | None, args.samples_path))
+    samples = _load_test_samples()
     start = time.time()
     preds = inf.predict(samples)
     elapsed = time.time() - start

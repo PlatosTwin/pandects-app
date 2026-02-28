@@ -319,6 +319,34 @@ class TaxonomyModelTests(unittest.TestCase):
         self.assertEqual(str(per_label["rare"]["skip_reason"]), "low_support")
         self.assertTrue(bool(per_label["common"]["tuned"]))
 
+    def test_model_score_components_apply_recall_penalty(self) -> None:
+        cfg = TaxonomyConfig(
+            data_parquet="unused.parquet",
+            model_name="unused",
+            label_list=["a"],
+            mode="tfidf",
+            num_trials=1,
+            max_epochs=1,
+            model_score_macro_weight=0.5,
+            model_score_weighted_weight=0.2,
+            model_score_micro_weight=0.2,
+            model_score_subset_weight=0.1,
+            model_score_recall_floor=0.8,
+            model_score_recall_penalty=0.5,
+        )
+        trainer = TaxonomyTrainer(cfg)
+        summary = {
+            "f1_macro": 0.7,
+            "f1_weighted": 0.6,
+            "f1_micro": 0.65,
+            "subset_accuracy": 0.5,
+            "recall_micro": 0.4,
+        }
+        score, raw, penalty = trainer._model_score_components(summary=summary)
+        self.assertAlmostEqual(raw, 0.65, places=6)
+        self.assertAlmostEqual(penalty, 0.2, places=6)
+        self.assertAlmostEqual(score, 0.45, places=6)
+
 
 if __name__ == "__main__":
     _ = unittest.main()

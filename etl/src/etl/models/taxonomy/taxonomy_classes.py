@@ -10,6 +10,8 @@ multi-label classification of sections. Supports two modes:
 
 # Standard library
 import os
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal, Protocol, cast
 
@@ -20,11 +22,14 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Third-party
 import lightning.pytorch as pl
 import torch
-from torch.utils.data import Dataset, DataLoader, TensorDataset
+from torch.utils.data import Dataset, DataLoader
 from torch.optim import Optimizer
 from lightning.pytorch.utilities.types import LRSchedulerConfig
 from torchmetrics.classification import F1Score as F1
+from torchmetrics.classification import MultilabelExactMatch, MultilabelRecall
 import numpy as np
+from numpy.typing import NDArray
+from scipy.sparse import csr_matrix
 
 from transformers import (
     AutoTokenizer,
@@ -33,6 +38,16 @@ from transformers import (
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.data.data_collator import DataCollatorWithPadding
 from transformers.optimization import get_linear_schedule_with_warmup  # pyright: ignore[reportUnknownVariableType]
+
+if __package__ in (None, ""):
+    src_root = Path(__file__).resolve().parents[3]
+    if str(src_root) not in sys.path:
+        sys.path.append(str(src_root))
+    from etl.models.taxonomy.taxonomy_text import (  # type: ignore[reportMissingImports]
+        combine_taxonomy_text,
+    )
+else:
+    from .taxonomy_text import combine_taxonomy_text
 
 
 class _LogitsOutput(Protocol):
@@ -67,10 +82,7 @@ class TextLabelDataset(Dataset[dict[str, object]]):
         return len(self.labels)
 
     def _combine(self, a: str, s: str, t: str) -> str:
-        a = a or ""
-        s = s or ""
-        t = t or ""
-        return f"[ARTICLE] {a}\n[SECTION] {s}\n[TEXT] {t}"
+        return combine_taxonomy_text(a, s, t)
 
     def __getitem__(self, idx: int) -> dict[str, object]:
         txt = self._combine(self.article_title[idx], self.section_title[idx], self.section_text[idx])
@@ -173,17 +185,36 @@ class TransformerDataModule(pl.LightningDataModule):
         )
 
 
+class _SparseTfidfDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    def __init__(self, X: csr_matrix, y: np.ndarray) -> None:
+        self.X = X
+        self.y = y
+
+    def __len__(self) -> int:
+        return len(self.y)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        row_sparse = cast(csr_matrix, self.X.getrow(idx))
+        row_dense = cast(
+            NDArray[np.float32],
+            row_sparse.toarray().astype(np.float32, copy=False).ravel(),
+        )
+        features = torch.tensor(row_dense, dtype=torch.float32)
+        labels = torch.tensor(self.y[idx], dtype=torch.float32)
+        return features, labels
+
+
 class TfidfDataModule(pl.LightningDataModule):
     """
     DataModule for TF-IDF-based taxonomy classification. Expects pre-transformed
-    dense float32 arrays for X (features) and multi-hot float32 for y (labels).
+    sparse CSR features and multi-hot float32 labels.
     """
 
     def __init__(
         self,
-        X_train: np.ndarray,
+        X_train: csr_matrix,
         y_train: np.ndarray,
-        X_val: np.ndarray,
+        X_val: csr_matrix,
         y_val: np.ndarray,
         batch_size: int,
         num_workers: int,
@@ -195,16 +226,12 @@ class TfidfDataModule(pl.LightningDataModule):
         self.y_val = y_val
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.train_dataset: TensorDataset | None = None
-        self.val_dataset: TensorDataset | None = None
+        self.train_dataset: Dataset[tuple[torch.Tensor, torch.Tensor]] | None = None
+        self.val_dataset: Dataset[tuple[torch.Tensor, torch.Tensor]] | None = None
 
     def setup(self, stage: str | None = None) -> None:
-        Xtr = torch.tensor(self.X_train, dtype=torch.float32)
-        ytr = torch.tensor(self.y_train, dtype=torch.float32)
-        Xva = torch.tensor(self.X_val, dtype=torch.float32)
-        yva = torch.tensor(self.y_val, dtype=torch.float32)
-        self.train_dataset = TensorDataset(Xtr, ytr)
-        self.val_dataset = TensorDataset(Xva, yva)
+        self.train_dataset = _SparseTfidfDataset(self.X_train, self.y_train)
+        self.val_dataset = _SparseTfidfDataset(self.X_val, self.y_val)
 
     def train_dataloader(self) -> DataLoader[tuple[torch.Tensor, ...]]:
         if self.train_dataset is None:
@@ -250,6 +277,12 @@ class TaxonomyClassifier(pl.LightningModule):
         vectorizer_path: str | None = None,
         decision_threshold: float = 0.5,
         pos_weight: list[float] | None = None,
+        model_score_macro_weight: float = 0.45,
+        model_score_weighted_weight: float = 0.25,
+        model_score_micro_weight: float = 0.20,
+        model_score_subset_weight: float = 0.10,
+        model_score_recall_floor: float = 0.70,
+        model_score_recall_penalty: float = 0.20,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -258,9 +291,15 @@ class TaxonomyClassifier(pl.LightningModule):
         self.id2label = id2label
         self.label2id = {v: k for k, v in id2label.items()}
         self.model: torch.nn.Module
+        self.tfidf_residual_head: torch.nn.Linear | None = None
         self.decision_threshold = decision_threshold
-        self.model_score_macro_weight = 0.6
-        self.model_score_weighted_weight = 0.4
+        self.model_score_macro_weight = float(model_score_macro_weight)
+        self.model_score_weighted_weight = float(model_score_weighted_weight)
+        self.model_score_micro_weight = float(model_score_micro_weight)
+        self.model_score_subset_weight = float(model_score_subset_weight)
+        self.model_score_recall_floor = float(model_score_recall_floor)
+        self.model_score_recall_penalty = float(model_score_recall_penalty)
+        self._validate_model_score_config()
 
         if self.mode == "transformer":
             assert model_name is not None, "model_name must be provided for transformer mode"
@@ -280,13 +319,18 @@ class TaxonomyClassifier(pl.LightningModule):
             )
         else:
             assert input_dim is not None, "input_dim must be provided for tfidf mode"
-            layers: list[torch.nn.Module] = [
+            hidden_dim_inner = max(128, hidden_dim // 2)
+            layers = [
                 torch.nn.Linear(input_dim, hidden_dim),
                 torch.nn.GELU(),
                 torch.nn.Dropout(dropout),
-                torch.nn.Linear(hidden_dim, self.num_labels),
+                torch.nn.Linear(hidden_dim, hidden_dim_inner),
+                torch.nn.GELU(),
+                torch.nn.Dropout(dropout),
+                torch.nn.Linear(hidden_dim_inner, self.num_labels),
             ]
             self.model = torch.nn.Sequential(*layers)
+            self.tfidf_residual_head = torch.nn.Linear(input_dim, self.num_labels)
 
         loss_pos_weight = None
         if pos_weight is not None:
@@ -331,6 +375,70 @@ class TaxonomyClassifier(pl.LightningModule):
             average="weighted",
             threshold=self.decision_threshold,
         )
+        self.val_recall_micro = MultilabelRecall(
+            num_labels=self.num_labels,
+            average="micro",
+            threshold=self.decision_threshold,
+        )
+        self.val_subset_accuracy = MultilabelExactMatch(
+            num_labels=self.num_labels,
+            threshold=self.decision_threshold,
+        )
+
+    def _validate_model_score_config(self) -> None:
+        weights = [
+            self.model_score_macro_weight,
+            self.model_score_weighted_weight,
+            self.model_score_micro_weight,
+            self.model_score_subset_weight,
+        ]
+        if any(weight < 0.0 for weight in weights):
+            raise ValueError("Model-score weights must all be non-negative.")
+        if float(sum(weights)) <= 0.0:
+            raise ValueError("At least one model-score weight must be positive.")
+        if not 0.0 <= self.model_score_recall_floor <= 1.0:
+            raise ValueError("`model_score_recall_floor` must be in [0, 1].")
+        if self.model_score_recall_penalty < 0.0:
+            raise ValueError("`model_score_recall_penalty` must be >= 0.")
+
+    def _compose_model_score(
+        self,
+        f1_macro: torch.Tensor,
+        f1_weighted: torch.Tensor,
+        f1_micro: torch.Tensor,
+        subset_accuracy: torch.Tensor,
+        recall_micro: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        weight_total = (
+            self.model_score_macro_weight
+            + self.model_score_weighted_weight
+            + self.model_score_micro_weight
+            + self.model_score_subset_weight
+        )
+        macro_weight = self.model_score_macro_weight / weight_total
+        weighted_weight = self.model_score_weighted_weight / weight_total
+        micro_weight = self.model_score_micro_weight / weight_total
+        subset_weight = self.model_score_subset_weight / weight_total
+        base_score = (
+            macro_weight * f1_macro
+            + weighted_weight * f1_weighted
+            + micro_weight * f1_micro
+            + subset_weight * subset_accuracy
+        )
+        recall_floor_tensor = torch.tensor(
+            self.model_score_recall_floor,
+            dtype=recall_micro.dtype,
+            device=recall_micro.device,
+        )
+        penalty_scale_tensor = torch.tensor(
+            self.model_score_recall_penalty,
+            dtype=recall_micro.dtype,
+            device=recall_micro.device,
+        )
+        recall_gap = torch.clamp(recall_floor_tensor - recall_micro, min=0.0)
+        penalty = penalty_scale_tensor * recall_gap
+        score = base_score - penalty
+        return score, base_score, penalty
 
     def forward(self, **kwargs: object) -> _LogitsOutput:
         if self.mode == "transformer":
@@ -338,6 +446,9 @@ class TaxonomyClassifier(pl.LightningModule):
         else:
             x = cast(torch.Tensor, kwargs["features"])
             logits = cast(torch.Tensor, self.model(x))
+            if self.tfidf_residual_head is not None:
+                residual_logits = cast(torch.Tensor, self.tfidf_residual_head(x))
+                logits = logits + residual_logits
             return cast(_LogitsOutput, cast(object, SimpleNamespace(logits=logits)))
 
     # -------- TRAIN --------
@@ -389,14 +500,25 @@ class TaxonomyClassifier(pl.LightningModule):
         train_f1_micro = cast(torch.Tensor, self.train_f1_micro.compute())
         train_f1_macro = cast(torch.Tensor, self.train_f1_macro.compute())
         train_f1_weighted = cast(torch.Tensor, self.train_f1_weighted.compute())
-        train_model_score = (
-            self.model_score_macro_weight * train_f1_macro
-            + self.model_score_weighted_weight * train_f1_weighted
+        train_model_score, train_model_score_raw, train_model_score_penalty = (
+            self._compose_model_score(
+                f1_macro=train_f1_macro,
+                f1_weighted=train_f1_weighted,
+                f1_micro=train_f1_micro,
+                subset_accuracy=train_f1_micro,
+                recall_micro=train_f1_micro,
+            )
         )
         self.log("train_f1_micro", train_f1_micro, prog_bar=True)
         self.log("train_f1_macro", train_f1_macro, prog_bar=True)
         self.log("train_f1_weighted", train_f1_weighted, prog_bar=False)
         self.log("train_model_score", train_model_score, prog_bar=True)
+        self.log("train_model_score_raw", train_model_score_raw, prog_bar=False)
+        self.log(
+            "train_model_score_recall_penalty",
+            train_model_score_penalty,
+            prog_bar=False,
+        )
         self.train_f1_micro.reset()
         self.train_f1_macro.reset()
         self.train_f1_weighted.reset()
@@ -444,23 +566,42 @@ class TaxonomyClassifier(pl.LightningModule):
         self.val_f1_micro(probs, labels_int)
         self.val_f1_macro(probs, labels_int)
         self.val_f1_weighted(probs, labels_int)
+        self.val_recall_micro(probs, labels_int)
+        self.val_subset_accuracy(probs, labels_int)
         return loss
 
     def on_validation_epoch_end(self) -> None:
         val_f1_micro = cast(torch.Tensor, self.val_f1_micro.compute())
         val_f1_macro = cast(torch.Tensor, self.val_f1_macro.compute())
         val_f1_weighted = cast(torch.Tensor, self.val_f1_weighted.compute())
-        val_model_score = (
-            self.model_score_macro_weight * val_f1_macro
-            + self.model_score_weighted_weight * val_f1_weighted
+        val_recall_micro = self.val_recall_micro.compute()
+        val_subset_accuracy = self.val_subset_accuracy.compute()
+        val_model_score, val_model_score_raw, val_model_score_penalty = (
+            self._compose_model_score(
+                f1_macro=val_f1_macro,
+                f1_weighted=val_f1_weighted,
+                f1_micro=val_f1_micro,
+                subset_accuracy=val_subset_accuracy,
+                recall_micro=val_recall_micro,
+            )
         )
         self.log("val_f1_micro", val_f1_micro, prog_bar=True)
         self.log("val_f1_macro", val_f1_macro, prog_bar=True)
         self.log("val_f1_weighted", val_f1_weighted, prog_bar=True)
+        self.log("val_recall_micro", val_recall_micro, prog_bar=True)
+        self.log("val_subset_accuracy", val_subset_accuracy, prog_bar=False)
+        self.log("val_model_score_raw", val_model_score_raw, prog_bar=False)
+        self.log(
+            "val_model_score_recall_penalty",
+            val_model_score_penalty,
+            prog_bar=False,
+        )
         self.log("val_model_score", val_model_score, prog_bar=True)
         self.val_f1_micro.reset()
         self.val_f1_macro.reset()
         self.val_f1_weighted.reset()
+        self.val_recall_micro.reset()
+        self.val_subset_accuracy.reset()
 
     # -------- OPTIM --------
     def configure_optimizers(self) -> tuple[list[Optimizer], list[LRSchedulerConfig]]:
