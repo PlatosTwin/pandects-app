@@ -1628,7 +1628,7 @@ class NERTagger(pl.LightningModule):
         path = os.path.join(metrics_dir, metrics_name)
         os.makedirs(metrics_dir, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(metrics, f, sort_keys=False)
+            _ = yaml.safe_dump(metrics, f, sort_keys=False)
         self.test_metrics = cast(dict[str, object], metrics)
 
     def _log_lr(self) -> None:

@@ -10,7 +10,7 @@ import subprocess
 import hashlib
 import json
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, TypedDict, cast
 
@@ -46,6 +46,11 @@ DEFAULT_ARTICLE_WEIGHT = 3.0
 DEFAULT_SPLIT_VERSION = "default"
 DEFAULT_SEED = 42
 _GATING_MODE_ALIASES = {"regex+snap": "snap"}
+
+
+def _yaml_safe_load(stream: object) -> object:
+    safe_load = cast(Callable[[object], object], getattr(yaml, "safe_load"))
+    return safe_load(stream)
 
 
 @dataclass(frozen=True)
@@ -269,7 +274,7 @@ def load_optuna_best_config(
             f"optuna_best_config.yaml not found at {resolved}. Run normal training to generate it or create it manually."
         )
     with open(resolved, "r", encoding="utf-8") as f:
-        raw: object = cast(object, yaml.safe_load(f))
+        raw: object = _yaml_safe_load(f)
     if not isinstance(raw, dict):
         raise RuntimeError("optuna_best_config.yaml must be a YAML mapping.")
     data: dict[str, object] = cast(dict[str, object], raw)

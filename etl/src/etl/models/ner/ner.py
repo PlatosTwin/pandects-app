@@ -188,7 +188,7 @@ def _write_optuna_best_config(
     if dirpath:
         os.makedirs(dirpath, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, sort_keys=False)
+        _ = yaml.safe_dump(payload, f, sort_keys=False)
     print(f"[optuna] wrote best hyperparameters to {path}")
 
 
@@ -644,7 +644,7 @@ class NERTrainer:
             self.metrics_output_dir, f"trial_{trial.number:03d}.yaml"
         )
         with open(trial_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(trial_metrics, f, sort_keys=False)
+            _ = yaml.safe_dump(trial_metrics, f, sort_keys=False)
 
         # Clean up to avoid memory leaks
         del (
@@ -1352,7 +1352,7 @@ def run_training_and_eval(
         config_payload["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     config_path = os.path.join(run_dir, "config.yaml")
     with open(config_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(config_payload, f, sort_keys=False)
+        _ = yaml.safe_dump(config_payload, f, sort_keys=False)
     if log_stage == "final":
         run_id_path = os.path.join(run_dir, "run_id.txt")
         with open(run_id_path, "w", encoding="utf-8") as f:
@@ -1483,9 +1483,16 @@ def run_inference_samples(
     """
     _ = resolve_git_commit(git_commit)
     with open(DATA_NER_DIR / "ner_samples.yaml", "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        raw_data = cast(object, yaml.safe_load(f))
 
-    samples = data["samples"]
+    if not isinstance(raw_data, dict):
+        raise RuntimeError("ner_samples.yaml must contain a mapping at the top level.")
+    samples_raw = raw_data.get("samples")
+    if not isinstance(samples_raw, list) or not all(
+        isinstance(sample, str) for sample in samples_raw
+    ):
+        raise RuntimeError("ner_samples.yaml must contain a string list under 'samples'.")
+    samples = samples_raw
     inference_model = NERInference(
         ckpt_path=ckpt_path, label_list=NER_LABELS, review_threshold=review_threshold
     )
