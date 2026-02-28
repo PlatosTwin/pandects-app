@@ -1,5 +1,7 @@
 // @ts-check
 import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
+import fs from "fs";
+import path from "path";
 
 type SidebarDocItem = {
   type: "doc";
@@ -31,45 +33,133 @@ const isDocItem = (item: SidebarItem): item is SidebarDocItem => item.type === "
 const isCategoryItem = (item: SidebarItem): item is SidebarCategoryItem =>
   item.type === "category";
 
-const rawApiItems = require("./docs/pandects/sidebar.js") as SidebarItem[];
+const rawApiSidebarModule = require("./docs/pandects/sidebar");
+const rawApiItems = (rawApiSidebarModule.default ??
+  rawApiSidebarModule) as SidebarItem[];
 
-const apiReferenceItems = rawApiItems.filter(
+function withRouteLinkClass(className?: string): string {
+  return [className, "sidebar-route-link"].filter(Boolean).join(" ");
+}
+
+function extractEndpointPathLabelFromApiDoc(docId: string): string | undefined {
+  if (!docId.startsWith("pandects/")) {
+    return undefined;
+  }
+
+  const basename = docId.slice("pandects/".length);
+  const mdxPath = path.join(__dirname, "docs", "pandects", `${basename}.api.mdx`);
+  if (!fs.existsSync(mdxPath)) {
+    return undefined;
+  }
+
+  const mdx = fs.readFileSync(mdxPath, "utf8");
+  const pathMatch = mdx.match(/path=\{"([^"]+)"\}/);
+  if (!pathMatch || !pathMatch[1]) {
+    return undefined;
+  }
+
+  return pathMatch[1];
+}
+
+function normalizeApiEndpointLabels(items: SidebarItem[]): SidebarItem[] {
+  return items.map((item) => {
+    if (isDocItem(item)) {
+      const normalizedLabel = extractEndpointPathLabelFromApiDoc(item.id);
+      if (!normalizedLabel) {
+        return item;
+      }
+      return {
+        ...item,
+        label: normalizedLabel,
+      };
+    }
+
+    if (isCategoryItem(item)) {
+      return {
+        ...item,
+        items: normalizeApiEndpointLabels(item.items),
+      };
+    }
+
+    return item;
+  });
+}
+
+const normalizedApiItems = normalizeApiEndpointLabels(rawApiItems);
+
+const apiReferenceItems = normalizedApiItems
+  .filter(
   (item) => !(isDocItem(item) && item.id === "pandects/pandects-api"),
-).map((item) => {
-  if (!isCategoryItem(item)) {
-    return item;
-  }
+)
+  .map((item) => {
+    if (!isCategoryItem(item)) {
+      return item;
+    }
 
-  const categoryLinkDocId =
-    item.link && item.link.type === "doc" ? item.link.id : undefined;
-  const hasSingleEndpointItem =
-    item.items.length === 1 && isDocItem(item.items[0]);
+    const categoryLinkDocId =
+      item.link && item.link.type === "doc" ? item.link.id : undefined;
+    const endpointDocItems = item.items.filter(isDocItem);
+    const hasOnlyEndpointDocItems =
+      item.items.length > 0 && endpointDocItems.length === item.items.length;
+    const hasSingleEndpointItem =
+      hasOnlyEndpointDocItems && endpointDocItems.length === 1;
 
-  if (!categoryLinkDocId || !hasSingleEndpointItem) {
-    return item;
-  }
+    if (!categoryLinkDocId || !hasSingleEndpointItem) {
+      if (!categoryLinkDocId || !hasOnlyEndpointDocItems) {
+        return item;
+      }
 
-  const endpointItem = item.items[0];
-  const endpointId = endpointItem.id;
+      const firstEndpointDocId = endpointDocItems[0]?.id;
+      const endpointItems: SidebarItem[] = [
+        {
+          type: "doc",
+          id: categoryLinkDocId,
+          className: "sidebar-hidden-category-doc",
+        },
+        ...endpointDocItems.flatMap(
+          (endpointItem): SidebarItem[] => [
+            {
+              type: "doc",
+              id: endpointItem.id,
+            },
+            {
+              type: "link",
+              href: `/docs/${endpointItem.id}`,
+              label: endpointItem.label ?? endpointItem.id,
+              className: withRouteLinkClass(endpointItem.className),
+            },
+          ],
+        ),
+      ];
 
-  return {
-    ...item,
-    link: { type: "doc", id: endpointId },
-    items: [
-      {
-        type: "doc",
-        id: categoryLinkDocId,
-        className: "sidebar-hidden-category-doc",
-      },
-      {
-        type: "link",
-        href: `/docs/${endpointId}`,
-        label: endpointItem.label ?? endpointId,
-        className: endpointItem.className,
-      },
-    ],
-  };
-});
+      return {
+        ...item,
+        link: firstEndpointDocId ? { type: "doc", id: firstEndpointDocId } : item.link,
+        items: endpointItems,
+      };
+    }
+
+    const endpointItem = endpointDocItems[0];
+    const endpointId = endpointItem.id;
+
+    return {
+      ...item,
+      link: { type: "doc", id: endpointId },
+      items: [
+        {
+          type: "doc",
+          id: categoryLinkDocId,
+          className: "sidebar-hidden-category-doc",
+        },
+        {
+          type: "link",
+          href: `/docs/${endpointId}`,
+          label: endpointItem.label ?? endpointId,
+          className: withRouteLinkClass(endpointItem.className),
+        },
+      ],
+    };
+  });
 
 const sidebars: SidebarsConfig = {
   guidesSidebar: [

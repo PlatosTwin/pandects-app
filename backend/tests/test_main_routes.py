@@ -1,6 +1,9 @@
+import base64
+import json
 import os
 import tempfile
 import unittest
+from datetime import datetime
 
 from sqlalchemy import text
 
@@ -50,11 +53,16 @@ class MainRoutesTests(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(
                     text(
-                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type) "
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, purpose, target_pe, acquirer_pe) "
                         "VALUES "
-                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger'), "
-                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', NULL), "
-                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', NULL)"
+                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
+                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
+                        "'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
+                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
+                        "'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1)"
                     )
                 )
                 conn.execute(
@@ -63,7 +71,9 @@ class MainRoutesTests(unittest.TestCase):
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>HIDE</text></section>"
-                        "</article></document>', 1, NULL)"
+                        "</article></document>', 1, NULL), "
+                        "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified'), "
+                        "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified')"
                     )
                 )
                 conn.execute(
@@ -110,9 +120,99 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/agreements-index?page=1&page_size=2")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("total_count"), 1)
-        self.assertEqual(body.get("total_pages"), 1)
-        self.assertEqual(len(body.get("results", [])), 1)
+        self.assertEqual(body.get("total_count"), 3)
+        self.assertEqual(body.get("total_pages"), 2)
+        self.assertEqual(len(body.get("results", [])), 2)
+
+    def test_agreements_bulk_cursor_pagination(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements?page_size=2")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(len(body.get("results", [])), 2)
+        self.assertTrue(body.get("has_next"))
+        cursor = body.get("next_cursor")
+        self.assertIsInstance(cursor, str)
+        padded = str(cursor) + ("=" * (-len(str(cursor)) % 4))
+        decoded = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
+        self.assertEqual(decoded.get("agreement_uuid"), "a2")
+
+        res_next = client.get(f"/v1/agreements?page_size=2&cursor={cursor}")
+        self.assertEqual(res_next.status_code, 200)
+        body_next = res_next.get_json()
+        results_next = body_next.get("results", [])
+        self.assertEqual(len(results_next), 1)
+        self.assertEqual(results_next[0].get("agreement_uuid"), "a3")
+        self.assertFalse(body_next.get("has_next"))
+        self.assertIsNone(body_next.get("next_cursor"))
+
+    def test_agreements_bulk_include_xml_forbidden_for_anonymous(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements?include_xml=true")
+        self.assertEqual(res.status_code, 403)
+
+    def test_agreements_bulk_include_xml_with_api_key(self):
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = self.app_module.AuthUser()
+            user.id = "00000000-0000-0000-0000-0000000000a1"
+            user.email = "bulk-api@example.com"
+            user.password_hash = "not-used"
+            user.email_verified_at = datetime.utcnow()
+            self.app_module.db.session.add(user)
+            self.app_module.db.session.commit()
+            _, api_key = self.app_module._create_api_key(user_id=user.id, name="bulk")
+
+        res = client.get(
+            "/v1/agreements?include_xml=true&page_size=1",
+            headers={"X-API-Key": api_key},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertIn("xml", results[0])
+        self.assertIn("<document>", results[0]["xml"])
+
+    def test_agreements_bulk_filters(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/agreements"
+            "?year=2021"
+            "&deal_type=stock_acquisition"
+            "&target_pe=true"
+            "&acquirer_pe=false"
+            "&transaction_consideration=stock"
+            "&target_type=private"
+            "&acquirer_type=public"
+            "&target_industry=healthcare"
+            "&acquirer_industry=tech"
+            "&deal_status=pending"
+            "&attitude=hostile"
+            "&purpose=financial"
+            "&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("agreement_uuid"), "a2")
+
+    def test_agreements_bulk_section_uuid_filter(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/agreements?section_uuid=00000000-0000-0000-0000-000000000001&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("agreement_uuid"), "a1")
+
+    def test_agreements_bulk_rejects_standard_id_filter(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements?standard_id=s1")
+        self.assertEqual(res.status_code, 400)
 
     def test_search_basic(self):
         client = self.app.test_client()

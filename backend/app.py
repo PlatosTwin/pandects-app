@@ -10,6 +10,7 @@ import random
 import hmac
 import hashlib
 import base64
+import binascii
 from threading import Lock
 from datetime import datetime, date, timedelta, timezone
 import uuid
@@ -2998,6 +2999,32 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
     return out
 
 
+def _encode_agreements_cursor(agreement_uuid: str) -> str:
+    payload = json.dumps({"agreement_uuid": agreement_uuid}, separators=(",", ":"))
+    token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
+    return token.rstrip("=")
+
+
+def _decode_agreements_cursor(cursor_raw: str | None) -> str | None:
+    if cursor_raw is None:
+        return None
+    cursor = cursor_raw.strip()
+    if not cursor:
+        return None
+    padded = cursor + ("=" * (-len(cursor) % 4))
+    try:
+        decoded_bytes = base64.urlsafe_b64decode(padded.encode("ascii"))
+        decoded_obj = cast(object, json.loads(decoded_bytes.decode("utf-8")))
+    except (binascii.Error, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        abort(400, description="Invalid cursor.")
+    if not isinstance(decoded_obj, dict):
+        abort(400, description="Invalid cursor.")
+    agreement_uuid = decoded_obj.get("agreement_uuid")
+    if not isinstance(agreement_uuid, str) or not agreement_uuid.strip():
+        abort(400, description="Invalid cursor.")
+    return agreement_uuid
+
+
 class SearchArgsSchema(Schema):
     year = fields.List(
         fields.Int(),
@@ -3469,6 +3496,53 @@ class AgreementArgsSchema(Schema):
     )
 
 
+class AgreementsBulkArgsSchema(Schema):
+    cursor = fields.Str(
+        load_default=None,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Opaque base64 cursor from `next_cursor` for keyset pagination."
+            )
+        },
+    )
+    page_size = fields.Int(
+        load_default=25,
+        metadata={
+            "description": "Batch size for this page. Maximum is 100.",
+            "example": 25,
+        },
+    )
+    include_xml = fields.Bool(
+        load_default=False,
+        metadata={
+            "description": (
+                "Include full agreement XML in each item. Requires authentication."
+            )
+        },
+    )
+    year = fields.List(fields.Int(), load_default=[])
+    target = fields.List(fields.Str(), load_default=[])
+    acquirer = fields.List(fields.Str(), load_default=[])
+    transaction_price_total = fields.List(fields.Str(), load_default=[])
+    transaction_price_stock = fields.List(fields.Str(), load_default=[])
+    transaction_price_cash = fields.List(fields.Str(), load_default=[])
+    transaction_price_assets = fields.List(fields.Str(), load_default=[])
+    transaction_consideration = fields.List(fields.Str(), load_default=[])
+    target_type = fields.List(fields.Str(), load_default=[])
+    acquirer_type = fields.List(fields.Str(), load_default=[])
+    target_industry = fields.List(fields.Str(), load_default=[])
+    acquirer_industry = fields.List(fields.Str(), load_default=[])
+    deal_status = fields.List(fields.Str(), load_default=[])
+    attitude = fields.List(fields.Str(), load_default=[])
+    deal_type = fields.List(fields.Str(), load_default=[])
+    purpose = fields.List(fields.Str(), load_default=[])
+    target_pe = fields.List(fields.Str(), load_default=[])
+    acquirer_pe = fields.List(fields.Str(), load_default=[])
+    agreement_uuid = fields.Str(load_default=None, allow_none=True)
+    section_uuid = fields.Str(load_default=None, allow_none=True)
+
+
 class AgreementsIndexArgsSchema(Schema):
     page = fields.Int(load_default=1)
     page_size = fields.Int(load_default=25)
@@ -3480,6 +3554,32 @@ class AgreementsIndexArgsSchema(Schema):
 class _AgreementArgsPayload(TypedDict):
     focus_section_uuid: str | None
     neighbor_sections: int
+
+
+class _AgreementsBulkArgsPayload(TypedDict):
+    cursor: str | None
+    page_size: int
+    include_xml: bool
+    year: list[int]
+    target: list[str]
+    acquirer: list[str]
+    transaction_price_total: list[str]
+    transaction_price_stock: list[str]
+    transaction_price_cash: list[str]
+    transaction_price_assets: list[str]
+    transaction_consideration: list[str]
+    target_type: list[str]
+    acquirer_type: list[str]
+    target_industry: list[str]
+    acquirer_industry: list[str]
+    deal_status: list[str]
+    attitude: list[str]
+    deal_type: list[str]
+    purpose: list[str]
+    target_pe: list[str]
+    acquirer_pe: list[str]
+    agreement_uuid: str | None
+    section_uuid: str | None
 
 
 class _SearchArgsPayload(TypedDict):
@@ -3569,6 +3669,90 @@ class AgreementResponseSchema(Schema):
     )
 
 
+class AgreementListItemSchema(Schema):
+    agreement_uuid = fields.Str(metadata={"description": "Agreement UUID."})
+    year = fields.Int(allow_none=True, metadata={"description": "Agreement year."})
+    target = fields.Str(allow_none=True, metadata={"description": "Target company name."})
+    acquirer = fields.Str(allow_none=True, metadata={"description": "Acquirer company name."})
+    filing_date = fields.Str(allow_none=True, metadata={"description": "SEC filing date, when available."})
+    prob_filing = fields.Float(allow_none=True, metadata={"description": "Model confidence score for filing linkage."})
+    filing_company_name = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity name in SEC metadata."},
+    )
+    filing_company_cik = fields.Str(
+        allow_none=True,
+        metadata={"description": "Filing entity CIK in SEC metadata."},
+    )
+    form_type = fields.Str(allow_none=True, metadata={"description": "SEC form type."})
+    exhibit_type = fields.Str(allow_none=True, metadata={"description": "SEC exhibit type."})
+    transaction_price_total = fields.Float(
+        allow_none=True,
+        metadata={"description": "Total transaction value when available."},
+    )
+    transaction_price_stock = fields.Float(
+        allow_none=True,
+        metadata={"description": "Stock portion of transaction consideration."},
+    )
+    transaction_price_cash = fields.Float(
+        allow_none=True,
+        metadata={"description": "Cash portion of transaction consideration."},
+    )
+    transaction_price_assets = fields.Float(
+        allow_none=True,
+        metadata={"description": "Asset portion of transaction consideration."},
+    )
+    transaction_consideration = fields.Str(
+        allow_none=True,
+        metadata={"description": "High-level consideration type classification."},
+    )
+    target_type = fields.Str(allow_none=True, metadata={"description": "Target company type."})
+    acquirer_type = fields.Str(allow_none=True, metadata={"description": "Acquirer company type."})
+    target_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Target industry classification."},
+    )
+    acquirer_industry = fields.Str(
+        allow_none=True,
+        metadata={"description": "Acquirer industry classification."},
+    )
+    announce_date = fields.Str(allow_none=True, metadata={"description": "Public deal announcement date."})
+    close_date = fields.Str(allow_none=True, metadata={"description": "Deal close date, when available."})
+    deal_status = fields.Str(allow_none=True, metadata={"description": "Current status of the deal."})
+    attitude = fields.Str(allow_none=True, metadata={"description": "Deal attitude classification."})
+    deal_type = fields.Str(allow_none=True, metadata={"description": "Deal type classification."})
+    purpose = fields.Str(allow_none=True, metadata={"description": "Deal purpose classification."})
+    target_pe = fields.Bool(allow_none=True, metadata={"description": "Whether target is private-equity backed."})
+    acquirer_pe = fields.Bool(allow_none=True, metadata={"description": "Whether acquirer is private-equity backed."})
+    url = fields.Str(allow_none=True, metadata={"description": "Source filing URL."})
+    xml = fields.Str(
+        allow_none=True,
+        required=False,
+        metadata={"description": "Agreement XML content. Included only when `include_xml=true`."},
+    )
+
+
+class AgreementsListResponseSchema(Schema):
+    results: object = cast(
+        object,
+        fields.List(
+        fields.Nested(AgreementListItemSchema),
+        metadata={"description": "Page of agreements."},
+        ),
+    )
+    access = fields.Nested(
+        AccessInfoSchema,
+        metadata={"description": "Access context applied to this response."},
+    )
+    page_size = fields.Int(metadata={"description": "Effective page size for this response."})
+    returned_count = fields.Int(metadata={"description": "Number of agreements returned in this page."})
+    has_next = fields.Bool(metadata={"description": "Whether a next cursor page exists."})
+    next_cursor = fields.Str(
+        allow_none=True,
+        metadata={"description": "Opaque base64 cursor for the next page when `has_next` is true."},
+    )
+
+
 class SectionResponseSchema(Schema):
     agreement_uuid = fields.Str(metadata={"description": "Agreement UUID that owns this section."})
     section_uuid = fields.Str(metadata={"description": "Section UUID."})
@@ -3583,6 +3767,262 @@ class SectionResponseSchema(Schema):
 
 # ── Auth request schemas ──────────────────────────────────────────────────
 # ── Route definitions ───────────────────────────────────────
+
+@agreements_blp.route("")  # pyright: ignore[reportUnknownMemberType]
+class AgreementsListResource(MethodView):
+    @agreements_blp.doc(  # pyright: ignore[reportUnknownMemberType]
+        operationId="listAgreements",
+        summary="List agreements with keyset pagination",
+        description=(
+            "Lists eligible agreements using a base64 cursor. Supports the same agreement-level "
+            "filters as `/v1/search` except clause-type taxonomy filtering."
+        ),
+    )
+    @agreements_blp.arguments(AgreementsBulkArgsSchema, location="query")  # pyright: ignore[reportUnknownMemberType]
+    @agreements_blp.response(200, AgreementsListResponseSchema)  # pyright: ignore[reportUnknownMemberType]
+    def get(self, args: dict[str, object]) -> dict[str, object]:
+        ctx = _current_access_context()
+        parsed_args = cast(_AgreementsBulkArgsPayload, cast(object, args))
+
+        if "standard_id" in request.args:
+            abort(400, description="The standard_id filter is not supported on /v1/agreements.")
+
+        include_xml = parsed_args["include_xml"]
+        if include_xml and not ctx.is_authenticated:
+            abort(403, description="Authentication required when include_xml=true.")
+
+        page_size = parsed_args["page_size"]
+        if page_size < 1 or page_size > 100:
+            page_size = 25
+
+        after_agreement_uuid = _decode_agreements_cursor(parsed_args["cursor"])
+
+        years = parsed_args["year"]
+        targets = parsed_args["target"]
+        acquirers = parsed_args["acquirer"]
+        transaction_price_totals = parsed_args["transaction_price_total"]
+        transaction_price_stocks = parsed_args["transaction_price_stock"]
+        transaction_price_cashes = parsed_args["transaction_price_cash"]
+        transaction_price_assets = parsed_args["transaction_price_assets"]
+        transaction_considerations = parsed_args["transaction_consideration"]
+        target_types = parsed_args["target_type"]
+        acquirer_types = parsed_args["acquirer_type"]
+        target_industries = parsed_args["target_industry"]
+        acquirer_industries = parsed_args["acquirer_industry"]
+        deal_statuses = parsed_args["deal_status"]
+        attitudes = parsed_args["attitude"]
+        deal_types = parsed_args["deal_type"]
+        purposes = parsed_args["purpose"]
+        target_pes = parsed_args["target_pe"]
+        acquirer_pes = parsed_args["acquirer_pe"]
+        agreement_uuid = parsed_args["agreement_uuid"]
+        section_uuid = parsed_args["section_uuid"]
+
+        year_expr = _agreement_year_expr().label("year")
+        item_columns = [
+            Agreements.agreement_uuid.label("agreement_uuid"),
+            year_expr,
+            Agreements.target.label("target"),
+            Agreements.acquirer.label("acquirer"),
+            Agreements.filing_date.label("filing_date"),
+            Agreements.prob_filing.label("prob_filing"),
+            Agreements.filing_company_name.label("filing_company_name"),
+            Agreements.filing_company_cik.label("filing_company_cik"),
+            Agreements.form_type.label("form_type"),
+            Agreements.exhibit_type.label("exhibit_type"),
+            Agreements.transaction_price_total.label("transaction_price_total"),
+            Agreements.transaction_price_stock.label("transaction_price_stock"),
+            Agreements.transaction_price_cash.label("transaction_price_cash"),
+            Agreements.transaction_price_assets.label("transaction_price_assets"),
+            Agreements.transaction_consideration.label("transaction_consideration"),
+            Agreements.target_type.label("target_type"),
+            Agreements.acquirer_type.label("acquirer_type"),
+            Agreements.target_industry.label("target_industry"),
+            Agreements.acquirer_industry.label("acquirer_industry"),
+            Agreements.announce_date.label("announce_date"),
+            Agreements.close_date.label("close_date"),
+            Agreements.deal_status.label("deal_status"),
+            Agreements.attitude.label("attitude"),
+            Agreements.deal_type.label("deal_type"),
+            Agreements.purpose.label("purpose"),
+            Agreements.target_pe.label("target_pe"),
+            Agreements.acquirer_pe.label("acquirer_pe"),
+            Agreements.url.label("url"),
+        ]
+        eligible = _xml_eligible_latest_subquery()
+        q = (
+            db.session.query(*item_columns)
+            .join(eligible, Agreements.agreement_uuid == eligible.c.agreement_uuid)
+        )
+
+        if include_xml:
+            q = q.add_columns(XML.xml.label("xml")).join(
+                XML,
+                and_(
+                    XML.agreement_uuid == eligible.c.agreement_uuid,
+                    XML.version == eligible.c.version,
+                ),
+            )
+
+        if years:
+            year_filters = tuple(
+                and_(
+                    Agreements.filing_date >= f"{year:04d}-01-01",
+                    Agreements.filing_date < f"{year + 1:04d}-01-01",
+                )
+                for year in years
+            )
+            q = q.filter(or_(*year_filters))
+
+        if targets:
+            q = q.filter(Agreements.target.in_(targets))
+
+        if acquirers:
+            q = q.filter(Agreements.acquirer.in_(acquirers))
+
+        if transaction_price_totals:
+            q = q.filter(Agreements.transaction_price_total.in_(transaction_price_totals))
+
+        if transaction_price_stocks:
+            q = q.filter(Agreements.transaction_price_stock.in_(transaction_price_stocks))
+
+        if transaction_price_cashes:
+            q = q.filter(Agreements.transaction_price_cash.in_(transaction_price_cashes))
+
+        if transaction_price_assets:
+            q = q.filter(Agreements.transaction_price_assets.in_(transaction_price_assets))
+
+        if transaction_considerations:
+            q = q.filter(Agreements.transaction_consideration.in_(transaction_considerations))
+
+        if target_types:
+            q = q.filter(Agreements.target_type.in_(target_types))
+
+        if acquirer_types:
+            q = q.filter(Agreements.acquirer_type.in_(acquirer_types))
+
+        if target_industries:
+            q = q.filter(Agreements.target_industry.in_(target_industries))
+
+        if acquirer_industries:
+            q = q.filter(Agreements.acquirer_industry.in_(acquirer_industries))
+
+        if deal_statuses:
+            q = q.filter(Agreements.deal_status.in_(deal_statuses))
+
+        if attitudes:
+            q = q.filter(Agreements.attitude.in_(attitudes))
+
+        if deal_types:
+            q = q.filter(Agreements.deal_type.in_(deal_types))
+
+        if purposes:
+            q = q.filter(Agreements.purpose.in_(purposes))
+
+        if target_pes:
+            db_target_pes: list[int] = []
+            for pe in target_pes:
+                if pe == "true":
+                    db_target_pes.append(1)
+                elif pe == "false":
+                    db_target_pes.append(0)
+            if db_target_pes:
+                q = q.filter(Agreements.target_pe.in_(db_target_pes))
+
+        if acquirer_pes:
+            db_acquirer_pes: list[int] = []
+            for pe in acquirer_pes:
+                if pe == "true":
+                    db_acquirer_pes.append(1)
+                elif pe == "false":
+                    db_acquirer_pes.append(0)
+            if db_acquirer_pes:
+                q = q.filter(Agreements.acquirer_pe.in_(db_acquirer_pes))
+
+        if agreement_uuid and agreement_uuid.strip():
+            q = q.filter(Agreements.agreement_uuid == agreement_uuid.strip())
+
+        if section_uuid and section_uuid.strip():
+            section_exists = (
+                db.session.query(Sections.section_uuid)
+                .filter(
+                    Sections.agreement_uuid == Agreements.agreement_uuid,
+                    Sections.section_uuid == section_uuid.strip(),
+                )
+                .exists()
+            )
+            q = q.filter(section_exists)
+
+        if after_agreement_uuid:
+            q = q.filter(Agreements.agreement_uuid > after_agreement_uuid)
+
+        rows = (
+            q.order_by(asc(Agreements.agreement_uuid))
+            .limit(page_size + 1)
+            .all()
+        )
+        has_next = len(rows) > page_size
+        page_rows = rows[:page_size]
+
+        results: list[dict[str, object]] = []
+        for row in page_rows:
+            row_map = _row_mapping_as_dict(cast(object, row))
+            payload = {
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "year": row_map.get("year"),
+                "target": row_map.get("target"),
+                "acquirer": row_map.get("acquirer"),
+                "filing_date": row_map.get("filing_date"),
+                "prob_filing": row_map.get("prob_filing"),
+                "filing_company_name": row_map.get("filing_company_name"),
+                "filing_company_cik": row_map.get("filing_company_cik"),
+                "form_type": row_map.get("form_type"),
+                "exhibit_type": row_map.get("exhibit_type"),
+                "transaction_price_total": row_map.get("transaction_price_total"),
+                "transaction_price_stock": row_map.get("transaction_price_stock"),
+                "transaction_price_cash": row_map.get("transaction_price_cash"),
+                "transaction_price_assets": row_map.get("transaction_price_assets"),
+                "transaction_consideration": row_map.get("transaction_consideration"),
+                "target_type": row_map.get("target_type"),
+                "acquirer_type": row_map.get("acquirer_type"),
+                "target_industry": row_map.get("target_industry"),
+                "acquirer_industry": row_map.get("acquirer_industry"),
+                "announce_date": row_map.get("announce_date"),
+                "close_date": row_map.get("close_date"),
+                "deal_status": row_map.get("deal_status"),
+                "attitude": row_map.get("attitude"),
+                "deal_type": row_map.get("deal_type"),
+                "purpose": row_map.get("purpose"),
+                "target_pe": row_map.get("target_pe"),
+                "acquirer_pe": row_map.get("acquirer_pe"),
+                "url": row_map.get("url"),
+            }
+            if include_xml:
+                payload["xml"] = row_map.get("xml")
+            results.append(payload)
+
+        next_cursor: str | None = None
+        if has_next:
+            last_row = _row_mapping_as_dict(cast(object, page_rows[-1]))
+            last_agreement_uuid = last_row.get("agreement_uuid")
+            if not isinstance(last_agreement_uuid, str) or not last_agreement_uuid:
+                raise RuntimeError("Agreements list query returned a row without agreement_uuid.")
+            next_cursor = _encode_agreements_cursor(last_agreement_uuid)
+
+        return {
+            "results": results,
+            "access": {
+                "tier": ctx.tier,
+                "message": None
+                if ctx.is_authenticated
+                else "XML access requires authentication. Use include_xml=true with a signed-in user or API key.",
+            },
+            "page_size": page_size,
+            "returned_count": len(results),
+            "has_next": has_next,
+            "next_cursor": next_cursor,
+        }
+
 
 @agreements_blp.route("/<string:agreement_uuid>")  # pyright: ignore[reportUnknownMemberType]
 class AgreementResource(MethodView):

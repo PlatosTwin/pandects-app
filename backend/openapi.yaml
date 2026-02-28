@@ -304,6 +304,10 @@ paths:
         schema:
           type: string
           default: year
+          enum:
+          - year
+          - target
+          - acquirer
         required: false
       - in: query
         name: sort_direction
@@ -311,6 +315,9 @@ paths:
         schema:
           type: string
           default: desc
+          enum:
+          - asc
+          - desc
         required: false
       - in: query
         name: page
@@ -346,6 +353,243 @@ paths:
       summary: Search agreement sections
       description: Searches sections using structured filters and taxonomy IDs. For
         list filters, repeat query keys (for example `year=2023&year=2024`).
+  /v1/agreements:
+    get:
+      parameters:
+      - in: query
+        name: cursor
+        description: Opaque base64 cursor from `next_cursor` for keyset pagination.
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      - in: query
+        name: page_size
+        description: Batch size for this page. Maximum is 100.
+        schema:
+          type: integer
+          default: 25
+          example: 25
+        required: false
+      - in: query
+        name: include_xml
+        description: Include full agreement XML in each item. Requires authentication.
+        schema:
+          type: boolean
+          default: false
+        required: false
+      - in: query
+        name: year
+        schema:
+          type: array
+          default: []
+          items:
+            type: integer
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_total
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_stock
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_cash
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_assets
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_consideration
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_industry
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_industry
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: deal_status
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: attitude
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: deal_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: purpose
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_pe
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_pe
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: agreement_uuid
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      - in: query
+        name: section_uuid
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementsListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: listAgreements
+      summary: List agreements with keyset pagination
+      description: Lists eligible agreements using a base64 cursor. Supports the same
+        agreement-level filters as `/v1/search` except clause-type taxonomy filtering.
   /v1/agreements/{agreement_uuid}:
     get:
       parameters:
@@ -721,6 +965,149 @@ components:
         prev_num:
           type: integer
           description: Previous page number when `has_prev` is true.
+          nullable: true
+    AgreementListItem:
+      type: object
+      properties:
+        agreement_uuid:
+          type: string
+          description: Agreement UUID.
+        year:
+          type: integer
+          description: Agreement year.
+          nullable: true
+        target:
+          type: string
+          description: Target company name.
+          nullable: true
+        acquirer:
+          type: string
+          description: Acquirer company name.
+          nullable: true
+        filing_date:
+          type: string
+          description: SEC filing date, when available.
+          nullable: true
+        prob_filing:
+          type: number
+          description: Model confidence score for filing linkage.
+          nullable: true
+        filing_company_name:
+          type: string
+          description: Filing entity name in SEC metadata.
+          nullable: true
+        filing_company_cik:
+          type: string
+          description: Filing entity CIK in SEC metadata.
+          nullable: true
+        form_type:
+          type: string
+          description: SEC form type.
+          nullable: true
+        exhibit_type:
+          type: string
+          description: SEC exhibit type.
+          nullable: true
+        transaction_price_total:
+          type: number
+          description: Total transaction value when available.
+          nullable: true
+        transaction_price_stock:
+          type: number
+          description: Stock portion of transaction consideration.
+          nullable: true
+        transaction_price_cash:
+          type: number
+          description: Cash portion of transaction consideration.
+          nullable: true
+        transaction_price_assets:
+          type: number
+          description: Asset portion of transaction consideration.
+          nullable: true
+        transaction_consideration:
+          type: string
+          description: High-level consideration type classification.
+          nullable: true
+        target_type:
+          type: string
+          description: Target company type.
+          nullable: true
+        acquirer_type:
+          type: string
+          description: Acquirer company type.
+          nullable: true
+        target_industry:
+          type: string
+          description: Target industry classification.
+          nullable: true
+        acquirer_industry:
+          type: string
+          description: Acquirer industry classification.
+          nullable: true
+        announce_date:
+          type: string
+          description: Public deal announcement date.
+          nullable: true
+        close_date:
+          type: string
+          description: Deal close date, when available.
+          nullable: true
+        deal_status:
+          type: string
+          description: Current status of the deal.
+          nullable: true
+        attitude:
+          type: string
+          description: Deal attitude classification.
+          nullable: true
+        deal_type:
+          type: string
+          description: Deal type classification.
+          nullable: true
+        purpose:
+          type: string
+          description: Deal purpose classification.
+          nullable: true
+        target_pe:
+          type: boolean
+          description: Whether target is private-equity backed.
+          nullable: true
+        acquirer_pe:
+          type: boolean
+          description: Whether acquirer is private-equity backed.
+          nullable: true
+        url:
+          type: string
+          description: Source filing URL.
+          nullable: true
+        xml:
+          type: string
+          description: Agreement XML content. Included only when `include_xml=true`.
+          nullable: true
+    AgreementsListResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          description: Page of agreements.
+          items:
+            $ref: '#/components/schemas/AgreementListItem'
+        access:
+          description: Access context applied to this response.
+          allOf:
+          - $ref: '#/components/schemas/AccessInfo'
+        page_size:
+          type: integer
+          description: Effective page size for this response.
+        returned_count:
+          type: integer
+          description: Number of agreements returned in this page.
+        has_next:
+          type: boolean
+          description: Whether a next cursor page exists.
+        next_cursor:
+          type: string
+          description: Opaque base64 cursor for the next page when `has_next` is true.
           nullable: true
     AgreementResponse:
       type: object

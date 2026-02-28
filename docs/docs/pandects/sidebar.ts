@@ -32,6 +32,12 @@ const sidebar: SidebarsConfig = {
       items: [
         {
           type: "doc",
+          id: "pandects/list-agreements",
+          label: "/v1/agreements",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
           id: "pandects/get-agreement",
           label: "/v1/agreements/{agreement_uuid}",
           className: "api-method get",

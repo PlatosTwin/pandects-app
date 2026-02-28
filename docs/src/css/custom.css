@@ -246,6 +246,18 @@ body {
   display: none !important;
 }
 
+.card.sidebar-hidden-category-doc {
+  display: none !important;
+}
+
+.menu__list-item.api-method:not(.sidebar-route-link):not(.sidebar-hidden-category-doc) {
+  display: none !important;
+}
+
+.card.api-method:not(.sidebar-route-link):not(.sidebar-hidden-category-doc) {
+  display: none !important;
+}
+
 .theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible {
   background: transparent !important;
 }
