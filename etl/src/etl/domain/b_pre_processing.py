@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 # Third-party libraries
 import pandas as pd
 from bs4 import BeautifulSoup
-from bs4.element import Comment, NavigableString, Tag
+from bs4.element import Comment, NavigableString, PageElement, Tag
 from requests.api import get as requests_get
 from typing_extensions import NotRequired
 
@@ -22,6 +22,9 @@ _request_times: deque[float] = deque()
 _request_lock = threading.Lock()
 _RATE_LIMIT = 10  # requests per period
 _RATE_PERIOD = 1.025  # seconds
+_PADDED_QUOTED_TERM_RE = re.compile(
+    r'(?<![A-Za-z0-9])([“"])\s+([^"”\n]{1,220}?)\s+([”"])(?![A-Za-z0-9])'
+)
 
 
 class ClassifierProbs(TypedDict):
@@ -212,6 +215,20 @@ def normalize_text(text: str) -> str:
     return text.strip()
 
 
+def normalize_padded_quoted_terms(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        inner = match.group(2)
+        if re.search(r"[A-Za-z0-9]", inner) is None:
+            return match.group(0)
+        return f"{match.group(1)}{inner.strip()}{match.group(3)}"
+
+    return _PADDED_QUOTED_TERM_RE.sub(repl, text)
+
+
+def _normalize_padded_quoted_terms(text: str) -> str:
+    return normalize_padded_quoted_terms(text)
+
+
 def strip_formatting_tags(
     soup: BeautifulSoup, remove_tags: list[str] | None = None
 ) -> BeautifulSoup:
@@ -279,6 +296,9 @@ def strip_formatting_tags(
 
     no_space_before_chars = set(".,;:!?)]}%")
     no_space_after_chars = set("([{")
+    opening_quote_chars = {"“", "‘", "«", "‹", '"', "'"}
+    closing_quote_chars = {"”", "’", "»", "›", '"', "'"}
+    formatting_tag_names = set(remove_tags)
 
     def _node_text(node: object) -> str:
         if isinstance(node, NavigableString):
@@ -299,6 +319,18 @@ def strip_formatting_tags(
             sibling = sibling.next_sibling
         return sibling
 
+    def _previous_substantive_sibling(node: object) -> object | None:
+        sibling = getattr(node, "previous_sibling", None)
+        while sibling is not None and not _node_text(sibling).strip():
+            sibling = sibling.previous_sibling
+        return sibling
+
+    def _next_substantive_sibling(node: object) -> object | None:
+        sibling = getattr(node, "next_sibling", None)
+        while sibling is not None and not _node_text(sibling).strip():
+            sibling = sibling.next_sibling
+        return sibling
+
     def _sibling_has_content(sib: object | None) -> bool:
         return bool(_node_text(sib).strip())
 
@@ -310,50 +342,170 @@ def strip_formatting_tags(
         text = _node_text(sib)
         return bool(text) and text.lstrip() != text
 
+    def _is_formatting_or_whitespace_node(node: object | None) -> bool:
+        if node is None:
+            return False
+        if isinstance(node, NavigableString):
+            return not str(node).strip()
+        return isinstance(node, Tag) and node.name in formatting_tag_names
+
+    def _first_nonspace_char(text: str) -> str:
+        stripped = text.lstrip()
+        return stripped[0] if stripped else ""
+
+    def _last_nonspace_char(text: str) -> str:
+        stripped = text.rstrip()
+        return stripped[-1] if stripped else ""
+
+    def _quote_only_tag_text(text: str) -> str:
+        stripped = text.strip()
+        if len(stripped) == 1 and (
+            stripped in opening_quote_chars or stripped in closing_quote_chars
+        ):
+            return stripped
+        return text
+
+    def _trim_text_node_after_opening_quote(text: str) -> str:
+        return re.sub(r'([“"‘«‹])\s+$', r"\1", text)
+
+    def _trim_text_node_before_closing_quote(text: str) -> str:
+        return re.sub(r'^\s+([”"’»›])', r"\1", text)
+
+    def _trim_tag_text_at_quote_edges(
+        text: str,
+        prev_text: str,
+        next_text: str,
+        within_quote_run: bool,
+    ) -> str:
+        if not within_quote_run or not text.strip():
+            return text
+        trimmed = text
+        prev_last_char = _last_nonspace_char(prev_text)
+        next_first_char = _first_nonspace_char(next_text)
+        first_char = _first_nonspace_char(trimmed)
+        last_char = _last_nonspace_char(trimmed)
+        if prev_last_char in opening_quote_chars or first_char in opening_quote_chars:
+            trimmed = trimmed.lstrip()
+        if next_first_char in closing_quote_chars or last_char in closing_quote_chars:
+            trimmed = trimmed.rstrip()
+        return trimmed
+
+    def _tag_is_within_quoted_format_run(tag: Tag) -> bool:
+        left_edge: object = tag
+        while _is_formatting_or_whitespace_node(left_edge.previous_sibling):
+            sibling = left_edge.previous_sibling
+            if sibling is None:
+                break
+            left_edge = sibling
+
+        right_edge: object = tag
+        while _is_formatting_or_whitespace_node(right_edge.next_sibling):
+            sibling = right_edge.next_sibling
+            if sibling is None:
+                break
+            right_edge = sibling
+
+        run_parts: list[str] = []
+        current: object | None = left_edge
+        while current is not None:
+            run_parts.append(_node_text(current))
+            if current is right_edge:
+                break
+            current = current.next_sibling
+        run_text = "".join(run_parts)
+        run_first_char = _first_nonspace_char(run_text)
+        run_last_char = _last_nonspace_char(run_text)
+
+        prev_outer = _previous_substantive_sibling(left_edge)
+        next_outer = _next_substantive_sibling(right_edge)
+        prev_outer_char = _last_nonspace_char(_node_text(prev_outer))
+        next_outer_char = _first_nonspace_char(_node_text(next_outer))
+
+        opening_char = (
+            run_first_char if run_first_char in opening_quote_chars else prev_outer_char
+        )
+        closing_char = (
+            run_last_char if run_last_char in closing_quote_chars else next_outer_char
+        )
+        return opening_char in opening_quote_chars and closing_char in closing_quote_chars
+
     # Unwrap every formatting tag (preserve whitespace around tags)
     for tag_name in remove_tags:
+        replacements: dict[int, tuple[PageElement, str]] = {}
         for tag in list(soup.find_all(tag_name)):
-            # Get the text content of the tag
-            tag_text = tag.get_text()
-            
             # Check adjacent siblings to determine if we need to add spaces
             prev_sibling = _previous_nonempty_sibling(tag)
             next_sibling = _next_nonempty_sibling(tag)
+            prev_text = _node_text(prev_sibling)
+            next_text = _node_text(next_sibling)
+            within_quote_run = _tag_is_within_quoted_format_run(tag)
+
+            if within_quote_run and isinstance(prev_sibling, NavigableString):
+                prev_replacement = _trim_text_node_after_opening_quote(str(prev_sibling))
+                if prev_replacement != str(prev_sibling):
+                    replacements[id(prev_sibling)] = (prev_sibling, prev_replacement)
+                    prev_text = prev_replacement
+            if within_quote_run and isinstance(next_sibling, NavigableString):
+                next_replacement = _trim_text_node_before_closing_quote(str(next_sibling))
+                if next_replacement != str(next_sibling):
+                    replacements[id(next_sibling)] = (next_sibling, next_replacement)
+                    next_text = next_replacement
+
+            # Get the text content of the tag
+            tag_text = tag.get_text()
+            tag_text = _quote_only_tag_text(tag_text)
+            tag_text = _trim_tag_text_at_quote_edges(
+                tag_text,
+                prev_text,
+                next_text,
+                within_quote_run,
+            )
 
             # If the tag is empty/whitespace-only but sits between two content nodes,
             # preserve a single space to avoid concatenation (e.g. "Section 1.1" + NBSP font
             # + "Defined Terms" -> "Section 1.1 Defined Terms").
             if not tag_text.strip():
                 if (
+                    not within_quote_run
+                    and
                     _sibling_has_content(prev_sibling)
                     and _sibling_has_content(next_sibling)
                     and not _sibling_ends_space(prev_sibling)
                     and not _sibling_starts_space(next_sibling)
                 ):
-                    _ = tag.replace_with(NavigableString(" "))
+                    replacements[id(tag)] = (tag, " ")
                     continue
-                _ = tag.replace_with(NavigableString(""))
+                replacements[id(tag)] = (tag, "")
                 continue
             
             # Check if we need a space before the tag content
             # Only add space if previous sibling is text that doesn't end with whitespace
             # and tag text doesn't start with whitespace
             needs_space_before = False
-            prev_text = _node_text(prev_sibling)
             if prev_text.strip():  # Previous sibling has non-whitespace content
                 prev_ends_space = prev_text.rstrip() != prev_text  # Ends with whitespace
                 tag_starts_space = tag_text and tag_text.lstrip() != tag_text  # Starts with whitespace
                 prev_last_char = prev_text.rstrip()[-1] if prev_text.rstrip() else ""
                 tag_first_char = tag_text.lstrip()[0] if tag_text.lstrip() else ""
+                wrapped_by_quotes = within_quote_run
                 # Avoid splitting a single word that is visually styled across tags,
                 # e.g. "D<small>EFINITIONS</small>" -> "DEFINITIONS".
                 split_word_boundary = bool(prev_last_char.isalpha() and tag_first_char.isalpha())
                 starts_with_closing_punct = bool(tag_first_char in no_space_before_chars)
+                is_closing_quote_tag = bool(tag_text.strip() in closing_quote_chars)
+                starts_with_closing_quote = bool(tag_first_char in closing_quote_chars)
+                wrapped_by_quotes_before = wrapped_by_quotes and not bool(
+                    tag_text.strip() in opening_quote_chars
+                )
                 if (
                     not prev_ends_space
                     and not tag_starts_space
                     and not split_word_boundary
+                    and prev_last_char not in opening_quote_chars
                     and not starts_with_closing_punct
+                    and not starts_with_closing_quote
+                    and not is_closing_quote_tag
+                    and not wrapped_by_quotes_before
                 ):
                     needs_space_before = True
             
@@ -361,21 +513,30 @@ def strip_formatting_tags(
             # Only add space if next sibling is text that doesn't start with whitespace
             # and tag text doesn't end with whitespace
             needs_space_after = False
-            next_text = _node_text(next_sibling)
             if next_text.strip():  # Next sibling has non-whitespace content
                 next_starts_space = next_text.lstrip() != next_text  # Starts with whitespace
                 tag_ends_space = tag_text and tag_text.rstrip() != tag_text  # Ends with whitespace
                 tag_last_char = tag_text.rstrip()[-1] if tag_text.rstrip() else ""
                 next_first_char = next_text.lstrip()[0] if next_text.lstrip() else ""
+                wrapped_by_quotes = within_quote_run
                 split_word_boundary = bool(tag_last_char.isalpha() and next_first_char.isalpha())
                 starts_with_closing_punct = bool(next_first_char in no_space_before_chars)
                 ends_with_opening_punct = bool(tag_last_char in no_space_after_chars)
+                is_opening_quote_tag = bool(tag_text.strip() in opening_quote_chars)
+                ends_with_opening_quote = bool(tag_last_char in opening_quote_chars)
+                wrapped_by_quotes_after = wrapped_by_quotes and not bool(
+                    tag_text.strip() in closing_quote_chars
+                )
                 if (
                     not next_starts_space
                     and not tag_ends_space
                     and not split_word_boundary
+                    and next_first_char not in closing_quote_chars
                     and not starts_with_closing_punct
                     and not ends_with_opening_punct
+                    and not ends_with_opening_quote
+                    and not is_opening_quote_tag
+                    and not wrapped_by_quotes_after
                 ):
                     needs_space_after = True
             
@@ -384,9 +545,11 @@ def strip_formatting_tags(
                 tag_text = ' ' + tag_text
             if needs_space_after:
                 tag_text = tag_text + ' '
-            
-            # Replace the tag with its text content
-            _ = tag.replace_with(NavigableString(tag_text))
+
+            replacements[id(tag)] = (tag, tag_text)
+
+        for node, replacement_text in replacements.values():
+            _ = node.replace_with(NavigableString(replacement_text))
 
     # Normalize any non-breaking spaces into real spaces
     for node in soup.find_all(string=True):
@@ -488,9 +651,10 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
             cells = tr.find_all(["td", "th"])
             texts: list[str] = []
             for cell in cells:
-                # Extract text using space separator to preserve spacing around formatting tags
-                # This ensures that text nodes separated by tags get spaces between them
-                raw = cell.get_text(separator=" ", strip=False)
+                # Formatting-tag spacing has already been normalized upstream, so using an
+                # empty separator here avoids reintroducing spaces inside quoted terms when
+                # table cells contain text split across inline tags.
+                raw = cell.get_text(separator="", strip=False)
                 # Collapse multiple whitespace to single space
                 clean = re.sub(r"\s+", " ", raw).strip()
                 if clean:
@@ -547,11 +711,11 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         html = BeautifulSoup(content, "html.parser")
         cleaned = strip_formatting_tags(html)
         cleaned = collapse_tables(cleaned)
-        primary_text = normalize_text(
+        primary_text = _normalize_padded_quoted_terms(normalize_text(
             block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
-        )
+        ))
         if len(primary_text) <= 2000:
-            relaxed_text = _extract_relaxed_html_text(content)
+            relaxed_text = _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
             if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
                 return relaxed_text
         return primary_text
@@ -857,12 +1021,12 @@ def cleanup(
 
 
 if __name__ == "__main__":
-    from etl.models.page_classifier.classifier import ClassifierInference
-    from etl.models.page_classifier.page_classifier_constants import (
-        CLASSIFIER_CKPT_PATH,
+    from etl.models.page_classifier_revamp.inference import ClassifierInference
+    from etl.models.page_classifier_revamp.page_classifier_constants import (
+        CLASSIFIER_CRF_PATH,
     )
 
-    clf_mdl = ClassifierInference(ckpt_path=CLASSIFIER_CKPT_PATH)
+    clf_mdl = ClassifierInference(model_path=CLASSIFIER_CRF_PATH)
 
     _, _ = pre_process(
         None,
