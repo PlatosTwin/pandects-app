@@ -144,6 +144,11 @@ class ModelOverrides(TypedDict, total=False):
     pos_feature_dim: int
     enable_first_sig_postprocessing: bool
     first_sig_threshold: float
+    use_structured_moe: bool
+    tail_expert_loss_weight: float
+    router_loss_weight: float
+    router_sig_threshold: float
+    router_back_threshold: float
 
 
 class ClassifierTrainer:
@@ -272,6 +277,8 @@ class ClassifierTrainer:
             merged["use_lstm"] = self.use_lstm
         if "use_crf" not in merged:
             merged["use_crf"] = self.use_crf
+        if "use_structured_moe" not in merged:
+            merged["use_structured_moe"] = True
         return merged
 
     def _load_data(self) -> None:
@@ -836,10 +843,7 @@ class ClassifierTrainer:
 
                 emissions = model(emissions, mask=mask)
                 emissions = model._apply_decoding_biases(emissions, mask)
-                if model.use_crf:
-                    predictions = model._viterbi_decode_ext(emissions, mask)
-                else:
-                    predictions = emissions.argmax(dim=-1)
+                predictions = model._decode_predictions(emissions, mask)
 
                 for b in range(predictions.shape[0]):
                     seq_len = int(mask[b].sum().item())
@@ -885,17 +889,10 @@ class ClassifierTrainer:
 
                 emissions = model(emissions, mask=mask)
                 emissions = model._apply_decoding_biases(emissions, mask)
-                if model.use_crf:
-                    predictions = model._viterbi_decode_ext(emissions, mask)
-                else:
-                    predictions = emissions.argmax(dim=-1)
+                predictions = model._decode_predictions(emissions, mask)
 
                 if model.enable_first_sig_postprocessing:
-                    class_probs = torch.softmax(emissions, dim=-1)
-                    if model.use_crf and model.enforce_single_sig_block:
-                        class_probs = class_probs.view(
-                            class_probs.shape[0], class_probs.shape[1], 2, -1
-                        ).sum(2)
+                    class_probs = model._class_probs_from_emissions(emissions)
                     predictions_post = torch.zeros_like(predictions)
                     for b in range(predictions.shape[0]):
                         seq_len = int(mask[b].sum().item())
@@ -1028,6 +1025,18 @@ class ClassifierTrainer:
             "back_late_bonus": trial.suggest_categorical(
                 "back_late_bonus", [0.4, 0.5, 0.6]
             ),
+            "tail_expert_loss_weight": trial.suggest_categorical(
+                "tail_expert_loss_weight", [0.2, 0.4, 0.6]
+            ),
+            "router_loss_weight": trial.suggest_categorical(
+                "router_loss_weight", [0.1, 0.2, 0.3]
+            ),
+            "router_sig_threshold": trial.suggest_categorical(
+                "router_sig_threshold", [0.45, 0.55, 0.65]
+            ),
+            "router_back_threshold": trial.suggest_categorical(
+                "router_back_threshold", [0.45, 0.55, 0.65]
+            ),
         }
 
         data_module, model = self._build_with_overrides(
@@ -1158,6 +1167,10 @@ class ClassifierTrainer:
                 trial_params["aux_back_start_loss_weight"]
             ),
             "back_late_bonus": float(trial_params["back_late_bonus"]),
+            "tail_expert_loss_weight": float(trial_params["tail_expert_loss_weight"]),
+            "router_loss_weight": float(trial_params["router_loss_weight"]),
+            "router_sig_threshold": float(trial_params["router_sig_threshold"]),
+            "router_back_threshold": float(trial_params["router_back_threshold"]),
         }
         return best_params, best_overrides
 

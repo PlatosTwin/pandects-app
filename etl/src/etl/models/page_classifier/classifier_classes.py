@@ -535,6 +535,12 @@ class PageClassifier(pl.LightningModule):
         # Decode-time signature block postprocessing
         enable_first_sig_postprocessing: bool = True,
         first_sig_threshold: float = 0.3,
+        # Structured mixture-of-experts decode
+        use_structured_moe: bool = False,
+        tail_expert_loss_weight: float = 0.4,
+        router_loss_weight: float = 0.2,
+        router_sig_threshold: float = 0.55,
+        router_back_threshold: float = 0.55,
     ):
         """
         Initialize the PageClassifier with CRF on top of LSTM.
@@ -572,6 +578,11 @@ class PageClassifier(pl.LightningModule):
             pos_feature_dim: Number of positional features to append
             enable_first_sig_postprocessing: Whether to apply decode-time first signature block fix
             first_sig_threshold: Probability threshold for signature block detection in postprocessing
+            use_structured_moe: Whether to use structured expert/router decoding
+            tail_expert_loss_weight: Auxiliary loss weight for body-vs-back tail expert
+            router_loss_weight: Auxiliary loss weight for document case router
+            router_sig_threshold: Sig presence threshold for heuristic routing fallback
+            router_back_threshold: Back presence threshold for heuristic routing fallback
             
         Raises:
             ValueError: If any parameter is outside its valid range
@@ -638,6 +649,7 @@ class PageClassifier(pl.LightningModule):
         self.proj = torch.nn.Linear(lstm_out_dim, num_classes)
         self.use_lstm = bool(use_lstm)
         self.use_crf = bool(use_crf)
+        self.use_structured_moe = bool(use_structured_moe)
         
         # Handle special labels and constraints
         self.label_names = label_names or CLASSIFIER_LABEL_LIST
@@ -646,6 +658,12 @@ class PageClassifier(pl.LightningModule):
             
         self.sig_idx = self.label_names.index(sig_label) if sig_label in self.label_names else None
         self.back_idx = self.label_names.index(back_label) if back_label in self.label_names else None
+        self.front_idx = (
+            self.label_names.index("front_matter")
+            if "front_matter" in self.label_names
+            else None
+        )
+        self.toc_idx = self.label_names.index("toc") if "toc" in self.label_names else None
         
         self.enforce_single_sig_block = enforce_single_sig_block
         # Decoding bias knobs
@@ -670,6 +688,20 @@ class PageClassifier(pl.LightningModule):
             raise ValueError("aux_back_start_loss_weight must be >= 0")
         self.aux_back_start_loss_weight = float(aux_back_start_loss_weight)
         self.back_start_head = torch.nn.Linear(lstm_out_dim, 1)
+        if tail_expert_loss_weight < 0:
+            raise ValueError("tail_expert_loss_weight must be >= 0")
+        if router_loss_weight < 0:
+            raise ValueError("router_loss_weight must be >= 0")
+        if not (0.0 <= router_sig_threshold <= 1.0):
+            raise ValueError("router_sig_threshold must be in [0,1].")
+        if not (0.0 <= router_back_threshold <= 1.0):
+            raise ValueError("router_back_threshold must be in [0,1].")
+        self.tail_expert_loss_weight = float(tail_expert_loss_weight)
+        self.router_loss_weight = float(router_loss_weight)
+        self.router_sig_threshold = float(router_sig_threshold)
+        self.router_back_threshold = float(router_back_threshold)
+        self.tail_expert_head = torch.nn.Linear(lstm_out_dim, 2)  # body vs back
+        self.case_router_head = torch.nn.Linear(lstm_out_dim, 4)  # 4 document cases
 
         # Learned positional prior
         self.use_positional_prior = bool(use_positional_prior)
@@ -1060,6 +1092,201 @@ class PageClassifier(pl.LightningModule):
             return torch.tensor(0.0, device=labels.device)
         return torch.stack(losses).mean()
 
+    def _class_probs_from_emissions(self, emissions: torch.Tensor) -> torch.Tensor:
+        probs = torch.softmax(emissions, dim=-1)
+        if probs.shape[-1] == 2 * self.C:
+            probs = probs.view(probs.shape[0], probs.shape[1], 2, self.C).sum(2)
+        return probs
+
+    def _masked_max_pool(self, feats: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        masked = feats.masked_fill(~mask.unsqueeze(-1), -1e9)
+        pooled = masked.max(dim=1).values
+        empty_rows = ~mask.any(dim=1)
+        if empty_rows.any():
+            pooled[empty_rows] = 0.0
+        return pooled
+
+    def _doc_case_targets(self, labels: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """
+        Document-level case targets:
+          0: no_sig_no_back
+          1: sig_no_back
+          2: sig_back
+          3: no_sig_back
+        """
+        B, _ = labels.shape
+        cases = torch.zeros((B,), dtype=torch.long, device=labels.device)
+        for b in range(B):
+            seq_len = int(mask[b].sum().item())
+            if seq_len <= 0:
+                continue
+            labels_b = labels[b, :seq_len]
+            has_sig = (
+                bool((labels_b == self.sig_idx).any().item())
+                if self.sig_idx is not None
+                else False
+            )
+            has_back = (
+                bool((labels_b == self.back_idx).any().item())
+                if self.back_idx is not None
+                else False
+            )
+            if has_sig and has_back:
+                cases[b] = 2
+            elif has_sig:
+                cases[b] = 1
+            elif has_back:
+                cases[b] = 3
+            else:
+                cases[b] = 0
+        return cases
+
+    def _aux_tail_expert_loss(self, labels: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        if self.tail_expert_loss_weight <= 0:
+            return torch.tensor(0.0, device=labels.device)
+        if self.back_idx is None:
+            return torch.tensor(0.0, device=labels.device)
+        if "body" not in self.label_names:
+            return torch.tensor(0.0, device=labels.device)
+        feats = getattr(self, "_last_lstm", None)
+        if feats is None:
+            return torch.tensor(0.0, device=labels.device)
+        body_idx = self.label_names.index("body")
+        tail_mask = mask & ((labels == body_idx) | (labels == self.back_idx))
+        if not bool(tail_mask.any().item()):
+            return torch.tensor(0.0, device=labels.device)
+        logits = self.tail_expert_head(feats)  # (B,S,2)
+        targets = (labels == self.back_idx).long()
+        return F.cross_entropy(logits[tail_mask], targets[tail_mask])
+
+    def _aux_case_router_loss(self, labels: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        if self.router_loss_weight <= 0:
+            return torch.tensor(0.0, device=labels.device)
+        feats = getattr(self, "_last_lstm", None)
+        if feats is None:
+            return torch.tensor(0.0, device=labels.device)
+        pooled = self._masked_max_pool(feats, mask)
+        logits = self.case_router_head(pooled)
+        targets = self._doc_case_targets(labels, mask)
+        return F.cross_entropy(logits, targets)
+
+    def _monotone_case_decode(self, state_scores: torch.Tensor) -> torch.Tensor:
+        """
+        Decode best monotone state sequence where states are non-decreasing.
+        state_scores: (T, K)
+        """
+        T, K = state_scores.shape
+        if T <= 0:
+            return torch.zeros((0,), dtype=torch.long, device=state_scores.device)
+        dp = state_scores.new_full((T, K), -1e9)
+        bp = torch.zeros((T, K), dtype=torch.long, device=state_scores.device)
+        dp[0] = state_scores[0]
+        for t in range(1, T):
+            prev = dp[t - 1]
+            for j in range(K):
+                best_val, best_idx = prev[: j + 1].max(dim=0)
+                dp[t, j] = best_val + state_scores[t, j]
+                bp[t, j] = best_idx
+        last_state = int(dp[T - 1].argmax().item())
+        path = torch.zeros((T,), dtype=torch.long, device=state_scores.device)
+        path[T - 1] = last_state
+        for t in range(T - 2, -1, -1):
+            path[t] = bp[t + 1, path[t + 1]]
+        return path
+
+    def _decode_structured_moe(
+        self, emissions: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor | None:
+        """
+        Structured expert/router decode with strict monotone order:
+          front -> toc -> body -> sig -> back
+        Cases:
+          0 no_sig_no_back, 1 sig_no_back, 2 sig_back, 3 no_sig_back
+        """
+        if self.back_idx is None or self.sig_idx is None:
+            return None
+        if self.front_idx is None or self.toc_idx is None:
+            return None
+        if "body" not in self.label_names:
+            return None
+        body_idx = self.label_names.index("body")
+
+        base_probs = self._class_probs_from_emissions(emissions)  # (B,S,C)
+        B, S, _ = base_probs.shape
+        eps = 1e-8
+
+        feats = getattr(self, "_last_lstm", None)
+        if feats is not None:
+            tail_probs = torch.softmax(self.tail_expert_head(feats), dim=-1)  # (B,S,2)
+            pooled = self._masked_max_pool(feats, mask)
+            case_ids = self.case_router_head(pooled).argmax(dim=-1)  # (B,)
+        else:
+            denom = (base_probs[:, :, body_idx] + base_probs[:, :, self.back_idx]).clamp(
+                min=eps
+            )
+            tail_probs = torch.stack(
+                [
+                    (base_probs[:, :, body_idx] / denom),
+                    (base_probs[:, :, self.back_idx] / denom),
+                ],
+                dim=-1,
+            )
+            sig_present = (
+                base_probs[:, :, self.sig_idx].max(dim=1).values
+                >= self.router_sig_threshold
+            )
+            back_present = (
+                tail_probs[:, :, 1].max(dim=1).values >= self.router_back_threshold
+            )
+            case_ids = torch.zeros((B,), dtype=torch.long, device=emissions.device)
+            case_ids = torch.where(sig_present & back_present, torch.tensor(2, device=emissions.device), case_ids)
+            case_ids = torch.where(sig_present & ~back_present, torch.tensor(1, device=emissions.device), case_ids)
+            case_ids = torch.where(~sig_present & back_present, torch.tensor(3, device=emissions.device), case_ids)
+
+        decoded = torch.zeros((B, S), dtype=torch.long, device=emissions.device)
+        for b in range(B):
+            seq_len = int(mask[b].sum().item())
+            if seq_len <= 0:
+                continue
+
+            case_id = int(case_ids[b].item())
+            if case_id == 0:
+                states = [self.front_idx, self.toc_idx, body_idx]
+            elif case_id == 1:
+                states = [self.front_idx, self.toc_idx, body_idx, self.sig_idx]
+            elif case_id == 2:
+                states = [self.front_idx, self.toc_idx, body_idx, self.sig_idx, self.back_idx]
+            else:
+                states = [self.front_idx, self.toc_idx, body_idx, self.back_idx]
+
+            seq_base = base_probs[b, :seq_len]  # (T,C)
+            seq_tail = tail_probs[b, :seq_len]  # (T,2)
+            score_cols: list[torch.Tensor] = []
+            for state_idx in states:
+                if state_idx == body_idx:
+                    body_from_main = seq_base[:, body_idx].clamp(min=eps).log()
+                    body_from_tail = seq_tail[:, 0].clamp(min=eps).log()
+                    score_cols.append(0.5 * body_from_main + 0.5 * body_from_tail)
+                elif state_idx == self.back_idx:
+                    score_cols.append(seq_tail[:, 1].clamp(min=eps).log())
+                else:
+                    score_cols.append(seq_base[:, state_idx].clamp(min=eps).log())
+
+            state_scores = torch.stack(score_cols, dim=1)  # (T,K)
+            path_states = self._monotone_case_decode(state_scores)  # (T,)
+            state_idx_tensor = torch.tensor(states, dtype=torch.long, device=emissions.device)
+            decoded[b, :seq_len] = state_idx_tensor[path_states]
+        return decoded
+
+    def _decode_predictions(self, emissions: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        if self.use_structured_moe:
+            decoded = self._decode_structured_moe(emissions, mask)
+            if decoded is not None:
+                return decoded
+        if self.use_crf:
+            return self._viterbi_decode_ext(emissions, mask)
+        return emissions.argmax(dim=-1)
+
     def _compute_log_likelihood(
         self, emissions: torch.Tensor, labels: torch.Tensor, mask: torch.Tensor
     ) -> torch.Tensor:
@@ -1295,12 +1522,17 @@ class PageClassifier(pl.LightningModule):
         aux_back_loss = self._aux_back_start_loss(labels, mask)
         if aux_back_loss.requires_grad and self.aux_back_start_loss_weight > 0:
             loss = loss + self.aux_back_start_loss_weight * aux_back_loss
+        # Auxiliary body-vs-back tail expert
+        aux_tail_loss = self._aux_tail_expert_loss(labels, mask)
+        if aux_tail_loss.requires_grad and self.tail_expert_loss_weight > 0:
+            loss = loss + self.tail_expert_loss_weight * aux_tail_loss
+        # Auxiliary document case router
+        aux_router_loss = self._aux_case_router_loss(labels, mask)
+        if aux_router_loss.requires_grad and self.router_loss_weight > 0:
+            loss = loss + self.router_loss_weight * aux_router_loss
         
         # Compute predictions (in original label space)
-        if self.use_crf:
-            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
-        else:
-            predictions = emissions.argmax(dim=-1)
+        predictions = self._decode_predictions(emissions, mask)  # (B, S)
         
         # Compute metrics only on non-padded positions
         true_labels = labels[mask]
@@ -1319,6 +1551,10 @@ class PageClassifier(pl.LightningModule):
             self.log("train_aux_sig_presence_loss", aux_sig_presence_loss.detach(), prog_bar=False)
         if hasattr(self, "aux_back_start_loss_weight") and self.aux_back_start_loss_weight > 0:
             self.log("train_aux_back_start_loss", aux_back_loss.detach(), prog_bar=False)
+        if self.tail_expert_loss_weight > 0:
+            self.log("train_aux_tail_expert_loss", aux_tail_loss.detach(), prog_bar=False)
+        if self.router_loss_weight > 0:
+            self.log("train_aux_router_loss", aux_router_loss.detach(), prog_bar=False)
         
         # Note: Don't compute/log step-level metrics here, we'll do that in epoch_end
         return loss
@@ -1351,12 +1587,11 @@ class PageClassifier(pl.LightningModule):
         aux_sig_loss = self._aux_sig_start_loss(labels, mask)
         aux_sig_presence_loss = self._aux_sig_presence_loss(labels, mask)
         aux_back_loss = self._aux_back_start_loss(labels, mask)
+        aux_tail_loss = self._aux_tail_expert_loss(labels, mask)
+        aux_router_loss = self._aux_case_router_loss(labels, mask)
         
         # Compute predictions (in original label space)
-        if self.use_crf:
-            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
-        else:
-            predictions = emissions.argmax(dim=-1)
+        predictions = self._decode_predictions(emissions, mask)  # (B, S)
         
         # Compute metrics only on non-padded positions
         true_labels = labels[mask]
@@ -1375,6 +1610,10 @@ class PageClassifier(pl.LightningModule):
             self.log("val_aux_sig_presence_loss", aux_sig_presence_loss.detach(), prog_bar=False)
         if hasattr(self, "aux_back_start_loss_weight") and self.aux_back_start_loss_weight > 0:
             self.log("val_aux_back_start_loss", aux_back_loss.detach(), prog_bar=False)
+        if self.tail_expert_loss_weight > 0:
+            self.log("val_aux_tail_expert_loss", aux_tail_loss.detach(), prog_bar=False)
+        if self.router_loss_weight > 0:
+            self.log("val_aux_router_loss", aux_router_loss.detach(), prog_bar=False)
         
         # Note: Don't compute/log step-level metrics here, we'll do that in epoch_end
         return loss
@@ -1506,15 +1745,10 @@ class PageClassifier(pl.LightningModule):
         emissions = self._apply_decoding_biases(emissions, mask)
         
         # Viterbi decoding
-        if self.use_crf:
-            predictions = self._viterbi_decode_ext(emissions, mask)  # (B, S)
-        else:
-            predictions = emissions.argmax(dim=-1)
+        predictions = self._decode_predictions(emissions, mask)  # (B, S)
         
         # Convert to probabilities (optional, since we're using hard Viterbi decoding)
-        class_probs = torch.softmax(emissions, dim=-1)  # (B, S, C) or (B, S, 2C)
-        if self.use_crf and self.enforce_single_sig_block:
-            class_probs = class_probs.view(class_probs.shape[0], class_probs.shape[1], 2, -1).sum(2)
+        class_probs = self._class_probs_from_emissions(emissions)  # (B, S, C)
         
         # Convert to list of dictionaries (respect true sequence lengths)
         results: list[list[Prediction]] = []
