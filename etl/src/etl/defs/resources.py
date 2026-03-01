@@ -15,12 +15,13 @@ from pydantic import PrivateAttr
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from etl.models.page_classifier.classifier import ClassifierInference
+from etl.models.page_classifier_revamp.inference import ClassifierInference
+from etl.models.page_classifier_revamp.review_model import ReviewModelInference
 from etl.models.ner.ner import NERInference
 from etl.models.ner.ner_constants import NER_CKPT_PATH, NER_LABEL_LIST
-from etl.models.page_classifier.page_classifier_constants import (
-    CLASSIFIER_CKPT_PATH,
-    CLASSIFIER_XGB_PATH,
+from etl.models.page_classifier_revamp.page_classifier_constants import (
+    CLASSIFIER_CRF_PATH,
+    CLASSIFIER_REVIEW_MODEL_PATH,
 )
 from etl.models.taxonomy.taxonomy_constants import TAXONOMY_LABEL_LIST
 
@@ -113,10 +114,28 @@ class ClassifierModel(dg.ConfigurableResource[object]):
     def model(self):
         if self._inf is None:
             self._inf = ClassifierInference(
-                ckpt_path=CLASSIFIER_CKPT_PATH,
-                xgb_path=CLASSIFIER_XGB_PATH,
-                num_workers=7,
+                model_path=CLASSIFIER_CRF_PATH,
             )
+        return self._inf
+
+
+class ReviewModel(dg.ConfigurableResource[object]):
+    """Resource for the agreement review model."""
+
+    _inf: ReviewModelInference | None = PrivateAttr(default=None)
+
+    def model(
+        self,
+        *,
+        page_classifier: ClassifierInference | None = None,
+    ) -> ReviewModelInference:
+        if self._inf is None:
+            self._inf = ReviewModelInference(
+                model_path=CLASSIFIER_REVIEW_MODEL_PATH,
+                page_classifier=page_classifier,
+            )
+        elif page_classifier is not None and self._inf.page_classifier is None:
+            self._inf.page_classifier = page_classifier
         return self._inf
 
 
@@ -353,6 +372,7 @@ def get_resources() -> dict[str, object]:
             database=dg.EnvVar("MARIADB_DATABASE"),
         ),
         "classifier_model": ClassifierModel(),
+        "review_model": ReviewModel(),
         "tagging_model": TaggingModel(),
         "taxonomy_model": TaxonomyModel(),
         "pipeline_config": PipelineConfig(**pipeline_config_kwargs),  # type: ignore

@@ -37,6 +37,7 @@ class PageRow(Protocol):
     page_type_prob_sig: float | None
     page_type_prob_back_matter: float | None
     postprocess_modified: bool | None
+    review_flag: bool | None
 
 
 class TagRow(Protocol):
@@ -204,6 +205,7 @@ def upsert_pages(
         "page_type_prob_sig",
         "page_type_prob_back_matter",
         "postprocess_modified",
+        "review_flag",
     ]
 
     update_cols = [
@@ -216,6 +218,7 @@ def upsert_pages(
         "page_type_prob_sig",
         "page_type_prob_back_matter",
         "postprocess_modified",
+        "review_flag",
     ]
 
     pages_table = f"{schema}.pages"
@@ -248,7 +251,8 @@ def upsert_pages(
                 page_type_prob_body = :page_type_prob_body,
                 page_type_prob_sig = :page_type_prob_sig,
                 page_type_prob_back_matter = :page_type_prob_back_matter,
-                postprocess_modified = :postprocess_modified
+                postprocess_modified = :postprocess_modified,
+                review_flag = :review_flag
             WHERE agreement_uuid = :agreement_uuid
               AND page_order = :page_order
               AND (
@@ -263,6 +267,7 @@ def upsert_pages(
                 OR NOT (page_type_prob_sig <=> :page_type_prob_sig)
                 OR NOT (page_type_prob_back_matter <=> :page_type_prob_back_matter)
                 OR NOT (postprocess_modified <=> :postprocess_modified)
+                OR NOT (review_flag <=> :review_flag)
               )
             """
         )

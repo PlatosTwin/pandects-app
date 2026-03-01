@@ -17,6 +17,11 @@ from bs4.element import Comment, NavigableString, PageElement, Tag
 from requests.api import get as requests_get
 from typing_extensions import NotRequired
 
+from etl.models.page_classifier_revamp.inference import (
+    AgreementReviewSummary,
+    build_agreement_review_summary,
+)
+
 # Rate limiting configuration
 _request_times: deque[float] = deque()
 _request_lock = threading.Lock()
@@ -47,6 +52,21 @@ ClassifierPredsRaw = Sequence[ClassifierPredRaw] | Sequence[Sequence[ClassifierP
 
 class ClassifierModelProtocol(Protocol):
     def classify(self, df: pd.DataFrame) -> ClassifierPredsRaw: ...
+
+
+class ReviewPrediction(TypedDict):
+    agreement_uuid: str
+    needs_review: bool
+    review_probability: float
+    review_threshold: float
+    review_score: float
+
+
+class ReviewModelProtocol(Protocol):
+    def predict_from_summaries(
+        self,
+        summaries: list[AgreementReviewSummary],
+    ) -> list[ReviewPrediction]: ...
 
 
 class LoggerProtocol(Protocol):
@@ -95,6 +115,7 @@ class PageMetadata:
     page_type_prob_back_matter: float | None = None
     page_uuid: str | None = None
     postprocess_modified: bool | None = None
+    review_flag: bool | None = None
 
 
 def _is_semantically_hidden_tag(tag: Tag) -> bool:
@@ -865,10 +886,86 @@ def _attach_preds_to_pages(
         po.postprocess_modified = pred["postprocess_modified"]
 
 
+def _build_review_summaries_from_pages(
+    page_objs: list[PageMetadata],
+) -> list[AgreementReviewSummary]:
+    pages_by_agreement: dict[str, list[PageMetadata]] = {}
+    for page in page_objs:
+        if page.agreement_uuid is None:
+            raise ValueError("PageMetadata.agreement_uuid must be set before review scoring.")
+        pages_by_agreement.setdefault(page.agreement_uuid, []).append(page)
+
+    summaries: list[AgreementReviewSummary] = []
+    for agreement_uuid, agreement_pages in sorted(pages_by_agreement.items()):
+        sorted_pages = sorted(
+            agreement_pages,
+            key=lambda page: (
+                -1 if page.page_order is None else int(page.page_order),
+                "" if page.page_uuid is None else page.page_uuid,
+            ),
+        )
+        predicted_labels: list[str] = []
+        marginal_rows: list[dict[str, float]] = []
+        for page in sorted_pages:
+            if page.source_page_type is None:
+                raise ValueError(
+                    f"Page {page.page_uuid or '<missing-page-uuid>'} is missing source_page_type."
+                )
+            if (
+                page.page_type_prob_front_matter is None
+                or page.page_type_prob_toc is None
+                or page.page_type_prob_body is None
+                or page.page_type_prob_sig is None
+                or page.page_type_prob_back_matter is None
+            ):
+                raise ValueError(
+                    f"Page {page.page_uuid or '<missing-page-uuid>'} is missing page-class probabilities."
+                )
+            predicted_labels.append(page.source_page_type)
+            marginal_rows.append(
+                {
+                    "front_matter": float(page.page_type_prob_front_matter),
+                    "toc": float(page.page_type_prob_toc),
+                    "body": float(page.page_type_prob_body),
+                    "sig": float(page.page_type_prob_sig),
+                    "back_matter": float(page.page_type_prob_back_matter),
+                }
+            )
+        summaries.append(
+            build_agreement_review_summary(
+                agreement_uuid,
+                predicted_labels,
+                marginal_rows,
+            )
+        )
+    return summaries
+
+
+def _attach_review_flags_to_pages(
+    page_objs: list[PageMetadata],
+    review_model: ReviewModelProtocol,
+) -> None:
+    summaries = _build_review_summaries_from_pages(page_objs)
+    predictions = review_model.predict_from_summaries(summaries)
+    review_flags_by_agreement = {
+        prediction["agreement_uuid"]: bool(prediction["needs_review"])
+        for prediction in predictions
+    }
+    for page in page_objs:
+        if page.agreement_uuid is None:
+            raise ValueError("PageMetadata.agreement_uuid must be set before attaching review flags.")
+        if page.agreement_uuid not in review_flags_by_agreement:
+            raise ValueError(
+                f"Missing review prediction for agreement {page.agreement_uuid}."
+            )
+        page.review_flag = review_flags_by_agreement[page.agreement_uuid]
+
+
 def pre_process(
     context: ContextProtocol | None,
     rows: list[AgreementRow],
     classifier_model: ClassifierModelProtocol,
+    review_model: ReviewModelProtocol,
 ) -> tuple[list[PageMetadata], dict[str, bool]]:
     """
     Split agreements into pages, classify page type, and process HTML into formatted text.
@@ -877,6 +974,7 @@ def pre_process(
         context: Optional context for logging.
         rows: List of agreement data dictionaries.
         classifier_model: Model to use for page classification.
+        review_model: Model to use for agreement-level review prediction.
 
     Returns:
         Tuple of processed PageMetadata objects and a mapping of agreement UUIDs
@@ -962,6 +1060,7 @@ def pre_process(
 
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
+    _attach_review_flags_to_pages(all_page_objs, review_model)
     staged_pages.extend(all_page_objs)
     return staged_pages, pagination_statuses
 
@@ -969,6 +1068,7 @@ def pre_process(
 def cleanup(
     rows: list[CleanupRow],
     classifier_model: ClassifierModelProtocol,
+    review_model: ReviewModelProtocol,
     context: ContextProtocol | None = None,
 ) -> list[PageMetadata]:
     """
@@ -977,6 +1077,7 @@ def cleanup(
     Args:
         rows: List of page data dictionaries.
         classifier_model: Model to use for page classification.
+        review_model: Model to use for agreement-level review prediction.
         context: Optional context for logging.
 
     Returns:
@@ -1016,6 +1117,7 @@ def cleanup(
     # context.pdb.set_trace()
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
+    _attach_review_flags_to_pages(all_page_objs, review_model)
     
     return all_page_objs
 
@@ -1028,6 +1130,10 @@ if __name__ == "__main__":
 
     clf_mdl = ClassifierInference(model_path=CLASSIFIER_CRF_PATH)
 
+    from etl.models.page_classifier_revamp.review_model import ReviewModelInference
+
+    review_mdl = ReviewModelInference(page_classifier=clf_mdl)
+
     _, _ = pre_process(
         None,
         [
@@ -1037,6 +1143,7 @@ if __name__ == "__main__":
             }
         ],
         clf_mdl,
+        review_mdl,
     )
 
     print()

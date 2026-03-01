@@ -12,7 +12,12 @@ from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
 from etl.defs.a_staging_asset import staging_asset
-from etl.defs.resources import ClassifierModel, DBResource, PipelineConfig
+from etl.defs.resources import (
+    ClassifierModel,
+    DBResource,
+    PipelineConfig,
+    ReviewModel,
+)
 from etl.domain.b_pre_processing import (
     AgreementRow,
     CleanupRow,
@@ -31,6 +36,7 @@ def pre_processing_asset(
     context: AssetExecutionContext,
     db: DBResource,
     classifier_model: ClassifierModel,
+    review_model: ReviewModel,
     pipeline_config: PipelineConfig,
 ) -> None:
     """Split agreements into pages, classify page types, and process HTML into formatted text.
@@ -41,11 +47,13 @@ def pre_processing_asset(
         context: Dagster execution context.
         db: Database resource for connection.
         classifier_model: Model for page classification.
+        review_model: Model for agreement-level manual-review prediction.
         pipeline_config: Pipeline configuration.
     """
     last_uuid: str = ""
     engine = db.get_engine()
     inference_model = classifier_model.model()
+    review_inference_model = review_model.model(page_classifier=inference_model)
 
     is_cleanup = is_pre_processing_cleanup_mode(context, pipeline_config)
 
@@ -103,6 +111,7 @@ def pre_processing_asset(
                     cast(PreProcessContext, cast(object, context)),
                     agreements,
                     inference_model,
+                    review_inference_model,
                 )
 
                 if pagination_statuses:
@@ -151,7 +160,8 @@ def pre_processing_asset(
         # Since we've already split the agreements into pages, we can just fetch the pages
         while True:
             with engine.begin() as conn:
-                # Fetch pages that are missing derived outputs (processed text or page type).
+                # Identify agreements with missing derived outputs, then fetch all pages for
+                # those agreements so the CRF and review model always see the full sequence.
                 # Use UNION to split OR for index-friendly execution.
                 result = conn.execute(
                     text(
@@ -167,10 +177,17 @@ def pre_processing_asset(
                         FROM {pages_table}
                         WHERE agreement_uuid > :last_uuid AND source_page_type IS NULL
                     ),
+                    batch_c AS (
+                        SELECT DISTINCT agreement_uuid
+                        FROM {pages_table}
+                        WHERE agreement_uuid > :last_uuid AND review_flag IS NULL
+                    ),
                     agreement_batch AS (
                         (SELECT agreement_uuid FROM batch_a)
                         UNION
                         (SELECT agreement_uuid FROM batch_b)
+                        UNION
+                        (SELECT agreement_uuid FROM batch_c)
                         ORDER BY 1
                         LIMIT :batch_size
                     )
@@ -183,7 +200,6 @@ def pre_processing_asset(
                         p.source_is_html
                     FROM {pages_table} p
                     WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM agreement_batch)
-                      AND (p.processed_page_content IS NULL OR p.source_page_type IS NULL)
                     ORDER BY p.page_order, p.page_uuid
                     """
                     ),
@@ -212,7 +228,7 @@ def pre_processing_asset(
                     )
                     for r in rows
                 ]
-                staged_pages = cleanup(pages, inference_model)
+                staged_pages = cleanup(pages, inference_model, review_inference_model)
 
                 if staged_pages:
                     try:

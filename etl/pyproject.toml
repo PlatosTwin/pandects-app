@@ -22,6 +22,7 @@ dependencies = [
     "voyageai>=0.3",
     "optuna>=4.4",
     "optuna-integration[pytorch_lightning]>=4.4",
+    "sklearn-crfsuite>=0.5",
     "tensorboard>=2.20",
     "huggingface-hub>=0.34",
     "mysqlclient>=2.2",
@@ -49,4 +50,3 @@ root_module = "etl"
 registry_modules = [
     "etl.components.*",
 ]
-
