@@ -8,6 +8,9 @@ from typing import Any
 from datetime import date
 from xml.parsers.expat import ExpatError
 
+from etl.domain.g_sections import clean_article_title
+from etl.domain.g_sections import clean_section_title
+
 
 @dataclass
 class XMLData:
@@ -31,9 +34,27 @@ def get_uuid(x: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, x))
 
 
+def make_section_uuid(
+    agreement_uuid: str,
+    article_title_normed: str | None,
+    section_title_normed: str | None,
+    article_order: int | None,
+    section_order: int | None,
+) -> str:
+    parts = [
+        agreement_uuid,
+        article_title_normed or "",
+        section_title_normed or "",
+        str(-1 if article_order is None else article_order),
+        str(-1 if section_order is None else section_order),
+    ]
+    return get_uuid("\x1f".join(parts))
+
+
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
 SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
 ARTICLE_TAG_RE = re.compile(r"<article\b")
+INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
 
 
 def strip_subsection_section_tags(tagged_text: str) -> str:
@@ -59,6 +80,19 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
 def count_article_tags(tagged_text: str) -> int:
     """Count <article> tags in tagged text."""
     return len(ARTICLE_TAG_RE.findall(tagged_text))
+
+
+def _iter_line_fragments(text_block: str) -> list[str]:
+    fragments: list[str] = []
+    for line in text_block.splitlines():
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+        parts = INLINE_MARKER_RE.split(stripped_line)
+        for part in parts:
+            if part and part.strip():
+                fragments.append(part.strip())
+    return fragments
 
 
 def convert_to_xml(
@@ -164,20 +198,17 @@ def convert_to_xml(
             re.IGNORECASE | re.VERBOSE,
         )
 
-        for line in text_block.splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
+        for stripped in _iter_line_fragments(text_block):
 
             # 1) <pageUUID>
-            if "<pageUUID>" in stripped and "</pageUUID>" in stripped:
-                m_uuid = re.search(r"<pageUUID>(.*?)</pageUUID>", stripped)
+            if re.fullmatch(r"<pageUUID>.*?</pageUUID>", stripped, re.DOTALL):
+                m_uuid = re.search(r"<pageUUID>(.*?)</pageUUID>", stripped, re.DOTALL)
                 pu = ET.SubElement(parent, "pageUUID")
                 pu.text = m_uuid.group(1).strip() if m_uuid else stripped
 
             # 2) <page>…</page>
-            elif "<page>" in stripped and "</page>" in stripped:
-                m_page = re.search(r"<page>(.*?)</page>", stripped)
+            elif re.fullmatch(r"<page>.*?</page>", stripped, re.DOTALL):
+                m_page = re.search(r"<page>(.*?)</page>", stripped, re.DOTALL)
                 p = ET.SubElement(parent, "page")
                 p.text = m_page.group(1).strip() if m_page else stripped
 
@@ -223,6 +254,7 @@ def convert_to_xml(
 
         if tag == "article":
             article_count += 1
+            article_title_normed = clean_article_title(title)
 
             article_attrs = {
                 "title": title,
@@ -243,9 +275,21 @@ def convert_to_xml(
             container = current_article if current_article is not None else body
 
             section_count += 1
+            article_title_normed = (
+                clean_article_title(current_article.attrib.get("title", ""))
+                if current_article is not None
+                else ""
+            )
+            section_title_normed = clean_section_title(title)
             section_attrs = {
                 "title": title,
-                "uuid": get_uuid(agreement_uuid + title + str(section_count)),
+                "uuid": make_section_uuid(
+                    agreement_uuid,
+                    article_title_normed,
+                    section_title_normed,
+                    article_count if current_article is not None else None,
+                    section_count,
+                ),
                 "order": str(section_count),
                 "standardId": "<placeholder>",
             }
@@ -383,16 +427,13 @@ def generate_xml(
             re.IGNORECASE | re.VERBOSE,
         )
 
-        for line in text_block.splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if "<pageUUID>" in stripped and "</pageUUID>" in stripped:
-                m_uuid = re.search(r"<pageUUID>(.*?)</pageUUID>", stripped)
+        for stripped in _iter_line_fragments(text_block):
+            if re.fullmatch(r"<pageUUID>.*?</pageUUID>", stripped, re.DOTALL):
+                m_uuid = re.search(r"<pageUUID>(.*?)</pageUUID>", stripped, re.DOTALL)
                 pu = ET.SubElement(parent, "pageUUID")
                 pu.text = m_uuid.group(1).strip() if m_uuid else stripped
-            elif "<page>" in stripped and "</page>" in stripped:
-                m_page = re.search(r"<page>(.*?)</page>", stripped)
+            elif re.fullmatch(r"<page>.*?</page>", stripped, re.DOTALL):
+                m_page = re.search(r"<page>(.*?)</page>", stripped, re.DOTALL)
                 p = ET.SubElement(parent, "page")
                 p.text = m_page.group(1).strip() if m_page else stripped
             elif definition_re_a.match(stripped) or definition_re_b.match(stripped):
