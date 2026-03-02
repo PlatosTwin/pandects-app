@@ -694,6 +694,7 @@ def _build_agreement_level_metrics(
     exact_match_count = 0
     any_error_count = 0
     one_page_error_count = 0
+    body_involved_error_agreement_count = 0
     total_page_errors = 0
     error_distribution: dict[str, int] = {}
     agreement_summaries: list[dict[str, object]] = []
@@ -701,10 +702,20 @@ def _build_agreement_level_metrics(
     for document, true_labels, predicted_labels in zip(documents, y_true, y_pred, strict=True):
         if len(true_labels) != len(predicted_labels):
             raise ValueError("Predicted and true label sequences must align by page.")
-        page_error_count = sum(
-            true_label != predicted_label
-            for true_label, predicted_label in zip(true_labels, predicted_labels, strict=True)
-        )
+        page_error_count = 0
+        body_involved_page_error_count = 0
+        body_false_negative_count = 0
+        body_false_positive_count = 0
+        for true_label, predicted_label in zip(true_labels, predicted_labels, strict=True):
+            if true_label == predicted_label:
+                continue
+            page_error_count += 1
+            if true_label == "body" or predicted_label == "body":
+                body_involved_page_error_count += 1
+                if true_label == "body":
+                    body_false_negative_count += 1
+                if predicted_label == "body":
+                    body_false_positive_count += 1
         total_page_errors += page_error_count
         error_distribution[str(page_error_count)] = error_distribution.get(str(page_error_count), 0) + 1
         if page_error_count == 0:
@@ -713,12 +724,18 @@ def _build_agreement_level_metrics(
             any_error_count += 1
         if page_error_count == 1:
             one_page_error_count += 1
+        if body_involved_page_error_count > 0:
+            body_involved_error_agreement_count += 1
         agreement_summaries.append(
             {
                 "agreement_uuid": document.agreement_uuid,
                 "page_count": len(true_labels),
                 "page_error_count": page_error_count,
                 "exact_match": page_error_count == 0,
+                "body_involved_page_error_count": body_involved_page_error_count,
+                "has_body_involved_page_error": body_involved_page_error_count > 0,
+                "body_false_negative_count": body_false_negative_count,
+                "body_false_positive_count": body_false_positive_count,
             }
         )
 
@@ -748,14 +765,75 @@ def _build_agreement_level_metrics(
             if evaluated_agreement_count > 0
             else 0.0
         ),
+        "agreements_with_body_involved_page_error_count": body_involved_error_agreement_count,
+        "agreements_with_body_involved_page_error_rate": (
+            float(body_involved_error_agreement_count) / float(evaluated_agreement_count)
+            if evaluated_agreement_count > 0
+            else 0.0
+        ),
+        "error_agreements_with_body_involved_page_error_count": body_involved_error_agreement_count,
+        "error_agreements_with_body_involved_page_error_rate": (
+            float(body_involved_error_agreement_count) / float(any_error_count)
+            if any_error_count > 0
+            else 0.0
+        ),
         "mean_page_errors_per_agreement": mean_page_errors,
         "agreement_page_error_distribution": error_distribution,
         "agreement_summaries": sorted(
             agreement_summaries,
             key=lambda summary: (
                 -cast(int, summary["page_error_count"]),
+                -cast(int, summary["body_involved_page_error_count"]),
                 cast(str, summary["agreement_uuid"]),
             ),
+        ),
+    }
+
+
+def _build_body_involved_error_metrics(
+    y_true_flat: list[str],
+    y_pred_flat: list[str],
+) -> dict[str, object]:
+    if len(y_true_flat) != len(y_pred_flat):
+        raise ValueError("Body-involved error metrics inputs must have matching lengths.")
+
+    total_page_errors = 0
+    body_involved_page_errors = 0
+    body_false_negative_count = 0
+    body_false_positive_count = 0
+    pair_breakdown: dict[str, int] = {}
+
+    for true_label, predicted_label in zip(y_true_flat, y_pred_flat, strict=True):
+        if true_label == predicted_label:
+            continue
+        total_page_errors += 1
+        if true_label != "body" and predicted_label != "body":
+            continue
+
+        body_involved_page_errors += 1
+        if true_label == "body":
+            body_false_negative_count += 1
+        if predicted_label == "body":
+            body_false_positive_count += 1
+        pair_key = f"{true_label}->{predicted_label}"
+        pair_breakdown[pair_key] = pair_breakdown.get(pair_key, 0) + 1
+
+    return {
+        "body_involved_page_error_count": body_involved_page_errors,
+        "body_involved_page_error_rate": (
+            float(body_involved_page_errors) / float(total_page_errors)
+            if total_page_errors > 0
+            else 0.0
+        ),
+        "body_false_negative_count": body_false_negative_count,
+        "body_false_positive_count": body_false_positive_count,
+        "body_to_non_body_count": body_false_negative_count,
+        "non_body_to_body_count": body_false_positive_count,
+        "pair_breakdown": dict(
+            sorted(
+                pair_breakdown.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
         ),
     }
 
@@ -1329,6 +1407,7 @@ def _run_crf_experiment(
         if y_eval_flat
         else 0.0
     )
+    body_involved_error_metrics = _build_body_involved_error_metrics(y_eval_flat, y_pred_flat)
     agreement_level_metrics = _build_agreement_level_metrics(eval_documents, y_eval, y_pred)
     report_text = (
         report_text
@@ -1340,6 +1419,9 @@ def _run_crf_experiment(
         + f" / {agreement_level_metrics['evaluated_agreement_count']}\n"
         + "agreements_with_exactly_one_page_error: "
         + f"{agreement_level_metrics['one_page_error_agreement_count']}"
+        + f" / {agreement_level_metrics['evaluated_agreement_count']}\n"
+        + "agreements_with_any_body_involved_page_error: "
+        + f"{agreement_level_metrics['agreements_with_body_involved_page_error_count']}"
         + f" / {agreement_level_metrics['evaluated_agreement_count']}\n"
     )
     metrics_payload: dict[str, object] = {
@@ -1360,6 +1442,7 @@ def _run_crf_experiment(
             "labels": PAGE_LABELS,
             "matrix": confusion.tolist(),
         },
+        "body_involved_errors": body_involved_error_metrics,
         "split_meta": split_manifest["meta"],
         "split_counts": split_manifest["details"]["split_counts"],
         "agreement_level": agreement_level_metrics,
