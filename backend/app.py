@@ -2523,8 +2523,9 @@ else:
         metadata,
         Column("agreement_uuid", CHAR(36), primary_key=True),
         Column("xml", TEXT, nullable=True),
-        Column("version", Integer, nullable=True),
+        Column("version", Integer, primary_key=True, nullable=True),
         Column("status", TEXT, nullable=True),
+        Column("latest", Integer, nullable=False, default=0),
         schema=_MAIN_SCHEMA_TOKEN,
     )
     taxonomy_l1_table = Table(
@@ -2577,6 +2578,7 @@ else:
         Column("xml_content", TEXT, nullable=False),
         Column("section_standard_id", TEXT, nullable=False),
         Column("section_standard_id_gold_label", TEXT, nullable=True),
+        Column("xml_version", Integer, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
 
@@ -2591,6 +2593,7 @@ class Sections(db.Model):
     xml_content: ClassVar[Mapped[str]]
     section_standard_id: ClassVar[Mapped[str]]
     section_standard_id_gold_label: ClassVar[Mapped[str | None]]
+    xml_version: ClassVar[Mapped[int | None]]
 
 
 class Agreements(db.Model):
@@ -2634,6 +2637,7 @@ class XML(db.Model):
     xml: ClassVar[Mapped[str | None]]
     version: ClassVar[Mapped[int | None]]
     status: ClassVar[Mapped[str | None]]
+    latest: ClassVar[Mapped[int]]
 
 
 class TaxonomyL1(db.Model):
@@ -2685,48 +2689,19 @@ def _agreement_year_expr():
     return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
 
 
-def _xml_eligible_latest_subquery():
-    """
-    Returns subquery (agreement_uuid, version) for XML rows that are
-    latest per agreement and have pdx.xml.status IS NULL OR status = 'verified'.
-    """
-    status_ok = or_(XML.status.is_(None), XML.status == "verified")
-    max_version_sq = (
-        db.session.query(
-            XML.agreement_uuid,
-            func.max(XML.version).label("max_version"),
-        )
-        .filter(status_ok)
-        .group_by(XML.agreement_uuid)
-        .subquery()
-    )
-    return (
-        db.session.query(
-            XML.agreement_uuid.label("agreement_uuid"),
-            XML.version.label("version"),
-        )
-        .join(
-            max_version_sq,
-            and_(
-                XML.agreement_uuid == max_version_sq.c.agreement_uuid,
-                XML.version == max_version_sq.c.max_version,
-            ),
-        )
-        .filter(status_ok)
-        .subquery()
-    )
+def _xml_latest_ok_filter():
+    return and_(XML.latest == 1, or_(XML.status.is_(None), XML.status == "verified"))
 
 
-def _xml_agreements_subquery():
-    """
-    Returns subquery of agreement_uuids that have eligible XML
-    (latest version, pdx.xml.status IS NULL OR status = 'verified').
-    """
-    eligible = _xml_eligible_latest_subquery()
-    return (
-        db.session.query(eligible.c.agreement_uuid.distinct().label("agreement_uuid"))
-        .select_from(eligible)
-        .subquery()
+def _agreement_latest_xml_join_condition():
+    return and_(Agreements.agreement_uuid == XML.agreement_uuid, _xml_latest_ok_filter())
+
+
+def _section_latest_xml_join_condition():
+    return and_(
+        Sections.agreement_uuid == XML.agreement_uuid,
+        Sections.xml_version == XML.version,
+        _xml_latest_ok_filter(),
     )
 
 
@@ -2734,19 +2709,18 @@ def _is_agreement_section_eligible(  # pyright: ignore[reportUnusedFunction]
     agreement_uuid: str, section_uuid: str | None
 ) -> bool:
     """True iff agreement has pdx.xml status null/verified and (if section_uuid) section exists."""
-    xml_agreements = _xml_agreements_subquery()
     if not section_uuid:
         return (
-            db.session.query(xml_agreements.c.agreement_uuid)
-            .filter(xml_agreements.c.agreement_uuid == agreement_uuid)
+            db.session.query(XML.agreement_uuid)
+            .filter(XML.agreement_uuid == agreement_uuid, _xml_latest_ok_filter())
             .first()
             is not None
         )
     return (
         db.session.query(Sections.section_uuid)
         .join(
-            xml_agreements,
-            Sections.agreement_uuid == xml_agreements.c.agreement_uuid,
+            XML,
+            _section_latest_xml_join_condition(),
         )
         .filter(
             Sections.agreement_uuid == agreement_uuid,
@@ -3849,20 +3823,13 @@ class AgreementsListResource(MethodView):
             Agreements.acquirer_pe.label("acquirer_pe"),
             Agreements.url.label("url"),
         ]
-        eligible = _xml_eligible_latest_subquery()
         q = (
             db.session.query(*item_columns)
-            .join(eligible, Agreements.agreement_uuid == eligible.c.agreement_uuid)
+            .join(XML, _agreement_latest_xml_join_condition())
         )
 
         if include_xml:
-            q = q.add_columns(XML.xml.label("xml")).join(
-                XML,
-                and_(
-                    XML.agreement_uuid == eligible.c.agreement_uuid,
-                    XML.version == eligible.c.version,
-                ),
-            )
+            q = q.add_columns(XML.xml.label("xml"))
 
         if years:
             year_filters = tuple(
@@ -3948,6 +3915,7 @@ class AgreementsListResource(MethodView):
                 .filter(
                     Sections.agreement_uuid == Agreements.agreement_uuid,
                     Sections.section_uuid == section_uuid.strip(),
+                    Sections.xml_version == XML.version,
                 )
                 .exists()
             )
@@ -4058,7 +4026,6 @@ class AgreementResource(MethodView):
 
         # Only serve agreements with pdx.xml status null or 'verified' (latest version).
         year_expr = _agreement_year_expr().label("year")
-        eligible = _xml_eligible_latest_subquery()
         row = (
             db.session.query(
                 year_expr,
@@ -4090,14 +4057,7 @@ class AgreementResource(MethodView):
                 Agreements.url,
                 XML.xml,
             )
-            .join(eligible, Agreements.agreement_uuid == eligible.c.agreement_uuid)
-            .join(
-                XML,
-                and_(
-                    XML.agreement_uuid == eligible.c.agreement_uuid,
-                    XML.version == eligible.c.version,
-                ),
-            )
+            .join(XML, _agreement_latest_xml_join_condition())
             .filter(Agreements.agreement_uuid == agreement_uuid)
             .first()
         )
@@ -4177,7 +4137,6 @@ class SectionResource(MethodView):
         section_standard_ids_expr = _coalesced_section_standard_ids().label(
             "section_standard_ids"
         )
-        xml_agreements = _xml_agreements_subquery()
         row = (
             db.session.query(
                 section_cols["agreement_uuid"].label("agreement_uuid"),
@@ -4188,8 +4147,8 @@ class SectionResource(MethodView):
                 section_cols["section_title"].label("section_title"),
             )
             .join(
-                xml_agreements,
-                section_cols["agreement_uuid"] == xml_agreements.c.agreement_uuid,
+                XML,
+                _section_latest_xml_join_condition(),
             )
             .filter(section_cols["section_uuid"] == section_uuid)
             .first()
@@ -4248,7 +4207,6 @@ def get_agreements_index() -> dict[str, object]:
     sort_direction = sort_dir.lower()
     order_by = sort_column.desc() if sort_direction == "desc" else sort_column.asc()
 
-    xml_agreements = _xml_agreements_subquery()
     q = (
         db.session.query(
             Agreements.agreement_uuid,
@@ -4257,18 +4215,12 @@ def get_agreements_index() -> dict[str, object]:
             Agreements.acquirer,
             Agreements.verified,
         )
-        .join(
-            xml_agreements,
-            Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
-        )
+        .join(XML, _agreement_latest_xml_join_condition())
     )
     count_q = (
-        db.session.query(func.count(xml_agreements.c.agreement_uuid))
+        db.session.query(func.count(Agreements.agreement_uuid))
         .select_from(Agreements)
-        .join(
-            xml_agreements,
-            Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
-        )
+        .join(XML, _agreement_latest_xml_join_condition())
     )
 
     if query:
@@ -4773,7 +4725,6 @@ class SearchResource(MethodView):
         # Build a lightweight base query for filtering, counting, and sorting.
         # Section text and taxonomy payload are fetched in a second query for
         # only the paged section UUIDs.
-        xml_agreements = _xml_agreements_subquery()
         q = (
             db.session.query(
                 Sections.section_uuid.label("section_uuid"),
@@ -4785,8 +4736,8 @@ class SearchResource(MethodView):
             )
             .join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
             .join(
-                xml_agreements,
-                Agreements.agreement_uuid == xml_agreements.c.agreement_uuid,
+                XML,
+                _section_latest_xml_join_condition(),
             )
         )
 

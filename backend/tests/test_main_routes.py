@@ -62,26 +62,37 @@ class MainRoutesTests(unittest.TestCase):
                         "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
                         "'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
                         "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
-                        "'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1)"
+                        "'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
+                        "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
+                        "'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
                     )
                 )
                 conn.execute(
                     text(
-                        "INSERT INTO xml (agreement_uuid, xml, version, status) VALUES "
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a1', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>STALE</text></section>"
+                        "</article></document>', 1, NULL, 0), "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
-                        "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>HIDE</text></section>"
-                        "</article></document>', 1, NULL), "
-                        "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified'), "
-                        "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified')"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>HIDE</text></section>"
+                        "</article></document>', 2, NULL, 1), "
+                        "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified', 1), "
+                        "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000042\"><text>LATEST INVALID</text></section></article></document>', 2, 'invalid', 1)"
                     )
                 )
                 conn.execute(
                     text(
                         "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
-                        "xml_content, section_standard_id) VALUES "
+                        "xml_content, section_standard_id, xml_version) VALUES "
                         "('a1', '00000000-0000-0000-0000-000000000001', "
-                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]')"
+                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]', 2), "
+                        "('a1', '00000000-0000-0000-0000-000000000002', "
+                        "'ARTICLE I', 'Old Section', '<section>STALE</section>', '[\"s-old\"]', 1), "
+                        "('a4', '00000000-0000-0000-0000-000000000041', "
+                        "'ARTICLE I', 'Old Verified Section', '<section>OLD VERIFIED</section>', '[\"s4-old\"]', 1)"
                     )
                 )
                 conn.execute(
@@ -209,6 +220,24 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("agreement_uuid"), "a1")
 
+    def test_agreements_bulk_section_uuid_filter_excludes_stale_section(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/agreements?section_uuid=00000000-0000-0000-0000-000000000002&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("results", []), [])
+
+    def test_agreements_bulk_section_uuid_filter_excludes_old_verified_when_latest_invalid(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/agreements?section_uuid=00000000-0000-0000-0000-000000000041&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("results", []), [])
+
     def test_agreements_bulk_rejects_standard_id_filter(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements?standard_id=s1")
@@ -230,6 +259,22 @@ class MainRoutesTests(unittest.TestCase):
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
         self.assertEqual(len(body.get("results", [])), 1)
+
+    def test_search_excludes_stale_section_versions(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search?standard_id=s-old&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 0)
+        self.assertEqual(body.get("results", []), [])
+
+    def test_search_excludes_old_verified_when_latest_xml_is_invalid(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search?standard_id=s4-old&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 0)
+        self.assertEqual(body.get("results", []), [])
 
     def test_search_with_requested_metadata(self):
         client = self.app.test_client()
@@ -256,6 +301,21 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("section_uuid"), section_uuid)
         self.assertEqual(body.get("section_standard_id"), ["s1"])
         self.assertNotIn("articleStandardId", body)
+
+    def test_get_section_by_uuid_rejects_stale_version(self):
+        client = self.app.test_client()
+        res = client.get("/v1/sections/00000000-0000-0000-0000-000000000002")
+        self.assertEqual(res.status_code, 404)
+
+    def test_get_section_by_uuid_rejects_old_verified_when_latest_xml_is_invalid(self):
+        client = self.app.test_client()
+        res = client.get("/v1/sections/00000000-0000-0000-0000-000000000041")
+        self.assertEqual(res.status_code, 404)
+
+    def test_get_agreement_rejects_old_verified_when_latest_xml_is_invalid(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements/a4")
+        self.assertEqual(res.status_code, 404)
 
     def test_agreement_redaction_for_anonymous(self):
         client = self.app.test_client()
