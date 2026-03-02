@@ -1,6 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useRef } from "react";
-import SiteBanner from "@/components/SiteBanner";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { applySeoForPath } from "@/lib/seo";
@@ -75,7 +74,6 @@ export function AppLayout() {
       >
         Skip to content
       </a>
-      <SiteBanner />
       <Navigation />
       <main
         id="main-content"
