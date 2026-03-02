@@ -38,6 +38,7 @@ from etl.utils.openai_batch import (
     poll_batch_until_terminal,
     read_openai_file_text,
 )
+from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import is_batched
 from etl.utils.schema_guards import assert_tables_exist
@@ -145,13 +146,14 @@ def _apply_offline_batch_output(
     context: AssetExecutionContext,
     engine: Any,
     client: OpenAI,
+    schema: str,
     agreements_table: str,
     batch: Any,
-) -> Tuple[int, int]:
+) -> Tuple[int, int, list[str]]:
     ofid = getattr(batch, "output_file_id", None)
     if not ofid:
         context.log.warning("tx_metadata_asset (offline): batch has no output_file_id.")
-        return 0, 0
+        return 0, 0, []
 
     out_content = client.files.content(ofid)
     out_text = read_openai_file_text(out_content)
@@ -173,6 +175,7 @@ def _apply_offline_batch_output(
     )
     updated = 0
     parse_errors = 0
+    refreshed_uuids: list[str] = []
     for line_str in out_text.strip().splitlines():
         if not line_str.strip():
             continue
@@ -194,12 +197,15 @@ def _apply_offline_batch_output(
             parsed = parse_offline_tx_metadata_response_text(raw_text)
             params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
             with engine.begin() as conn:
-                conn.execute(update_offline_q, params)
+                result = conn.execute(update_offline_q, params)
+                if int(result.rowcount or 0) > 0:
+                    _ = refresh_latest_sections_search(conn, schema, [str(rid)])
+                    refreshed_uuids.append(str(rid))
             updated += 1
         except Exception as e:
             parse_errors += 1
             context.log.warning(f"tx_metadata_asset (offline): parse error for {rid}: {e}")
-    return updated, parse_errors
+    return updated, parse_errors, refreshed_uuids
 
 
 @dg.asset(deps=[], name="8_tx_metadata_asset")
@@ -233,6 +239,7 @@ def tx_metadata_asset(
     else:
         _run_web_search_mode(
             context, engine,
+            schema,
             agreements_table, batch_size,
         )
 
@@ -287,17 +294,22 @@ def _run_offline_mode(
                 _mark_offline_batch_applied(conn, schema, batch.id)
             return
 
-        updated, parse_errors = _apply_offline_batch_output(
+        updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
             context=context,
             engine=engine,
             client=client,
+            schema=schema,
             agreements_table=agreements_table,
             batch=batch,
         )
         with engine.begin() as conn:
             _mark_offline_batch_applied(conn, schema, batch.id)
         context.log.info(
-            f"tx_metadata_asset (offline): resumed batch {batch.id} completed; updated={updated}, parse_errors={parse_errors}"
+            "tx_metadata_asset (offline): resumed batch %s completed; updated=%s, parse_errors=%s, refreshed_latest_sections_search=%s",
+            batch.id,
+            updated,
+            parse_errors,
+            len(refreshed_uuids),
         )
         return
 
@@ -436,10 +448,11 @@ def _run_offline_mode(
             _mark_offline_batch_applied(conn, schema, final_batch.id)
         return
 
-    updated, parse_errors = _apply_offline_batch_output(
+    updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
         context=context,
         engine=engine,
         client=client,
+        schema=schema,
         agreements_table=agreements_table,
         batch=final_batch,
     )
@@ -447,13 +460,18 @@ def _run_offline_mode(
         _mark_offline_batch_applied(conn, schema, final_batch.id)
 
     context.log.info(
-        f"tx_metadata_asset (offline): batch {final_batch.id} completed; updated={updated}, parse_errors={parse_errors}"
+        "tx_metadata_asset (offline): batch %s completed; updated=%s, parse_errors=%s, refreshed_latest_sections_search=%s",
+        final_batch.id,
+        updated,
+        parse_errors,
+        len(refreshed_uuids),
     )
 
 
 def _run_web_search_mode(
     context: AssetExecutionContext,
     engine: Any,
+    schema: str,
     agreements_table: str,
     batch_size: int,
 ) -> None:
@@ -544,23 +562,28 @@ def _run_web_search_mode(
     )
     updated = 0
     skipped_due_to_error = 0
+    refreshed_uuids: list[str] = []
     for uuid, obj in success_data:
         try:
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid, tx_metadata_obj=obj
             )
             with engine.begin() as conn:
-                conn.execute(update_web_q, params)
+                result = conn.execute(update_web_q, params)
+                if int(result.rowcount or 0) > 0:
+                    _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
+                    refreshed_uuids.append(str(uuid))
             updated += 1
         except Exception as e:
             skipped_due_to_error += 1
             context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
 
     context.log.info(
-        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s",
+        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s",
         attempted,
         len(success_data),
         updated,
         parse_errors,
         skipped_due_to_error,
+        len(refreshed_uuids),
     )
