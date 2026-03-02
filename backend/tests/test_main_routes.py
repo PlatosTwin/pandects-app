@@ -97,6 +97,24 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target A', 'Acquirer A', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
                         "CREATE TABLE IF NOT EXISTS agreement_deal_type_summary ("
                         "year INTEGER NOT NULL, deal_type TEXT NOT NULL, count INTEGER NOT NULL)"
                     )
@@ -249,6 +267,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
+        self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
 
@@ -258,7 +277,70 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
+        self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(len(body.get("results", [])), 1)
+
+    def test_search_marks_total_count_as_approximate_when_more_pages_exist(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, purpose, target_pe, acquirer_pe) "
+                        "VALUES "
+                        "('a5', '2024-01-01', 'Target E', 'Acquirer E', 1, 'http://example.com/a5', 'merger', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0)"
+                    )
+                )
+                for idx in range(10):
+                    section_uuid = f"00000000-0000-0000-0000-0000000001{idx:02d}"
+                    conn.execute(
+                        text(
+                            "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                            "xml_content, section_standard_id, xml_version) VALUES "
+                            "(:agreement_uuid, :section_uuid, 'ARTICLE I', :section_title, :xml_content, '[\"s5\"]', 1)"
+                        ),
+                        {
+                            "agreement_uuid": "a5",
+                            "section_uuid": section_uuid,
+                            "section_title": f"Section {idx + 10}",
+                            "xml_content": f"<section>EXTRA {idx}</section>",
+                        },
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO latest_sections_search ("
+                            "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                            "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                            "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                            "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                            "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                            "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                            "section_standard_ids, article_title, section_title"
+                            ") VALUES ("
+                            ":section_uuid, 'a5', '2024-01-01', NULL, NULL, NULL, "
+                            "NULL, NULL, 'Target E', 'Acquirer E', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                            "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                            "'strategic', 0, 0, 1, 'http://example.com/a5', '[\"s5\"]', 'ARTICLE I', :section_title"
+                            ")"
+                        ),
+                        {
+                            "section_uuid": section_uuid,
+                            "section_title": f"Section {idx + 10}",
+                        },
+                    )
+
+        client = self.app.test_client()
+        res = client.get("/v1/search?year=2024&page=1&page_size=5")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(len(body.get("results", [])), 5)
+        self.assertTrue(body.get("has_next"))
+        self.assertTrue(body.get("total_count_is_approximate"))
+        self.assertGreaterEqual(body.get("total_count"), 6)
+        self.assertGreaterEqual(body.get("total_pages"), 2)
 
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()

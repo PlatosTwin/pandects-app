@@ -61,7 +61,10 @@ export default function Search() {
     selectedResults,
     hasSearched,
     total_count,
+    totalCountIsApproximate,
     total_pages,
+    has_next,
+    has_prev,
     currentSort,
     currentPage,
     page_size,
@@ -719,6 +722,9 @@ export default function Search() {
                         totalPages={total_pages}
                         pageSize={page_size}
                         totalCount={total_count}
+                        totalCountIsApproximate={totalCountIsApproximate}
+                        hasNext={has_next}
+                        hasPrev={has_prev}
                         onPageChange={(page) =>
                           trackingActions.goToPage(page)
                         }
@@ -789,6 +795,9 @@ export default function Search() {
                         totalPages={total_pages}
                         pageSize={page_size}
                         totalCount={total_count}
+                        totalCountIsApproximate={totalCountIsApproximate}
+                        hasNext={has_next}
+                        hasPrev={has_prev}
                         onPageChange={(page) =>
                           trackingActions.goToPage(page)
                         }

@@ -54,6 +54,7 @@ export interface SearchResponse {
     message?: string | null;
   };
   total_count: number;
+  total_count_is_approximate: boolean;
   page: number;
   page_size: number;
   total_pages: number;

@@ -28,6 +28,7 @@ from etl.utils.openai_batch import (
     read_openai_file_text,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import (
     canonical_fresh_xml_build_queue_sql,
     canonical_fresh_xml_verify_queue_sql,
@@ -847,8 +848,15 @@ def xml_asset(
                     ).bindparams(bindparam("uuids", expanding=True)),
                     {"uuids": generated_agreement_uuids},
                 )
+                refreshed = refresh_latest_sections_search(
+                    conn,
+                    db.database,
+                    generated_agreement_uuids,
+                )
                 context.log.info(
-                    f"Successfully generated XML for {len(generated_agreement_uuids)} agreements"
+                    "Successfully generated XML for %s agreements; refreshed latest_sections_search rows=%s",
+                    len(generated_agreement_uuids),
+                    refreshed,
                 )
             except Exception as e:
                 context.log.error(f"Error upserting XML: {e}")

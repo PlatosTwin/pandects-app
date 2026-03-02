@@ -12,6 +12,7 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.utils.db_utils import upsert_sections
 from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
 from etl.utils.run_config import is_batched
 from etl.utils.run_config import ensure_batched_scope
@@ -117,6 +118,14 @@ def _run_sections_for_agreements(
                     log_prefix,
                     len(staged),
                     len(rows),
+                )
+            if rows:
+                refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
+                context.log.info(
+                    "%s: refreshed latest_sections_search for %s agreements (%s rows).",
+                    log_prefix,
+                    len(agreement_uuids),
+                    refreshed,
                 )
 
             if use_scope:

@@ -73,6 +73,7 @@ export function useSearch() {
   );
   const [hasSearched, setHasSearched] = useState(false);
   const [total_count, setTotalCount] = useState(0);
+  const [totalCountIsApproximate, setTotalCountIsApproximate] = useState(false);
   const [total_pages, setTotalPages] = useState(0);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -236,6 +237,7 @@ export function useSearch() {
         searchResultsRef.current = sortedResults;
         setAccess(searchResponse.access);
         setTotalCount(searchResponse.total_count);
+        setTotalCountIsApproximate(searchResponse.total_count_is_approximate);
         setTotalPages(searchResponse.total_pages);
         setHasNext(searchResponse.has_next);
         setHasPrev(searchResponse.has_prev);
@@ -255,6 +257,7 @@ export function useSearch() {
         setSearchResults([]);
         searchResultsRef.current = [];
         setTotalCount(0);
+        setTotalCountIsApproximate(false);
         setTotalPages(0);
 
         // Check if it's a network error
@@ -459,6 +462,7 @@ export function useSearch() {
     setSelectedResults(new Set());
     setHasSearched(false);
     setTotalCount(0);
+    setTotalCountIsApproximate(false);
     setTotalPages(0);
     setHasNext(false);
     setHasPrev(false);
@@ -559,7 +563,10 @@ export function useSearch() {
     hasSearched,
     access,
     total_count,
+    totalCountIsApproximate,
     total_pages,
+    has_next,
+    has_prev,
     currentSort,
     currentPage: filters.page || 1,
     page_size: filters.page_size || DEFAULT_PAGE_SIZE,

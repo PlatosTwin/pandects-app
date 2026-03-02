@@ -52,6 +52,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects import mysql as mysql_dialect
 from sqlalchemy.types import NullType
 from sqlalchemy.orm import Mapped
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.sql.elements import ColumnElement
 from dotenv import load_dotenv
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
@@ -1898,23 +1900,82 @@ def _load_query(schema: Schema) -> dict[str, object]:
     return cast(dict[str, object], loaded)
 
 
-def _pagination_metadata(*, total_count: int, page: int, page_size: int) -> dict[str, object]:
+def _pagination_metadata(
+    *,
+    total_count: int,
+    page: int,
+    page_size: int,
+    has_next_override: bool | None = None,
+    total_count_is_approximate: bool = False,
+) -> dict[str, object]:
     """Build standard pagination dict for list responses."""
     total_pages = math.ceil(total_count / page_size) if total_count else 0
+    if total_count and page > total_pages:
+        total_pages = page
+    if has_next_override and total_pages <= page:
+        total_pages = page + 1
     has_prev = page > 1
-    has_next = page < total_pages
+    has_next = has_next_override if has_next_override is not None else page < total_pages
     prev_num = page - 1 if has_prev else None
     next_num = page + 1 if has_next else None
     return {
         "page": page,
         "page_size": page_size,
         "total_count": total_count,
+        "total_count_is_approximate": total_count_is_approximate,
         "total_pages": total_pages,
         "has_next": has_next,
         "has_prev": has_prev,
         "next_num": next_num,
         "prev_num": prev_num,
     }
+
+
+def _estimated_query_row_count(query: object) -> int | None:
+    bind = db.session.get_bind()
+    if bind is None or bind.dialect.name == "sqlite":
+        return None
+    try:
+        selectable = cast(Any, query).order_by(None).statement
+        compiled = selectable.compile(
+            dialect=bind.dialect,
+            compile_kwargs={"literal_binds": True},
+        )
+        explain_rows = (
+            db.session.execute(text(f"EXPLAIN {compiled}"))
+            .mappings()
+            .all()
+        )
+    except SQLAlchemyError:
+        return None
+
+    max_rows = 0
+    for explain_row in explain_rows:
+        row_estimate = _to_int(explain_row.get("rows"))
+        if row_estimate > max_rows:
+            max_rows = row_estimate
+    return max_rows if max_rows > 0 else None
+
+
+def _search_total_count_metadata(
+    *,
+    query: object,
+    page: int,
+    page_size: int,
+    item_count: int,
+    has_next: bool,
+) -> tuple[int, bool]:
+    offset = (page - 1) * page_size
+    if item_count == 0 and offset == 0:
+        return 0, False
+    if not has_next and item_count > 0:
+        return offset + item_count, False
+
+    lower_bound = offset + item_count + (1 if has_next else 0)
+    estimated_count = _estimated_query_row_count(query)
+    if estimated_count is None:
+        return lower_bound, True
+    return max(lower_bound, estimated_count), True
 
 
 def _auth_enumeration_delay() -> None:
@@ -2479,6 +2540,12 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    latest_sections_search_table = Table(
+        "latest_sections_search",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -2581,6 +2648,43 @@ else:
         Column("xml_version", Integer, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    latest_sections_search_table = Table(
+        "latest_sections_search",
+        metadata,
+        Column("section_uuid", CHAR(36), primary_key=True),
+        Column("agreement_uuid", CHAR(36), nullable=False),
+        Column("filing_date", TEXT, nullable=True),
+        Column("prob_filing", TEXT, nullable=True),
+        Column("filing_company_name", TEXT, nullable=True),
+        Column("filing_company_cik", TEXT, nullable=True),
+        Column("form_type", TEXT, nullable=True),
+        Column("exhibit_type", TEXT, nullable=True),
+        Column("target", TEXT, nullable=True),
+        Column("acquirer", TEXT, nullable=True),
+        Column("transaction_price_total", TEXT, nullable=True),
+        Column("transaction_price_stock", TEXT, nullable=True),
+        Column("transaction_price_cash", TEXT, nullable=True),
+        Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_consideration", TEXT, nullable=True),
+        Column("target_type", TEXT, nullable=True),
+        Column("acquirer_type", TEXT, nullable=True),
+        Column("target_industry", TEXT, nullable=True),
+        Column("acquirer_industry", TEXT, nullable=True),
+        Column("announce_date", TEXT, nullable=True),
+        Column("close_date", TEXT, nullable=True),
+        Column("deal_status", TEXT, nullable=True),
+        Column("attitude", TEXT, nullable=True),
+        Column("deal_type", TEXT, nullable=True),
+        Column("purpose", TEXT, nullable=True),
+        Column("target_pe", Integer, nullable=True),
+        Column("acquirer_pe", Integer, nullable=True),
+        Column("verified", Integer, nullable=True),
+        Column("url", TEXT, nullable=True),
+        Column("section_standard_ids", TEXT, nullable=True),
+        Column("article_title", TEXT, nullable=True),
+        Column("section_title", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
 
 
 # ── SQLAlchemy models mapping ───────────────────────────────────────
@@ -2629,6 +2733,42 @@ class Agreements(db.Model):
     transaction_type: ClassVar[Mapped[str | None]]
     consideration_type: ClassVar[Mapped[str | None]]
     url: ClassVar[Mapped[str | None]]
+
+
+class LatestSectionsSearch(db.Model):
+    __table__ = latest_sections_search_table
+    section_uuid: ClassVar[Mapped[str]]
+    agreement_uuid: ClassVar[Mapped[str]]
+    filing_date: ClassVar[Mapped[str | None]]
+    prob_filing: ClassVar[Mapped[str | None]]
+    filing_company_name: ClassVar[Mapped[str | None]]
+    filing_company_cik: ClassVar[Mapped[str | None]]
+    form_type: ClassVar[Mapped[str | None]]
+    exhibit_type: ClassVar[Mapped[str | None]]
+    target: ClassVar[Mapped[str | None]]
+    acquirer: ClassVar[Mapped[str | None]]
+    transaction_price_total: ClassVar[Mapped[str | None]]
+    transaction_price_stock: ClassVar[Mapped[str | None]]
+    transaction_price_cash: ClassVar[Mapped[str | None]]
+    transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_consideration: ClassVar[Mapped[str | None]]
+    target_type: ClassVar[Mapped[str | None]]
+    acquirer_type: ClassVar[Mapped[str | None]]
+    target_industry: ClassVar[Mapped[str | None]]
+    acquirer_industry: ClassVar[Mapped[str | None]]
+    announce_date: ClassVar[Mapped[str | None]]
+    close_date: ClassVar[Mapped[str | None]]
+    deal_status: ClassVar[Mapped[str | None]]
+    attitude: ClassVar[Mapped[str | None]]
+    deal_type: ClassVar[Mapped[str | None]]
+    purpose: ClassVar[Mapped[str | None]]
+    target_pe: ClassVar[Mapped[int | None]]
+    acquirer_pe: ClassVar[Mapped[int | None]]
+    verified: ClassVar[Mapped[int | None]]
+    url: ClassVar[Mapped[str | None]]
+    section_standard_ids: ClassVar[Mapped[str | None]]
+    article_title: ClassVar[Mapped[str | None]]
+    section_title: ClassVar[Mapped[str | None]]
 
 
 class XML(db.Model):
@@ -2749,6 +2889,18 @@ def _parse_section_standard_ids(raw: object) -> list[str]:
     raise TypeError(f"Unsupported section_standard_id type: {type(raw)!r}")
 
 
+def _year_from_filing_date_value(raw: object) -> int | None:
+    if isinstance(raw, datetime):
+        return raw.year
+    if isinstance(raw, date):
+        return raw.year
+    if isinstance(raw, str):
+        raw_value = raw.strip()
+        if len(raw_value) >= 4 and raw_value[:4].isdigit():
+            return int(raw_value[:4])
+    return None
+
+
 def _expand_taxonomy_standard_ids(standard_ids: list[str]) -> list[str]:
     if not standard_ids:
         return []
@@ -2846,22 +2998,16 @@ def _standard_id_storage_candidates(expanded_standard_ids: list[str]) -> list[st
     return candidates
 
 
-def _standard_id_filter_expr(expanded_standard_ids: list[str]):
+def _standard_id_filter_expr(
+    standard_ids_col: InstrumentedAttribute[str | None] | ColumnElement[str | None],
+    expanded_standard_ids: list[str],
+) -> ColumnElement[bool]:
     """
-    Build an index-friendly clause-type predicate.
+    Build an index-friendly clause-type predicate for pre-coalesced values.
     Supports scalar IDs and legacy JSON single-item array storage.
     """
     candidates = _standard_id_storage_candidates(expanded_standard_ids)
-    gold_label_col = Sections.__table__.c.get("section_standard_id_gold_label")
-    if gold_label_col is None:
-        return Sections.section_standard_id.in_(candidates)
-    return or_(
-        gold_label_col.in_(candidates),
-        and_(
-            gold_label_col.is_(None),
-            Sections.section_standard_id.in_(candidates),
-        ),
-    )
+    return cast(ColumnElement[bool], standard_ids_col.in_(candidates))
 
 
 # ── Define search blueprint and schemas ──────────────────────────────────
@@ -2935,30 +3081,30 @@ _SEARCH_RESULT_METADATA_FIELDS = (
 )
 
 _SEARCH_RESULT_METADATA_COLUMN_BY_FIELD = {
-    "filing_date": Agreements.filing_date,
-    "prob_filing": Agreements.prob_filing,
-    "filing_company_name": Agreements.filing_company_name,
-    "filing_company_cik": Agreements.filing_company_cik,
-    "form_type": Agreements.form_type,
-    "exhibit_type": Agreements.exhibit_type,
-    "transaction_price_total": Agreements.transaction_price_total,
-    "transaction_price_stock": Agreements.transaction_price_stock,
-    "transaction_price_cash": Agreements.transaction_price_cash,
-    "transaction_price_assets": Agreements.transaction_price_assets,
-    "transaction_consideration": Agreements.transaction_consideration,
-    "target_type": Agreements.target_type,
-    "acquirer_type": Agreements.acquirer_type,
-    "target_industry": Agreements.target_industry,
-    "acquirer_industry": Agreements.acquirer_industry,
-    "announce_date": Agreements.announce_date,
-    "close_date": Agreements.close_date,
-    "deal_status": Agreements.deal_status,
-    "attitude": Agreements.attitude,
-    "deal_type": Agreements.deal_type,
-    "purpose": Agreements.purpose,
-    "target_pe": Agreements.target_pe,
-    "acquirer_pe": Agreements.acquirer_pe,
-    "url": Agreements.url,
+    "filing_date": LatestSectionsSearch.filing_date,
+    "prob_filing": LatestSectionsSearch.prob_filing,
+    "filing_company_name": LatestSectionsSearch.filing_company_name,
+    "filing_company_cik": LatestSectionsSearch.filing_company_cik,
+    "form_type": LatestSectionsSearch.form_type,
+    "exhibit_type": LatestSectionsSearch.exhibit_type,
+    "transaction_price_total": LatestSectionsSearch.transaction_price_total,
+    "transaction_price_stock": LatestSectionsSearch.transaction_price_stock,
+    "transaction_price_cash": LatestSectionsSearch.transaction_price_cash,
+    "transaction_price_assets": LatestSectionsSearch.transaction_price_assets,
+    "transaction_consideration": LatestSectionsSearch.transaction_consideration,
+    "target_type": LatestSectionsSearch.target_type,
+    "acquirer_type": LatestSectionsSearch.acquirer_type,
+    "target_industry": LatestSectionsSearch.target_industry,
+    "acquirer_industry": LatestSectionsSearch.acquirer_industry,
+    "announce_date": LatestSectionsSearch.announce_date,
+    "close_date": LatestSectionsSearch.close_date,
+    "deal_status": LatestSectionsSearch.deal_status,
+    "attitude": LatestSectionsSearch.attitude,
+    "deal_type": LatestSectionsSearch.deal_type,
+    "purpose": LatestSectionsSearch.purpose,
+    "target_pe": LatestSectionsSearch.target_pe,
+    "acquirer_pe": LatestSectionsSearch.acquirer_pe,
+    "url": LatestSectionsSearch.url,
 }
 
 
@@ -3347,6 +3493,9 @@ class SearchResponseSchema(Schema):
     page = fields.Int(metadata={"description": "Current 1-based page number."})
     page_size = fields.Int(metadata={"description": "Effective page size for this response."})
     total_count = fields.Int(metadata={"description": "Total number of matching sections."})
+    total_count_is_approximate = fields.Bool(
+        metadata={"description": "Whether `total_count` is an approximation rather than an exact count."}
+    )
     total_pages = fields.Int(metadata={"description": "Total pages at the effective page size."})
     has_next = fields.Bool(metadata={"description": "Whether a next page exists."})
     has_prev = fields.Bool(metadata={"description": "Whether a previous page exists."})
@@ -4719,44 +4868,26 @@ class SearchResource(MethodView):
         if page_size < 1 or page_size > max_page_size:
             page_size = min(25, max_page_size)
 
-        section_standard_ids_expr = _coalesced_section_standard_ids()
-        year_expr = _agreement_year_expr()
-
         # Build a lightweight base query for filtering, counting, and sorting.
-        # Section text and taxonomy payload are fetched in a second query for
-        # only the paged section UUIDs.
-        q = (
-            db.session.query(
-                Sections.section_uuid.label("section_uuid"),
-                Sections.agreement_uuid.label("agreement_uuid"),
-                Agreements.acquirer.label("acquirer"),
-                Agreements.target.label("target"),
-                Agreements.verified.label("verified"),
-                Agreements.filing_date.label("filing_date"),
-            )
-            .join(Agreements, Sections.agreement_uuid == Agreements.agreement_uuid)
-            .join(
-                XML,
-                _section_latest_xml_join_condition(),
-            )
-        )
+        # Full section XML is fetched in a second query only for the paged section UUIDs.
+        q = db.session.query(LatestSectionsSearch.section_uuid.label("section_uuid"))
 
         # apply filters only when provided - now handling multiple values
         if years:
             year_filters = tuple(
                 and_(
-                    Agreements.filing_date >= f"{year:04d}-01-01",
-                    Agreements.filing_date < f"{year + 1:04d}-01-01",
+                    LatestSectionsSearch.filing_date >= f"{year:04d}-01-01",
+                    LatestSectionsSearch.filing_date < f"{year + 1:04d}-01-01",
                 )
                 for year in years
             )
             q = q.filter(or_(*year_filters))
 
         if targets:
-            q = q.filter(Agreements.target.in_(targets))
+            q = q.filter(LatestSectionsSearch.target.in_(targets))
 
         if acquirers:
-            q = q.filter(Agreements.acquirer.in_(acquirers))
+            q = q.filter(LatestSectionsSearch.acquirer.in_(acquirers))
 
         if standard_ids:
             standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
@@ -4764,11 +4895,16 @@ class SearchResource(MethodView):
                 _expand_taxonomy_standard_ids_cached(standard_ids_key)
             )
             if expanded_standard_ids:
-                q = q.filter(_standard_id_filter_expr(expanded_standard_ids))
+                q = q.filter(
+                    _standard_id_filter_expr(
+                        LatestSectionsSearch.section_standard_ids,
+                        expanded_standard_ids,
+                    )
+                )
 
         # Target Type filter
         if target_types:
-            q = q.filter(Agreements.target_type.in_(target_types))
+            q = q.filter(LatestSectionsSearch.target_type.in_(target_types))
 
         # Pending filters (deactivated in Search UI)
         # Transaction Price filters - will be enabled when frontend is ready
@@ -4783,35 +4919,37 @@ class SearchResource(MethodView):
 
         # Transaction Consideration filter
         if transaction_considerations:
-            q = q.filter(Agreements.transaction_consideration.in_(transaction_considerations))
+            q = q.filter(
+                LatestSectionsSearch.transaction_consideration.in_(transaction_considerations)
+            )
 
         # Acquirer Type filter
         if acquirer_types:
-            q = q.filter(Agreements.acquirer_type.in_(acquirer_types))
+            q = q.filter(LatestSectionsSearch.acquirer_type.in_(acquirer_types))
 
         # Target Industry filter
         if target_industries:
-            q = q.filter(Agreements.target_industry.in_(target_industries))
+            q = q.filter(LatestSectionsSearch.target_industry.in_(target_industries))
 
         # Acquirer Industry filter
         if acquirer_industries:
-            q = q.filter(Agreements.acquirer_industry.in_(acquirer_industries))
+            q = q.filter(LatestSectionsSearch.acquirer_industry.in_(acquirer_industries))
 
         # Deal Status filter
         if deal_statuses:
-            q = q.filter(Agreements.deal_status.in_(deal_statuses))
+            q = q.filter(LatestSectionsSearch.deal_status.in_(deal_statuses))
 
         # Attitude filter
         if attitudes:
-            q = q.filter(Agreements.attitude.in_(attitudes))
+            q = q.filter(LatestSectionsSearch.attitude.in_(attitudes))
 
         # Deal Type filter
         if deal_types:
-            q = q.filter(Agreements.deal_type.in_(deal_types))
+            q = q.filter(LatestSectionsSearch.deal_type.in_(deal_types))
 
         # Purpose filter
         if purposes:
-            q = q.filter(Agreements.purpose.in_(purposes))
+            q = q.filter(LatestSectionsSearch.purpose.in_(purposes))
 
         # Target PE filter
         if target_pes:
@@ -4822,7 +4960,7 @@ class SearchResource(MethodView):
                 elif pe == "false":
                     db_target_pes.append(0)
             if db_target_pes:
-                q = q.filter(Agreements.target_pe.in_(db_target_pes))
+                q = q.filter(LatestSectionsSearch.target_pe.in_(db_target_pes))
 
         # Acquirer PE filter
         if acquirer_pes:
@@ -4833,68 +4971,71 @@ class SearchResource(MethodView):
                 elif pe == "false":
                     db_acquirer_pes.append(0)
             if db_acquirer_pes:
-                q = q.filter(Agreements.acquirer_pe.in_(db_acquirer_pes))
+                q = q.filter(LatestSectionsSearch.acquirer_pe.in_(db_acquirer_pes))
 
         # Agreement UUID filter
         if agreement_uuid and agreement_uuid.strip():
-            q = q.filter(Agreements.agreement_uuid == agreement_uuid.strip())
+            q = q.filter(LatestSectionsSearch.agreement_uuid == agreement_uuid.strip())
 
         # Section UUID filter
         if section_uuid and section_uuid.strip():
-            q = q.filter(Sections.section_uuid == section_uuid.strip())
+            q = q.filter(LatestSectionsSearch.section_uuid == section_uuid.strip())
 
         descending = sort_direction == "desc"
         if sort_by == "year":
-            primary_sort = Agreements.filing_date
+            primary_sort = LatestSectionsSearch.filing_date
         elif sort_by == "target":
-            primary_sort = Agreements.target
+            primary_sort = LatestSectionsSearch.target
         else:
-            primary_sort = Agreements.acquirer
+            primary_sort = LatestSectionsSearch.acquirer
         if descending:
-            q = q.order_by(desc(primary_sort), desc(Sections.section_uuid))
+            q = q.order_by(desc(primary_sort), desc(LatestSectionsSearch.section_uuid))
         else:
-            q = q.order_by(asc(primary_sort), asc(Sections.section_uuid))
+            q = q.order_by(asc(primary_sort), asc(LatestSectionsSearch.section_uuid))
 
-        total_count = _to_int(
-            cast(
-                object,
-                q.order_by(None)
-                .with_entities(func.count(Sections.section_uuid))
-                .scalar(),
-            )
-        )
         offset = (page - 1) * page_size
-        item_columns = [
-            Sections.section_uuid.label("section_uuid"),
-            Sections.agreement_uuid.label("agreement_uuid"),
-            Agreements.acquirer.label("acquirer"),
-            Agreements.target.label("target"),
-            year_expr.label("year"),
-            Agreements.verified.label("verified"),
-        ]
-        for field_name in requested_metadata_fields:
-            item_columns.append(
-                _SEARCH_RESULT_METADATA_COLUMN_BY_FIELD[field_name].label(field_name)
-            )
-        items = q.with_entities(*item_columns).offset(offset).limit(page_size).all()
-
-        item_rows = cast(list[object], items)
-        item_maps = [_row_mapping_as_dict(item) for item in item_rows]
+        page_rows = cast(list[object], q.offset(offset).limit(page_size + 1).all())
+        has_next = len(page_rows) > page_size
+        item_rows = page_rows[:page_size]
+        item_count = len(item_rows)
+        total_count, total_count_is_approximate = _search_total_count_metadata(
+            query=q,
+            page=page,
+            page_size=page_size,
+            item_count=item_count,
+            has_next=has_next,
+        )
         section_uuids = [
             section_id
-            for item_map in item_maps
-            for section_id in [item_map.get("section_uuid")]
+            for item_row in item_rows
+            for section_id in [_row_mapping_as_dict(item_row).get("section_uuid")]
             if isinstance(section_id, str)
         ]
-        sections_by_uuid: dict[str, dict[str, object]] = {}
+        details_by_uuid: dict[str, dict[str, object]] = {}
         if section_uuids:
+            detail_columns = [
+                LatestSectionsSearch.section_uuid.label("section_uuid"),
+                LatestSectionsSearch.agreement_uuid.label("agreement_uuid"),
+                LatestSectionsSearch.section_standard_ids.label("section_standard_ids"),
+                LatestSectionsSearch.article_title.label("article_title"),
+                LatestSectionsSearch.section_title.label("section_title"),
+                LatestSectionsSearch.acquirer.label("acquirer"),
+                LatestSectionsSearch.target.label("target"),
+                LatestSectionsSearch.filing_date.label("filing_date"),
+                LatestSectionsSearch.verified.label("verified"),
+                Sections.xml_content.label("xml_content"),
+            ]
+            for field_name in requested_metadata_fields:
+                detail_columns.append(
+                    _SEARCH_RESULT_METADATA_COLUMN_BY_FIELD[field_name].label(field_name)
+                )
             section_rows = (
                 db.session.query(
-                    Sections.section_uuid.label("section_uuid"),
-                    section_standard_ids_expr.label("section_standard_ids"),
-                    Sections.xml_content.label("xml_content"),
-                    Sections.article_title.label("article_title"),
-                    Sections.section_title.label("section_title"),
+                    *detail_columns,
+                )
+                .join(
+                    LatestSectionsSearch,
+                    Sections.section_uuid == LatestSectionsSearch.section_uuid,
                 )
                 .filter(Sections.section_uuid.in_(section_uuids))
                 .all()
@@ -4903,43 +5044,46 @@ class SearchResource(MethodView):
                 row_map = _row_mapping_as_dict(cast(object, row))
                 row_section_uuid = row_map.get("section_uuid")
                 if isinstance(row_section_uuid, str):
-                    sections_by_uuid[row_section_uuid] = row_map
+                    details_by_uuid[row_section_uuid] = row_map
 
-        meta = _pagination_metadata(total_count=total_count, page=page, page_size=page_size)
+        meta = _pagination_metadata(
+            total_count=total_count,
+            page=page,
+            page_size=page_size,
+            has_next_override=has_next,
+            total_count_is_approximate=total_count_is_approximate,
+        )
 
         # marshal into JSON with pagination metadata
         results: list[dict[str, object]] = []
-        for item_map in item_maps:
-            section_uuid_value = item_map.get("section_uuid")
-            if not isinstance(section_uuid_value, str):
-                raise RuntimeError("Search query returned a row without section_uuid.")
-            section_row = sections_by_uuid.get(section_uuid_value)
-            if section_row is None:
+        for section_uuid_value in section_uuids:
+            detail_row = details_by_uuid.get(section_uuid_value)
+            if detail_row is None:
                 raise RuntimeError(
                     f"Section UUID {section_uuid_value} missing from detail lookup."
                 )
             result_payload = {
                 "id": section_uuid_value,
-                "agreement_uuid": item_map.get("agreement_uuid"),
+                "agreement_uuid": detail_row.get("agreement_uuid"),
                 "section_uuid": section_uuid_value,
                 "standard_id": _parse_section_standard_ids(
-                    section_row.get("section_standard_ids")
+                    detail_row.get("section_standard_ids")
                 ),
-                "xml": section_row.get("xml_content"),
-                "article_title": section_row.get("article_title"),
-                "section_title": section_row.get("section_title"),
-                "acquirer": item_map.get("acquirer"),
-                "target": item_map.get("target"),
-                "year": item_map.get("year"),
+                "xml": detail_row.get("xml_content"),
+                "article_title": detail_row.get("article_title"),
+                "section_title": detail_row.get("section_title"),
+                "acquirer": detail_row.get("acquirer"),
+                "target": detail_row.get("target"),
+                "year": _year_from_filing_date_value(detail_row.get("filing_date")),
                 "verified": (
-                    bool(item_map.get("verified"))
-                    if item_map.get("verified") is not None
+                    bool(detail_row.get("verified"))
+                    if detail_row.get("verified") is not None
                     else False
                 ),
             }
             if requested_metadata_fields:
                 result_payload["metadata"] = {
-                    field_name: item_map.get(field_name)
+                    field_name: detail_row.get(field_name)
                     for field_name in requested_metadata_fields
                 }
             results.append(result_payload)

@@ -15,6 +15,9 @@ interface SearchPaginationProps {
   totalPages: number;
   pageSize: number;
   totalCount: number;
+  totalCountIsApproximate?: boolean;
+  hasNext: boolean;
+  hasPrev: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
@@ -26,6 +29,9 @@ export function SearchPagination({
   totalPages,
   pageSize,
   totalCount,
+  totalCountIsApproximate = false,
+  hasNext,
+  hasPrev,
   onPageChange,
   onPageSizeChange,
   isLoading = false,
@@ -66,7 +72,9 @@ export function SearchPagination({
 
   const visiblePages = getVisiblePages();
   const startResult = (currentPage - 1) * pageSize + 1;
-  const endResult = Math.min(currentPage * pageSize, totalCount);
+  const endResult = totalCountIsApproximate
+    ? (currentPage - 1) * pageSize + (hasNext ? pageSize : Math.min(pageSize, totalCount))
+    : Math.min(currentPage * pageSize, totalCount);
 
   if (totalCount === 0) {
     return null;
@@ -104,33 +112,41 @@ export function SearchPagination({
       {/* Results info */}
       <div className="text-sm text-muted-foreground" aria-live="polite">
         Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
+        {totalCountIsApproximate ? "approx. " : ""}
         {formatNumber(totalCount)} results
       </div>
 
       {/* Jump to page input (desktop only) */}
       <div className="hidden items-center gap-2 text-sm sm:flex">
-        <label htmlFor="jump-to-page" className="text-muted-foreground">
-          Go to:
-        </label>
-        <input
-          id="jump-to-page"
-          type="number"
-          min={1}
-          max={totalPages}
-          defaultValue={currentPage}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              const page = parseInt((e.target as HTMLInputElement).value, 10);
-              if (page >= 1 && page <= totalPages && !navigationDisabled) {
-                onPageChange(page);
-                (e.target as HTMLInputElement).value = "";
-              }
-            }
-          }}
-          className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={navigationDisabled}
-          aria-label="Jump to page number"
-        />
+        {!totalCountIsApproximate && (
+          <>
+            <label htmlFor="jump-to-page" className="text-muted-foreground">
+              Go to:
+            </label>
+            <input
+              id="jump-to-page"
+              type="number"
+              min={1}
+              max={totalPages}
+              defaultValue={currentPage}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const page = parseInt((e.target as HTMLInputElement).value, 10);
+                  if (page >= 1 && page <= totalPages && !navigationDisabled) {
+                    onPageChange(page);
+                    (e.target as HTMLInputElement).value = "";
+                  }
+                }
+              }}
+              className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={navigationDisabled}
+              aria-label="Jump to page number"
+            />
+          </>
+        )}
+        {totalCountIsApproximate && (
+          <span className="text-muted-foreground">Page {formatNumber(currentPage)}</span>
+        )}
       </div>
 
       {/* Pagination controls */}
@@ -139,7 +155,7 @@ export function SearchPagination({
         <div className="flex w-full gap-2 sm:hidden">
           <Button
             onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1 || navigationDisabled}
+            disabled={!hasPrev || navigationDisabled}
             variant="outline"
             size="sm"
             className="h-11 flex-1"
@@ -150,7 +166,7 @@ export function SearchPagination({
           </Button>
           <Button
             onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || navigationDisabled}
+            disabled={!hasNext || navigationDisabled}
             variant="outline"
             size="sm"
             className="h-11 flex-1"
@@ -165,7 +181,7 @@ export function SearchPagination({
         <div className="hidden items-center gap-1 sm:flex">
           <Button
             onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1 || navigationDisabled}
+            disabled={!hasPrev || navigationDisabled}
             variant="ghost"
             size="sm"
             className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
@@ -177,44 +193,48 @@ export function SearchPagination({
 
           {/* Page numbers */}
           <div className="hidden items-center gap-1 sm:flex">
-            {visiblePages.map((page, index) => {
-              if (page === "...") {
-                return (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="px-2 py-1 text-sm text-muted-foreground"
-                  >
-                    ...
-                  </span>
-                );
-              }
+            {!totalCountIsApproximate && (
+              <>
+                {visiblePages.map((page, index) => {
+                  if (page === "...") {
+                    return (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-2 py-1 text-sm text-muted-foreground"
+                      >
+                        ...
+                      </span>
+                    );
+                  }
 
-              const pageNumber = page as number;
-              const isActive = pageNumber === currentPage;
+                  const pageNumber = page as number;
+                  const isActive = pageNumber === currentPage;
 
-              return (
-                <Button
-                  key={pageNumber}
-                  onClick={() => onPageChange(pageNumber)}
-                  disabled={navigationDisabled}
-                  variant={isActive ? "default" : "ghost"}
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8",
-                    !isActive && "text-muted-foreground hover:text-foreground",
-                  )}
-                  aria-label={`Page ${pageNumber}`}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {pageNumber}
-                </Button>
-              );
-            })}
+                  return (
+                    <Button
+                      key={pageNumber}
+                      onClick={() => onPageChange(pageNumber)}
+                      disabled={navigationDisabled}
+                      variant={isActive ? "default" : "ghost"}
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8",
+                        !isActive && "text-muted-foreground hover:text-foreground",
+                      )}
+                      aria-label={`Page ${pageNumber}`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      {pageNumber}
+                    </Button>
+                  );
+                })}
+              </>
+            )}
           </div>
 
           <Button
             onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || navigationDisabled}
+            disabled={!hasNext || navigationDisabled}
             variant="ghost"
             size="sm"
             className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"

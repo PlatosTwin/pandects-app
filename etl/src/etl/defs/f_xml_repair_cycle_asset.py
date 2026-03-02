@@ -33,6 +33,7 @@ from etl.utils.db_utils import upsert_xml
 from etl.utils.batch_keys import agreement_version_batch_key
 from etl.utils.openai_batch import poll_batch_until_terminal
 from etl.utils.post_asset_refresh import run_post_asset_refresh
+from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import (
     canonical_post_repair_build_queue_sql,
     canonical_post_repair_verify_queue_sql,
@@ -199,10 +200,16 @@ def post_repair_build_xml_asset(
             ).bindparams(bindparam("uuids", expanding=True)),
             {"uuids": generated_agreement_uuids},
         ).rowcount or 0
+        refreshed = refresh_latest_sections_search(
+            conn,
+            db.database,
+            generated_agreement_uuids,
+        )
         context.log.info(
-            "post_repair_build_xml_asset: generated XML for %s agreements; marked ai_repair_attempted on %s latest rows.",
+            "post_repair_build_xml_asset: generated XML for %s agreements; marked ai_repair_attempted on %s latest rows; refreshed latest_sections_search rows=%s.",
             len(generated_agreement_uuids),
             int(marked),
+            refreshed,
         )
 
     run_post_asset_refresh(context, db, pipeline_config)
