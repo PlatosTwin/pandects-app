@@ -50,7 +50,12 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
 if TYPE_CHECKING:
-    from .article_audit import ArticleFailureRecord, build_article_failure_records
+    from .entity_audit import (
+        ArticleFailureRecord,
+        PageFailureRecord,
+        build_article_failure_records,
+        build_page_failure_records,
+    )
     from .config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -75,7 +80,7 @@ if TYPE_CHECKING:
     from .ner_classes import NERTagger, NERDataModule, ascii_lower
 else:
     try:
-        from .article_audit import build_article_failure_records
+        from .entity_audit import build_article_failure_records, build_page_failure_records
         from .config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -99,7 +104,7 @@ else:
         )
         from .ner_classes import NERTagger, NERDataModule, ascii_lower
     except ImportError:  # pragma: no cover - supports running as a script
-        from article_audit import build_article_failure_records
+        from entity_audit import build_article_failure_records, build_page_failure_records
         from config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -1885,6 +1890,104 @@ def run_article_audit(
     return counts
 
 
+def run_page_audit(
+    *,
+    ckpt_path: str,
+    output_path: str,
+    eval_split: EvalSplit,
+    split_version: str,
+    data_path: str,
+    batch_size: int,
+    val_window: int,
+    val_stride: int,
+    context_chars: int,
+    limit: int,
+) -> dict[str, int]:
+    inference = NERInference(ckpt_path=ckpt_path, label_list=None)
+    model: NERTagger = inference.model
+    model_name = cast(str, getattr(model.hparams, "model_name"))
+    ner_trainer = NERTrainer(
+        data_path=data_path,
+        model_name=model_name,
+        label_list=inference.label_list,
+        num_trials=0,
+        max_epochs=1,
+        split_version=split_version,
+        train_docs=0,
+        seed=42,
+    )
+    ner_trainer.load_data()
+
+    eval_data = ner_trainer.val_data if eval_split == "val" else ner_trainer.test_data
+    if not eval_data:
+        raise RuntimeError(f"No {eval_split} data available for page audit.")
+
+    data_module = NERDataModule(
+        train_data=[],
+        val_data=[],
+        test_data=eval_data,
+        tokenizer_name=model_name,
+        label_list=inference.label_list,
+        batch_size=batch_size,
+        train_subsample_window=val_window,
+        num_workers=0,
+        val_window=val_window,
+        val_stride=val_stride,
+        preserve_case=bool(getattr(model.hparams, "preserve_case", False)),
+    )
+    data_module.setup("test")
+
+    if hasattr(model, "hparams"):
+        _ = setattr(model.hparams, "metrics_output_dir", None)
+    setattr(model, "eval_log_prefix", eval_split)
+
+    pl_trainer = pl.Trainer(
+        accelerator=ner_trainer.device,
+        precision=ner_trainer.trainer_precision(),
+        devices=1,
+        logger=False,
+    )
+    _ = pl_trainer.test(model, datamodule=data_module, ckpt_path=ckpt_path)
+
+    records: list[PageFailureRecord] = []
+    for doc in model.collect_eval_docs():
+        pred_tags = doc["pred_tags_raw"]
+        gold_tags = doc["gold_tags"]
+        doc_records = build_page_failure_records(
+            doc_id=int(doc["doc_id"]),
+            pred_tags=pred_tags,
+            gold_tags=gold_tags,
+            raw_text=doc["raw_text"],
+            token_offsets=doc["token_offsets"],
+            context_chars=context_chars,
+        )
+        records.extend(doc_records)
+
+    if limit > 0:
+        records = records[:limit]
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for record in records:
+            _ = f.write(json.dumps(record, ensure_ascii=True) + "\n")
+
+    counts = {
+        "total": len(records),
+        "boundary_mismatch": sum(
+            1 for record in records if record["failure_type"] == "boundary_mismatch"
+        ),
+        "false_negative": sum(
+            1 for record in records if record["failure_type"] == "false_negative"
+        ),
+        "false_positive": sum(
+            1 for record in records if record["failure_type"] == "false_positive"
+        ),
+    }
+    print(f"Wrote {counts['total']} PAGE audit cases to {output_path}")
+    print(json.dumps(counts, indent=2, sort_keys=True))
+    return counts
+
+
 def parse_train_docs(value: str) -> int:
     lowered = value.strip().lower()
     if lowered == "all":
@@ -2011,6 +2114,35 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = audit_parser.add_argument("--context-chars", type=int, default=160)
     _ = audit_parser.add_argument("--limit", type=int, default=500)
 
+    page_audit_parser = subparsers.add_parser(
+        "audit-pages", help="Export problematic PAGE cases for a checkpoint"
+    )
+    _ = page_audit_parser.add_argument("--ckpt-path", type=str, required=True)
+    _ = page_audit_parser.add_argument(
+        "--output-path",
+        type=str,
+        default=str(LOG_NER_DIR / "page_audit_cases.jsonl"),
+    )
+    _ = page_audit_parser.add_argument(
+        "--eval-split", type=str, choices=["val", "test"], default="val"
+    )
+    _ = page_audit_parser.add_argument("--split-version", type=str, default="default")
+    _ = page_audit_parser.add_argument(
+        "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
+    )
+    _ = page_audit_parser.add_argument(
+        "--data-csv",
+        dest="data_path",
+        type=str,
+        default=str(DATA_NER_DIR / "ner-data.parquet"),
+        help=argparse.SUPPRESS,
+    )
+    _ = page_audit_parser.add_argument("--batch-size", type=int, default=8)
+    _ = page_audit_parser.add_argument("--val-window", type=int, default=510)
+    _ = page_audit_parser.add_argument("--val-stride", type=int, default=256)
+    _ = page_audit_parser.add_argument("--context-chars", type=int, default=160)
+    _ = page_audit_parser.add_argument("--limit", type=int, default=500)
+
     return parser
 
 
@@ -2091,6 +2223,21 @@ def main() -> None:
 
     if args.command == "audit-articles":
         _ = run_article_audit(
+            ckpt_path=args.ckpt_path,
+            output_path=args.output_path,
+            eval_split=cast(EvalSplit, args.eval_split),
+            split_version=args.split_version,
+            data_path=args.data_path,
+            batch_size=args.batch_size,
+            val_window=args.val_window,
+            val_stride=args.val_stride,
+            context_chars=args.context_chars,
+            limit=args.limit,
+        )
+        return
+
+    if args.command == "audit-pages":
+        _ = run_page_audit(
             ckpt_path=args.ckpt_path,
             output_path=args.output_path,
             eval_split=cast(EvalSplit, args.eval_split),

@@ -106,6 +106,14 @@ python ner.py audit-articles --ckpt-path /path/to/best.ckpt --eval-split val --s
 
 Use this after a validation run to inspect strict-boundary failures quickly.
 
+### Audit page failures
+
+Exports problematic `PAGE` cases from a trained checkpoint. This does not retrain the model.
+
+```bash
+python ner.py audit-pages --ckpt-path /path/to/best.ckpt --eval-split test --split-version <version> --output-path logs/page_audit_cases.jsonl
+```
+
 ## Data And Splits
 
 - Default data path: `data/ner-data.parquet`
