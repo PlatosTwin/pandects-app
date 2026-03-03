@@ -93,26 +93,8 @@ def canonical_components_cte_sql(schema: str) -> str:
             agreement_uuid
         FROM {pages_table}
         WHERE agreement_uuid IS NOT NULL
+          AND review_flag = 1
         GROUP BY agreement_uuid
-        HAVING
-            SUM(
-                CASE
-                    WHEN source_page_type = 'back_matter' THEN 1
-                    ELSE 0
-                END
-            ) >= 1
-            AND SUM(
-                CASE
-                    WHEN source_page_type = 'sig' THEN 1
-                    ELSE 0
-                END
-            ) = 0
-            AND SUM(
-                CASE
-                    WHEN gold_label IS NOT NULL THEN 1
-                    ELSE 0
-                END
-            ) = 0
     ),
     state_components AS (
         SELECT
