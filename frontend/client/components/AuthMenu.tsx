@@ -9,6 +9,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { trackEvent } from "@/lib/analytics";
 
+function truncateEmail(email: string, visibleChars = 8) {
+  if (email.length <= visibleChars) {
+    return email;
+  }
+
+  return `${email.slice(0, visibleChars)}...`;
+}
+
 export function AuthMenu() {
   const { status, user, logout } = useAuth();
   const location = useLocation();
@@ -41,11 +49,18 @@ export function AuthMenu() {
     );
   }
 
+  const emailLabel = truncateEmail(user.email);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 px-3 text-sm">
-          {user.email}
+        <Button
+          variant="ghost"
+          className="h-9 px-3 text-sm"
+          aria-label={user.email}
+          title={user.email}
+        >
+          <span aria-hidden="true">{emailLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
