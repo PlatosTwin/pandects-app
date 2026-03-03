@@ -2,7 +2,6 @@ import { type ReactNode, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import brandLinks from "@branding/links.json";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
-import type { ClauseTypeNode, ClauseTypeTree } from "@/lib/clause-types";
 import { ArrowRight, Copy, Folder, Layers, Search, Tag } from "lucide-react";
 import {
   Card,
@@ -22,71 +21,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { logger } from "@/lib/logger";
-
-type ClauseTypeValue = ClauseTypeTree[keyof ClauseTypeTree];
-
-type TaxonomyLevel3 = {
-  label: string;
-  id: string;
-};
-
-type TaxonomyLevel2 = {
-  label: string;
-  id: string;
-  children: TaxonomyLevel3[];
-};
-
-type TaxonomyLevel1 = {
-  label: string;
-  id: string;
-  children: TaxonomyLevel2[];
-  l2Count: number;
-  l3Count: number;
-};
-
-type SearchEntry = {
-  id: string;
-  l1: string;
-  l2?: string;
-  l3?: string;
-  l1Id: string;
-  l2Id?: string;
-  l3Id?: string;
-  l1Normalized: string;
-  l2Normalized?: string;
-  l3Normalized?: string;
-};
-
-const normalizeForSearch = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, "");
-
-const toNode = (value: ClauseTypeValue): ClauseTypeNode => value as ClauseTypeNode;
-
-const buildTaxonomyEntries = (tree: ClauseTypeTree): TaxonomyLevel1[] =>
-  Object.entries(tree).map(([l1Label, l1Value]) => {
-    const l1Node = toNode(l1Value);
-    const l2Tree = l1Node.children ?? {};
-    const l2Entries = Object.entries(l2Tree).map(([l2Label, l2Value]) => {
-      const l2Node = toNode(l2Value);
-      const l3Tree = l2Node.children ?? {};
-      const l3Entries = Object.entries(l3Tree).map(([l3Label, l3Value]) => {
-        const l3Node = toNode(l3Value);
-        return { label: l3Label, id: l3Node.id };
-      });
-      return { label: l2Label, id: l2Node.id, children: l3Entries };
-    });
-    const l3Count = l2Entries.reduce(
-      (sum, entry) => sum + entry.children.length,
-      0,
-    );
-    return {
-      label: l1Label,
-      id: l1Node.id,
-      children: l2Entries,
-      l2Count: l2Entries.length,
-      l3Count,
-    };
-  });
+import {
+  buildTaxonomyEntries,
+  buildTaxonomySearchEntries,
+  filterTaxonomySearchEntries,
+  normalizeForTaxonomySearch,
+  type TaxonomySearchEntry,
+} from "@/lib/taxonomy-search";
 
 export default function Taxonomy() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
@@ -102,60 +43,18 @@ export default function Taxonomy() {
     () => (taxonomyTree ? buildTaxonomyEntries(taxonomyTree) : []),
     [taxonomyTree],
   );
-  const flattenedEntries = useMemo(() => {
-    const entries: SearchEntry[] = [];
-    taxonomyEntries.forEach((entry) => {
-      entries.push({
-        id: entry.id,
-        l1: entry.label,
-        l1Id: entry.id,
-        l1Normalized: normalizeForSearch(entry.label),
-      });
-      entry.children.forEach((child) => {
-        entries.push({
-          id: child.id,
-          l1: entry.label,
-          l2: child.label,
-          l1Id: entry.id,
-          l2Id: child.id,
-          l1Normalized: normalizeForSearch(entry.label),
-          l2Normalized: normalizeForSearch(child.label),
-        });
-        child.children.forEach((leaf) => {
-          entries.push({
-            id: leaf.id,
-            l1: entry.label,
-            l2: child.label,
-            l3: leaf.label,
-            l1Id: entry.id,
-            l2Id: child.id,
-            l3Id: leaf.id,
-            l1Normalized: normalizeForSearch(entry.label),
-            l2Normalized: normalizeForSearch(child.label),
-            l3Normalized: normalizeForSearch(leaf.label),
-          });
-        });
-      });
-    });
-    return entries;
-  }, [taxonomyEntries]);
-  const normalizedQueryValue = normalizeForSearch(searchQuery);
+  const flattenedEntries = useMemo(
+    () => buildTaxonomySearchEntries(taxonomyEntries),
+    [taxonomyEntries],
+  );
+  const normalizedQueryValue = normalizeForTaxonomySearch(searchQuery);
   const hasQuery = normalizedQueryValue.length > 0;
   const searchResults = useMemo(() => {
-    if (!hasQuery) {
-      return [];
-    }
-
-    return flattenedEntries.filter(
-      (entry) =>
-        entry.l1Normalized.includes(normalizedQueryValue) ||
-        entry.l2Normalized?.includes(normalizedQueryValue) ||
-        entry.l3Normalized?.includes(normalizedQueryValue),
-    );
-  }, [flattenedEntries, hasQuery, normalizedQueryValue]);
+    return filterTaxonomySearchEntries(flattenedEntries, searchQuery);
+  }, [flattenedEntries, searchQuery]);
   const orderedResults = useMemo(() => {
     const results = [...searchResults];
-    const depthRank = (entry: SearchEntry) => {
+    const depthRank = (entry: TaxonomySearchEntry) => {
       if (entry.l3) {
         return 2;
       }
@@ -249,7 +148,7 @@ export default function Taxonomy() {
     return parts;
   };
 
-  const getResultLevel = (result: SearchEntry) => {
+  const getResultLevel = (result: TaxonomySearchEntry) => {
     if (result.l3) {
       return "L3";
     }
@@ -273,7 +172,7 @@ export default function Taxonomy() {
   const addUnique = (items: string[], value: string) =>
     items.includes(value) ? items : [...items, value];
 
-  const handleResultClick = (result: SearchEntry) => {
+  const handleResultClick = (result: TaxonomySearchEntry) => {
     const level1Id = result.l1Id;
     const level2Id = result.l2Id;
     const level3Id = result.l3Id;
@@ -395,7 +294,7 @@ export default function Taxonomy() {
                 id="taxonomy-search-input"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search clause types"
+                placeholder="Search clause types or taxonomy IDs"
                 className="pl-9"
                 autoComplete="off"
               />
@@ -468,6 +367,9 @@ export default function Taxonomy() {
                                   )}
                                 </div>
                               )}
+                              <div className="font-mono text-xs text-muted-foreground/80">
+                                {renderHighlighted(result.id)}
+                              </div>
                             </div>
                           </button>
                         </li>
