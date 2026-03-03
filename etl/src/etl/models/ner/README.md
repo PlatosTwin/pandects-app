@@ -35,7 +35,7 @@ Primary outputs:
 
 - `configs/optuna_best_config.yaml`
 - `eval_metrics/{JOB}/ner_trials/...`
-- `configs/splits/ner-page-splits-<split_version>.json`
+- `configs/splits/ner-agreement-splits-<split_version>.json`
 - `model_files/ner-model-latest.ckpt`
 
 ### Experiment sweep
@@ -111,6 +111,9 @@ Use this after a validation run to inspect strict-boundary failures quickly.
 - Default data path: `data/ner-data.parquet`
 - If a split manifest for the requested `split_version` does not exist, it is created automatically.
 - If it does exist, it is reused as-is.
+- Splits are assigned by `agreement_uuid`, not `page_uuid`.
+- Default holdouts target `6%` val and `6%` test by agreement count.
+- Agreements containing only `article_upsample` rows remain train-only.
 - For experiment comparisons, reuse the same `split_version`.
 
 ## Artifacts

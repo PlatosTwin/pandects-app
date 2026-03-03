@@ -11,6 +11,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import time
 import yaml
@@ -143,7 +144,7 @@ YEAR_WINDOW = 5
 
 def _split_path_for_version(split_version: str) -> str:
     version = split_version.strip() or "default"
-    return str(SPLITS_DIR / f"ner-page-splits-{version}.json")
+    return str(SPLITS_DIR / f"ner-agreement-splits-{version}.json")
 
 
 def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
@@ -153,6 +154,132 @@ def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
         keyed.append((digest, pid))
     keyed.sort()
     return [pid for _, pid in keyed]
+
+
+def _bucket_agreement_lengths(page_counts: pd.Series) -> pd.Series:
+    buckets = pd.cut(
+        page_counts,
+        bins=[0, 10, 30, 80, float("inf")],
+        labels=["xs", "sm", "md", "lg"],
+        include_lowest=True,
+    )
+    if isinstance(buckets, tuple):
+        raise TypeError("pd.cut returned unexpected tuple result.")
+    return cast(pd.Series, buckets.astype(str))
+
+
+def _bucket_agreement_tag_density(tag_rates: pd.Series) -> pd.Series:
+    bucket_count = min(3, len(tag_rates))
+    if bucket_count <= 1:
+        return pd.Series(["mid"] * len(tag_rates), index=tag_rates.index, dtype="object")
+
+    labels = ["low", "mid", "high"][:bucket_count]
+    ranked = tag_rates.rank(method="first")
+    buckets = pd.qcut(ranked, q=bucket_count, labels=labels)
+    if isinstance(buckets, tuple):
+        raise TypeError("pd.qcut returned unexpected tuple result.")
+    return cast(pd.Series, buckets.astype(str))
+
+
+def _build_strat_labels(
+    frame: pd.DataFrame,
+    strat_levels: list[list[str]],
+    min_count: int,
+) -> pd.Series | None:
+    if len(frame) < min_count:
+        return None
+
+    assigned = pd.Series(index=frame.index, dtype="object")
+    for level_idx, cols in enumerate(strat_levels):
+        labels = cast(pd.Series, frame[cols].astype(str).agg("|".join, axis=1))
+        counts = labels.value_counts()
+        count_lookup = {str(key): int(value) for key, value in counts.items()}
+        eligible = labels.map(count_lookup).fillna(0).astype(int) >= min_count
+        fill_mask = assigned.isna() & eligible
+        if not fill_mask.any():
+            continue
+        label_subset = labels.loc[fill_mask]
+        assigned.loc[fill_mask] = pd.Series(
+            [_format_strat_label(value, level_idx) for value in label_subset.tolist()],
+            index=label_subset.index,
+            dtype="object",
+        )
+
+    if assigned.isna().any():
+        return None
+    if cast(int, assigned.value_counts().min()) < min_count:
+        return None
+    return assigned
+
+
+def _count_non_upsample_rows(values: pd.Series) -> int:
+    bool_values = values.astype(bool)
+    return int((~bool_values).sum())
+
+
+def _format_strat_label(value: object, level_idx: int) -> str:
+    return f"level{level_idx}:{value}"
+
+
+def _requested_test_count(frame_size: int, test_size: float | int) -> int:
+    if isinstance(test_size, int):
+        return test_size
+    return int(math.ceil(frame_size * test_size))
+
+
+def _split_frame_with_stratification(
+    frame: pd.DataFrame,
+    test_size: float | int,
+    strat_levels: list[list[str]],
+    seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if len(frame) == 0:
+        empty_df = frame.iloc[0:0].copy()
+        return empty_df, empty_df
+
+    requested_test_count = _requested_test_count(len(frame), test_size)
+    if requested_test_count <= 0 or requested_test_count >= len(frame):
+        raise ValueError(
+            f"Invalid split request: len(frame)={len(frame)} test_size={test_size!r}"
+        )
+
+    stratify_labels: pd.Series | None = None
+    max_class_count = min(requested_test_count, len(frame) - requested_test_count)
+    if max_class_count >= 2:
+        candidate_labels = _build_strat_labels(
+            frame, strat_levels=strat_levels, min_count=2
+        )
+        if (
+            candidate_labels is not None
+            and candidate_labels.nunique() <= max_class_count
+        ):
+            stratify_labels = candidate_labels
+
+    return cast(
+        tuple[pd.DataFrame, pd.DataFrame],
+        cast(
+            object,
+            train_test_split(
+                frame,
+                test_size=test_size,
+                stratify=stratify_labels,
+                random_state=seed,
+            ),
+        ),
+    )
+
+
+def _target_split_counts(
+    total_items: int,
+    val_split: float,
+    test_split: float,
+) -> tuple[int, int]:
+    total_holdout = int(round(total_items * (val_split + test_split)))
+    if total_holdout <= 0:
+        return 0, 0
+    test_target = int(round(total_holdout * (test_split / (val_split + test_split))))
+    val_target = total_holdout - test_target
+    return val_target, test_target
 
 
 def _eval_job_dir() -> str:
@@ -311,6 +438,7 @@ class NERTrainer:
 
     def _validate_and_prepare_data_frame(self, df: pd.DataFrame) -> pd.DataFrame:
         required_cols = {
+            "agreement_uuid",
             "tagged_text",
             "date_announcement",
             "page_uuid",
@@ -328,6 +456,8 @@ class NERTrainer:
             return 1 if "<section>" in text or "<article>" in text else 0
 
         df["tagged"] = df["tagged_text"].apply(_has_tags)
+        df["agreement_uuid"] = df["agreement_uuid"].astype(str)
+        df["page_uuid"] = df["page_uuid"].astype(str)
         announcement_dates = pd.to_datetime(df["date_announcement"], errors="raise")
         if announcement_dates.isna().any():
             raise ValueError("Found missing or invalid date_announcement values.")
@@ -351,7 +481,7 @@ class NERTrainer:
 
     def _load_data(self) -> None:
         """
-        Load and split data, stratified by announcement window.
+        Load data and apply agreement-level train/val/test splits.
         """
         df = self._read_data_frame()
         df = self._validate_and_prepare_data_frame(df)
@@ -371,12 +501,16 @@ class NERTrainer:
                     f"train_docs={self.train_docs} exceeds available train ids ({len(train_ids_sorted)})."
                 )
             train_ids_sorted = train_ids_sorted[: self.train_docs]
-        train_df = df[df["page_uuid"].astype(str).isin(list(train_ids_sorted))]
-        val_df = df[df["page_uuid"].astype(str).isin(list(val_ids))]
-        test_df = df[df["page_uuid"].astype(str).isin(list(test_ids))]
+        train_df = cast(
+            pd.DataFrame, df[df["agreement_uuid"].isin(list(train_ids_sorted))].copy()
+        )
+        val_df = cast(pd.DataFrame, df[df["agreement_uuid"].isin(list(val_ids))].copy())
+        test_df = cast(
+            pd.DataFrame, df[df["agreement_uuid"].isin(list(test_ids))].copy()
+        )
 
         if train_ids & val_ids or train_ids & test_ids or val_ids & test_ids:
-            raise ValueError("Split manifest has overlapping page_uuid values.")
+            raise ValueError("Split manifest has overlapping agreement_uuid values.")
         train_upsample_any = bool(train_df["article_upsample"].any())
         if not train_upsample_any:
             print("[split] warning: no article_upsample rows in train split.")
@@ -385,6 +519,18 @@ class NERTrainer:
         if val_upsample_any or test_upsample_any:
             raise ValueError("Split manifest contains article_upsample rows in val/test.")
 
+        print(
+            "[split] agreements "
+            + f"train={train_df['agreement_uuid'].nunique()}, "
+            + f"val={val_df['agreement_uuid'].nunique()}, "
+            + f"test={test_df['agreement_uuid'].nunique()}"
+        )
+        print(
+            "[split] upsample rows "
+            + f"train={int(train_df['article_upsample'].sum())}, "
+            + f"val={int(val_df['article_upsample'].sum())}, "
+            + f"test={int(test_df['article_upsample'].sum())}"
+        )
         print(
             f"Splits -> train: {train_df.shape}, val: {val_df.shape}, test: {test_df.shape}"
         )
@@ -402,17 +548,17 @@ class NERTrainer:
             for key in ("train", "val", "test"):
                 if key not in split:
                     raise ValueError("Split manifest missing required keys: train/val/test.")
-            df_ids = set(df["page_uuid"].astype(str).tolist())
+            df_ids = set(df["agreement_uuid"].astype(str).tolist())
             split_ids = set(cast(list[str], split["train"])) | set(
                 cast(list[str], split["val"])
             ) | set(cast(list[str], split["test"]))
             missing = split_ids - df_ids
             if missing:
-                raise ValueError("Split manifest contains unknown page_uuid values.")
+                raise ValueError("Split manifest contains unknown agreement_uuid values.")
             return split
 
-        val_split = 0.1
-        test_split = 0.1
+        val_split = 0.06
+        test_split = 0.06
         total_split = val_split + test_split
         if total_split >= 1.0:
             raise ValueError("val_split + test_split must be < 1.0")
@@ -420,103 +566,97 @@ class NERTrainer:
         base_df = cast(pd.DataFrame, df[~df["article_upsample"]].copy())
         if len(base_df) == 0:
             raise ValueError("No base rows (article_upsample=False) available for val/test.")
-
-        strat_cols = ["announcement_window", "tagged_section", "tagged_article"]
-        rare_mask = (base_df["tagged_article"] == 1) & (base_df["tagged_section"] == 0)
-        rare_df = cast(pd.DataFrame, base_df[rare_mask].copy())
-        main_df = cast(pd.DataFrame, base_df[~rare_mask].copy())
-
-        empty_df: pd.DataFrame = base_df.iloc[0:0].copy()
-        if len(main_df) == 0:
-            train_main_df, holdout_main_df = empty_df, empty_df
-        else:
-            main_df_subset = cast(pd.DataFrame, main_df[strat_cols])
-            main_strat = main_df_subset.astype(str).agg("_".join, axis=1)
-            train_main_df, holdout_main_df = cast(
-                tuple[pd.DataFrame, pd.DataFrame],
-                cast(
-                    object,
-                    train_test_split(
-                        main_df,
-                        test_size=total_split,
-                        stratify=main_strat,
-                        random_state=seed,
-                    ),
-                ),
-            )
-
-        if len(rare_df) == 0:
-            rare_train_df, rare_holdout_df = empty_df, empty_df
-        else:
-            rare_train_df, rare_holdout_df = cast(
-                tuple[pd.DataFrame, pd.DataFrame],
-                cast(
-                    object,
-                    train_test_split(
-                        rare_df,
-                        test_size=total_split,
-                        stratify=None,
-                        random_state=seed,
-                    ),
-                ),
-            )
-
-        train_base_df = pd.concat(
-            [train_main_df, rare_train_df], ignore_index=True
+        date_counts = cast(
+            pd.Series, df.groupby("agreement_uuid")["date_announcement"].nunique()
         )
-        holdout_main_df: pd.DataFrame = holdout_main_df
-        if len(holdout_main_df) == 0:
-            val_main_df, test_main_df = empty_df, empty_df
-        else:
-            holdout_df_subset = cast(pd.DataFrame, holdout_main_df[strat_cols])
-            holdout_strat = holdout_df_subset.astype(str).agg("_".join, axis=1)
-            val_main_df, test_main_df = cast(
-                tuple[pd.DataFrame, pd.DataFrame],
-                cast(
-                    object,
-                    train_test_split(
-                        holdout_main_df,
-                        test_size=test_split / total_split,
-                        stratify=holdout_strat,
-                        random_state=seed,
-                    ),
-                ),
+        bad_dates = cast(pd.Series, date_counts[date_counts != 1])
+        if not bad_dates.empty:
+            raise ValueError(
+                "Each agreement_uuid must map to exactly one date_announcement."
             )
 
-        rare_holdout_df: pd.DataFrame = rare_holdout_df
-        if len(rare_holdout_df) == 0:
-            rare_val_df, rare_test_df = empty_df, empty_df
-        else:
-            rare_val_df, rare_test_df = cast(
-                tuple[pd.DataFrame, pd.DataFrame],
-                cast(
-                    object,
-                    train_test_split(
-                        rare_holdout_df,
-                        test_size=test_split / total_split,
-                        stratify=None,
-                        random_state=seed,
-                    ),
-                ),
+        all_agreement_df = cast(
+            pd.DataFrame,
+            (
+                df.groupby("agreement_uuid", as_index=False)
+                .agg(
+                    announcement_window=("announcement_window", "first"),
+                    page_count=("page_uuid", "nunique"),
+                    tagged_rate=("tagged", "mean"),
+                    base_page_count=("article_upsample", _count_non_upsample_rows),
+                )
+                .copy()
+            ),
+        )
+        all_agreement_df["upsample_only"] = cast(
+            pd.Series, all_agreement_df["base_page_count"]
+        ) == 0
+        all_agreement_df["length_bucket"] = _bucket_agreement_lengths(
+            cast(pd.Series, all_agreement_df["page_count"])
+        )
+        all_agreement_df["tag_density_bucket"] = _bucket_agreement_tag_density(
+            cast(pd.Series, all_agreement_df["tagged_rate"])
+        )
+        base_agreement_df = cast(
+            pd.DataFrame, all_agreement_df[~all_agreement_df["upsample_only"]].copy()
+        )
+        upsample_only_df = cast(
+            pd.DataFrame, all_agreement_df[all_agreement_df["upsample_only"]].copy()
+        )
+
+        strat_levels = [
+            ["announcement_window", "tag_density_bucket", "length_bucket"],
+            ["announcement_window", "tag_density_bucket"],
+            ["announcement_window"],
+        ]
+
+        target_val_count, target_test_count = _target_split_counts(
+            total_items=len(all_agreement_df),
+            val_split=val_split,
+            test_split=test_split,
+        )
+        if target_val_count + target_test_count >= len(base_agreement_df):
+            raise ValueError(
+                "Not enough non-upsample agreements available to build val/test."
             )
+        train_plus_test_df, val_agreement_df = _split_frame_with_stratification(
+            base_agreement_df,
+            test_size=target_val_count,
+            strat_levels=strat_levels,
+            seed=seed,
+        )
+        train_agreement_df, test_agreement_df = _split_frame_with_stratification(
+            train_plus_test_df.reset_index(drop=True),
+            test_size=target_test_count,
+            strat_levels=strat_levels,
+            seed=seed,
+        )
 
-        val_df = pd.concat([val_main_df, rare_val_df], ignore_index=True)
-        test_df = pd.concat([test_main_df, rare_test_df], ignore_index=True)
-
-        upsample_df = df[df["article_upsample"]].copy()
-        train_df = pd.concat([train_base_df, upsample_df], ignore_index=True)
+        train_agreement_ids = set(
+            train_agreement_df["agreement_uuid"].astype(str).tolist()
+        ) | set(upsample_only_df["agreement_uuid"].astype(str).tolist())
+        val_agreement_ids = set(val_agreement_df["agreement_uuid"].astype(str).tolist())
+        test_agreement_ids = set(
+            test_agreement_df["agreement_uuid"].astype(str).tolist()
+        )
 
         split = {
-            "train": train_df["page_uuid"].astype(str).tolist(),
-            "val": val_df["page_uuid"].astype(str).tolist(),
-            "test": test_df["page_uuid"].astype(str).tolist(),
+            "train": sorted(train_agreement_ids),
+            "val": sorted(val_agreement_ids),
+            "test": sorted(test_agreement_ids),
             "meta": {
                 "val_split": val_split,
                 "test_split": test_split,
                 "seed": seed,
-                "stratify_cols": strat_cols,
-                "page_uuid_col": "page_uuid",
+                "stratify_cols": strat_levels[0],
+                "stratify_fallback_levels": strat_levels[1:],
+                "agreement_uuid_col": "agreement_uuid",
                 "article_upsample_col": "article_upsample",
+                "split_unit": "agreement_uuid",
+                "upsample_holdout_fill": False,
+                "upsample_only_train_only": True,
+                "target_val_count": target_val_count,
+                "target_test_count": target_test_count,
                 "year_window": YEAR_WINDOW,
             },
         }
