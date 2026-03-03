@@ -59,7 +59,7 @@ function NavigationComponent() {
     ],
     [],
   );
-  const secondaryLinks = useMemo(
+  const aboutLinks = useMemo(
     () => [
       { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
@@ -78,6 +78,7 @@ function NavigationComponent() {
     [],
   );
   const isDataActive = dataLinks.some((link) => isActive(link.to));
+  const isAboutActive = aboutLinks.some((link) => isActive(link.to));
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -231,29 +232,45 @@ function NavigationComponent() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            {secondaryLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                data-panda-target={link.pandaTarget}
-                onClick={() =>
-                  trackEvent("nav_secondary_click", {
-                    nav_item: link.label,
-                    from_path: location.pathname,
-                    to_path: link.to,
-                  })
-                }
-                aria-current={isActive(link.to) ? "page" : undefined}
-                className={cn(
-                  navLinkBase,
-                  isActive(link.to)
-                    ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-panda-target="nav-about"
+                  className={cn(
+                    navLinkBase,
+                    "inline-flex items-center gap-1",
+                    isAboutActive
+                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  Project
+                  <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {aboutLinks.map((link) => (
+                  <DropdownMenuItem key={link.to} asChild>
+                    <Link
+                      to={link.to}
+                      data-panda-target={link.pandaTarget}
+                      onClick={() =>
+                        trackEvent("nav_secondary_click", {
+                          nav_item: link.label,
+                          from_path: location.pathname,
+                          to_path: link.to,
+                        })
+                      }
+                      aria-current={isActive(link.to) ? "page" : undefined}
+                      className="text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="ml-2">
@@ -388,11 +405,16 @@ function NavigationComponent() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-1">
-                    {secondaryLinks.map((link) => (
+                  <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
+                    <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Project
+                    </div>
+                    <div className="grid gap-1">
+                      {aboutLinks.map((link) => (
                       <SheetClose asChild key={link.to}>
                         <Link
                           to={link.to}
+                          data-panda-target={link.pandaTarget}
                           onClick={() =>
                             trackEvent("nav_secondary_click", {
                               nav_item: link.label,
@@ -403,6 +425,7 @@ function NavigationComponent() {
                           aria-current={isActive(link.to) ? "page" : undefined}
                           className={cn(
                             navLinkBase,
+                            "pl-4",
                             isActive(link.to)
                               ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
                               : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -411,9 +434,9 @@ function NavigationComponent() {
                           {link.label}
                         </Link>
                       </SheetClose>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-
                 </div>
               </div>
             </SheetContent>
