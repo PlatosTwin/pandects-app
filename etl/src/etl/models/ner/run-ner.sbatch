@@ -3,7 +3,7 @@
 #SBATCH --output=/scratch/nmb9729/mna/ner/logs/%j-ner-run.log
 #SBATCH --error=/scratch/nmb9729/mna/ner/logs/%A_%a-ner-tune.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=3
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=8gb
 #SBATCH --gres=gpu:1
 #SBATCH --time=28:00:00

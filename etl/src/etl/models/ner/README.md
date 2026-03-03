@@ -1,120 +1,136 @@
 # NER Model
 
-This directory is the NER root and contains the training, experiment suite, and inference entrypoints.
-All paths are anchored to this root, and commands can run from any working directory.
+This directory contains the local NER training and evaluation pipeline for structural agreement tagging:
 
-Notes:
-- JOB is SLURM_JOB_ID if set, otherwise "local".
-- Set PANDECTS_REPO_ROOT to this directory if auto-detection fails.
+- `ARTICLE`
+- `SECTION`
+- `PAGE`
 
-## Pipeline (tune -> experiments -> final)
+The current supported pipeline is:
 
-### 1) Hyperparameter tuning (Optuna, val-only)
+- parquet input by default
+- fixed split manifests by `split_version`
+- `boundary_mix` sampling only
+- raw metrics only
+- validation-set experiment sweeps
+- test-set evaluation only for the final selected recipe
 
-Purpose: search hyperparameters on TRAIN and select on VAL only. The test set is never used during hyperparameter optimization—only the validation set is used for selection. Evaluation runs on the validation set during tuning.
+## Commands
 
-Required:
-- None (uses JOB="local" if SLURM_JOB_ID is not set).
+### Hyperparameter tuning
 
-Command:
-```
+Runs Optuna on train/val only.
+
+```bash
 python ner.py tune --num-trials 10 --max-epochs 10
 ```
 
-To run in HPC:
-```
+HPC:
+
+```bash
 sbatch run-ner.sbatch
 ```
 
-Input:
-- `data/ner-data.csv` (override with `--data-csv`)
+Primary outputs:
 
-Outputs:
 - `configs/optuna_best_config.yaml`
-- `eval_metrics/{JOB}/ner_trials/trial_###.yaml`
-- `configs/splits/ner-page-splits-<split_version>.json` (created if missing)
-- `model_files/ner-model-latest.ckpt` (checkpoint from retraining with best hyperparameters; overwritten by final-train)
+- `eval_metrics/{JOB}/ner_trials/...`
+- `configs/splits/ner-page-splits-<split_version>.json`
+- `model_files/ner-model-latest.ckpt`
 
-Notes:
-- **Split generation**: The split manifest is automatically created if it doesn't exist. To generate a new split, either:
-  - Use a new `--split-version` name (e.g., `--split-version v2`) to create `ner-page-splits-v2.json`
-  - Or delete the existing split file to regenerate with the same version name
-- Splits use 10% val, 10% test, 80% train, stratified by announcement window, tagged_section, and tagged_article
-- All rows with `article_upsample=True` are assigned to training only
+### Experiment sweep
 
-### 2) Experiment suite (grid rows, val-only by default)
+Runs one row from the current experiment grid against the validation set.
 
-Purpose: run the experiment grid with frozen hyperparameters from `configs/optuna_best_config.yaml`.
-
-Required:
-- `configs/optuna_best_config.yaml` must exist.
-- `--git-commit` is optional; recommended on HPC if .git is unavailable.
-
-Grid file:
-- `configs/grid.csv`
-
-Single row command (explicit row id):
-```
-python ner.py grid-row --row-id 12 --split-version <version> --git-commit <hash>
+```bash
+python ner.py grid-row --row-id 0 --split-version <version> --git-commit <hash>
 ```
 
-Array-style command (uses SLURM_ARRAY_TASK_ID if `--row-id` is omitted):
-```
+Array entrypoint:
+
+```bash
 python run_from_grid.py
 ```
 
-To run in HPC:
-```
-sbatch --array=0-17 run-ner-grid-array.sbatch
+HPC:
+
+```bash
+sbatch run-ner-grid-array.sbatch
 ```
 
-Outputs (per run):
+Primary outputs:
+
 - `eval_metrics/{JOB}/runs/{run_id}/config.yaml`
 - `eval_metrics/{JOB}/runs/{run_id}/metrics.yaml`
 - `eval_metrics/{JOB}/runs/{run_id}/metrics.json`
-- `eval_metrics/experiments.csv`
+- `eval_metrics/experiments_xp.csv`
 
 Notes:
-- grid-row defaults to `--eval-split val`.
-- **Important**: If you used a custom `--split-version` in step 1, you must pass the same `--split-version` here (defaults to `v1_article_stratified` if not specified).
 
-### 3) Final training (train full run, test eval)
+- `configs/grid.csv` is the active experiment matrix.
+- `configs/frozen_experiment_config.yaml` is the fixed training recipe used by the grid.
+- Keep the same `split_version` across tuning, experiment sweeps, and final training.
 
-Purpose: train a final model with selected knobs and frozen hyperparameters.
+### Final training
 
-Required:
-- `configs/optuna_best_config.yaml` must exist.
-- `--git-commit` is optional; recommended on HPC if .git is unavailable.
+Trains the selected recipe and evaluates it on the test split.
 
-Command (train + test eval):
-```
-python ner.py final-train --train-docs 7000 --article-weight 3 --gating-mode <raw|regex|regex+snap> --split-version <version> --git-commit <hash>
+```bash
+python ner.py final-train --train-docs all --decoder-mode independent --split-version <version> --git-commit <hash>
 ```
 
-To run in HPC:
-```
+Add the winning architectural flags from validation to that command. For example, `--boundary-head`, `--boundary-loss-weight`, `--preserve-case`, or a different `--decoder-mode`.
+
+HPC:
+
+```bash
 sbatch run-ner-final.sbatch
 ```
 
-Outputs:
+`run-ner-final.sbatch` is a template. Set `FINAL_FLAGS`, `SPLIT_VERSION`, and `GIT_COMMIT` before submission so the final run matches the chosen validation recipe exactly.
+
+Primary outputs:
+
 - `model_files/ner-model-latest.ckpt`
 - `eval_metrics/final/config.yaml`
 - `eval_metrics/final/metrics.yaml`
 - `eval_metrics/final/metrics.json`
-- `eval_metrics/final/run_id.txt` (optional)
 
-Notes:
-- **Important**: If you used a custom `--split-version` in step 1, you must pass the same `--split-version` here (defaults to `default` if not specified). Using different split versions across steps will produce inconsistent results.
-- Use the `--gating-mode` selected via validation.
-- Gating/snapping is applied only at eval time; it does not change training.
-- Final training always writes test metrics (`--eval-split test`).
-- Use `--train-docs all` to train on the full train split (equivalent to 0).
+### Audit article failures
 
-## Demo inference (sample texts)
+Exports problematic `ARTICLE` cases from a trained checkpoint. This does not retrain the model.
 
-Purpose: run inference on `data/ner_samples.yaml` only (no training).
-
-Command:
+```bash
+python ner.py audit-articles --ckpt-path /path/to/best.ckpt --eval-split val --split-version <version> --output-path logs/article_audit_cases.jsonl
 ```
-python ner.py infer-samples --ckpt-path model_files/ner-model-latest.ckpt
-```
+
+Use this after a validation run to inspect strict-boundary failures quickly.
+
+## Data And Splits
+
+- Default data path: `data/ner-data.parquet`
+- If a split manifest for the requested `split_version` does not exist, it is created automatically.
+- If it does exist, it is reused as-is.
+- For experiment comparisons, reuse the same `split_version`.
+
+## Artifacts
+
+This directory intentionally keeps active runtime artifacts nearby:
+
+- `logs/`
+- `eval_metrics/`
+- `model_files/`
+
+## Current Interface
+
+Supported public commands:
+
+- `tune`
+- `grid-row`
+- `final-train`
+- `recover-run`
+- `audit-articles`
+
+## References
+
+- Current status: [CURRENT_STATE.md](/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/etl/src/etl/models/ner/CURRENT_STATE.md)

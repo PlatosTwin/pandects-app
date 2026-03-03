@@ -7,12 +7,15 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Callable, NamedTuple, cast
 
 
 CODE_DIR = Path(__file__).resolve().parent
+if str(CODE_DIR) not in sys.path:
+    sys.path.insert(0, str(CODE_DIR))
 
 
 def _load_module(name: str, path: Path) -> ModuleType:
@@ -38,6 +41,8 @@ class _Args(NamedTuple):
     split_version: str
     seed: int
     git_commit: str | None
+    grid_path: str | None
+    frozen_config_path: str | None
 
 
 def main() -> None:
@@ -49,12 +54,16 @@ def main() -> None:
     _ = parser.add_argument("--split-version", type=str, default=DEFAULT_SPLIT_VERSION)
     _ = parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     _ = parser.add_argument("--git-commit", type=str, default=None)
+    _ = parser.add_argument("--grid-path", type=str, default=None)
+    _ = parser.add_argument("--frozen-config-path", type=str, default=None)
     parsed = parser.parse_args()
     args = _Args(
         row_id=cast(int | None, getattr(parsed, "row_id")),
         split_version=cast(str, getattr(parsed, "split_version")),
         seed=cast(int, getattr(parsed, "seed")),
         git_commit=cast(str | None, getattr(parsed, "git_commit")),
+        grid_path=cast(str | None, getattr(parsed, "grid_path")),
+        frozen_config_path=cast(str | None, getattr(parsed, "frozen_config_path")),
     )
 
     row_id: int | None = args.row_id
@@ -69,6 +78,8 @@ def main() -> None:
         split_version=args.split_version,
         seed=args.seed,
         git_commit=args.git_commit,
+        grid_path=args.grid_path,
+        frozen_config_path=args.frozen_config_path,
         eval_split="val",
     )
 

@@ -49,12 +49,14 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
 if TYPE_CHECKING:
+    from .article_audit import ArticleFailureRecord, build_article_failure_records
     from .config import (
         NERExperimentConfig,
+        FROZEN_EXPERIMENT_CONFIG_PATH,
         OPTUNA_BEST_CONFIG_PATH,
         build_config,
         config_to_dict,
-        load_optuna_best_config,
+        load_frozen_experiment_config,
         resolve_git_commit,
     )
     from .ner_constants import (
@@ -72,12 +74,14 @@ if TYPE_CHECKING:
     from .ner_classes import NERTagger, NERDataModule, ascii_lower
 else:
     try:
+        from .article_audit import build_article_failure_records
         from .config import (
         NERExperimentConfig,
+        FROZEN_EXPERIMENT_CONFIG_PATH,
         OPTUNA_BEST_CONFIG_PATH,
         build_config,
         config_to_dict,
-        load_optuna_best_config,
+        load_frozen_experiment_config,
         resolve_git_commit,
         )
         from .ner_constants import (
@@ -94,12 +98,14 @@ else:
         )
         from .ner_classes import NERTagger, NERDataModule, ascii_lower
     except ImportError:  # pragma: no cover - supports running as a script
+        from article_audit import build_article_failure_records
         from config import (
         NERExperimentConfig,
+        FROZEN_EXPERIMENT_CONFIG_PATH,
         OPTUNA_BEST_CONFIG_PATH,
         build_config,
         config_to_dict,
-        load_optuna_best_config,
+        load_frozen_experiment_config,
         resolve_git_commit,
         )
         from ner_constants import (
@@ -165,6 +171,19 @@ def _log_dir(stage: str) -> str:
     return str(LOG_NER_DIR / stage / get_job_id())
 
 
+def _recommended_num_workers() -> int:
+    slurm_cpus = os.environ.get("SLURM_CPUS_PER_TASK")
+    if slurm_cpus is not None:
+        try:
+            cpus = int(slurm_cpus)
+        except ValueError:
+            cpus = 4
+    else:
+        detected = os.cpu_count()
+        cpus = detected if detected is not None else 4
+    return max(1, cpus - 1)
+
+
 def _write_optuna_best_config(
     best_params: dict[str, float | int],
     model_name: str,
@@ -201,7 +220,7 @@ class NERTrainer:
 
     def __init__(
         self,
-        data_csv: str,
+        data_path: str,
         model_name: str,
         label_list: list[str],
         num_trials: int,
@@ -209,8 +228,15 @@ class NERTrainer:
         split_version: str = "default",
         train_docs: int | None = None,
         seed: int = 42,
-        article_class_weight: float = 3.0,
-        gating_mode: str = "raw",
+        sampling_mode: str = "boundary_mix",
+        decoder_mode: str = "independent",
+        boundary_head: bool = False,
+        boundary_loss_weight: float = 0.0,
+        token_loss_mode: str = "focal",
+        token_loss_weight: float = 1.0,
+        crf_loss_weight: float = 0.0,
+        label_smoothing: float = 0.0,
+        preserve_case: bool = False,
         val_window: int = 510,
         val_stride: int = 256,
     ):
@@ -218,7 +244,7 @@ class NERTrainer:
         Initialize the NER trainer.
 
         Args:
-            data_csv: Path to the data file
+            data_path: Path to the data file (.parquet or .csv)
             model_name: HuggingFace model name
             label_list: List of label names
             num_trials: Number of Optuna trials
@@ -226,12 +252,19 @@ class NERTrainer:
             split_version: Named split manifest to use
             train_docs: Optional number of training documents to include
             seed: Seed for split creation and training
-            article_class_weight: Weight for ARTICLE class in loss
-            gating_mode: Postprocessing mode for evaluation
+            sampling_mode: Training sampler mode
+            decoder_mode: Sequence decoder mode
+            boundary_head: Whether to enable auxiliary boundary supervision
+            boundary_loss_weight: Weight for boundary loss
+            token_loss_mode: Token loss family
+            token_loss_weight: Weight for token loss
+            crf_loss_weight: Weight for CRF loss
+            label_smoothing: CE label smoothing factor
+            preserve_case: Whether to preserve original casing at tokenizer input
             val_window: Validation window size for evaluation
             val_stride: Validation stride size for evaluation
         """
-        self.data_csv = data_csv
+        self.data_path = data_path
         self.model_name = model_name
         self.num_trials = num_trials
         self.max_epochs = max_epochs
@@ -239,8 +272,15 @@ class NERTrainer:
         self.split_version = split_version
         self.train_docs = train_docs
         self.seed = seed
-        self.article_class_weight = article_class_weight
-        self.gating_mode = gating_mode
+        self.sampling_mode = sampling_mode
+        self.decoder_mode = decoder_mode
+        self.boundary_head = boundary_head
+        self.boundary_loss_weight = boundary_loss_weight
+        self.token_loss_mode = token_loss_mode
+        self.token_loss_weight = token_loss_weight
+        self.crf_loss_weight = crf_loss_weight
+        self.label_smoothing = label_smoothing
+        self.preserve_case = preserve_case
         self.val_window = val_window
         self.val_stride = val_stride
         self.split_path = _split_path_for_version(split_version)
@@ -258,12 +298,18 @@ class NERTrainer:
         self.test_data: list[str] = []
         self.metrics_output_dir = _eval_trials_dir()
 
-    def _load_data(self) -> None:
-        """
-        Load and split data, stratified by announcement window.
-        """
-        df = pd.read_csv(self.data_csv)
+    def _read_data_frame(self) -> pd.DataFrame:
+        path = self.data_path
+        suffix = os.path.splitext(path)[1].lower()
+        if suffix == ".parquet":
+            return pd.read_parquet(path)
+        if suffix == ".csv":
+            return pd.read_csv(path)
+        raise ValueError(
+            f"Unsupported data file extension for {path!r}. Expected .parquet or .csv."
+        )
 
+    def _validate_and_prepare_data_frame(self, df: pd.DataFrame) -> pd.DataFrame:
         required_cols = {
             "tagged_text",
             "date_announcement",
@@ -301,6 +347,14 @@ class NERTrainer:
 
         # For now, remove untagged pages
         # df = df[df["tagged"] == 1]
+        return df
+
+    def _load_data(self) -> None:
+        """
+        Load and split data, stratified by announcement window.
+        """
+        df = self._read_data_frame()
+        df = self._validate_and_prepare_data_frame(df)
 
         split = self._load_or_build_split(df, self.split_path, self.seed)
         train_ids_list = [str(x) for x in cast(list[str], split["train"])]
@@ -569,9 +623,12 @@ class NERTrainer:
             label_list=self.label_list,
             batch_size=int(params["batch_size"]),
             train_subsample_window=int(params["train_subsample_window"]),
-            num_workers=3,
+            num_workers=_recommended_num_workers(),
+            sampling_mode=self.sampling_mode,
+            seed=self.seed,
             val_window=int(params.get("val_window", self.val_window)),
             val_stride=int(params.get("val_stride", self.val_stride)),
+            preserve_case=self.preserve_case,
         )
         model = NERTagger(
             model_name=self.model_name,
@@ -580,8 +637,14 @@ class NERTrainer:
             learning_rate=params["lr"],
             weight_decay=params["weight_decay"],
             warmup_steps_pct=params["warmup_steps_pct"],
-            article_class_weight=self.article_class_weight,
-            gating_mode=self.gating_mode,
+            decoder_mode=self.decoder_mode,
+            token_loss_mode=self.token_loss_mode,
+            token_loss_weight=self.token_loss_weight,
+            crf_loss_weight=self.crf_loss_weight,
+            boundary_head=self.boundary_head,
+            boundary_loss_weight=self.boundary_loss_weight,
+            label_smoothing=self.label_smoothing,
+            preserve_case=self.preserve_case,
             metrics_output_dir=self.metrics_output_dir,
             metrics_output_name=metrics_output_name or "ner_test_metrics.yaml",
         )
@@ -803,6 +866,7 @@ class NERInference:
         self.window_batch_size = window_batch_size
         self.window = window
         self.stride = stride
+        self.preserve_case = bool(getattr(hparams, "preserve_case", False))
 
     # ---------------- Token aggregation over sliding windows (logit stitching) ----------------
     def _predict_tokens(
@@ -820,7 +884,7 @@ class NERInference:
             toks         : List[str]            # token strings
             avg_logits   : torch.Tensor         # [T, C] averaged logits on CPU
         """
-        norm = ascii_lower(text)
+        norm = text if self.preserve_case else ascii_lower(text)
         enc_full = cast(
             dict[str, torch.Tensor],
             cast(
@@ -920,7 +984,13 @@ class NERInference:
         avg_logits = sum_logits / counts.unsqueeze(-1).clamp(min=1.0)
         probs = torch.softmax(avg_logits, dim=-1)
         confidences = cast(list[float], probs.max(dim=-1)[0].tolist())
-        preds = cast(list[int], avg_logits.argmax(dim=-1).tolist())
+        preds = cast(
+            list[int],
+            self.model.decode_constrained_doc(avg_logits.to(self.device))
+            .detach()
+            .cpu()
+            .tolist(),
+        )
 
         # --- Light BIOES repair on the predicted sequence ---
         def _repair_bioes(seq: list[int]) -> list[int]:
@@ -1154,12 +1224,26 @@ def _append_experiment_row(csv_path: str, row: dict[str, object]) -> None:
     fieldnames = list(row.keys())
     if file_exists:
         with open(csv_path, "r", encoding="utf-8", newline="") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
+            reader = csv.DictReader(f)
+            header = reader.fieldnames or []
+            existing_rows = list(reader)
         if header:
-            fieldnames = header
-            if set(header) != set(row.keys()):
-                raise RuntimeError("experiments.csv header does not match row keys.")
+            extra_fields = [key for key in row.keys() if key not in header]
+            missing_fields = [key for key in header if key not in row]
+            if extra_fields or missing_fields:
+                fieldnames = list(header) + extra_fields
+                rewritten_rows: list[dict[str, object]] = []
+                for existing_row in existing_rows:
+                    normalized_row: dict[str, object] = {
+                        name: existing_row.get(name, "") for name in fieldnames
+                    }
+                    rewritten_rows.append(normalized_row)
+                with open(csv_path, "w", encoding="utf-8", newline="") as rewrite_f:
+                    writer = csv.DictWriter(rewrite_f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(rewritten_rows)
+            else:
+                fieldnames = header
 
     with open(csv_path, "a", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -1181,9 +1265,18 @@ def load_grid_row(row_id: int, grid_path: str | None = None) -> dict[str, str]:
     raise ValueError(f"row_id {row_id} not found in {path}")
 
 
+def parse_boolish(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y"}:
+        return True
+    if normalized in {"0", "false", "no", "n"}:
+        return False
+    raise ValueError(f"Unable to parse boolean value from {value!r}.")
+
+
 def run_hparam_tuning(
     *,
-    data_csv: str,
+    data_path: str,
     model_name: str,
     num_trials: int,
     max_epochs: int,
@@ -1198,15 +1291,13 @@ def run_hparam_tuning(
     """
     _ = resolve_git_commit(git_commit)
     ner_trainer = NERTrainer(
-        data_csv=data_csv,
+        data_path=data_path,
         model_name=model_name,
         label_list=NER_LABELS,
         num_trials=num_trials,
         max_epochs=max_epochs,
         split_version=split_version,
         seed=seed,
-        article_class_weight=1.0,
-        gating_mode="raw",
         val_window=val_window,
         val_stride=val_stride,
     )
@@ -1276,7 +1367,7 @@ def run_training_and_eval(
     _ = seed_everything(config.seed, workers=True, verbose=False)
 
     ner_trainer = NERTrainer(
-        data_csv=config.data_csv,
+        data_path=config.data_path,
         model_name=config.model_name,
         label_list=NER_LABELS,
         num_trials=0,
@@ -1284,8 +1375,15 @@ def run_training_and_eval(
         split_version=config.split_version,
         train_docs=config.train_docs,
         seed=config.seed,
-        article_class_weight=config.article_weight,
-        gating_mode=config.gating_mode,
+        sampling_mode=config.sampling_mode,
+        decoder_mode=config.decoder_mode,
+        boundary_head=config.boundary_head,
+        boundary_loss_weight=config.boundary_loss_weight,
+        token_loss_mode=config.token_loss_mode,
+        token_loss_weight=config.token_loss_weight,
+        crf_loss_weight=config.crf_loss_weight,
+        label_smoothing=config.label_smoothing,
+        preserve_case=config.preserve_case,
         val_window=config.val_window,
         val_stride=config.val_stride,
     )
@@ -1375,9 +1473,17 @@ def run_training_and_eval(
                 metrics, prefix=f"{eval_split}"
             )
             hparams = {
+                "xp_name": config.xp_name,
                 "train_docs": config.train_docs,
-                "article_weight": config.article_weight,
-                "gating_mode": config.gating_mode,
+                "sampling_mode": config.sampling_mode,
+                "decoder_mode": config.decoder_mode,
+                "boundary_head": config.boundary_head,
+                "boundary_loss_weight": config.boundary_loss_weight,
+                "token_loss_mode": config.token_loss_mode,
+                "token_loss_weight": config.token_loss_weight,
+                "crf_loss_weight": config.crf_loss_weight,
+                "label_smoothing": config.label_smoothing,
+                "preserve_case": config.preserve_case,
                 "split_version": config.split_version,
                 "seed": config.seed,
                 "model_name": config.model_name,
@@ -1391,7 +1497,7 @@ def run_training_and_eval(
         if log_experiment:
             variants = cast(dict[str, dict[str, object]], metrics.get("variants", {}))
             flat_metrics: dict[str, float] = {}
-            for variant_key in ("raw", "regex", "snap"):
+            for variant_key in ("raw",):
                 if variant_key in variants:
                     flat_metrics.update(
                         _metrics_with_suffix(variants[variant_key], variant_key)
@@ -1401,15 +1507,23 @@ def run_training_and_eval(
                 "run_id": config.run_id,
                 "slurm_job_id": slurm_job_id,
                 "git_commit": config.git_commit,
+                "xp_name": config.xp_name,
                 "split_version": config.split_version,
                 "train_docs": config.train_docs,
-                "article_weight": config.article_weight,
-                "gating_mode": config.gating_mode,
+                "sampling_mode": config.sampling_mode,
+                "decoder_mode": config.decoder_mode,
+                "boundary_head": config.boundary_head,
+                "boundary_loss_weight": config.boundary_loss_weight,
+                "token_loss_mode": config.token_loss_mode,
+                "token_loss_weight": config.token_loss_weight,
+                "crf_loss_weight": config.crf_loss_weight,
+                "label_smoothing": config.label_smoothing,
+                "preserve_case": config.preserve_case,
                 "seed": config.seed,
                 "run_dir": run_dir,
                 **flat_metrics,
             }
-            experiments_csv = str(EVAL_NER_DIR / "experiments.csv")
+            experiments_csv = str(EVAL_NER_DIR / "experiments_xp.csv")
             _append_experiment_row(experiments_csv, row)
 
     ner_trainer.test_data = original_test_data
@@ -1423,7 +1537,7 @@ def _extract_headline_metrics(
 ) -> dict[str, float]:
     variants = cast(dict[str, dict[str, object]], metrics["variants"])
     headline: dict[str, float] = {}
-    for variant_key in ("raw", "regex", "snap"):
+    for variant_key in ("raw",):
         variant = variants[variant_key]
         entity_level = cast(dict[str, object], variant["entity_level"])
         micro = cast(dict[str, float], entity_level["micro"])
@@ -1439,26 +1553,86 @@ def _extract_headline_metrics(
     return headline
 
 
+def recover_experiment_row_from_run_dir(
+    *,
+    run_dir: str,
+    experiments_csv: str | None = None,
+) -> dict[str, object]:
+    config_path = os.path.join(run_dir, "config.yaml")
+    metrics_path = os.path.join(run_dir, "metrics.json")
+    if not os.path.exists(config_path):
+        raise RuntimeError(f"Missing config.yaml in run dir: {run_dir}")
+    if not os.path.exists(metrics_path):
+        raise RuntimeError(f"Missing metrics.json in run dir: {run_dir}")
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        config_payload = cast(dict[str, object], yaml.safe_load(f))
+    with open(metrics_path, "r", encoding="utf-8") as f:
+        metrics = cast(dict[str, object], json.load(f))
+
+    variants = cast(dict[str, dict[str, object]], metrics.get("variants", {}))
+    flat_metrics: dict[str, float] = {}
+    for variant_key in ("raw",):
+        if variant_key in variants:
+            flat_metrics.update(_metrics_with_suffix(variants[variant_key], variant_key))
+
+    row: dict[str, object] = {
+        "run_id": config_payload["run_id"],
+        "slurm_job_id": os.path.basename(os.path.dirname(run_dir)),
+        "git_commit": config_payload.get("git_commit", "unknown"),
+        "xp_name": config_payload["xp_name"],
+        "split_version": config_payload["split_version"],
+        "train_docs": config_payload["train_docs"],
+        "sampling_mode": config_payload["sampling_mode"],
+        "decoder_mode": config_payload["decoder_mode"],
+        "boundary_head": config_payload["boundary_head"],
+        "boundary_loss_weight": config_payload["boundary_loss_weight"],
+        "token_loss_mode": config_payload["token_loss_mode"],
+        "token_loss_weight": config_payload["token_loss_weight"],
+        "crf_loss_weight": config_payload["crf_loss_weight"],
+        "label_smoothing": config_payload["label_smoothing"],
+        "preserve_case": config_payload.get("preserve_case", False),
+        "seed": config_payload["seed"],
+        "run_dir": run_dir,
+        **flat_metrics,
+    }
+    target_csv = experiments_csv or str(EVAL_NER_DIR / "experiments_xp.csv")
+    _append_experiment_row(target_csv, row)
+    return row
+
+
 def run_grid_row(
     *,
     row_id: int,
     split_version: str,
     seed: int,
     git_commit: str | None,
+    grid_path: str | None = None,
+    frozen_config_path: str | None = None,
     eval_split: EvalSplit = "val",
 ) -> dict[str, object] | None:
     """
     Run a single grid row experiment using frozen hyperparameters.
     """
-    row = load_grid_row(row_id)
-    frozen = load_optuna_best_config()
+    row = load_grid_row(row_id, grid_path=grid_path)
+    frozen = load_frozen_experiment_config(path=frozen_config_path)
+    row_seed = int(row.get("seed", str(seed)))
+    row_learning_rate = float(row.get("learning_rate", str(frozen["learning_rate"])))
 
     config = build_config(
-        train_docs=int(row["train_docs"]),
-        article_weight=float(row["article_weight"]),
-        gating_mode=row["gating_mode"],
+        train_docs=parse_train_docs(row["train_docs"]),
+        xp_name=row.get("xp_name", f"row_{row_id}"),
+        sampling_mode=row.get("sampling_mode", "boundary_mix"),
+        decoder_mode=row.get("decoder_mode", "independent"),
+        boundary_head=parse_boolish(row.get("boundary_head", "0")),
+        boundary_loss_weight=float(row.get("boundary_loss_weight", "0.0")),
+        token_loss_mode=row.get("token_loss_mode", "focal"),
+        token_loss_weight=float(row.get("token_loss_weight", "1.0")),
+        crf_loss_weight=float(row.get("crf_loss_weight", "0.0")),
+        label_smoothing=float(row.get("label_smoothing", "0.0")),
+        preserve_case=parse_boolish(row.get("preserve_case", "0")),
         split_version=split_version,
-        seed=seed,
+        seed=row_seed,
         git_commit=git_commit,
         model_name=str(frozen["model_name"]),
         batch_size=int(frozen["batch_size"]),
@@ -1466,46 +1640,112 @@ def run_grid_row(
         val_window=int(frozen["val_window"]),
         val_stride=int(frozen["val_stride"]),
         max_epochs=int(frozen["max_epochs"]),
-        learning_rate=float(frozen["learning_rate"]),
+        learning_rate=row_learning_rate,
         weight_decay=float(frozen["weight_decay"]),
         warmup_steps_pct=float(frozen["warmup_steps_pct"]),
     )
     return run_training_and_eval(config, eval_split=eval_split, run_test=True)
 
 
-def run_inference_samples(
+def run_article_audit(
+    *,
     ckpt_path: str,
-    review_threshold: float = 0.99,
-    git_commit: str | None = None,
-) -> None:
-    """
-    Run demo inference on ner_samples.yaml.
-    """
-    _ = resolve_git_commit(git_commit)
-    with open(DATA_NER_DIR / "ner_samples.yaml", "r", encoding="utf-8") as f:
-        raw_data = cast(object, yaml.safe_load(f))
+    output_path: str,
+    eval_split: EvalSplit,
+    split_version: str,
+    data_path: str,
+    batch_size: int,
+    val_window: int,
+    val_stride: int,
+    context_chars: int,
+    limit: int,
+) -> dict[str, int]:
+    inference = NERInference(ckpt_path=ckpt_path, label_list=None)
+    model: NERTagger = inference.model
+    model_name = cast(str, getattr(model.hparams, "model_name"))
 
-    if not isinstance(raw_data, dict):
-        raise RuntimeError("ner_samples.yaml must contain a mapping at the top level.")
-    samples_raw = raw_data.get("samples")
-    if not isinstance(samples_raw, list) or not all(
-        isinstance(sample, str) for sample in samples_raw
-    ):
-        raise RuntimeError("ner_samples.yaml must contain a string list under 'samples'.")
-    samples = samples_raw
-    inference_model = NERInference(
-        ckpt_path=ckpt_path, label_list=NER_LABELS, review_threshold=review_threshold
+    ner_trainer = NERTrainer(
+        data_path=data_path,
+        model_name=model_name,
+        label_list=inference.label_list,
+        num_trials=0,
+        max_epochs=1,
+        split_version=split_version,
+        train_docs=0,
+        seed=42,
     )
+    ner_trainer.load_data()
+    eval_data = ner_trainer.val_data if eval_split == "val" else ner_trainer.test_data
+    if not eval_data:
+        raise RuntimeError(f"No {eval_split} data available for article audit.")
 
-    start = time.time()
-    tagged_result = inference_model.label(samples, verbose=False)
-    inference_time = time.time() - start
+    data_module = NERDataModule(
+        train_data=[],
+        val_data=[],
+        test_data=eval_data,
+        tokenizer_name=model_name,
+        label_list=inference.label_list,
+        batch_size=batch_size,
+        train_subsample_window=val_window,
+        num_workers=0,
+        val_window=val_window,
+        val_stride=val_stride,
+        preserve_case=bool(getattr(model.hparams, "preserve_case", False)),
+    )
+    data_module.setup("test")
 
-    print(f"Inference time: {inference_time:.2f} seconds")
-    print(tagged_result)
+    if hasattr(model, "hparams"):
+        _ = setattr(model.hparams, "metrics_output_dir", None)
+    setattr(model, "eval_log_prefix", eval_split)
+
+    pl_trainer = pl.Trainer(
+        accelerator=ner_trainer.device,
+        precision=ner_trainer.trainer_precision(),
+        devices=1,
+        logger=False,
+    )
+    _ = pl_trainer.test(model, datamodule=data_module, ckpt_path=ckpt_path)
+
+    records: list[ArticleFailureRecord] = []
+    for doc in model.collect_eval_docs():
+        pred_tags = doc["pred_tags_raw"]
+        gold_tags = doc["gold_tags"]
+        doc_records = build_article_failure_records(
+            doc_id=int(doc["doc_id"]),
+            pred_tags=pred_tags,
+            gold_tags=gold_tags,
+            raw_text=doc["raw_text"],
+            token_offsets=doc["token_offsets"],
+            context_chars=context_chars,
+        )
+        records.extend(doc_records)
+
+    if limit > 0:
+        records = records[:limit]
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for record in records:
+            _ = f.write(json.dumps(record, ensure_ascii=True) + "\n")
+
+    counts = {
+        "total": len(records),
+        "boundary_mismatch": sum(
+            1 for record in records if record["failure_type"] == "boundary_mismatch"
+        ),
+        "false_negative": sum(
+            1 for record in records if record["failure_type"] == "false_negative"
+        ),
+        "false_positive": sum(
+            1 for record in records if record["failure_type"] == "false_positive"
+        ),
+    }
+    print(f"Wrote {counts['total']} ARTICLE audit cases to {output_path}")
+    print(json.dumps(counts, indent=2, sort_keys=True))
+    return counts
 
 
-def _parse_train_docs(value: str) -> int:
+def parse_train_docs(value: str) -> int:
     lowered = value.strip().lower()
     if lowered == "all":
         return 0
@@ -1530,7 +1770,14 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = tune_parser.add_argument("--split-version", type=str, default="default")
     _ = tune_parser.add_argument("--seed", type=int, default=42)
     _ = tune_parser.add_argument(
-        "--data-csv", type=str, default=str(DATA_NER_DIR / "ner-data.csv")
+        "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
+    )
+    _ = tune_parser.add_argument(
+        "--data-csv",
+        dest="data_path",
+        type=str,
+        default=str(DATA_NER_DIR / "ner-data.parquet"),
+        help=argparse.SUPPRESS,
     )
     _ = tune_parser.add_argument(
         "--model-name", type=str, default="answerdotai/ModernBERT-base"
@@ -1545,25 +1792,84 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = grid_parser.add_argument("--seed", type=int, default=42)
     _ = grid_parser.add_argument("--git-commit", type=str, default=None)
     _ = grid_parser.add_argument(
+        "--grid-path", type=str, default=str(CONFIG_NER_DIR / "grid.csv")
+    )
+    _ = grid_parser.add_argument(
+        "--frozen-config-path",
+        type=str,
+        default=str(FROZEN_EXPERIMENT_CONFIG_PATH),
+    )
+    _ = grid_parser.add_argument(
         "--eval-split", type=str, choices=["val", "test"], default="val"
     )
 
     final_parser = subparsers.add_parser("final-train", help="Train a final model")
-    _ = final_parser.add_argument("--train-docs", type=_parse_train_docs, required=True)
-    _ = final_parser.add_argument("--article-weight", type=float, required=True)
+    _ = final_parser.add_argument("--train-docs", type=parse_train_docs, required=True)
+    _ = final_parser.add_argument("--xp-name", type=str, default="final")
     _ = final_parser.add_argument(
-        "--gating-mode", type=str, choices=["raw", "regex", "regex+snap"], default="raw"
+        "--sampling-mode",
+        type=str,
+        choices=["boundary_mix"],
+        default="boundary_mix",
+    )
+    _ = final_parser.add_argument(
+        "--decoder-mode",
+        type=str,
+        choices=["independent", "crf"],
+        default="independent",
+    )
+    _ = final_parser.add_argument("--boundary-head", action="store_true", default=False)
+    _ = final_parser.add_argument("--boundary-loss-weight", type=float, default=0.0)
+    _ = final_parser.add_argument(
+        "--token-loss-mode", type=str, choices=["focal", "ce"], default="focal"
+    )
+    _ = final_parser.add_argument("--token-loss-weight", type=float, default=1.0)
+    _ = final_parser.add_argument("--crf-loss-weight", type=float, default=0.0)
+    _ = final_parser.add_argument("--label-smoothing", type=float, default=0.0)
+    _ = final_parser.add_argument("--preserve-case", action="store_true", default=False)
+    _ = final_parser.add_argument(
+        "--frozen-config-path",
+        type=str,
+        default=str(FROZEN_EXPERIMENT_CONFIG_PATH),
     )
     _ = final_parser.add_argument("--split-version", type=str, default="default")
     _ = final_parser.add_argument("--seed", type=int, default=42)
     _ = final_parser.add_argument("--git-commit", type=str, default=None)
 
-    infer_parser = subparsers.add_parser(
-        "infer-samples", help="Run demo inference on sample texts"
+    recover_parser = subparsers.add_parser(
+        "recover-run", help="Append a completed run back into experiments_xp.csv"
     )
-    _ = infer_parser.add_argument("--ckpt-path", type=str, default=NER_CKPT)
-    _ = infer_parser.add_argument("--review-threshold", type=float, default=0.99)
-    _ = infer_parser.add_argument("--git-commit", type=str, default=None)
+    _ = recover_parser.add_argument("--run-dir", type=str, required=True)
+    _ = recover_parser.add_argument("--experiments-csv", type=str, default=None)
+
+    audit_parser = subparsers.add_parser(
+        "audit-articles", help="Export problematic ARTICLE cases for a checkpoint"
+    )
+    _ = audit_parser.add_argument("--ckpt-path", type=str, required=True)
+    _ = audit_parser.add_argument(
+        "--output-path",
+        type=str,
+        default=str(LOG_NER_DIR / "article_audit_cases.jsonl"),
+    )
+    _ = audit_parser.add_argument(
+        "--eval-split", type=str, choices=["val", "test"], default="val"
+    )
+    _ = audit_parser.add_argument("--split-version", type=str, default="default")
+    _ = audit_parser.add_argument(
+        "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
+    )
+    _ = audit_parser.add_argument(
+        "--data-csv",
+        dest="data_path",
+        type=str,
+        default=str(DATA_NER_DIR / "ner-data.parquet"),
+        help=argparse.SUPPRESS,
+    )
+    _ = audit_parser.add_argument("--batch-size", type=int, default=8)
+    _ = audit_parser.add_argument("--val-window", type=int, default=510)
+    _ = audit_parser.add_argument("--val-stride", type=int, default=256)
+    _ = audit_parser.add_argument("--context-chars", type=int, default=160)
+    _ = audit_parser.add_argument("--limit", type=int, default=500)
 
     return parser
 
@@ -1574,7 +1880,7 @@ def main() -> None:
 
     if args.command == "tune":
         _ = run_hparam_tuning(
-            data_csv=args.data_csv,
+            data_path=args.data_path,
             model_name=args.model_name,
             num_trials=args.num_trials,
             max_epochs=args.max_epochs,
@@ -1590,16 +1896,26 @@ def main() -> None:
             split_version=args.split_version,
             seed=args.seed,
             git_commit=args.git_commit,
+            grid_path=args.grid_path,
+            frozen_config_path=args.frozen_config_path,
             eval_split=cast(EvalSplit, args.eval_split),
         )
         return
 
     if args.command == "final-train":
-        frozen = load_optuna_best_config()
+        frozen = load_frozen_experiment_config(path=args.frozen_config_path)
         config = build_config(
             train_docs=args.train_docs,
-            article_weight=args.article_weight,
-            gating_mode=args.gating_mode,
+            xp_name=args.xp_name,
+            sampling_mode=args.sampling_mode,
+            decoder_mode=args.decoder_mode,
+            boundary_head=args.boundary_head,
+            boundary_loss_weight=args.boundary_loss_weight,
+            token_loss_mode=args.token_loss_mode,
+            token_loss_weight=args.token_loss_weight,
+            crf_loss_weight=args.crf_loss_weight,
+            label_smoothing=args.label_smoothing,
+            preserve_case=args.preserve_case,
             split_version=args.split_version,
             seed=args.seed,
             git_commit=args.git_commit,
@@ -1626,11 +1942,25 @@ def main() -> None:
         )
         return
 
-    if args.command == "infer-samples":
-        run_inference_samples(
+    if args.command == "recover-run":
+        _ = recover_experiment_row_from_run_dir(
+            run_dir=args.run_dir,
+            experiments_csv=args.experiments_csv,
+        )
+        return
+
+    if args.command == "audit-articles":
+        _ = run_article_audit(
             ckpt_path=args.ckpt_path,
-            review_threshold=args.review_threshold,
-            git_commit=args.git_commit,
+            output_path=args.output_path,
+            eval_split=cast(EvalSplit, args.eval_split),
+            split_version=args.split_version,
+            data_path=args.data_path,
+            batch_size=args.batch_size,
+            val_window=args.val_window,
+            val_stride=args.val_stride,
+            context_chars=args.context_chars,
+            limit=args.limit,
         )
         return
 

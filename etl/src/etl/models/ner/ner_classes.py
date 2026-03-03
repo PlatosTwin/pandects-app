@@ -24,6 +24,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import lightning.pytorch as pl
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import F1Score as F1
 
@@ -37,23 +38,11 @@ from transformers.optimization import get_linear_schedule_with_warmup
 
 if TYPE_CHECKING:
     from .ner_constants import SPECIAL_TOKENS_TO_ADD
-    from .postprocess_article import (
-        apply_article_line_snapping,
-        apply_article_regex_gating,
-    )
 else:
     try:
         from .ner_constants import SPECIAL_TOKENS_TO_ADD
-        from .postprocess_article import (
-            apply_article_line_snapping,
-            apply_article_regex_gating,
-        )
     except ImportError:  # pragma: no cover - supports running as a script
         from ner_constants import SPECIAL_TOKENS_TO_ADD
-        from postprocess_article import (
-            apply_article_line_snapping,
-            apply_article_regex_gating,
-        )
 
 
 # ASCII-only, length-preserving lowercase (A-Z -> a-z)
@@ -62,6 +51,15 @@ _ASCII_LOWER_TBL = str.maketrans({chr(i): chr(i + 32) for i in range(65, 91)})
 
 class _LogitsOutput(Protocol):
     logits: torch.Tensor
+    hidden_states: tuple[torch.Tensor, ...] | None
+
+
+class EvalDocRecord(TypedDict):
+    doc_id: int
+    raw_text: str
+    token_offsets: list[tuple[int, int]]
+    gold_tags: list[str]
+    pred_tags_raw: list[str]
 
 
 def ascii_lower(s: str) -> str:
@@ -86,7 +84,10 @@ def _upgrade_token_head(
 
 
 def _process_document(
-    raw: str, tokenizer: PreTrainedTokenizerBase, label2id: dict[str, int]
+    raw: str,
+    tokenizer: PreTrainedTokenizerBase,
+    label2id: dict[str, int],
+    preserve_case: bool = False,
 ) -> dict[str, object]:
     tag_pattern = re.compile(r"<(section|article|page)>(.*?)</\1>", re.DOTALL)
 
@@ -119,7 +120,7 @@ def _process_document(
     cleaned_text = "".join(parts)
 
     # 2) Tokenize without specials using ASCII-only lowercase mirror; get offsets & word_ids
-    norm = ascii_lower(cleaned_text)
+    norm = cleaned_text if preserve_case else ascii_lower(cleaned_text)
     encoding = tokenizer(
         norm,
         return_offsets_mapping=True,
@@ -320,47 +321,6 @@ def spans_to_tags(spans: list[tuple[int, int, str]], length: int) -> list[str]:
     return tags
 
 
-def apply_spans_to_tags(
-    tags: list[str],
-    spans: list[tuple[int, int, str]],
-    *,
-    allow_overwrite: bool = True,
-) -> list[str]:
-    """
-    Apply spans onto an existing tag list, optionally preserving existing labels.
-    """
-    updated = tags[:]
-    for start, end, typ in spans:
-        if start < 0 or end >= len(updated) or end < start:
-            raise ValueError("Span bounds are invalid for tag conversion.")
-        if not allow_overwrite:
-            i = start
-            while i <= end:
-                if updated[i] != "O":
-                    i += 1
-                    continue
-                seg_start = i
-                while i <= end and updated[i] == "O":
-                    i += 1
-                seg_end = i - 1
-                if seg_start == seg_end:
-                    updated[seg_start] = _singleton_tag(typ)
-                else:
-                    updated[seg_start] = f"B-{typ}"
-                    for j in range(seg_start + 1, seg_end):
-                        updated[j] = f"I-{typ}"
-                    updated[seg_end] = f"E-{typ}"
-            continue
-        if start == end:
-            updated[start] = _singleton_tag(typ)
-            continue
-        updated[start] = f"B-{typ}"
-        for i in range(start + 1, end):
-            updated[i] = f"I-{typ}"
-        updated[end] = f"E-{typ}"
-    return updated
-
-
 def prf1_from_spans(
     pred_spans: list[tuple[int, int, str]],
     gold_spans: list[tuple[int, int, str]],
@@ -482,6 +442,44 @@ def build_bioes_constraints(
     return trans, start, end
 
 
+_ARTICLE_HEADING_PATTERNS = [
+    re.compile(r"^\s*ARTICLE\s+[IVXLCDM]+[\.,:;\-\u2014]?\s*(.*)?$", re.IGNORECASE),
+    re.compile(r"^\s*ARTICLE\s+\d+[\.,:;\-\u2014]?\s*(.*)?$", re.IGNORECASE),
+]
+_SECTION_HEADING_PATTERNS = [
+    re.compile(r"^\s*SECTION\s+\d+(?:\.\d+)*[\.,:;\-\u2014]?\s*(.*)?$", re.IGNORECASE),
+    re.compile(r"^\s*SECTION\s+[A-Z][\.,:;\-\u2014]?\s*(.*)?$", re.IGNORECASE),
+]
+
+
+def _window_bounds(center: int, window: int, num_tokens: int) -> tuple[int, int]:
+    if num_tokens <= window:
+        return 0, num_tokens
+    half = window // 2
+    start = max(0, min(center - half, num_tokens - window))
+    end = min(start + window, num_tokens)
+    return start, end
+
+
+def _sample_candidates(
+    rng: np.random.Generator,
+    candidates: list[tuple[int, int]],
+    count: int,
+) -> list[tuple[int, int]]:
+    if count <= 0 or not candidates:
+        return []
+    if len(candidates) <= count:
+        return candidates[:]
+    idx = rng.choice(len(candidates), size=count, replace=False)
+    return [candidates[int(i)] for i in idx]
+
+
+def _line_text_matches_heading(line_text: str) -> bool:
+    return any(p.match(line_text) for p in _ARTICLE_HEADING_PATTERNS) or any(
+        p.match(line_text) for p in _SECTION_HEADING_PATTERNS
+    )
+
+
 class TrainDataset(Dataset[dict[str, object]]):
     """
     Training dataset for NER with token-based sub-sampling strategies.
@@ -494,38 +492,45 @@ class TrainDataset(Dataset[dict[str, object]]):
         tokenizer: PreTrainedTokenizerBase,
         label2id: dict[str, int],
         subsample_window: int,
+        sampling_mode: str = "boundary_mix",
+        seed: int = 42,
+        preserve_case: bool = False,
     ):
         self.tokenizer = tokenizer
         self.label2id = label2id
+        self.id2label = {idx: label for label, idx in label2id.items()}
         self.subsample_window = subsample_window
+        self.sampling_mode = sampling_mode
+        self.seed = seed
+        self.preserve_case = preserve_case
         self.examples: list[dict[str, object]] = []
 
-        for raw in data:
-            processed_doc = _process_document(raw, self.tokenizer, self.label2id)
-            self._create_samples_from_doc(processed_doc)
+        for doc_idx, raw in enumerate(data):
+            processed_doc = _process_document(
+                raw,
+                self.tokenizer,
+                self.label2id,
+                preserve_case=self.preserve_case,
+            )
+            rng = np.random.default_rng(seed + doc_idx)
+            self._create_samples_from_doc(processed_doc, rng)
 
-    def _create_samples_from_doc(self, processed_doc: dict[str, object]) -> None:
-        input_ids = cast(list[int], processed_doc["input_ids"])
-        labels = cast(list[int], processed_doc["labels"])
-        num_tokens = len(input_ids)
+    def _entity_spans_for_doc(
+        self,
+        labels: list[int],
+        num_tokens: int,
+    ) -> list[tuple[int, int]]:
         o_id = self.label2id["O"]
-
-        # 1) Indices of FIRST tokens of words (labels != -100 by construction)
         first_idxs = [i for i, lab in enumerate(labels) if lab != -100]
-
-        # 2) Mark which first-tokens are entity words
         is_ent_word = [labels[i] != o_id for i in first_idxs]
-
-        # 3) Find contiguous runs in *word space* (k indexes into first_idxs)
-        entity_spans = []
-        open_k = None
+        entity_spans: list[tuple[int, int]] = []
+        open_k: int | None = None
         for k, flag in enumerate(is_ent_word):
             if flag and open_k is None:
                 open_k = k
             elif (not flag) and (open_k is not None):
                 last_k = k - 1
                 start_tok = first_idxs[open_k]
-                # end token = last token before the next word's first token
                 end_tok = (
                     (first_idxs[last_k + 1] - 1)
                     if (last_k + 1 < len(first_idxs))
@@ -534,44 +539,143 @@ class TrainDataset(Dataset[dict[str, object]]):
                 entity_spans.append((start_tok, end_tok))
                 open_k = None
         if open_k is not None:
-            start_tok = first_idxs[open_k]
-            end_tok = num_tokens - 1
-            entity_spans.append((start_tok, end_tok))
+            entity_spans.append((first_idxs[open_k], num_tokens - 1))
+        return entity_spans
 
-        # 4) Subsampling (unchanged)
-        if not entity_spans:
-            for i, start in enumerate(range(0, num_tokens, self.subsample_window)):
-                if i > 2:
-                    break
-                end = min(start + self.subsample_window, num_tokens)
-                self._store_chunk(input_ids[start:end], labels[start:end])
-        else:
-            for start, end in entity_spans:
-                span_len = end - start + 1
-                if span_len >= self.subsample_window:
-                    window_start = start
-                else:
-                    pad = (self.subsample_window - span_len) // 2
-                    window_start = max(
-                        0, min(start - pad, num_tokens - self.subsample_window)
-                    )
-                window_end = min(window_start + self.subsample_window, num_tokens)
-                self._store_chunk(
-                    input_ids[window_start:window_end], labels[window_start:window_end]
-                )
+    def _boundary_candidates(
+        self,
+        labels: list[int],
+        num_tokens: int,
+        rng: np.random.Generator,
+    ) -> list[tuple[int, int]]:
+        candidates: list[tuple[int, int]] = []
+        jitter_max = 64
+        target_prefixes = {
+            "B-ARTICLE",
+            "E-ARTICLE",
+            "B-SECTION",
+            "E-SECTION",
+        }
+        for idx, lab_id in enumerate(labels):
+            if lab_id == -100:
+                continue
+            label = self.id2label[lab_id]
+            if label not in target_prefixes:
+                continue
+            jitter = int(rng.integers(-jitter_max, jitter_max + 1))
+            start, end = _window_bounds(idx + jitter, self.subsample_window, num_tokens)
+            candidates.append((start, end))
+        return candidates
 
-            half = self.subsample_window // 2
-            for start, end in entity_spans:
-                if start >= half and end <= num_tokens - half:
-                    if np.random.rand() > 0.05:  # keep your 5% sampling
-                        continue
-                    mid = (start + end) // 2
-                    self._store_chunk(
-                        input_ids[mid - half : mid], labels[mid - half : mid]
-                    )
-                    self._store_chunk(
-                        input_ids[mid : mid + half], labels[mid : mid + half]
-                    )
+    def _hard_negative_candidates(
+        self,
+        processed_doc: dict[str, object],
+        labels: list[int],
+        num_tokens: int,
+    ) -> list[tuple[int, int]]:
+        offsets = cast(list[tuple[int, int]], processed_doc["offset_mapping"])
+        cleaned_text = cast(str, processed_doc["cleaned_text"])
+        candidates: list[tuple[int, int]] = []
+        search_start = 0
+        for line in cleaned_text.splitlines():
+            if not _line_text_matches_heading(line):
+                search_start += len(line) + 1
+                continue
+            line_start = cleaned_text.find(line, search_start)
+            if line_start == -1:
+                search_start += len(line) + 1
+                continue
+            line_end = line_start + len(line)
+            search_start = line_end + 1
+            overlapping = [
+                i
+                for i, (start, end) in enumerate(offsets)
+                if start < line_end and end > line_start
+            ]
+            if not overlapping:
+                continue
+            center = overlapping[len(overlapping) // 2]
+            start, end = _window_bounds(center, self.subsample_window, num_tokens)
+            if any(label != self.label2id["O"] for label in labels[start:end] if label != -100):
+                continue
+            candidates.append((start, end))
+        return candidates
+
+    def _random_candidates(
+        self,
+        num_tokens: int,
+        rng: np.random.Generator,
+        count: int,
+    ) -> list[tuple[int, int]]:
+        if num_tokens <= 0 or count <= 0:
+            return []
+        max_start = max(1, num_tokens - self.subsample_window + 1)
+        starts = [int(rng.integers(0, max_start)) for _ in range(count)]
+        return [(start, min(start + self.subsample_window, num_tokens)) for start in starts]
+
+    def _store_unique_windows(
+        self,
+        input_ids: list[int],
+        labels: list[int],
+        windows: list[tuple[int, int]],
+    ) -> None:
+        seen: set[tuple[int, int]] = set()
+        for start, end in windows:
+            key = (max(0, start), min(end, len(input_ids)))
+            if key in seen or key[0] >= key[1]:
+                continue
+            seen.add(key)
+            self._store_chunk(input_ids[key[0] : key[1]], labels[key[0] : key[1]])
+
+    def _create_boundary_mix_samples(
+        self,
+        processed_doc: dict[str, object],
+        input_ids: list[int],
+        labels: list[int],
+        entity_spans: list[tuple[int, int]],
+        rng: np.random.Generator,
+    ) -> None:
+        num_tokens = len(input_ids)
+        entity_windows: list[tuple[int, int]] = []
+        for start, end in entity_spans:
+            center = (start + end) // 2
+            entity_windows.append(_window_bounds(center, self.subsample_window, num_tokens))
+
+        boundary_windows = self._boundary_candidates(labels, num_tokens, rng)
+        hard_negative_windows = self._hard_negative_candidates(processed_doc, labels, num_tokens)
+        random_windows = self._random_candidates(num_tokens, rng, count=2)
+
+        base_count = max(len(entity_windows), 1)
+        total_target = max(4, int(np.ceil(base_count / 0.4)))
+        entity_target = min(len(entity_windows), max(1, int(round(total_target * 0.4))))
+        boundary_target = max(1, int(round(total_target * 0.3)))
+        hard_negative_target = max(1, int(round(total_target * 0.2)))
+        random_target = max(1, total_target - entity_target - boundary_target - hard_negative_target)
+
+        windows = []
+        windows.extend(_sample_candidates(rng, entity_windows, entity_target))
+        windows.extend(_sample_candidates(rng, boundary_windows, boundary_target))
+        windows.extend(_sample_candidates(rng, hard_negative_windows, hard_negative_target))
+        windows.extend(_sample_candidates(rng, random_windows, random_target))
+
+        if not windows:
+            windows.extend(self._random_candidates(num_tokens, rng, count=2))
+
+        self._store_unique_windows(input_ids, labels, windows)
+
+    def _create_samples_from_doc(
+        self, processed_doc: dict[str, object], rng: np.random.Generator
+    ) -> None:
+        input_ids = cast(list[int], processed_doc["input_ids"])
+        labels = cast(list[int], processed_doc["labels"])
+        num_tokens = len(input_ids)
+        entity_spans = self._entity_spans_for_doc(labels, num_tokens)
+
+        if self.sampling_mode != "boundary_mix":
+            raise ValueError(f"Unsupported sampling_mode {self.sampling_mode!r}.")
+        self._create_boundary_mix_samples(
+            processed_doc, input_ids, labels, entity_spans, rng
+        )
 
     def _store_chunk(self, id_chunk: list[int], label_chunk: list[int]) -> None:
         """Adds special tokens and stores a training example."""
@@ -611,16 +715,23 @@ class ValWindowedDataset(Dataset[dict[str, object]]):
         data_collator: DataCollatorForTokenClassification,
         window: int = 510,
         stride: int = 256,
+        preserve_case: bool = False,
     ):
         self.tokenizer = tokenizer
         self.label2id = label2id
         self.collator = data_collator
         self.window = window
         self.stride = stride
+        self.preserve_case = preserve_case
         self.examples: list[dict[str, object]] = []
 
         for doc_id, raw in enumerate(data):
-            processed_doc = _process_document(raw, self.tokenizer, self.label2id)
+            processed_doc = _process_document(
+                raw,
+                self.tokenizer,
+                self.label2id,
+                preserve_case=self.preserve_case,
+            )
 
             input_ids = cast(list[int], processed_doc["input_ids"])
             labels = cast(list[int], processed_doc["labels"])
@@ -704,8 +815,11 @@ class NERDataModule(pl.LightningDataModule):
         batch_size: int,
         train_subsample_window: int,
         num_workers: int,
+        sampling_mode: str = "boundary_mix",
+        seed: int = 42,
         val_window: int = 510,
         val_stride: int = 256,
+        preserve_case: bool = False,
     ):
         """
         Initialize the NER data module.
@@ -739,8 +853,11 @@ class NERDataModule(pl.LightningDataModule):
         )
 
         self.train_subsample_window = train_subsample_window
+        self.sampling_mode = sampling_mode
+        self.seed = seed
         self.val_window = val_window
         self.val_stride = val_stride
+        self.preserve_case = preserve_case
 
         self.label2id = {label: idx for idx, label in enumerate(label_list)}
         self.id2label = {idx: label for label, idx in self.label2id.items()}
@@ -762,7 +879,7 @@ class NERDataModule(pl.LightningDataModule):
             "persistent_workers": self.persistent_workers,
         }
         if self.num_workers > 0:
-            kwargs["prefetch_factor"] = 2
+            kwargs["prefetch_factor"] = 4 if self.num_workers >= 4 else 2
         return kwargs
 
     def setup(self, stage: str | None = None) -> None:
@@ -777,6 +894,9 @@ class NERDataModule(pl.LightningDataModule):
             tokenizer=self.tokenizer,
             label2id=self.label2id,
             subsample_window=self.train_subsample_window,
+            sampling_mode=self.sampling_mode,
+            seed=self.seed,
+            preserve_case=self.preserve_case,
         )
         self.val_dataset = ValWindowedDataset(
             data=self.val_data,
@@ -785,6 +905,7 @@ class NERDataModule(pl.LightningDataModule):
             data_collator=self.data_collator,
             window=self.val_window,
             stride=self.val_stride,
+            preserve_case=self.preserve_case,
         )
         if self.test_data is not None:
             self.test_dataset = ValWindowedDataset(
@@ -794,6 +915,7 @@ class NERDataModule(pl.LightningDataModule):
                 data_collator=self.data_collator,
                 window=self.val_window,
                 stride=self.val_stride,
+                preserve_case=self.preserve_case,
             )
 
     def train_dataloader(self) -> DataLoader[dict[str, object]]:
@@ -878,22 +1000,134 @@ class FocalLoss(torch.nn.Module):
             Scalar loss value
         """
         if logits.ndim == 3:
-            logits = logits.view(-1, logits.shape[-1])
-            labels = labels.view(-1)
+            logits = logits.reshape(-1, logits.shape[-1])
+            labels = labels.reshape(-1)
 
-        loss = self.ce(logits, labels)
+        active = labels != self.ignore
+        if not active.any():
+            return logits.sum() * 0.0
+
+        logits_active = logits[active].float()
+        labels_active = labels[active]
+
+        ce_loss = F.cross_entropy(
+            logits_active,
+            labels_active,
+            reduction="none",
+        )
+        pt = torch.softmax(logits_active, dim=-1).gather(
+            dim=1, index=labels_active.unsqueeze(1)
+        ).squeeze(1)
+
         if self.class_weights is not None:
             weights = self.class_weights
-            if weights.device != labels.device:
-                weights = weights.to(labels.device)
-            mask = labels != self.ignore
-            if mask.any():
-                per_label = torch.ones_like(loss)
-                per_label[mask] = weights[labels[mask]]
-                loss = loss * per_label
-        pt = torch.exp(-loss)
-        focal = (1 - pt) ** self.gamma * loss
+            if weights.device != labels_active.device:
+                weights = weights.to(labels_active.device)
+            ce_loss = ce_loss * weights[labels_active]
+
+        focal = ((1.0 - pt).clamp(min=0.0) ** self.gamma) * ce_loss
         return focal.mean()
+
+
+class ConstrainedLinearChainCRF(nn.Module):
+    """
+    Linear-chain CRF with hard BIOES legality masks.
+    """
+
+    def __init__(
+        self,
+        transition_mask: torch.Tensor,
+        start_mask: torch.Tensor,
+        end_mask: torch.Tensor,
+    ) -> None:
+        super().__init__()
+        self.transitions = nn.Parameter(torch.zeros_like(transition_mask))
+        self.start_transitions = nn.Parameter(torch.zeros_like(start_mask))
+        self.end_transitions = nn.Parameter(torch.zeros_like(end_mask))
+        self.transition_mask: torch.Tensor
+        self.start_mask: torch.Tensor
+        self.end_mask: torch.Tensor
+        self.register_buffer("transition_mask", transition_mask)
+        self.register_buffer("start_mask", start_mask)
+        self.register_buffer("end_mask", end_mask)
+
+    def _masked_transition_scores(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return (
+            self.transitions + self.transition_mask,
+            self.start_transitions + self.start_mask,
+            self.end_transitions + self.end_mask,
+        )
+
+    def neg_log_likelihood(
+        self,
+        emissions: torch.Tensor,
+        tags: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if emissions.ndim != 3:
+            raise ValueError("emissions must have shape [B, T, C].")
+        if tags.ndim != 2 or mask.ndim != 2:
+            raise ValueError("tags and mask must have shape [B, T].")
+        if emissions.size(0) == 0:
+            return emissions.sum() * 0.0
+
+        transitions, start_scores, end_scores = self._masked_transition_scores()
+        batch_size, seq_len, _ = emissions.shape
+        device = emissions.device
+        lengths = mask.long().sum(dim=1)
+        if (lengths == 0).any():
+            raise ValueError("CRF sequences must contain at least one active token.")
+
+        batch_idx = torch.arange(batch_size, device=device)
+        score = start_scores[tags[:, 0]] + emissions[batch_idx, 0, tags[:, 0]]
+        for t in range(1, seq_len):
+            active = mask[:, t]
+            if not active.any():
+                continue
+            prev_tags = tags[:, t - 1]
+            curr_tags = tags[:, t]
+            trans_score = transitions[prev_tags, curr_tags]
+            emit_score = emissions[batch_idx, t, curr_tags]
+            score = score + (trans_score + emit_score) * active
+
+        last_positions = lengths - 1
+        last_tags = tags[batch_idx, last_positions]
+        score = score + end_scores[last_tags]
+
+        alpha = start_scores.unsqueeze(0) + emissions[:, 0]
+        for t in range(1, seq_len):
+            step_scores = (
+                alpha.unsqueeze(2)
+                + transitions.unsqueeze(0)
+                + emissions[:, t].unsqueeze(1)
+            )
+            next_alpha = torch.logsumexp(step_scores, dim=1)
+            alpha = torch.where(mask[:, t].unsqueeze(1), next_alpha, alpha)
+
+        log_z = torch.logsumexp(alpha + end_scores.unsqueeze(0), dim=1)
+        return (log_z - score).mean()
+
+    def decode(self, emissions: torch.Tensor) -> torch.Tensor:
+        if emissions.ndim != 2:
+            raise ValueError("emissions must have shape [T, C] for decode.")
+        transitions, start_scores, end_scores = self._masked_transition_scores()
+        T, C = emissions.shape
+        score = start_scores + emissions[0]
+        backp = torch.zeros((T, C), dtype=torch.long, device=emissions.device)
+
+        for t in range(1, T):
+            prev = score.unsqueeze(1) + transitions
+            best_prev, best_idx = prev.max(dim=0)
+            score = best_prev + emissions[t]
+            backp[t] = best_idx
+
+        score = score + end_scores
+        last = int(torch.argmax(score))
+        path = torch.empty((T,), dtype=torch.long, device=emissions.device)
+        path[-1] = last
+        for t in range(T - 1, 0, -1):
+            path[t - 1] = backp[t, path[t]]
+        return path
 
 
 class NERTagger(pl.LightningModule):
@@ -909,9 +1143,15 @@ class NERTagger(pl.LightningModule):
         learning_rate: float,
         weight_decay: float,
         warmup_steps_pct: float,
-        article_class_weight: float = 3.0,
         default_class_weight: float = 1.0,
-        gating_mode: str = "raw",
+        decoder_mode: str = "independent",
+        token_loss_mode: str = "focal",
+        token_loss_weight: float = 1.0,
+        crf_loss_weight: float = 0.0,
+        boundary_head: bool = False,
+        boundary_loss_weight: float = 0.0,
+        label_smoothing: float = 0.0,
+        preserve_case: bool = False,
         metrics_output_dir: str | None = None,
         metrics_output_name: str = "ner_test_metrics.yaml",
     ):
@@ -923,6 +1163,15 @@ class NERTagger(pl.LightningModule):
         self.num_labels = num_labels
         self.id2label = id2label
         self.label2id = {v: k for k, v in self.id2label.items()}
+        self.decoder_mode = decoder_mode
+        self.token_loss_mode = token_loss_mode
+        self.token_loss_weight = float(token_loss_weight)
+        self.crf_loss_weight = float(crf_loss_weight)
+        self.boundary_head_enabled = bool(boundary_head)
+        self.boundary_loss_weight = float(boundary_loss_weight)
+        self.label_smoothing = float(label_smoothing)
+        self.preserve_case = bool(preserve_case)
+        self.use_crf = self.decoder_mode == "crf"
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         self.tokenizer.add_special_tokens(
@@ -946,11 +1195,19 @@ class NERTagger(pl.LightningModule):
         class_weights: list[float] = []
         for idx in range(self.num_labels):
             label_name = self.id2label[idx]
-            weight = (
-                float(article_class_weight)
-                if "ARTICLE" in label_name
-                else float(default_class_weight)
-            )
+            if self.token_loss_mode == "ce":
+                if label_name in {"B-ARTICLE", "E-ARTICLE"}:
+                    weight = 4.0 * float(default_class_weight)
+                elif label_name == "I-ARTICLE":
+                    weight = 2.0 * float(default_class_weight)
+                elif label_name in {"B-SECTION", "E-SECTION"}:
+                    weight = 2.0 * float(default_class_weight)
+                elif label_name == "I-SECTION":
+                    weight = 1.25 * float(default_class_weight)
+                else:
+                    weight = float(default_class_weight)
+            else:
+                weight = float(default_class_weight)
             class_weight_map[label_name] = weight
             class_weights.append(weight)
         class_weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
@@ -961,11 +1218,13 @@ class NERTagger(pl.LightningModule):
             )
         )
         self.class_weight_map = class_weight_map
-        self.loss_fn = FocalLoss(
+        self.focal_loss_fn = FocalLoss(
             gamma=2.0,
             ignore_index=self.ignore_index,
             class_weights=class_weight_tensor,
         )
+        self.token_class_weights: torch.Tensor
+        self.register_buffer("token_class_weights", class_weight_tensor)
 
         # CRF-style constraints (buffers, move with .to(device), saved in state_dict)
         _trans, _start, _end = build_bioes_constraints(self.id2label)
@@ -975,6 +1234,23 @@ class NERTagger(pl.LightningModule):
         self.register_buffer("_crf_trans", _trans)  # [C,C]
         self.register_buffer("_crf_start", _start)  # [C]
         self.register_buffer("_crf_end", _end)  # [C]
+        self.crf: ConstrainedLinearChainCRF | None = None
+        if self.use_crf:
+            self.crf = ConstrainedLinearChainCRF(_trans, _start, _end)
+
+        hidden_size = int(getattr(self.model.config, "hidden_size"))
+        self.boundary_classifier: nn.Linear | None = None
+        if self.boundary_head_enabled:
+            self.boundary_classifier = nn.Linear(hidden_size, 4)
+        boundary_pos_weight = torch.tensor([6.0, 6.0, 3.0, 3.0], dtype=torch.float32)
+        self.boundary_pos_weight: torch.Tensor
+        self.register_buffer("boundary_pos_weight", boundary_pos_weight)
+        self._boundary_label_map = {
+            "B-ARTICLE": 0,
+            "E-ARTICLE": 1,
+            "B-SECTION": 2,
+            "E-SECTION": 3,
+        }
 
         # --- Metrics (micro) ---
         o_id = self.label2id["O"]
@@ -1016,6 +1292,116 @@ class NERTagger(pl.LightningModule):
         self._tok_gold.clear()
         self._doc_raw.clear()
         self._tok_offsets.clear()
+
+    def _pack_active_tokens(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        hidden_states: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        active_mask = labels != self.ignore_index
+        batch_size = logits.size(0)
+        lengths = active_mask.long().sum(dim=1)
+        if (lengths == 0).any():
+            raise ValueError("Each training sample must contain at least one active label.")
+        max_len = int(lengths.max().item())
+        packed_logits = logits.new_zeros((batch_size, max_len, self.num_labels))
+        packed_labels = labels.new_zeros((batch_size, max_len))
+        packed_mask = torch.zeros((batch_size, max_len), dtype=torch.bool, device=labels.device)
+        packed_hidden: torch.Tensor | None = None
+        if hidden_states is not None:
+            packed_hidden = hidden_states.new_zeros(
+                (batch_size, max_len, hidden_states.size(-1))
+            )
+
+        for row_idx in range(batch_size):
+            row_mask = active_mask[row_idx]
+            row_len = int(lengths[row_idx].item())
+            packed_logits[row_idx, :row_len] = logits[row_idx][row_mask]
+            packed_labels[row_idx, :row_len] = labels[row_idx][row_mask]
+            packed_mask[row_idx, :row_len] = True
+            if packed_hidden is not None and hidden_states is not None:
+                packed_hidden[row_idx, :row_len] = hidden_states[row_idx][row_mask]
+
+        return packed_logits, packed_labels, packed_mask, packed_hidden
+
+    def _compute_token_loss(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        packed_logits: torch.Tensor,
+        packed_labels: torch.Tensor,
+        packed_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.token_loss_mode == "focal":
+            return self.focal_loss_fn(logits, labels)
+
+        active_logits = packed_logits[packed_mask]
+        active_labels = packed_labels[packed_mask]
+        weights = self.token_class_weights.to(active_logits.device)
+        return F.cross_entropy(
+            active_logits,
+            active_labels,
+            weight=weights,
+            label_smoothing=self.label_smoothing,
+        )
+
+    def _build_boundary_targets(self, packed_labels: torch.Tensor) -> torch.Tensor:
+        batch_size, seq_len = packed_labels.shape
+        targets = torch.zeros((batch_size, seq_len, 4), device=packed_labels.device)
+        for label_name, target_idx in self._boundary_label_map.items():
+            label_id = self.label2id.get(label_name)
+            if label_id is None:
+                continue
+            targets[:, :, target_idx] = (packed_labels == label_id).float()
+        return targets
+
+    def _compute_boundary_loss(
+        self,
+        packed_hidden: torch.Tensor | None,
+        packed_labels: torch.Tensor,
+        packed_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if not self.boundary_head_enabled or self.boundary_classifier is None:
+            return packed_labels.new_tensor(0.0, dtype=torch.float32)
+        if packed_hidden is None:
+            raise RuntimeError("Boundary supervision requires hidden states.")
+        boundary_logits = self.boundary_classifier(packed_hidden)
+        boundary_targets = self._build_boundary_targets(packed_labels)
+        active_logits = boundary_logits[packed_mask]
+        active_targets = boundary_targets[packed_mask]
+        return F.binary_cross_entropy_with_logits(
+            active_logits,
+            active_targets,
+            pos_weight=self.boundary_pos_weight.to(active_logits.device),
+        )
+
+    def _compute_losses(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        hidden_states: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        packed_logits, packed_labels, packed_mask, packed_hidden = self._pack_active_tokens(
+            logits, labels, hidden_states
+        )
+        token_loss = self._compute_token_loss(
+            logits, labels, packed_logits, packed_labels, packed_mask
+        )
+        crf_loss = logits.new_tensor(0.0)
+        if self.use_crf and self.crf is not None:
+            crf_loss = self.crf.neg_log_likelihood(
+                packed_logits, packed_labels, packed_mask
+            )
+        boundary_loss = self._compute_boundary_loss(
+            packed_hidden, packed_labels, packed_mask
+        )
+        total_loss = (
+            self.token_loss_weight * token_loss
+            + self.crf_loss_weight * crf_loss
+            + self.boundary_loss_weight * boundary_loss
+        )
+        return total_loss, token_loss, crf_loss, boundary_loss
 
     def _accumulate_windows(
         self, batch: dict[str, object], logits: torch.Tensor
@@ -1110,7 +1496,11 @@ class NERTagger(pl.LightningModule):
     ) -> _LogitsOutput:
         return cast(
             _LogitsOutput,
-            self.model(input_ids=input_ids, attention_mask=attention_mask),
+            self.model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                output_hidden_states=self.boundary_head_enabled,
+            ),
         )
 
     # ----------------- TRAIN -----------------
@@ -1119,7 +1509,14 @@ class NERTagger(pl.LightningModule):
     ) -> torch.Tensor:
         outputs = self.forward(batch["input_ids"], batch["attention_mask"])
         logits = outputs.logits
-        loss = self.loss_fn(logits.view(-1, self.num_labels), batch["labels"].view(-1))
+        hidden_states = (
+            outputs.hidden_states[-1]
+            if self.boundary_head_enabled and outputs.hidden_states is not None
+            else None
+        )
+        loss, token_loss, crf_loss, boundary_loss = self._compute_losses(
+            logits, batch["labels"], hidden_states
+        )
 
         labels = batch["labels"]
         preds = torch.argmax(logits, dim=-1)
@@ -1133,6 +1530,32 @@ class NERTagger(pl.LightningModule):
             on_epoch=True,
             batch_size=batch["input_ids"].shape[0],
         )
+        self.log(
+            "train/token_loss",
+            token_loss,
+            prog_bar=False,
+            on_step=True,
+            on_epoch=True,
+            batch_size=batch["input_ids"].shape[0],
+        )
+        if self.use_crf:
+            self.log(
+                "train/crf_loss",
+                crf_loss,
+                prog_bar=False,
+                on_step=True,
+                on_epoch=True,
+                batch_size=batch["input_ids"].shape[0],
+            )
+        if self.boundary_head_enabled:
+            self.log(
+                "train/boundary_loss",
+                boundary_loss,
+                prog_bar=False,
+                on_step=True,
+                on_epoch=True,
+                batch_size=batch["input_ids"].shape[0],
+            )
         self._log_lr()
 
         if mask.any():
@@ -1150,10 +1573,12 @@ class NERTagger(pl.LightningModule):
         emissions: [T, C] (already stitched/averaged), full doc tokens only
         returns:  [T] best label path enforcing BIOES legality
         """
+        if self.use_crf and self.crf is not None:
+            return self.crf.decode(emissions)
         T, C = emissions.shape
-        trans = self._crf_trans
-        start = self._crf_start
-        end = self._crf_end
+        trans = self._crf_trans.to(emissions.device)
+        start = self._crf_start.to(emissions.device)
+        end = self._crf_end.to(emissions.device)
 
         score = start + emissions[0]  # [C]
         backp = torch.zeros((T, C), dtype=torch.long, device=emissions.device)
@@ -1172,6 +1597,9 @@ class NERTagger(pl.LightningModule):
             path[t - 1] = backp[t, path[t]]
         return path
 
+    def decode_constrained_doc(self, emissions: torch.Tensor) -> torch.Tensor:
+        return self._viterbi_constrained_doc(emissions)
+
     # ----------------- VAL -----------------
     def on_validation_epoch_start(self) -> None:
         self._reset_eval_buffers()
@@ -1183,7 +1611,14 @@ class NERTagger(pl.LightningModule):
 
         outputs = self.forward(input_ids, attention_mask)
         logits = outputs.logits
-        loss = self.loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+        hidden_states = (
+            outputs.hidden_states[-1]
+            if self.boundary_head_enabled and outputs.hidden_states is not None
+            else None
+        )
+        loss, token_loss, crf_loss, boundary_loss = self._compute_losses(
+            logits, labels, hidden_states
+        )
         preds = torch.argmax(logits, dim=-1)
         mask = labels != self.ignore_index
 
@@ -1199,6 +1634,32 @@ class NERTagger(pl.LightningModule):
             on_epoch=True,
             batch_size=input_ids.shape[0],
         )
+        self.log(
+            "val/token_loss",
+            token_loss,
+            prog_bar=False,
+            on_step=False,
+            on_epoch=True,
+            batch_size=input_ids.shape[0],
+        )
+        if self.use_crf:
+            self.log(
+                "val/crf_loss",
+                crf_loss,
+                prog_bar=False,
+                on_step=False,
+                on_epoch=True,
+                batch_size=input_ids.shape[0],
+            )
+        if self.boundary_head_enabled:
+            self.log(
+                "val/boundary_loss",
+                boundary_loss,
+                prog_bar=False,
+                on_step=False,
+                on_epoch=True,
+                batch_size=input_ids.shape[0],
+            )
 
         self._accumulate_windows(batch, logits)
 
@@ -1207,8 +1668,8 @@ class NERTagger(pl.LightningModule):
     def on_validation_epoch_end(self) -> None:
         self.val_f1_no_o.reset()
 
-        metrics_bundle = self._compute_variant_metrics()
-        if metrics_bundle is None:
+        metrics_raw = self._compute_variant_metrics()
+        if metrics_raw is None:
             self.log(
                 "val_ent_f1",
                 0.0,
@@ -1218,11 +1679,7 @@ class NERTagger(pl.LightningModule):
                 on_epoch=True,
             )
             return
-        metrics_raw, metrics_regex, metrics_snap = metrics_bundle
-
-        val_ent_f1 = self._log_headline_metrics(
-            "val", metrics_raw, metrics_regex, metrics_snap
-        )
+        val_ent_f1 = self._log_headline_metrics("val", metrics_raw)
         self.log(
             "val_ent_f1",
             val_ent_f1,
@@ -1242,7 +1699,14 @@ class NERTagger(pl.LightningModule):
 
         outputs = self.forward(input_ids, attention_mask)
         logits = outputs.logits
-        loss = self.loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+        hidden_states = (
+            outputs.hidden_states[-1]
+            if self.boundary_head_enabled and outputs.hidden_states is not None
+            else None
+        )
+        loss, _token_loss, _crf_loss, _boundary_loss = self._compute_losses(
+            logits, labels, hidden_states
+        )
 
         self._accumulate_windows(batch, logits)
         return loss
@@ -1394,27 +1858,6 @@ class NERTagger(pl.LightningModule):
             counts[t]["fp"] += fp
             counts[t]["fn"] += fn
             counts[t]["support"] += len(golds)
-
-    def _build_article_variants(
-        self,
-        pred_tags: list[str],
-        raw_text: str,
-        token_offsets: list[tuple[int, int]],
-    ) -> tuple[list[str], list[str]]:
-        """
-        Build regex-gated and regex+snap tag sequences for a document.
-        """
-        pred_spans = tags_to_spans(pred_tags)
-        spans_regex = apply_article_regex_gating(pred_spans, raw_text, token_offsets)
-        spans_snap = apply_article_line_snapping(spans_regex, raw_text, token_offsets)
-
-        tags_regex = spans_to_tags(spans_regex, len(pred_tags))
-
-        non_article_spans = [s for s in spans_snap if s[2] != "ARTICLE"]
-        article_spans = [s for s in spans_snap if s[2] == "ARTICLE"]
-        tags_snap = spans_to_tags(non_article_spans, len(pred_tags))
-        tags_snap = apply_spans_to_tags(tags_snap, article_spans, allow_overwrite=False)
-        return tags_regex, tags_snap
 
     def _compute_eval_metrics(
         self,
@@ -1589,27 +2032,17 @@ class NERTagger(pl.LightningModule):
         return {"token_level": token_metrics, "entity_level": entity_metrics}
 
     def on_test_epoch_end(self) -> None:
-        metrics_bundle = self._compute_variant_metrics()
-        if metrics_bundle is None:
+        metrics_raw = self._compute_variant_metrics()
+        if metrics_raw is None:
             return
-        metrics_raw, metrics_regex, metrics_snap = metrics_bundle
         prefix = cast(str, getattr(self, "eval_log_prefix", "test"))
-        _ = self._log_headline_metrics(prefix, metrics_raw, metrics_regex, metrics_snap)
-
-        gating_mode = cast(str, getattr(self.hparams, "gating_mode", "raw"))
-        if gating_mode == "regex+snap":
-            gating_mode = "snap"
-        variants = {
-            "raw": metrics_raw,
-            "regex": metrics_regex,
-            "snap": metrics_snap,
-        }
+        _ = self._log_headline_metrics(prefix, metrics_raw)
+        variants = {"raw": metrics_raw}
         metrics = {
             "variants": variants,
-            "primary_variant": gating_mode,
-            "primary": variants.get(gating_mode, metrics_raw),
+            "primary_variant": "raw",
+            "primary": metrics_raw,
             "class_weights": {
-                "article": float(getattr(self.hparams, "article_class_weight", 3.0)),
                 "default": float(getattr(self.hparams, "default_class_weight", 1.0)),
                 "by_label": self.class_weight_map,
             },
@@ -1639,14 +2072,8 @@ class NERTagger(pl.LightningModule):
             return
         self.log("lr", lr, prog_bar=False, on_step=True, on_epoch=False)
 
-    def _compute_variant_metrics(
-        self,
-    ) -> tuple[dict[str, object], dict[str, object], dict[str, object]] | None:
-        pred_tags_by_doc_raw: dict[int, list[str]] = {}
-        pred_tags_by_doc_regex: dict[int, list[str]] = {}
-        pred_tags_by_doc_snap: dict[int, list[str]] = {}
-        gold_tags_by_doc: dict[int, list[str]] = {}
-
+    def collect_eval_docs(self) -> list[EvalDocRecord]:
+        records: list[EvalDocRecord] = []
         for doc_id, sum_logits in self._tok_sum.items():
             cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
             avg_logits = sum_logits / cnt
@@ -1675,49 +2102,47 @@ class NERTagger(pl.LightningModule):
             if raw_text is None:
                 raise RuntimeError("Missing raw text for evaluation.")
 
-            tags_regex, tags_snap = self._build_article_variants(
-                pred_tags, raw_text, offsets_masked
+            records.append(
+                {
+                    "doc_id": doc_id,
+                    "raw_text": raw_text,
+                    "token_offsets": offsets_masked,
+                    "gold_tags": gold_tags,
+                    "pred_tags_raw": pred_tags,
+                }
             )
 
-            pred_tags_by_doc_raw[doc_id] = pred_tags
-            pred_tags_by_doc_regex[doc_id] = tags_regex
-            pred_tags_by_doc_snap[doc_id] = tags_snap
-            gold_tags_by_doc[doc_id] = gold_tags
+        return records
+
+    def _compute_variant_metrics(self) -> dict[str, object] | None:
+        pred_tags_by_doc_raw: dict[int, list[str]] = {}
+        gold_tags_by_doc: dict[int, list[str]] = {}
+
+        for record in self.collect_eval_docs():
+            doc_id = int(record["doc_id"])
+            pred_tags_by_doc_raw[doc_id] = record["pred_tags_raw"]
+            gold_tags_by_doc[doc_id] = record["gold_tags"]
 
         metrics_raw = self._compute_eval_metrics(pred_tags_by_doc_raw, gold_tags_by_doc)
         if not metrics_raw:
             return None
-        metrics_regex = self._compute_eval_metrics(
-            pred_tags_by_doc_regex, gold_tags_by_doc
-        )
-        metrics_snap = self._compute_eval_metrics(
-            pred_tags_by_doc_snap, gold_tags_by_doc
-        )
-        return metrics_raw, metrics_regex, metrics_snap
+        return metrics_raw
 
     def _log_headline_metrics(
         self,
         prefix: str,
         metrics_raw: dict[str, object],
-        metrics_regex: dict[str, object],
-        metrics_snap: dict[str, object],
     ) -> float:
-        variants = {
-            "raw": metrics_raw,
-            "regex": metrics_regex,
-            "snap": metrics_snap,
-        }
         headline: dict[str, float] = {}
-        for key, metrics in variants.items():
-            entity_level = cast(dict[str, object], metrics["entity_level"])
-            micro = cast(dict[str, float], entity_level["micro"])
-            per_type = cast(dict[str, dict[str, float]], entity_level["per_type"])
-            article_metrics = per_type.get("ARTICLE", {"f1": 0.0, "recall": 0.0})
-            headline[f"{prefix}/entity_strict_f1_{key}"] = float(micro["f1"])
-            headline[f"{prefix}/article_strict_f1_{key}"] = float(article_metrics["f1"])
-            headline[f"{prefix}/article_strict_recall_{key}"] = float(
-                article_metrics["recall"]
-            )
+        entity_level = cast(dict[str, object], metrics_raw["entity_level"])
+        micro = cast(dict[str, float], entity_level["micro"])
+        per_type = cast(dict[str, dict[str, float]], entity_level["per_type"])
+        article_metrics = per_type.get("ARTICLE", {"f1": 0.0, "recall": 0.0})
+        headline[f"{prefix}/entity_strict_f1_raw"] = float(micro["f1"])
+        headline[f"{prefix}/article_strict_f1_raw"] = float(article_metrics["f1"])
+        headline[f"{prefix}/article_strict_recall_raw"] = float(
+            article_metrics["recall"]
+        )
 
         for name, value in headline.items():
             self.log(name, value, prog_bar=True, on_epoch=True)

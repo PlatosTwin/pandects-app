@@ -1,0 +1,9 @@
+model_name: answerdotai/ModernBERT-base
+batch_size: 8
+train_subsample_window: 512
+val_window: 510
+val_stride: 256
+max_epochs: 10
+learning_rate: 5.0e-05
+weight_decay: 0.01
+warmup_steps_pct: 0.1
