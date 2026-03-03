@@ -1,5 +1,8 @@
 """
-Utilities for exporting problematic ARTICLE cases from a trained checkpoint.
+Utilities for exporting problematic entity cases from a trained checkpoint.
+
+This module is entity-generic. ARTICLE- and PAGE-specific helpers remain as thin
+wrappers around the core entity audit builder for convenience.
 """
 
 from __future__ import annotations
@@ -15,8 +18,9 @@ else:
         from ner_classes import tags_to_spans
 
 
-class ArticleFailureRecord(TypedDict):
+class EntityFailureRecord(TypedDict):
     doc_id: int
+    entity_type: str
     failure_type: str
     gold_token_start: int | None
     gold_token_end: int | None
@@ -35,6 +39,10 @@ class ArticleFailureRecord(TypedDict):
     overlap_token_count: int
     start_token_delta: int | None
     end_token_delta: int | None
+
+
+ArticleFailureRecord = EntityFailureRecord
+PageFailureRecord = EntityFailureRecord
 
 
 def _overlaps(a: tuple[int, int, str], b: tuple[int, int, str]) -> bool:
@@ -98,21 +106,23 @@ def _span_details(
     }
 
 
-def build_article_failure_records(
+def build_entity_failure_records(
     *,
+    entity_type: str,
     doc_id: int,
     pred_tags: list[str],
     gold_tags: list[str],
     raw_text: str,
     token_offsets: list[tuple[int, int]],
     context_chars: int = 160,
-) -> list[ArticleFailureRecord]:
-    pred_spans = [span for span in tags_to_spans(pred_tags) if span[2] == "ARTICLE"]
-    gold_spans = [span for span in tags_to_spans(gold_tags) if span[2] == "ARTICLE"]
+) -> list[EntityFailureRecord]:
+    entity_type = entity_type.upper()
+    pred_spans = [span for span in tags_to_spans(pred_tags) if span[2] == entity_type]
+    gold_spans = [span for span in tags_to_spans(gold_tags) if span[2] == entity_type]
 
     matched_pred: set[int] = set()
     matched_gold: set[int] = set()
-    records: list[ArticleFailureRecord] = []
+    records: list[EntityFailureRecord] = []
 
     for pred_idx, pred_span in enumerate(pred_spans):
         for gold_idx, gold_span in enumerate(gold_spans):
@@ -144,11 +154,12 @@ def build_article_failure_records(
         matched_gold.add(best_gold_idx)
         records.append(
             cast(
-                ArticleFailureRecord,
+                EntityFailureRecord,
                 cast(
                     object,
                     {
                     "doc_id": doc_id,
+                    "entity_type": entity_type,
                     "failure_type": "boundary_mismatch",
                     **_span_details(
                         gold_span, raw_text, token_offsets, context_chars, "gold"
@@ -169,11 +180,12 @@ def build_article_failure_records(
             continue
         records.append(
             cast(
-                ArticleFailureRecord,
+                EntityFailureRecord,
                 cast(
                     object,
                     {
                     "doc_id": doc_id,
+                    "entity_type": entity_type,
                     "failure_type": "false_negative",
                     **_span_details(
                         gold_span, raw_text, token_offsets, context_chars, "gold"
@@ -194,11 +206,12 @@ def build_article_failure_records(
             continue
         records.append(
             cast(
-                ArticleFailureRecord,
+                EntityFailureRecord,
                 cast(
                     object,
                     {
                     "doc_id": doc_id,
+                    "entity_type": entity_type,
                     "failure_type": "false_positive",
                     **_span_details(
                         None, raw_text, token_offsets, context_chars, "gold"
@@ -226,3 +239,43 @@ def build_article_failure_records(
         )
     )
     return records
+
+
+def build_article_failure_records(
+    *,
+    doc_id: int,
+    pred_tags: list[str],
+    gold_tags: list[str],
+    raw_text: str,
+    token_offsets: list[tuple[int, int]],
+    context_chars: int = 160,
+) -> list[ArticleFailureRecord]:
+    return build_entity_failure_records(
+        entity_type="ARTICLE",
+        doc_id=doc_id,
+        pred_tags=pred_tags,
+        gold_tags=gold_tags,
+        raw_text=raw_text,
+        token_offsets=token_offsets,
+        context_chars=context_chars,
+    )
+
+
+def build_page_failure_records(
+    *,
+    doc_id: int,
+    pred_tags: list[str],
+    gold_tags: list[str],
+    raw_text: str,
+    token_offsets: list[tuple[int, int]],
+    context_chars: int = 160,
+) -> list[PageFailureRecord]:
+    return build_entity_failure_records(
+        entity_type="PAGE",
+        doc_id=doc_id,
+        pred_tags=pred_tags,
+        gold_tags=gold_tags,
+        raw_text=raw_text,
+        token_offsets=token_offsets,
+        context_chars=context_chars,
+    )
