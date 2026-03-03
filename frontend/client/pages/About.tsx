@@ -1,236 +1,134 @@
-import { useEffect, useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
 import { PageShell } from "@/components/PageShell";
-import { Card } from "@/components/ui/card";
 
 export default function About() {
-  const [activeSection, setActiveSection] = useState("");
-
-  const navItems = useMemo(
-    () => [
-      { id: "overview", label: "Overview", indent: false },
-      { id: "contributing", label: "Contributing", indent: false },
-      { id: "credits", label: "Credits", indent: false },
-    ],
-    [],
-  );
-
-  const scrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-    el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth" });
-    setActiveSection(id);
-    window.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
-  };
-
-  useEffect(() => {
-    const syncFromHash = () => {
-      let id = "";
-      try {
-        id = decodeURIComponent(window.location.hash.replace(/^#/, ""));
-      } catch {
-        return;
-      }
-      if (!id) return;
-      scrollToSection(id);
-    };
-
-    // Initial
-    const timer = window.setTimeout(syncFromHash, 0);
-
-    // Subsequent (e.g. user edits hash / copy-pastes anchors)
-    window.addEventListener("hashchange", syncFromHash);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("hashchange", syncFromHash);
-    };
-  }, []);
-
-  const ComingSoon = ({ title }: { title: string }) => (
-    <Card className="border-border/60 bg-card/70 p-6">
-      <div className="text-sm font-medium text-foreground">{title}</div>
-      <p className="mt-1 text-sm text-muted-foreground prose max-w-none">
-        This section is being written. If you’d like to help,{" "}
-        <a
-          href="https://github.com/PlatosTwin/pandects-app/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open an issue (opens in a new tab)"
-        >
-          open an issue
-        </a>{" "}
-        with suggestions.
-      </p>
-    </Card>
-  );
-
   return (
     <PageShell
       size="xl"
       title="About"
     >
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-20">
-            <Card className="border-border/60 bg-background/70 p-3 backdrop-blur">
-              <div className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                On this page
-              </div>
-              <nav aria-label="About page sections">
-                <ul className="space-y-1">
-                  {navItems.map(({ id, label, indent }) => (
-                    <li key={id} className={indent ? "ml-4" : undefined}>
-                      <button
-                        type="button"
-                        onClick={() => scrollToSection(id)}
-                        aria-current={activeSection === id ? "location" : undefined}
-                        aria-controls={id}
-                        className={cn(
-                          "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                          activeSection === id
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </Card>
-          </div>
-        </aside>
+      <article className="space-y-12">
+        <section id="overview" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="overview-heading">
+          <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            Overview
+          </h2>
+          <p className="text-muted-foreground">
+            Pandects is an open-source M&A research platform built to make it
+            easier to browse and analyze clauses across definitive agreements.
+          </p>
+          <p className="text-muted-foreground">
+            We plan to soft-launch the site in mid to late March 2026. Check back then
+            for more complete data.
+          </p>
+        </section>
 
-        <article className="space-y-12">
-          <section id="overview" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="overview-heading">
-            <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
-              Overview
-            </h2>
-            <p className="max-w-3xl text-muted-foreground">
-              Pandects is an open-source M&A research platform built to make it
-              easier to browse and analyze clauses across definitive agreements.
-            </p>
-            <p className="max-w-3xl text-muted-foreground">
-              We plan to soft-launch the site in mid to late February 2026. Check back then
-              for more complete data.
-            </p>
-          </section>
+        <section id="contributing" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="contributing-heading">
+          <h2 id="contributing-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            Contributing
+          </h2>
+          <p className="text-muted-foreground prose max-w-none">
+            This is an open-source project, and contributions are welcome.
+            See the{" "}
+            <a
+              href="https://github.com/PlatosTwin/pandects-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub repository (opens in a new tab)"
+              className="underline underline-offset-2"
+            >
+              GitHub repository
+            </a>{" "}
+            for details.
+          </p>
+          <p className="text-muted-foreground">
+            We are especially thankful for focused contributions to:
+          </p>
+          <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+            <li>Security hardening, including OAuth flow reviews.</li>
+            <li>Accessibility improvements (keyboard, focus, contrast).</li>
+            <li>ML model optimization.</li>
+          </ul>
+        </section>
 
-          <section id="contributing" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="contributing-heading">
-            <h2 id="contributing-heading" className="text-2xl font-semibold tracking-tight text-foreground">
-              Contributing
-            </h2>
-            <p className="text-muted-foreground prose max-w-none">
-              This is an open-source project, and contributions are welcome.
-              See the{" "}
+        <section id="credits" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="credits-heading">
+          <h2 id="credits-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            Credits
+          </h2>
+          <div className="space-y-6 text-muted-foreground">
+            <p className="prose max-w-none text-muted-foreground">
+              Professor Emiliano Catan at NYU Law has been an active advisor
+              to this project from the beginning. The{" "}
               <a
-                href="https://github.com/PlatosTwin/pandects-app"
+                href="https://www.law.nyu.edu/leadershipprogram"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="GitHub repository (opens in a new tab)"
+                aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
                 className="underline underline-offset-2"
               >
-                GitHub repository
+                Jacobson Leadership Program in Law and Business
               </a>{" "}
-              for details.
+              at NYU has also provided support, including a commitment to
+              substantially all of the startup funding. We are also thankful to NYU
+              Law professor Chris Sprigman. The concept and design for this
+              site borrow heavily from the{" "}
+              <a
+                href="https://case.law"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Caselaw Access Project (opens in a new tab)"
+                className="underline underline-offset-2"
+              >
+                Caselaw Access Project
+              </a>
+              , a product of the{" "}
+              <a
+                href="https://lil.law.harvard.edu/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Library Innovation Lab (opens in a new tab)"
+                className="underline underline-offset-2"
+              >
+                Library Innovation Lab
+              </a>{" "}
+              (LIL) at Harvard Law; Jack Cushman at LIL provided guidance and
+              advice early on in this project. Josh Carty provided technical
+              assistance early on, and helped brainstorm.
             </p>
-            <p className="text-muted-foreground">
-              We are especially thankful for focused contributions to:
+            <p className="prose max-w-none text-muted-foreground">
+              This project would not have gotten off the ground without the
+              prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
+              and Eric Talley, whose{" "}
+              <a
+                href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
+                className="underline underline-offset-2"
+              >
+                <em>
+                  Introducing a New Corpus of Definitive M&A Agreements,
+                  2000–2020
+                </em>
+              </a>{" "}
+              provided the inspiration and seed set of source links to
+              definitive agreements in EDGAR. Their GitHub repository is
+              available{" "}
+              <a
+                href="https://github.com/padelson/dma_corpus/tree/main"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="DMA corpus repository (opens in a new tab)"
+                className="underline underline-offset-2"
+              >
+                DMA corpus repository
+              </a>
+              .
             </p>
-            <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
-              <li>Security hardening, including OAuth flow reviews.</li>
-              <li>Accessibility improvements (keyboard, focus, contrast).</li>
-              <li>ML model optimization.</li>
-            </ul>
-          </section>
-
-          <section id="credits" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="credits-heading">
-            <h2 id="credits-heading" className="text-2xl font-semibold tracking-tight text-foreground">
-              Credits
-            </h2>
-            <div className="space-y-6 text-muted-foreground">
-              <p className="prose max-w-none text-muted-foreground">
-                Professor Emiliano Catan at NYU Law has been an active advisor
-                to this project from the beginning. The{" "}
-                <a
-                  href="https://www.law.nyu.edu/leadershipprogram"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
-                  className="underline underline-offset-2"
-                >
-                  Jacobson Leadership Program in Law and Business
-                </a>{" "}
-                at NYU has also provided support, including a commitment to
-                substantially all of the startup funding. We are also thankful to NYU
-                Law professor Chris Sprigman. The concept and design for this
-                site borrow heavily from the{" "}
-                <a
-                  href="https://case.law"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Caselaw Access Project (opens in a new tab)"
-                  className="underline underline-offset-2"
-                >
-                  Caselaw Access Project
-                </a>
-                , a product of the{" "}
-                <a
-                  href="https://lil.law.harvard.edu/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Library Innovation Lab (opens in a new tab)"
-                  className="underline underline-offset-2"
-                >
-                  Library Innovation Lab
-                </a>{" "}
-                (LIL) at Harvard Law; Jack Cushman at LIL provided guidance and
-                advice early on in this project. Josh Carty provided technical
-                assistance early on, and helped brainstorm.
-              </p>
-              <p className="prose max-w-none text-muted-foreground">
-                This project would not have gotten off the ground without the
-                prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
-                and Eric Talley, whose{" "}
-                <a
-                  href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
-                  className="underline underline-offset-2"
-                >
-                  <em>
-                    Introducing a New Corpus of Definitive M&A Agreements,
-                    2000–2020
-                  </em>
-                </a>{" "}
-                provided the inspiration and seed set of source links to
-                definitive agreements in EDGAR. Their GitHub repository is
-                available{" "}
-                <a
-                  href="https://github.com/padelson/dma_corpus/tree/main"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="DMA corpus repository (opens in a new tab)"
-                  className="underline underline-offset-2"
-                >
-                  DMA corpus repository
-                </a>
-                .
-              </p>
-              <p className="prose max-w-none text-muted-foreground">
-                Finally, this project was supported in part through the NYU IT High Performance Computing resources, services, and staff expertise
-              </p>
-            </div>
-          </section>
-        </article>
-      </div>
+            <p className="prose max-w-none text-muted-foreground">
+              Finally, this project was supported in part through the NYU IT High Performance Computing resources, services, and staff expertise
+            </p>
+          </div>
+        </section>
+      </article>
     </PageShell>
   );
 }
