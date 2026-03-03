@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 from sqlalchemy import text
 
@@ -111,6 +112,12 @@ class MainRoutesTests(unittest.TestCase):
                         "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
                         "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
                         ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
                     )
                 )
                 conn.execute(
@@ -280,6 +287,55 @@ class MainRoutesTests(unittest.TestCase):
         self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(len(body.get("results", [])), 1)
 
+    def test_search_by_standard_id_matches_multi_label_sections(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, section_standard_id_gold_label, xml_version) VALUES "
+                        "('a2', '00000000-0000-0000-0000-000000000004', 'ARTICLE I', 'Section Multi', "
+                        "'<section>MULTI</section>', '[\"fallback\"]', '[\"multi\",\"other\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000004', 'a2', '2021-02-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target B', 'Acquirer B', NULL, NULL, NULL, NULL, 'stock', 'private', "
+                        "'public', 'healthcare', 'tech', NULL, NULL, 'pending', 'hostile', 'stock_acquisition', "
+                        "'financial', 1, 0, 0, 'http://example.com/a2', '[\"multi\",\"other\"]', "
+                        "'ARTICLE I', 'Section Multi'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES "
+                        "('multi', '00000000-0000-0000-0000-000000000004', 'a2'), "
+                        "('other', '00000000-0000-0000-0000-000000000004', 'a2')"
+                    )
+                )
+
+        client = self.app.test_client()
+        res = client.get("/v1/search?standard_id=multi&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000004")
+
     def test_search_marks_total_count_as_approximate_when_more_pages_exist(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
@@ -341,6 +397,27 @@ class MainRoutesTests(unittest.TestCase):
         self.assertTrue(body.get("total_count_is_approximate"))
         self.assertGreaterEqual(body.get("total_count"), 6)
         self.assertGreaterEqual(body.get("total_pages"), 2)
+
+    def test_search_total_count_metadata_uses_table_estimate_for_unfiltered_search(self):
+        with (
+            patch.object(self.app_module, "_estimated_query_row_count", return_value=None),
+            patch.object(
+                self.app_module,
+                "_estimated_latest_sections_search_table_rows",
+                return_value=488296,
+            ),
+        ):
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=6,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=False,
+            )
+
+        self.assertEqual(total_count, 488296)
+        self.assertTrue(is_approximate)
 
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()

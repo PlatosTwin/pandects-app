@@ -120,6 +120,18 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
         _ = self.conn.execute(
             text(
                 """
+            CREATE TABLE latest_sections_search_standard_ids (
+                standard_id TEXT NOT NULL,
+                section_uuid TEXT NOT NULL,
+                agreement_uuid TEXT NOT NULL,
+                PRIMARY KEY (standard_id, section_uuid)
+            )
+            """
+            )
+        )
+        _ = self.conn.execute(
+            text(
+                """
             INSERT INTO agreements (
                 agreement_uuid, filing_date, target, acquirer, transaction_consideration,
                 target_type, acquirer_type, target_industry, acquirer_industry,
@@ -206,6 +218,60 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
             )
         ).fetchall()
         self.assertEqual(rows, [("fresh-section", '["gold"]')])
+        standard_id_rows = self.conn.execute(
+            text(
+                """
+            SELECT standard_id, section_uuid, agreement_uuid
+            FROM latest_sections_search_standard_ids
+            ORDER BY standard_id, section_uuid
+            """
+            )
+        ).fetchall()
+        self.assertEqual(standard_id_rows, [("gold", "fresh-section", "a1")])
+
+    def test_refresh_populates_standard_id_mapping_for_multi_label_sections(self) -> None:
+        assert self.conn is not None
+        _ = self.conn.execute(
+            text(
+                """
+                INSERT INTO xml (agreement_uuid, version, status, latest)
+                VALUES ('a1', 2, 'verified', 1)
+                """
+            )
+        )
+        _ = self.conn.execute(
+            text(
+                """
+            INSERT INTO sections (
+                section_uuid, agreement_uuid, article_title, section_title,
+                section_standard_id, section_standard_id_gold_label, xml_version
+            ) VALUES (
+                'multi-section', 'a1', 'ARTICLE I', 'Multi',
+                '["fallback"]', '["governing_law","other","governing_law"]', 2
+            )
+            """
+            )
+        )
+
+        inserted = refresh_latest_sections_search(self.conn, "", ["a1"])
+
+        self.assertEqual(inserted, 1)
+        standard_id_rows = self.conn.execute(
+            text(
+                """
+            SELECT standard_id, section_uuid, agreement_uuid
+            FROM latest_sections_search_standard_ids
+            ORDER BY standard_id
+            """
+            )
+        ).fetchall()
+        self.assertEqual(
+            standard_id_rows,
+            [
+                ("governing_law", "multi-section", "a1"),
+                ("other", "multi-section", "a1"),
+            ],
+        )
 
     def test_refresh_deletes_rows_when_latest_xml_is_invalid(self) -> None:
         assert self.conn is not None
@@ -235,12 +301,25 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
             """
             )
         )
+        _ = self.conn.execute(
+            text(
+                """
+            INSERT INTO latest_sections_search_standard_ids (
+                standard_id, section_uuid, agreement_uuid
+            ) VALUES ('old', 'stale-section', 'a1')
+            """
+            )
+        )
 
         inserted = refresh_latest_sections_search(self.conn, "", ["a1"])
 
         self.assertEqual(inserted, 0)
         remaining = self.conn.execute(text("SELECT COUNT(*) FROM latest_sections_search")).fetchone()
         self.assertEqual(remaining, (0,))
+        remaining_standard_ids = self.conn.execute(
+            text("SELECT COUNT(*) FROM latest_sections_search_standard_ids")
+        ).fetchone()
+        self.assertEqual(remaining_standard_ids, (0,))
 
 
 if __name__ == "__main__":

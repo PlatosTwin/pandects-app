@@ -15,6 +15,7 @@ from etl.domain.h_taxonomy import (
 )
 from etl.domain.f_xml import XMLData
 from etl.utils.db_utils import upsert_xml
+from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import is_batched
 
@@ -170,8 +171,16 @@ def taxonomy_asset(
 
             if staged_xml:
                 upsert_xml(staged_xml, db.database, conn)
+            refreshed = refresh_latest_sections_search(conn, db.database, agr_list)
             context.log.info(
-                f"taxonomy_asset: batch updated {len(upd_rows)} sections across {len(agr_list)} agreements; upserted {len(staged_xml)} XMLs"
+                (
+                    "taxonomy_asset: batch updated %s sections across %s agreements; "
+                    "upserted %s XMLs; refreshed latest_sections_search rows=%s"
+                ),
+                len(upd_rows),
+                len(agr_list),
+                len(staged_xml),
+                refreshed,
             )
 
             last_uuid = agr_rows[-1]["agreement_uuid"]

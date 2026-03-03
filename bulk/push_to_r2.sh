@@ -30,6 +30,8 @@ API_TABLES=(
   agreement_deal_type_summary
   agreement_status_summary
   agreements
+  latest_sections_search
+  latest_sections_search_standard_ids
   naics_sectors
   naics_sub_sectors
   sections

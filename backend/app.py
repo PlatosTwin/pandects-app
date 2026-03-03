@@ -52,7 +52,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects import mysql as mysql_dialect
 from sqlalchemy.types import NullType
 from sqlalchemy.orm import Mapped
-from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 from dotenv import load_dotenv
 from urllib.parse import urlencode, quote
@@ -1933,7 +1932,7 @@ def _pagination_metadata(
 
 def _estimated_query_row_count(query: object) -> int | None:
     bind = db.session.get_bind()
-    if bind is None or bind.dialect.name == "sqlite":
+    if bind.dialect.name == "sqlite":
         return None
     try:
         selectable = cast(Any, query).order_by(None).statement
@@ -1957,6 +1956,33 @@ def _estimated_query_row_count(query: object) -> int | None:
     return max_rows if max_rows > 0 else None
 
 
+def _estimated_latest_sections_search_table_rows() -> int | None:
+    bind = db.session.get_bind()
+    if bind.dialect.name == "sqlite":
+        return None
+    try:
+        row = (
+            db.session.execute(
+                text(
+                    """
+                    SELECT TABLE_ROWS
+                    FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'latest_sections_search'
+                    """
+                )
+            )
+            .mappings()
+            .first()
+        )
+    except SQLAlchemyError:
+        return None
+    if row is None:
+        return None
+    table_rows = _to_int(row.get("TABLE_ROWS"))
+    return table_rows if table_rows > 0 else None
+
+
 def _search_total_count_metadata(
     *,
     query: object,
@@ -1964,6 +1990,7 @@ def _search_total_count_metadata(
     page_size: int,
     item_count: int,
     has_next: bool,
+    has_filters: bool,
 ) -> tuple[int, bool]:
     offset = (page - 1) * page_size
     if item_count == 0 and offset == 0:
@@ -1973,6 +2000,8 @@ def _search_total_count_metadata(
 
     lower_bound = offset + item_count + (1 if has_next else 0)
     estimated_count = _estimated_query_row_count(query)
+    if estimated_count is None and not has_filters:
+        estimated_count = _estimated_latest_sections_search_table_rows()
     if estimated_count is None:
         return lower_bound, True
     return max(lower_bound, estimated_count), True
@@ -2546,6 +2575,12 @@ if not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    latest_sections_search_standard_ids_table = Table(
+        "latest_sections_search_standard_ids",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -2685,6 +2720,14 @@ else:
         Column("section_title", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    latest_sections_search_standard_ids_table = Table(
+        "latest_sections_search_standard_ids",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("section_uuid", CHAR(36), primary_key=True),
+        Column("agreement_uuid", CHAR(36), nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
 
 
 # ── SQLAlchemy models mapping ───────────────────────────────────────
@@ -2769,6 +2812,13 @@ class LatestSectionsSearch(db.Model):
     section_standard_ids: ClassVar[Mapped[str | None]]
     article_title: ClassVar[Mapped[str | None]]
     section_title: ClassVar[Mapped[str | None]]
+
+
+class LatestSectionsSearchStandardId(db.Model):
+    __table__ = latest_sections_search_standard_ids_table
+    standard_id: ClassVar[Mapped[str]]
+    section_uuid: ClassVar[Mapped[str]]
+    agreement_uuid: ClassVar[Mapped[str]]
 
 
 class XML(db.Model):
@@ -2980,34 +3030,17 @@ def _expand_taxonomy_standard_ids_cached(standard_ids_key: tuple[str, ...]) -> t
     return tuple(_expand_taxonomy_standard_ids(list(standard_ids_key)))
 
 
-def _standard_id_storage_candidates(expanded_standard_ids: list[str]) -> list[str]:
-    """
-    Candidate serialized values for section_standard_id storage.
-    Supports scalar IDs and legacy JSON single-item arrays.
-    """
-    candidates: list[str] = []
-    seen: set[str] = set()
-    for value in expanded_standard_ids:
-        scalar = value
-        json_array = json.dumps([value], separators=(",", ":"))
-        for candidate in (scalar, json_array):
-            if candidate in seen:
-                continue
-            seen.add(candidate)
-            candidates.append(candidate)
-    return candidates
-
-
-def _standard_id_filter_expr(
-    standard_ids_col: InstrumentedAttribute[str | None] | ColumnElement[str | None],
-    expanded_standard_ids: list[str],
-) -> ColumnElement[bool]:
-    """
-    Build an index-friendly clause-type predicate for pre-coalesced values.
-    Supports scalar IDs and legacy JSON single-item array storage.
-    """
-    candidates = _standard_id_storage_candidates(expanded_standard_ids)
-    return cast(ColumnElement[bool], standard_ids_col.in_(candidates))
+def _standard_id_filter_expr(expanded_standard_ids: list[str]) -> ColumnElement[bool]:
+    """Match sections via the normalized latest-search standard-id mapping."""
+    return cast(
+        ColumnElement[bool],
+        db.session.query(LatestSectionsSearchStandardId.section_uuid)
+        .filter(
+            LatestSectionsSearchStandardId.section_uuid == LatestSectionsSearch.section_uuid,
+            LatestSectionsSearchStandardId.standard_id.in_(expanded_standard_ids),
+        )
+        .exists(),
+    )
 
 
 # ── Define search blueprint and schemas ──────────────────────────────────
@@ -4895,12 +4928,7 @@ class SearchResource(MethodView):
                 _expand_taxonomy_standard_ids_cached(standard_ids_key)
             )
             if expanded_standard_ids:
-                q = q.filter(
-                    _standard_id_filter_expr(
-                        LatestSectionsSearch.section_standard_ids,
-                        expanded_standard_ids,
-                    )
-                )
+                q = q.filter(_standard_id_filter_expr(expanded_standard_ids))
 
         # Target Type filter
         if target_types:
@@ -4998,12 +5026,34 @@ class SearchResource(MethodView):
         has_next = len(page_rows) > page_size
         item_rows = page_rows[:page_size]
         item_count = len(item_rows)
+        has_filters = any(
+            (
+                years,
+                targets,
+                acquirers,
+                standard_ids,
+                transaction_considerations,
+                target_types,
+                acquirer_types,
+                target_industries,
+                acquirer_industries,
+                deal_statuses,
+                attitudes,
+                deal_types,
+                purposes,
+                target_pes,
+                acquirer_pes,
+                agreement_uuid and agreement_uuid.strip(),
+                section_uuid and section_uuid.strip(),
+            )
+        )
         total_count, total_count_is_approximate = _search_total_count_metadata(
             query=q,
             page=page,
             page_size=page_size,
             item_count=item_count,
             has_next=has_next,
+            has_filters=has_filters,
         )
         section_uuids = [
             section_id
