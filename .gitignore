@@ -45,6 +45,7 @@ backend/build/
 **/data/*
 **/eval_metrics/*
 **/model_files/
+**/configs/splits/*
 
 _t.*
 
