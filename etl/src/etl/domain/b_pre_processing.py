@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 # Third-party libraries
 import pandas as pd
+import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment, NavigableString, PageElement, Tag
 from requests.api import get as requests_get
@@ -21,12 +22,15 @@ from etl.models.page_classifier_revamp.inference import (
     AgreementReviewSummary,
     build_agreement_review_summary,
 )
+from etl.utils.sec_utils import SEC_USER_AGENT
 
 # Rate limiting configuration
 _request_times: deque[float] = deque()
 _request_lock = threading.Lock()
 _RATE_LIMIT = 10  # requests per period
 _RATE_PERIOD = 1.025  # seconds
+_SEC_FETCH_MAX_ATTEMPTS = 3
+_SEC_FETCH_BACKOFF_SECONDS = 2.0
 _PADDED_QUOTED_TERM_RE = re.compile(
     r'(?<![A-Za-z0-9])([“"])\s+([^"”\n]{1,220}?)\s+([”"])(?![A-Za-z0-9])'
 )
@@ -144,7 +148,38 @@ def _is_semantically_hidden_tag(tag: Tag) -> bool:
     return aria_val.strip().lower() == "true"
 
 
-def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
+def _wait_for_sec_rate_limit_slot() -> None:
+    with _request_lock:
+        now = time.time()
+        while _request_times and now - _request_times[0] >= _RATE_PERIOD:
+            _ = _request_times.popleft()
+
+        if len(_request_times) >= _RATE_LIMIT:
+            sleep_for = _RATE_PERIOD - (now - _request_times[0])
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+
+        _request_times.append(time.time())
+
+
+def _is_retryable_sec_exception(exc: requests.exceptions.RequestException) -> bool:
+    if isinstance(exc, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+        return True
+    if not isinstance(exc, requests.exceptions.HTTPError):
+        return False
+    if exc.response is None:
+        return False
+    status_code = exc.response.status_code
+    return status_code == 429 or 500 <= status_code < 600
+
+
+def pull_agreement_content(
+    url: str,
+    timeout: float = 30.0,
+    *,
+    max_attempts: int = _SEC_FETCH_MAX_ATTEMPTS,
+    backoff_seconds: float = _SEC_FETCH_BACKOFF_SECONDS,
+) -> str:
     """
     Fetch the HTML content at the given URL with rate limiting.
     Used in FROM_SCRATCH mode only.
@@ -152,37 +187,39 @@ def pull_agreement_content(url: str, timeout: float = 10.0) -> str:
     Args:
         url: The URL to pull.
         timeout: Seconds to wait before timing out.
+        max_attempts: Number of attempts for retryable SEC failures.
+        backoff_seconds: Base delay between retries.
 
     Returns:
         The page's HTML content.
 
     Raises:
         requests.HTTPError: On bad HTTP status codes.
-        requests.RequestException: On connection issues, timeouts, etc.
+        requests.exceptions.RequestException: On connection issues, timeouts, etc.
     """
-    with _request_lock:
-        now = time.time()
-        # Drop timestamps older than RATE_PERIOD
-        while _request_times and now - _request_times[0] >= _RATE_PERIOD:
-            _ = _request_times.popleft()
-
-        if len(_request_times) >= _RATE_LIMIT:
-            # Wait until the oldest request moves outside the window
-            sleep_for = _RATE_PERIOD - (now - _request_times[0])
-            time.sleep(sleep_for)
-
-        _request_times.append(time.time())
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1.")
 
     headers = {
-        "User-Agent": "New York University School of Law nmb9729@nyu.edu",
+        "User-Agent": SEC_USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Encoding": "gzip, deflate",
         "Host": "www.sec.gov",
         "Connection": "keep-alive",
     }
-    resp = requests_get(url, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    return resp.text
+    for attempt in range(1, max_attempts + 1):
+        _wait_for_sec_rate_limit_slot()
+        try:
+            resp = requests_get(url, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            return resp.text
+        except requests.exceptions.RequestException as exc:
+            should_retry = _is_retryable_sec_exception(exc)
+            if not should_retry or attempt == max_attempts:
+                raise
+            time.sleep(backoff_seconds * attempt)
+
+    raise RuntimeError("SEC fetch retry loop exited unexpectedly.")
 
 
 def classify(
@@ -1022,7 +1059,18 @@ def pre_process(
             raise RuntimeError(f"Unknown filing extension: {ext}")
 
         # Pull down content from EDGAR
-        content = pull_agreement_content(raw_url)
+        try:
+            content = pull_agreement_content(raw_url)
+        except requests.exceptions.RequestException as exc:
+            message = (
+                f"Failed to fetch agreement {agreement['agreement_uuid']} from {raw_url} "
+                f"after SEC retries: {exc}. Skipping for now."
+            )
+            if context:
+                context.log.info(message)
+            else:
+                print(message)
+            continue
 
         # Split into individual pages
         pages = split_to_pages(content, is_txt, is_html)
