@@ -1,7 +1,7 @@
 row_id,xp_name,train_docs,sampling_mode,decoder_mode,boundary_head,boundary_loss_weight,token_loss_mode,token_loss_weight,crf_loss_weight,label_smoothing,preserve_case,learning_rate,seed
-0,sampler_only_clean_preserve_case_boundary_010,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,1,0.00003,42
-1,sampler_only_clean_preserve_case_boundary_015,all,boundary_mix,independent,1,0.15,focal,1.0,0.0,0.0,1,0.00003,42
-2,sampler_only_clean_preserve_case_boundary_010_lr2e-5,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,1,0.00002,42
-3,sampler_only_clean_preserve_case_boundary_010_lr5e-5,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,1,0.00005,42
+0,sampler_only_clean_boundary_010,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,0,0.00003,42
+1,sampler_only_clean_boundary_015,all,boundary_mix,independent,1,0.15,focal,1.0,0.0,0.0,0,0.00003,42
+2,sampler_only_clean_boundary_010_lr2e-5,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,0,0.00002,42
+3,sampler_only_clean_boundary_010_lr5e-5,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,0,0.00005,42
 4,sampler_only_clean_boundary_010_seed7,all,boundary_mix,independent,1,0.10,focal,1.0,0.0,0.0,0,0.00003,7
-5,sampler_only_clean_preserve_case_seed7,all,boundary_mix,independent,0,0.0,focal,1.0,0.0,0.0,1,0.00003,7
+5,sampler_only_clean_seed7,all,boundary_mix,independent,0,0.0,focal,1.0,0.0,0.0,0,0.00003,7

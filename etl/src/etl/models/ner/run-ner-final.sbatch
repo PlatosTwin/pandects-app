@@ -14,7 +14,7 @@
 export PYTHONUNBUFFERED=1
 SPLIT_VERSION="${SPLIT_VERSION:-default_xp}"
 GIT_COMMIT="${GIT_COMMIT:-unknown}"
-FINAL_FLAGS="${FINAL_FLAGS:---boundary-head --boundary-loss-weight 0.10 --preserve-case --token-loss-mode focal}"
+FINAL_FLAGS="${FINAL_FLAGS:---boundary-head --boundary-loss-weight 0.10 --token-loss-mode focal}"
 
 singularity exec --nv \
 	    --overlay /scratch/nmb9729/overlays/mna.ext3:ro \

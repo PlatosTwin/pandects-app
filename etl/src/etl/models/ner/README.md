@@ -79,7 +79,7 @@ Trains the selected recipe and evaluates it on the test split.
 python ner.py final-train --train-docs all --decoder-mode independent --split-version <version> --git-commit <hash>
 ```
 
-Add the winning architectural flags from validation to that command. For example, `--boundary-head`, `--boundary-loss-weight`, `--preserve-case`, or a different `--decoder-mode`.
+Add the winning architectural flags from validation to that command. For example, `--boundary-head`, `--boundary-loss-weight`, `--token-loss-mode focal`, or a different `--decoder-mode`.
 
 HPC:
 
@@ -141,6 +141,7 @@ Supported public commands:
 - `final-train`
 - `recover-run`
 - `audit-articles`
+- `audit-pages`
 
 ## References
 
