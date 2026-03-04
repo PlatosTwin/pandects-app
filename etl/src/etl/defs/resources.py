@@ -23,7 +23,12 @@ from etl.models.page_classifier_revamp.page_classifier_constants import (
     CLASSIFIER_CRF_PATH,
     CLASSIFIER_REVIEW_MODEL_PATH,
 )
-from etl.models.taxonomy.taxonomy_constants import TAXONOMY_LABEL_LIST
+from etl.models.taxonomy.taxonomy import TaxonomyInference
+from etl.models.taxonomy.taxonomy_constants import (
+    TAXONOMY_CKPT_PATH,
+    TAXONOMY_TITLE_RULES_PATH,
+    TAXONOMY_VECTORIZER_PATH,
+)
 
 PIPELINE_CONFIG_FILENAME = "pipeline_config.yaml"
 
@@ -151,36 +156,25 @@ class TaggingModel(dg.ConfigurableResource[object]):
 
 
 class TaxonomyModel(dg.ConfigurableResource[object]):
-    """Placeholder resource for section taxonomy classification.
+    """Resource for section taxonomy classification."""
 
-    The real model will return a primary label and probabilities for the next
-    three most likely labels. For now, we return a deterministic dummy label
-    ("other") with zeroed alternate probabilities.
-    """
+    _inf: TaxonomyInference | None = PrivateAttr(default=None)
 
-    def model(self):
-        class _DummyTaxonomyModel:
-            def __init__(self, label_list: list[str]):
-                self.label_list = label_list
-
-            def predict(self, rows: list[dict[str, object]]) -> list[dict[str, object]]:
-                # rows items may contain article_title, section_title, section_text
-                out: list[dict[str, object]] = []
-                primary = (
-                    "other"
-                    if "other" in self.label_list
-                    else (self.label_list[0] if self.label_list else "other")
+    def model(self) -> TaxonomyInference:
+        if self._inf is None:
+            ckpt_path = Path(TAXONOMY_CKPT_PATH)
+            if not ckpt_path.exists():
+                raise RuntimeError(
+                    f"Taxonomy checkpoint not found at {ckpt_path}."
                 )
-                for _ in rows:
-                    out.append(
-                        {
-                            "label": primary,
-                            "alt_probs": [0.0, 0.0, 0.0],
-                        }
-                    )
-                return out
-
-        return _DummyTaxonomyModel(TAXONOMY_LABEL_LIST)
+            self._inf = TaxonomyInference(
+                ckpt_path=TAXONOMY_CKPT_PATH,
+                label_list=None,
+                mode=None,
+                vectorizer_path=TAXONOMY_VECTORIZER_PATH,
+                title_rules_path=TAXONOMY_TITLE_RULES_PATH,
+            )
+        return self._inf
 
 
 def _parse_bool(value: Any, *, field_name: str) -> bool:

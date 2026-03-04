@@ -44,6 +44,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import csr_matrix
 
 from optuna import Trial, create_study
+from optuna.exceptions import TrialPruned
 from optuna.integration import PyTorchLightningPruningCallback
 
 from transformers import AutoTokenizer
@@ -137,6 +138,7 @@ class TaxonomyConfig:
     title_rule_prefix_min_support: int = 20
     title_rules_path: str | None = None
     dataloader_num_workers: int = 0
+    gradient_clip_val: float = 1.0
 
 
 IntArray = NDArray[np.int64]
@@ -151,6 +153,8 @@ class TaxonomyTrainer:
     def __init__(self, cfg: TaxonomyConfig) -> None:
         self.cfg: TaxonomyConfig = cfg
         self._validate_model_score_config()
+        if float(self.cfg.gradient_clip_val) < 0.0:
+            raise ValueError("`gradient_clip_val` must be >= 0.")
         if torch.backends.mps.is_available():
             self.device: str = "mps"
         elif torch.cuda.is_available():
@@ -1169,9 +1173,17 @@ class TaxonomyTrainer:
         return dm, model
 
     def _objective(self, trial: Trial) -> float:
+        if self.cfg.mode == "transformer":
+            lr_min = 1e-5
+            lr_max = 1e-2
+        else:
+            # The TF-IDF head becomes numerically unstable near the broader
+            # transformer search-space ceiling.
+            lr_min = 1e-4
+            lr_max = 2e-3
         params = {
             "batch_size": trial.suggest_categorical("batch_size", [8, 16, 32]),
-            "lr": trial.suggest_float("lr", 1e-5 if self.cfg.mode == "transformer" else 1e-4, 1e-2, log=True),
+            "lr": trial.suggest_float("lr", lr_min, lr_max, log=True),
             "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-1, log=True),
             "warmup_steps_pct": trial.suggest_float("warmup_steps_pct", 0.0, 0.2) if self.cfg.mode == "transformer" else 0.0,
         }
@@ -1205,13 +1217,54 @@ class TaxonomyTrainer:
                 progress_bar_callback,
                 *pruning_callback,
             ],
+            gradient_clip_val=float(self.cfg.gradient_clip_val),
+            gradient_clip_algorithm="norm",
             log_every_n_steps=10,
             deterministic=True,
         )
-        trainer.fit(model, datamodule=dm)
+        try:
+            trainer.fit(model, datamodule=dm)
+        except RuntimeError as exc:
+            if "Non-finite" in str(exc):
+                raise TrialPruned(f"Pruned unstable taxonomy trial: {exc}") from exc
+            raise
 
-        val_model_score = float(trainer.callback_metrics["val_model_score"])
-        return val_model_score
+        raw_val_model_score_obj = trainer.callback_metrics.get("val_model_score")
+        if raw_val_model_score_obj is None:
+            raise TrialPruned("Taxonomy trial produced no `val_model_score`.")
+        raw_val_model_score = float(raw_val_model_score_obj.detach().cpu().item())
+        if not np.isfinite(raw_val_model_score):
+            raise TrialPruned(
+                f"Taxonomy trial produced non-finite `val_model_score`: {raw_val_model_score!r}."
+            )
+
+        best_ckpt_path = cast(str, checkpoint_callback.best_model_path)
+        if not best_ckpt_path:
+            raise TrialPruned("Taxonomy trial produced no checkpoint for threshold tuning.")
+
+        threshold_sweep = self._tune_per_class_thresholds(
+            checkpoint_path=best_ckpt_path,
+            dm=dm,
+        )
+        tuned_scores = cast(
+            dict[str, float],
+            threshold_sweep["val_scores_at_selected_thresholds"],
+        )
+        tuned_val_model_score = float(tuned_scores["val_model_score"])
+        if not np.isfinite(tuned_val_model_score):
+            raise TrialPruned(
+                "Taxonomy trial produced a non-finite tuned validation score."
+            )
+
+        trial.set_user_attr(
+            "val_model_score_fixed_threshold",
+            raw_val_model_score,
+        )
+        trial.set_user_attr(
+            "val_model_score_tuned",
+            tuned_val_model_score,
+        )
+        return tuned_val_model_score
 
     def _resolve_eval_metrics_path(self) -> Path:
         if self.cfg.eval_metrics_path:
@@ -1838,6 +1891,8 @@ class TaxonomyTrainer:
                 lr_monitor,
                 progress_bar_callback,
             ],
+            gradient_clip_val=float(self.cfg.gradient_clip_val),
+            gradient_clip_algorithm="norm",
             log_every_n_steps=10,
             deterministic=True,
         )
@@ -1899,7 +1954,7 @@ class TaxonomyInference:
         self,
         ckpt_path: str,
         label_list: list[str] | None,
-        mode: Literal["transformer", "tfidf"],
+        mode: Literal["transformer", "tfidf"] | None,
         model_name: str | None = None,
         vectorizer_path: str | None = None,
         title_rules_path: str | None = None,
@@ -1913,6 +1968,7 @@ class TaxonomyInference:
             self.device = "cuda"
         else:
             self.device = "cpu"
+        resolved_mode = mode or infer_taxonomy_checkpoint_mode(ckpt_path)
         self.model: TaxonomyClassifier
         self.mode: Literal["transformer", "tfidf"]
         self.tokenizer: PreTrainedTokenizerBase | None = None
@@ -1923,7 +1979,7 @@ class TaxonomyInference:
         self.section_title_prefix_rules_sorted: list[tuple[str, str]] = []
         self.title_rule_boost_probability: float = 0.995
 
-        if mode == "transformer":
+        if resolved_mode == "transformer":
             model = TaxonomyClassifier.load_from_checkpoint(
                 ckpt_path, map_location=self.device
             )
@@ -2212,8 +2268,20 @@ class TaxonomyInference:
                     float(probs[i, label_id].item())
                     for label_id in selected_ids
                 ]
+                ranked_ids = cast(
+                    list[int],
+                    torch.argsort(probs[i], descending=True).tolist(),
+                )
+                alt_ids = [
+                    label_id for label_id in ranked_ids if label_id != top_pred_id
+                ][:3]
+                alt_labels = [self.id2label[label_id] for label_id in alt_ids]
+                alt_probs = [float(probs[i, label_id].item()) for label_id in alt_ids]
                 out.append(
                     {
+                        "label": self.id2label[top_pred_id],
+                        "alt_labels": alt_labels,
+                        "alt_probs": alt_probs,
                         "pred_ids": selected_ids,
                         "pred_labels": selected_labels,
                         "pred_probs": selected_probs,
@@ -2276,8 +2344,34 @@ def _parse_cli_args() -> argparse.Namespace:
     _ = parser.add_argument("--title-rule-prefix-min-support", type=int, default=20)
     _ = parser.add_argument("--title-rules-path", default=None)
     _ = parser.add_argument("--dataloader-num-workers", type=int, default=0)
+    _ = parser.add_argument("--gradient-clip-val", type=float, default=1.0)
 
     return parser.parse_args()
+
+
+def _load_taxonomy_checkpoint_hparams(ckpt_path: str) -> dict[str, object]:
+    checkpoint_obj = cast(
+        dict[str, object],
+        torch.load(ckpt_path, map_location="cpu"),
+    )
+    hyper_parameters = checkpoint_obj.get("hyper_parameters")
+    if not isinstance(hyper_parameters, dict):
+        raise ValueError(
+            "Checkpoint is missing a valid `hyper_parameters` mapping."
+        )
+    return hyper_parameters
+
+
+def infer_taxonomy_checkpoint_mode(
+    ckpt_path: str,
+) -> Literal["transformer", "tfidf"]:
+    hyper_parameters = _load_taxonomy_checkpoint_hparams(ckpt_path)
+    raw_mode = hyper_parameters.get("mode")
+    if raw_mode not in ("transformer", "tfidf"):
+        raise ValueError(
+            f"Checkpoint mode must be 'transformer' or 'tfidf'; got {raw_mode!r}."
+        )
+    return raw_mode
 
 
 def _load_test_samples() -> list[dict[str, str]]:
@@ -2333,6 +2427,7 @@ def main() -> None:
             title_rule_prefix_min_support=int(args.title_rule_prefix_min_support),
             title_rules_path=cast(str | None, args.title_rules_path),
             dataloader_num_workers=int(args.dataloader_num_workers),
+            gradient_clip_val=float(args.gradient_clip_val),
         )
         trainer = TaxonomyTrainer(cfg)
         trainer.run()

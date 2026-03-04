@@ -194,31 +194,6 @@ def apply_xml_gating(
 
 
 def _set_validation_priority(conn: Connection, schema: str) -> None:
-    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_page_flag_counts"))
-    _ = conn.execute(
-        text(
-            """
-            CREATE TEMPORARY TABLE tmp_page_flag_counts (
-                agreement_uuid VARCHAR(64) NOT NULL PRIMARY KEY,
-                ct_flagged BIGINT NOT NULL
-            ) ENGINE=MEMORY
-            """
-        )
-    )
-    _ = conn.execute(
-        text(
-            f"""
-            INSERT INTO tmp_page_flag_counts (agreement_uuid, ct_flagged)
-            SELECT
-                agreement_uuid,
-                SUM(CASE WHEN gated = 1 THEN 1 ELSE 0 END) AS ct_flagged
-            FROM {schema}.pages
-            WHERE agreement_uuid IS NOT NULL
-            GROUP BY agreement_uuid
-            """
-        )
-    )
-
     _ = conn.execute(
         text(
             f"""
@@ -231,24 +206,11 @@ def _set_validation_priority(conn: Connection, schema: str) -> None:
     _ = conn.execute(
         text(
             f"""
-            UPDATE {schema}.pages p
-            JOIN tmp_page_flag_counts g
-                ON g.agreement_uuid = p.agreement_uuid
-            SET p.validation_priority = g.ct_flagged
-            WHERE NOT (p.validation_priority <=> g.ct_flagged)
-            """
-        )
-    )
-    _ = conn.execute(
-        text(
-            f"""
             UPDATE {schema}.tagged_outputs t
             JOIN {schema}.pages p
                 ON p.page_uuid = t.page_uuid
-            LEFT JOIN tmp_page_flag_counts g
-                ON g.agreement_uuid = p.agreement_uuid
-            SET t.validation_priority = COALESCE(g.ct_flagged, 0)
-            WHERE NOT (t.validation_priority <=> COALESCE(g.ct_flagged, 0))
+            SET t.validation_priority = COALESCE(p.validation_priority, 1)
+            WHERE NOT (t.validation_priority <=> COALESCE(p.validation_priority, 1))
             """
         )
     )

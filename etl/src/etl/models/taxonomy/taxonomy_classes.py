@@ -440,6 +440,17 @@ class TaxonomyClassifier(pl.LightningModule):
         score = base_score - penalty
         return score, base_score, penalty
 
+    @staticmethod
+    def _ensure_finite_tensor(name: str, tensor: torch.Tensor) -> None:
+        finite_mask = torch.isfinite(tensor)
+        if bool(finite_mask.all()):
+            return
+        total = int(tensor.numel())
+        finite = int(finite_mask.sum().item())
+        raise RuntimeError(
+            f"Non-finite {name} detected ({total - finite}/{total} values)."
+        )
+
     def forward(self, **kwargs: object) -> _LogitsOutput:
         if self.mode == "transformer":
             return cast(_LogitsOutput, self.model(**kwargs))
@@ -480,8 +491,11 @@ class TaxonomyClassifier(pl.LightningModule):
 
         labels_float = labels.to(dtype=torch.float32)
         labels_int = labels_float.to(dtype=torch.int)
+        self._ensure_finite_tensor("train_logits", logits)
         probs = torch.sigmoid(logits)
+        self._ensure_finite_tensor("train_probs", probs)
         loss = cast(torch.Tensor, self.loss_fn(logits, labels_float))
+        self._ensure_finite_tensor("train_loss", loss)
 
         self.log(
             "train_loss",
@@ -552,8 +566,11 @@ class TaxonomyClassifier(pl.LightningModule):
 
         labels_float = labels.to(dtype=torch.float32)
         labels_int = labels_float.to(dtype=torch.int)
+        self._ensure_finite_tensor("val_logits", logits)
         probs = torch.sigmoid(logits)
+        self._ensure_finite_tensor("val_probs", probs)
         loss = cast(torch.Tensor, self.loss_fn(logits, labels_float))
+        self._ensure_finite_tensor("val_loss", loss)
 
         self.log(
             "val_loss",

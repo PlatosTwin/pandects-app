@@ -2,20 +2,52 @@
 import unittest
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import lightning.pytorch as pl
 import pandas as pd
 import torch
 import numpy as np
+from optuna import Trial
+from optuna.exceptions import TrialPruned
+from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import csr_matrix
 
-from etl.models.taxonomy.taxonomy import TaxonomyConfig, TaxonomyTrainer
+from etl.defs.resources import TaxonomyModel
+from etl.models.taxonomy.taxonomy import (
+    TaxonomyConfig,
+    TaxonomyInference,
+    TaxonomyTrainer,
+)
 from etl.models.taxonomy.taxonomy_classes import TaxonomyClassifier
 
 
 class TaxonomyModelTests(unittest.TestCase):
+    def test_tfidf_training_step_raises_on_non_finite_logits(self) -> None:
+        model = TaxonomyClassifier(
+            mode="tfidf",
+            num_labels=2,
+            id2label={0: "a", 1: "b"},
+            input_dim=4,
+            hidden_dim=8,
+            dropout=0.0,
+        )
+        batch = (
+            torch.zeros((1, 4), dtype=torch.float32),
+            torch.tensor([[1.0, 0.0]], dtype=torch.float32),
+        )
+        with patch.object(
+            model,
+            "forward",
+            return_value=SimpleNamespace(
+                logits=torch.tensor([[float("nan"), 0.0]], dtype=torch.float32)
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Non-finite train_logits"):
+                _ = model.training_step(batch, 0)
+
     def test_parse_labels_cell_supports_multilabel_inputs(self) -> None:
         self.assertEqual(TaxonomyTrainer._parse_labels_cell(["a", "b"]), ["a", "b"])
         self.assertEqual(TaxonomyTrainer._parse_labels_cell(("a", "b")), ["a", "b"])
@@ -346,6 +378,223 @@ class TaxonomyModelTests(unittest.TestCase):
         self.assertAlmostEqual(raw, 0.65, places=6)
         self.assertAlmostEqual(penalty, 0.2, places=6)
         self.assertAlmostEqual(score, 0.45, places=6)
+
+    def test_objective_returns_tuned_validation_score(self) -> None:
+        cfg = TaxonomyConfig(
+            data_parquet="unused.parquet",
+            model_name="unused",
+            label_list=["a"],
+            mode="tfidf",
+            num_trials=1,
+            max_epochs=1,
+        )
+        trainer = TaxonomyTrainer(cfg)
+
+        class _FakeTrial:
+            def __init__(self) -> None:
+                self.params: dict[str, float | int] = {}
+                self.user_attrs: dict[str, float] = {}
+
+            def suggest_categorical(self, name: str, choices: list[object]) -> object:
+                value = choices[0]
+                self.params[name] = cast(int, value)
+                return value
+
+            def suggest_float(
+                self,
+                name: str,
+                low: float,
+                _high: float,
+                *,
+                log: bool = False,
+            ) -> float:
+                _ = log
+                self.params[name] = low
+                return low
+
+            def set_user_attr(self, name: str, value: float) -> None:
+                self.user_attrs[name] = value
+
+        fake_checkpoint = SimpleNamespace(best_model_path="best.ckpt")
+
+        class _FakeTrainer:
+            callback_metrics = {
+                "val_model_score": torch.tensor(0.12),
+            }
+
+            def fit(self, model: object, datamodule: object) -> None:
+                _ = model
+                _ = datamodule
+                return None
+
+        fake_trial = _FakeTrial()
+        fake_trainer = _FakeTrainer()
+
+        with (
+            patch.object(
+                trainer,
+                "_build",
+                return_value=(pl.LightningDataModule(), object()),
+            ),
+            patch.object(
+                trainer,
+                "_get_callbacks",
+                return_value=(fake_checkpoint, object(), object(), object(), []),
+            ),
+            patch("etl.models.taxonomy.taxonomy.pl.Trainer", return_value=fake_trainer),
+            patch.object(
+                trainer,
+                "_tune_per_class_thresholds",
+                return_value={
+                    "val_scores_at_selected_thresholds": {
+                        "val_model_score": 0.91,
+                    }
+                },
+            ),
+        ):
+            score = trainer._objective(cast(Trial, cast(object, fake_trial)))
+
+        self.assertAlmostEqual(score, 0.91)
+        self.assertAlmostEqual(
+            fake_trial.user_attrs["val_model_score_fixed_threshold"],
+            0.12,
+        )
+        self.assertAlmostEqual(fake_trial.user_attrs["val_model_score_tuned"], 0.91)
+
+    def test_objective_prunes_non_finite_trials(self) -> None:
+        cfg = TaxonomyConfig(
+            data_parquet="unused.parquet",
+            model_name="unused",
+            label_list=["a"],
+            mode="tfidf",
+            num_trials=1,
+            max_epochs=1,
+        )
+        trainer = TaxonomyTrainer(cfg)
+
+        class _FakeTrial:
+            def suggest_categorical(self, _name: str, choices: list[object]) -> object:
+                return choices[0]
+
+            def suggest_float(
+                self,
+                _name: str,
+                low: float,
+                _high: float,
+                *,
+                log: bool = False,
+            ) -> float:
+                _ = log
+                return low
+
+            def set_user_attr(self, _name: str, _value: float) -> None:
+                return None
+
+        fake_checkpoint = SimpleNamespace(best_model_path="")
+
+        class _FakeTrainer:
+            callback_metrics: dict[str, object] = {}
+
+            def fit(self, model: object, datamodule: object) -> None:
+                _ = model
+                _ = datamodule
+                raise RuntimeError("Non-finite train_loss detected (1/1 values).")
+
+        fake_trainer = _FakeTrainer()
+
+        with (
+            patch.object(
+                trainer,
+                "_build",
+                return_value=(pl.LightningDataModule(), object()),
+            ),
+            patch.object(
+                trainer,
+                "_get_callbacks",
+                return_value=(fake_checkpoint, object(), object(), object(), []),
+            ),
+            patch("etl.models.taxonomy.taxonomy.pl.Trainer", return_value=fake_trainer),
+        ):
+            with self.assertRaises(TrialPruned):
+                _ = trainer._objective(cast(Trial, cast(object, _FakeTrial())))
+
+    def test_inference_predict_returns_asset_compatible_fields(self) -> None:
+        class _FakeVectorizer:
+            def transform(self, texts: list[str]) -> csr_matrix:
+                _ = texts
+                return csr_matrix(
+                    np.asarray([[1.0, 0.0, 0.0, 0.0]], dtype=np.float32)
+                )
+
+        class _FakeModel:
+            def __call__(self, **_kwargs: object) -> SimpleNamespace:
+                return SimpleNamespace(
+                    logits=torch.tensor([[4.0, 3.0, 2.0, 1.0]], dtype=torch.float32)
+                )
+
+        inference = TaxonomyInference.__new__(TaxonomyInference)
+        inference.device = "cpu"
+        inference.mode = "tfidf"
+        inference.vectorizer = cast(
+            TfidfVectorizer,
+            cast(object, _FakeVectorizer()),
+        )
+        inference.model = cast(
+            TaxonomyClassifier,
+            cast(object, _FakeModel()),
+        )
+        inference.id2label = {0: "top", 1: "alt-a", 2: "alt-b", 3: "alt-c"}
+        inference.label2id = {label: idx for idx, label in inference.id2label.items()}
+        inference.decision_thresholds = [0.5, 0.5, 0.5, 0.5]
+        inference.decision_threshold = 0.5
+        inference.decision_threshold_tensor = torch.tensor(
+            inference.decision_thresholds,
+            dtype=torch.float32,
+        )
+        inference.section_title_rules = {}
+        inference.article_section_title_rules = {}
+        inference.section_title_prefix_rules = {}
+        inference.section_title_prefix_rules_sorted = []
+        inference.title_rule_boost_probability = 0.995
+
+        def _combine(a: str, s: str, t: str) -> str:
+            return f"{a} {s} {t}"
+
+        inference._combine = _combine
+
+        outputs = inference.predict(
+            [
+                {
+                    "article_title": "misc",
+                    "section_title": "notices",
+                    "section_text": "body",
+                }
+            ]
+        )
+
+        self.assertEqual(outputs[0]["label"], "top")
+        self.assertEqual(outputs[0]["alt_labels"], ["alt-a", "alt-b", "alt-c"])
+        self.assertEqual(len(cast(list[float], outputs[0]["alt_probs"])), 3)
+
+    def test_taxonomy_resource_loads_real_inference_once(self) -> None:
+        resource = TaxonomyModel()
+        fake_inference = object()
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch("etl.defs.resources.TaxonomyInference", return_value=fake_inference) as inf_cls,
+        ):
+            first = resource.model()
+            second = resource.model()
+
+        self.assertIs(first, fake_inference)
+        self.assertIs(second, fake_inference)
+        inf_cls.assert_called_once_with(
+            ckpt_path=ANY,
+            label_list=None,
+            mode=None,
+            vectorizer_path=ANY,
+            title_rules_path=ANY,
+        )
 
 
 if __name__ == "__main__":
