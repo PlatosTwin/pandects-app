@@ -89,6 +89,17 @@ class CleanupRow(TypedDict):
     page_order: int
     content: str
     page_uuid: str | None
+    gold_label: str | None
+    processed_page_content: str | None
+    source_page_type: str | None
+    page_type_prob_front_matter: float | None
+    page_type_prob_toc: float | None
+    page_type_prob_body: float | None
+    page_type_prob_sig: float | None
+    page_type_prob_back_matter: float | None
+    postprocess_modified: bool | None
+    review_flag: bool | None
+    validation_priority: float | None
 
 
 class PageFragment(TypedDict):
@@ -116,6 +127,8 @@ class PageMetadata:
     page_uuid: str | None = None
     postprocess_modified: bool | None = None
     review_flag: bool | None = None
+    validation_priority: float | None = None
+    gold_label: str | None = None
 
 
 def _is_semantically_hidden_tag(tag: Tag) -> bool:
@@ -875,6 +888,8 @@ def _attach_preds_to_pages(
             for item in sublist
         ]
     for po, pc in zip(page_objs, flat_preds):
+        if po.gold_label is not None:
+            continue
         pred = cast(ClassifierPrediction, cast(object, pc))
         po.source_page_type = pred["pred_class"]
         pp = pred["pred_probs"]
@@ -941,24 +956,29 @@ def _build_review_summaries_from_pages(
     return summaries
 
 
-def _attach_review_flags_to_pages(
+def _attach_review_predictions_to_pages(
     page_objs: list[PageMetadata],
     review_model: ReviewModelProtocol,
 ) -> None:
     summaries = _build_review_summaries_from_pages(page_objs)
     predictions = review_model.predict_from_summaries(summaries)
-    review_flags_by_agreement = {
-        prediction["agreement_uuid"]: bool(prediction["needs_review"])
+    review_predictions_by_agreement = {
+        prediction["agreement_uuid"]: prediction
         for prediction in predictions
     }
     for page in page_objs:
         if page.agreement_uuid is None:
-            raise ValueError("PageMetadata.agreement_uuid must be set before attaching review flags.")
-        if page.agreement_uuid not in review_flags_by_agreement:
+            raise ValueError(
+                "PageMetadata.agreement_uuid must be set before attaching review predictions."
+            )
+        if page.agreement_uuid not in review_predictions_by_agreement:
             raise ValueError(
                 f"Missing review prediction for agreement {page.agreement_uuid}."
             )
-        page.review_flag = review_flags_by_agreement[page.agreement_uuid]
+        review_prediction = review_predictions_by_agreement[page.agreement_uuid]
+        review_probability = float(review_prediction["review_probability"])
+        page.review_flag = bool(review_prediction["needs_review"])
+        page.validation_priority = 1.0 - review_probability
 
 
 def pre_process(
@@ -1060,7 +1080,7 @@ def pre_process(
 
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
-    _attach_review_flags_to_pages(all_page_objs, review_model)
+    _attach_review_predictions_to_pages(all_page_objs, review_model)
     staged_pages.extend(all_page_objs)
     return staged_pages, pagination_statuses
 
@@ -1088,6 +1108,7 @@ def cleanup(
         return []
 
     all_page_objs: list[PageMetadata] = []
+    mutable_page_objs: list[PageMetadata] = []
     for agreement in set(r["agreement_uuid"] for r in rows):
         pages = [r for r in rows if r["agreement_uuid"] == agreement]
         is_txt = pages[0]["is_txt"]
@@ -1098,8 +1119,62 @@ def cleanup(
             if not formatted:
                 continue
 
-            all_page_objs.append(
-                PageMetadata(
+            gold_label = p["gold_label"]
+            if gold_label is not None:
+                use_existing_probs = (
+                    p["page_type_prob_front_matter"] is not None
+                    and p["page_type_prob_toc"] is not None
+                    and p["page_type_prob_body"] is not None
+                    and p["page_type_prob_sig"] is not None
+                    and p["page_type_prob_back_matter"] is not None
+                )
+                all_page_objs.append(
+                    PageMetadata(
+                        agreement_uuid=agreement,
+                        page_order=page_order,
+                        raw_page_content=p["content"],
+                        processed_page_content=(
+                            p["processed_page_content"]
+                            if p["processed_page_content"] is not None
+                            else formatted
+                        ),
+                        source_is_txt=is_txt,
+                        source_is_html=is_html,
+                        source_page_type=gold_label,
+                        page_type_prob_front_matter=(
+                            float(cast(float, p["page_type_prob_front_matter"]))
+                            if use_existing_probs
+                            else (1.0 if gold_label == "front_matter" else 0.0)
+                        ),
+                        page_type_prob_toc=(
+                            float(cast(float, p["page_type_prob_toc"]))
+                            if use_existing_probs
+                            else (1.0 if gold_label == "toc" else 0.0)
+                        ),
+                        page_type_prob_body=(
+                            float(cast(float, p["page_type_prob_body"]))
+                            if use_existing_probs
+                            else (1.0 if gold_label == "body" else 0.0)
+                        ),
+                        page_type_prob_sig=(
+                            float(cast(float, p["page_type_prob_sig"]))
+                            if use_existing_probs
+                            else (1.0 if gold_label == "sig" else 0.0)
+                        ),
+                        page_type_prob_back_matter=(
+                            float(cast(float, p["page_type_prob_back_matter"]))
+                            if use_existing_probs
+                            else (1.0 if gold_label == "back_matter" else 0.0)
+                        ),
+                        page_uuid=p["page_uuid"],
+                        postprocess_modified=p["postprocess_modified"],
+                        review_flag=p["review_flag"],
+                        validation_priority=p["validation_priority"],
+                        gold_label=gold_label,
+                    )
+                )
+            else:
+                page_obj = PageMetadata(
                     agreement_uuid=agreement,
                     page_order=page_order,
                     raw_page_content=p["content"],
@@ -1108,18 +1183,19 @@ def cleanup(
                     source_is_html=is_html,
                     page_uuid=p["page_uuid"],
                 )
-            )
+                all_page_objs.append(page_obj)
+                mutable_page_objs.append(page_obj)
             page_order += 1
 
-    if not all_page_objs:
+    if not all_page_objs or not mutable_page_objs:
         return []
 
     # context.pdb.set_trace()
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
-    _attach_review_flags_to_pages(all_page_objs, review_model)
+    _attach_review_predictions_to_pages(all_page_objs, review_model)
     
-    return all_page_objs
+    return mutable_page_objs
 
 
 if __name__ == "__main__":

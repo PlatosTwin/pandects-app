@@ -170,17 +170,30 @@ def pre_processing_asset(
                     batch_a AS (
                         SELECT DISTINCT agreement_uuid
                         FROM {pages_table}
-                        WHERE agreement_uuid > :last_uuid AND processed_page_content IS NULL
+                        WHERE agreement_uuid > :last_uuid
+                          AND gold_label IS NULL
+                          AND processed_page_content IS NULL
                     ),
                     batch_b AS (
                         SELECT DISTINCT agreement_uuid
                         FROM {pages_table}
-                        WHERE agreement_uuid > :last_uuid AND source_page_type IS NULL
+                        WHERE agreement_uuid > :last_uuid
+                          AND gold_label IS NULL
+                          AND source_page_type IS NULL
                     ),
                     batch_c AS (
                         SELECT DISTINCT agreement_uuid
                         FROM {pages_table}
-                        WHERE agreement_uuid > :last_uuid AND review_flag IS NULL
+                        WHERE agreement_uuid > :last_uuid
+                          AND gold_label IS NULL
+                          AND review_flag IS NULL
+                    ),
+                    batch_d AS (
+                        SELECT DISTINCT agreement_uuid
+                        FROM {pages_table}
+                        WHERE agreement_uuid > :last_uuid
+                          AND gold_label IS NULL
+                          AND validation_priority IS NULL
                     ),
                     agreement_batch AS (
                         (SELECT agreement_uuid FROM batch_a)
@@ -188,6 +201,8 @@ def pre_processing_asset(
                         (SELECT agreement_uuid FROM batch_b)
                         UNION
                         (SELECT agreement_uuid FROM batch_c)
+                        UNION
+                        (SELECT agreement_uuid FROM batch_d)
                         ORDER BY 1
                         LIMIT :batch_size
                     )
@@ -197,7 +212,18 @@ def pre_processing_asset(
                         p.raw_page_content,
                         p.page_order,
                         p.source_is_txt,
-                        p.source_is_html
+                        p.source_is_html,
+                        p.gold_label,
+                        p.processed_page_content,
+                        p.source_page_type,
+                        p.page_type_prob_front_matter,
+                        p.page_type_prob_toc,
+                        p.page_type_prob_body,
+                        p.page_type_prob_sig,
+                        p.page_type_prob_back_matter,
+                        p.postprocess_modified,
+                        p.review_flag,
+                        p.validation_priority
                     FROM {pages_table} p
                     WHERE p.agreement_uuid IN (SELECT agreement_uuid FROM agreement_batch)
                     ORDER BY p.page_order, p.page_uuid
@@ -223,6 +249,17 @@ def pre_processing_asset(
                                 "page_order": cast(int, r[3]),
                                 "is_txt": cast(bool, r[4]),
                                 "is_html": cast(bool, r[5]),
+                                "gold_label": cast(str | None, r[6]),
+                                "processed_page_content": cast(str | None, r[7]),
+                                "source_page_type": cast(str | None, r[8]),
+                                "page_type_prob_front_matter": cast(float | None, r[9]),
+                                "page_type_prob_toc": cast(float | None, r[10]),
+                                "page_type_prob_body": cast(float | None, r[11]),
+                                "page_type_prob_sig": cast(float | None, r[12]),
+                                "page_type_prob_back_matter": cast(float | None, r[13]),
+                                "postprocess_modified": cast(bool | None, r[14]),
+                                "review_flag": cast(bool | None, r[15]),
+                                "validation_priority": cast(float | None, r[16]),
                             },
                         ),
                     )
