@@ -1014,6 +1014,85 @@ class NERInference:
         self.preserve_case = bool(getattr(hparams, "preserve_case", False))
 
     # ---------------- Token aggregation over sliding windows (logit stitching) ----------------
+    def _repair_bioes_ids(self, seq: list[int]) -> list[int]:
+        out = seq[:]
+        for t in range(len(out)):
+            lab = self.id2label[out[t]]
+            if lab == "O" or lab.startswith(("B-", "S-")):
+                continue
+            if t == 0:
+                ent = lab.split("-", 1)[1]
+                out[t] = self.label2id.get(f"B-{ent}", out[t])
+                continue
+            prev = self.id2label[out[t - 1]]
+            if prev == "O" or prev.startswith(("E-", "S-")):
+                ent = lab.split("-", 1)[1]
+                out[t] = self.label2id.get(f"B-{ent}", out[t])
+            elif prev.startswith(("B-", "I-")):
+                prev_ent = prev.split("-", 1)[1]
+                cur_ent = lab.split("-", 1)[1]
+                if prev_ent != cur_ent:
+                    out[t] = self.label2id.get(f"B-{cur_ent}", out[t])
+        return out
+
+    def _collapse_to_word_level(
+        self,
+        text: str,
+        preds: list[int],
+        confidences: list[float],
+        offsets: list[tuple[int, int]],
+        avg_logits: torch.Tensor,
+        word_ids: list[int | None],
+    ) -> tuple[list[int], list[float], list[tuple[int, int]], list[str], torch.Tensor]:
+        first_token_indices: list[int] = []
+        word_offsets: list[tuple[int, int]] = []
+        word_index_by_id: dict[int, int] = {}
+
+        for tok_idx, wid in enumerate(word_ids):
+            if wid is None:
+                continue
+            start, end = offsets[tok_idx]
+            if end <= start:
+                continue
+            word_idx = word_index_by_id.get(wid)
+            if word_idx is None:
+                word_index_by_id[wid] = len(word_offsets)
+                first_token_indices.append(tok_idx)
+                word_offsets.append((start, end))
+                continue
+            cur_start, cur_end = word_offsets[word_idx]
+            word_offsets[word_idx] = (min(cur_start, start), max(cur_end, end))
+
+        if not first_token_indices:
+            empty_logits = torch.zeros((0, self.C), dtype=torch.float32)
+            return [], [], [], [], empty_logits
+
+        collapsed_offsets: list[tuple[int, int]] = []
+        kept_first_token_indices: list[int] = []
+        for first_token_idx, (start, end) in zip(first_token_indices, word_offsets):
+            while start < end and text[start].isspace():
+                start += 1
+            while end > start and text[end - 1].isspace():
+                end -= 1
+            if end <= start:
+                continue
+            collapsed_offsets.append((start, end))
+            kept_first_token_indices.append(first_token_idx)
+
+        collapsed_preds = [preds[idx] for idx in kept_first_token_indices]
+        collapsed_confidences = [confidences[idx] for idx in kept_first_token_indices]
+        collapsed_tokens = [text[start:end] for start, end in collapsed_offsets]
+        index_tensor = torch.tensor(kept_first_token_indices, dtype=torch.long)
+        collapsed_logits = avg_logits.index_select(0, index_tensor)
+
+        return (
+            collapsed_preds,
+            collapsed_confidences,
+            collapsed_offsets,
+            collapsed_tokens,
+            collapsed_logits,
+        )
+
     def _predict_tokens(
         self, text: str
     ) -> tuple[list[int], list[float], list[tuple[int, int]], list[str], torch.Tensor]:
@@ -1030,23 +1109,23 @@ class NERInference:
             avg_logits   : torch.Tensor         # [T, C] averaged logits on CPU
         """
         norm = text if self.preserve_case else ascii_lower(text)
-        enc_full = cast(
-            dict[str, torch.Tensor],
-            cast(
-                object,
-                self.tokenizer(
-                    norm,
-                    return_tensors="pt",
-                    return_offsets_mapping=True,
-                    truncation=False,
-                    add_special_tokens=False,
-                ),
+        encoding = cast(
+            object,
+            self.tokenizer(
+                norm,
+                return_tensors="pt",
+                return_offsets_mapping=True,
+                truncation=False,
+                add_special_tokens=False,
             ),
         )
+        enc_full = cast(dict[str, torch.Tensor], encoding)
         input_ids = enc_full["input_ids"][0]  # [T]
         offsets_tensor = enc_full["offset_mapping"][0]
         offsets_raw = cast(list[list[int]], offsets_tensor.tolist())
         offsets = [(int(s), int(e)) for s, e in offsets_raw]
+        word_ids_fn = cast(Callable[[int], list[int | None]], getattr(encoding, "word_ids"))
+        word_ids = word_ids_fn(0)
         convert_ids = cast(
             Callable[[list[int]], list[str]],
             getattr(self.tokenizer, "convert_ids_to_tokens"),
@@ -1136,30 +1215,15 @@ class NERInference:
             .cpu()
             .tolist(),
         )
-
-        # --- Light BIOES repair on the predicted sequence ---
-        def _repair_bioes(seq: list[int]) -> list[int]:
-            out = seq[:]
-            for t in range(len(out)):
-                lab = self.id2label[out[t]]
-                if lab == "O" or lab.startswith(("B-", "S-")):
-                    continue
-                if t == 0:
-                    ent = lab.split("-", 1)[1]
-                    out[t] = self.label2id.get(f"B-{ent}", out[t])
-                    continue
-                prev = self.id2label[out[t - 1]]
-                if prev == "O" or prev.startswith(("E-", "S-")):
-                    ent = lab.split("-", 1)[1]
-                    out[t] = self.label2id.get(f"B-{ent}", out[t])
-                elif prev.startswith(("B-", "I-")):
-                    prev_ent = prev.split("-", 1)[1]
-                    cur_ent = lab.split("-", 1)[1]
-                    if prev_ent != cur_ent:
-                        out[t] = self.label2id.get(f"B-{cur_ent}", out[t])
-            return out
-
-        preds = _repair_bioes(preds)
+        preds, confidences, offsets, toks, avg_logits = self._collapse_to_word_level(
+            text,
+            preds,
+            confidences,
+            offsets,
+            avg_logits,
+            word_ids,
+        )
+        preds = self._repair_bioes_ids(preds)
         return preds, confidences, offsets, toks, avg_logits
 
     # ---------------- Pretty print from token labels via offsets ----------------
