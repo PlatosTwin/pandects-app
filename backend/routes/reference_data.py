@@ -1,5 +1,4 @@
 from __future__ import annotations
-# pyright: reportAny=false, reportExplicitAny=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnusedFunction=false, reportUnusedClass=false
 
 import json
 from collections import defaultdict
@@ -10,10 +9,11 @@ from flask import Response, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
+from backend.routes.deps import ReferenceDataDeps
 from backend.schemas.public_api import DumpEntrySchema, NaicsResponseSchema
 
 
-def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Blueprint, Blueprint]:
+def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint]:
     taxonomy_blp = Blueprint(
         "taxonomy",
         "taxonomy",
@@ -36,10 +36,10 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
     )
 
     def _taxonomy_tree() -> dict[str, object]:
-        db = getattr(app_module, "db")
-        taxonomy_l1 = getattr(app_module, "TaxonomyL1")
-        taxonomy_l2 = getattr(app_module, "TaxonomyL2")
-        taxonomy_l3 = getattr(app_module, "TaxonomyL3")
+        db = deps.db
+        taxonomy_l1 = deps.TaxonomyL1
+        taxonomy_l2 = deps.TaxonomyL2
+        taxonomy_l3 = deps.TaxonomyL3
         l1_rows = cast(list[tuple[object, object]], db.session.query(
             taxonomy_l1.standard_id,
             taxonomy_l1.label,
@@ -94,9 +94,9 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
         return tree
 
     def _naics_tree() -> dict[str, object]:
-        db = getattr(app_module, "db")
-        naics_sector = getattr(app_module, "NaicsSector")
-        naics_sub_sector = getattr(app_module, "NaicsSubSector")
+        db = deps.db
+        naics_sector = deps.NaicsSector
+        naics_sub_sector = deps.NaicsSubSector
         sector_rows = cast(
             list[tuple[object, object, object, object]],
             db.session.query(
@@ -165,38 +165,38 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
         return {"sectors": sectors}
 
     def _get_naics_payload_cached() -> tuple[dict[str, object], bool]:
-        now = getattr(app_module, "time").time()
-        with getattr(app_module, "_naics_lock"):
-            cached_payload = getattr(app_module, "_naics_cache")["payload"]
-            cached_ts = getattr(app_module, "_naics_cache")["ts"]
+        now = deps.time.time()
+        with deps._naics_lock:
+            cached_payload = deps._naics_cache["payload"]
+            cached_ts = deps._naics_cache["ts"]
             cache_is_valid = cached_payload is not None and (
-                now - cached_ts < getattr(app_module, "_NAICS_TTL_SECONDS")
+                now - cached_ts < deps._NAICS_TTL_SECONDS
             )
         if cache_is_valid and cached_payload is not None:
             return cached_payload, True
 
         payload = _naics_tree()
-        with getattr(app_module, "_naics_lock"):
-            getattr(app_module, "_naics_cache")["payload"] = payload
-            getattr(app_module, "_naics_cache")["ts"] = now
+        with deps._naics_lock:
+            deps._naics_cache["payload"] = payload
+            deps._naics_cache["ts"] = now
 
         return payload, False
 
     def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
-        now = getattr(app_module, "time").time()
-        with getattr(app_module, "_taxonomy_lock"):
-            cached_payload = getattr(app_module, "_taxonomy_cache")["payload"]
-            cached_ts = getattr(app_module, "_taxonomy_cache")["ts"]
+        now = deps.time.time()
+        with deps._taxonomy_lock:
+            cached_payload = deps._taxonomy_cache["payload"]
+            cached_ts = deps._taxonomy_cache["ts"]
             cache_is_valid = cached_payload is not None and (
-                now - cached_ts < getattr(app_module, "_TAXONOMY_TTL_SECONDS")
+                now - cached_ts < deps._TAXONOMY_TTL_SECONDS
             )
         if cache_is_valid and cached_payload is not None:
             return cached_payload, True
 
         payload = _taxonomy_tree()
-        with getattr(app_module, "_taxonomy_lock"):
-            getattr(app_module, "_taxonomy_cache")["payload"] = payload
-            getattr(app_module, "_taxonomy_cache")["ts"] = now
+        with deps._taxonomy_lock:
+            deps._taxonomy_cache["payload"] = payload
+            deps._taxonomy_cache["ts"] = now
 
         return payload, False
 
@@ -212,7 +212,7 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
         def get(self) -> Response:
             payload, _ = _get_taxonomy_payload_cached()
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={getattr(app_module, '_TAXONOMY_TTL_SECONDS')}"
+            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
             return resp
 
     @naics_blp.route("")
@@ -228,7 +228,7 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
         def get(self) -> Response:
             payload, _ = _get_naics_payload_cached()
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={getattr(app_module, '_NAICS_TTL_SECONDS')}"
+            resp.headers["Cache-Control"] = f"public, max-age={deps._NAICS_TTL_SECONDS}"
             return resp
 
     @dumps_blp.route("")
@@ -242,22 +242,22 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
         )
         @dumps_blp.response(200, DumpEntrySchema(many=True))
         def get(self) -> list[dict[str, object]]:
-            now = getattr(app_module, "time").time()
-            with getattr(app_module, "_dumps_cache_lock"):
-                cached_payload = getattr(app_module, "_dumps_cache")["payload"]
-                cached_ts = getattr(app_module, "_dumps_cache")["ts"]
+            now = deps.time.time()
+            with deps._dumps_cache_lock:
+                cached_payload = deps._dumps_cache["payload"]
+                cached_ts = deps._dumps_cache["ts"]
                 cache_is_valid = cached_payload is not None and (
-                    now - cached_ts < getattr(app_module, "_DUMPS_CACHE_TTL_SECONDS")
+                    now - cached_ts < deps._DUMPS_CACHE_TTL_SECONDS
                 )
             if cache_is_valid and cached_payload is not None:
                 return cached_payload
-            client = getattr(app_module, "client")
+            client = deps.client
             if client is None:
                 return []
             s3_client = client
             paginator = s3_client.get_paginator("list_objects_v2")
             pages: Iterable[dict[str, object]] = paginator.paginate(
-                Bucket=getattr(app_module, "R2_BUCKET_NAME"), Prefix="dumps/"
+                Bucket=deps.R2_BUCKET_NAME, Prefix="dumps/"
             )
 
             dumps_map: dict[str, dict[str, str]] = {}
@@ -310,25 +310,25 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
                 entry: dict[str, object] = {"timestamp": label}
 
                 if "sql" in files:
-                    entry["sql"] = f"{getattr(app_module, 'PUBLIC_DEV_BASE')}/{files['sql']}"
+                    entry["sql"] = f"{deps.PUBLIC_DEV_BASE}/{files['sql']}"
 
                 if "sha256" in files:
-                    entry["sha256_url"] = f"{getattr(app_module, 'PUBLIC_DEV_BASE')}/{files['sha256']}"
+                    entry["sha256_url"] = f"{deps.PUBLIC_DEV_BASE}/{files['sha256']}"
 
                 if "manifest" in files:
-                    entry["manifest"] = f"{getattr(app_module, 'PUBLIC_DEV_BASE')}/{files['manifest']}"
+                    entry["manifest"] = f"{deps.PUBLIC_DEV_BASE}/{files['manifest']}"
                     manifest_key = files["manifest"]
                     manifest_etag = files.get("manifest_etag")
                     cached_manifest = None
-                    now = getattr(app_module, "time").time()
+                    now = deps.time.time()
                     if manifest_key and isinstance(manifest_etag, str):
-                        with getattr(app_module, "_dumps_manifest_cache_lock"):
-                            cached_manifest = getattr(app_module, "_dumps_manifest_cache").get(manifest_key)
+                        with deps._dumps_manifest_cache_lock:
+                            cached_manifest = deps._dumps_manifest_cache.get(manifest_key)
                             if cached_manifest is not None:
                                 cache_age = now - float(cached_manifest.get("ts", 0.0))
                                 if (
                                     cached_manifest.get("etag") != manifest_etag
-                                    or cache_age >= getattr(app_module, "_DUMPS_MANIFEST_CACHE_TTL_SECONDS")
+                                    or cache_age >= deps._DUMPS_MANIFEST_CACHE_TTL_SECONDS
                                 ):
                                     cached_manifest = None
                     if cached_manifest is not None:
@@ -336,7 +336,7 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
                     else:
                         try:
                             body = s3_client.get_object(
-                                Bucket=getattr(app_module, "R2_BUCKET_NAME"), Key=files["manifest"]
+                                Bucket=deps.R2_BUCKET_NAME, Key=files["manifest"]
                             )["Body"].read()
                             parsed_data = cast(object, json.loads(body))
                             data = (
@@ -345,8 +345,8 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
                                 else {}
                             )
                             if manifest_key and isinstance(manifest_etag, str):
-                                with getattr(app_module, "_dumps_manifest_cache_lock"):
-                                    getattr(app_module, "_dumps_manifest_cache")[manifest_key] = {
+                                with deps._dumps_manifest_cache_lock:
+                                    deps._dumps_manifest_cache[manifest_key] = {
                                         "etag": manifest_etag,
                                         "payload": data,
                                         "ts": now,
@@ -361,9 +361,9 @@ def register_reference_data_routes(*, app_module: object) -> tuple[Blueprint, Bl
 
                 dump_list.append(entry)
 
-            with getattr(app_module, "_dumps_cache_lock"):
-                getattr(app_module, "_dumps_cache")["payload"] = dump_list
-                getattr(app_module, "_dumps_cache")["ts"] = now
+            with deps._dumps_cache_lock:
+                deps._dumps_cache["payload"] = dump_list
+                deps._dumps_cache["ts"] = now
 
             return dump_list
 

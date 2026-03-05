@@ -1,5 +1,4 @@
 from __future__ import annotations
-# pyright: reportAny=false
 
 import uuid
 from datetime import datetime, timezone

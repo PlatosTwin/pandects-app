@@ -1,5 +1,4 @@
 """Flask blueprint for auth: register, login, password reset, API keys, Google OAuth."""
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportUnusedFunction=false, reportRedeclaration=false
 
 from __future__ import annotations
 
@@ -10,12 +9,14 @@ from datetime import timedelta
 from collections import defaultdict
 from typing import Callable
 
-from flask import Blueprint, abort, jsonify, make_response, redirect, request, current_app
+from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
+from backend.routes.deps import AuthDeps
 
-def register_auth_routes(app, *, app_module) -> Blueprint:
+
+def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
 
     def _run_email_side_effect(*, label: str, email: str, fn: Callable[[], None]) -> bool:
@@ -37,28 +38,28 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
     @auth_blp.route("/register", methods=["POST"])
     def auth_register():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthRegisterSchema())
-        checked_at = app_module._require_legal_acceptance(data)
-        if app_module._turnstile_enabled():
-            captcha_token = app_module._require_captcha_token(data)
-            app_module._verify_turnstile_token(token=captcha_token)
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthRegisterSchema())
+        checked_at = deps._require_legal_acceptance(data)
+        if deps._turnstile_enabled():
+            captcha_token = deps._require_captcha_token(data)
+            deps._verify_turnstile_token(token=captcha_token)
         email_raw = data.get("email")
         password = data.get("password")
         if not isinstance(email_raw, str) or not isinstance(password, str):
             abort(400, description="Email and password are required.")
-        email = app_module._normalize_email(email_raw)
-        if not app_module._is_email_like(email):
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
             abort(400, description="Invalid email address.")
         if len(password) < 8:
             abort(400, description="Password must be at least 8 characters.")
 
-        if app_module._auth_is_mocked():
-            existing = app_module._mock_auth.get_user_by_email(email)
-            user = existing or app_module._mock_auth.create_user(email=email, password=password)
+        if deps._auth_is_mocked():
+            existing = deps._mock_auth.get_user_by_email(email)
+            user = existing or deps._mock_auth.create_user(email=email, password=password)
             verify_token = None
             if user.email_verified_at is None:
-                verify_token = app_module._issue_email_verification_token(
+                verify_token = deps._issue_email_verification_token(
                     user_id=user.id, email=user.email
                 )
             payload: dict[str, object] = {
@@ -77,23 +78,23 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 payload["debug_token"] = verify_token
             resp = make_response(jsonify(payload), 201)
             resp.headers["Cache-Control"] = "no-store"
-            app_module._clear_auth_cookies(resp)
+            deps._clear_auth_cookies(resp)
             return resp
 
         try:
-            existing = app_module.AuthUser.query.filter_by(email=email).first()
+            existing = deps.AuthUser.query.filter_by(email=email).first()
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
 
         if existing is not None:
             verify_token = None
             if existing.email_verified_at is None:
-                verify_token = app_module._issue_email_verification_token(
+                verify_token = deps._issue_email_verification_token(
                     user_id=existing.id, email=existing.email
                 )
                 def _send_existing_verification_email() -> None:
-                    app_module._send_email_verification_email(
+                    deps._send_email_verification_email(
                         to_email=existing.email, token=verify_token
                     )
 
@@ -116,26 +117,26 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 and current_app.debug
             ):
                 payload["debug_token"] = verify_token
-            app_module._auth_enumeration_delay()
+            deps._auth_enumeration_delay()
             resp = make_response(jsonify(payload), 201)
             resp.headers["Cache-Control"] = "no-store"
-            app_module._clear_auth_cookies(resp)
+            deps._clear_auth_cookies(resp)
             return resp
 
         try:
-            now = app_module._utc_now()
-            ip_address = app_module._request_ip_address()
-            user_agent = app_module._request_user_agent()
-            user = app_module.AuthUser(
+            now = deps._utc_now()
+            ip_address = deps._request_ip_address()
+            user_agent = deps._request_user_agent()
+            user = deps.AuthUser(
                 email=email,
-                password_hash=app_module.generate_password_hash(password),
+                password_hash=deps.generate_password_hash(password),
                 email_verified_at=None,
             )
-            app_module.db.session.add(user)
-            app_module.db.session.flush()
-            for doc, meta in app_module._LEGAL_DOCS.items():
-                app_module.db.session.add(
-                    app_module.LegalAcceptance(
+            deps.db.session.add(user)
+            deps.db.session.flush()
+            for doc, meta in deps._LEGAL_DOCS.items():
+                deps.db.session.add(
+                    deps.LegalAcceptance(
                         user_id=user.id,
                         document=doc,
                         version=meta["version"],
@@ -146,19 +147,19 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                         user_agent=user_agent,
                     )
                 )
-            app_module._record_signon_event(
+            deps._record_signon_event(
                 user_id=user.id, provider="email", action="register"
             )
-            app_module.db.session.commit()
+            deps.db.session.commit()
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
 
-        verify_token = app_module._issue_email_verification_token(
+        verify_token = deps._issue_email_verification_token(
             user_id=user.id, email=user.email
         )
         def _send_new_user_verification_email() -> None:
-            app_module._send_email_verification_email(to_email=user.email, token=verify_token)
+            deps._send_email_verification_email(to_email=user.email, token=verify_token)
 
         _ = _run_email_side_effect(
             label="Verification email delivery",
@@ -166,7 +167,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             fn=_send_new_user_verification_email,
         )
         def _send_signup_notification() -> None:
-            app_module._send_signup_notification_email(new_user_email=user.email)
+            deps._send_signup_notification_email(new_user_email=user.email)
 
         _ = _run_email_side_effect(
             label="Signup notification delivery",
@@ -186,97 +187,97 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             payload["debug_token"] = verify_token
         resp = make_response(jsonify(payload), 201)
         resp.headers["Cache-Control"] = "no-store"
-        app_module._clear_auth_cookies(resp)
+        deps._clear_auth_cookies(resp)
         return resp
 
     @auth_blp.route("/login", methods=["POST"])
     def auth_login():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthLoginSchema())
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthLoginSchema())
         email_raw = data.get("email")
         password = data.get("password")
         if not isinstance(email_raw, str) or not isinstance(password, str):
             abort(400, description="Email and password are required.")
-        email = app_module._normalize_email(email_raw)
+        email = deps._normalize_email(email_raw)
 
-        if app_module._auth_is_mocked():
-            user = app_module._mock_auth.authenticate(email=email, password=password)
+        if deps._auth_is_mocked():
+            user = deps._mock_auth.authenticate(email=email, password=password)
             if user is None:
-                app_module._auth_enumeration_delay()
+                deps._auth_enumeration_delay()
                 abort(401, description="Invalid credentials.")
             if user.email_verified_at is None:
                 abort(403, description="Email address not verified.")
-            token = app_module._issue_session_token(user.id)
+            token = deps._issue_session_token(user.id)
             payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-            if app_module._auth_session_transport() == "bearer":
+            if deps._auth_session_transport() == "bearer":
                 payload["session_token"] = token
             resp = make_response(jsonify(payload))
             resp.headers["Cache-Control"] = "no-store"
-            if app_module._auth_session_transport() == "cookie":
-                app_module._set_auth_cookies(resp, session_token=token)
+            if deps._auth_session_transport() == "cookie":
+                deps._set_auth_cookies(resp, session_token=token)
             return resp
 
         try:
-            user = app_module.AuthUser.query.filter_by(email=email).first()
+            user = deps.AuthUser.query.filter_by(email=email).first()
             if user is None or not user.password_hash:
-                app_module._auth_enumeration_delay()
+                deps._auth_enumeration_delay()
                 abort(401, description="Invalid credentials.")
-            if not app_module.check_password_hash(user.password_hash, password):
-                app_module._auth_enumeration_delay()
+            if not deps.check_password_hash(user.password_hash, password):
+                deps._auth_enumeration_delay()
                 abort(401, description="Invalid credentials.")
             if user.email_verified_at is None:
                 abort(403, description="Email address not verified.")
 
-            app_module._record_signon_event(user_id=user.id, provider="email", action="login")
-            app_module.db.session.commit()
-            token = app_module._issue_session_token(user.id)
+            deps._record_signon_event(user_id=user.id, provider="email", action="login")
+            deps.db.session.commit()
+            token = deps._issue_session_token(user.id)
             payload = {"user": {"id": user.id, "email": user.email}}
-            if app_module._auth_session_transport() == "bearer":
+            if deps._auth_session_transport() == "bearer":
                 payload["session_token"] = token
             resp = make_response(jsonify(payload))
             resp.headers["Cache-Control"] = "no-store"
-            if app_module._auth_session_transport() == "cookie":
-                app_module._set_auth_cookies(resp, session_token=token)
+            if deps._auth_session_transport() == "cookie":
+                deps._set_auth_cookies(resp, session_token=token)
             return resp
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
 
     @auth_blp.route("/email/resend", methods=["POST"])
     def auth_resend_email_verification():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthEmailSchema())
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthEmailSchema())
         email_raw = data.get("email")
         if not isinstance(email_raw, str) or not email_raw.strip():
             abort(400, description="Email is required.")
-        email = app_module._normalize_email(email_raw)
-        if not app_module._is_email_like(email):
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
             abort(400, description="Invalid email address.")
 
-        if app_module._auth_is_mocked():
-            user = app_module._mock_auth.get_user_by_email(email)
+        if deps._auth_is_mocked():
+            user = deps._mock_auth.get_user_by_email(email)
             if user is not None and user.email_verified_at is None:
-                verify_token = app_module._issue_email_verification_token(
+                verify_token = deps._issue_email_verification_token(
                     user_id=user.id, email=user.email
                 )
-                app_module._send_email_verification_email(
+                deps._send_email_verification_email(
                     to_email=user.email, token=verify_token
                 )
-            app_module._auth_enumeration_delay()
-            resp = app_module._status_response("sent")
+            deps._auth_enumeration_delay()
+            resp = deps._status_response("sent")
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
         try:
-            user = app_module.AuthUser.query.filter_by(email=email).first()
+            user = deps.AuthUser.query.filter_by(email=email).first()
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
         if user is not None and user.email_verified_at is None:
-            verify_token = app_module._issue_email_verification_token(
+            verify_token = deps._issue_email_verification_token(
                 user_id=user.id, email=user.email
             )
             def _send_resend_email() -> None:
-                app_module._send_email_verification_email(
+                deps._send_email_verification_email(
                     to_email=user.email, token=verify_token
                 )
 
@@ -286,45 +287,45 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 fn=_send_resend_email,
             )
 
-        app_module._auth_enumeration_delay()
-        resp = app_module._status_response("sent")
+        deps._auth_enumeration_delay()
+        resp = deps._status_response("sent")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/password/forgot", methods=["POST"])
     def auth_password_forgot():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthEmailSchema())
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthEmailSchema())
         email_raw = data.get("email")
         if not isinstance(email_raw, str) or not email_raw.strip():
             abort(400, description="Email is required.")
-        email = app_module._normalize_email(email_raw)
-        if not app_module._is_email_like(email):
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
             abort(400, description="Invalid email address.")
 
-        if app_module._auth_is_mocked():
-            user = app_module._mock_auth.get_user_by_email(email)
+        if deps._auth_is_mocked():
+            user = deps._mock_auth.get_user_by_email(email)
             if user is not None and not (
                 user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
             ):
-                token = app_module._issue_password_reset_token(user_id=user.id, email=user.email)
-                app_module._send_password_reset_email(to_email=user.email, token=token)
-            app_module._auth_enumeration_delay()
-            resp = app_module._status_response("sent")
+                token = deps._issue_password_reset_token(user_id=user.id, email=user.email)
+                deps._send_password_reset_email(to_email=user.email, token=token)
+            deps._auth_enumeration_delay()
+            resp = deps._status_response("sent")
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
         try:
-            user = app_module.AuthUser.query.filter_by(email=email).first()
+            user = deps.AuthUser.query.filter_by(email=email).first()
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
         if user is not None and not (
             user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
         ):
-            token = app_module._issue_password_reset_token(user_id=user.id, email=user.email)
+            token = deps._issue_password_reset_token(user_id=user.id, email=user.email)
             def _send_password_reset() -> None:
-                app_module._send_password_reset_email(to_email=user.email, token=token)
+                deps._send_password_reset_email(to_email=user.email, token=token)
 
             _ = _run_email_side_effect(
                 label="Password reset email delivery",
@@ -332,15 +333,15 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                 fn=_send_password_reset,
             )
 
-        app_module._auth_enumeration_delay()
-        resp = app_module._status_response("sent")
+        deps._auth_enumeration_delay()
+        resp = deps._status_response("sent")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/password/reset", methods=["POST"])
     def auth_password_reset():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthPasswordResetSchema())
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthPasswordResetSchema())
         token = data.get("token")
         password = data.get("password")
         if not isinstance(token, str) or not token.strip():
@@ -350,124 +351,124 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
         if len(password) < 8:
             abort(400, description="Password must be at least 8 characters.")
 
-        if app_module._auth_is_mocked():
-            parsed = app_module._load_password_reset_token(token.strip())
+        if deps._auth_is_mocked():
+            parsed = deps._load_password_reset_token(token.strip())
             if parsed is None:
                 abort(400, description="Invalid or expired reset token.")
             user_id, email, _row = parsed
-            user = app_module._mock_auth.get_user(user_id)
+            user = deps._mock_auth.get_user(user_id)
             if user is None or user.email != email:
                 abort(400, description="Invalid or expired reset token.")
-            if not app_module._mock_auth.set_user_password(user_id=user_id, password=password):
+            if not deps._mock_auth.set_user_password(user_id=user_id, password=password):
                 abort(400, description="Invalid or expired reset token.")
-            resp = app_module._status_response("ok")
+            resp = deps._status_response("ok")
             resp.headers["Cache-Control"] = "no-store"
-            app_module._clear_auth_cookies(resp)
+            deps._clear_auth_cookies(resp)
             return resp
 
         try:
-            parsed = app_module._load_password_reset_token(token.strip())
+            parsed = deps._load_password_reset_token(token.strip())
             if parsed is None:
                 abort(400, description="Invalid or expired reset token.")
             user_id, email, row = parsed
-            user = app_module.db.session.get(app_module.AuthUser, user_id)
+            user = deps.db.session.get(deps.AuthUser, user_id)
             if user is None or user.email != email:
                 abort(400, description="Invalid or expired reset token.")
             if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
                 abort(400, description="Invalid or expired reset token.")
-            user.password_hash = app_module.generate_password_hash(password)
+            user.password_hash = deps.generate_password_hash(password)
             if user.email_verified_at is None:
-                user.email_verified_at = app_module._utc_now()
-            now = app_module._utc_now()
+                user.email_verified_at = deps._utc_now()
+            now = deps._utc_now()
             if row is not None:
                 row.used_at = now
-            app_module.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
+            deps.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
                 {"revoked_at": now}, synchronize_session=False
             )
-            app_module.db.session.commit()
+            deps.db.session.commit()
         except HTTPException:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             raise
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
 
-        resp = app_module._status_response("ok")
+        resp = deps._status_response("ok")
         resp.headers["Cache-Control"] = "no-store"
-        app_module._clear_auth_cookies(resp)
+        deps._clear_auth_cookies(resp)
         return resp
 
     @auth_blp.route("/email/verify", methods=["POST"])
     def auth_verify_email():
-        app_module._require_auth_db()
-        data = app_module._load_json(app_module.AuthTokenSchema())
+        deps._require_auth_db()
+        data = deps._load_json(deps.AuthTokenSchema())
         token = data.get("token")
         if not isinstance(token, str) or not token.strip():
             abort(400, description="Missing verification token.")
-        parsed = app_module._load_email_verification_token(token.strip())
+        parsed = deps._load_email_verification_token(token.strip())
         if parsed is None:
             abort(400, description="Invalid or expired verification token.")
         user_id, email = parsed
 
-        if app_module._auth_is_mocked():
-            user = app_module._mock_auth.get_user(user_id)
+        if deps._auth_is_mocked():
+            user = deps._mock_auth.get_user(user_id)
             if user is None or user.email != email:
                 abort(400, description="Invalid verification token.")
-            app_module._mock_auth.mark_email_verified(user_id)
-            resp = app_module._status_response("ok")
+            deps._mock_auth.mark_email_verified(user_id)
+            resp = deps._status_response("ok")
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
         try:
-            user = app_module.db.session.get(app_module.AuthUser, user_id)
+            user = deps.db.session.get(deps.AuthUser, user_id)
             if user is None or user.email != email:
                 abort(400, description="Invalid verification token.")
             if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
                 abort(400, description="Invalid verification token.")
             if user.email_verified_at is None:
-                user.email_verified_at = app_module._utc_now()
-                app_module.db.session.commit()
+                user.email_verified_at = deps._utc_now()
+                deps.db.session.commit()
         except HTTPException:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             raise
         except SQLAlchemyError:
-            app_module.db.session.rollback()
+            deps.db.session.rollback()
             abort(503, description="Auth backend is unavailable right now.")
 
-        resp = app_module._status_response("ok")
+        resp = deps._status_response("ok")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/me", methods=["GET"])
     def auth_me():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
         resp = make_response(jsonify({"user": {"id": user.id, "email": user.email}}))
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/csrf", methods=["GET"])
     def auth_csrf():
-        app_module._require_auth_db()
-        if app_module._auth_session_transport() == "cookie":
-            existing = app_module._csrf_cookie_value()
+        deps._require_auth_db()
+        if deps._auth_session_transport() == "cookie":
+            existing = deps._csrf_cookie_value()
             token = existing or secrets.token_urlsafe(32)
             resp = make_response(jsonify({"status": "ok", "csrf_token": token}))
             resp.headers["Cache-Control"] = "no-store"
             if existing is None:
-                app_module._set_csrf_cookie(resp, token, max_age=60 * 60 * 24 * 14)
+                deps._set_csrf_cookie(resp, token, max_age=60 * 60 * 24 * 14)
             return resp
-        resp = app_module._status_response("ok")
+        resp = deps._status_response("ok")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/health", methods=["GET"])
     def auth_health():
-        if app_module._auth_is_mocked():
-            resp = app_module._status_response("ok")
+        if deps._auth_is_mocked():
+            resp = deps._status_response("ok")
             resp.headers["Cache-Control"] = "no-store"
             return resp
-        if not app_module._auth_db_is_configured():
+        if not deps._auth_db_is_configured():
             abort(
                 503,
                 description=(
@@ -475,24 +476,24 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                     "Search is available in limited mode."
                 ),
             )
-        engine = app_module.db.engines.get("auth")
+        engine = deps.db.engines.get("auth")
         if engine is None:
             abort(503, description="Auth backend is unavailable right now.")
         try:
             with engine.connect() as conn:
-                conn.execute(app_module.text("SELECT 1"))
+                conn.execute(deps.text("SELECT 1"))
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
-        resp = app_module._status_response("ok")
+        resp = deps._status_response("ok")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/api-keys", methods=["GET"])
     def auth_list_api_keys():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        if app_module._auth_is_mocked():
-            keys = app_module._mock_auth.list_api_keys(user_id=user.id)
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            keys = deps._mock_auth.list_api_keys(user_id=user.id)
             resp = make_response(
                 jsonify(
                     {
@@ -514,8 +515,8 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             return resp
         try:
             keys = (
-                app_module.ApiKey.query.filter_by(user_id=user.id)
-                .order_by(app_module.ApiKey.created_at.desc())
+                deps.ApiKey.query.filter_by(user_id=user.id)
+                .order_by(deps.ApiKey.created_at.desc())
                 .all()
             )
         except SQLAlchemyError:
@@ -542,9 +543,9 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
     @auth_blp.route("/api-keys", methods=["POST"])
     def auth_create_api_key():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        data = app_module._load_json(app_module.AuthApiKeySchema())
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        data = deps._load_json(deps.AuthApiKeySchema())
         name = data.get("name")
         if name is not None and not isinstance(name, str):
             abort(400, description="Key name must be a string.")
@@ -552,8 +553,8 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             name = name.strip() or None
             if name is not None and len(name) > 120:
                 abort(400, description="Key name is too long.")
-        if app_module._auth_is_mocked():
-            key, plaintext = app_module._mock_auth.create_api_key(user_id=user.id, name=name)
+        if deps._auth_is_mocked():
+            key, plaintext = deps._mock_auth.create_api_key(user_id=user.id, name=name)
             resp = make_response(
                 jsonify(
                     {
@@ -570,7 +571,7 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             resp.headers["Cache-Control"] = "no-store"
             return resp
         try:
-            key, plaintext = app_module._create_api_key(user_id=user.id, name=name)
+            key, plaintext = deps._create_api_key(user_id=user.id, name=name)
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
         resp = make_response(
@@ -591,24 +592,24 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
     @auth_blp.route("/api-keys/<string:key_id>", methods=["DELETE"])
     def auth_revoke_api_key(key_id: str):
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        if not app_module._UUID_RE.match(key_id):
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if not deps._UUID_RE.match(key_id):
             abort(404)
-        if app_module._auth_is_mocked():
-            if not app_module._mock_auth.revoke_api_key(user_id=user.id, key_id=key_id):
+        if deps._auth_is_mocked():
+            if not deps._mock_auth.revoke_api_key(user_id=user.id, key_id=key_id):
                 abort(404)
-            resp = app_module._status_response("revoked")
+            resp = deps._status_response("revoked")
             resp.headers["Cache-Control"] = "no-store"
             return resp
         try:
-            key = app_module.ApiKey.query.filter_by(id=key_id, user_id=user.id).first()
+            key = deps.ApiKey.query.filter_by(id=key_id, user_id=user.id).first()
             if key is None:
                 abort(404)
             if key.revoked_at is None:
-                key.revoked_at = app_module._utc_now()
-                app_module.db.session.commit()
-            resp = app_module._status_response("revoked")
+                key.revoked_at = deps._utc_now()
+                deps.db.session.commit()
+            resp = deps._status_response("revoked")
             resp.headers["Cache-Control"] = "no-store"
             return resp
         except SQLAlchemyError:
@@ -616,25 +617,51 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
     @auth_blp.route("/usage", methods=["GET"])
     def auth_usage():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        if app_module._auth_is_mocked():
-            by_day, total = app_module._mock_auth.usage_for_user(user_id=user.id)
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        period = (request.args.get("period") or "1m").strip().lower()
+        period_cutoffs = {
+            "1w": 6,
+            "1m": 29,
+            "1y": 364,
+            "all": None,
+        }
+        if period not in period_cutoffs:
+            abort(400, description="period must be one of: 1w, 1m, 1y, all.")
+        cutoff_days = period_cutoffs[period]
+        cutoff = deps._utc_today() - timedelta(days=cutoff_days) if cutoff_days is not None else None
+        raw_api_key_id = (request.args.get("api_key_id") or "").strip()
+        api_key_id = raw_api_key_id or None
+        if api_key_id is not None and not deps._UUID_RE.match(api_key_id):
+            abort(400, description="api_key_id must be a UUID.")
+        if deps._auth_is_mocked():
+            if api_key_id is not None:
+                key_ids = {k.id for k in deps._mock_auth.list_api_keys(user_id=user.id)}
+                if api_key_id not in key_ids:
+                    abort(404)
+            by_day, total = deps._mock_auth.usage_for_user(
+                user_id=user.id,
+                period=period,
+                api_key_id=api_key_id,
+            )
             resp = make_response(jsonify({"by_day": by_day, "total": total}))
             resp.headers["Cache-Control"] = "no-store"
             return resp
-        cutoff = app_module._utc_today() - timedelta(days=29)
         try:
-            key_ids = [k.id for k in app_module.ApiKey.query.filter_by(user_id=user.id).all()]
+            keys_query = deps.ApiKey.query.filter_by(user_id=user.id)
+            if api_key_id is not None:
+                keys_query = keys_query.filter_by(id=api_key_id)
+            keys = keys_query.all()
+            if api_key_id is not None and not keys:
+                abort(404)
+            key_ids = [k.id for k in keys]
             if not key_ids:
                 return jsonify({"by_day": [], "total": 0})
 
-            rows = (
-                app_module.ApiUsageDaily.query.filter(app_module.ApiUsageDaily.api_key_id.in_(key_ids))
-                .filter(app_module.ApiUsageDaily.day >= cutoff)
-                .order_by(app_module.ApiUsageDaily.day.asc())
-                .all()
-            )
+            rows_query = deps.ApiUsageDaily.query.filter(deps.ApiUsageDaily.api_key_id.in_(key_ids))
+            if cutoff is not None:
+                rows_query = rows_query.filter(deps.ApiUsageDaily.day >= cutoff)
+            rows = rows_query.order_by(deps.ApiUsageDaily.day.asc()).all()
             by_day: dict[str, int] = defaultdict(int)
             total = 0
             for row in rows:
@@ -657,50 +684,50 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
     @auth_blp.route("/account/delete", methods=["POST"])
     def auth_delete_account():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        data = app_module._load_json(app_module.AuthDeleteAccountSchema())
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        data = deps._load_json(deps.AuthDeleteAccountSchema())
         confirm = data.get("confirm")
         if confirm != "Delete":
             abort(400, description='Type "Delete" to confirm.')
 
-        if app_module._auth_is_mocked():
+        if deps._auth_is_mocked():
             abort(501, description="Account deletion is unavailable in mock auth mode.")
 
         try:
-            now = app_module._utc_now()
+            now = deps._utc_now()
             tombstone = f"deleted+{uuid.uuid4().hex}@deleted.invalid"
             user.email = tombstone
             user.password_hash = None
-            app_module.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
+            deps.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
                 {"revoked_at": now}, synchronize_session=False
             )
-            app_module.ApiKey.query.filter_by(user_id=user.id, revoked_at=None).update(
+            deps.ApiKey.query.filter_by(user_id=user.id, revoked_at=None).update(
                 {"revoked_at": now}, synchronize_session=False
             )
-            app_module.db.session.commit()
+            deps.db.session.commit()
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
 
-        resp = app_module._status_response("deleted")
+        resp = deps._status_response("deleted")
         resp.headers["Cache-Control"] = "no-store"
-        app_module._clear_auth_cookies(resp)
+        deps._clear_auth_cookies(resp)
         return resp
 
     @auth_blp.route("/google/start", methods=["GET"])
     def auth_google_start():
-        app_module._require_auth_db()
-        if app_module._auth_is_mocked():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
             abort(501, description="Google auth is unavailable in mock auth mode.")
-        if not app_module._google_oauth_flow_enabled():
+        if not deps._google_oauth_flow_enabled():
             abort(404)
 
-        client_id = app_module._google_oauth_client_id()
-        redirect_uri = app_module._google_oauth_redirect_uri()
+        client_id = deps._google_oauth_client_id()
+        redirect_uri = deps._google_oauth_redirect_uri()
 
-        next_path = app_module._safe_next_path(request.args.get("next")) or "/account"
+        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
         state = secrets.token_urlsafe(32)
-        code_verifier, code_challenge = app_module._google_oauth_pkce_pair()
+        code_verifier, code_challenge = deps._google_oauth_pkce_pair()
         nonce = secrets.token_urlsafe(32)
         cookie_payload = {
             "state": state,
@@ -720,108 +747,111 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             "code_challenge_method": "S256",
             "nonce": nonce,
         }
-        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{app_module.urlencode(params)}"
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{deps.urlencode(params)}"
         resp = redirect(auth_url)
         resp.headers["Cache-Control"] = "no-store"
-        app_module._set_google_oauth_cookie(resp, cookie_payload)
+        deps._set_google_oauth_cookie(resp, cookie_payload)
         return resp
 
     @auth_blp.route("/google/client-id", methods=["GET"])
     def auth_google_client_id():
-        app_module._require_auth_db()
-        if app_module._auth_is_mocked():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
             abort(501, description="Google auth is unavailable in mock auth mode.")
         nonce = secrets.token_urlsafe(32)
-        resp = make_response(jsonify({"client_id": app_module._google_oauth_client_id(), "nonce": nonce}))
+        resp = make_response(jsonify({"client_id": deps._google_oauth_client_id(), "nonce": nonce}))
         resp.headers["Cache-Control"] = "no-store"
-        app_module._set_google_nonce_cookie(resp, nonce)
+        deps._set_google_nonce_cookie(resp, nonce)
         return resp
 
     @auth_blp.route("/captcha/site-key", methods=["GET"])
     def auth_captcha_site_key():
-        app_module._require_auth_db()
-        if not app_module._turnstile_enabled():
-            payload: dict[str, object] = {"enabled": False}
+        deps._require_auth_db()
+        if not deps._turnstile_enabled():
+            disabled_payload: dict[str, object] = {"enabled": False}
             if current_app.debug:
-                payload["debug"] = {
+                disabled_payload["debug"] = {
                     "turnstile_enabled": os.environ.get("TURNSTILE_ENABLED"),
                     "has_site_key": bool(os.environ.get("TURNSTILE_SITE_KEY", "").strip()),
                     "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
                 }
-            resp = make_response(jsonify(payload))
+            resp = make_response(jsonify(disabled_payload))
             resp.headers["Cache-Control"] = "no-store"
             return resp
-        payload: dict[str, object] = {"enabled": True, "site_key": app_module._turnstile_site_key()}
+        enabled_payload: dict[str, object] = {
+            "enabled": True,
+            "site_key": deps._turnstile_site_key(),
+        }
         if current_app.debug:
-            payload["debug"] = {
+            enabled_payload["debug"] = {
                 "turnstile_enabled": os.environ.get("TURNSTILE_ENABLED"),
                 "has_site_key": True,
                 "has_secret_key": bool(os.environ.get("TURNSTILE_SECRET_KEY", "").strip()),
             }
-        resp = make_response(jsonify(payload))
+        resp = make_response(jsonify(enabled_payload))
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/google/callback", methods=["GET"])
     def auth_google_callback():
-        app_module._require_auth_db()
-        if app_module._auth_is_mocked():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
             abort(501, description="Google auth is unavailable in mock auth mode.")
-        if not app_module._google_oauth_flow_enabled():
+        if not deps._google_oauth_flow_enabled():
             abort(404)
 
         error = request.args.get("error")
         if isinstance(error, str) and error.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error=error
             )
 
         state = request.args.get("state")
         code = request.args.get("code")
         if not isinstance(state, str) or not state.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error="missing_state"
             )
         if not isinstance(code, str) or not code.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error="missing_code"
             )
 
-        cookie_payload = app_module._load_google_oauth_cookie()
+        cookie_payload = deps._load_google_oauth_cookie()
         if not cookie_payload:
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error="invalid_state"
             )
 
         expected_state = cookie_payload.get("state")
         if not isinstance(expected_state, str) or not expected_state.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error="invalid_state"
             )
         if not secrets.compare_digest(expected_state, state):
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path="/account", error="invalid_state"
             )
 
         code_verifier = cookie_payload.get("code_verifier")
         nonce = cookie_payload.get("nonce")
-        next_path = app_module._safe_next_path(cookie_payload.get("next")) if cookie_payload else None
+        next_path = deps._safe_next_path(cookie_payload.get("next")) if cookie_payload else None
         if not isinstance(code_verifier, str) or not code_verifier.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path=next_path or "/account", error="invalid_state"
             )
         if not isinstance(nonce, str) or not nonce.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path=next_path or "/account", error="invalid_state"
             )
 
-        token_payload = app_module._google_fetch_json(
+        token_payload = deps._google_fetch_json(
             "https://oauth2.googleapis.com/token",
             data={
                 "code": code,
-                "client_id": app_module._google_oauth_client_id(),
-                "client_secret": app_module._google_oauth_client_secret(),
-                "redirect_uri": app_module._google_oauth_redirect_uri(),
+                "client_id": deps._google_oauth_client_id(),
+                "client_secret": deps._google_oauth_client_secret(),
+                "redirect_uri": deps._google_oauth_redirect_uri(),
                 "grant_type": "authorization_code",
                 "code_verifier": code_verifier,
             },
@@ -829,76 +859,76 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
 
         id_token = token_payload.get("id_token")
         if not isinstance(id_token, str) or not id_token.strip():
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path=next_path or "/account", error="missing_id_token"
             )
 
         try:
-            normalized = app_module._google_verify_id_token(id_token, expected_nonce=nonce)
+            normalized = deps._google_verify_id_token(id_token, expected_nonce=nonce)
         except HTTPException as e:
-            return app_module._frontend_google_callback_redirect(
+            return deps._frontend_google_callback_redirect(
                 token=None, next_path=next_path or "/account", error=f"google_{e.code}"
             )
 
         try:
-            user = app_module.AuthUser.query.filter_by(email=normalized).first()
+            user = deps.AuthUser.query.filter_by(email=normalized).first()
             if user is None:
-                return app_module._frontend_google_callback_redirect(
+                return deps._frontend_google_callback_redirect(
                     token=None, next_path=next_path or "/account", error="legal_required"
                 )
-            if not app_module._user_has_current_legal_acceptances(user_id=user.id):
-                return app_module._frontend_google_callback_redirect(
+            if not deps._user_has_current_legal_acceptances(user_id=user.id):
+                return deps._frontend_google_callback_redirect(
                     token=None, next_path=next_path or "/account", error="legal_required"
                 )
             if user.email_verified_at is None:
-                user.email_verified_at = app_module._utc_now()
-            app_module._record_signon_event(user_id=user.id, provider="google", action="login")
-            app_module.db.session.commit()
+                user.email_verified_at = deps._utc_now()
+            deps._record_signon_event(user_id=user.id, provider="google", action="login")
+            deps.db.session.commit()
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
 
-        token = app_module._issue_session_token(user.id)
-        if app_module._auth_session_transport() == "cookie":
-            dest = f"{app_module._frontend_base_url()}{(next_path or '/account')}"
+        token = deps._issue_session_token(user.id)
+        if deps._auth_session_transport() == "cookie":
+            dest = f"{deps._frontend_base_url()}{(next_path or '/account')}"
             resp = redirect(dest)
             resp.headers["Cache-Control"] = "no-store"
-            app_module._set_auth_cookies(resp, session_token=token)
-            app_module._clear_google_oauth_cookie(resp)
+            deps._set_auth_cookies(resp, session_token=token)
+            deps._clear_google_oauth_cookie(resp)
             return resp
-        return app_module._frontend_google_callback_redirect(
+        return deps._frontend_google_callback_redirect(
             token=token, next_path=next_path or "/account", error=None
         )
 
     @auth_blp.route("/google/credential", methods=["POST"])
     def auth_google_credential():
-        app_module._require_auth_db()
-        if app_module._auth_is_mocked():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
             abort(501, description="Google auth is unavailable in mock auth mode.")
-        data = app_module._load_json(app_module.AuthGoogleCredentialSchema())
+        data = deps._load_json(deps.AuthGoogleCredentialSchema())
         credential = data.get("credential")
         if not isinstance(credential, str) or not credential.strip():
             abort(400, description="Missing Google credential.")
 
-        expected_nonce = app_module._google_nonce_cookie_value()
+        expected_nonce = deps._google_nonce_cookie_value()
         if not expected_nonce:
             abort(400, description="Missing Google nonce.")
-        normalized = app_module._google_verify_id_token(credential, expected_nonce=expected_nonce)
+        normalized = deps._google_verify_id_token(credential, expected_nonce=expected_nonce)
 
         try:
-            user = app_module.AuthUser.query.filter_by(email=normalized).first()
+            user = deps.AuthUser.query.filter_by(email=normalized).first()
             if user is None:
-                checked_at = app_module._require_legal_acceptance(data)
-                now = app_module._utc_now()
-                ip_address = app_module._request_ip_address()
-                user_agent = app_module._request_user_agent()
-                user = app_module.AuthUser(
+                checked_at = deps._require_legal_acceptance(data)
+                now = deps._utc_now()
+                ip_address = deps._request_ip_address()
+                user_agent = deps._request_user_agent()
+                user = deps.AuthUser(
                     email=normalized, password_hash=None, email_verified_at=now
                 )
-                app_module.db.session.add(user)
-                app_module.db.session.flush()
-                for doc, meta in app_module._LEGAL_DOCS.items():
-                    app_module.db.session.add(
-                        app_module.LegalAcceptance(
+                deps.db.session.add(user)
+                deps.db.session.flush()
+                for doc, meta in deps._LEGAL_DOCS.items():
+                    deps.db.session.add(
+                        deps.LegalAcceptance(
                             user_id=user.id,
                             document=doc,
                             version=meta["version"],
@@ -909,64 +939,68 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
                             user_agent=user_agent,
                         )
                     )
-                app_module._record_signon_event(
+                deps._record_signon_event(
                     user_id=user.id, provider="google", action="register"
                 )
-                app_module._send_signup_notification_email(new_user_email=user.email)
-                app_module.db.session.commit()
-            elif not app_module._user_has_current_legal_acceptances(user_id=user.id):
-                checked_at = app_module._require_legal_acceptance(data)
-                app_module._ensure_current_legal_acceptances(
+                deps._send_signup_notification_email(new_user_email=user.email)
+                deps.db.session.commit()
+            elif not deps._user_has_current_legal_acceptances(user_id=user.id):
+                checked_at = deps._require_legal_acceptance(data)
+                deps._ensure_current_legal_acceptances(
                     user_id=user.id, checked_at=checked_at
                 )
                 if user.email_verified_at is None:
-                    user.email_verified_at = app_module._utc_now()
-                app_module._record_signon_event(user_id=user.id, provider="google", action="login")
-                app_module.db.session.commit()
+                    user.email_verified_at = deps._utc_now()
+                deps._record_signon_event(user_id=user.id, provider="google", action="login")
+                deps.db.session.commit()
             else:
                 if user.email_verified_at is None:
-                    user.email_verified_at = app_module._utc_now()
-                app_module._record_signon_event(user_id=user.id, provider="google", action="login")
-                app_module.db.session.commit()
+                    user.email_verified_at = deps._utc_now()
+                deps._record_signon_event(user_id=user.id, provider="google", action="login")
+                deps.db.session.commit()
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
 
-        token = app_module._issue_session_token(user.id)
+        token = deps._issue_session_token(user.id)
         payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-        if app_module._auth_session_transport() == "bearer":
+        if deps._auth_session_transport() == "bearer":
             payload["session_token"] = token
         resp = make_response(jsonify(payload))
         resp.headers["Cache-Control"] = "no-store"
-        if app_module._auth_session_transport() == "cookie":
-            app_module._set_auth_cookies(resp, session_token=token)
-        app_module._clear_google_nonce_cookie(resp)
+        if deps._auth_session_transport() == "cookie":
+            deps._set_auth_cookies(resp, session_token=token)
+        deps._clear_google_nonce_cookie(resp)
         return resp
 
     @auth_blp.route("/logout", methods=["POST"])
     def auth_logout():
-        app_module._require_auth_db()
-        resp = app_module._status_response("ok")
+        deps._require_auth_db()
+        resp = deps._status_response("ok")
         resp.headers["Cache-Control"] = "no-store"
         token = None
-        if app_module._auth_session_transport() == "cookie":
-            cookie_token = request.cookies.get(app_module._SESSION_COOKIE_NAME)
+        if deps._auth_session_transport() == "cookie":
+            cookie_token = request.cookies.get(deps._SESSION_COOKIE_NAME)
             token = cookie_token.strip() if isinstance(cookie_token, str) else None
         else:
             auth_header = request.headers.get("Authorization", "")
             if auth_header.startswith("Bearer "):
                 token = auth_header.removeprefix("Bearer ").strip()
         if token:
-            app_module._revoke_session_token(token)
-        app_module._clear_auth_cookies(resp)
+            deps._revoke_session_token(token)
+        deps._clear_auth_cookies(resp)
         return resp
 
     @auth_blp.route("/flag-inaccurate", methods=["POST"])
     def auth_flag_inaccurate():
-        app_module._require_auth_db()
-        user, _ctx = app_module._require_verified_user()
-        data = app_module._load_json(app_module.AuthFlagInaccurateSchema())
-        source = (data.get("source") or "").strip()
-        agreement_uuid = (data.get("agreement_uuid") or "").strip()
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        data = deps._load_json(deps.AuthFlagInaccurateSchema())
+        source_raw = data.get("source")
+        source = source_raw.strip() if isinstance(source_raw, str) else ""
+        agreement_uuid_raw = data.get("agreement_uuid")
+        agreement_uuid = (
+            agreement_uuid_raw.strip() if isinstance(agreement_uuid_raw, str) else ""
+        )
         raw_message = data.get("message")
         message = raw_message.strip() if isinstance(raw_message, str) else None
         section_uuid = data.get("section_uuid")
@@ -1004,15 +1038,15 @@ def register_auth_routes(app, *, app_module) -> Blueprint:
             abort(400, description="section_uuid is required when source is 'search_result'.")
         if source == "agreement_view":
             section_uuid = None
-        if not current_app.testing and not app_module._is_agreement_section_eligible(
+        if not current_app.testing and not deps._is_agreement_section_eligible(
             agreement_uuid, section_uuid
         ):
             abort(
                 400,
                 description="Agreement or section not found or not eligible for flagging.",
             )
-        submitted_at = app_module._utc_now()
-        app_module._send_flag_notification_email(
+        submitted_at = deps._utc_now()
+        deps._send_flag_notification_email(
             user_email=user.email,
             submitted_at=submitted_at,
             source=source,

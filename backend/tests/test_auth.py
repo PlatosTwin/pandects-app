@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import date, timedelta
 from unittest.mock import patch
 from sqlalchemy import text
 from werkzeug.exceptions import ServiceUnavailable
@@ -29,8 +30,12 @@ _AUTH_DB_TEMP.close()
 os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 
-from backend.app import create_test_app, db, ApiKey, AuthUser  # noqa: E402
+from backend.app import create_test_app, db, ApiKey, ApiUsageDaily, AuthUser  # noqa: E402
 import backend.app as backend_app  # noqa: E402
+
+
+def _make_api_usage_daily(*, api_key_id: str, day: date, count: int) -> object:
+    return ApiUsageDaily(api_key_id=api_key_id, day=day, count=count)  # pyright: ignore[reportCallIssue]
 
 
 class AuthFlowTests(unittest.TestCase):
@@ -1005,7 +1010,127 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertNotEqual(key_row.last_used_at, first_touched_at)
         finally:
             backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
-            backend_app._api_key_last_used_touch_state.clear()
+
+    def test_usage_endpoint_supports_period_and_api_key_filters(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        res = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "usage-filters@example.com",
+                "password": "password123",
+                "legal": {
+                    "checked_at_ms": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        with self.app.app_context():
+            user = self._require_user("usage-filters@example.com")
+            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
+
+        res = client.post("/v1/auth/email/verify", json={"token": verify})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "usage-filters@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        login_payload = res.get_json()
+        self.assertIsInstance(login_payload, dict)
+        token = login_payload.get("session_token")
+        self.assertIsInstance(token, str)
+
+        res = client.post(
+            "/v1/auth/api-keys",
+            json={"name": "first key"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        first_payload = res.get_json()
+        self.assertIsInstance(first_payload, dict)
+        first_api_key = first_payload.get("api_key")
+        self.assertIsInstance(first_api_key, dict)
+        first_key_id = first_api_key.get("id")
+        self.assertIsInstance(first_key_id, str)
+
+        res = client.post(
+            "/v1/auth/api-keys",
+            json={"name": "second key"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        second_payload = res.get_json()
+        self.assertIsInstance(second_payload, dict)
+        second_api_key = second_payload.get("api_key")
+        self.assertIsInstance(second_api_key, dict)
+        second_key_id = second_api_key.get("id")
+        self.assertIsInstance(second_key_id, str)
+
+        today = backend_app._utc_today()
+        with self.app.app_context():
+            db.session.add_all(
+                [
+                    _make_api_usage_daily(api_key_id=first_key_id, day=today, count=4),
+                    _make_api_usage_daily(api_key_id=second_key_id, day=today, count=3),
+                    _make_api_usage_daily(api_key_id=first_key_id, day=today - timedelta(days=8), count=10),
+                ]
+            )
+            db.session.commit()
+
+        res = client.get("/v1/auth/usage?period=1w", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        weekly_payload = res.get_json()
+        self.assertIsInstance(weekly_payload, dict)
+        self.assertEqual(weekly_payload.get("total"), 7)
+        weekly_by_day = weekly_payload.get("by_day")
+        self.assertIsInstance(weekly_by_day, list)
+        self.assertEqual(len(weekly_by_day), 1)
+        self.assertEqual(weekly_by_day[0].get("day"), today.isoformat())
+        self.assertEqual(weekly_by_day[0].get("count"), 7)
+
+        res = client.get(
+            f"/v1/auth/usage?period=1w&api_key_id={first_key_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        weekly_first_key = res.get_json()
+        self.assertIsInstance(weekly_first_key, dict)
+        self.assertEqual(weekly_first_key.get("total"), 4)
+        weekly_first_by_day = weekly_first_key.get("by_day")
+        self.assertIsInstance(weekly_first_by_day, list)
+        self.assertEqual(len(weekly_first_by_day), 1)
+        self.assertEqual(weekly_first_by_day[0].get("day"), today.isoformat())
+        self.assertEqual(weekly_first_by_day[0].get("count"), 4)
+
+        res = client.get(
+            f"/v1/auth/usage?period=all&api_key_id={first_key_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        all_first_key = res.get_json()
+        self.assertIsInstance(all_first_key, dict)
+        self.assertEqual(all_first_key.get("total"), 14)
+        all_by_day = all_first_key.get("by_day")
+        self.assertIsInstance(all_by_day, list)
+        self.assertEqual(len(all_by_day), 2)
+        self.assertEqual(all_by_day[0].get("day"), (today - timedelta(days=8)).isoformat())
+        self.assertEqual(all_by_day[0].get("count"), 10)
+        self.assertEqual(all_by_day[1].get("day"), today.isoformat())
+        self.assertEqual(all_by_day[1].get("count"), 4)
+
+        res = client.get("/v1/auth/usage?period=90d", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 400)
+
+        res = client.get(
+            "/v1/auth/usage?api_key_id=00000000-0000-0000-0000-000000000000",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 404)
 
 
 if __name__ == "__main__":

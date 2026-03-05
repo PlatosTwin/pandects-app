@@ -1,11 +1,11 @@
 from __future__ import annotations
-# pyright: reportAny=false, reportExplicitAny=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnusedFunction=false
 
 from typing import Protocol, cast
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, and_, or_, asc, desc
 
+from backend.routes.deps import SearchServiceDeps
 from backend.schemas.search import SearchArgsPayload
 
 
@@ -31,11 +31,11 @@ class _StatementQuery(Protocol):
         ...
 
 
-def estimated_query_row_count(app_module: object, query: object) -> int | None:
-    if not getattr(app_module, "_SEARCH_EXPLAIN_ESTIMATE_ENABLED"):
+def estimated_query_row_count(deps: SearchServiceDeps, query: object) -> int | None:
+    if not deps._SEARCH_EXPLAIN_ESTIMATE_ENABLED:
         return None
-    db = getattr(app_module, "db")
-    to_int = getattr(app_module, "_to_int")
+    db = deps.db
+    to_int = deps._to_int
     bind = db.session.get_bind()
     if bind.dialect.name == "sqlite":
         return None
@@ -62,8 +62,8 @@ def estimated_query_row_count(app_module: object, query: object) -> int | None:
     return max_rows if max_rows > 0 else None
 
 
-def estimated_latest_sections_search_table_rows(app_module: object) -> int | None:
-    db = getattr(app_module, "db")
+def estimated_latest_sections_search_table_rows(deps: SearchServiceDeps) -> int | None:
+    db = deps.db
     bind = db.session.get_bind()
     if bind.dialect.name == "sqlite":
         return None
@@ -86,11 +86,11 @@ def estimated_latest_sections_search_table_rows(app_module: object) -> int | Non
         return None
     if row is None:
         return None
-    return getattr(app_module, "_to_int")(row.get("TABLE_ROWS"))
+    return deps._to_int(row.get("TABLE_ROWS"))
 
 
 def search_total_count_metadata(
-    app_module: object,
+    deps: SearchServiceDeps,
     *,
     query: object,
     page: int,
@@ -99,11 +99,8 @@ def search_total_count_metadata(
     has_next: bool,
     has_filters: bool,
 ) -> tuple[int, bool]:
-    estimated_query_row_count_fn = getattr(app_module, "_estimated_query_row_count")
-    estimated_table_rows_fn = getattr(
-        app_module,
-        "_estimated_latest_sections_search_table_rows",
-    )
+    estimated_query_row_count_fn = deps._estimated_query_row_count
+    estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
 
     if has_filters:
         if page == 1:
@@ -119,27 +116,27 @@ def search_total_count_metadata(
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:
-        table_rows = getattr(app_module, "_to_int")(cast(_StatementQuery, query).order_by(None).count())
+        table_rows = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
     total_count = max(item_count, table_rows)
     return total_count, True
 
 
 def run_search(
-    app_module: object,
+    deps: SearchServiceDeps,
     *,
     ctx: object,
     parsed_args: SearchArgsPayload,
 ) -> dict[str, object]:
-    db = getattr(app_module, "db")
-    latest = getattr(app_module, "LatestSectionsSearch")
-    sections = getattr(app_module, "Sections")
-    row_mapping_as_dict = getattr(app_module, "_row_mapping_as_dict")
-    pagination_metadata = getattr(app_module, "_pagination_metadata")
-    dedupe_preserve_order = getattr(app_module, "_dedupe_preserve_order")
-    expand_taxonomy_cached = getattr(app_module, "_expand_taxonomy_standard_ids_cached")
-    standard_id_filter_expr = getattr(app_module, "_standard_id_filter_expr")
-    parse_standard_ids = getattr(app_module, "_parse_section_standard_ids")
-    year_from_filing_date = getattr(app_module, "_year_from_filing_date_value")
+    db = deps.db
+    latest = deps.LatestSectionsSearch
+    sections = deps.Sections
+    row_mapping_as_dict = deps._row_mapping_as_dict
+    pagination_metadata = deps._pagination_metadata
+    dedupe_preserve_order = deps._dedupe_preserve_order
+    expand_taxonomy_cached = deps._expand_taxonomy_standard_ids_cached
+    standard_id_filter_expr = deps._standard_id_filter_expr
+    parse_standard_ids = deps._parse_section_standard_ids
+    year_from_filing_date = deps._year_from_filing_date_value
 
     years = parsed_args["year"]
     targets = parsed_args["target"]
@@ -277,7 +274,7 @@ def run_search(
         )
     )
     total_count, total_count_is_approximate = search_total_count_metadata(
-        app_module,
+        deps,
         query=q,
         page=page,
         page_size=page_size,

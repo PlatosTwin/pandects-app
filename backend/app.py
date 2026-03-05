@@ -1,7 +1,5 @@
 import os
-import sys
-import importlib
-from typing import Callable, Protocol, SupportsInt, TypedDict, cast
+from typing import Protocol, SupportsInt, TypedDict, cast
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 import time
@@ -18,25 +16,23 @@ import click
 import json
 import math
 from collections import defaultdict
-from flask import Flask, jsonify, request, abort, Response, g, current_app, has_app_context
+from flask import Flask, request, abort, Response, g, current_app, has_app_context
 from flask import redirect
-from flask import make_response
-from flask_cors import CORS
 from flask_smorest import Blueprint
 from boto3.session import Session
 from marshmallow import Schema, ValidationError, EXCLUDE
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.exceptions import HTTPException, InternalServerError
 from dataclasses import dataclass
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import (
     inspect,
     select,
+    text,
 )
 from sqlalchemy.sql.elements import ColumnElement
 from dotenv import load_dotenv
-from urllib.parse import urlencode, quote, urlsplit
+from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import secrets
@@ -74,7 +70,6 @@ from backend.schemas.auth import (
 from backend.models.main_db import (
     Agreements,
     LatestSectionsSearch,
-    LatestSectionsSearchStandardId,
     NaicsSector,
     NaicsSubSector,
     Sections,
@@ -87,17 +82,50 @@ from backend.models.main_db import (
     coalesced_section_standard_ids as _coalesced_section_standard_ids,
     expand_taxonomy_standard_ids_cached as _expand_taxonomy_standard_ids_cached,
     main_db_schema_from_env as _main_db_schema_from_env,
-    main_db_uri_from_env as _main_db_uri_from_env,
-    metadata,
+    metadata as _main_db_metadata,
     parse_section_standard_ids as _parse_section_standard_ids,
-    schema_translate_map as _schema_translate_map,
     section_latest_xml_join_condition as _section_latest_xml_join_condition,
     standard_id_filter_expr as _standard_id_filter_expr,
     year_from_filing_date_value as _year_from_filing_date_value,
 )
+from backend.routes.deps import (
+    AgreementsDeps,
+    AuthDeps,
+    ReferenceDataDeps,
+    SearchDeps,
+    SearchServiceDeps,
+)
 from backend.routes.search import register_search_routes
 from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
+from backend.routes.auth import register_auth_routes
+from backend.core.config import (
+    app_config_map as _app_config_map,
+    configure_app as _configure_app_core,
+    effective_auth_database_uri as _effective_auth_database_uri,
+)
+from backend.core.errors import (
+    json_error as _json_error,
+    register_error_handlers as _register_error_handlers,
+    status_response as _status_response,
+)
+from backend.core.hooks import (
+    auth_rate_limit_guard as _auth_rate_limit_guard_core,
+    capture_request_start as _capture_request_start_core,
+    register_request_hooks as _register_request_hooks_core,
+    set_security_headers as _set_security_headers_core,
+)
+from backend.auth.runtime import (
+    encode_frontend_hash_params as _encode_frontend_hash_params,
+    frontend_base_url as _frontend_base_url,
+    google_oauth_client_id as _google_oauth_client_id,
+    google_oauth_client_secret as _google_oauth_client_secret,
+    google_oauth_flow_enabled as _google_oauth_flow_enabled,
+    google_oauth_redirect_uri as _google_oauth_redirect_uri,
+    is_email_like as _is_email_like,
+    normalize_email as _normalize_email,
+    safe_next_path as _safe_next_path,
+)
 from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.search_service import (
     estimated_latest_sections_search_table_rows as _svc_estimated_latest_sections_search_table_rows,
@@ -105,6 +133,10 @@ from backend.services.search_service import (
     search_total_count_metadata as _svc_search_total_count_metadata,
 )
 from backend.services.usage import UsageBuffer
+from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
+
+# Compatibility export for tests and legacy import sites.
+metadata = _main_db_metadata
 
 # Contract surface consumed by `backend.routes.auth` via app_module indirection.
 _AUTH_SCHEMA_EXPORTS = (
@@ -238,11 +270,6 @@ class _ApiExtension(_FlaskExtension, Protocol):
         ...
 
 
-class _RegisterAuthRoutesFn(Protocol):
-    def __call__(self, app: Flask, *, app_module: object) -> Blueprint:
-        ...
-
-
 _MAIN_SCHEMA_TOKEN = "__main_schema__"
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
 _ENABLE_MAIN_DB_REFLECTION = (
@@ -343,35 +370,6 @@ def _async_task_runner() -> AsyncTaskRunner | None:
     return runner
 
 # ── CORS origins ──────────────────────────────────────────────────────────
-_DEFAULT_CORS_ORIGINS = (
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:4173",
-    "http://127.0.0.1:4173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://pandects.org",
-    "https://www.pandects.org",
-    "https://docs.pandects.org",
-    "https://www.docs.pandects.org",
-)
-
-
-def _cors_origins() -> list[str]:
-    raw = os.environ.get("CORS_ORIGINS", "").strip()
-    if not raw:
-        return list(_DEFAULT_CORS_ORIGINS)
-    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
-    if "*" in origins:
-        raise RuntimeError(
-            "CORS_ORIGINS cannot include '*' when supports_credentials=True. "
-            + "Specify explicit origins instead."
-        )
-    return origins or list(_DEFAULT_CORS_ORIGINS)
 
 
 def _utc_now() -> datetime:
@@ -389,10 +387,6 @@ def _current_app_object() -> Flask:
     if callable(getter):
         return cast(Flask, getter())
     return cast(Flask, app_obj)
-
-
-def _app_config_map(app: Flask) -> dict[str, object]:
-    return cast(dict[str, object], app.config)
 
 
 def _to_int(value: object, *, default: int = 0) -> int:
@@ -570,82 +564,7 @@ def _auth_is_mocked() -> bool:
 
 
 # ── Auth DB configuration (separate DB; local sqlite placeholder by default) ──
-
-def _normalize_database_uri(uri: str) -> str:
-    normalized = uri.strip()
-    if normalized.startswith("postgres://"):
-        normalized = f"postgresql://{normalized[len('postgres://'):]}"
-    if normalized.startswith("postgresql://") and "connect_timeout=" not in normalized:
-        joiner = "&" if "?" in normalized else "?"
-        normalized = f"{normalized}{joiner}connect_timeout=5"
-    return normalized
-
-
-def _effective_auth_database_uri() -> str | None:
-    auth_uri = os.environ.get("AUTH_DATABASE_URI")
-    auth_uri = auth_uri.strip() if isinstance(auth_uri, str) else ""
-    db_url = os.environ.get("DATABASE_URL")
-    db_url = db_url.strip() if isinstance(db_url, str) else ""
-
-    raw = auth_uri or db_url
-    if not raw:
-        return None
-    return _normalize_database_uri(raw)
-
-
 AUTH_DATABASE_URI = _effective_auth_database_uri()
-
-
-def _configure_auth_bind(target_app: Flask) -> None:
-    config = _app_config_map(target_app)
-    if AUTH_DATABASE_URI is not None:
-        config["SQLALCHEMY_BINDS"] = {"auth": AUTH_DATABASE_URI}
-    else:
-        config["SQLALCHEMY_BINDS"] = {
-            "auth": f"sqlite:///{Path(__file__).with_name('auth_dev.sqlite')}"
-        }
-
-# ── OpenAPI / Flask-Smorest configuration ───────────────────────────────
-def _configure_openapi(target_app: Flask) -> None:
-    config = _app_config_map(target_app)
-    config.update(
-        {
-            "API_TITLE": "Pandects API",
-            "API_VERSION": "v1",
-            "OPENAPI_VERSION": "3.0.2",
-            "API_SPEC_OPTIONS": {
-                "servers": [
-                    {
-                        "url": "https://api.pandects.org",
-                        "description": "Production API",
-                    },
-                    {
-                        "url": "http://localhost:5113",
-                        "description": "Local development API",
-                    },
-                ]
-            },
-            "OPENAPI_URL_PREFIX": "/",
-            "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
-            "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
-            "MAX_CONTENT_LENGTH": None,
-        }
-    )
-    config["MAX_CONTENT_LENGTH"] = _max_content_length()
-
-
-def _max_content_length() -> int:
-    raw = os.environ.get("MAX_CONTENT_LENGTH_BYTES", "").strip()
-    if raw:
-        try:
-            value = int(raw)
-        except ValueError as exc:
-            raise RuntimeError("MAX_CONTENT_LENGTH_BYTES must be an integer.") from exc
-        if value <= 0:
-            raise RuntimeError("MAX_CONTENT_LENGTH_BYTES must be positive.")
-        return value
-    return 1 * 1024 * 1024
-
 
 def _schema_prefix() -> str:
     if has_app_context():
@@ -657,117 +576,18 @@ def _schema_prefix() -> str:
     return f"{value}." if value else ""
 
 
-def _configure_main_db(target_app: Flask) -> None:
-    config = _app_config_map(target_app)
-    if "SQLALCHEMY_DATABASE_URI" not in config:
-        config["SQLALCHEMY_DATABASE_URI"] = _main_db_uri_from_env()
-    _ = config.setdefault("MAIN_DB_SCHEMA", _main_db_schema_from_env())
-    config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    configured_engine_options = config.get("SQLALCHEMY_ENGINE_OPTIONS", {})
-    engine_options = (
-        dict(cast(dict[str, object], configured_engine_options))
-        if isinstance(configured_engine_options, dict)
-        else {}
-    )
-    raw_execution_options = engine_options.get("execution_options", {})
-    execution_options = (
-        dict(cast(dict[str, object], raw_execution_options))
-        if isinstance(raw_execution_options, dict)
-        else {}
-    )
-    _ = execution_options.setdefault(
-        "schema_translate_map",
-        _schema_translate_map(cast(str | None, config.get("MAIN_DB_SCHEMA"))),
-    )
-    engine_options["execution_options"] = execution_options
-    config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
-
-
-def _configure_extensions(target_app: Flask) -> None:
-    cast(_FlaskExtension, cast(object, api)).init_app(target_app)
-    cast(_FlaskExtension, cast(object, db)).init_app(target_app)
-
-
-def _configure_cors(target_app: Flask) -> None:
-    _ = CORS(
-        target_app,
-        resources={
-            r"/v1/*": {
-                "origins": _cors_origins()
-            }
-        },
-        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-CSRF-Token"],
-        supports_credentials=True,
-    )
-
-
 def _configure_app(
     target_app: Flask, *, config_overrides: dict[str, object] | None = None
 ) -> None:
-    _configure_auth_bind(target_app)
-    _configure_openapi(target_app)
-    if config_overrides:
-        config = _app_config_map(target_app)
-        config.update(config_overrides)
-    _configure_main_db(target_app)
-    _configure_extensions(target_app)
-    _configure_cors(target_app)
+    _configure_app_core(
+        target_app,
+        auth_database_uri=AUTH_DATABASE_URI,
+        config_overrides=config_overrides,
+    )
 
 
 
 # ── JSON error responses for API routes ──────────────────────────────────
-
-
-def _handle_http_exception(err: HTTPException):
-    if request.path.startswith("/v1/"):
-        resp = jsonify({"error": err.name, "message": err.description})
-        resp.status_code = err.code or 500
-        return resp
-    return err
-
-
-def _handle_internal_server_error(err: InternalServerError):
-    if request.path.startswith("/v1/"):
-        current_app.logger.exception("Unhandled API exception: %s", err)
-        resp = jsonify(
-            {"error": "Internal Server Error", "message": "Unexpected server error."}
-        )
-        resp.status_code = 500
-        return resp
-    return err
-
-
-def _handle_sqlalchemy_error(err: SQLAlchemyError):
-    if request.path.startswith("/v1/"):
-        current_app.logger.exception("Database error: %s", err)
-        resp = jsonify(
-            {"error": "Service Unavailable", "message": "Database is unavailable."}
-        )
-        resp.status_code = 503
-        return resp
-    raise err
-
-
-def _register_error_handlers(target_app: Flask) -> None:
-    target_app.register_error_handler(HTTPException, _handle_http_exception)
-    target_app.register_error_handler(InternalServerError, _handle_internal_server_error)
-    target_app.register_error_handler(SQLAlchemyError, _handle_sqlalchemy_error)
-
-
-def _json_error(
-    status: int, *, error: str, message: str, headers: dict[str, str] | None = None
-) -> Response:
-    """Build a consistent JSON error response for API handlers."""
-    resp = make_response(jsonify({"error": error, "message": message}), status)
-    if headers:
-        resp.headers.update(headers)
-    return resp
-
-
-def _status_response(status: str, *, code: int = 200) -> Response:
-    """Build a standard status JSON response."""
-    return make_response(jsonify({"status": status}), code)
 
 # —— Bulk data setup ——————��———————————————————————————————————————————————
 R2_BUCKET_NAME = "pandects-bulk"
@@ -1037,20 +857,39 @@ class _MockAuthStore:
         with self._lock:
             self._usage_daily[(api_key_id, _utc_today())] += 1
 
-    def usage_for_user(self, *, user_id: str) -> tuple[list[dict[str, object]], int]:
-        cutoff = _utc_today() - timedelta(days=29)
+    def usage_for_user(
+        self,
+        *,
+        user_id: str,
+        period: str = "1m",
+        api_key_id: str | None = None,
+    ) -> tuple[list[dict[str, object]], int]:
+        period_cutoffs = {
+            "1w": 6,
+            "1m": 29,
+            "1y": 364,
+            "all": None,
+        }
+        cutoff_days = period_cutoffs.get(period, 29)
+        cutoff = _utc_today() - timedelta(days=cutoff_days) if cutoff_days is not None else None
         with self._lock:
             key_ids = [
                 k.id for k in self._api_keys_by_id.values() if k.user_id == user_id
             ]
             if not key_ids:
                 return [], 0
+            if api_key_id is not None:
+                if api_key_id not in key_ids:
+                    return [], 0
+                scoped_key_ids = {api_key_id}
+            else:
+                scoped_key_ids = set(key_ids)
             by_day: dict[str, int] = defaultdict(int)
             total = 0
             for (api_key_id, day), count in self._usage_daily.items():
-                if api_key_id not in key_ids:
+                if api_key_id not in scoped_key_ids:
                     continue
-                if day < cutoff:
+                if cutoff is not None and day < cutoff:
                     continue
                 day_str = day.isoformat()
                 by_day[day_str] += int(count)
@@ -1485,66 +1324,7 @@ def _revoke_session_token(token: str) -> None:
 _SECTION_ID_RE = re.compile(
     r"^(?:[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
 )
-
-
-def _is_email_like(value: str) -> bool:
-    if not value or value.strip() != value:
-        return False
-    if any(ch.isspace() for ch in value):
-        return False
-    if value.count("@") != 1:
-        return False
-    local, domain = value.split("@", 1)
-    if not local or not domain:
-        return False
-    if "." not in domain:
-        return False
-    if domain.startswith(".") or domain.endswith("."):
-        return False
-    return True
-
-
-def _frontend_base_url() -> str:
-    base = os.environ.get("PUBLIC_FRONTEND_BASE_URL", "").strip().rstrip("/")
-    if base:
-        return base
-    if current_app.debug:
-        return "http://localhost:8080"
-    abort(503, description="Google auth is not configured (missing PUBLIC_FRONTEND_BASE_URL).")
-
-
-def _public_api_base_url() -> str:
-    base = os.environ.get("PUBLIC_API_BASE_URL", "").strip().rstrip("/")
-    if base:
-        return base
-    if current_app.debug:
-        return "http://127.0.0.1:5113"
-    abort(503, description="Google auth is not configured (missing PUBLIC_API_BASE_URL).")
-
-
-def _google_oauth_client_id() -> str:
-    client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
-    if not client_id:
-        abort(503, description="Google auth is not configured (missing GOOGLE_OAUTH_CLIENT_ID).")
-    return client_id
-
-
-def _google_oauth_client_secret() -> str:
-    client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
-    if not client_secret:
-        abort(
-            503,
-            description="Google auth is not configured (missing GOOGLE_OAUTH_CLIENT_SECRET).",
-        )
-    return client_secret
-
-
-def _google_oauth_redirect_uri() -> str:
-    return f"{_public_api_base_url()}/v1/auth/google/callback"
-
-
-def _google_oauth_flow_enabled() -> bool:
-    return os.environ.get("GOOGLE_OAUTH_FLOW_ENABLED", "").strip() == "1"
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
 def _google_oauth_cookie_serializer() -> URLSafeTimedSerializer:
@@ -1715,10 +1495,6 @@ def _verify_turnstile_token(*, token: str) -> None:
         )
 
 
-def _encode_frontend_hash_params(params: dict[str, str]) -> str:
-    return urlencode(params, quote_via=quote)
-
-
 def _frontend_google_callback_redirect(*, token: str | None, next_path: str | None, error: str | None):
     fragment: dict[str, str] = {}
     if token:
@@ -1833,27 +1609,6 @@ def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None)
     return normalized
 
 
-def _safe_next_path(value: str | None) -> str | None:
-    if not value:
-        return None
-    value = value.strip()
-    if not value or len(value) > 2048:
-        return None
-    if any(ord(ch) < 32 for ch in value):
-        return None
-    parsed = urlsplit(value)
-    if parsed.scheme or parsed.netloc:
-        return None
-    if parsed.fragment:
-        return None
-    path = parsed.path
-    if not path.startswith("/") or path.startswith("//"):
-        return None
-    if "\\" in path:
-        return None
-    return value
-
-
 def _redact_agreement_xml(
     xml_content: str, *, focus_section_uuid: str | None, neighbor_sections: int
 ) -> str:
@@ -1870,10 +1625,6 @@ def _redact_agreement_xml(
         )
     except ValueError as exc:
         abort(400, description=str(exc))
-
-
-def _normalize_email(email: str) -> str:
-    return email.strip().lower()
 
 
 def _require_json() -> dict[str, object]:
@@ -1940,15 +1691,35 @@ def _pagination_metadata(
     }
 
 
+def _build_search_service_deps() -> SearchServiceDeps:
+    return SearchServiceDeps(
+        db=db,
+        LatestSectionsSearch=LatestSectionsSearch,
+        Sections=Sections,
+        _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
+        _to_int=_to_int,
+        _estimated_query_row_count=_estimated_query_row_count,
+        _estimated_latest_sections_search_table_rows=_estimated_latest_sections_search_table_rows,
+        _row_mapping_as_dict=_row_mapping_as_dict,
+        _pagination_metadata=_pagination_metadata,
+        _dedupe_preserve_order=_dedupe_preserve_order,
+        _expand_taxonomy_standard_ids_cached=_expand_taxonomy_standard_ids_cached,
+        _standard_id_filter_expr=_standard_id_filter_expr,
+        _parse_section_standard_ids=_parse_section_standard_ids,
+        _year_from_filing_date_value=_year_from_filing_date_value,
+    )
+
+
 def _estimated_query_row_count(query: object) -> int | None:
-    return _svc_estimated_query_row_count(sys.modules[__name__], query)
+    return _svc_estimated_query_row_count(_build_search_service_deps(), query)
 
 
 def _estimated_latest_sections_search_table_rows() -> int | None:
-    return _svc_estimated_latest_sections_search_table_rows(sys.modules[__name__])
+    return _svc_estimated_latest_sections_search_table_rows(_build_search_service_deps())
 
 
-def _search_total_count_metadata(
+# Compatibility shim for tests that patch the legacy symbol.
+def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     *,
     query: object,
     page: int,
@@ -1958,7 +1729,7 @@ def _search_total_count_metadata(
     has_filters: bool,
 ) -> tuple[int, bool]:
     return _svc_search_total_count_metadata(
-        sys.modules[__name__],
+        _build_search_service_deps(),
         query=query,
         page=page,
         page_size=page_size,
@@ -2139,6 +1910,21 @@ def _record_signon_event(*, user_id: str, provider: str, action: str) -> None:
     event.ip_address = ip_address
     event.user_agent = user_agent
     db.session.add(event)
+
+
+def _is_agreement_section_eligible(agreement_uuid: str, section_uuid: str | None) -> bool:
+    if not agreement_uuid or not _UUID_RE.match(agreement_uuid):
+        return False
+    if section_uuid is not None and (not section_uuid or not _UUID_RE.match(section_uuid)):
+        return False
+    q = (
+        db.session.query(Sections.section_uuid)
+        .join(XML, _section_latest_xml_join_condition())
+        .filter(Sections.agreement_uuid == agreement_uuid)
+    )
+    if section_uuid is not None:
+        q = q.filter(Sections.section_uuid == section_uuid)
+    return q.first() is not None
 
 
 def _lookup_api_key(raw_key: str) -> ApiKey | None:
@@ -2481,34 +2267,23 @@ def _check_endpoint_rate_limit() -> None:
 
 
 def _capture_request_start() -> None:
-    g.request_start = time.perf_counter()
+    _capture_request_start_core()
 
 
 def _auth_rate_limit_guard():
-    ctx = _current_access_context()
-    g.access_ctx = ctx
-    if _csrf_required(request.path):
-        csrf_cookie = request.cookies.get(_CSRF_COOKIE_NAME)
-        csrf_header = request.headers.get("X-CSRF-Token")
-        if (
-            not isinstance(csrf_cookie, str)
-            or not isinstance(csrf_header, str)
-            or not csrf_cookie
-            or not secrets.compare_digest(csrf_cookie, csrf_header)
-        ):
-            abort(403, description="Missing or invalid CSRF token.")
-    _check_rate_limit(ctx)
-    _check_endpoint_rate_limit()
+    _auth_rate_limit_guard_core(
+        current_access_context=lambda: _current_access_context(),
+        csrf_required=_csrf_required,
+        check_rate_limit=lambda ctx: _check_rate_limit(cast(AccessContext, ctx)),
+        check_endpoint_rate_limit=_check_endpoint_rate_limit,
+        csrf_cookie_name=_CSRF_COOKIE_NAME,
+    )
 
 
 def _record_api_key_usage(response: Response) -> Response:
     _touch_api_key_last_used_if_needed()
-    usage_module = importlib.import_module("backend.services.usage")
-    record_api_key_usage = cast(
-        Callable[..., Response], getattr(usage_module, "record_api_key_usage")
-    )
     ctx = _current_access_context()
-    return record_api_key_usage(
+    return _record_api_key_usage_service(
         ctx=ctx,
         response=response,
         db=db,
@@ -2527,36 +2302,18 @@ def _record_api_key_usage(response: Response) -> Response:
     )
 
 
-def _set_security_headers(response: Response):
-    _ = response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    _ = response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    _ = response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    origin = request.headers.get("Origin")
-    if isinstance(origin, str) and origin.strip():
-        existing = response.headers.get("Vary")
-        if existing:
-            if "Origin" not in {part.strip() for part in existing.split(",")}:
-                response.headers["Vary"] = f"{existing}, Origin"
-        else:
-            response.headers["Vary"] = "Origin"
-    if request.path.startswith("/v1/"):
-        _ = response.headers.setdefault(
-            "Content-Security-Policy",
-            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
-        )
-    if _is_running_on_fly():
-        _ = response.headers.setdefault(
-            "Strict-Transport-Security",
-            "max-age=15552000; includeSubDomains",
-        )
-    return response
+def _set_security_headers(response: Response) -> Response:
+    return _set_security_headers_core(response, is_running_on_fly=_is_running_on_fly)
 
 
 def _register_request_hooks(target_app: Flask) -> None:
-    _before_req_start: object = target_app.before_request(_capture_request_start)
-    _before_req_guard: object = target_app.before_request(_auth_rate_limit_guard)
-    _after_req_usage: object = target_app.after_request(_record_api_key_usage)
-    _after_req_headers: object = target_app.after_request(_set_security_headers)
+    _register_request_hooks_core(
+        target_app,
+        capture_request_start=_capture_request_start,
+        auth_rate_limit_guard=_auth_rate_limit_guard,
+        record_api_key_usage=_record_api_key_usage,
+        set_security_headers=_set_security_headers,
+    )
 
 # ── API helper compatibility shims ────────────────────────────────────────
 def _dedupe_preserve_order(values: list[str]) -> list[str]:
@@ -2598,14 +2355,14 @@ def _decode_agreements_cursor(cursor_raw: str | None) -> str | None:
 
 def _register_blueprints(target_app: Flask) -> None:
     api_ext = cast(_ApiExtension, cast(object, api))
-    app_module = sys.modules[__name__]
-    search_blp = register_search_routes(app_module=app_module)
+    search_deps, agreements_deps, reference_data_deps, _ = _build_route_deps()
+    search_blp = register_search_routes(deps=search_deps)
     agreements_blp, sections_blp = register_agreements_routes(
         target_app,
-        app_module=app_module,
+        deps=agreements_deps,
     )
     taxonomy_blp, naics_blp, dumps_blp = register_reference_data_routes(
-        app_module=app_module,
+        deps=reference_data_deps,
     )
     api_ext.register_blueprint(search_blp)
     api_ext.register_blueprint(agreements_blp)
@@ -2615,126 +2372,172 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(dumps_blp)
 
 
-# Contract surface consumed by extracted route/service modules via app_module indirection.
-_PUBLIC_ROUTE_EXPORTS = (
-    db,
-    time,
-    client,
-    R2_BUCKET_NAME,
-    Agreements,
-    LatestSectionsSearch,
-    LatestSectionsSearchStandardId,
-    Sections,
-    XML,
-    TaxonomyL1,
-    TaxonomyL2,
-    TaxonomyL3,
-    NaicsSector,
-    NaicsSubSector,
-    metadata,
-    _ENABLE_MAIN_DB_REFLECTION,
-    _MAIN_SCHEMA_TOKEN,
-    _SKIP_MAIN_DB_REFLECTION,
-    _SECTION_ID_RE,
-    _SEARCH_EXPLAIN_ESTIMATE_ENABLED,
-    _agreement_latest_xml_join_condition,
-    _agreement_year_expr,
-    _coalesced_section_standard_ids,
-    _expand_taxonomy_standard_ids_cached,
-    _parse_section_standard_ids,
-    _section_latest_xml_join_condition,
-    _standard_id_filter_expr,
-    _year_from_filing_date_value,
-    _current_access_context,
-    _to_int,
-    _row_mapping_as_dict,
-    _schema_prefix,
-    _load_query,
-    _pagination_metadata,
-    _dedupe_preserve_order,
-    _encode_agreements_cursor,
-    _decode_agreements_cursor,
-    _redact_agreement_xml,
-    _estimated_query_row_count,
-    _estimated_latest_sections_search_table_rows,
-    _search_total_count_metadata,
-    _taxonomy_cache,
-    _taxonomy_lock,
-    _TAXONOMY_TTL_SECONDS,
-    _naics_cache,
-    _naics_lock,
-    _NAICS_TTL_SECONDS,
-    _dumps_cache,
-    _dumps_cache_lock,
-    _DUMPS_CACHE_TTL_SECONDS,
-    _dumps_manifest_cache,
-    _dumps_manifest_cache_lock,
-    _DUMPS_MANIFEST_CACHE_TTL_SECONDS,
-    _filter_options_cache,
-    _filter_options_lock,
-    _FILTER_OPTIONS_TTL_SECONDS,
-    _agreements_summary_cache,
-    _agreements_summary_lock,
-    _AGREEMENTS_SUMMARY_TTL_SECONDS,
-)
+def _build_route_deps() -> tuple[SearchDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:
+    search_service_deps = _build_search_service_deps()
+    search_deps = SearchDeps(
+        _current_access_context=_current_access_context,
+        search_service_deps=search_service_deps,
+    )
+    agreements_deps = AgreementsDeps(
+        Agreements=Agreements,
+        Sections=Sections,
+        XML=XML,
+        _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
+        _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
+        _SECTION_ID_RE=_SECTION_ID_RE,
+        _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
+        _agreement_year_expr=_agreement_year_expr,
+        _agreements_summary_cache=cast(
+            dict[str, object], cast(object, _agreements_summary_cache)
+        ),
+        _agreements_summary_lock=_agreements_summary_lock,
+        _coalesced_section_standard_ids=_coalesced_section_standard_ids,
+        _current_access_context=_current_access_context,
+        _decode_agreements_cursor=_decode_agreements_cursor,
+        _encode_agreements_cursor=_encode_agreements_cursor,
+        _filter_options_cache=cast(dict[str, object], cast(object, _filter_options_cache)),
+        _filter_options_lock=_filter_options_lock,
+        _load_query=_load_query,
+        _pagination_metadata=_pagination_metadata,
+        _parse_section_standard_ids=_parse_section_standard_ids,
+        _redact_agreement_xml=_redact_agreement_xml,
+        _row_mapping_as_dict=_row_mapping_as_dict,
+        _schema_prefix=_schema_prefix,
+        _section_latest_xml_join_condition=_section_latest_xml_join_condition,
+        _to_int=_to_int,
+        db=db,
+        time=time,
+    )
+    reference_data_deps = ReferenceDataDeps(
+        NaicsSector=NaicsSector,
+        NaicsSubSector=NaicsSubSector,
+        PUBLIC_DEV_BASE=PUBLIC_DEV_BASE,
+        R2_BUCKET_NAME=R2_BUCKET_NAME,
+        TaxonomyL1=TaxonomyL1,
+        TaxonomyL2=TaxonomyL2,
+        TaxonomyL3=TaxonomyL3,
+        _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
+        _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
+        _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
+        _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
+        _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),
+        _dumps_cache_lock=_dumps_cache_lock,
+        _dumps_manifest_cache=cast(dict[str, object], cast(object, _dumps_manifest_cache)),
+        _dumps_manifest_cache_lock=_dumps_manifest_cache_lock,
+        _naics_cache=cast(dict[str, object], cast(object, _naics_cache)),
+        _naics_lock=_naics_lock,
+        _taxonomy_cache=cast(dict[str, object], cast(object, _taxonomy_cache)),
+        _taxonomy_lock=_taxonomy_lock,
+        client=client,
+        db=db,
+        time=time,
+    )
 
+    def _google_verify_id_token_for_routes(
+        id_token: str,
+        *,
+        expected_nonce: str | None = None,
+    ) -> str:
+        return _google_verify_id_token(id_token, expected_nonce=expected_nonce)
 
-# Contract surface consumed by `backend.routes.auth` via app_module indirection.
-_AUTH_ROUTE_HELPERS = (
-    _set_auth_cookies,
-    _set_csrf_cookie,
-    _csrf_cookie_value,
-    _clear_auth_cookies,
-    _status_response,
-    _require_auth_db,
-    _issue_email_verification_token,
-    _load_email_verification_token,
-    _issue_password_reset_token,
-    _load_password_reset_token,
-    _send_signup_notification_email,
-    _send_flag_notification_email,
-    _send_email_verification_email,
-    _send_password_reset_email,
-    _issue_session_token,
-    _revoke_session_token,
-    _google_oauth_client_secret,
-    _google_oauth_redirect_uri,
-    _google_oauth_flow_enabled,
-    _google_oauth_pkce_pair,
-    _set_google_oauth_cookie,
-    _load_google_oauth_cookie,
-    _set_google_nonce_cookie,
-    _google_nonce_cookie_value,
-    _clear_google_nonce_cookie,
-    _turnstile_enabled,
-    _turnstile_site_key,
-    _require_captcha_token,
-    _verify_turnstile_token,
-    _frontend_google_callback_redirect,
-    _google_fetch_json,
-    _google_verify_id_token,
-    _safe_next_path,
-    _load_json,
-    _auth_enumeration_delay,
-    _require_legal_acceptance,
-    _user_has_current_legal_acceptances,
-    _ensure_current_legal_acceptances,
-    _record_signon_event,
-    _create_api_key,
-    _require_verified_user,
-)
+    def _send_email_verification_email_for_routes(*, to_email: str, token: str) -> None:
+        _send_email_verification_email(to_email=to_email, token=token)
+
+    def _send_password_reset_email_for_routes(*, to_email: str, token: str) -> None:
+        _send_password_reset_email(to_email=to_email, token=token)
+
+    def _verify_turnstile_token_for_routes(*, token: str) -> None:
+        _verify_turnstile_token(token=token)
+
+    auth_deps = AuthDeps(
+        ApiKey=ApiKey,
+        ApiUsageDaily=ApiUsageDaily,
+        AuthApiKeySchema=AuthApiKeySchema,
+        AuthDeleteAccountSchema=AuthDeleteAccountSchema,
+        AuthEmailSchema=AuthEmailSchema,
+        AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
+        AuthGoogleCredentialSchema=AuthGoogleCredentialSchema,
+        AuthLoginSchema=AuthLoginSchema,
+        AuthPasswordResetSchema=AuthPasswordResetSchema,
+        AuthRegisterSchema=AuthRegisterSchema,
+        AuthSession=AuthSession,
+        AuthTokenSchema=AuthTokenSchema,
+        AuthUser=AuthUser,
+        LegalAcceptance=LegalAcceptance,
+        _LEGAL_DOCS=_LEGAL_DOCS,
+        _SESSION_COOKIE_NAME=_SESSION_COOKIE_NAME,
+        _UUID_RE=_UUID_RE,
+        _auth_db_is_configured=_auth_db_is_configured,
+        _auth_enumeration_delay=_auth_enumeration_delay,
+        _auth_is_mocked=_auth_is_mocked,
+        _auth_session_transport=_auth_session_transport,
+        _clear_auth_cookies=_clear_auth_cookies,
+        _clear_google_nonce_cookie=_clear_google_nonce_cookie,
+        _clear_google_oauth_cookie=_clear_google_oauth_cookie,
+        _create_api_key=_create_api_key,
+        _csrf_cookie_value=_csrf_cookie_value,
+        _ensure_current_legal_acceptances=_ensure_current_legal_acceptances,
+        _frontend_base_url=_frontend_base_url,
+        _frontend_google_callback_redirect=_frontend_google_callback_redirect,
+        _google_fetch_json=_google_fetch_json,
+        _google_nonce_cookie_value=_google_nonce_cookie_value,
+        _google_oauth_client_id=_google_oauth_client_id,
+        _google_oauth_client_secret=_google_oauth_client_secret,
+        _google_oauth_flow_enabled=_google_oauth_flow_enabled,
+        _google_oauth_pkce_pair=_google_oauth_pkce_pair,
+        _google_oauth_redirect_uri=_google_oauth_redirect_uri,
+        _google_verify_id_token=_google_verify_id_token_for_routes,
+        _is_agreement_section_eligible=_is_agreement_section_eligible,
+        _is_email_like=_is_email_like,
+        _issue_email_verification_token=_issue_email_verification_token,
+        _issue_password_reset_token=_issue_password_reset_token,
+        _issue_session_token=_issue_session_token,
+        _load_email_verification_token=_load_email_verification_token,
+        _load_google_oauth_cookie=_load_google_oauth_cookie,
+        _load_json=_load_json,
+        _load_password_reset_token=_load_password_reset_token,
+        _mock_auth=_mock_auth,
+        _normalize_email=_normalize_email,
+        _record_signon_event=_record_signon_event,
+        _request_ip_address=_request_ip_address,
+        _request_user_agent=_request_user_agent,
+        _require_auth_db=_require_auth_db,
+        _require_captcha_token=_require_captcha_token,
+        _require_legal_acceptance=_require_legal_acceptance,
+        _require_verified_user=_require_verified_user,
+        _revoke_session_token=_revoke_session_token,
+        _safe_next_path=_safe_next_path,
+        _send_email_verification_email=_send_email_verification_email_for_routes,
+        _send_flag_notification_email=_send_flag_notification_email,
+        _send_password_reset_email=_send_password_reset_email_for_routes,
+        _send_signup_notification_email=_send_signup_notification_email,
+        _set_auth_cookies=_set_auth_cookies,
+        _set_csrf_cookie=_set_csrf_cookie,
+        _set_google_nonce_cookie=_set_google_nonce_cookie,
+        _set_google_oauth_cookie=_set_google_oauth_cookie,
+        _status_response=_status_response,
+        _turnstile_enabled=_turnstile_enabled,
+        _turnstile_site_key=_turnstile_site_key,
+        _user_has_current_legal_acceptances=_user_has_current_legal_acceptances,
+        _utc_now=_utc_now,
+        _utc_today=_utc_today,
+        _verify_turnstile_token=_verify_turnstile_token_for_routes,
+        check_password_hash=check_password_hash,
+        db=db,
+        generate_password_hash=generate_password_hash,
+        text=text,
+        urlencode=urlencode,
+    )
+    return search_deps, agreements_deps, reference_data_deps, auth_deps
 
 
 def _register_app(target_app: Flask) -> None:
-    auth_routes = importlib.import_module("backend.routes.auth")
+    _, _, _, auth_deps = _build_route_deps()
 
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)
     _register_blueprints(target_app)
-    register_auth_routes = cast(
-        _RegisterAuthRoutesFn, getattr(auth_routes, "register_auth_routes")
-    )
-    _ = register_auth_routes(target_app, app_module=sys.modules[__name__])
+    _ = register_auth_routes(target_app, deps=auth_deps)
 
 
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:

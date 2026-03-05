@@ -1,5 +1,4 @@
 from __future__ import annotations
-# pyright: reportAny=false, reportExplicitAny=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnusedFunction=false, reportUnusedClass=false
 
 from datetime import date, datetime
 from typing import cast
@@ -9,6 +8,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, func, or_, text
 
+from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
     AgreementArgsSchema,
@@ -21,7 +21,7 @@ from backend.schemas.public_api import (
 )
 
 
-def register_agreements_routes(target_app: Flask, *, app_module: object) -> tuple[Blueprint, Blueprint]:
+def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
     agreements_blp = Blueprint(
         "agreements",
         "agreements",
@@ -48,7 +48,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
         @agreements_blp.arguments(AgreementsBulkArgsSchema, location="query")
         @agreements_blp.response(200, AgreementsListResponseSchema)
         def get(self, args: dict[str, object]) -> dict[str, object]:
-            ctx = getattr(app_module, "_current_access_context")()
+            ctx = deps._current_access_context()
             parsed_args = cast(AgreementsBulkArgsPayload, cast(object, args))
 
             if "standard_id" in request.args:
@@ -62,7 +62,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             if page_size < 1 or page_size > 100:
                 page_size = 25
 
-            after_agreement_uuid = getattr(app_module, "_decode_agreements_cursor")(parsed_args["cursor"])
+            after_agreement_uuid = deps._decode_agreements_cursor(parsed_args["cursor"])
 
             years = parsed_args["year"]
             targets = parsed_args["target"]
@@ -85,11 +85,11 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             agreement_uuid = parsed_args["agreement_uuid"]
             section_uuid = parsed_args["section_uuid"]
 
-            agreements = getattr(app_module, "Agreements")
-            xml = getattr(app_module, "XML")
-            sections = getattr(app_module, "Sections")
-            db = getattr(app_module, "db")
-            year_expr = getattr(app_module, "_agreement_year_expr")().label("year")
+            agreements = deps.Agreements
+            xml = deps.XML
+            sections = deps.Sections
+            db = deps.db
+            year_expr = deps._agreement_year_expr().label("year")
             item_columns = [
                 agreements.agreement_uuid.label("agreement_uuid"),
                 year_expr,
@@ -122,7 +122,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             ]
             q = (
                 db.session.query(*item_columns)
-                .join(xml, getattr(app_module, "_agreement_latest_xml_join_condition")())
+                .join(xml, deps._agreement_latest_xml_join_condition())
             )
 
             if include_xml:
@@ -218,7 +218,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
 
             results: list[dict[str, object]] = []
             for row in page_rows:
-                row_map = getattr(app_module, "_row_mapping_as_dict")(row)
+                row_map = deps._row_mapping_as_dict(row)
                 payload = {
                     "agreement_uuid": row_map.get("agreement_uuid"),
                     "year": row_map.get("year"),
@@ -255,11 +255,11 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
 
             next_cursor: str | None = None
             if has_next:
-                last_row = getattr(app_module, "_row_mapping_as_dict")(page_rows[-1])
+                last_row = deps._row_mapping_as_dict(page_rows[-1])
                 last_agreement_uuid = last_row.get("agreement_uuid")
                 if not isinstance(last_agreement_uuid, str) or not last_agreement_uuid:
                     raise RuntimeError("Agreements list query returned a row without agreement_uuid.")
-                next_cursor = getattr(app_module, "_encode_agreements_cursor")(last_agreement_uuid)
+                next_cursor = deps._encode_agreements_cursor(last_agreement_uuid)
 
             return {
                 "results": results,
@@ -280,19 +280,19 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
         @agreements_blp.arguments(AgreementArgsSchema, location="query")
         @agreements_blp.response(200, AgreementResponseSchema)
         def get(self, args: dict[str, object], agreement_uuid: str) -> dict[str, object]:
-            ctx = getattr(app_module, "_current_access_context")()
+            ctx = deps._current_access_context()
             parsed_args = cast(AgreementArgsPayload, cast(object, args))
             focus_section_uuid = parsed_args.get("focus_section_uuid")
             if focus_section_uuid is not None:
                 focus_section_uuid = focus_section_uuid.strip()
-                if not getattr(app_module, "_SECTION_ID_RE").match(focus_section_uuid):
+                if not deps._SECTION_ID_RE.match(focus_section_uuid):
                     abort(400, description="Invalid focus_section_uuid.")
             neighbor_sections_int = parsed_args["neighbor_sections"]
 
-            agreements = getattr(app_module, "Agreements")
-            xml = getattr(app_module, "XML")
-            db = getattr(app_module, "db")
-            year_expr = getattr(app_module, "_agreement_year_expr")().label("year")
+            agreements = deps.Agreements
+            xml = deps.XML
+            db = deps.db
+            year_expr = deps._agreement_year_expr().label("year")
             row = (
                 db.session.query(
                     year_expr,
@@ -324,7 +324,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                     agreements.url,
                     xml.xml,
                 )
-                .join(xml, getattr(app_module, "_agreement_latest_xml_join_condition")())
+                .join(xml, deps._agreement_latest_xml_join_condition())
                 .filter(agreements.agreement_uuid == agreement_uuid)
                 .first()
             )
@@ -332,7 +332,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             if row is None:
                 abort(404)
 
-            row_map = getattr(app_module, "_row_mapping_as_dict")(cast(object, row))
+            row_map = deps._row_mapping_as_dict(cast(object, row))
             xml_content_obj = row_map.get("xml")
             xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
             payload = {
@@ -365,7 +365,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                 "url": row_map.get("url"),
             }
             if not getattr(ctx, "is_authenticated"):
-                redacted_xml = getattr(app_module, "_redact_agreement_xml")(
+                redacted_xml = deps._redact_agreement_xml(
                     xml_content,
                     focus_section_uuid=focus_section_uuid,
                     neighbor_sections=neighbor_sections_int,
@@ -381,14 +381,14 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
         @sections_blp.response(200, SectionResponseSchema)
         def get(self, section_uuid: str) -> dict[str, object]:
             section_uuid = section_uuid.strip()
-            if not getattr(app_module, "_SECTION_ID_RE").match(section_uuid):
+            if not deps._SECTION_ID_RE.match(section_uuid):
                 abort(400, description="Invalid section_uuid.")
 
-            sections = getattr(app_module, "Sections")
-            xml = getattr(app_module, "XML")
-            db = getattr(app_module, "db")
+            sections = deps.Sections
+            xml = deps.XML
+            db = deps.db
             section_cols = sections.__table__.c
-            section_standard_ids_expr = getattr(app_module, "_coalesced_section_standard_ids")().label(
+            section_standard_ids_expr = deps._coalesced_section_standard_ids().label(
                 "section_standard_ids"
             )
             row = (
@@ -402,7 +402,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                 )
                 .join(
                     xml,
-                    getattr(app_module, "_section_latest_xml_join_condition")(),
+                    deps._section_latest_xml_join_condition(),
                 )
                 .filter(section_cols["section_uuid"] == section_uuid)
                 .first()
@@ -423,7 +423,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                 cast(object, row),
             )
 
-            section_standard_ids = getattr(app_module, "_parse_section_standard_ids")(section_standard_ids_raw)
+            section_standard_ids = deps._parse_section_standard_ids(section_standard_ids_raw)
 
             return {
                 "agreement_uuid": agreement_uuid,
@@ -435,8 +435,8 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             }
 
     def get_agreements_index() -> dict[str, object]:
-        ctx = getattr(app_module, "_current_access_context")()
-        args = getattr(app_module, "_load_query")(AgreementsIndexArgsSchema())
+        ctx = deps._current_access_context()
+        args = deps._load_query(AgreementsIndexArgsSchema())
         page = cast(int, args["page"])
         page_size = cast(int, args["page_size"])
         sort_by = str(args["sort_by"] or "year")
@@ -450,9 +450,9 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
         if page_size < 1 or page_size > max_page_size:
             page_size = min(25, max_page_size)
 
-        agreements = getattr(app_module, "Agreements")
-        db = getattr(app_module, "db")
-        year_expr = getattr(app_module, "_agreement_year_expr")()
+        agreements = deps.Agreements
+        db = deps.db
+        year_expr = deps._agreement_year_expr()
         sort_map = {
             "year": year_expr,
             "target": agreements.target,
@@ -470,12 +470,12 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                 agreements.acquirer,
                 agreements.verified,
             )
-            .join(getattr(app_module, "XML"), getattr(app_module, "_agreement_latest_xml_join_condition")())
+            .join(deps.XML, deps._agreement_latest_xml_join_condition())
         )
         count_q = (
             db.session.query(func.count(agreements.agreement_uuid))
             .select_from(agreements)
-            .join(getattr(app_module, "XML"), getattr(app_module, "_agreement_latest_xml_join_condition")())
+            .join(deps.XML, deps._agreement_latest_xml_join_condition())
         )
 
         if query:
@@ -494,14 +494,14 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
 
         q = q.order_by(order_by, agreements.agreement_uuid)
 
-        total_count = getattr(app_module, "_to_int")(cast(object, count_q.scalar()))
+        total_count = deps._to_int(cast(object, count_q.scalar()))
         offset = (page - 1) * page_size
         items = q.offset(offset).limit(page_size).all()
-        meta = getattr(app_module, "_pagination_metadata")(total_count=total_count, page=page, page_size=page_size)
+        meta = deps._pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
         results: list[dict[str, object]] = []
         for row in items:
-            row_map = getattr(app_module, "_row_mapping_as_dict")(cast(object, row))
+            row_map = deps._row_mapping_as_dict(cast(object, row))
             verified_value = row_map.get("verified")
             results.append(
                 {
@@ -520,8 +520,8 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
         return {"results": results, **meta}
 
     def get_agreements_status_summary() -> dict[str, object]:
-        agreements = getattr(app_module, "Agreements")
-        db = getattr(app_module, "db")
+        agreements = deps.Agreements
+        db = deps.db
         latest_filing_date = cast(
             object | None,
             db.session.query(func.max(agreements.filing_date))
@@ -541,7 +541,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                         color,
                         current_stage,
                         count
-                    FROM {getattr(app_module, '_schema_prefix')()}agreement_status_summary
+                    FROM {deps._schema_prefix()}agreement_status_summary
                     WHERE year IS NOT NULL
                     ORDER BY year ASC, current_stage ASC, color ASC
                     """
@@ -553,19 +553,19 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
 
         years: list[dict[str, object]] = []
         for row in rows:
-            row_dict = getattr(app_module, "_row_mapping_as_dict")(cast(object, row))
+            row_dict = deps._row_mapping_as_dict(cast(object, row))
             years.append(
                 {
-                    "year": getattr(app_module, "_to_int")(cast(object, row_dict.get("year"))),
+                    "year": deps._to_int(cast(object, row_dict.get("year"))),
                     "color": row_dict.get("color"),
                     "current_stage": row_dict.get("current_stage"),
-                    "count": getattr(app_module, "_to_int")(cast(object, row_dict.get("count"))),
+                    "count": deps._to_int(cast(object, row_dict.get("count"))),
                 }
             )
         return {"years": years, "latest_filing_date": latest_filing_date}
 
     def get_agreements_deal_types_summary() -> dict[str, object]:
-        db = getattr(app_module, "db")
+        db = deps.db
         rows = (
             db.session.execute(
                 text(
@@ -574,7 +574,7 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                         year,
                         deal_type,
                         `count`
-                    FROM {getattr(app_module, '_schema_prefix')()}agreement_deal_type_summary
+                    FROM {deps._schema_prefix()}agreement_deal_type_summary
                     WHERE year IS NOT NULL
                     ORDER BY year ASC, deal_type ASC
                     """
@@ -586,28 +586,28 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
 
         years: list[dict[str, object]] = []
         for row in rows:
-            row_dict = getattr(app_module, "_row_mapping_as_dict")(cast(object, row))
+            row_dict = deps._row_mapping_as_dict(cast(object, row))
             years.append(
                 {
-                    "year": getattr(app_module, "_to_int")(cast(object, row_dict.get("year"))),
+                    "year": deps._to_int(cast(object, row_dict.get("year"))),
                     "deal_type": str(row_dict.get("deal_type") or "unknown"),
-                    "count": getattr(app_module, "_to_int")(cast(object, row_dict.get("count"))),
+                    "count": deps._to_int(cast(object, row_dict.get("count"))),
                 }
             )
         return {"years": years}
 
     def get_agreements_summary() -> dict[str, int]:
-        now = getattr(app_module, "time").time()
-        with getattr(app_module, "_agreements_summary_lock"):
-            cached_payload = getattr(app_module, "_agreements_summary_cache")["payload"]
-            cached_ts = getattr(app_module, "_agreements_summary_cache")["ts"]
+        now = deps.time.time()
+        with deps._agreements_summary_lock:
+            cached_payload = deps._agreements_summary_cache["payload"]
+            cached_ts = deps._agreements_summary_cache["ts"]
             cache_is_valid = cached_payload is not None and (
-                now - cached_ts < getattr(app_module, "_AGREEMENTS_SUMMARY_TTL_SECONDS")
+                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
             )
         if cache_is_valid and cached_payload is not None:
             return cached_payload
 
-        db = getattr(app_module, "db")
+        db = deps.db
         row = db.session.execute(
             text(
                 f"""
@@ -615,40 +615,40 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
                   COALESCE(SUM(count_agreements), 0) AS agreements,
                   COALESCE(SUM(count_sections), 0) AS sections,
                   COALESCE(SUM(count_pages), 0) AS pages
-                FROM {getattr(app_module, '_schema_prefix')()}summary_data
+                FROM {deps._schema_prefix()}summary_data
                 """
             )
         ).mappings().first()
 
-        row_dict = getattr(app_module, "_row_mapping_as_dict")(cast(object, row)) if row is not None else {}
+        row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
         payload = {
-            "agreements": getattr(app_module, "_to_int")(cast(object, row_dict.get("agreements"))),
-            "sections": getattr(app_module, "_to_int")(cast(object, row_dict.get("sections"))),
-            "pages": getattr(app_module, "_to_int")(cast(object, row_dict.get("pages"))),
+            "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
+            "sections": deps._to_int(cast(object, row_dict.get("sections"))),
+            "pages": deps._to_int(cast(object, row_dict.get("pages"))),
         }
-        with getattr(app_module, "_agreements_summary_lock"):
-            getattr(app_module, "_agreements_summary_cache")["payload"] = payload
-            getattr(app_module, "_agreements_summary_cache")["ts"] = now
+        with deps._agreements_summary_lock:
+            deps._agreements_summary_cache["payload"] = payload
+            deps._agreements_summary_cache["ts"] = now
 
         return payload
 
     def get_filter_options() -> tuple[Response, int] | Response:
-        now = getattr(app_module, "time").time()
-        with getattr(app_module, "_filter_options_lock"):
-            cached_payload = getattr(app_module, "_filter_options_cache")["payload"]
-            cached_ts = getattr(app_module, "_filter_options_cache")["ts"]
+        now = deps.time.time()
+        with deps._filter_options_lock:
+            cached_payload = deps._filter_options_cache["payload"]
+            cached_ts = deps._filter_options_cache["ts"]
             cache_is_valid = cached_payload is not None and (
-                now - cached_ts < getattr(app_module, "_FILTER_OPTIONS_TTL_SECONDS")
+                now - cached_ts < deps._FILTER_OPTIONS_TTL_SECONDS
             )
         if cache_is_valid:
             resp = jsonify(cached_payload)
             resp.headers["Cache-Control"] = (
-                f"public, max-age={getattr(app_module, '_FILTER_OPTIONS_TTL_SECONDS')}"
+                f"public, max-age={deps._FILTER_OPTIONS_TTL_SECONDS}"
             )
             return resp, 200
 
-        db = getattr(app_module, "db")
-        schema_prefix = getattr(app_module, "_schema_prefix")
+        db = deps.db
+        schema_prefix = deps._schema_prefix
         _xml_eligible = (
             "EXISTS ("
             "  SELECT 1 FROM {t}xml x "
@@ -734,12 +734,12 @@ def register_agreements_routes(target_app: Flask, *, app_module: object) -> tupl
             "target_industries": target_industries,
             "acquirer_industries": acquirer_industries,
         }
-        with getattr(app_module, "_filter_options_lock"):
-            getattr(app_module, "_filter_options_cache")["payload"] = payload
-            getattr(app_module, "_filter_options_cache")["ts"] = now
+        with deps._filter_options_lock:
+            deps._filter_options_cache["payload"] = payload
+            deps._filter_options_cache["ts"] = now
 
         resp = jsonify(payload)
-        resp.headers["Cache-Control"] = f"public, max-age={getattr(app_module, '_FILTER_OPTIONS_TTL_SECONDS')}"
+        resp.headers["Cache-Control"] = f"public, max-age={deps._FILTER_OPTIONS_TTL_SECONDS}"
         return resp, 200
 
     target_app.add_url_rule(
