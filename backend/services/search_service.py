@@ -1,0 +1,415 @@
+from __future__ import annotations
+# pyright: reportAny=false, reportExplicitAny=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnusedFunction=false
+
+from typing import Protocol, cast
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text, and_, or_, asc, desc
+
+from backend.schemas.search import SearchArgsPayload
+
+
+class _CompilableStatement(Protocol):
+    def compile(
+        self,
+        *,
+        dialect: object,
+        compile_kwargs: dict[str, object],
+    ) -> object:
+        ...
+
+
+class _StatementQuery(Protocol):
+    def order_by(self, *clauses: object) -> "_StatementQuery":
+        ...
+
+    def count(self) -> object:
+        ...
+
+    @property
+    def statement(self) -> _CompilableStatement:
+        ...
+
+
+def estimated_query_row_count(app_module: object, query: object) -> int | None:
+    if not getattr(app_module, "_SEARCH_EXPLAIN_ESTIMATE_ENABLED"):
+        return None
+    db = getattr(app_module, "db")
+    to_int = getattr(app_module, "_to_int")
+    bind = db.session.get_bind()
+    if bind.dialect.name == "sqlite":
+        return None
+    try:
+        typed_query = cast(_StatementQuery, query)
+        selectable = typed_query.order_by(None).statement
+        compiled = selectable.compile(
+            dialect=bind.dialect,
+            compile_kwargs={"literal_binds": True},
+        )
+        explain_rows = (
+            db.session.execute(text(f"EXPLAIN {compiled}"))
+            .mappings()
+            .all()
+        )
+    except SQLAlchemyError:
+        return None
+
+    max_rows = 0
+    for explain_row in explain_rows:
+        row_estimate = to_int(explain_row.get("rows"))
+        if row_estimate > max_rows:
+            max_rows = row_estimate
+    return max_rows if max_rows > 0 else None
+
+
+def estimated_latest_sections_search_table_rows(app_module: object) -> int | None:
+    db = getattr(app_module, "db")
+    bind = db.session.get_bind()
+    if bind.dialect.name == "sqlite":
+        return None
+    try:
+        row = (
+            db.session.execute(
+                text(
+                    """
+                    SELECT TABLE_ROWS
+                    FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'latest_sections_search'
+                    """
+                )
+            )
+            .mappings()
+            .first()
+        )
+    except SQLAlchemyError:
+        return None
+    if row is None:
+        return None
+    return getattr(app_module, "_to_int")(row.get("TABLE_ROWS"))
+
+
+def search_total_count_metadata(
+    app_module: object,
+    *,
+    query: object,
+    page: int,
+    page_size: int,
+    item_count: int,
+    has_next: bool,
+    has_filters: bool,
+) -> tuple[int, bool]:
+    estimated_query_row_count_fn = getattr(app_module, "_estimated_query_row_count")
+    estimated_table_rows_fn = getattr(
+        app_module,
+        "_estimated_latest_sections_search_table_rows",
+    )
+
+    if has_filters:
+        if page == 1:
+            estimate = estimated_query_row_count_fn(query)
+            if estimate is not None:
+                adjusted_estimate = max(item_count, estimate)
+                return adjusted_estimate, True
+        if has_next:
+            minimum_total = ((page - 1) * page_size) + item_count + 1
+            return minimum_total, True
+        exact_total = ((page - 1) * page_size) + item_count
+        return exact_total, False
+
+    table_rows = estimated_table_rows_fn()
+    if table_rows is None:
+        table_rows = getattr(app_module, "_to_int")(cast(_StatementQuery, query).order_by(None).count())
+    total_count = max(item_count, table_rows)
+    return total_count, True
+
+
+def run_search(
+    app_module: object,
+    *,
+    ctx: object,
+    parsed_args: SearchArgsPayload,
+) -> dict[str, object]:
+    db = getattr(app_module, "db")
+    latest = getattr(app_module, "LatestSectionsSearch")
+    sections = getattr(app_module, "Sections")
+    row_mapping_as_dict = getattr(app_module, "_row_mapping_as_dict")
+    pagination_metadata = getattr(app_module, "_pagination_metadata")
+    dedupe_preserve_order = getattr(app_module, "_dedupe_preserve_order")
+    expand_taxonomy_cached = getattr(app_module, "_expand_taxonomy_standard_ids_cached")
+    standard_id_filter_expr = getattr(app_module, "_standard_id_filter_expr")
+    parse_standard_ids = getattr(app_module, "_parse_section_standard_ids")
+    year_from_filing_date = getattr(app_module, "_year_from_filing_date_value")
+
+    years = parsed_args["year"]
+    targets = parsed_args["target"]
+    acquirers = parsed_args["acquirer"]
+    standard_ids = parsed_args["standard_id"]
+    transaction_considerations = parsed_args["transaction_consideration"]
+    target_types = parsed_args["target_type"]
+    acquirer_types = parsed_args["acquirer_type"]
+    target_industries = parsed_args["target_industry"]
+    acquirer_industries = parsed_args["acquirer_industry"]
+    deal_statuses = parsed_args["deal_status"]
+    attitudes = parsed_args["attitude"]
+    deal_types = parsed_args["deal_type"]
+    purposes = parsed_args["purpose"]
+    target_pes = parsed_args["target_pe"]
+    acquirer_pes = parsed_args["acquirer_pe"]
+    requested_metadata_fields = dedupe_preserve_order(parsed_args["metadata"])
+    agreement_uuid = parsed_args["agreement_uuid"]
+    section_uuid = parsed_args["section_uuid"]
+    sort_by = parsed_args["sort_by"]
+    sort_direction = parsed_args["sort_direction"]
+    page = parsed_args["page"]
+    page_size = parsed_args["page_size"]
+
+    if page < 1:
+        page = 1
+    max_page_size = 100 if getattr(ctx, "is_authenticated") else 10
+    if page_size < 1 or page_size > max_page_size:
+        page_size = min(25, max_page_size)
+
+    q = db.session.query(latest.section_uuid.label("section_uuid"))
+
+    if years:
+        year_filters = tuple(
+            and_(
+                latest.filing_date >= f"{year:04d}-01-01",
+                latest.filing_date < f"{year + 1:04d}-01-01",
+            )
+            for year in years
+        )
+        q = q.filter(or_(*year_filters))
+
+    if targets:
+        q = q.filter(latest.target.in_(targets))
+    if acquirers:
+        q = q.filter(latest.acquirer.in_(acquirers))
+
+    if standard_ids:
+        standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
+        expanded_standard_ids = list(expand_taxonomy_cached(standard_ids_key))
+        if expanded_standard_ids:
+            q = q.filter(standard_id_filter_expr(expanded_standard_ids))
+
+    if target_types:
+        q = q.filter(latest.target_type.in_(target_types))
+    if transaction_considerations:
+        q = q.filter(latest.transaction_consideration.in_(transaction_considerations))
+    if acquirer_types:
+        q = q.filter(latest.acquirer_type.in_(acquirer_types))
+    if target_industries:
+        q = q.filter(latest.target_industry.in_(target_industries))
+    if acquirer_industries:
+        q = q.filter(latest.acquirer_industry.in_(acquirer_industries))
+    if deal_statuses:
+        q = q.filter(latest.deal_status.in_(deal_statuses))
+    if attitudes:
+        q = q.filter(latest.attitude.in_(attitudes))
+    if deal_types:
+        q = q.filter(latest.deal_type.in_(deal_types))
+    if purposes:
+        q = q.filter(latest.purpose.in_(purposes))
+
+    if target_pes:
+        db_target_pes: list[int] = []
+        for pe in target_pes:
+            if pe == "true":
+                db_target_pes.append(1)
+            elif pe == "false":
+                db_target_pes.append(0)
+        if db_target_pes:
+            q = q.filter(latest.target_pe.in_(db_target_pes))
+
+    if acquirer_pes:
+        db_acquirer_pes: list[int] = []
+        for pe in acquirer_pes:
+            if pe == "true":
+                db_acquirer_pes.append(1)
+            elif pe == "false":
+                db_acquirer_pes.append(0)
+        if db_acquirer_pes:
+            q = q.filter(latest.acquirer_pe.in_(db_acquirer_pes))
+
+    if agreement_uuid and agreement_uuid.strip():
+        q = q.filter(latest.agreement_uuid == agreement_uuid.strip())
+
+    if section_uuid and section_uuid.strip():
+        q = q.filter(latest.section_uuid == section_uuid.strip())
+
+    descending = sort_direction == "desc"
+    if sort_by == "year":
+        primary_sort = latest.filing_date
+    elif sort_by == "target":
+        primary_sort = latest.target
+    else:
+        primary_sort = latest.acquirer
+    if descending:
+        q = q.order_by(desc(primary_sort), desc(latest.section_uuid))
+    else:
+        q = q.order_by(asc(primary_sort), asc(latest.section_uuid))
+
+    offset = (page - 1) * page_size
+    page_rows = cast(list[object], q.offset(offset).limit(page_size + 1).all())
+    has_next = len(page_rows) > page_size
+    item_rows = page_rows[:page_size]
+    item_count = len(item_rows)
+    has_filters = any(
+        (
+            years,
+            targets,
+            acquirers,
+            standard_ids,
+            transaction_considerations,
+            target_types,
+            acquirer_types,
+            target_industries,
+            acquirer_industries,
+            deal_statuses,
+            attitudes,
+            deal_types,
+            purposes,
+            target_pes,
+            acquirer_pes,
+            agreement_uuid and agreement_uuid.strip(),
+            section_uuid and section_uuid.strip(),
+        )
+    )
+    total_count, total_count_is_approximate = search_total_count_metadata(
+        app_module,
+        query=q,
+        page=page,
+        page_size=page_size,
+        item_count=item_count,
+        has_next=has_next,
+        has_filters=has_filters,
+    )
+
+    section_uuids = [
+        section_id
+        for item_row in item_rows
+        for section_id in [row_mapping_as_dict(item_row).get("section_uuid")]
+        if isinstance(section_id, str)
+    ]
+
+    metadata_column_by_field = {
+        "filing_date": latest.filing_date,
+        "prob_filing": latest.prob_filing,
+        "filing_company_name": latest.filing_company_name,
+        "filing_company_cik": latest.filing_company_cik,
+        "form_type": latest.form_type,
+        "exhibit_type": latest.exhibit_type,
+        "transaction_price_total": latest.transaction_price_total,
+        "transaction_price_stock": latest.transaction_price_stock,
+        "transaction_price_cash": latest.transaction_price_cash,
+        "transaction_price_assets": latest.transaction_price_assets,
+        "transaction_consideration": latest.transaction_consideration,
+        "target_type": latest.target_type,
+        "acquirer_type": latest.acquirer_type,
+        "target_industry": latest.target_industry,
+        "acquirer_industry": latest.acquirer_industry,
+        "announce_date": latest.announce_date,
+        "close_date": latest.close_date,
+        "deal_status": latest.deal_status,
+        "attitude": latest.attitude,
+        "deal_type": latest.deal_type,
+        "purpose": latest.purpose,
+        "target_pe": latest.target_pe,
+        "acquirer_pe": latest.acquirer_pe,
+        "url": latest.url,
+    }
+
+    details_by_uuid: dict[str, dict[str, object]] = {}
+    if section_uuids:
+        detail_columns = [
+            latest.section_uuid.label("section_uuid"),
+            latest.agreement_uuid.label("agreement_uuid"),
+            latest.section_standard_ids.label("section_standard_ids"),
+            latest.article_title.label("article_title"),
+            latest.section_title.label("section_title"),
+            latest.acquirer.label("acquirer"),
+            latest.target.label("target"),
+            latest.filing_date.label("filing_date"),
+            latest.verified.label("verified"),
+            sections.xml_content.label("xml_content"),
+        ]
+        for field_name in requested_metadata_fields:
+            detail_columns.append(
+                metadata_column_by_field[field_name].label(field_name)
+            )
+        section_rows = cast(
+            list[object],
+            db.session.query(*detail_columns)
+            .join(
+                latest,
+                sections.section_uuid == latest.section_uuid,
+            )
+            .filter(sections.section_uuid.in_(section_uuids))
+            .all(),
+        )
+        for row in section_rows:
+            row_map = row_mapping_as_dict(row)
+            row_section_uuid = row_map.get("section_uuid")
+            if isinstance(row_section_uuid, str):
+                details_by_uuid[row_section_uuid] = row_map
+
+    meta = pagination_metadata(
+        total_count=total_count,
+        page=page,
+        page_size=page_size,
+        has_next_override=has_next,
+        total_count_is_approximate=total_count_is_approximate,
+    )
+
+    results: list[dict[str, object]] = []
+    for section_uuid_value in section_uuids:
+        detail_row = details_by_uuid.get(section_uuid_value)
+        if detail_row is None:
+            raise RuntimeError(
+                f"Section UUID {section_uuid_value} missing from detail lookup."
+            )
+        result_payload = {
+            "id": section_uuid_value,
+            "agreement_uuid": detail_row.get("agreement_uuid"),
+            "section_uuid": section_uuid_value,
+            "standard_id": parse_standard_ids(
+                detail_row.get("section_standard_ids")
+            ),
+            "xml": detail_row.get("xml_content"),
+            "article_title": detail_row.get("article_title"),
+            "section_title": detail_row.get("section_title"),
+            "acquirer": detail_row.get("acquirer"),
+            "target": detail_row.get("target"),
+            "year": year_from_filing_date(detail_row.get("filing_date")),
+            "verified": (
+                bool(detail_row.get("verified"))
+                if detail_row.get("verified") is not None
+                else False
+            ),
+        }
+        if requested_metadata_fields:
+            result_payload["metadata"] = {
+                field_name: detail_row.get(field_name)
+                for field_name in requested_metadata_fields
+            }
+        results.append(result_payload)
+
+    return {
+        "results": results,
+        "access": {
+            "tier": getattr(ctx, "tier"),
+            "message": None
+            if getattr(ctx, "is_authenticated")
+            else "Limited mode: sign in to view clause text and unlock full pagination.",
+        },
+        **meta,
+    }
+
+
+__all__ = [
+    "estimated_latest_sections_search_table_rows",
+    "estimated_query_row_count",
+    "run_search",
+    "search_total_count_metadata",
+]

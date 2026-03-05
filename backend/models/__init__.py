@@ -10,6 +10,18 @@ from backend.models.auth import (
     AuthUser,
     LegalAcceptance,
 )
+from backend.models.main_db import (
+    Agreements,
+    LatestSectionsSearch,
+    LatestSectionsSearchStandardId,
+    NaicsSector,
+    NaicsSubSector,
+    Sections,
+    TaxonomyL1,
+    TaxonomyL2,
+    TaxonomyL3,
+    XML,
+)
 
 __all__ = [
     "ApiKey",
@@ -22,4 +34,14 @@ __all__ = [
     "AuthSignonEvent",
     "AuthUser",
     "LegalAcceptance",
+    "Agreements",
+    "LatestSectionsSearch",
+    "LatestSectionsSearchStandardId",
+    "NaicsSector",
+    "NaicsSubSector",
+    "Sections",
+    "TaxonomyL1",
+    "TaxonomyL2",
+    "TaxonomyL3",
+    "XML",
 ]

@@ -1,0 +1,239 @@
+from __future__ import annotations
+
+from typing import TypedDict, cast
+
+from marshmallow import Schema, fields
+
+from backend.schemas.search import AccessInfoSchema
+
+
+class AgreementArgsSchema(Schema):
+    focus_section_uuid = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Optional section UUID used when redacting anonymous responses to keep a "
+                "focused neighborhood visible."
+            ),
+            "example": "5e59453aaa9255c4",
+        },
+    )
+    neighbor_sections = fields.Int(
+        load_default=1,
+        metadata={
+            "description": (
+                "Number of neighboring sections to include around `focus_section_uuid` when "
+                "response XML is redacted."
+            ),
+            "example": 1,
+        },
+    )
+
+
+class AgreementsBulkArgsSchema(Schema):
+    cursor = fields.Str(load_default=None, allow_none=True)
+    page_size = fields.Int(load_default=25)
+    include_xml = fields.Bool(load_default=False)
+    year = fields.List(fields.Int(), load_default=[])
+    target = fields.List(fields.Str(), load_default=[])
+    acquirer = fields.List(fields.Str(), load_default=[])
+    transaction_price_total = fields.List(fields.Str(), load_default=[])
+    transaction_price_stock = fields.List(fields.Str(), load_default=[])
+    transaction_price_cash = fields.List(fields.Str(), load_default=[])
+    transaction_price_assets = fields.List(fields.Str(), load_default=[])
+    transaction_consideration = fields.List(fields.Str(), load_default=[])
+    target_type = fields.List(fields.Str(), load_default=[])
+    acquirer_type = fields.List(fields.Str(), load_default=[])
+    target_industry = fields.List(fields.Str(), load_default=[])
+    acquirer_industry = fields.List(fields.Str(), load_default=[])
+    deal_status = fields.List(fields.Str(), load_default=[])
+    attitude = fields.List(fields.Str(), load_default=[])
+    deal_type = fields.List(fields.Str(), load_default=[])
+    purpose = fields.List(fields.Str(), load_default=[])
+    target_pe = fields.List(fields.Str(), load_default=[])
+    acquirer_pe = fields.List(fields.Str(), load_default=[])
+    agreement_uuid = fields.Str(load_default=None, allow_none=True)
+    section_uuid = fields.Str(load_default=None, allow_none=True)
+
+
+class AgreementsIndexArgsSchema(Schema):
+    page = fields.Int(load_default=1)
+    page_size = fields.Int(load_default=25)
+    sort_by = fields.Str(load_default="year")
+    sort_dir = fields.Str(load_default="desc")
+    query = fields.Str(load_default="")
+
+
+class AgreementArgsPayload(TypedDict):
+    focus_section_uuid: str | None
+    neighbor_sections: int
+
+
+class AgreementsBulkArgsPayload(TypedDict):
+    cursor: str | None
+    page_size: int
+    include_xml: bool
+    year: list[int]
+    target: list[str]
+    acquirer: list[str]
+    transaction_price_total: list[str]
+    transaction_price_stock: list[str]
+    transaction_price_cash: list[str]
+    transaction_price_assets: list[str]
+    transaction_consideration: list[str]
+    target_type: list[str]
+    acquirer_type: list[str]
+    target_industry: list[str]
+    acquirer_industry: list[str]
+    deal_status: list[str]
+    attitude: list[str]
+    deal_type: list[str]
+    purpose: list[str]
+    target_pe: list[str]
+    acquirer_pe: list[str]
+    agreement_uuid: str | None
+    section_uuid: str | None
+
+
+class AgreementResponseSchema(Schema):
+    year = fields.Int()
+    target = fields.Str()
+    acquirer = fields.Str()
+    filing_date = fields.Str(allow_none=True)
+    prob_filing = fields.Float(allow_none=True)
+    filing_company_name = fields.Str(allow_none=True)
+    filing_company_cik = fields.Str(allow_none=True)
+    form_type = fields.Str(allow_none=True)
+    exhibit_type = fields.Str(allow_none=True)
+    transaction_price_total = fields.Float(allow_none=True)
+    transaction_price_stock = fields.Float(allow_none=True)
+    transaction_price_cash = fields.Float(allow_none=True)
+    transaction_price_assets = fields.Float(allow_none=True)
+    transaction_consideration = fields.Str(allow_none=True)
+    target_type = fields.Str(allow_none=True)
+    acquirer_type = fields.Str(allow_none=True)
+    target_industry = fields.Str(allow_none=True)
+    acquirer_industry = fields.Str(allow_none=True)
+    announce_date = fields.Str(allow_none=True)
+    close_date = fields.Str(allow_none=True)
+    deal_status = fields.Str(allow_none=True)
+    attitude = fields.Str(allow_none=True)
+    deal_type = fields.Str(allow_none=True)
+    purpose = fields.Str(allow_none=True)
+    target_pe = fields.Bool(allow_none=True)
+    acquirer_pe = fields.Bool(allow_none=True)
+    url = fields.Str()
+    xml = fields.Str()
+    is_redacted = fields.Bool(required=False)
+
+
+class AgreementListItemSchema(Schema):
+    agreement_uuid = fields.Str()
+    year = fields.Int(allow_none=True)
+    target = fields.Str(allow_none=True)
+    acquirer = fields.Str(allow_none=True)
+    filing_date = fields.Str(allow_none=True)
+    prob_filing = fields.Float(allow_none=True)
+    filing_company_name = fields.Str(allow_none=True)
+    filing_company_cik = fields.Str(allow_none=True)
+    form_type = fields.Str(allow_none=True)
+    exhibit_type = fields.Str(allow_none=True)
+    transaction_price_total = fields.Float(allow_none=True)
+    transaction_price_stock = fields.Float(allow_none=True)
+    transaction_price_cash = fields.Float(allow_none=True)
+    transaction_price_assets = fields.Float(allow_none=True)
+    transaction_consideration = fields.Str(allow_none=True)
+    target_type = fields.Str(allow_none=True)
+    acquirer_type = fields.Str(allow_none=True)
+    target_industry = fields.Str(allow_none=True)
+    acquirer_industry = fields.Str(allow_none=True)
+    announce_date = fields.Str(allow_none=True)
+    close_date = fields.Str(allow_none=True)
+    deal_status = fields.Str(allow_none=True)
+    attitude = fields.Str(allow_none=True)
+    deal_type = fields.Str(allow_none=True)
+    purpose = fields.Str(allow_none=True)
+    target_pe = fields.Bool(allow_none=True)
+    acquirer_pe = fields.Bool(allow_none=True)
+    url = fields.Str(allow_none=True)
+    xml = fields.Str(allow_none=True, required=False)
+
+
+class AgreementsListResponseSchema(Schema):
+    results: object = cast(
+        object,
+        fields.List(
+            fields.Nested(AgreementListItemSchema),
+        ),
+    )
+    access = fields.Nested(AccessInfoSchema)
+    page_size = fields.Int()
+    returned_count = fields.Int()
+    has_next = fields.Bool()
+    next_cursor = fields.Str(allow_none=True)
+
+
+class SectionResponseSchema(Schema):
+    agreement_uuid = fields.Str()
+    section_uuid = fields.Str()
+    section_standard_id = fields.List(fields.Str())
+    xml = fields.Str()
+    article_title = fields.Str()
+    section_title = fields.Str()
+
+
+class DumpEntrySchema(Schema):
+    timestamp = fields.Str(required=True)
+    sql = fields.Url(required=False, allow_none=True)
+    sha256 = fields.Str(required=False, allow_none=True)
+    sha256_url = fields.Url(required=False, allow_none=True)
+    manifest = fields.Url(required=False, allow_none=True)
+    size_bytes = fields.Int(required=False, allow_none=True)
+    warning = fields.Str(required=False, allow_none=True)
+
+
+class NaicsSubSectorSchema(Schema):
+    sub_sector_code = fields.Str(required=True)
+    sub_sector_desc = fields.Str(required=True)
+
+
+class NaicsSectorSchema(Schema):
+    sector_code = fields.Str(required=True)
+    sector_desc = fields.Str(required=True)
+    sector_group = fields.Str(required=True)
+    super_sector = fields.Str(required=True)
+    sub_sectors: object = cast(
+        object,
+        fields.List(
+            fields.Nested(NaicsSubSectorSchema),
+            required=True,
+        ),
+    )
+
+
+class NaicsResponseSchema(Schema):
+    sectors: object = cast(
+        object,
+        fields.List(
+            fields.Nested(NaicsSectorSchema),
+            required=True,
+        ),
+    )
+
+
+__all__ = [
+    "AgreementArgsPayload",
+    "AgreementArgsSchema",
+    "AgreementListItemSchema",
+    "AgreementResponseSchema",
+    "AgreementsBulkArgsPayload",
+    "AgreementsBulkArgsSchema",
+    "AgreementsIndexArgsSchema",
+    "AgreementsListResponseSchema",
+    "DumpEntrySchema",
+    "NaicsResponseSchema",
+    "NaicsSectorSchema",
+    "NaicsSubSectorSchema",
+    "SectionResponseSchema",
+]
