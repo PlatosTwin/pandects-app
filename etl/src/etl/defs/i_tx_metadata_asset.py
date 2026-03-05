@@ -179,32 +179,35 @@ def _apply_offline_batch_output(
     for line_str in out_text.strip().splitlines():
         if not line_str.strip():
             continue
-        raw = json.loads(line_str)
-        rid = raw.get("custom_id")
-        resp = raw.get("response")
-        if not rid or not resp:
-            continue
-        sc = resp.get("status_code")
-        if sc not in (200, 201, 202):
-            parse_errors += 1
-            continue
-        body = resp.get("body")
-        if not body:
-            parse_errors += 1
-            continue
+        rid = "unknown"
         try:
+            raw = json.loads(line_str)
+            rid = raw.get("custom_id")
+            resp = raw.get("response")
+            if not rid or not resp:
+                continue
+            sc = resp.get("status_code")
+            if sc not in (200, 201, 202):
+                parse_errors += 1
+                continue
+            body = resp.get("body")
+            if not body:
+                parse_errors += 1
+                continue
             raw_text = extract_output_text_from_batch_body(body)
             parsed = parse_offline_tx_metadata_response_text(raw_text)
             params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
-            with engine.begin() as conn:
-                result = conn.execute(update_offline_q, params)
-                if int(result.rowcount or 0) > 0:
-                    _ = refresh_latest_sections_search(conn, schema, [str(rid)])
-                    refreshed_uuids.append(str(rid))
-            updated += 1
-        except Exception as e:
+        except (TypeError, ValueError, KeyError) as e:
             parse_errors += 1
             context.log.warning(f"tx_metadata_asset (offline): parse error for {rid}: {e}")
+            continue
+
+        with engine.begin() as conn:
+            result = conn.execute(update_offline_q, params)
+            if int(result.rowcount or 0) > 0:
+                _ = refresh_latest_sections_search(conn, schema, [str(rid)])
+                refreshed_uuids.append(str(rid))
+        updated += 1
     return updated, parse_errors, refreshed_uuids
 
 
@@ -568,15 +571,17 @@ def _run_web_search_mode(
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid, tx_metadata_obj=obj
             )
-            with engine.begin() as conn:
-                result = conn.execute(update_web_q, params)
-                if int(result.rowcount or 0) > 0:
-                    _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
-                    refreshed_uuids.append(str(uuid))
-            updated += 1
-        except Exception as e:
+        except (TypeError, ValueError, KeyError) as e:
             skipped_due_to_error += 1
             context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
+            continue
+
+        with engine.begin() as conn:
+            result = conn.execute(update_web_q, params)
+            if int(result.rowcount or 0) > 0:
+                _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
+                refreshed_uuids.append(str(uuid))
+        updated += 1
 
     context.log.info(
         "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s",
