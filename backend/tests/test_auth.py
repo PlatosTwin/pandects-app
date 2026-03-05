@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from sqlalchemy import text
 from werkzeug.exceptions import ServiceUnavailable
 
@@ -59,6 +60,7 @@ class AuthFlowTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM auth_users"))
         backend_app._rate_limit_state.clear()
         backend_app._endpoint_rate_limit_state.clear()
+        backend_app._api_key_last_used_touch_state.clear()
 
     def _csrf_cookie_value(self, client) -> str:
         cookie = client.get_cookie("pdcts_csrf")
@@ -922,6 +924,88 @@ class AuthFlowTests(unittest.TestCase):
             if key_row is None:
                 self.fail("Expected api key row to exist after usage update.")
             self.assertIsNotNone(key_row.last_used_at)
+
+    def test_api_key_last_used_updates_are_throttled(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        res = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "keyuser-throttle@example.com",
+                "password": "password123",
+                "legal": {
+                    "checked_at_ms": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        with self.app.app_context():
+            user = AuthUser.query.filter_by(email="keyuser-throttle@example.com").first()
+            if user is None:
+                self.fail("Expected user to be created for throttled api-key flow.")
+            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
+
+        res = client.post("/v1/auth/email/verify", json={"token": verify})
+        self.assertEqual(res.status_code, 200)
+
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "keyuser-throttle@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIsInstance(data, dict)
+        token = data.get("session_token")
+        self.assertIsInstance(token, str)
+
+        res = client.post(
+            "/v1/auth/api-keys",
+            json={"name": "x"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        created = res.get_json()
+        self.assertIsInstance(created, dict)
+        api_key = created.get("api_key_plaintext")
+        self.assertIsInstance(api_key, str)
+
+        old_touch_seconds = backend_app._API_KEY_LAST_USED_TOUCH_SECONDS
+        try:
+            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = 300
+            backend_app._api_key_last_used_touch_state.clear()
+
+            with patch("backend.app.time.time", return_value=1000.0):
+                res = client.get("/v1/auth/me", headers={"X-API-Key": api_key})
+                self.assertEqual(res.status_code, 401)
+            with self.app.app_context():
+                key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
+                if key_row is None:
+                    self.fail("Expected api key row to exist after first touch.")
+                first_touched_at = key_row.last_used_at
+                self.assertIsNotNone(first_touched_at)
+
+            with patch("backend.app.time.time", return_value=1001.0):
+                res = client.get("/v1/auth/me", headers={"X-API-Key": api_key})
+                self.assertEqual(res.status_code, 401)
+            with self.app.app_context():
+                key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
+                if key_row is None:
+                    self.fail("Expected api key row to exist after second touch.")
+                self.assertEqual(key_row.last_used_at, first_touched_at)
+
+            with patch("backend.app.time.time", return_value=1401.0):
+                res = client.get("/v1/auth/me", headers={"X-API-Key": api_key})
+                self.assertEqual(res.status_code, 401)
+            with self.app.app_context():
+                key_row = ApiKey.query.filter_by(prefix=api_key[:18]).first()
+                if key_row is None:
+                    self.fail("Expected api key row to exist after third touch.")
+                self.assertNotEqual(key_row.last_used_at, first_touched_at)
+        finally:
+            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
+            backend_app._api_key_last_used_touch_state.clear()
 
 
 if __name__ == "__main__":

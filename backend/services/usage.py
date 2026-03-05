@@ -1,5 +1,5 @@
 from __future__ import annotations
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportAny=false, reportExplicitAny=false
 
 import hmac
 import hashlib
@@ -9,8 +9,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, date, timezone
 from threading import Event, Lock, Thread
+from typing import Any
 
 from flask import request, g
+from sqlalchemy import tuple_
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -220,10 +222,22 @@ class UsageBuffer:
             return
         with self._app.app_context():
             try:
+                daily_existing: dict[tuple[str, date], Any] = {}
+                daily_keys = list(daily.keys())
+                if daily_keys:
+                    existing_daily_rows = (
+                        self._ApiUsageDaily.query.filter(
+                            tuple_(
+                                self._ApiUsageDaily.api_key_id,
+                                self._ApiUsageDaily.day,
+                            ).in_(daily_keys)
+                        ).all()
+                    )
+                    daily_existing = {
+                        (row.api_key_id, row.day): row for row in existing_daily_rows
+                    }
                 for (api_key_id, day), count in daily.items():
-                    row = self._ApiUsageDaily.query.filter_by(
-                        api_key_id=api_key_id, day=day
-                    ).first()
+                    row = daily_existing.get((api_key_id, day))
                     if row is None:
                         self._db.session.add(
                             self._ApiUsageDaily(api_key_id=api_key_id, day=day, count=count)
@@ -231,14 +245,34 @@ class UsageBuffer:
                     else:
                         row.count = int(row.count) + int(count)
 
+                hourly_existing: dict[tuple[str, datetime, str, str, int], Any] = {}
+                hourly_keys = list(hourly.keys())
+                if hourly_keys:
+                    existing_hourly_rows = (
+                        self._ApiUsageHourly.query.filter(
+                            tuple_(
+                                self._ApiUsageHourly.api_key_id,
+                                self._ApiUsageHourly.hour,
+                                self._ApiUsageHourly.route,
+                                self._ApiUsageHourly.method,
+                                self._ApiUsageHourly.status_class,
+                            ).in_(hourly_keys)
+                        ).all()
+                    )
+                    hourly_existing = {
+                        (
+                            row.api_key_id,
+                            row.hour,
+                            row.route,
+                            row.method,
+                            row.status_class,
+                        ): row
+                        for row in existing_hourly_rows
+                    }
                 for (api_key_id, hour, route, method, status_class), agg in hourly.items():
-                    row = self._ApiUsageHourly.query.filter_by(
-                        api_key_id=api_key_id,
-                        hour=hour,
-                        route=route,
-                        method=method,
-                        status_class=status_class,
-                    ).first()
+                    row = hourly_existing.get(
+                        (api_key_id, hour, route, method, status_class)
+                    )
                     if row is None:
                         self._db.session.add(
                             self._ApiUsageHourly(
@@ -268,27 +302,38 @@ class UsageBuffer:
                         row.request_bytes = int(row.request_bytes) + agg.request_bytes
                         row.response_bytes = int(row.response_bytes) + agg.response_bytes
 
-                for (api_key_id, day), ip_hashes in ips.items():
-                    if not ip_hashes:
-                        continue
-                    existing = {
-                        row.ip_hash
-                        for row in self._ApiUsageDailyIp.query.filter_by(
-                            api_key_id=api_key_id, day=day
-                        )
-                        .filter(self._ApiUsageDailyIp.ip_hash.in_(list(ip_hashes)))
-                        .all()
+                pending_ip_keys = [
+                    (api_key_id, day, ip_hash)
+                    for (api_key_id, day), ip_hashes in ips.items()
+                    for ip_hash in ip_hashes
+                ]
+                existing_ip_keys: set[tuple[str, date, str]] = set()
+                if pending_ip_keys:
+                    existing_ip_rows = (
+                        self._ApiUsageDailyIp.query.filter(
+                            tuple_(
+                                self._ApiUsageDailyIp.api_key_id,
+                                self._ApiUsageDailyIp.day,
+                                self._ApiUsageDailyIp.ip_hash,
+                            ).in_(pending_ip_keys)
+                        ).all()
+                    )
+                    existing_ip_keys = {
+                        (row.api_key_id, row.day, row.ip_hash)
+                        for row in existing_ip_rows
                     }
-                    missing = ip_hashes - existing
-                    for ip_hash in missing:
-                        self._db.session.add(
-                            self._ApiUsageDailyIp(
-                                api_key_id=api_key_id,
-                                day=day,
-                                ip_hash=ip_hash,
-                                first_seen_at=_utc_now_naive(),
-                            )
+                for api_key_id, day, ip_hash in pending_ip_keys:
+                    if (api_key_id, day, ip_hash) in existing_ip_keys:
+                        continue
+                    self._db.session.add(
+                        self._ApiUsageDailyIp(
+                            api_key_id=api_key_id,
+                            day=day,
+                            ip_hash=ip_hash,
+                            first_seen_at=_utc_now_naive(),
                         )
+                    )
+                    existing_ip_keys.add((api_key_id, day, ip_hash))
 
                 for event in events:
                     if not event.include_request_event:

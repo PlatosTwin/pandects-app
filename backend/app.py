@@ -54,7 +54,7 @@ from sqlalchemy.types import NullType
 from sqlalchemy.orm import Mapped
 from sqlalchemy.sql.elements import ColumnElement
 from dotenv import load_dotenv
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode, quote, urlsplit
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import secrets
@@ -87,7 +87,7 @@ from backend.schemas.auth import (
 from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.usage import UsageBuffer
 
-# Exported for `backend.routes.auth` via app_module indirection.
+# Contract surface consumed by `backend.routes.auth` via app_module indirection.
 _AUTH_SCHEMA_EXPORTS = (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
@@ -257,6 +257,12 @@ _agreements_summary_lock = Lock()
 _rate_limit_lock = Lock()
 _rate_limit_state: dict[str, dict[str, float | int]] = {}
 _endpoint_rate_limit_state: dict[str, dict[str, float | int]] = {}
+_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_RATE_LIMIT_MAX_KEYS = int(os.environ.get("RATE_LIMIT_MAX_KEYS", "50000"))
+_RATE_LIMIT_PRUNE_INTERVAL_SECONDS = float(
+    os.environ.get("RATE_LIMIT_PRUNE_INTERVAL_SECONDS", "30")
+)
+_rate_limit_last_prune_at = 0.0
 
 # ── Simple in-process caching for dumps ───────────────────────────────────
 _DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
@@ -279,6 +285,15 @@ _USAGE_BUFFER_FLUSH_SECONDS = float(os.environ.get("USAGE_LOG_BUFFER_FLUSH_SECON
 _USAGE_BUFFER_MAX_EVENTS = int(os.environ.get("USAGE_LOG_BUFFER_MAX_EVENTS", "200"))
 _ASYNC_SIDE_EFFECTS_ENABLED = os.environ.get("ASYNC_SIDE_EFFECTS_ENABLED", "1").strip() != "0"
 _ASYNC_SIDE_EFFECTS_MAX_QUEUE = int(os.environ.get("ASYNC_SIDE_EFFECTS_MAX_QUEUE", "100"))
+_API_KEY_LAST_USED_TOUCH_SECONDS = int(
+    os.environ.get("API_KEY_LAST_USED_TOUCH_SECONDS", "300")
+)
+_API_KEY_LAST_USED_MAX_KEYS = int(os.environ.get("API_KEY_LAST_USED_MAX_KEYS", "50000"))
+_api_key_last_used_touch_lock = Lock()
+_api_key_last_used_touch_state: dict[str, float] = {}
+_SEARCH_EXPLAIN_ESTIMATE_ENABLED = (
+    os.environ.get("SEARCH_EXPLAIN_ESTIMATE_ENABLED", "1").strip() != "0"
+)
 
 
 def _usage_buffer() -> UsageBuffer | None:
@@ -1837,9 +1852,19 @@ def _safe_next_path(value: str | None) -> str | None:
     if not value:
         return None
     value = value.strip()
-    if not value.startswith("/"):
+    if not value or len(value) > 2048:
         return None
-    if value.startswith("//"):
+    if any(ord(ch) < 32 for ch in value):
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if parsed.fragment:
+        return None
+    path = parsed.path
+    if not path.startswith("/") or path.startswith("//"):
+        return None
+    if "\\" in path:
         return None
     return value
 
@@ -1931,6 +1956,8 @@ def _pagination_metadata(
 
 
 def _estimated_query_row_count(query: object) -> int | None:
+    if not _SEARCH_EXPLAIN_ESTIMATE_ENABLED:
+        return None
     bind = db.session.get_bind()
     if bind.dialect.name == "sqlite":
         return None
@@ -2174,8 +2201,15 @@ def _lookup_api_key(raw_key: str) -> ApiKey | None:
         checks += 1
         key_hash = cast(object, candidate.key_hash)
         if isinstance(key_hash, str) and check_password_hash(key_hash, raw_key):
-            candidate.last_used_at = _utc_now()
-            db.session.commit()
+            candidate_id = cast(object, candidate.id)
+            if candidate_id is not None:
+                candidate_id_str = str(candidate_id)
+                if _should_touch_api_key_last_used(candidate_id_str):
+                    try:
+                        candidate.last_used_at = _utc_now()
+                        db.session.commit()
+                    except SQLAlchemyError:
+                        db.session.rollback()
             return candidate
     for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
         _ = check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
@@ -2214,6 +2248,8 @@ def _current_access_context() -> AccessContext:
                 api_key_user_id = cast(object, api_key.user_id)
                 api_key_id = cast(object, api_key.id)
                 if isinstance(api_key_user_id, str) and _user_id_is_verified(api_key_user_id):
+                    if api_key_id is not None:
+                        g.api_key_last_used_candidate_id = str(api_key_id)
                     return AccessContext(
                         tier="api_key",
                         user_id=api_key_user_id,
@@ -2352,14 +2388,88 @@ def _endpoint_rate_limit_key(method: str, path: str) -> tuple[str, int] | None:
     return f"endpoint:{method}:{path}:ip:{ip}", limit
 
 
+def _prune_rate_limit_state(now: float) -> None:
+    global _rate_limit_last_prune_at
+    if (now - _rate_limit_last_prune_at) < _RATE_LIMIT_PRUNE_INTERVAL_SECONDS:
+        return
+
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+    for state in (_rate_limit_state, _endpoint_rate_limit_state):
+        stale_keys = [key for key, payload in state.items() if float(payload["ts"]) < cutoff]
+        for key in stale_keys:
+            _ = state.pop(key, None)
+        overflow = len(state) - _RATE_LIMIT_MAX_KEYS
+        if overflow > 0:
+            oldest_keys = [
+                key
+                for key, _payload in sorted(
+                    state.items(),
+                    key=lambda item: float(item[1]["ts"]),
+                )[:overflow]
+            ]
+            for key in oldest_keys:
+                _ = state.pop(key, None)
+
+    _rate_limit_last_prune_at = now
+
+
+def _should_touch_api_key_last_used(key_id: str) -> bool:
+    interval_seconds = float(max(0, _API_KEY_LAST_USED_TOUCH_SECONDS))
+    now = time.time()
+    with _api_key_last_used_touch_lock:
+        if interval_seconds > 0:
+            cutoff = now - (interval_seconds * 2.0)
+            stale_keys = [
+                existing_key
+                for existing_key, touched_at in _api_key_last_used_touch_state.items()
+                if touched_at < cutoff
+            ]
+            for stale_key in stale_keys:
+                _ = _api_key_last_used_touch_state.pop(stale_key, None)
+        overflow = len(_api_key_last_used_touch_state) - _API_KEY_LAST_USED_MAX_KEYS
+        if overflow > 0:
+            oldest_keys = [
+                existing_key
+                for existing_key, _touched_at in sorted(
+                    _api_key_last_used_touch_state.items(),
+                    key=lambda item: item[1],
+                )[:overflow]
+            ]
+            for oldest_key in oldest_keys:
+                _ = _api_key_last_used_touch_state.pop(oldest_key, None)
+        last_touched_at = _api_key_last_used_touch_state.get(key_id)
+        if interval_seconds > 0 and last_touched_at is not None:
+            if (now - last_touched_at) < interval_seconds:
+                return False
+        _api_key_last_used_touch_state[key_id] = now
+        return True
+
+
+def _touch_api_key_last_used_if_needed() -> None:
+    candidate_id = getattr(g, "api_key_last_used_candidate_id", None)
+    if not isinstance(candidate_id, str) or not candidate_id:
+        return
+    if not _should_touch_api_key_last_used(candidate_id):
+        return
+    try:
+        _ = ApiKey.query.filter_by(id=candidate_id, revoked_at=None).update(
+            {"last_used_at": _utc_now()},
+            synchronize_session=False,
+        )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+
+
 def _check_rate_limit(ctx: AccessContext) -> None:
     if not request.path.startswith("/v1/"):
         return
 
     key, per_minute = _rate_limit_key(ctx)
     now = time.time()
-    window = 60.0
+    window = _RATE_LIMIT_WINDOW_SECONDS
     with _rate_limit_lock:
+        _prune_rate_limit_state(now)
         state = _rate_limit_state.get(key)
         if state is None or (now - float(state["ts"])) >= window:
             _rate_limit_state[key] = {"ts": now, "count": 1}
@@ -2390,8 +2500,9 @@ def _check_endpoint_rate_limit() -> None:
         return
     key, per_minute = key_limit
     now = time.time()
-    window = 60.0
+    window = _RATE_LIMIT_WINDOW_SECONDS
     with _rate_limit_lock:
+        _prune_rate_limit_state(now)
         state = _endpoint_rate_limit_state.get(key)
         if state is None or (now - float(state["ts"])) >= window:
             _endpoint_rate_limit_state[key] = {"ts": now, "count": 1}
@@ -2435,6 +2546,7 @@ def _auth_rate_limit_guard():
 
 
 def _record_api_key_usage(response: Response) -> Response:
+    _touch_api_key_last_used_if_needed()
     usage_module = importlib.import_module("backend.services.usage")
     record_api_key_usage = cast(
         Callable[..., Response], getattr(usage_module, "record_api_key_usage")
@@ -2492,6 +2604,9 @@ def _register_request_hooks(target_app: Flask) -> None:
 
 # ── Reflect existing tables via standalone engine ─────────────────────────
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
+_ENABLE_MAIN_DB_REFLECTION = (
+    os.environ.get("ENABLE_MAIN_DB_REFLECTION", "1").strip() != "0"
+)
 metadata = MetaData()
 
 
@@ -2513,7 +2628,7 @@ _mysql_dialect_ischema_names = cast(dict[str, Any], mysql_dialect.dialect.ischem
 _ = _mysql_base_ischema_names.setdefault("vector", _MySQLVector)
 _ = _mysql_dialect_ischema_names.setdefault("vector", _MySQLVector)
 
-if not _SKIP_MAIN_DB_REFLECTION:
+if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
     engine = create_engine(
         _main_db_uri_from_env(),
         execution_options={
@@ -4934,17 +5049,6 @@ class SearchResource(MethodView):
         if target_types:
             q = q.filter(LatestSectionsSearch.target_type.in_(target_types))
 
-        # Pending filters (deactivated in Search UI)
-        # Transaction Price filters - will be enabled when frontend is ready
-        # if args["transaction_price_total"]:
-        #     q = q.filter(Agreements.transaction_price_total.in_(args["transaction_price_total"]))
-        # if args["transaction_price_stock"]:
-        #     q = q.filter(Agreements.transaction_price_stock.in_(args["transaction_price_stock"]))
-        # if args["transaction_price_cash"]:
-        #     q = q.filter(Agreements.transaction_price_cash.in_(args["transaction_price_cash"]))
-        # if args["transaction_price_assets"]:
-        #     q = q.filter(Agreements.transaction_price_assets.in_(args["transaction_price_assets"]))
-
         # Transaction Consideration filter
         if transaction_considerations:
             q = q.filter(
@@ -5353,7 +5457,7 @@ def _register_blueprints() -> None:
     api_ext.register_blueprint(dumps_blp)
 
 
-# Exported for `backend.routes.auth` via app_module indirection.
+# Contract surface consumed by `backend.routes.auth` via app_module indirection.
 _AUTH_ROUTE_HELPERS = (
     _set_auth_cookies,
     _set_csrf_cookie,

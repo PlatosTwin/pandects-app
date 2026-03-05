@@ -1,6 +1,10 @@
 import os
 import tempfile
 import unittest
+import importlib
+import warnings
+from unittest.mock import patch
+from sqlalchemy.exc import SAWarning
 
 
 def _set_default_env() -> None:
@@ -62,6 +66,81 @@ class PaginationAndAccessTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         with self.app.test_request_context("/v1/auth/login", method="POST"):
             self.assertFalse(backend_app._csrf_required("/v1/auth/login"))
+
+    def test_safe_next_path_rejects_malformed_values(self):
+        self.assertEqual(backend_app._safe_next_path("/account"), "/account")
+        self.assertEqual(backend_app._safe_next_path("/account?x=1"), "/account?x=1")
+        self.assertIsNone(backend_app._safe_next_path("https://evil.test/account"))
+        self.assertIsNone(backend_app._safe_next_path("//evil.test/account"))
+        self.assertIsNone(backend_app._safe_next_path("/account#frag"))
+        self.assertIsNone(backend_app._safe_next_path("/account\\evil"))
+        self.assertIsNone(backend_app._safe_next_path("/account\nx"))
+
+    def test_rate_limit_pruning_caps_state_growth(self):
+        old_max = backend_app._RATE_LIMIT_MAX_KEYS
+        old_interval = backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS
+        old_last_prune = backend_app._rate_limit_last_prune_at
+        try:
+            backend_app._RATE_LIMIT_MAX_KEYS = 3
+            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
+            backend_app._rate_limit_last_prune_at = 0.0
+            backend_app._rate_limit_state.clear()
+            backend_app._endpoint_rate_limit_state.clear()
+
+            now = 1000.0
+            for idx in range(10):
+                backend_app._rate_limit_state[f"r{idx}"] = {"ts": now + idx, "count": 1}
+                backend_app._endpoint_rate_limit_state[f"e{idx}"] = {"ts": now + idx, "count": 1}
+
+            backend_app._prune_rate_limit_state(now + 10.0)
+
+            self.assertLessEqual(len(backend_app._rate_limit_state), 3)
+            self.assertLessEqual(len(backend_app._endpoint_rate_limit_state), 3)
+        finally:
+            backend_app._RATE_LIMIT_MAX_KEYS = old_max
+            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
+            backend_app._rate_limit_last_prune_at = old_last_prune
+            backend_app._rate_limit_state.clear()
+            backend_app._endpoint_rate_limit_state.clear()
+
+    def test_reflection_toggle_defaults_enabled_and_can_be_disabled(self):
+        def _reload_backend_app_safely():
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=(
+                        r"This declarative base already contains a class "
+                        r"with the same class name and module name as backend\.app\..*"
+                    ),
+                    category=SAWarning,
+                )
+                return importlib.reload(backend_app)
+
+        with patch.dict(
+            os.environ,
+            {
+                "SKIP_MAIN_DB_REFLECTION": "1",
+            },
+            clear=False,
+        ):
+            os.environ.pop("ENABLE_MAIN_DB_REFLECTION", None)
+            mod = _reload_backend_app_safely()
+            self.assertTrue(mod._ENABLE_MAIN_DB_REFLECTION)
+
+        with patch.dict(
+            os.environ,
+            {
+                "SKIP_MAIN_DB_REFLECTION": "1",
+                "ENABLE_MAIN_DB_REFLECTION": "0",
+            },
+            clear=False,
+        ):
+            mod = _reload_backend_app_safely()
+            self.assertFalse(mod._ENABLE_MAIN_DB_REFLECTION)
+
+        _set_default_env()
+        mod = _reload_backend_app_safely()
+        self.assertTrue(mod._ENABLE_MAIN_DB_REFLECTION)
 
 
 if __name__ == "__main__":
