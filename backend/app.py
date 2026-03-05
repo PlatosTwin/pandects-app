@@ -42,6 +42,11 @@ from urllib.error import HTTPError, URLError
 import secrets
 from werkzeug.wrappers.response import Response as WerkzeugResponse
 
+# Load env vars from `backend/.env` regardless of process working directory.
+_ = load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+# Also allow repo/root `.env` (or process env) to supply values without overriding.
+_ = load_dotenv()
+
 from backend.extensions import db, api
 from backend.models import (
     ApiKey,
@@ -238,10 +243,6 @@ class _RegisterAuthRoutesFn(Protocol):
         ...
 
 
-# Load env vars from `backend/.env` regardless of the process working directory.
-_ = load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
-# Also allow a repo/root `.env` (or process env) to supply values without overriding.
-_ = load_dotenv()
 _MAIN_SCHEMA_TOKEN = "__main_schema__"
 _SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
 _ENABLE_MAIN_DB_REFLECTION = (
