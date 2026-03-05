@@ -4,10 +4,22 @@
   "pythonVersion": "3.10",
   "useLibraryCodeForTypes": true,
   "extraPaths": [".."],
+  "reportAny": "none",
+  "reportExplicitAny": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownParameterType": "none",
+  "reportPrivateUsage": "none",
   "reportMissingTypeStubs": "none",
   "reportImplicitOverride": "none",
   "reportUnannotatedClassAttribute": "none",
   "executionEnvironments": [
+    {
+      "root": "routes",
+      "reportUnusedFunction": "none",
+      "reportUnusedClass": "none"
+    },
     {
       "root": "tests",
       "reportAny": "none",

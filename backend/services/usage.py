@@ -1,5 +1,4 @@
 from __future__ import annotations
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportAny=false, reportExplicitAny=false
 
 import hmac
 import hashlib
@@ -9,9 +8,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, date, timezone
 from threading import Event, Lock, Thread
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Protocol
 
-from flask import request, g
+from flask import Flask, Response, request, g
 from sqlalchemy import tuple_
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -87,16 +87,34 @@ class UsageHourlyAggregate:
     response_bytes: int
 
 
+class AccessContextLike(Protocol):
+    tier: str
+    api_key_id: str | None
+
+
+class MockAuthUsageLike(Protocol):
+    def record_usage(self, *, api_key_id: str) -> None:
+        ...
+
+
+FlushSnapshot = tuple[
+    dict[tuple[str, date], int],
+    dict[tuple[str, datetime, str, str, int], UsageHourlyAggregate],
+    dict[tuple[str, date], set[str]],
+    list[UsageEvent],
+]
+
+
 class UsageBuffer:
     def __init__(
         self,
         *,
-        app,
-        db,
-        ApiUsageDaily,
-        ApiUsageHourly,
-        ApiUsageDailyIp,
-        ApiRequestEvent,
+        app: Flask,
+        db: Any,
+        ApiUsageDaily: Any,
+        ApiUsageHourly: Any,
+        ApiUsageDailyIp: Any,
+        ApiRequestEvent: Any,
         latency_bucket_bounds: tuple[int, ...],
         flush_interval_seconds: float,
         max_pending_events: int,
@@ -216,7 +234,7 @@ class UsageBuffer:
                 self.flush()
         self.flush()
 
-    def _flush_snapshot(self, snapshot) -> None:
+    def _flush_snapshot(self, snapshot: FlushSnapshot) -> None:
         daily, hourly, ips, events = snapshot
         if not daily and not hourly and not ips and not events:
             return
@@ -361,10 +379,10 @@ class UsageBuffer:
 
 def build_usage_event(
     *,
-    ctx,
-    response,
-    request_ip_address,
-    request_user_agent,
+    ctx: AccessContextLike,
+    response: Response,
+    request_ip_address: Callable[[], str | None],
+    request_user_agent: Callable[[], str | None],
     sample_rate_2xx: float,
     sample_rate_3xx: float,
 ) -> UsageEvent | None:
@@ -385,10 +403,8 @@ def build_usage_event(
     start = getattr(g, "request_start", None)
     if isinstance(start, (int, float)):
         elapsed_ms = max(0, int((time.perf_counter() - start) * 1000))
-    req_bytes = request.content_length
-    req_bytes_int = int(req_bytes) if isinstance(req_bytes, int) else 0
-    resp_bytes = response.content_length
-    resp_bytes_int = int(resp_bytes) if isinstance(resp_bytes, int) else 0
+    req_bytes_int = int(request.content_length or 0)
+    resp_bytes_int = int(response.content_length or 0)
     ip_hash = _ip_hash(request_ip_address())
     sample_rate = _usage_event_sample_rate(
         status_code, sample_rate_2xx=sample_rate_2xx, sample_rate_3xx=sample_rate_3xx
@@ -416,24 +432,25 @@ def build_usage_event(
 
 def record_api_key_usage(
     *,
-    ctx,
-    response,
-    db,
-    ApiUsageDaily,
-    ApiUsageHourly,
-    ApiUsageDailyIp,
-    ApiRequestEvent,
-    auth_is_mocked,
-    mock_auth,
-    request_ip_address,
-    request_user_agent,
+    ctx: AccessContextLike,
+    response: Response,
+    db: Any,
+    ApiUsageDaily: Any,
+    ApiUsageHourly: Any,
+    ApiUsageDailyIp: Any,
+    ApiRequestEvent: Any,
+    auth_is_mocked: Callable[[], bool],
+    mock_auth: MockAuthUsageLike,
+    request_ip_address: Callable[[], str | None],
+    request_user_agent: Callable[[], str | None],
     sample_rate_2xx: float,
     sample_rate_3xx: float,
     latency_bucket_bounds: tuple[int, ...],
     usage_buffer: UsageBuffer | None = None,
-):
+) -> Response:
     if auth_is_mocked():
-        mock_auth.record_usage(api_key_id=ctx.api_key_id)
+        if ctx.api_key_id is not None:
+            mock_auth.record_usage(api_key_id=ctx.api_key_id)
         return response
 
     event = build_usage_event(
@@ -465,11 +482,11 @@ def record_api_key_usage(
 def _persist_usage_event(
     *,
     event: UsageEvent,
-    db,
-    ApiUsageDaily,
-    ApiUsageHourly,
-    ApiUsageDailyIp,
-    ApiRequestEvent,
+    db: Any,
+    ApiUsageDaily: Any,
+    ApiUsageHourly: Any,
+    ApiUsageDailyIp: Any,
+    ApiRequestEvent: Any,
     latency_bucket_bounds: tuple[int, ...],
 ) -> None:
     try:
