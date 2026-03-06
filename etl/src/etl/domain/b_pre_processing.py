@@ -34,6 +34,7 @@ _SEC_FETCH_BACKOFF_SECONDS = 2.0
 _PADDED_QUOTED_TERM_RE = re.compile(
     r'(?<![A-Za-z0-9])([“"])\s+([^"”\n]{1,220}?)\s+([”"])(?![A-Za-z0-9])'
 )
+_FRAGMENTED_SECTION_HEAD_RE = re.compile(r"\b\d+\.\d+\s*\n\n[A-Za-z]{1,8}\n\n[A-Za-z]{1,16}\b")
 
 
 class ClassifierProbs(TypedDict):
@@ -140,6 +141,30 @@ def _is_semantically_hidden_tag(tag: Tag) -> bool:
         return False
     if tag.has_attr("hidden"):
         return True
+    style_attr = tag.get("style")
+    if isinstance(style_attr, list):
+        style = " ".join(style_attr)
+    else:
+        style = str(style_attr or "")
+    if style:
+        display_match = re.search(
+            r"(?:^|;)\s*display\s*:\s*([^;]+)",
+            style,
+            flags=re.IGNORECASE,
+        )
+        if display_match is not None:
+            display_value = display_match.group(1).strip().lower()
+            if display_value == "none":
+                return True
+        visibility_match = re.search(
+            r"(?:^|;)\s*visibility\s*:\s*([^;]+)",
+            style,
+            flags=re.IGNORECASE,
+        )
+        if visibility_match is not None:
+            visibility_value = visibility_match.group(1).strip().lower()
+            if visibility_value in {"hidden", "collapse"}:
+                return True
     aria_attr = tag.get("aria-hidden")
     if isinstance(aria_attr, list):
         aria_val = " ".join(aria_attr)
@@ -272,6 +297,9 @@ def normalize_text(text: str) -> str:
         The normalized text.
     """
     text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", text)
+    # Remove invisible zero-width separator characters that leak from SEC markup and
+    # cause token-boundary drift (e.g., "A\u200bB").
+    text = re.sub(r"[\u200B\u200C\u200D\u2060\uFEFF]", "", text)
 
     # Collapse multi-newline clusters into a placeholder
     placeholder = "__NL__"
@@ -300,6 +328,42 @@ def _normalize_padded_quoted_terms(text: str) -> str:
     return normalize_padded_quoted_terms(text)
 
 
+def move_leading_quicklinks_to_footer(text: str) -> str:
+    lines = text.split("\n")
+    nonempty_entries: list[tuple[int, str]] = []
+    for idx, line in enumerate(lines):
+        if line.strip():
+            nonempty_entries.append((idx, line.strip()))
+    if not nonempty_entries:
+        return text
+
+    first_nonempty_idx, first_nonempty_text = nonempty_entries[0]
+    if first_nonempty_text != "QuickLinks":
+        return text
+
+    if len(nonempty_entries) >= 2:
+        second_nonempty_text = nonempty_entries[1][1]
+        if second_nonempty_text.startswith("-- Click here to rapidly navigate through this document"):
+            # Keep SEC cover-page lead-in intact.
+            return text
+
+    if lines[first_nonempty_idx].strip() != "QuickLinks":
+        return text
+
+    kept_lines: list[str] = []
+    removed = False
+    for idx, line in enumerate(lines):
+        if not removed and idx == first_nonempty_idx and line.strip() == "QuickLinks":
+            removed = True
+            continue
+        kept_lines.append(line)
+
+    body = "\n".join(kept_lines).strip()
+    if not body:
+        return "QuickLinks"
+    return f"{body}\n\nQuickLinks"
+
+
 def strip_formatting_tags(
     soup: BeautifulSoup, remove_tags: list[str] | None = None
 ) -> BeautifulSoup:
@@ -324,8 +388,6 @@ def strip_formatting_tags(
         _ = c.extract()
 
     def _is_hidden_self(tag: Tag) -> bool:
-        # Keep CSS-hidden text. Some SEC filings place agreement body in a display:none
-        # container that still represents the canonical document text.
         return _is_semantically_hidden_tag(tag)
 
     def _has_hidden_ancestor(tag: Tag) -> bool:
@@ -536,6 +598,14 @@ def strip_formatting_tags(
             # preserve a single space to avoid concatenation (e.g. "Section 1.1" + NBSP font
             # + "Defined Terms" -> "Section 1.1 Defined Terms").
             if not tag_text.strip():
+                tag_has_explicit_whitespace = bool(tag_text) and any(
+                    char.isspace() for char in tag_text
+                )
+                prev_last_char = _last_nonspace_char(prev_text)
+                next_first_char = _first_nonspace_char(next_text)
+                split_word_boundary = bool(
+                    prev_last_char.isalpha() and next_first_char.isalpha()
+                )
                 if (
                     not within_quote_run
                     and
@@ -543,6 +613,9 @@ def strip_formatting_tags(
                     and _sibling_has_content(next_sibling)
                     and not _sibling_ends_space(prev_sibling)
                     and not _sibling_starts_space(next_sibling)
+                    and prev_last_char not in opening_quote_chars
+                    and next_first_char not in closing_quote_chars
+                    and (tag_has_explicit_whitespace or not split_word_boundary)
                 ):
                     replacements[id(tag)] = (tag, " ")
                     continue
@@ -662,15 +735,19 @@ def block_level_soup(
     new_soup = BeautifulSoup("", "html.parser")
     root = soup.body if soup.body else soup
 
+    block_tag_names = tuple(block_tags)
+
     for child in root.contents:
         if isinstance(child, NavigableString) and child.strip():
             p = new_soup.new_tag("p")
             p.string = str(child)
             _ = new_soup.append(p)
-        elif isinstance(child, Tag) and child.name not in block_tags:
-            # Avoid capturing non-block wrappers that already contain block tags
-            if child.find(block_tags):
-                block_descendants = child.find_all(block_tags)
+            continue
+
+        if isinstance(child, Tag) and child.name not in block_tag_names:
+            # Avoid capturing non-block wrappers that already contain block tags.
+            if child.find(block_tag_names):
+                block_descendants = child.find_all(block_tag_names)
                 inline_texts: list[str] = []
                 for text_node in child.find_all(string=True):
                     if not text_node.strip():
@@ -683,22 +760,97 @@ def block_level_soup(
                     p.string = " ".join(inline_texts)
                     _ = new_soup.append(p)
                 continue
+
             if child.get_text(strip=True):
                 p = new_soup.new_tag("p")
                 fragment = BeautifulSoup(str(child), "html.parser")
                 for node in fragment.contents:
                     _ = p.append(node)
                 _ = new_soup.append(p)
-    for tag in soup.find_all(block_tags):
-        # Skip any that live inside another block_tag
-        if tag.find_parent(block_tags):
+
+    for tag in soup.find_all(block_tag_names):
+        # Skip any that live inside another block_tag.
+        if tag.find_parent(block_tag_names):
             continue
-        # Clone via string round-trip so we don't detach from the original
+        # Clone via string round-trip so we don't detach from the original.
         fragment = BeautifulSoup(str(tag), "html.parser")
-        # If fragment has multiple roots, append each; otherwise append the single root
         for child in fragment.contents:
             _ = new_soup.append(child)
+
     return new_soup
+
+
+def block_level_soup_preserve_sequence(
+    soup: BeautifulSoup,
+    block_tags: Iterable[str] = (
+        "p",
+        "div",
+        "li",
+        "section",
+        "article",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+    ),
+) -> BeautifulSoup:
+    """
+    Build a block-level soup while preserving original node sequence.
+
+    This is safer for pages where inline section heads are split across multiple
+    tags and rely on neighboring nodes for the correct order.
+    """
+    new_soup = BeautifulSoup("", "html.parser")
+    root = soup.body if soup.body else soup
+
+    block_tag_names = tuple(block_tags)
+    inline_buffer: list[PageElement] = []
+
+    def _inline_node_text(node: PageElement) -> str:
+        if isinstance(node, NavigableString):
+            return str(node)
+        return node.get_text(separator="", strip=False)
+
+    def _flush_inline_buffer() -> None:
+        if not inline_buffer:
+            return
+        p = new_soup.new_tag("p")
+        p.string = "".join(_inline_node_text(node) for node in inline_buffer)
+        inline_buffer.clear()
+        if p.get_text(strip=True):
+            _ = new_soup.append(p)
+
+    def _append_node_sequence(parent: Tag | BeautifulSoup) -> None:
+        for child in parent.contents:
+            if isinstance(child, NavigableString):
+                inline_buffer.append(child)
+                continue
+
+            if not isinstance(child, Tag):
+                continue
+
+            if child.name in block_tag_names:
+                _flush_inline_buffer()
+                fragment = BeautifulSoup(str(child), "html.parser")
+                for node in fragment.contents:
+                    _ = new_soup.append(node)
+                continue
+
+            if child.find(block_tag_names):
+                _append_node_sequence(child)
+                continue
+
+            inline_buffer.append(child)
+
+    _append_node_sequence(root)
+    _flush_inline_buffer()
+    return new_soup
+
+
+def _has_fragmented_section_heads(text: str) -> bool:
+    return _FRAGMENTED_SECTION_HEAD_RE.search(text) is not None
 
 
 def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
@@ -738,6 +890,19 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def preserve_br_breaks(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Preserve <br> as paragraph breaks before text extraction.
+
+    Some SEC HTML pages are mostly inline tags split by <br/> separators.
+    Without converting <br/> to explicit newline markers, those lines collapse
+    into a single run of text downstream.
+    """
+    for br in soup.find_all("br"):
+        _ = br.replace_with(NavigableString("\n\n"))
+    return soup
+
+
 def _extract_relaxed_html_text(content: str) -> str:
     soup = BeautifulSoup(content, "html.parser")
     for c in soup.find_all(string=lambda t: isinstance(t, Comment)):
@@ -747,6 +912,7 @@ def _extract_relaxed_html_text(content: str) -> str:
     for tag in list(soup.find_all(True)):
         if _is_semantically_hidden_tag(tag):
             tag.decompose()
+    soup = preserve_br_breaks(soup)
     text = soup.get_text(separator="\n\n", strip=False).strip()
     return normalize_text(text)
 
@@ -782,11 +948,24 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         html = BeautifulSoup(content, "html.parser")
         cleaned = strip_formatting_tags(html)
         cleaned = collapse_tables(cleaned)
-        primary_text = _normalize_padded_quoted_terms(normalize_text(
+        cleaned = preserve_br_breaks(cleaned)
+        primary_text = move_leading_quicklinks_to_footer(_normalize_padded_quoted_terms(normalize_text(
             block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
-        ))
+        )))
+        if _has_fragmented_section_heads(primary_text):
+            sequence_preserved_text = move_leading_quicklinks_to_footer(
+                _normalize_padded_quoted_terms(normalize_text(
+                    block_level_soup_preserve_sequence(cleaned)
+                    .get_text(separator="\n\n", strip=False)
+                    .strip()
+                ))
+            )
+            if not _has_fragmented_section_heads(sequence_preserved_text):
+                primary_text = sequence_preserved_text
         if len(primary_text) <= 2000:
-            relaxed_text = _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
+            relaxed_text = move_leading_quicklinks_to_footer(
+                _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
+            )
             if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
                 return relaxed_text
         return primary_text
