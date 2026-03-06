@@ -9,6 +9,7 @@ resources:
       pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10
       taxonomy_agreement_batch_size: 10
+      taxonomy_mode: gold_backfill
       tx_metadata_agreement_batch_size: 10
       tx_metadata_mode: offline
       embed_agreement_batch_size: 10

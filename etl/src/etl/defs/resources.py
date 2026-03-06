@@ -54,6 +54,13 @@ class TxMetadataMode(Enum):
     WEB_SEARCH = "web_search"
 
 
+class TaxonomyMode(Enum):
+    """Taxonomy asset execution mode."""
+
+    INFERENCE = "inference"
+    GOLD_BACKFILL = "gold_backfill"
+
+
 class EmbedTarget(Enum):
     """Section embedding target: agreement batch or specific section-standard-id batch."""
 
@@ -70,8 +77,18 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     resume_open_batches: bool = True  # resume matching in-flight LLM batches when possible
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
+    pre_processing_validate_agreement_batch_size: int = 10  # used in 2-2_validate_pre_processing_asset
+    pre_processing_validate_candidate_pages_per_agreement: int = 24  # high-cap candidate page review
+    pre_processing_validate_candidate_min_risk: float = 0.10  # minimum calibrated risk to prioritize a page
+    pre_processing_validate_ungate_max_remaining_risk: float = 0.08  # conservative release threshold
+    pre_processing_validate_min_llm_confidence: float = 0.85  # minimum LLM confidence to apply label change
+    pre_processing_validate_min_model_support: float = 0.08  # minimum CRF class probability for relabel support
+    pre_processing_validate_model: str = "gpt-5-mini"  # responses/batch model for page validation
+    pre_processing_validate_completion_window: str = "24h"  # OpenAI batch completion window
+    pre_processing_validate_snippet_chars: int = 1200  # max chars for current page snippet
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
+    taxonomy_mode: TaxonomyMode = TaxonomyMode.GOLD_BACKFILL  # inference | gold_backfill
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
     embed_agreement_batch_size: int = 10  # used in 9_embed_sections when embed_target=agreement
@@ -264,8 +281,18 @@ def get_resources() -> dict[str, object]:
         "resume_open_batches",
         "tagging_agreement_batch_size",
         "pre_processing_agreement_batch_size",
+        "pre_processing_validate_agreement_batch_size",
+        "pre_processing_validate_candidate_pages_per_agreement",
+        "pre_processing_validate_candidate_min_risk",
+        "pre_processing_validate_ungate_max_remaining_risk",
+        "pre_processing_validate_min_llm_confidence",
+        "pre_processing_validate_min_model_support",
+        "pre_processing_validate_model",
+        "pre_processing_validate_completion_window",
+        "pre_processing_validate_snippet_chars",
         "xml_agreement_batch_size",
         "taxonomy_agreement_batch_size",
+        "taxonomy_mode",
         "tx_metadata_agreement_batch_size",
         "tx_metadata_mode",
         "embed_agreement_batch_size",
@@ -312,12 +339,61 @@ def get_resources() -> dict[str, object]:
 
     if "pre_processing_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["pre_processing_agreement_batch_size"] = int(yaml_config["pre_processing_agreement_batch_size"])
+
+    if "pre_processing_validate_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_agreement_batch_size"] = int(
+            yaml_config["pre_processing_validate_agreement_batch_size"]
+        )
+
+    if "pre_processing_validate_candidate_pages_per_agreement" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_candidate_pages_per_agreement"] = int(
+            yaml_config["pre_processing_validate_candidate_pages_per_agreement"]
+        )
+
+    if "pre_processing_validate_candidate_min_risk" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_candidate_min_risk"] = float(
+            yaml_config["pre_processing_validate_candidate_min_risk"]
+        )
+
+    if "pre_processing_validate_ungate_max_remaining_risk" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_ungate_max_remaining_risk"] = float(
+            yaml_config["pre_processing_validate_ungate_max_remaining_risk"]
+        )
+
+    if "pre_processing_validate_min_llm_confidence" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_min_llm_confidence"] = float(
+            yaml_config["pre_processing_validate_min_llm_confidence"]
+        )
+
+    if "pre_processing_validate_min_model_support" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_min_model_support"] = float(
+            yaml_config["pre_processing_validate_min_model_support"]
+        )
+
+    if "pre_processing_validate_model" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_model"] = str(
+            yaml_config["pre_processing_validate_model"]
+        ).strip()
+
+    if "pre_processing_validate_completion_window" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_completion_window"] = str(
+            yaml_config["pre_processing_validate_completion_window"]
+        ).strip()
+
+    if "pre_processing_validate_snippet_chars" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_snippet_chars"] = int(
+            yaml_config["pre_processing_validate_snippet_chars"]
+        )
     
     if "xml_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
 
     if "taxonomy_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["taxonomy_agreement_batch_size"] = int(yaml_config["taxonomy_agreement_batch_size"])
+
+    if "taxonomy_mode" in yaml_config:
+        mode_str = str(yaml_config["taxonomy_mode"]).lower()
+        pipeline_config_kwargs["taxonomy_mode"] = TaxonomyMode(mode_str)
     
     if "tx_metadata_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["tx_metadata_agreement_batch_size"] = int(yaml_config["tx_metadata_agreement_batch_size"])
