@@ -788,13 +788,32 @@ def _is_body_like_structure(feature_dict: FeatureDict) -> bool:
     return bool(feature_dict["has_section_heading"] or feature_dict["has_article_heading"])
 
 
+def enforce_monotonic_prediction_sequence(
+    predicted_labels: list[str],
+) -> tuple[list[str], list[bool]]:
+    """Apply a hard non-decreasing label-order clamp across a predicted sequence."""
+    output_labels = list(predicted_labels)
+    modified_mask = [False] * len(output_labels)
+    highest_label_index_seen = -1
+
+    for page_index, label in enumerate(output_labels):
+        label_index = LABEL_TO_INDEX[label]
+        if label_index < highest_label_index_seen:
+            output_labels[page_index] = PAGE_LABELS[highest_label_index_seen]
+            modified_mask[page_index] = True
+            continue
+        highest_label_index_seen = label_index
+
+    return output_labels, modified_mask
+
+
 def postprocess_prediction_sequence(
     predicted_labels: list[str],
     feature_sequence: list[FeatureDict],
     *,
     postprocess_parameters: PostprocessParameters | None = None,
 ) -> tuple[list[str], list[bool]]:
-    """Guard against pathological early body->back transitions that cascade across a document."""
+    """Apply postprocessing plus a hard monotonic clamp for inference safety."""
     if len(predicted_labels) != len(feature_sequence):
         raise ValueError("Predicted labels and feature sequence lengths must match.")
     params = _default_postprocess_parameters() if postprocess_parameters is None else postprocess_parameters
@@ -857,6 +876,13 @@ def postprocess_prediction_sequence(
                         continue
                     output_labels[page_index] = "body"
                     modified_mask[page_index] = True
+
+    output_labels, monotonic_modified_mask = enforce_monotonic_prediction_sequence(
+        output_labels
+    )
+    for page_index, did_modify in enumerate(monotonic_modified_mask):
+        if did_modify:
+            modified_mask[page_index] = True
 
     return output_labels, modified_mask
 
