@@ -329,8 +329,8 @@ export default function SourcesMethods() {
     </Card>
   );
 
-  const baselineClassifierF1 = 0.9433498592558431;
-  const postProcessingF1 = 0.9727222114209235;
+  const validationClassifierF1 = 0.9666670514543612;
+  const finalClassifierF1 = 0.9507914467270675;
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
 
   return (
@@ -418,7 +418,7 @@ export default function SourcesMethods() {
                         Automated Identification
                       </div>
                       <p className="text-sm text-foreground">
-                        We parse through Exhibit 2, Exhibit 10, and Exhibit 99
+                        We parse through Exhibit 2 and Exhibit 10
                         filings at
                         scale and use machine learning to identify those that
                         represent definitive merger agreements.
@@ -640,7 +640,7 @@ export default function SourcesMethods() {
                           <button
                             type="button"
                             aria-label="Why we split and classify pages"
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/60 bg-muted/40 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-emerald-500/40 hover:text-foreground cursor-help"
+                            className="tooltip-help-trigger-compact"
                           >
                             ?
                           </button>
@@ -816,7 +816,7 @@ export default function SourcesMethods() {
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
                             <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-                              XML
+                              Tagged Text
                             </span>
                           </div>
                           <p className="mt-2 text-xs font-mono text-foreground">
@@ -852,17 +852,13 @@ export default function SourcesMethods() {
                   <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     4
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="font-mono text-sm font-semibold text-foreground">
-                      LLM Review
+                      XML Generation
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Sends low-confidence spans to{" "}
-                      <span className="font-mono text-xs text-foreground">
-                        gpt-5
-                      </span>{" "}
-                      with adjacent context so the model can rule on the correct
-                      tag.
+                      Converts tagged body pages into agreement XML and upserts
+                      section records into the sections table.
                     </p>
                   </div>
                 </li>
@@ -870,37 +866,22 @@ export default function SourcesMethods() {
                   <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     5
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="font-mono text-sm font-semibold text-foreground">
-                      Reconciliation
+                      XML Repair Loop
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Merges LLM-corrected spans back into the tagged agreement
-                      text.
+                      When XML validation fails, we send the affected pages to
+                      an LLM for repair, reconcile the fixes back into the
+                      tagged text, regenerate XML, and repeat until the
+                      agreement either validates or is exhausted by the repair
+                      pass budget.
                     </p>
                   </div>
                 </li>
                 <li className="relative flex gap-4">
                   <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     6
-                  </div>
-                  <div className="space-y-2">
-                    <div className="font-mono text-sm font-semibold text-foreground">
-                      XML Construction
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Builds{" "}
-                      <span className="font-mono text-xs text-foreground">
-                        xml
-                      </span>{" "}
-                      output and upserts section records into the sections
-                      table.
-                    </p>
-                  </div>
-                </li>
-                <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
-                    7
                   </div>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -925,7 +906,7 @@ export default function SourcesMethods() {
                     ref={lastStepRef}
                     className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70"
                   >
-                    8
+                    7
                   </div>
                   <div className="space-y-2">
                     <div className="font-mono text-sm font-semibold text-foreground">
@@ -1023,32 +1004,40 @@ export default function SourcesMethods() {
                 , identify all filings that match target form types (all forms
                 except for S-8 and ABS-EE), filter filings by scanning for
                 keywords indicating "Material Definitive Agreement" entries,
-                scrape each filing's index page to extract Exhibit 10.*, 2.*,
-                and 99.* links, fetch and render the exhibit content as text,
+                scrape each filing's index page to extract Exhibit 10.* and
+                2.* links, fetch and render the exhibit content as text,
                 and use the Exhibit Model to classify candidates, retaining
                 only those with probability of at least 0.5.
               </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
                   <div>
-                    <strong>Architecture:</strong> The Exhibit Model is a simple
-                    binary classifier that uses logistic regression. As
-                    features, we use: (1) <em>document-level features</em>{" "}
-                    including structural indicators, legal language patterns,
-                    and M&A-specific vocabulary; (2) <em>TF-IDF features</em>{" "}
-                    from word and character n-grams; and (3){" "}
-                    <em>similarity features</em> measuring cosine similarity to
-                    training examples.
+                    <strong>Architecture:</strong> The Exhibit Model is a tuned
+                    logistic-regression classifier over three feature blocks:
+                    (1) <em>document-level features</em> such as opening title
+                    phrases, hard-negative phrase counts, document length, and
+                    M&A keyword density; (2) <em>hashed word- and
+                    character-level TF-IDF features</em>; and (3){" "}
+                    <em>similarity features</em> capturing max, mean, and
+                    median cosine similarity to the training agreement corpus.
+                    We also apply a minimum-length hard-negative rule and use a
+                    tuned decision threshold of{" "}
+                    <span className="font-mono text-sm text-foreground">
+                      0.96
+                    </span>
+                    .
                   </div>
                 </li>
                 <li className="space-y-2">
                   <div>
                     <strong>Training corpus:</strong> We train the Exhibit Model
-                    on an 80/20 random split of <strong>1,400</strong> positive
-                    samples, selected from the DMA corpus, and 299 negatives,
-                    selected from SEC filings under Exhibits 2, 10, and 99,
-                    with a bias toward filings that earlier versions of this
-                    model incorrectly identified as agreements.
+                    on <strong>8,889</strong> labeled exhibits:{" "}
+                    <strong>7,919</strong> positives and{" "}
+                    <strong>970</strong> negatives. These examples are drawn
+                    from SEC filings under Exhibits 2 and 10 and are split
+                    with a stable manifest into <strong>6,206</strong> training
+                    exhibits, <strong>886</strong> validation exhibits, and{" "}
+                    <strong>1,774</strong> holdout test exhibits.
                   </div>
                 </li>
               </ul>
@@ -1101,51 +1090,62 @@ export default function SourcesMethods() {
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Page Classifier Model
-                    combines three layers:
+                    is a document-level monotonic CRF:
                     <ol className="list-decimal space-y-1 pl-5">
                       <li>
-                        An XGBoost model that scores each page{" "}
-                        <em>individually</em>, using engineered text/HTML/layout
-                        features
+                        Each page is featurized with positional, structural,
+                        and lexical signals, including relative page position,
+                        heading patterns, TOC dots, signature and witness
+                        markers, annex and appendix anchors, and compact TF-IDF
+                        word features.
                       </li>
                       <li>
-                        A BiLSTM + constrained CRF that refines those scores
-                        into a coherent, document-level page sequence
-                      </li>
-                      <li>
-                        A post-processing step that sets all pages after the
-                        first high-confidence{" "}
+                        A constrained CRF predicts the full page sequence in
+                        one pass while enforcing monotonic transitions through{" "}
+                        <span className="font-mono text-sm text-foreground">
+                          front_matter
+                        </span>
+                        ,{" "}
+                        <span className="font-mono text-sm text-foreground">
+                          toc
+                        </span>
+                        ,{" "}
+                        <span className="font-mono text-sm text-foreground">
+                          body
+                        </span>
+                        ,{" "}
                         <span className="font-mono text-sm text-foreground">
                           sig
-                        </span>{" "}
-                        block to{" "}
+                        </span>
+                        , and{" "}
                         <span className="font-mono text-sm text-foreground">
                           back_matter
                         </span>
+                        .
                       </li>
                     </ol>
                   </div>
                 </li>
                 <li className="space-y-2">
                   <div>
-                    <strong>Training corpus:</strong> We train both models on an
-                    80/20 random split of the full set of{" "}
+                    <strong>Training corpus:</strong> We train the page CRF on
+                    the full set of{" "}
                     <AdaptiveTooltip
                       trigger={
                         <button
                           type="button"
                           className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
                         >
-                          <strong>34,999</strong>
+                          <strong>67,596</strong>
                         </button>
                       }
                       content={
                         <>
-                          Did we really label 34,999 pages by hand? Yes—but it
+                          Did we really label 67,596 pages by hand? Yes—but it
                           wasn't that bad. We had GPT build us a custom labeling
                           interface that allowed us to select all body pages in
-                          a single go, so the whole process took less than three
-                          hours.
+                          a single go, so adding agreements was much faster
+                          than labeling every page one by one.
                         </>
                       }
                       tooltipProps={{
@@ -1158,22 +1158,20 @@ export default function SourcesMethods() {
                         className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />{" "}
-                    manually labeled pages, stratified (with distributional
-                    matching) by length of backmatter section (bucketed into 4
-                    buckets), overall length (bucketed into 4 buckets), and year
-                    (bucketed into 5-year windows).
+                    manually labeled pages across 673 agreements, grouped by
+                    agreement and split with a stable manifest stratified by
+                    announcement year and agreement type.
                   </div>
                 </li>
               </ul>
 
               <p className="text-muted-foreground">
-                Below are model performance metrics for the baseline XGB model,
-                the BiLSTM + CRF model, and the BiLSTM + CRF with
-                post-processing, all as run on a holdout set of 36 agreements.
-                While the XGB model is somewhat middling on its own, taking into
-                account and enforcing page order improves performance, bringing the F1 score up from{" "}
-                <strong>{formatMetric(baselineClassifierF1)}</strong> to{" "}
-                <strong>{formatMetric(postProcessingF1)}</strong>.{" "}
+                Below are model performance metrics for the tuned validation CRF
+                run and the final holdout test run. The model reaches a macro
+                F1 of <strong>{formatMetric(validationClassifierF1)}</strong> on
+                validation and <strong>{formatMetric(finalClassifierF1)}</strong>{" "}
+                on the final test split, with most errors concentrated
+                at the body/back-matter boundary.
               </p>
               {metricsData ? (
                 <Suspense
@@ -1216,9 +1214,8 @@ export default function SourcesMethods() {
                 inputs plain-text body pages—as identified via the Page
                 Classifier model—and outputs text with Article, Section, and
                 Page entities tagged. We then concatenate all pages and use the
-                tags to create XML. We persist into our database all spans where
-                the Tagging Model's confidence fell below the threshold of 0.8;
-                we feed those spans to an LLM for tag reconciliation.
+                tags to create XML. We also persist low-confidence token spans
+                for downstream review and AI-assisted reconciliation.
               </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
@@ -1235,8 +1232,15 @@ export default function SourcesMethods() {
                       </span>
                     </a>{" "}
                     for token-level labeling of Article, Section, and Page
-                    entities. We use a BIOES scheme for Pages and a BIOE scheme
-                    for Articles and Sections.
+                    entities. The current production recipe uses an independent
+                    decoder, a lightweight auxiliary boundary head for Article
+                    and Section start/end detection, focal token loss,
+                    preserved input casing, and boundary-mix sampling over
+                    fixed-length token windows. At inference time, overlapping
+                    windows are stitched by averaging logits and then lightly
+                    repaired into legal BIO-style sequences before tags are
+                    rendered back into the page text. We use BIOE tags for
+                    Articles and Sections, plus BIOES-style tags for Pages.
                   </div>
                 </li>
                 <li className="space-y-2">
@@ -1245,12 +1249,18 @@ export default function SourcesMethods() {
                     <span className="font-mono text-sm text-foreground">
                       gpt-5.1
                     </span>{" "}
-                    to create a dataset of <strong>7,805</strong> labeled pages from complete agreements (
+                    to create a page-level structural tagging corpus of{" "}
+                    <strong>15,000</strong> agreement pages (
                     <span className="font-mono text-sm text-foreground">
                       body
                     </span>{" "}
-                    pages only). We selected an additional{" "}
-                    <strong>2,695</strong> pages to{" "}
+                    pages only) drawn from <strong>395</strong> agreements. Of
+                    those, <strong>10,016</strong> pages
+                    contain at least one structural tag and{" "}
+                    <strong>4,984</strong> are clean negatives. The corpus
+                    includes <strong>3,130</strong> pages with Article tags and{" "}
+                    <strong>9,990</strong> pages with Section tags. We also
+                    designated <strong>3,147</strong> pages to{" "}
                     <AdaptiveTooltip
                       trigger={
                         <button
@@ -1262,14 +1272,11 @@ export default function SourcesMethods() {
                       }
                       content={
                         <>
-                          Because Article entities are relatively less common,
-                          creating training data by ingesting complete
-                          agreements—rather than sampling for specific kinds of
-                          entities—produces a training corpus with fewer
-                          examples of Article entities. So, after ingesting
-                          complete agreements, we selected an additional 2,695
-                          pages, filtering to those that mentioned either
-                          "Article" or "ARTICLE".
+                          Article spans are structurally rarer and more brittle
+                          at the exact end boundary than Section spans. We
+                          therefore marked 3,147 Article-heavy pages for
+                          targeted sampling in training so the model saw more
+                          of those heading patterns.
                         </>
                       }
                       tooltipProps={{
@@ -1282,16 +1289,17 @@ export default function SourcesMethods() {
                         className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />
-                    . We split this corpus into fixed sets for training (
-                    <strong>8,939</strong> pages), validation (<strong>780</strong> pages),
-                    and testing (<strong>781</strong> pages), reserving the test set
-                    for the final evaluation only. To improve the model's
-                    ability to identify Article entities—and also to ensure that
-                    the distribution of entities in our validation and test sets
-                    is representative of agreements—we send all 2,695 upsampled
-                    pages to the training set. We then stratify the remaining
-                    pages based on 5-year window, the presence of Article
-                    entities, and the presence of Section entities.
+                    . We split the corpus by <strong>agreement</strong>, not by
+                    page, so that pages from the same agreement never land in
+                    both train and holdout sets. The fixed manifests contain{" "}
+                    <strong>11,794</strong> train pages across{" "}
+                    <strong>348</strong> agreements, <strong>1,508</strong>{" "}
+                    validation pages across <strong>23</strong> agreements, and{" "}
+                    <strong>1,698</strong> test pages across{" "}
+                    <strong>24</strong> agreements; the test split is reserved
+                    for final evaluation only. All 3,147 Article-oversampled
+                    pages remain train-only so model comparisons run on the
+                    same agreement-level partitions without leakage.
                   </div>
                 </li>
               </ul>
@@ -1364,7 +1372,6 @@ export default function SourcesMethods() {
               </li>
               <li>
                 At the moment, we do not process agreements that are not
-                paginated. In our training set of 399 agreements, 31 are not
                 paginated.
               </li>
               <li>
@@ -1385,52 +1392,46 @@ export default function SourcesMethods() {
               Validations
             </h2>
             <p className="text-muted-foreground">
-              Although the vast majority of agreements sail through our pipeline
-              without issue, some do require manual validation. We have two
-              validations in place:
+              Validation happens at several points in the pipeline rather than
+              in a single end-of-run review step. In practice, we use four
+              checks:
             </p>
             <ol className="list-decimal ml-6 space-y-4 text-muted-foreground">
               <li className="space-y-2">
                 <div>
-                  <strong>Page label validation:</strong> We manually review
-                  labels for agreements where either:
+                  <strong>Exhibit review:</strong> Every agreement surfaced by
+                  the Exhibit Model is reviewed by hand before we treat it as a
+                  confirmed merger agreement.
                 </div>
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>
-                    At least one page label is out of order—for example, a{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      back_matter
-                    </span>{" "}
-                    label before a{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      sig
-                    </span>{" "}
-                    label.
-                  </li>
-                  <li>
-                    At least one page has a prediction confidence between 30%
-                    and 70%; where there is a high-confidence signature page (≥
-                    95%), this condition applies only to pages prior to that
-                    signature page.
-                  </li>
-                </ul>
               </li>
               <li className="space-y-2">
                 <div>
-                  <strong>Tag reconciliation:</strong> We manually review
-                  uncertain spans when LLM rulings cannot be reconciled with
-                  existing tags and we flag the page with a label error:
+                  <strong>Page classification review:</strong> During
+                  pre-processing, a dedicated agreement-level review model uses
+                  page-classification uncertainty and sequence-risk signals to
+                  flag agreements whose page labels should be reviewed before
+                  they move downstream.
                 </div>
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>
-                    A ruling intersects more than one tagged span or only
-                    partially overlaps a span.
-                  </li>
-                  <li>
-                    A ruling sits entirely within a tagged span but assigns a
-                    different label.
-                  </li>
-                </ul>
+              </li>
+              <li className="space-y-2">
+                <div>
+                  <strong>XML verification:</strong> Fresh XML first goes
+                  through strict structural validation with hard rules around
+                  parseability, body structure, article ordering, and section
+                  numbering. XML that survives those rule checks is then sent to
+                  an LLM verifier, which marks the document as verified,
+                  invalid, or unresolved.
+                </div>
+              </li>
+              <li className="space-y-2">
+                <div>
+                  <strong>AI repair for failed XML:</strong> When XML fails
+                  validation, we route the agreement into the repair cycle and
+                  send the specific pages tied to the XML failure reasons to an
+                  LLM for full-page repair. Those repairs are reconciled back
+                  into the tagged text, XML is rebuilt, and the rebuilt XML is
+                  verified again.
+                </div>
               </li>
             </ol>
           </section>
