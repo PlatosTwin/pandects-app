@@ -27,6 +27,12 @@ from backend.extensions import db
 
 
 _MAIN_SCHEMA_TOKEN = "__main_schema__"
+_REQUIRED_MAIN_DB_ENV_VARS = (
+    "MARIADB_USER",
+    "MARIADB_PASSWORD",
+    "MARIADB_HOST",
+    "MARIADB_DATABASE",
+)
 
 
 def main_db_schema_from_env() -> str:
@@ -41,10 +47,21 @@ def main_db_uri_from_env() -> str:
     raw = os.environ.get("MAIN_DATABASE_URI", "").strip()
     if raw:
         return raw
-    db_user = os.environ["MARIADB_USER"]
-    db_pass = os.environ["MARIADB_PASSWORD"]
-    db_host = os.environ["MARIADB_HOST"]
-    db_name = os.environ["MARIADB_DATABASE"]
+    missing = [
+        env_key
+        for env_key in _REQUIRED_MAIN_DB_ENV_VARS
+        if not os.environ.get(env_key, "").strip()
+    ]
+    if missing:
+        required = ", ".join(_REQUIRED_MAIN_DB_ENV_VARS)
+        missing_list = ", ".join(missing)
+        raise RuntimeError(
+            f"Main DB reflection requires MAIN_DATABASE_URI or all MariaDB env vars ({required}). Missing: {missing_list}."
+        )
+    db_user = os.environ["MARIADB_USER"].strip()
+    db_pass = os.environ["MARIADB_PASSWORD"].strip()
+    db_host = os.environ["MARIADB_HOST"].strip()
+    db_name = os.environ["MARIADB_DATABASE"].strip()
     return f"mysql+pymysql://{db_user}:{db_pass}@{db_host}:3306/{db_name}"
 
 
