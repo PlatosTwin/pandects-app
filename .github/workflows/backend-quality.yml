@@ -1,0 +1,38 @@
+name: Backend Quality
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-quality.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-quality.yml"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      SKIP_MAIN_DB_REFLECTION: "1"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+          cache-dependency-path: "backend/requirements.txt"
+
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
+
+      - name: Run basedpyright
+        run: python -m basedpyright -p backend/pyrightconfig.json
+
+      - name: Run backend unit tests
+        run: python -m unittest discover backend/tests -v
