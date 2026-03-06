@@ -11,7 +11,18 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from .crf_pipeline import AgreementDocument, FeatureDict, build_feature_sequences
+from .crf_pipeline import (
+    AgreementDocument,
+    FeatureDict,
+    POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
+    POSTPROCESS_BACK_WINDOW_SIZE,
+    POSTPROCESS_BODY_LIKE_MIN_RATIO,
+    POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX,
+    POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
+    PostprocessParameters,
+    build_feature_sequences,
+    postprocess_prediction_sequence,
+)
 from .page_classifier_constants import CLASSIFIER_CRF_PATH, CLASSIFIER_LABEL_LIST
 
 
@@ -90,6 +101,37 @@ class _PreparedInferenceBatch:
     documents: list[AgreementDocument]
     row_indices_by_document: list[list[int]]
     row_count: int
+
+
+def _default_postprocess_parameters() -> PostprocessParameters:
+    return {
+        "early_back_relative_page_max": POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX,
+        "back_window_size": POSTPROCESS_BACK_WINDOW_SIZE,
+        "body_like_min_ratio": POSTPROCESS_BODY_LIKE_MIN_RATIO,
+        "annex_entry_max_ratio": POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
+        "late_back_trigger_relative_page": POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
+    }
+
+
+def _coerce_postprocess_parameters(value: object) -> PostprocessParameters:
+    if not isinstance(value, dict):
+        return _default_postprocess_parameters()
+    required_keys = {
+        "early_back_relative_page_max",
+        "back_window_size",
+        "body_like_min_ratio",
+        "annex_entry_max_ratio",
+        "late_back_trigger_relative_page",
+    }
+    if required_keys - set(value):
+        return _default_postprocess_parameters()
+    return {
+        "early_back_relative_page_max": float(value["early_back_relative_page_max"]),
+        "back_window_size": int(value["back_window_size"]),
+        "body_like_min_ratio": float(value["body_like_min_ratio"]),
+        "annex_entry_max_ratio": float(value["annex_entry_max_ratio"]),
+        "late_back_trigger_relative_page": float(value["late_back_trigger_relative_page"]),
+    }
 
 
 def build_agreement_review_summary(
@@ -436,21 +478,28 @@ class ClassifierInference:
             )
         self.model = cast(CRFModelProtocol, artifact["crf_model"])
         self.vectorizer = cast(TfidfVectorizer, artifact["vectorizer"])
+        self.postprocess_parameters = _coerce_postprocess_parameters(
+            artifact.get("postprocess_parameters")
+        )
 
-    def classify(self, df: pd.DataFrame) -> list[dict[str, object]]:
+    def classify(self, df: pd.DataFrame) -> list[ClassifierPrediction]:
         prepared = self._prepare_dataframe(df)
-        predictions, marginals = self._predict_with_marginals(prepared.documents)
-        output_by_row_index: dict[int, dict[str, object]] = {}
-        for row_indices, predicted_labels, marginal_rows in zip(
+        predictions, marginals, postprocess_modified_masks = self._predict_with_marginals(
+            prepared.documents
+        )
+        output_by_row_index: dict[int, ClassifierPrediction] = {}
+        for row_indices, predicted_labels, marginal_rows, modified_mask in zip(
             prepared.row_indices_by_document,
             predictions,
             marginals,
+            postprocess_modified_masks,
             strict=True,
         ):
-            for row_index, predicted_label, marginal_map in zip(
+            for row_index, predicted_label, marginal_map, postprocess_modified in zip(
                 row_indices,
                 predicted_labels,
                 marginal_rows,
+                modified_mask,
                 strict=True,
             ):
                 pred_probs: ClassifierProbs = {
@@ -463,7 +512,7 @@ class ClassifierInference:
                 output_by_row_index[row_index] = {
                     "pred_class": str(predicted_label),
                     "pred_probs": pred_probs,
-                    "postprocess_modified": False,
+                    "postprocess_modified": bool(postprocess_modified),
                 }
         return [output_by_row_index[row_index] for row_index in range(prepared.row_count)]
 
@@ -476,7 +525,7 @@ class ClassifierInference:
         low_margin_threshold: float = DEFAULT_REVIEW_LOW_MARGIN_THRESHOLD,
     ) -> list[AgreementReviewSummary]:
         prepared = self._prepare_dataframe(df)
-        predictions, marginals = self._predict_with_marginals(prepared.documents)
+        predictions, marginals, _ = self._predict_with_marginals(prepared.documents)
         summaries = [
             build_agreement_review_summary(
                 document.agreement_uuid,
@@ -548,16 +597,23 @@ class ClassifierInference:
     def _predict_with_marginals(
         self,
         documents: list[AgreementDocument],
-    ) -> tuple[list[list[str]], list[list[dict[str, float]]]]:
+    ) -> tuple[list[list[str]], list[list[dict[str, float]]], list[list[bool]]]:
         sequences = build_feature_sequences(documents, self.vectorizer)
         predictions_raw = self.model.predict(sequences)
         marginals_raw = self.model.predict_marginals(sequences)
-        predictions = [
-            [str(label) for label in sequence]
-            for sequence in predictions_raw
-        ]
+        predictions = [[str(label) for label in sequence] for sequence in predictions_raw]
         marginals = [
             [{str(label): float(prob) for label, prob in marginal.items()} for marginal in sequence]
             for sequence in marginals_raw
         ]
-        return predictions, marginals
+        postprocess_modified_masks: list[list[bool]] = []
+        processed_predictions: list[list[str]] = []
+        for predicted_labels, feature_sequence in zip(predictions, sequences, strict=True):
+            processed_labels, modified_mask = postprocess_prediction_sequence(
+                predicted_labels,
+                feature_sequence,
+                postprocess_parameters=self.postprocess_parameters,
+            )
+            processed_predictions.append(processed_labels)
+            postprocess_modified_masks.append(modified_mask)
+        return processed_predictions, marginals, postprocess_modified_masks

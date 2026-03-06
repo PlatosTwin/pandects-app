@@ -49,6 +49,11 @@ DEFAULT_METRICS_PATH = BASE_DIR / "eval_metrics" / "page_classifier_revamp_metri
 DEFAULT_SPLIT_SEED = 2718
 DEFAULT_OPTUNA_PATH = BASE_DIR / "eval_metrics" / "page_classifier_revamp_optuna_best.json"
 DEFAULT_OPTUNA_TRIALS = 12
+POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX = 0.45
+POSTPROCESS_BACK_WINDOW_SIZE = 16
+POSTPROCESS_BODY_LIKE_MIN_RATIO = 0.40
+POSTPROCESS_ANNEX_ENTRY_MAX_RATIO = 0.20
+POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE = 0.75
 
 TOC_DOTS_RE = re.compile(r"\.{6,}")
 SIG_BLOCK_RE = re.compile(
@@ -133,8 +138,26 @@ class CRFHyperparameters(TypedDict):
     tfidf_max_features: int
 
 
+class PostprocessParameters(TypedDict):
+    early_back_relative_page_max: float
+    back_window_size: int
+    body_like_min_ratio: float
+    annex_entry_max_ratio: float
+    late_back_trigger_relative_page: float
+
+
 def _log(message: str) -> None:
     print(message, flush=True)
+
+
+def _default_postprocess_parameters() -> PostprocessParameters:
+    return {
+        "early_back_relative_page_max": POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX,
+        "back_window_size": POSTPROCESS_BACK_WINDOW_SIZE,
+        "body_like_min_ratio": POSTPROCESS_BODY_LIKE_MIN_RATIO,
+        "annex_entry_max_ratio": POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
+        "late_back_trigger_relative_page": POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
+    }
 
 
 def _coerce_int(value: object, *, field_name: str) -> int:
@@ -289,6 +312,36 @@ def parse_args() -> argparse.Namespace:
         default=-1000.0,
         help="Weight assigned to forbidden backward transitions.",
     )
+    _ = parser.add_argument(
+        "--postprocess-early-back-relative-page-max",
+        type=float,
+        default=POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX,
+        help="Maximum relative page for early back-matter guard activation.",
+    )
+    _ = parser.add_argument(
+        "--postprocess-back-window-size",
+        type=int,
+        default=POSTPROCESS_BACK_WINDOW_SIZE,
+        help="Window size used to estimate body-like structure near the first back-matter prediction.",
+    )
+    _ = parser.add_argument(
+        "--postprocess-body-like-min-ratio",
+        type=float,
+        default=POSTPROCESS_BODY_LIKE_MIN_RATIO,
+        help="Minimum body-like heading ratio required to relabel an early back-matter run.",
+    )
+    _ = parser.add_argument(
+        "--postprocess-annex-entry-max-ratio",
+        type=float,
+        default=POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
+        help="Maximum annex-entry ratio allowed before skipping the early back-matter relabel.",
+    )
+    _ = parser.add_argument(
+        "--postprocess-late-back-trigger-relative-page",
+        type=float,
+        default=POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
+        help="Relative page threshold that can re-enable back-matter after relabeling.",
+    )
     return parser.parse_args()
 
 
@@ -308,6 +361,33 @@ def _load_crf_modules() -> tuple[CRFSuiteModuleProtocol, CRFMetricsModuleProtoco
             + "before training this pipeline."
         ) from exc
     return sklearn_crfsuite, crf_metrics
+
+
+def build_postprocess_parameters(
+    *,
+    early_back_relative_page_max: float,
+    back_window_size: int,
+    body_like_min_ratio: float,
+    annex_entry_max_ratio: float,
+    late_back_trigger_relative_page: float,
+) -> PostprocessParameters:
+    if back_window_size <= 0:
+        raise ValueError("postprocess_back_window_size must be positive.")
+    for value, name in (
+        (early_back_relative_page_max, "postprocess_early_back_relative_page_max"),
+        (body_like_min_ratio, "postprocess_body_like_min_ratio"),
+        (annex_entry_max_ratio, "postprocess_annex_entry_max_ratio"),
+        (late_back_trigger_relative_page, "postprocess_late_back_trigger_relative_page"),
+    ):
+        if value < 0.0 or value > 1.0:
+            raise ValueError(f"{name} must be within [0, 1].")
+    return {
+        "early_back_relative_page_max": early_back_relative_page_max,
+        "back_window_size": back_window_size,
+        "body_like_min_ratio": body_like_min_ratio,
+        "annex_entry_max_ratio": annex_entry_max_ratio,
+        "late_back_trigger_relative_page": late_back_trigger_relative_page,
+    }
 
 
 def _coerce_text(value: object) -> str:
@@ -528,6 +608,18 @@ def _is_attached_subdocument_entry_page(feature_dict: FeatureDict) -> bool:
     )
 
 
+def _is_sig_context_page(feature_dict: FeatureDict) -> bool:
+    return bool(
+        feature_dict["has_sig_block"]
+        or feature_dict["has_counterparts"]
+        or feature_dict["has_executed_as_deed"]
+        or feature_dict["witness_block_combo"]
+        or feature_dict["has_witness_signature"]
+        or feature_dict["has_witness_address"]
+        or feature_dict["has_witness_occupation"]
+    )
+
+
 def append_next_page_annex_feature(page_features: list[FeatureDict]) -> list[FeatureDict]:
     enriched_features: list[FeatureDict] = []
     last_annex_context_index: int | None = None
@@ -681,6 +773,120 @@ def build_label_sequences(documents: list[AgreementDocument]) -> list[list[str]]
 
 def flatten_label_sequences(label_sequences: list[list[str]]) -> list[str]:
     return [label for sequence in label_sequences for label in sequence]
+
+
+def _is_annex_entry_signal(feature_dict: FeatureDict) -> bool:
+    return bool(
+        feature_dict["has_annex_anchor"]
+        or feature_dict["has_appendix_anchor"]
+        or feature_dict["has_list_of_exhibits"]
+        or feature_dict["has_list_of_schedules"]
+    )
+
+
+def _is_body_like_structure(feature_dict: FeatureDict) -> bool:
+    return bool(feature_dict["has_section_heading"] or feature_dict["has_article_heading"])
+
+
+def postprocess_prediction_sequence(
+    predicted_labels: list[str],
+    feature_sequence: list[FeatureDict],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[str], list[bool]]:
+    """Guard against pathological early body->back transitions that cascade across a document."""
+    if len(predicted_labels) != len(feature_sequence):
+        raise ValueError("Predicted labels and feature sequence lengths must match.")
+    params = _default_postprocess_parameters() if postprocess_parameters is None else postprocess_parameters
+
+    output_labels = list(predicted_labels)
+    modified_mask = [False] * len(output_labels)
+    try:
+        first_back_index = output_labels.index("back_matter")
+    except ValueError:
+        return output_labels, modified_mask
+
+    first_back_relative_page = float(feature_sequence[first_back_index]["relative_page"])
+    if first_back_relative_page < float(params["early_back_relative_page_max"]):
+        has_prior_sig_context = any(label == "sig" for label in output_labels[:first_back_index])
+        if not has_prior_sig_context:
+            window_end = min(
+                len(output_labels),
+                first_back_index + int(params["back_window_size"]),
+            )
+            candidate_window = feature_sequence[first_back_index:window_end]
+            body_like_ratio = (
+                float(sum(_is_body_like_structure(feature_dict) for feature_dict in candidate_window))
+                / float(len(candidate_window))
+                if candidate_window
+                else 0.0
+            )
+            annex_entry_ratio = (
+                float(sum(_is_annex_entry_signal(feature_dict) for feature_dict in candidate_window))
+                / float(len(candidate_window))
+                if candidate_window
+                else 0.0
+            )
+            if (
+                body_like_ratio >= float(params["body_like_min_ratio"])
+                and annex_entry_ratio <= float(params["annex_entry_max_ratio"])
+            ):
+                replacement_end: int | None = None
+                for page_index in range(first_back_index + 1, len(output_labels)):
+                    feature_dict = feature_sequence[page_index]
+                    if _is_sig_context_page(feature_dict):
+                        replacement_end = page_index
+                        break
+                    if (
+                        float(feature_dict["relative_page"]) >= float(
+                            params["late_back_trigger_relative_page"]
+                        )
+                        and (
+                            feature_dict["has_appendix_anchor"]
+                            or feature_dict["has_list_of_exhibits"]
+                            or feature_dict["has_list_of_schedules"]
+                        )
+                    ):
+                        replacement_end = page_index
+                        break
+                if replacement_end is None:
+                    replacement_end = len(output_labels)
+
+                for page_index in range(first_back_index, replacement_end):
+                    if output_labels[page_index] != "back_matter":
+                        continue
+                    output_labels[page_index] = "body"
+                    modified_mask[page_index] = True
+
+    return output_labels, modified_mask
+
+
+def postprocess_prediction_sequences(
+    predicted_sequences: list[list[str]],
+    feature_sequences: list[list[FeatureDict]],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[list[str]], int, int]:
+    if len(predicted_sequences) != len(feature_sequences):
+        raise ValueError("Predicted sequence and feature sequence counts must match.")
+
+    processed_sequences: list[list[str]] = []
+    modified_agreement_count = 0
+    modified_page_count = 0
+    for predicted_labels, feature_sequence in zip(
+        predicted_sequences, feature_sequences, strict=True
+    ):
+        processed_labels, modified_mask = postprocess_prediction_sequence(
+            predicted_labels,
+            feature_sequence,
+            postprocess_parameters=postprocess_parameters,
+        )
+        processed_sequences.append(processed_labels)
+        if any(modified_mask):
+            modified_agreement_count += 1
+            modified_page_count += sum(modified_mask)
+
+    return processed_sequences, modified_agreement_count, modified_page_count
 
 
 def _build_agreement_level_metrics(
@@ -1338,6 +1544,7 @@ def _run_crf_experiment(
     fit_split: str,
     eval_split: str,
     illegal_transition_weight: float,
+    postprocess_parameters: PostprocessParameters,
     tfidf_max_features: int,
     c1: float,
     c2: float,
@@ -1378,7 +1585,19 @@ def _run_crf_experiment(
         f"{prefix}[crf] predicting {sum(len(doc.labels) for doc in eval_documents)} pages "
         + f"across {len(eval_documents)} agreements"
     )
-    y_pred = crf_model.predict(x_eval)
+    y_pred_raw = crf_model.predict(x_eval)
+    y_pred, postprocess_modified_agreement_count, postprocess_modified_page_count = (
+        postprocess_prediction_sequences(
+            y_pred_raw,
+            x_eval,
+            postprocess_parameters=postprocess_parameters,
+        )
+    )
+    if postprocess_modified_page_count > 0:
+        _log(
+            f"{prefix}[crf] postprocess adjusted {postprocess_modified_page_count} pages across "
+            + f"{postprocess_modified_agreement_count} agreements"
+        )
     y_eval_flat = flatten_label_sequences(y_eval)
     y_pred_flat = flatten_label_sequences(y_pred)
     report_text = crf_metrics.flat_classification_report(
@@ -1454,6 +1673,18 @@ def _run_crf_experiment(
             "c2": c2,
             "max_iterations": max_iterations,
         },
+        "postprocess": {
+            "name": "early_back_matter_guard",
+            "modified_agreement_count": postprocess_modified_agreement_count,
+            "modified_page_count": postprocess_modified_page_count,
+            "early_back_relative_page_max": float(postprocess_parameters["early_back_relative_page_max"]),
+            "back_window_size": int(postprocess_parameters["back_window_size"]),
+            "body_like_min_ratio": float(postprocess_parameters["body_like_min_ratio"]),
+            "annex_entry_max_ratio": float(postprocess_parameters["annex_entry_max_ratio"]),
+            "late_back_trigger_relative_page": float(
+                postprocess_parameters["late_back_trigger_relative_page"]
+            ),
+        },
     }
     _log(
         f"{prefix}[crf] evaluation complete: accuracy={page_accuracy:.4f}, "
@@ -1479,6 +1710,7 @@ def _save_artifact(
     fitted_agreement_ids: list[str],
     overwritten_transitions: dict[tuple[str, str], float],
     label_violations: list[LabelViolation],
+    postprocess_parameters: PostprocessParameters,
 ) -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     artifact = {
@@ -1490,6 +1722,7 @@ def _save_artifact(
         "test_agreement_ids": test_agreement_ids,
         "fitted_agreement_ids": fitted_agreement_ids,
         "overwritten_transitions": overwritten_transitions,
+        "postprocess_parameters": postprocess_parameters,
         "label_violations": [
             {
                 "agreement_uuid": violation.agreement_uuid,
@@ -1520,6 +1753,7 @@ def train_and_evaluate(
     eval_split: str,
     use_best_optuna_params: bool,
     illegal_transition_weight: float,
+    postprocess_parameters: PostprocessParameters,
 ) -> dict[str, object]:
     df = load_page_dataframe(data_path)
     _log(f"[crf] loaded dataset: rows={len(df)}, agreements={df['agreement_uuid'].nunique()}")
@@ -1595,6 +1829,7 @@ def train_and_evaluate(
         fit_split=fit_split,
         eval_split=eval_split,
         illegal_transition_weight=illegal_transition_weight,
+        postprocess_parameters=postprocess_parameters,
         tfidf_max_features=selected_hyperparameters["tfidf_max_features"],
         c1=selected_hyperparameters["c1"],
         c2=selected_hyperparameters["c2"],
@@ -1632,6 +1867,7 @@ def train_and_evaluate(
             experiment["overwritten_transitions"],
         ),
         label_violations=label_violations,
+        postprocess_parameters=postprocess_parameters,
     )
     _log(f"[crf] saved artifact to {model_path}")
     print(report_text)
@@ -1666,6 +1902,7 @@ def tune_hyperparameters(
     split_seed: int,
     illegal_transition_weight: float,
     optuna_trials: int,
+    postprocess_parameters: PostprocessParameters,
 ) -> dict[str, object]:
     if optuna_trials <= 0:
         raise ValueError("optuna_trials must be positive.")
@@ -1709,6 +1946,7 @@ def tune_hyperparameters(
             fit_split="train",
             eval_split="val",
             illegal_transition_weight=illegal_transition_weight,
+            postprocess_parameters=postprocess_parameters,
             tfidf_max_features=tfidf_max_features,
             c1=c1,
             c2=c2,
@@ -1745,6 +1983,7 @@ def tune_hyperparameters(
         fit_split="train",
         eval_split="val",
         illegal_transition_weight=illegal_transition_weight,
+        postprocess_parameters=postprocess_parameters,
         tfidf_max_features=best_tfidf_max_features,
         c1=best_c1,
         c2=best_c2,
@@ -1802,6 +2041,7 @@ def tune_hyperparameters(
             best_experiment["overwritten_transitions"],
         ),
         label_violations=label_violations,
+        postprocess_parameters=postprocess_parameters,
     )
     _log(f"[crf] saved artifact to {model_path}")
     print(report_text)
@@ -1817,6 +2057,13 @@ def tune_hyperparameters(
 
 def main() -> None:
     args = parse_args()
+    postprocess_parameters = build_postprocess_parameters(
+        early_back_relative_page_max=args.postprocess_early_back_relative_page_max,
+        back_window_size=args.postprocess_back_window_size,
+        body_like_min_ratio=args.postprocess_body_like_min_ratio,
+        annex_entry_max_ratio=args.postprocess_annex_entry_max_ratio,
+        late_back_trigger_relative_page=args.postprocess_late_back_trigger_relative_page,
+    )
     resolved_model_path = _resolve_run_output_path(
         args.model_path,
         default_path=DEFAULT_MODEL_PATH,
@@ -1854,6 +2101,7 @@ def main() -> None:
             eval_split=args.eval_split,
             use_best_optuna_params=args.use_best_optuna_params,
             illegal_transition_weight=args.illegal_transition_weight,
+            postprocess_parameters=postprocess_parameters,
         )
     else:
         _ = tune_hyperparameters(
@@ -1869,6 +2117,7 @@ def main() -> None:
             split_seed=args.split_seed,
             illegal_transition_weight=args.illegal_transition_weight,
             optuna_trials=args.optuna_trials,
+            postprocess_parameters=postprocess_parameters,
         )
 
 

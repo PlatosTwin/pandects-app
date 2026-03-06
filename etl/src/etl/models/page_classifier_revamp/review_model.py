@@ -35,6 +35,7 @@ from .crf_pipeline import (
     fit_tfidf_vectorizer,
     load_or_create_split_manifest,
     load_page_dataframe,
+    postprocess_prediction_sequences,
     split_dataframe_from_manifest,
 )
 from .inference import (
@@ -378,10 +379,16 @@ def _train_and_predict_crf(
     _log(f"{prefix}[review] predicting eval fold")
     predicted_raw = crf_model.predict(x_eval)
     marginals_raw = crf_model.predict_marginals(x_eval)
-    predicted_labels = [
-        [str(label) for label in sequence]
-        for sequence in predicted_raw
-    ]
+    predicted_raw_labels = [[str(label) for label in sequence] for sequence in predicted_raw]
+    predicted_labels, modified_agreement_count, modified_page_count = postprocess_prediction_sequences(
+        predicted_raw_labels,
+        x_eval,
+    )
+    if modified_page_count > 0:
+        _log(
+            f"{prefix}[review] postprocess adjusted {modified_page_count} pages across "
+            + f"{modified_agreement_count} agreements"
+        )
     marginal_rows = [
         [{str(label): float(cast(float, prob)) for label, prob in row.items()} for row in sequence]
         for sequence in marginals_raw
