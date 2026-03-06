@@ -63,6 +63,30 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertIsInstance(params["metadata_sources"], str)
         self.assertNotIn("deal_type", params)
 
+    def test_build_update_params_web_search_only_totals_all_cash_when_other_components_null(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 562_500_000.0, "stock": None, "assets": None}
+        payload["consideration_type"] = "all_cash"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+        )
+
+        self.assertEqual(params["price_total"], 562_500_000.0)
+
+    def test_build_update_params_web_search_only_keeps_total_null_when_mixed_is_incomplete(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 10.0, "stock": None, "assets": 5.0}
+        payload["consideration_type"] = "mixed"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+        )
+
+        self.assertIsNone(params["price_total"])
+
 
 if __name__ == "__main__":
     _ = unittest.main()

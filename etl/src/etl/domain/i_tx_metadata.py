@@ -420,15 +420,37 @@ def build_tx_metadata_update_params(
     price_stock = _to_float_or_none(price.get("stock"))
     price_assets = _to_float_or_none(price.get("assets"))
     price_total = None
-    components = (price_cash, price_stock, price_assets)
-    if all(v is None for v in components):
-        price_total = None
-    elif any(v is None for v in components):
-        # Avoid misleading totals when any component is unknown.
+    raw_components = {
+        "cash": price_cash,
+        "stock": price_stock,
+        "assets": price_assets,
+    }
+    if all(v is None for v in raw_components.values()):
         price_total = None
     else:
-        assert price_cash is not None and price_stock is not None and price_assets is not None
-        price_total = price_cash + price_stock + price_assets
+        if consideration == "cash":
+            applicable_components = {"cash"}
+        elif consideration == "stock":
+            applicable_components = {"stock"}
+        else:
+            applicable_components = {"cash", "stock", "assets"}
+
+        total_components_for_sum: list[float] = []
+        has_unknown_applicable_component = False
+        for component, value in raw_components.items():
+            if value is None:
+                if component in applicable_components:
+                    has_unknown_applicable_component = True
+                    break
+                total_components_for_sum.append(0.0)
+            else:
+                total_components_for_sum.append(value)
+
+        if has_unknown_applicable_component:
+            # Keep total unknown when any applicable component is unknown.
+            price_total = None
+        else:
+            price_total = float(sum(total_components_for_sum))
 
     target_type = map_public_flag_to_type(tx_metadata_obj.get("target_public"))
     acquirer_type = map_public_flag_to_type(tx_metadata_obj.get("acquirer_public"))
