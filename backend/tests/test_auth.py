@@ -230,6 +230,7 @@ class AuthFlowTests(unittest.TestCase):
         original_send = backend_app._send_email_verification_email
 
         def _fail_send(*, to_email: str, token: str) -> None:
+            _ = (to_email, token)
             raise ServiceUnavailable(description="Email delivery failed.")
 
         backend_app._send_email_verification_email = _fail_send
@@ -287,6 +288,7 @@ class AuthFlowTests(unittest.TestCase):
         original_send = backend_app._send_email_verification_email
 
         def _fail_send(*, to_email: str, token: str) -> None:
+            _ = (to_email, token)
             raise ServiceUnavailable(description="Email delivery failed.")
 
         backend_app._send_email_verification_email = _fail_send
@@ -572,6 +574,7 @@ class AuthFlowTests(unittest.TestCase):
         original_send = backend_app._send_email_verification_email
 
         def _fail_send(*, to_email: str, token: str) -> None:
+            _ = (to_email, token)
             raise ServiceUnavailable(description="Email delivery failed.")
 
         backend_app._send_email_verification_email = _fail_send
@@ -597,6 +600,7 @@ class AuthFlowTests(unittest.TestCase):
         original_send = backend_app._send_password_reset_email
 
         def _fail_send(*, to_email: str, token: str) -> None:
+            _ = (to_email, token)
             raise ServiceUnavailable(description="Email delivery failed.")
 
         backend_app._send_password_reset_email = _fail_send

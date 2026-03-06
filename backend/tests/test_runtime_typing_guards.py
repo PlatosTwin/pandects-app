@@ -33,6 +33,45 @@ class RuntimeTypingGuardTests(unittest.TestCase):
             "Remove broad file-level pyright suppressions:\n" + "\n".join(failures),
         )
 
+    def test_route_deps_avoid_broad_callable_any_contracts(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        deps_path = root / "backend/routes/deps.py"
+        allowed_callable_any_fields = {
+            "_agreement_year_expr",
+            "_coalesced_section_standard_ids",
+        }
+
+        violations: list[str] = []
+        for line_no, line in enumerate(deps_path.read_text().splitlines(), start=1):
+            if "Callable[..., Any]" not in line:
+                continue
+            if not any(field in line for field in allowed_callable_any_fields):
+                violations.append(f"backend/routes/deps.py:{line_no}: {line.strip()}")
+
+        self.assertFalse(
+            violations,
+            "Use explicit callable return types in deps contracts:\n" + "\n".join(violations),
+        )
+
+    def test_auth_runtime_stays_facade_sized(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        runtime_path = root / "backend/auth/runtime.py"
+        lines = runtime_path.read_text().splitlines()
+        self.assertLessEqual(
+            len(lines),
+            250,
+            "backend/auth/runtime.py should remain a small facade file.",
+        )
+        runtime_defs = [
+            idx
+            for idx, line in enumerate(lines, start=1)
+            if line.startswith("def ") or line.startswith("class ")
+        ]
+        self.assertFalse(
+            runtime_defs,
+            "backend/auth/runtime.py should not define runtime logic directly.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

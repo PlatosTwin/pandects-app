@@ -10,7 +10,12 @@
   - `config.py` for app/bootstrap config composition
   - `errors.py` for API error response wiring
   - `hooks.py` for request hook wiring and header policy
-- `backend/auth/runtime.py` owns shared auth helper utilities (email normalization, OAuth URL/path helpers).
+- `backend/auth/runtime.py` is a compatibility facade only.
+- Auth runtime logic is split by domain:
+  - `backend/auth/session_runtime.py` for session transport, cookies, auth DB/mock store, session tokens, request identity helpers
+  - `backend/auth/email_runtime.py` for email normalization, verification/reset token lifecycle, and Resend delivery helpers
+  - `backend/auth/google_runtime.py` for Google OAuth + Turnstile helpers and callback redirect shaping
+  - `backend/auth/legal_runtime.py` for legal acceptance validation/persistence and sign-on event logging
 
 ## Route Dependency Injection
 - Route registration is explicit and typed through `backend/routes/deps.py`.
@@ -20,6 +25,8 @@
   - `ReferenceDataDeps`
   - `AuthDeps`
 - Routes consume these dependency objects rather than dynamic module lookups.
+- `AccessContextProtocol` is the shared typed access-context contract for runtime route/service calls.
+- Keep dependency typing strict for helper call signatures; keep reflected SQLAlchemy model handles pragmatic where strict typing would add fragile casts.
 
 ## Runtime Contracts
 - Public API behavior is unchanged:
@@ -36,6 +43,9 @@
 - `backend/tests/test_route_contracts.py` checks route and operationId stability.
 - `backend/tests/test_auth_dependencies.py` checks auth dependency wiring.
 - `backend/tests/test_runtime_typing_guards.py` blocks broad file-level pyright suppressions in runtime files.
+- `backend/tests/test_runtime_typing_guards.py` also guards:
+  - narrow `Callable[..., Any]` usage in `backend/routes/deps.py` (allowed only where SQLAlchemy expression typing is still dynamic)
+  - `backend/auth/runtime.py` staying facade-sized with no runtime logic definitions
 
 ## Where New Code Should Live
 - New endpoint logic: `backend/routes/*` + `backend/services/*`.

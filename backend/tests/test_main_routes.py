@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from sqlalchemy import text
@@ -194,7 +194,7 @@ class MainRoutesTests(unittest.TestCase):
             user.id = "00000000-0000-0000-0000-0000000000a1"
             user.email = "bulk-api@example.com"
             user.password_hash = "not-used"
-            user.email_verified_at = datetime.utcnow()
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
             self.app_module.db.session.add(user)
             self.app_module.db.session.commit()
             _, api_key = self.app_module._create_api_key(user_id=user.id, name="bulk")
