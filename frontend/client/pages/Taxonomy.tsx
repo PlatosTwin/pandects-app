@@ -511,8 +511,11 @@ export default function Taxonomy() {
                             {entry.label}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground/70">
-                              {entry.id}
+                            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                              <span className="font-mono text-[11px] text-muted-foreground/70">
+                                {entry.id}
+                              </span>
+                              {renderCopyControl(entry.id, "Copy level 1 ID")}
                             </span>
                             <span>{entry.l2Count} groups</span>
                             <span>{entry.l3Count} types</span>
@@ -530,12 +533,6 @@ export default function Taxonomy() {
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                       <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                        <div className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
-                          <span className="font-mono text-xs text-muted-foreground/70">
-                            {entry.id}
-                          </span>
-                          {renderCopyControl(entry.id, "Copy level 1 ID")}
-                        </div>
                         <Accordion
                           type="multiple"
                           value={openLevel2ByParent[entry.id] ?? []}
@@ -567,11 +564,6 @@ export default function Taxonomy() {
                                     <div className="text-sm font-semibold text-foreground">
                                       {child.label}
                                     </div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                      <span className="inline-flex items-center font-mono text-xs text-muted-foreground/70">
-                                        {child.id}
-                                      </span>
-                                    </div>
                                   </div>
                                   <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
                                     {child.children.length} Types
@@ -579,11 +571,13 @@ export default function Taxonomy() {
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                <div className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
-                                  <span className="font-mono text-xs text-muted-foreground/70">
-                                    {child.id}
+                                <div className="mb-3">
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                                    <span className="font-mono text-[11px] text-muted-foreground/70">
+                                      {child.id}
+                                    </span>
+                                    {renderCopyControl(child.id, "Copy level 2 ID")}
                                   </span>
-                                  {renderCopyControl(child.id, "Copy level 2 ID")}
                                 </div>
                                 <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                   {child.children.map((leaf) => (
