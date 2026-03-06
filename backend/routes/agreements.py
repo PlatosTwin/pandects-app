@@ -55,7 +55,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 abort(400, description="The standard_id filter is not supported on /v1/agreements.")
 
             include_xml = parsed_args["include_xml"]
-            if include_xml and not getattr(ctx, "is_authenticated"):
+            if include_xml and not ctx.is_authenticated:
                 abort(403, description="Authentication required when include_xml=true.")
 
             page_size = parsed_args["page_size"]
@@ -264,9 +264,9 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             return {
                 "results": results,
                 "access": {
-                    "tier": getattr(ctx, "tier"),
+                    "tier": ctx.tier,
                     "message": None
-                    if getattr(ctx, "is_authenticated")
+                    if ctx.is_authenticated
                     else "XML access requires authentication. Use include_xml=true with a signed-in user or API key.",
                 },
                 "page_size": page_size,
@@ -364,7 +364,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "acquirer_pe": row_map.get("acquirer_pe"),
                 "url": row_map.get("url"),
             }
-            if not getattr(ctx, "is_authenticated"):
+            if not ctx.is_authenticated:
                 redacted_xml = deps._redact_agreement_xml(
                     xml_content,
                     focus_section_uuid=focus_section_uuid,
@@ -446,7 +446,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         if page < 1:
             page = 1
 
-        max_page_size = 100 if getattr(ctx, "is_authenticated") else 10
+        max_page_size = 100 if ctx.is_authenticated else 10
         if page_size < 1 or page_size > max_page_size:
             page_size = min(25, max_page_size)
 

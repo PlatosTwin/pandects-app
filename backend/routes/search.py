@@ -31,7 +31,7 @@ def register_search_routes(*, deps: SearchDeps) -> Blueprint:
         @search_blp.arguments(SearchArgsSchema, location="query")
         @search_blp.response(200, SearchResponseSchema)
         def get(self, args: dict[str, object]) -> dict[str, object]:
-            ctx = cast(object, deps._current_access_context())
+            ctx = deps._current_access_context()
             parsed_args = cast(SearchArgsPayload, cast(object, args))
             return run_search(deps.search_service_deps, ctx=ctx, parsed_args=parsed_args)
 

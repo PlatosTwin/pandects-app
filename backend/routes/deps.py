@@ -1,8 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Callable
-from typing import Any
+from dataclasses import dataclass
+from datetime import date, datetime
+from re import Pattern
+from typing import Any, Protocol
+
+from flask import Response
+from marshmallow import Schema
+from werkzeug.wrappers.response import Response as WerkzeugResponse
+
+
+class AccessContextProtocol(Protocol):
+    tier: str
+    user_id: str | None
+    api_key_id: str | None
+
+    @property
+    def is_authenticated(self) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -12,20 +27,20 @@ class SearchServiceDeps:
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
     _to_int: Callable[..., int]
-    _estimated_query_row_count: Callable[..., Any]
-    _estimated_latest_sections_search_table_rows: Callable[..., Any]
+    _estimated_query_row_count: Callable[[object], int | None]
+    _estimated_latest_sections_search_table_rows: Callable[[], int | None]
     _row_mapping_as_dict: Callable[..., dict[str, object]]
     _pagination_metadata: Callable[..., dict[str, object]]
     _dedupe_preserve_order: Callable[..., list[str]]
     _expand_taxonomy_standard_ids_cached: Callable[..., tuple[str, ...]]
-    _standard_id_filter_expr: Callable[..., Any]
+    _standard_id_filter_expr: Callable[[list[str]], object]
     _parse_section_standard_ids: Callable[..., list[str]]
     _year_from_filing_date_value: Callable[..., int | None]
 
 
 @dataclass(frozen=True)
 class SearchDeps:
-    _current_access_context: Callable[..., Any]
+    _current_access_context: Callable[[], AccessContextProtocol]
     search_service_deps: SearchServiceDeps
 
 
@@ -36,13 +51,13 @@ class AgreementsDeps:
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int
     _FILTER_OPTIONS_TTL_SECONDS: int
-    _SECTION_ID_RE: Any
-    _agreement_latest_xml_join_condition: Callable[..., Any]
+    _SECTION_ID_RE: Pattern[str]
+    _agreement_latest_xml_join_condition: Callable[[], object]
     _agreement_year_expr: Callable[..., Any]
     _agreements_summary_cache: dict[str, Any]
     _agreements_summary_lock: Any
     _coalesced_section_standard_ids: Callable[..., Any]
-    _current_access_context: Callable[..., Any]
+    _current_access_context: Callable[[], AccessContextProtocol]
     _decode_agreements_cursor: Callable[..., str | None]
     _encode_agreements_cursor: Callable[..., str]
     _filter_options_cache: dict[str, Any]
@@ -53,7 +68,7 @@ class AgreementsDeps:
     _redact_agreement_xml: Callable[..., str]
     _row_mapping_as_dict: Callable[..., dict[str, object]]
     _schema_prefix: Callable[..., str]
-    _section_latest_xml_join_condition: Callable[..., Any]
+    _section_latest_xml_join_condition: Callable[[], object]
     _to_int: Callable[..., int]
     db: Any
     time: Any
@@ -89,21 +104,21 @@ class ReferenceDataDeps:
 class AuthDeps:
     ApiKey: Any
     ApiUsageDaily: Any
-    AuthApiKeySchema: type[Any]
-    AuthDeleteAccountSchema: type[Any]
-    AuthEmailSchema: type[Any]
-    AuthFlagInaccurateSchema: type[Any]
-    AuthGoogleCredentialSchema: type[Any]
-    AuthLoginSchema: type[Any]
-    AuthPasswordResetSchema: type[Any]
-    AuthRegisterSchema: type[Any]
+    AuthApiKeySchema: type[Schema]
+    AuthDeleteAccountSchema: type[Schema]
+    AuthEmailSchema: type[Schema]
+    AuthFlagInaccurateSchema: type[Schema]
+    AuthGoogleCredentialSchema: type[Schema]
+    AuthLoginSchema: type[Schema]
+    AuthPasswordResetSchema: type[Schema]
+    AuthRegisterSchema: type[Schema]
     AuthSession: Any
-    AuthTokenSchema: type[Any]
+    AuthTokenSchema: type[Schema]
     AuthUser: Any
     LegalAcceptance: Any
     _LEGAL_DOCS: dict[str, dict[str, str]]
     _SESSION_COOKIE_NAME: str
-    _UUID_RE: Any
+    _UUID_RE: Pattern[str]
     _auth_db_is_configured: Callable[..., bool]
     _auth_enumeration_delay: Callable[..., None]
     _auth_is_mocked: Callable[..., bool]
@@ -115,7 +130,7 @@ class AuthDeps:
     _csrf_cookie_value: Callable[..., str | None]
     _ensure_current_legal_acceptances: Callable[..., None]
     _frontend_base_url: Callable[..., str]
-    _frontend_google_callback_redirect: Callable[..., Any]
+    _frontend_google_callback_redirect: Callable[..., WerkzeugResponse]
     _google_fetch_json: Callable[..., dict[str, object]]
     _google_nonce_cookie_value: Callable[..., str | None]
     _google_oauth_client_id: Callable[..., str]
@@ -131,8 +146,8 @@ class AuthDeps:
     _issue_session_token: Callable[..., str]
     _load_email_verification_token: Callable[..., tuple[str, str] | None]
     _load_google_oauth_cookie: Callable[..., dict[str, str] | None]
-    _load_json: Callable[..., dict[str, object]]
-    _load_password_reset_token: Callable[..., Any]
+    _load_json: Callable[[Schema], dict[str, object]]
+    _load_password_reset_token: Callable[[str], tuple[str, str, Any | None] | None]
     _mock_auth: Any
     _normalize_email: Callable[..., str]
     _record_signon_event: Callable[..., None]
@@ -140,8 +155,8 @@ class AuthDeps:
     _request_user_agent: Callable[..., str | None]
     _require_auth_db: Callable[..., None]
     _require_captcha_token: Callable[..., str]
-    _require_legal_acceptance: Callable[..., Any]
-    _require_verified_user: Callable[..., tuple[Any, Any]]
+    _require_legal_acceptance: Callable[[dict[str, object]], datetime]
+    _require_verified_user: Callable[[], tuple[Any, AccessContextProtocol]]
     _revoke_session_token: Callable[..., None]
     _safe_next_path: Callable[..., str | None]
     _send_email_verification_email: Callable[..., None]
@@ -152,15 +167,15 @@ class AuthDeps:
     _set_csrf_cookie: Callable[..., None]
     _set_google_nonce_cookie: Callable[..., None]
     _set_google_oauth_cookie: Callable[..., None]
-    _status_response: Callable[..., Any]
+    _status_response: Callable[..., Response]
     _turnstile_enabled: Callable[..., bool]
     _turnstile_site_key: Callable[..., str]
     _user_has_current_legal_acceptances: Callable[..., bool]
-    _utc_now: Callable[..., Any]
-    _utc_today: Callable[..., Any]
+    _utc_now: Callable[[], datetime]
+    _utc_today: Callable[[], date]
     _verify_turnstile_token: Callable[..., None]
     check_password_hash: Callable[..., bool]
     db: Any
     generate_password_hash: Callable[..., str]
-    text: Callable[..., Any]
+    text: Callable[[str], object]
     urlencode: Callable[..., str]

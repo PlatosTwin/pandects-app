@@ -5,7 +5,7 @@ from typing import Protocol, cast
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, and_, or_, asc, desc
 
-from backend.routes.deps import SearchServiceDeps
+from backend.routes.deps import AccessContextProtocol, SearchServiceDeps
 from backend.schemas.search import SearchArgsPayload
 
 
@@ -124,7 +124,7 @@ def search_total_count_metadata(
 def run_search(
     deps: SearchServiceDeps,
     *,
-    ctx: object,
+    ctx: AccessContextProtocol,
     parsed_args: SearchArgsPayload,
 ) -> dict[str, object]:
     db = deps.db
@@ -163,7 +163,7 @@ def run_search(
 
     if page < 1:
         page = 1
-    max_page_size = 100 if getattr(ctx, "is_authenticated") else 10
+    max_page_size = 100 if ctx.is_authenticated else 10
     if page_size < 1 or page_size > max_page_size:
         page_size = min(25, max_page_size)
 
@@ -395,9 +395,9 @@ def run_search(
     return {
         "results": results,
         "access": {
-            "tier": getattr(ctx, "tier"),
+            "tier": ctx.tier,
             "message": None
-            if getattr(ctx, "is_authenticated")
+            if ctx.is_authenticated
             else "Limited mode: sign in to view clause text and unlock full pagination.",
         },
         **meta,
