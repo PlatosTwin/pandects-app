@@ -1015,6 +1015,29 @@ class AuthFlowTests(unittest.TestCase):
         finally:
             backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
 
+    def test_api_key_touch_state_is_bounded_under_high_cardinality_keys(self):
+        old_touch_seconds = backend_app._API_KEY_LAST_USED_TOUCH_SECONDS
+        old_max_keys = backend_app._API_KEY_LAST_USED_MAX_KEYS
+        try:
+            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = 300
+            backend_app._API_KEY_LAST_USED_MAX_KEYS = 5
+            backend_app._api_key_last_used_touch_state.clear()
+
+            for idx in range(40):
+                with patch("backend.app.time.time", return_value=2000.0 + idx):
+                    should_touch = backend_app._should_touch_api_key_last_used(f"key-{idx}")
+                self.assertTrue(should_touch)
+
+            # Pruning runs before insertion, so transient max+1 is expected.
+            self.assertLessEqual(len(backend_app._api_key_last_used_touch_state), 6)
+            retained_keys = set(backend_app._api_key_last_used_touch_state.keys())
+            self.assertIn("key-39", retained_keys)
+            self.assertNotIn("key-0", retained_keys)
+        finally:
+            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
+            backend_app._API_KEY_LAST_USED_MAX_KEYS = old_max_keys
+            backend_app._api_key_last_used_touch_state.clear()
+
     def test_usage_endpoint_supports_period_and_api_key_filters(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

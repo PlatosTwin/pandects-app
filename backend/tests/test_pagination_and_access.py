@@ -103,6 +103,36 @@ class PaginationAndAccessTests(unittest.TestCase):
             backend_app._rate_limit_state.clear()
             backend_app._endpoint_rate_limit_state.clear()
 
+    def test_endpoint_rate_limit_state_is_bounded_under_high_cardinality_auth_requests(self):
+        old_max = backend_app._RATE_LIMIT_MAX_KEYS
+        old_interval = backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS
+        old_last_prune = backend_app._rate_limit_last_prune_at
+        try:
+            backend_app._RATE_LIMIT_MAX_KEYS = 8
+            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
+            backend_app._rate_limit_last_prune_at = 0.0
+            backend_app._rate_limit_state.clear()
+            backend_app._endpoint_rate_limit_state.clear()
+
+            for idx in range(60):
+                with patch("backend.app.time.time", return_value=1000.0 + idx):
+                    with patch("backend.app._request_ip_address", return_value=f"10.0.0.{idx}"):
+                        with self.app.test_request_context("/v1/auth/login", method="POST"):
+                            backend_app._check_endpoint_rate_limit()
+
+            # Pruning runs before insertion, so transient max+1 is expected.
+            self.assertLessEqual(len(backend_app._endpoint_rate_limit_state), 9)
+            self.assertLessEqual(len(backend_app._rate_limit_state), 9)
+            backend_app._prune_rate_limit_state(2000.0)
+            self.assertLessEqual(len(backend_app._endpoint_rate_limit_state), 8)
+            self.assertLessEqual(len(backend_app._rate_limit_state), 8)
+        finally:
+            backend_app._RATE_LIMIT_MAX_KEYS = old_max
+            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
+            backend_app._rate_limit_last_prune_at = old_last_prune
+            backend_app._rate_limit_state.clear()
+            backend_app._endpoint_rate_limit_state.clear()
+
     def test_reflection_toggle_defaults_enabled_and_can_be_disabled(self):
         def _reload_backend_app_safely():
             with warnings.catch_warnings():
