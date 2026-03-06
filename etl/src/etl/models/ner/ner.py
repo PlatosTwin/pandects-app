@@ -1241,16 +1241,19 @@ class NERInference:
         for lid, (s, e) in zip(preds, offsets):
             if e == 0 or s >= e:
                 continue
-            if pos < s:
-                res.append(text[pos:s])
-                pos = s
             tok_ent = ent(lid)
             if tok_ent != cur_ent:
                 if cur_ent != "O":
                     res.append(f"</{cur_ent}>")
+                if pos < s:
+                    res.append(text[pos:s])
+                    pos = s
                 if tok_ent != "O":
                     res.append(f"<{tok_ent}>")
                 cur_ent = tok_ent
+            elif pos < s:
+                res.append(text[pos:s])
+                pos = s
             res.append(text[s:e])
             pos = e
 
