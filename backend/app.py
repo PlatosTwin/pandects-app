@@ -479,7 +479,7 @@ def _send_flag_notification_email(
     source: str,
     agreement_uuid: str,
     section_uuid: str | None,
-    message: str,
+    message: str | None,
     request_follow_up: bool,
     issue_types: list[str],
 ) -> None:
