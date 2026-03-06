@@ -17,6 +17,25 @@
   - `backend/auth/google_runtime.py` for Google OAuth + Turnstile helpers and callback redirect shaping
   - `backend/auth/legal_runtime.py` for legal acceptance validation/persistence and sign-on event logging
 
+## Runtime Flow
+```mermaid
+flowchart LR
+    A["backend/app.py (composition)"] --> B["Route deps"]
+    B --> C["backend/routes/*"]
+    C --> D["backend/services/*"]
+    D --> E["backend/models/*"]
+```
+
+## Auth Flow
+```mermaid
+flowchart LR
+    R["backend/routes/auth.py"] --> F["backend/auth/runtime.py (facade)"]
+    F --> S["session_runtime"]
+    F --> E["email_runtime"]
+    F --> G["google_runtime"]
+    F --> L["legal_runtime"]
+```
+
 ## Route Dependency Injection
 - Route registration is explicit and typed through `backend/routes/deps.py`.
 - `backend.app._build_route_deps()` constructs:
