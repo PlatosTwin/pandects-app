@@ -1,6 +1,6 @@
 import { apiUrl } from "@/lib/api-config";
 import { authFetchJson } from "@/lib/auth-fetch";
-import type { ApiKeySummary, AuthUser, UsageByDay } from "@/lib/auth-types";
+import type { ApiKeySummary, AuthUser, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 
 export type LegalAcceptancePayload = {
   checked_at_ms: number;
@@ -74,9 +74,13 @@ export async function revokeApiKey(id: string) {
   });
 }
 
-export async function fetchUsage() {
+export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: string }) {
+  const query = new URLSearchParams();
+  if (params?.period) query.set("period", params.period);
+  if (params?.apiKeyId) query.set("api_key_id", params.apiKeyId);
+  const suffix = query.toString();
   return authFetchJson<{ by_day: UsageByDay[]; total: number }>(
-    apiUrl("v1/auth/usage"),
+    apiUrl(`v1/auth/usage${suffix ? `?${suffix}` : ""}`),
   );
 }
 

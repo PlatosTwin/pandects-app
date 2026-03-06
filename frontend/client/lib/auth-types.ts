@@ -18,3 +18,4 @@ export interface UsageByDay {
   count: number;
 }
 
+export type UsagePeriod = "1w" | "1m" | "1y" | "all";

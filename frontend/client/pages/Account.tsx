@@ -10,6 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -30,7 +33,7 @@ import {
   resendVerificationEmail,
   revokeApiKey,
 } from "@/lib/auth-api";
-import type { ApiKeySummary, UsageByDay } from "@/lib/auth-types";
+import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 import { loadGoogleIdentityServices } from "@/lib/google-identity";
 import { setSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
@@ -38,12 +41,77 @@ import { authSessionTransport } from "@/lib/auth-transport";
 import { AuthApiError } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
 import brandLinks from "@branding/links.json";
+
+type UsageChartPoint = {
+  day: string;
+  count: number;
+  cumulative: number;
+};
+
+const USAGE_RANGE_WINDOW_DAYS: Record<Exclude<UsagePeriod, "all">, number> = {
+  "1w": 7,
+  "1m": 30,
+  "1y": 365,
+};
+
+const USAGE_RANGE_LABELS: Record<UsagePeriod, string> = {
+  "1w": "1 week",
+  "1m": "1 month",
+  "1y": "1 year",
+  all: "all time",
+};
+
+const usageDayTickFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+const usageDayTickWithYearFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "2-digit",
+  timeZone: "UTC",
+});
+
+const usageDayTooltipFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const USAGE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseIsoDayToUtcMs(isoDay: string): number {
+  const [year, month, day] = isoDay.split("-").map((part) => Number(part));
+  return Date.UTC(year, month - 1, day);
+}
+
+function formatUsageDay(isoDay: string, includeYear: boolean): string {
+  const date = new Date(`${isoDay}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return isoDay;
+  return includeYear
+    ? usageDayTickWithYearFormatter.format(date)
+    : usageDayTickFormatter.format(date);
+}
+
+function formatUsageTooltipDay(isoDay: string): string {
+  const date = new Date(`${isoDay}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return isoDay;
+  return usageDayTooltipFormatter.format(date);
+}
+
+function utcDayToIso(utcMs: number): string {
+  return new Date(utcMs).toISOString().slice(0, 10);
+}
 
 export default function Account() {
   const { status, user, login, register, logout, refresh } = useAuth();
@@ -96,6 +164,12 @@ export default function Account() {
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [usageByDay, setUsageByDay] = useState<UsageByDay[]>([]);
   const [usageTotal, setUsageTotal] = useState(0);
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("1m");
+  const [usageKeyFilter, setUsageKeyFilter] = useState("all");
+  const [usageLoading, setUsageLoading] = useState(false);
+  const usagePeriodRef = useRef<UsagePeriod>("1m");
+  const usageKeyFilterRef = useRef("all");
+  const usageRequestRunRef = useRef(0);
   const [accountDataLoading, setAccountDataLoading] = useState(false);
   const [accountDataLoaded, setAccountDataLoaded] = useState(false);
   const [accountDataError, setAccountDataError] = useState<string | null>(null);
@@ -178,13 +252,53 @@ export default function Account() {
     await poll();
   }, [pingAuthBackend]);
 
+  const fetchUsageForSelection = useCallback(
+    (period: UsagePeriod, keyId: string) =>
+      fetchUsage({
+        period,
+        apiKeyId: keyId === "all" ? undefined : keyId,
+      }),
+    [],
+  );
+
+  const loadUsageData = useCallback(
+    async (
+      { period, keyId, silent = false }: { period: UsagePeriod; keyId: string; silent?: boolean },
+    ) => {
+      const runId = ++usageRequestRunRef.current;
+      if (!silent) setUsageLoading(true);
+      try {
+        const usage = await fetchUsageForSelection(period, keyId);
+        if (usageRequestRunRef.current !== runId) return;
+        setUsageByDay(usage.by_day);
+        setUsageTotal(usage.total);
+      } finally {
+        if (!silent && usageRequestRunRef.current === runId) {
+          setUsageLoading(false);
+        }
+      }
+    },
+    [fetchUsageForSelection],
+  );
+
   const loadAccountData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setAccountDataLoading(true);
     try {
-      const [keys, usage] = await Promise.all([listApiKeys(), fetchUsage()]);
+      const keys = await listApiKeys();
       setApiKeys(keys.keys);
-      setUsageByDay(usage.by_day);
-      setUsageTotal(usage.total);
+      const selectedKeyExists =
+        usageKeyFilterRef.current === "all"
+          || keys.keys.some((key) => key.id === usageKeyFilterRef.current);
+      const usageKey = selectedKeyExists ? usageKeyFilterRef.current : "all";
+      if (usageKey !== usageKeyFilterRef.current) {
+        usageKeyFilterRef.current = usageKey;
+        setUsageKeyFilter(usageKey);
+      }
+      await loadUsageData({
+        period: usagePeriodRef.current,
+        keyId: usageKey,
+        silent: true,
+      });
       setAccountDataLoaded(true);
       setAccountDataError(null);
     } catch (err) {
@@ -193,13 +307,26 @@ export default function Account() {
     } finally {
       if (!silent) setAccountDataLoading(false);
     }
-  }, []);
+  }, [loadUsageData]);
+
+  useEffect(() => {
+    usagePeriodRef.current = usagePeriod;
+  }, [usagePeriod]);
+
+  useEffect(() => {
+    usageKeyFilterRef.current = usageKeyFilter;
+  }, [usageKeyFilter]);
 
   useEffect(() => {
     if (!user) {
       setApiKeys([]);
       setUsageByDay([]);
       setUsageTotal(0);
+      setUsagePeriod("1m");
+      setUsageKeyFilter("all");
+      usagePeriodRef.current = "1m";
+      usageKeyFilterRef.current = "all";
+      setUsageLoading(false);
       setAccountDataLoaded(false);
       setAccountDataLoading(false);
       setAccountDataError(null);
@@ -274,6 +401,52 @@ export default function Account() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
+  const usageKeyOptions = useMemo(() => {
+    return [
+      { id: "all", label: "All keys" },
+      ...apiKeys.map((key) => {
+        const keyName = key.name?.trim() ? key.name.trim() : "Untitled key";
+        return {
+          id: key.id,
+          label: key.revoked_at ? `${keyName} (${key.prefix}) [revoked]` : `${keyName} (${key.prefix})`,
+        };
+      }),
+    ];
+  }, [apiKeys]);
+  const usageChartData = useMemo<UsageChartPoint[]>(() => {
+    const byDayMap = new Map(usageByDay.map((row) => [row.day, Math.max(0, Number(row.count))]));
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayMs = parseIsoDayToUtcMs(todayIso);
+
+    const sortedDays = [...new Set(usageByDay.map((row) => row.day))].sort();
+    if (usagePeriod === "all" && sortedDays.length === 0) return [];
+
+    let startMs = todayMs;
+    let endMs = todayMs;
+    if (usagePeriod === "all") {
+      startMs = parseIsoDayToUtcMs(sortedDays[0]);
+      endMs = parseIsoDayToUtcMs(sortedDays[sortedDays.length - 1]);
+    } else {
+      startMs = todayMs - (USAGE_RANGE_WINDOW_DAYS[usagePeriod] - 1) * USAGE_DAY_MS;
+    }
+
+    if (endMs < startMs) return [];
+
+    const points: UsageChartPoint[] = [];
+    let cumulative = 0;
+    for (let dayMs = startMs; dayMs <= endMs; dayMs += USAGE_DAY_MS) {
+      const day = utcDayToIso(dayMs);
+      const count = byDayMap.get(day) ?? 0;
+      cumulative += count;
+      points.push({ day, count, cumulative });
+    }
+    return points;
+  }, [usageByDay, usagePeriod]);
+  const usageXAxisIncludesYear = usagePeriod === "1y" || usagePeriod === "all";
+  const selectedUsageKeyLabel = useMemo(
+    () => usageKeyOptions.find((option) => option.id === usageKeyFilter)?.label ?? "All keys",
+    [usageKeyFilter, usageKeyOptions],
+  );
 
   useEffect(() => {
     if (user) return;
@@ -1092,10 +1265,7 @@ export default function Account() {
                 <h2 className="text-xl font-semibold">API keys</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Use `X-API-Key` for API access. Keep keys secret — you can view
-                  a newly created key only once.
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Full API examples and reference are on the{" "}
+                  a newly created key only once. Full API examples and reference are on the{" "}
                   <a
                     href={docsUrl}
                     target="_blank"
@@ -1361,31 +1531,169 @@ export default function Account() {
           </Card>
 
           <Card className="p-6 border-t border-border/60 pt-6 mt-6">
-            <h2 className="text-xl font-semibold">Usage (last 30 days)</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Total: {usageTotal.toLocaleString()} API requests.
-            </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Usage</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Total in selected {USAGE_RANGE_LABELS[usagePeriod]} period:{" "}
+                  {usageTotal.toLocaleString()} API requests.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Showing: {selectedUsageKeyLabel}
+                </p>
+              </div>
 
-            <div className="mt-4 grid gap-2" role="list">
+              <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,260px)] sm:items-end">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Range
+                  </span>
+                  <ToggleGroup
+                    type="single"
+                    value={usagePeriod}
+                    onValueChange={(value) => {
+                      if (value !== "1w" && value !== "1m" && value !== "1y" && value !== "all") {
+                        return;
+                      }
+                      if (value === usagePeriod) return;
+                      setUsagePeriod(value);
+                      usagePeriodRef.current = value;
+                      void loadUsageData({
+                        period: value,
+                        keyId: usageKeyFilterRef.current,
+                      }).catch((err) => {
+                        toast({ title: "Failed to load usage", description: String(err) });
+                      });
+                    }}
+                    variant="outline"
+                    size="xs"
+                    aria-label="Usage time range"
+                    className="justify-start"
+                  >
+                    <ToggleGroupItem value="1w" disabled={accountDataBootstrapping}>
+                      1W
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="1m" disabled={accountDataBootstrapping}>
+                      1M
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="1y" disabled={accountDataBootstrapping}>
+                      1Y
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="all" disabled={accountDataBootstrapping}>
+                      All
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="usage-key-filter" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    API key
+                  </Label>
+                  <Select
+                    value={usageKeyFilter}
+                    onValueChange={(value) => {
+                      if (value === usageKeyFilter) return;
+                      setUsageKeyFilter(value);
+                      usageKeyFilterRef.current = value;
+                      void loadUsageData({
+                        period: usagePeriodRef.current,
+                        keyId: value,
+                      }).catch((err) => {
+                        toast({ title: "Failed to load usage", description: String(err) });
+                      });
+                    }}
+                  >
+                    <SelectTrigger id="usage-key-filter" className="h-8 w-full" disabled={accountDataBootstrapping}>
+                      <SelectValue placeholder="All keys" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {usageKeyOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
               {accountDataBootstrapping ? (
                 <div className="text-sm text-muted-foreground">Loading usage…</div>
-              ) : usageByDay.length === 0 ? (
+              ) : usageChartData.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No usage yet.</div>
               ) : (
-                usageByDay.map((row) => (
-                  <div
-                    key={row.day}
-                    role="listitem"
-                    className="flex flex-col gap-1 rounded-md border border-border/60 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                <>
+                  <ChartContainer
+                    className="h-[260px] w-full min-w-0 aspect-auto sm:h-[300px]"
+                    config={{
+                      requests: {
+                        label: "Requests",
+                        color: "hsl(215 88% 56%)",
+                      },
+                    }}
+                    role="img"
+                    aria-label={`Usage chart for ${USAGE_RANGE_LABELS[usagePeriod]}, filtered to ${selectedUsageKeyLabel}.`}
                   >
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {row.day}
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {row.count.toLocaleString()}
-                    </span>
-                  </div>
-                ))
+                    <LineChart data={usageChartData} margin={{ top: 8, right: 20, left: 8, bottom: 0 }}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="day"
+                        tickFormatter={(value) =>
+                          formatUsageDay(String(value), usageXAxisIncludesYear)
+                        }
+                        minTickGap={24}
+                        tickMargin={8}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tickMargin={8}
+                        width={48}
+                        tickFormatter={(value) => Number(value).toLocaleString()}
+                      />
+                      <ChartTooltip
+                        cursor={{ strokeDasharray: "4 4" }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const point = payload[0]?.payload as UsageChartPoint | undefined;
+                          if (!point) return null;
+                          return (
+                            <div className="min-w-[180px] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+                              <div className="mb-1.5 font-medium text-foreground">
+                                {formatUsageTooltipDay(point.day)}
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">Day total</span>
+                                <span className="font-mono tabular-nums text-foreground">
+                                  {point.count.toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">
+                                  Cumulative ({USAGE_RANGE_LABELS[usagePeriod]})
+                                </span>
+                                <span className="font-mono tabular-nums text-foreground">
+                                  {point.cumulative.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="count"
+                        name="Requests"
+                        stroke="var(--color-requests)"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </>
               )}
             </div>
           </Card>
