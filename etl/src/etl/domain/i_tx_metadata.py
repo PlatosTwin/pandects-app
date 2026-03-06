@@ -15,6 +15,38 @@ DEAL_TYPE_ALLOWED = (
     "membership_interest_purchase",
 )
 
+WEB_SEARCH_CITABLE_FIELDS = (
+    "consideration_type",
+    "purchase_price.cash",
+    "purchase_price.stock",
+    "purchase_price.assets",
+    "target_public",
+    "acquirer_public",
+    "target_pe",
+    "acquirer_pe",
+    "target_industry",
+    "acquirer_industry",
+    "announce_date",
+    "close_date",
+    "deal_status",
+    "attitude",
+    "purpose",
+)
+
+CITABLE_FIELDS_WITH_DEAL_TYPE = WEB_SEARCH_CITABLE_FIELDS + ("deal_type",)
+
+NON_CORE_CITATION_OPTIONAL_FIELDS = (
+    "announce_date",
+    "close_date",
+    "target_pe",
+    "acquirer_pe",
+    "target_industry",
+    "acquirer_industry",
+    "deal_status",
+    "attitude",
+    "purpose",
+)
+
 
 def json_schema_transaction_metadata() -> Dict[str, Any]:
     return {
@@ -92,26 +124,10 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
                                 "url": {"type": "string"},
                                 "fields": {
                                     "type": "array",
+                                    "minItems": 1,
                                     "items": {
                                         "type": "string",
-                                        "enum": [
-                                            "consideration_type",
-                                            "purchase_price.cash",
-                                            "purchase_price.stock",
-                                            "purchase_price.assets",
-                                            "target_public",
-                                            "acquirer_public",
-                                            "target_pe",
-                                            "acquirer_pe",
-                                            "target_industry",
-                                            "acquirer_industry",
-                                            "announce_date",
-                                            "close_date",
-                                            "deal_status",
-                                            "attitude",
-                                            "deal_type",
-                                            "purpose",
-                                        ],
+                                        "enum": list(CITABLE_FIELDS_WITH_DEAL_TYPE),
                                     },
                                 },
                             },
@@ -168,7 +184,8 @@ def json_schema_transaction_metadata_web_search_only() -> Dict[str, Any]:
 TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "You are an expert M&A research analyst. For the provided transaction details, "
     "and using trusted sources only (via the websearch tool), find: "
-    "1) the type of consideration (all stock, all cash, all asset swap, mixed); "
+    "1) consideration_type using EXACTLY one of: 'all_cash', 'all_stock', 'mixed', 'unknown'. "
+    "If any asset/non-cash/non-stock component is present, classify as 'mixed'. "
     "2) the purchase price components (USD), without accounting for any assumed debt, notes, etc. "
     "(i.e., equity value / consideration paid to sellers, not enterprise value). "
     "Return full USD amounts (e.g., $4.18 billion -> 4180000000), not shorthand units; "
@@ -192,9 +209,17 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "For fields where you don't know the answer, use null. "
     "Do a sanity check before completing, and dig deeper if need be—e.g., "
     "if you think total consideration is $19, that is probably wrong, as it's too small; "
-    "if you think the consideration is mixed, at least two consideration type columns should be non-zero; "
+    "if you think consideration_type is mixed, at least one purchase_price component should be non-zero unless price is unknown; "
     "etc. "
+    "Always start from the provided SEC filing URL when available, then expand web search as needed. "
+    "Prefer primary sources in this order: SEC filing pages/documents, company/investor press releases, "
+    "then reputable financial wires; avoid tertiary aggregators when a primary source is available. "
+    "Use no more than 12 web searches for this transaction. "
+    "Stop searching once every non-null output field has citation coverage and no unresolved source conflicts remain. "
+    "Avoid redundant lookups; do not re-run materially identical searches unless needed to resolve a conflict. "
     "For sources, populate `metadata_sources.citations` with URLs and explicitly list which fields each URL supports. "
+    "Every non-null output field must appear in at least one citation's `fields` list. "
+    "When sources conflict, prefer SEC/company-primary sources and explain conflict resolution in notes. "
     "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
 )
 
@@ -214,15 +239,49 @@ def build_tx_metadata_request_body_web_search_only(
 ) -> Dict[str, Any]:
     """Build web-search request body for fields sourced online (deal_type handled offline)."""
     schema = json_schema_transaction_metadata_web_search_only()
-    target: str = agreement.get("target") or ""
-    acquirer: str = agreement.get("acquirer") or ""
+    target_raw = agreement.get("target")
+    acquirer_raw = agreement.get("acquirer")
+    target = target_raw.strip() if isinstance(target_raw, str) else ""
+    acquirer = acquirer_raw.strip() if isinstance(acquirer_raw, str) else ""
+    sec_url_raw = agreement.get("url")
+    if sec_url_raw is None:
+        sec_url = ""
+    elif isinstance(sec_url_raw, str):
+        sec_url = sec_url_raw.strip()
+    else:
+        raise TypeError("agreement.url must be a string or null.")
     filing_date_str = _filing_date_to_str(agreement.get("filing_date"))
+    has_both_names = bool(target) and bool(acquirer)
+    has_url = bool(sec_url)
+
+    if has_both_names:
+        context_lines = [
+            "Known transaction context:",
+            f"- acquirer: {acquirer}",
+            f"- target: {target}",
+            f"- sec_filing_date: {filing_date_str}",
+        ]
+        if has_url:
+            context_lines.append(f"- sec_filing_url: {sec_url}")
+        input_text = "\n".join(context_lines)
+    elif has_url:
+        # If both parties are not available, anchor the run to the filing URL only.
+        input_text = f"Known transaction context:\n- sec_filing_url: {sec_url}"
+    else:
+        # Defensive fallback: keep any available context rather than emitting an empty input.
+        context_lines = ["Known transaction context:"]
+        if acquirer:
+            context_lines.append(f"- acquirer: {acquirer}")
+        if target:
+            context_lines.append(f"- target: {target}")
+        context_lines.append(f"- sec_filing_date: {filing_date_str}")
+        input_text = "\n".join(context_lines)
 
     return {
         "model": model,
         "tools": [{"type": "web_search"}],
         "instructions": TX_METADATA_INSTRUCTIONS_WEB_SEARCH,
-        "input": f"Transaction: {acquirer} acquired {target}, with an SEC filing date of {filing_date_str}.",
+        "input": input_text,
         "text": {
             "format": {
                 "type": "json_schema",
@@ -260,6 +319,37 @@ def parse_tx_metadata_response_text_web_search(raw_text: str) -> Dict[str, Any]:
     if not REQUIRED_KEYS_WEB_SEARCH.issubset(obj.keys()):
         raise ValueError("Missing required keys in response JSON.")
     return obj
+
+
+def _parse_optional_date_like(value: object | None, *, field_name: str) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})$", s)
+        if not m:
+            raise TypeError(f"{field_name} must be a YYYY-MM-DD string/date/datetime or null.")
+        try:
+            return datetime.strptime(m.group(1), "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise TypeError(
+                f"{field_name} must be a valid calendar date in YYYY-MM-DD format."
+            ) from exc
+    raise TypeError(f"{field_name} must be a YYYY-MM-DD string/date/datetime or null.")
+
+
+def _date_years_ago(anchor: date, years: int) -> date:
+    if years < 0:
+        raise ValueError("years must be non-negative.")
+    try:
+        return anchor.replace(year=anchor.year - years)
+    except ValueError:
+        # Handle leap day edge case.
+        return anchor.replace(year=anchor.year - years, month=2, day=28)
 
 
 # --- Offline mode: target, acquirer, deal_type from document only ---
@@ -402,8 +492,15 @@ def map_public_flag_to_type(value: object | None) -> Optional[str]:
 
 
 def build_tx_metadata_update_params(
-    *, agreement_uuid: str, tx_metadata_obj: Dict[str, Any]
+    *,
+    agreement_uuid: str,
+    tx_metadata_obj: Dict[str, Any],
+    filing_date: object | None = None,
+    pending_max_age_years: int = 3,
 ) -> Dict[str, Any]:
+    if pending_max_age_years < 0:
+        raise ValueError("pending_max_age_years must be >= 0.")
+
     consideration = map_consideration_type_to_db(tx_metadata_obj.get("consideration_type"))
     price = tx_metadata_obj.get("purchase_price")
     if not isinstance(price, dict):
@@ -419,6 +516,15 @@ def build_tx_metadata_update_params(
     price_cash = _to_float_or_none(price.get("cash"))
     price_stock = _to_float_or_none(price.get("stock"))
     price_assets = _to_float_or_none(price.get("assets"))
+    if consideration == "cash" and ((price_stock or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
+        raise ValueError(
+            "consideration_type='all_cash' is inconsistent with non-zero stock/assets values."
+        )
+    if consideration == "stock" and ((price_cash or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
+        raise ValueError(
+            "consideration_type='all_stock' is inconsistent with non-zero cash/assets values."
+        )
+
     price_total = None
     raw_components = {
         "cash": price_cash,
@@ -471,6 +577,8 @@ def build_tx_metadata_update_params(
         raise TypeError("metadata_sources.citations must be an array.")
     if notes is not None and not isinstance(notes, str):
         raise TypeError("metadata_sources.notes must be a string or null.")
+    citation_fields_supported = set(CITABLE_FIELDS_WITH_DEAL_TYPE)
+    cited_fields: set[str] = set()
     for c in citations:
         if not isinstance(c, dict):
             raise TypeError("metadata_sources.citations items must be objects.")
@@ -478,10 +586,19 @@ def build_tx_metadata_update_params(
         fields = c.get("fields")
         if not isinstance(url, str) or not url:
             raise TypeError("metadata_sources.citations[].url must be a non-empty string.")
+        if not re.match(r"^https?://", url):
+            raise TypeError("metadata_sources.citations[].url must start with http:// or https://.")
         if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
             raise TypeError("metadata_sources.citations[].fields must be an array of strings.")
-    metadata_sources = json.dumps(sources_obj, ensure_ascii=False, separators=(",", ":"))
-
+        if not fields:
+            raise TypeError("metadata_sources.citations[].fields must not be empty.")
+        invalid_fields = [f for f in fields if f not in citation_fields_supported]
+        if invalid_fields:
+            raise TypeError(
+                "metadata_sources.citations[].fields contains unsupported value(s): "
+                + ", ".join(sorted(set(invalid_fields)))
+            )
+        cited_fields.update(fields)
     def _validate_naics(code: object | None, *, field_name: str) -> Optional[str]:
         if code is None:
             return None
@@ -508,6 +625,10 @@ def build_tx_metadata_update_params(
         m = re.match(r"^(\d{4}-\d{2}-\d{2})$", s)
         if not m:
             raise TypeError(f"{field_name} must be a YYYY-MM-DD string or null.")
+        try:
+            _ = datetime.strptime(m.group(1), "%Y-%m-%d")
+        except ValueError as exc:
+            raise TypeError(f"{field_name} must be a valid calendar date in YYYY-MM-DD format.") from exc
         return m.group(1)
 
     def _validate_nullable_enum(
@@ -537,6 +658,17 @@ def build_tx_metadata_update_params(
                 field_name="deal_status",
                 allowed=("pending", "complete", "cancelled"),
             )
+    if announce_date is not None and close_date is not None and close_date < announce_date:
+        raise ValueError("close_date cannot be earlier than announce_date.")
+    if deal_status == "complete" and close_date is None:
+        raise ValueError("deal_status='complete' requires a non-null close_date.")
+    if deal_status == "pending" and close_date is not None:
+        raise ValueError("deal_status='pending' requires close_date to be null.")
+    filing_date_obj = _parse_optional_date_like(filing_date, field_name="filing_date")
+    if deal_status == "pending" and filing_date_obj is not None:
+        cutoff = _date_years_ago(date.today(), pending_max_age_years)
+        if filing_date_obj <= cutoff:
+            deal_status = None
 
     attitude = _validate_nullable_enum(
         tx_metadata_obj.get("attitude"),
@@ -553,6 +685,46 @@ def build_tx_metadata_update_params(
         field_name="purpose",
         allowed=("strategic", "financial"),
     )
+
+    required_cited_fields: set[str] = set()
+
+    def _require(field_name: str, value: object | None) -> None:
+        if value is not None:
+            required_cited_fields.add(field_name)
+
+    _require("consideration_type", tx_metadata_obj.get("consideration_type"))
+    _require("purchase_price.cash", price_cash)
+    _require("purchase_price.stock", price_stock)
+    _require("purchase_price.assets", price_assets)
+    _require("target_public", tx_metadata_obj.get("target_public"))
+    _require("acquirer_public", tx_metadata_obj.get("acquirer_public"))
+    _require("target_pe", target_pe)
+    _require("acquirer_pe", acquirer_pe)
+    _require("target_industry", target_industry)
+    _require("acquirer_industry", acquirer_industry)
+    _require("announce_date", announce_date)
+    _require("close_date", close_date)
+    if deal_status is not None:
+        required_cited_fields.add("deal_status")
+    _require("attitude", attitude)
+    _require("deal_type", deal_type)
+    _require("purpose", purpose)
+
+    missing_citations = sorted(required_cited_fields - cited_fields)
+    blocking_missing_citations = sorted(
+        field_name for field_name in missing_citations if field_name not in NON_CORE_CITATION_OPTIONAL_FIELDS
+    )
+    if blocking_missing_citations:
+        raise ValueError(
+            "metadata_sources.citations must cover every non-null output field. Missing: "
+            + ", ".join(blocking_missing_citations)
+        )
+    uncited_non_core_fields = sorted(
+        field_name for field_name in missing_citations if field_name in NON_CORE_CITATION_OPTIONAL_FIELDS
+    )
+    metadata_uncited_fields = json.dumps(uncited_non_core_fields, ensure_ascii=False, separators=(",", ":"))
+
+    metadata_sources = json.dumps(sources_obj, ensure_ascii=False, separators=(",", ":"))
 
     return {
         "consideration": consideration,
@@ -573,16 +745,24 @@ def build_tx_metadata_update_params(
         "deal_type": deal_type,
         "purpose": purpose,
         "metadata_sources": metadata_sources,
+        "metadata_uncited_fields": metadata_uncited_fields,
         "uuid": agreement_uuid,
     }
 
 
 def build_tx_metadata_update_params_web_search_only(
-    *, agreement_uuid: str, tx_metadata_obj: Dict[str, Any]
+    *,
+    agreement_uuid: str,
+    tx_metadata_obj: Dict[str, Any],
+    filing_date: object | None = None,
+    pending_max_age_years: int = 3,
 ) -> Dict[str, Any]:
     """Build UPDATE params for web-search mode: same as full but omit target, acquirer, deal_type."""
     obj_with_deal_type = {**tx_metadata_obj, "deal_type": tx_metadata_obj.get("deal_type", None)}
     params = build_tx_metadata_update_params(
-        agreement_uuid=agreement_uuid, tx_metadata_obj=obj_with_deal_type
+        agreement_uuid=agreement_uuid,
+        tx_metadata_obj=obj_with_deal_type,
+        filing_date=filing_date,
+        pending_max_age_years=pending_max_age_years,
     )
     return {k: v for k, v in params.items() if k not in ("target", "acquirer", "deal_type")}
