@@ -36,6 +36,7 @@ backend/build/
 # Data & Generated Outputs
 ############################
 
+.dagster_home
 *.sqlite
 *.sql
 *.csv
@@ -63,6 +64,8 @@ etl/tests/test_rekey_section_uuids.py
 etl/tests/test_reset_stuck_agreements.py
 etl/src/etl/utils/rekey_section_uuids.py
 etl/src/etl/utils/reset_stuck_agreements.py
+etl/src/etl/utils/preproc_diff_audit.py
+etl/tests/test_preproc_diff_audit.py
 
 
 ############################
