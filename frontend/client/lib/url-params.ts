@@ -1,4 +1,4 @@
-import { SearchFilters } from "@shared/search";
+import { SearchFilters } from "@shared/sections";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
 /**

@@ -4,7 +4,7 @@ servers:
 - url: http://localhost:5113
   description: Local development API
 paths:
-  /v1/search:
+  /v1/sections:
     get:
       parameters:
       - in: query
@@ -344,13 +344,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SearchResponse'
+                $ref: '#/components/schemas/SectionsResponse'
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
-      - search
-      operationId: searchSections
-      summary: Search agreement sections
+      - sections
+      operationId: listSections
+      summary: List agreement sections
       description: Searches sections using structured filters and taxonomy IDs. For
         list filters, repeat query keys (for example `year=2023&year=2024`).
   /v1/agreements:
@@ -589,7 +589,7 @@ paths:
       operationId: listAgreements
       summary: List agreements with keyset pagination
       description: Lists eligible agreements using a base64 cursor. Supports the same
-        agreement-level filters as `/v1/search` except clause-type taxonomy filtering.
+        agreement-level filters as `/v1/sections` except clause-type taxonomy filtering.
   /v1/agreements/{agreement_uuid}:
     get:
       parameters:
@@ -724,12 +724,10 @@ info:
   title: Pandects API
   version: v1
 tags:
-- name: search
-  description: Search merger agreement sections
 - name: agreements
   description: Retrieve full text for a given agreement
 - name: sections
-  description: Retrieve full text for a given section
+  description: List and retrieve merger agreement sections
 - name: taxonomy
   description: Access the Pandects agreement taxonomy
 - name: naics
@@ -772,7 +770,7 @@ components:
           type: integer
         next_page:
           type: integer
-    SearchResultMetadata:
+    SectionsResultMetadata:
       type: object
       properties:
         filing_date:
@@ -913,7 +911,7 @@ components:
           description: Requested agreement metadata fields for this result. Included
             only when the `metadata` query parameter is provided.
           anyOf:
-          - $ref: '#/components/schemas/SearchResultMetadata'
+          - $ref: '#/components/schemas/SectionsResultMetadata'
           - type: object
             nullable: true
     AccessInfo:
@@ -928,12 +926,12 @@ components:
           nullable: true
       required:
       - tier
-    SearchResponse:
+    SectionsResponse:
       type: object
       properties:
         results:
           type: array
-          description: Page of search results.
+          description: Page of section results.
           items:
             $ref: '#/components/schemas/SectionItem'
         access:

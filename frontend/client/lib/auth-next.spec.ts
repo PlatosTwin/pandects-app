@@ -13,7 +13,7 @@ describe("safeNextPath", () => {
   });
 
   it("accepts safe relative paths", () => {
-    expect(safeNextPath("/search?query=test")).toBe("/search?query=test");
+    expect(safeNextPath("/sections?query=test")).toBe("/sections?query=test");
   });
 });
 
@@ -23,8 +23,8 @@ describe("buildAccountPathWithNext", () => {
   });
 
   it("encodes next path for account route", () => {
-    expect(buildAccountPathWithNext("/search?query=test")).toBe(
-      "/account?next=%2Fsearch%3Fquery%3Dtest",
+    expect(buildAccountPathWithNext("/sections?query=test")).toBe(
+      "/account?next=%2Fsections%3Fquery%3Dtest",
     );
   });
 });

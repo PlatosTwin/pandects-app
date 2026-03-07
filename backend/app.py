@@ -75,10 +75,10 @@ from backend.routes.deps import (
     AgreementsDeps,
     AuthDeps,
     ReferenceDataDeps,
-    SearchDeps,
-    SearchServiceDeps,
+    SectionsDeps,
+    SectionsServiceDeps,
 )
-from backend.routes.search import register_search_routes
+from backend.routes.sections import register_sections_routes
 from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
 from backend.routes.auth import register_auth_routes
@@ -167,10 +167,10 @@ from backend.auth.runtime import (
     verify_turnstile_token as _verify_turnstile_token,
 )
 from backend.services.async_tasks import AsyncTaskRunner
-from backend.services.search_service import (
+from backend.services.sections_service import (
     estimated_latest_sections_search_table_rows as _svc_estimated_latest_sections_search_table_rows,
     estimated_query_row_count as _svc_estimated_query_row_count,
-    search_total_count_metadata as _svc_search_total_count_metadata,
+    sections_total_count_metadata as _svc_sections_total_count_metadata,
 )
 from backend.services.usage import UsageBuffer
 from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
@@ -615,8 +615,8 @@ def _pagination_metadata(
     )
 
 
-def _build_search_service_deps() -> SearchServiceDeps:
-    return SearchServiceDeps(
+def _build_sections_service_deps() -> SectionsServiceDeps:
+    return SectionsServiceDeps(
         db=db,
         LatestSectionsSearch=LatestSectionsSearch,
         Sections=Sections,
@@ -635,11 +635,11 @@ def _build_search_service_deps() -> SearchServiceDeps:
 
 
 def _estimated_query_row_count(query: object) -> int | None:
-    return _svc_estimated_query_row_count(_build_search_service_deps(), query)
+    return _svc_estimated_query_row_count(_build_sections_service_deps(), query)
 
 
 def _estimated_latest_sections_search_table_rows() -> int | None:
-    return _svc_estimated_latest_sections_search_table_rows(_build_search_service_deps())
+    return _svc_estimated_latest_sections_search_table_rows(_build_sections_service_deps())
 
 
 # Compatibility shim for tests that patch the legacy symbol.
@@ -652,8 +652,8 @@ def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     has_next: bool,
     has_filters: bool,
 ) -> tuple[int, bool]:
-    return _svc_search_total_count_metadata(
-        _build_search_service_deps(),
+    return _svc_sections_total_count_metadata(
+        _build_sections_service_deps(),
         query=query,
         page=page,
         page_size=page_size,
@@ -1076,8 +1076,8 @@ _decode_agreements_cursor = _core_decode_agreements_cursor
 
 def _register_blueprints(target_app: Flask) -> None:
     api_ext = cast(_ApiExtension, cast(object, api))
-    search_deps, agreements_deps, reference_data_deps, _ = _build_route_deps()
-    search_blp = register_search_routes(deps=search_deps)
+    sections_deps, agreements_deps, reference_data_deps, _ = _build_route_deps()
+    sections_list_blp = register_sections_routes(deps=sections_deps)
     agreements_blp, sections_blp = register_agreements_routes(
         target_app,
         deps=agreements_deps,
@@ -1085,7 +1085,7 @@ def _register_blueprints(target_app: Flask) -> None:
     taxonomy_blp, naics_blp, dumps_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
-    api_ext.register_blueprint(search_blp)
+    api_ext.register_blueprint(sections_list_blp)
     api_ext.register_blueprint(agreements_blp)
     api_ext.register_blueprint(sections_blp)
     api_ext.register_blueprint(taxonomy_blp)
@@ -1093,11 +1093,11 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(dumps_blp)
 
 
-def _build_route_deps() -> tuple[SearchDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:
-    search_service_deps = _build_search_service_deps()
-    search_deps = SearchDeps(
+def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:
+    sections_service_deps = _build_sections_service_deps()
+    sections_deps = SectionsDeps(
         _current_access_context=_current_access_context,
-        search_service_deps=search_service_deps,
+        sections_service_deps=sections_service_deps,
     )
     agreements_deps = AgreementsDeps(
         Agreements=Agreements,
@@ -1249,7 +1249,7 @@ def _build_route_deps() -> tuple[SearchDeps, AgreementsDeps, ReferenceDataDeps, 
         text=text,
         urlencode=urlencode,
     )
-    return search_deps, agreements_deps, reference_data_deps, auth_deps
+    return sections_deps, agreements_deps, reference_data_deps, auth_deps
 
 
 def _register_app(target_app: Flask) -> None:

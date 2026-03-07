@@ -23,7 +23,7 @@ const CONFIGURED_ORIGIN = (process.env.PUBLIC_ORIGIN || "").trim().replace(/\/+$
 
 const KNOWN_ROUTES = new Set([
   "/",
-  "/search",
+  "/sections",
   "/bulk-data",
   "/agreement-index",
   "/about",

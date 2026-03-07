@@ -27,7 +27,7 @@ function getSeoConfigForPath(pathname, origin) {
           pageName: "Pandects",
           pageDescription: DEFAULT_DESCRIPTION,
         };
-      case "/search":
+      case "/sections":
         return {
           title: "Search Merger Agreements | Pandects",
           description:

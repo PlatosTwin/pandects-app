@@ -5,8 +5,8 @@ from typing import Protocol, cast
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, and_, or_, asc, desc
 
-from backend.routes.deps import AccessContextProtocol, SearchServiceDeps
-from backend.schemas.search import SearchArgsPayload
+from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
+from backend.schemas.sections import SectionsArgsPayload
 
 
 class _CompilableStatement(Protocol):
@@ -31,7 +31,7 @@ class _StatementQuery(Protocol):
         ...
 
 
-def estimated_query_row_count(deps: SearchServiceDeps, query: object) -> int | None:
+def estimated_query_row_count(deps: SectionsServiceDeps, query: object) -> int | None:
     if not deps._SEARCH_EXPLAIN_ESTIMATE_ENABLED:
         return None
     db = deps.db
@@ -62,7 +62,7 @@ def estimated_query_row_count(deps: SearchServiceDeps, query: object) -> int | N
     return max_rows if max_rows > 0 else None
 
 
-def estimated_latest_sections_search_table_rows(deps: SearchServiceDeps) -> int | None:
+def estimated_latest_sections_search_table_rows(deps: SectionsServiceDeps) -> int | None:
     db = deps.db
     bind = db.session.get_bind()
     if bind.dialect.name == "sqlite":
@@ -89,8 +89,8 @@ def estimated_latest_sections_search_table_rows(deps: SearchServiceDeps) -> int 
     return deps._to_int(row.get("TABLE_ROWS"))
 
 
-def search_total_count_metadata(
-    deps: SearchServiceDeps,
+def sections_total_count_metadata(
+    deps: SectionsServiceDeps,
     *,
     query: object,
     page: int,
@@ -121,11 +121,11 @@ def search_total_count_metadata(
     return total_count, True
 
 
-def run_search(
-    deps: SearchServiceDeps,
+def run_sections(
+    deps: SectionsServiceDeps,
     *,
     ctx: AccessContextProtocol,
-    parsed_args: SearchArgsPayload,
+    parsed_args: SectionsArgsPayload,
 ) -> dict[str, object]:
     db = deps.db
     latest = deps.LatestSectionsSearch
@@ -273,7 +273,7 @@ def run_search(
             section_uuid and section_uuid.strip(),
         )
     )
-    total_count, total_count_is_approximate = search_total_count_metadata(
+    total_count, total_count_is_approximate = sections_total_count_metadata(
         deps,
         query=q,
         page=page,
@@ -407,6 +407,6 @@ def run_search(
 __all__ = [
     "estimated_latest_sections_search_table_rows",
     "estimated_query_row_count",
-    "run_search",
-    "search_total_count_metadata",
+    "run_sections",
+    "sections_total_count_metadata",
 ]

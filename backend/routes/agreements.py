@@ -42,7 +42,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             summary="List agreements with keyset pagination",
             description=(
                 "Lists eligible agreements using a base64 cursor. Supports the same agreement-level "
-                "filters as `/v1/search` except clause-type taxonomy filtering."
+                "filters as `/v1/sections` except clause-type taxonomy filtering."
             ),
         )
         @agreements_blp.arguments(AgreementsBulkArgsSchema, location="query")

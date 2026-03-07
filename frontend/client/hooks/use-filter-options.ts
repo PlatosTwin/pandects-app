@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { logger } from "@/lib/logger";
-import { FilterOptionsResponse } from "@shared/search";
+import { FilterOptionsResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";

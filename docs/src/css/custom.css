@@ -123,7 +123,7 @@ body {
 }
 
 .navbar__item.navbar__link[href="/docs/guides/getting-started"]::before,
-.navbar__item.navbar__link[href="/docs/pandects/search-sections"]::before {
+.navbar__item.navbar__link[href="/docs/pandects/list-sections"]::before {
   width: 15px;
   height: 15px;
   display: inline-block;
@@ -139,7 +139,7 @@ body {
     no-repeat center / contain;
 }
 
-.navbar__item.navbar__link[href="/docs/pandects/search-sections"]::before {
+.navbar__item.navbar__link[href="/docs/pandects/list-sections"]::before {
   content: "";
   background: currentColor;
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='m8 6-5 6 5 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><path d='m16 6 5 6-5 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>")

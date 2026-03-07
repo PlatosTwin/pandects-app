@@ -85,11 +85,11 @@ export default function Landing() {
                 className="w-full max-w-sm rounded-full px-8 py-3 text-base sm:w-auto"
               >
                 <Link
-                  to="/search"
+                  to="/sections"
                   onClick={() =>
                     trackEvent("landing_cta_click", {
                       cta: "Explore Agreements",
-                      to_path: "/search",
+                      to_path: "/sections",
                     })
                   }
                 >

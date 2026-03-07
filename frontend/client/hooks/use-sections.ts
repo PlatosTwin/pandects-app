@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { SearchFilters, SearchResult, SearchResponse } from "@shared/search";
+import { SearchFilters, SearchResult, SearchResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
 import type { ClauseTypeTree } from "@/lib/clause-types";
@@ -12,8 +12,8 @@ import {
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 
-/** Search filters, results, pagination, and actions (performSearch, downloadCSV, etc.). */
-export function useSearch() {
+/** Sections filters, results, pagination, and actions (performSearch, downloadCSV, etc.). */
+export function useSections() {
   const [filters, setFilters] = useState<SearchFilters>({
     year: [],
     target: [],
@@ -175,7 +175,7 @@ export function useSearch() {
         }
 
         if (markAsSearched) {
-          trackEvent("search_performed", {
+          trackEvent("sections_performed", {
             years_count: searchFilters.year?.length ?? 0,
             targets_count: searchFilters.target?.length ?? 0,
             acquirers_count: searchFilters.acquirer?.length ?? 0,
@@ -198,7 +198,7 @@ export function useSearch() {
         }
 
         const queryString = params.toString();
-        const res = await authFetch(apiUrl(`v1/search?${queryString}`));
+        const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
 
         // Check if the response is ok (status 200-299)
         if (!res.ok) {
@@ -206,7 +206,7 @@ export function useSearch() {
             return;
           }
           trackEvent("api_error", {
-            endpoint: "api/search",
+            endpoint: "api/sections",
             status: res.status,
             status_text: res.statusText,
           });
@@ -245,7 +245,7 @@ export function useSearch() {
         setPrevNum(searchResponse.prev_num);
 
         if (markAsSearched) {
-          trackEvent("search_results_loaded", {
+          trackEvent("sections_results_loaded", {
             total_count: searchResponse.total_count,
             total_pages: searchResponse.total_pages,
             page: searchFilters.page,
@@ -263,7 +263,7 @@ export function useSearch() {
         // Check if it's a network error
         if (error instanceof TypeError && error.message.includes("fetch")) {
           trackEvent("api_error", {
-            endpoint: "api/search",
+            endpoint: "api/sections",
             kind: "network",
           });
           setErrorMessage(
@@ -272,7 +272,7 @@ export function useSearch() {
           setShowErrorModal(true);
         } else {
           trackEvent("api_error", {
-            endpoint: "api/search",
+            endpoint: "api/sections",
             kind: "unknown",
           });
           setErrorMessage(
@@ -347,11 +347,11 @@ export function useSearch() {
           params.append("page", DEFAULT_PAGE.toString());
 
           const queryString = params.toString();
-          const res = await fetch(apiUrl(`v1/search?${queryString}`));
+          const res = await fetch(apiUrl(`v1/sections?${queryString}`));
 
           if (!res.ok) {
             trackEvent("api_error", {
-              endpoint: "api/search",
+              endpoint: "api/sections",
               status: res.status,
               status_text: res.statusText,
             });
@@ -363,7 +363,7 @@ export function useSearch() {
         } catch (error) {
           logger.error("Failed to fetch all results for CSV:", error);
           trackEvent("api_error", {
-            endpoint: "api/search",
+            endpoint: "api/sections",
             kind:
               error instanceof TypeError && error.message.includes("fetch")
                 ? "network"
@@ -376,7 +376,7 @@ export function useSearch() {
 
       if (resultsToDownload.length === 0) return;
 
-      trackEvent("search_csv_download_click", {
+      trackEvent("sections_csv_download_click", {
         mode: selectedResults.size > 0 ? "selected" : "all",
         selected_count: selectedResults.size,
         downloaded_count: resultsToDownload.length,

@@ -100,14 +100,14 @@ const config: Config = {
           },
           {
             type: "doc",
-            docId: "pandects/search-sections",
+            docId: "pandects/list-sections",
             position: "left",
             label: "API Reference",
           },
           {
             label: "App",
             position: "right",
-            href: `${brandLinks.mainSiteUrl}/search`,
+            href: `${brandLinks.mainSiteUrl}/sections`,
           },
         ],
       },

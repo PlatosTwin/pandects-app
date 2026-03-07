@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, fields
 
-from backend.schemas.search import AccessInfoSchema
+from backend.schemas.sections import AccessInfoSchema
 
 
 class AgreementArgsSchema(Schema):

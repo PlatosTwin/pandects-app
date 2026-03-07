@@ -10,7 +10,7 @@ sidebar_position: 2
 ## Search by year and clause type
 
 ```bash
-curl "https://api.pandects.org/v1/search?year=2023&standard_id=1.1&page=1&page_size=25"
+curl "https://api.pandects.org/v1/sections?year=2023&standard_id=1.1&page=1&page_size=25"
 ```
 
 ## Drill into an agreement

@@ -9,8 +9,8 @@ _RUNTIME_FILES = [
     "backend/routes/auth.py",
     "backend/routes/agreements.py",
     "backend/routes/reference_data.py",
-    "backend/routes/search.py",
-    "backend/services/search_service.py",
+    "backend/routes/sections.py",
+    "backend/services/sections_service.py",
     "backend/services/usage.py",
 ]
 

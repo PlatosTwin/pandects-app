@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
-import type { SearchFilters } from "@shared/search";
+import type { SearchFilters } from "@shared/sections";
 import {
   Search as SearchIcon,
   Download,
@@ -12,7 +12,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useSearch } from "@/hooks/use-search";
+import { useSections } from "@/hooks/use-sections";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { SearchPagination } from "@/components/SearchPagination";
@@ -73,7 +73,7 @@ export default function Search() {
     sort_direction,
     access,
     actions,
-  } = useSearch();
+  } = useSections();
 
   const {
     toggleFilterValue,
@@ -94,7 +94,7 @@ export default function Search() {
   // Wrap actions with tracking
   const trackingActions = {
     toggleFilterValue: (field: string, value: string) => {
-      trackEvent("search_filter_change", {
+      trackEvent("sections_filter_change", {
         filter_field: field,
         filter_value: value.substring(0, 50), // truncate long values
         current_filters: Object.keys(filters).length,
@@ -102,7 +102,7 @@ export default function Search() {
       toggleFilterValue(field as keyof SearchFilters, value);
     },
     setTextFilterValue: (field: string, value: string) => {
-      trackEvent("search_filter_change", {
+      trackEvent("sections_filter_change", {
         filter_field: field,
         filter_value: value.substring(0, 50), // truncate long values
         current_filters: Object.keys(filters).length,
@@ -111,7 +111,7 @@ export default function Search() {
     },
     performSearch: (force?: boolean) => {
       if (force || !hasSearched) {
-        trackEvent("search_performed", {
+        trackEvent("sections_performed", {
           filter_count: Object.values(filters).flat().length,
           has_results: searchResults.length > 0,
           result_count: total_count,
@@ -120,7 +120,7 @@ export default function Search() {
       performSearch(force, clauseTypesNested);
     },
     downloadCSV: () => {
-      trackEvent("search_export_click", {
+      trackEvent("sections_export_click", {
         export_format: "csv",
         result_count: selectedResults.size > 0 ? selectedResults.size : total_count,
         is_filtered: Object.values(filters).flat().length > 0,
@@ -128,13 +128,13 @@ export default function Search() {
       downloadCSV();
     },
     clearFilters: () => {
-      trackEvent("search_filters_cleared", {
+      trackEvent("sections_filters_cleared", {
         filter_count: Object.values(filters).flat().length,
       });
       clearFilters();
     },
     goToPage: (page: number) => {
-      trackEvent("search_pagination", {
+      trackEvent("sections_pagination", {
         page_number: page,
         total_pages: total_pages,
         direction: page > currentPage ? "next" : "previous",
@@ -142,21 +142,21 @@ export default function Search() {
       goToPage(page, clauseTypesNested);
     },
     changePageSize: (size: number) => {
-      trackEvent("search_page_size_change", {
+      trackEvent("sections_page_size_change", {
         old_page_size: page_size,
         new_page_size: size,
       });
       changePageSize(size, clauseTypesNested);
     },
     sortResults: (field: string) => {
-      trackEvent("search_sort_change", {
+      trackEvent("sections_sort_change", {
         sort_field: field,
         sort_direction: currentSort === field ? "reversed" : "initial",
       });
       sortResults(field as "year" | "target" | "acquirer");
     },
     toggleSortDirection: () => {
-      trackEvent("search_sort_direction_toggle", {
+      trackEvent("sections_sort_direction_toggle", {
         sort_field: currentSort,
         new_direction: sort_direction === "asc" ? "desc" : "asc",
       });
@@ -192,7 +192,7 @@ export default function Search() {
   } | null>(null);
 
   const openAgreement = (result: (typeof searchResults)[0], position: number) => {
-    trackEvent("search_result_click", {
+    trackEvent("sections_result_click", {
       position,
       year: result.year,
       verified: result.verified,

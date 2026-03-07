@@ -165,7 +165,7 @@ class VerifyTurnstileTokenProtocol(Protocol):
 
 
 @dataclass(frozen=True)
-class SearchServiceDeps:
+class SectionsServiceDeps:
     db: Any
     LatestSectionsSearch: Any
     Sections: Any
@@ -183,9 +183,9 @@ class SearchServiceDeps:
 
 
 @dataclass(frozen=True)
-class SearchDeps:
+class SectionsDeps:
     _current_access_context: Callable[[], AccessContextProtocol]
-    search_service_deps: SearchServiceDeps
+    sections_service_deps: SectionsServiceDeps
 
 
 @dataclass(frozen=True)

@@ -36,7 +36,7 @@ import {
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
-import type { SearchResult } from "@shared/search";
+import type { SearchResult } from "@shared/sections";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -113,7 +113,7 @@ export function SearchResultsTable({
   const buildSectionLinkUrl = useCallback(
     (agreement_uuid: string, section_uuid: string) => {
       if (typeof window === "undefined") return "";
-      const u = new URL("/search", window.location.origin);
+      const u = new URL("/sections", window.location.origin);
       u.searchParams.set("agreement_uuid", agreement_uuid);
       u.searchParams.set("section_uuid", section_uuid);
       return u.toString();
@@ -508,7 +508,7 @@ export function SearchResultsTable({
                                     <p>Missing standard_id in search results.</p>
                                     <p>
                                       Restart the Flask API or deploy the latest
-                                      backend so `/api/search` returns
+                                      backend so `/v1/sections` returns
                                       `standard_id`.
                                     </p>
                                   </>

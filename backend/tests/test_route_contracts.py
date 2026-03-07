@@ -43,7 +43,7 @@ class RouteContractTests(unittest.TestCase):
     def test_key_routes_are_registered(self) -> None:
         rules = {rule.rule for rule in self.app.url_map.iter_rules()}
         expected = {
-            "/v1/search",
+            "/v1/sections",
             "/v1/agreements",
             "/v1/agreements/<string:agreement_uuid>",
             "/v1/sections/<string:section_uuid>",
@@ -63,7 +63,7 @@ class RouteContractTests(unittest.TestCase):
                 self.fail("Expected API spec to be initialized")
             spec_dict = spec.to_dict()
         paths = spec_dict.get("paths", {})
-        self.assertEqual(paths["/v1/search"]["get"]["operationId"], "searchSections")
+        self.assertEqual(paths["/v1/sections"]["get"]["operationId"], "listSections")
         self.assertEqual(paths["/v1/agreements"]["get"]["operationId"], "listAgreements")
         self.assertEqual(paths["/v1/taxonomy"]["get"]["operationId"], "getTaxonomy")
         self.assertEqual(paths["/v1/naics"]["get"]["operationId"], "getNaics")

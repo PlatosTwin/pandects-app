@@ -270,7 +270,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_basic(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?year=2020&page=1&page_size=10")
+        res = client.get("/v1/sections?year=2020&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
@@ -280,7 +280,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_by_standard_id(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?standard_id=s1&page=1&page_size=10")
+        res = client.get("/v1/sections?standard_id=s1&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
@@ -328,7 +328,7 @@ class MainRoutesTests(unittest.TestCase):
                 )
 
         client = self.app.test_client()
-        res = client.get("/v1/search?standard_id=multi&page=1&page_size=10")
+        res = client.get("/v1/sections?standard_id=multi&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
@@ -389,7 +389,7 @@ class MainRoutesTests(unittest.TestCase):
                     )
 
         client = self.app.test_client()
-        res = client.get("/v1/search?year=2024&page=1&page_size=5")
+        res = client.get("/v1/sections?year=2024&page=1&page_size=5")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(len(body.get("results", [])), 5)
@@ -421,7 +421,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?standard_id=s-old&page=1&page_size=10")
+        res = client.get("/v1/sections?standard_id=s-old&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 0)
@@ -429,7 +429,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_excludes_old_verified_when_latest_xml_is_invalid(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?standard_id=s4-old&page=1&page_size=10")
+        res = client.get("/v1/sections?standard_id=s4-old&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 0)
@@ -437,7 +437,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_with_requested_metadata(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?year=2020&metadata=deal_type&page=1&page_size=10")
+        res = client.get("/v1/sections?year=2020&metadata=deal_type&page=1&page_size=10")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body.get("total_count"), 1)
@@ -447,7 +447,7 @@ class MainRoutesTests(unittest.TestCase):
 
     def test_search_with_invalid_metadata_field(self):
         client = self.app.test_client()
-        res = client.get("/v1/search?metadata=not_a_field&page=1&page_size=10")
+        res = client.get("/v1/sections?metadata=not_a_field&page=1&page_size=10")
         self.assertEqual(res.status_code, 422)
 
     def test_get_section_by_uuid(self):

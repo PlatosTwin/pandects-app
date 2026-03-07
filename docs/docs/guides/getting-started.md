@@ -20,7 +20,7 @@ All API routes are versioned under `/v1`.
 ## First request
 
 ```bash
-curl "https://api.pandects.org/v1/search?page=1&page_size=10"
+curl "https://api.pandects.org/v1/sections?page=1&page_size=10"
 ```
 
 The API returns JSON and standard HTTP status codes.

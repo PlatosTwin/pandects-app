@@ -8,22 +8,6 @@ const sidebar: SidebarsConfig = {
     },
     {
       type: "category",
-      label: "search",
-      link: {
-        type: "doc",
-        id: "pandects/search",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "pandects/search-sections",
-          label: "/v1/search",
-          className: "api-method get",
-        },
-      ],
-    },
-    {
-      type: "category",
       label: "agreements",
       link: {
         type: "doc",
@@ -52,6 +36,12 @@ const sidebar: SidebarsConfig = {
         id: "pandects/sections",
       },
       items: [
+        {
+          type: "doc",
+          id: "pandects/list-sections",
+          label: "/v1/sections",
+          className: "api-method get",
+        },
         {
           type: "doc",
           id: "pandects/get-section",

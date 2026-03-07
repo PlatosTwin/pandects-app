@@ -179,7 +179,7 @@ const sidebars: SidebarsConfig = {
       label: "API Reference",
       link: {
         type: "doc",
-        id: "pandects/search-sections",
+        id: "pandects/list-sections",
       },
       collapsible: false,
       collapsed: false,

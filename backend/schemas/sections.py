@@ -5,7 +5,7 @@ from typing import TypedDict, cast
 from marshmallow import Schema, fields, validate
 
 
-SEARCH_RESULT_METADATA_FIELDS = (
+SECTIONS_RESULT_METADATA_FIELDS = (
     "filing_date",
     "prob_filing",
     "filing_company_name",
@@ -33,7 +33,7 @@ SEARCH_RESULT_METADATA_FIELDS = (
 )
 
 
-class SearchArgsPayload(TypedDict):
+class SectionsArgsPayload(TypedDict):
     year: list[int]
     target: list[str]
     acquirer: list[str]
@@ -58,7 +58,7 @@ class SearchArgsPayload(TypedDict):
     page_size: int
 
 
-class SearchArgsSchema(Schema):
+class SectionsArgsSchema(Schema):
     year = fields.List(
         fields.Int(),
         load_default=[],
@@ -110,7 +110,7 @@ class SearchArgsSchema(Schema):
     target_pe = fields.List(fields.Str(), load_default=[])
     acquirer_pe = fields.List(fields.Str(), load_default=[])
     metadata = fields.List(
-        fields.Str(validate=validate.OneOf(SEARCH_RESULT_METADATA_FIELDS)),
+        fields.Str(validate=validate.OneOf(SECTIONS_RESULT_METADATA_FIELDS)),
         load_default=[],
         metadata={
             "description": (
@@ -159,7 +159,7 @@ class SearchArgsSchema(Schema):
     )
 
 
-class SearchResultMetadataSchema(Schema):
+class SectionsResultMetadataSchema(Schema):
     filing_date = fields.Str(allow_none=True)
     prob_filing = fields.Float(allow_none=True)
     filing_company_name = fields.Str(allow_none=True)
@@ -199,7 +199,7 @@ class SectionItemSchema(Schema):
     year = fields.Int()
     verified = fields.Bool()
     metadata = fields.Nested(
-        lambda: SearchResultMetadataSchema(),
+        lambda: SectionsResultMetadataSchema(),
         required=False,
         allow_none=True,
     )
@@ -210,7 +210,7 @@ class AccessInfoSchema(Schema):
     message = fields.Str(required=False, allow_none=True)
 
 
-class SearchResponseSchema(Schema):
+class SectionsResponseSchema(Schema):
     results: object = cast(
         object,
         fields.List(
@@ -231,10 +231,10 @@ class SearchResponseSchema(Schema):
 
 __all__ = [
     "AccessInfoSchema",
-    "SEARCH_RESULT_METADATA_FIELDS",
-    "SearchArgsPayload",
-    "SearchArgsSchema",
-    "SearchResponseSchema",
-    "SearchResultMetadataSchema",
+    "SECTIONS_RESULT_METADATA_FIELDS",
+    "SectionsArgsPayload",
+    "SectionsArgsSchema",
+    "SectionsResponseSchema",
+    "SectionsResultMetadataSchema",
     "SectionItemSchema",
 ]
