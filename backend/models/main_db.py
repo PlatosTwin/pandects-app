@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date, datetime
 from functools import lru_cache
 from typing import ClassVar, cast
 
@@ -457,10 +458,7 @@ def coalesced_section_standard_ids():
 
 
 def agreement_year_expr():
-    bind = db.session.get_bind()
-    if bind.dialect.name == "sqlite":
-        return sql_cast(func.substr(Agreements.filing_date, 1, 4), Integer)
-    return func.year(func.str_to_date(Agreements.filing_date, "%Y-%m-%d"))
+    return sql_cast(func.substr(Agreements.filing_date, 1, 4), Integer)
 
 
 def xml_latest_ok_filter():
@@ -498,6 +496,10 @@ def parse_section_standard_ids(raw: object) -> list[str]:
 
 
 def year_from_filing_date_value(raw: object) -> int | None:
+    if isinstance(raw, datetime):
+        return raw.year
+    if isinstance(raw, date):
+        return raw.year
     if isinstance(raw, str):
         raw_value = raw.strip()
         if len(raw_value) >= 4 and raw_value[:4].isdigit():

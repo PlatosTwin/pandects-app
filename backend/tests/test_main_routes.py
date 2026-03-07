@@ -3,10 +3,12 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from sqlalchemy import text
+from sqlalchemy.dialects import mysql as mysql_dialect
 
 
 def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
@@ -234,6 +236,38 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("agreement_uuid"), "a2")
 
+    def test_agreements_bulk_year_field_uses_filing_date_prefix(self):
+        try:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
+                            "VALUES ('a_time', '2024-01-15T12:30:45', 'Target Time', 'Acquirer Time', 1, 'http://example.com/a_time')"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                            "('a_time', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000051\"><text>TIME</text></section></article></document>', 1, 'verified', 1)"
+                        )
+                    )
+
+            client = self.app.test_client()
+            res = client.get("/v1/agreements?agreement_uuid=a_time&page_size=10")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            results = body.get("results", [])
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].get("year"), 2024)
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_time'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_time'"))
+
     def test_agreements_bulk_section_uuid_filter(self):
         client = self.app.test_client()
         res = client.get(
@@ -450,6 +484,39 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/sections?metadata=not_a_field&page=1&page_size=10")
         self.assertEqual(res.status_code, 422)
 
+    def test_agreements_index_year_query_matches_timestamp_like_filing_date(self):
+        try:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
+                            "VALUES ('a_index_time', '2024-06-30 08:15:00', 'Target Index', 'Acquirer Index', 1, 'http://example.com/a_index_time')"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                            "('a_index_time', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000061\"><text>INDEX</text></section></article></document>', 1, 'verified', 1)"
+                        )
+                    )
+
+            client = self.app.test_client()
+            res = client.get("/v1/agreements-index?query=2024&page=1&page_size=10")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            results = body.get("results", [])
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].get("agreement_uuid"), "a_index_time")
+            self.assertEqual(results[0].get("year"), 2024)
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_index_time'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_index_time'"))
+
     def test_get_section_by_uuid(self):
         client = self.app.test_client()
         section_uuid = "00000000-0000-0000-0000-000000000001"
@@ -499,6 +566,30 @@ class MainRoutesTests(unittest.TestCase):
                 {"year": 2021, "deal_type": "stock_acquisition", "count": 2},
             ],
         )
+
+    def test_mysql_agreement_year_expr_avoids_str_to_date(self):
+        mysql_bind = SimpleNamespace(dialect=SimpleNamespace(name="mysql"))
+        with (
+            self.app.app_context(),
+            patch.object(self.app_module.db.session, "get_bind", return_value=mysql_bind),
+        ):
+            compiled = str(
+                self.app_module._agreement_year_expr().compile(
+                    dialect=mysql_dialect.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+        compiled_sql = compiled.lower()
+        self.assertIn("substr(", compiled_sql)
+        self.assertNotIn("str_to_date", compiled_sql)
+
+    def test_year_from_filing_date_value_accepts_date_objects(self):
+        self.assertEqual(
+            self.app_module._year_from_filing_date_value(datetime(2024, 1, 1, 12, 0, 0)),
+            2024,
+        )
+        self.assertEqual(self.app_module._year_from_filing_date_value(date(2023, 6, 1)), 2023)
 
     def test_naics_hierarchy(self):
         client = self.app.test_client()
