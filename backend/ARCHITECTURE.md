@@ -39,7 +39,7 @@ flowchart LR
 ## Route Dependency Injection
 - Route registration is explicit and typed through `backend/routes/deps.py`.
 - `backend.app._build_route_deps()` constructs:
-  - `SearchDeps`
+  - `SectionsDeps`
   - `AgreementsDeps`
   - `ReferenceDataDeps`
   - `AuthDeps`
@@ -53,7 +53,7 @@ flowchart LR
   - no response/request schema changes
   - no auth/session/CORS behavior changes
 - Internal contracts are explicit:
-  - `register_search_routes(*, deps: SearchDeps) -> Blueprint`
+  - `register_sections_routes(*, deps: SectionsDeps) -> Blueprint`
   - `register_agreements_routes(app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]`
   - `register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint]`
   - `register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint`
