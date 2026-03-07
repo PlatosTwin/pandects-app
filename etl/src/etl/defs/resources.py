@@ -125,7 +125,11 @@ class DBResource(dg.ConfigurableResource[object]):
             f"mariadb+mysqldb://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
         )
-        return create_engine(url)
+        return create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
 
 
 class ClassifierModel(dg.ConfigurableResource[object]):
