@@ -40,34 +40,6 @@ export default defineConfig(({ mode }) => {
       // CSS is automatically minified when minify is set
       rollupOptions: {
         output: {
-          // Better code splitting to reduce unused JavaScript
-          manualChunks: (id) => {
-            // Separate vendor chunks for better caching
-            if (id.includes("node_modules")) {
-              // Large UI libraries
-              if (
-                id.includes("@radix-ui") ||
-                id.includes("lucide-react") ||
-                id.includes("framer-motion")
-              ) {
-                return "vendor-ui";
-              }
-              // React and core dependencies
-              if (
-                id.includes("react") ||
-                id.includes("react-dom") ||
-                id.includes("react-router")
-              ) {
-                return "vendor-react";
-              }
-              // Query and state management
-              if (id.includes("@tanstack/react-query")) {
-                return "vendor-query";
-              }
-              // Other vendor code
-              return "vendor";
-            }
-          },
           // Optimize chunk file names for better caching
           chunkFileNames: "assets/js/[name]-[hash].js",
           entryFileNames: "assets/js/[name]-[hash].js",
