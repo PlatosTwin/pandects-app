@@ -94,18 +94,26 @@ def canonical_components_cte_sql(schema: str) -> str:
         FROM {pages_table}
         WHERE agreement_uuid IS NOT NULL
         GROUP BY agreement_uuid
-        HAVING MAX(
-            CASE
-                WHEN review_flag = 1 THEN 1
-                ELSE 0
-            END
-        ) = 1
-           AND SUM(
+        HAVING (
+            MAX(
+                CASE
+                    WHEN review_flag = 1 THEN 1
+                    ELSE 0
+                END
+            ) = 1
+            AND SUM(
                 CASE
                     WHEN gold_label IS NULL OR TRIM(gold_label) = '' THEN 1
                     ELSE 0
                 END
-           ) > 0
+            ) > 0
+        )
+           OR SUM(
+                CASE
+                    WHEN COALESCE(gold_label, source_page_type) = 'body' THEN 1
+                    ELSE 0
+                END
+           ) < 5
     ),
     state_components AS (
         SELECT

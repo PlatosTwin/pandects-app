@@ -32,12 +32,17 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("tagged_body_page_count < body_page_count", sql)
         self.assertIn("page_is_gated = 0", sql)
 
-    def test_page_gating_requires_review_flag_and_missing_gold_labels(self) -> None:
+    def test_page_gating_requires_review_flag_or_too_few_body_pages(self) -> None:
         sql = canonical_stage_state_sql("pdx")
         self.assertIn("WHEN review_flag = 1 THEN 1", sql)
         self.assertIn("WHEN gold_label IS NULL OR TRIM(gold_label) = '' THEN 1", sql)
         self.assertIn(") = 1", sql)
         self.assertIn(") > 0", sql)
+        self.assertIn(
+            "WHEN COALESCE(gold_label, source_page_type) = 'body' THEN 1",
+            sql,
+        )
+        self.assertIn(") < 5", sql)
 
     def test_fresh_xml_build_queue_handles_any_stale_latest_xml(self) -> None:
         sql = canonical_fresh_xml_build_queue_sql("pdx")
