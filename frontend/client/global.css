@@ -184,6 +184,29 @@
   .tooltip-help-trigger-compact {
     @apply tooltip-help-trigger h-4 w-4 text-[9px];
   }
+
+  .legal-example-notice {
+    @apply rounded-xl border border-border/70 bg-muted/25 px-5 py-4 text-sm text-foreground shadow-none;
+  }
+
+  .legal-example-notice code {
+    @apply bg-transparent p-0 text-[0.95em] font-medium text-foreground;
+    font-family:
+      "Inter Variable",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans",
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      sans-serif;
+    white-space: pre-wrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -19,12 +19,16 @@ from backend.models import AuthSignonEvent, LegalAcceptance
 
 _LEGAL_DOCS: dict[str, dict[str, str]] = {
     "tos": {
-        "version": "2025-12-21",
-        "sha256": "a73094a3ddd71a5c4b2bb86d53e9b2fc776c6d4fb9cd8cbb57233615d9fec7dc",
+        "version": "2026-03-11",
+        "sha256": "a8ec1487d9473166a8172e086cfd3a3e370c7c3200efdf6936d89660dce2b04b",
     },
     "privacy": {
-        "version": "2025-12-21",
-        "sha256": "889cdb5d64a2a30c2788d985e318863db92fc402beb7146c2c404147a0ef43b4",
+        "version": "2026-03-11",
+        "sha256": "ec056d325ada8c7801c82e9d3555098c7e0a3255ad4da82aaef8942292c6cd9d",
+    },
+    "license": {
+        "version": "2026-03-11",
+        "sha256": "fa26c2cc00d31f7385f2ff40a75e9a1bce7c7e0b2b646f8db1884d6e239ff954",
     },
 }
 

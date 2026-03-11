@@ -5,7 +5,7 @@ export default function PrivacyPolicy() {
   return (
     <LegalMarkdownPage
       title="Privacy Policy"
-      markdownPath="/legal/privacy-policy.md"
+      downloadHref="/legal/privacy-policy.md"
       markdown={markdown}
     />
   );

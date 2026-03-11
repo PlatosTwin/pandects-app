@@ -5,7 +5,7 @@ export default function Terms() {
   return (
     <LegalMarkdownPage
       title="Terms of Service"
-      markdownPath="/legal/terms-of-service.md"
+      downloadHref="/legal/terms-of-service.md"
       markdown={markdown}
     />
   );

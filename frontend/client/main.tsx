@@ -33,6 +33,8 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Terms = lazy(() => import("./pages/Terms"));
 const License = lazy(() => import("./pages/License"));
+const SoftwareLicense = lazy(() => import("./pages/SoftwareLicense"));
+const DataLicense = lazy(() => import("./pages/DataLicense"));
 
 bootstrapAnalytics();
 
@@ -72,14 +74,16 @@ const App = () => {
               <Route path="/contribute" element={<Contribute />} />
               <Route path="/account" element={<Account />} />
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/auth/reset-password" element={<ResetPassword />} />
-              <Route path="/auth/verify-email" element={<VerifyEmail />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/license" element={<License />} />
-              <Route
-                path="/auth/google/callback"
-                element={<AuthGoogleCallback />}
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/verify-email" element={<VerifyEmail />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/license" element={<License />} />
+                <Route path="/license/software" element={<SoftwareLicense />} />
+                <Route path="/license/data" element={<DataLicense />} />
+                <Route
+                  path="/auth/google/callback"
+                  element={<AuthGoogleCallback />}
               />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

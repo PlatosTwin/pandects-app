@@ -263,6 +263,16 @@ class AuthFlowTests(unittest.TestCase):
                     text("SELECT COUNT(*) FROM legal_acceptances WHERE user_id = :user_id"),
                     {"user_id": user.id},
                 ).scalar_one()
+                legal_docs = [
+                    row[0]
+                    for row in conn.execute(
+                        text(
+                            "SELECT document FROM legal_acceptances "
+                            "WHERE user_id = :user_id ORDER BY document"
+                        ),
+                        {"user_id": user.id},
+                    ).fetchall()
+                ]
                 signon_count = conn.execute(
                     text(
                         "SELECT COUNT(*) FROM auth_signon_events "
@@ -271,6 +281,7 @@ class AuthFlowTests(unittest.TestCase):
                     {"user_id": user.id},
                 ).scalar_one()
             self.assertEqual(legal_count, len(backend_app._LEGAL_DOCS))
+            self.assertEqual(legal_docs, sorted(backend_app._LEGAL_DOCS))
             self.assertEqual(signon_count, 1)
 
     def test_register_existing_user_still_succeeds_when_verification_email_delivery_fails(self):
