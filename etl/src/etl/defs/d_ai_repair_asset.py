@@ -840,8 +840,8 @@ def _extract_usage(body: Dict[str, Any]) -> Dict[str, Any]:
     return usage
 
 
-def _parse_full_page_tagged_text(raw: Dict[str, Any]) -> Tuple[str, str]:
-    """Return (request_id, tagged_text) strictly or raise."""
+def _parse_full_page_tag_spans(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
+    """Return (request_id, spans) strictly or raise."""
     rid = raw["custom_id"]
     resp = raw["response"]
     sc = resp["status_code"]
@@ -850,24 +850,94 @@ def _parse_full_page_tagged_text(raw: Dict[str, Any]) -> Tuple[str, str]:
     body = resp["body"]
     raw_text = extract_output_text_from_batch_body(body)
     obj = json.loads(raw_text)
-    if not isinstance(obj, dict) or "tagged_text" not in obj or "warnings" not in obj:
-        raise ValueError("Missing 'tagged_text' or 'warnings' in full-page output.")
-    return rid, obj["tagged_text"]
-
-
-def _strip_allowed_full_mode_tags(text: str) -> str:
-    out = text
-    for tag in _ALLOWED_FULL_MODE_TAGS:
-        out = out.replace(tag, "")
-    return out
-
-
-def _validate_full_page_tagged_text(source_text: str, tagged_text: str) -> None:
-    reconstructed_source = _strip_allowed_full_mode_tags(tagged_text)
-    if reconstructed_source != source_text:
-        raise ValueError(
-            "tagged_text is not source-preserving after removing allowed tags."
+    if not isinstance(obj, dict) or "spans" not in obj or "warnings" not in obj:
+        raise ValueError("Missing 'spans' or 'warnings' in full-page output.")
+    spans = obj["spans"]
+    if not isinstance(spans, list):
+        raise ValueError("'spans' must be a list.")
+    parsed_spans: List[Dict[str, Any]] = []
+    for span in spans:
+        if not isinstance(span, dict):
+            raise ValueError("span is not an object")
+        start_char = span["start_char"]
+        end_char = span["end_char"]
+        label = span["label"]
+        selected_text = span["selected_text"]
+        if not isinstance(start_char, int) or not isinstance(end_char, int):
+            raise ValueError("start_char/end_char must be integers")
+        if label not in ("article", "section", "page"):
+            raise ValueError(f"invalid span label: {label}")
+        if not isinstance(selected_text, str):
+            raise ValueError("selected_text must be a string")
+        parsed_spans.append(
+            {
+                "start_char": start_char,
+                "end_char": end_char,
+                "label": label,
+                "selected_text": selected_text,
+            }
         )
+    return rid, parsed_spans
+
+
+def _validate_full_page_tag_spans(
+    source_text: str,
+    spans: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    validated_spans: List[Dict[str, Any]] = []
+    for span in spans:
+        start_char = int(span["start_char"])
+        end_char = int(span["end_char"])
+        label = str(span["label"])
+        selected_text = str(span["selected_text"])
+        if start_char < 0 or end_char <= start_char or end_char > len(source_text):
+            raise ValueError("span offsets are out of bounds.")
+        if source_text[start_char:end_char] != selected_text:
+            raise ValueError("selected_text does not match source text at provided offsets.")
+        validated_spans.append(
+            {
+                "start_char": start_char,
+                "end_char": end_char,
+                "label": label,
+                "selected_text": selected_text,
+            }
+        )
+
+    validated_spans.sort(key=lambda span: (int(span["start_char"]), int(span["end_char"])))
+    previous_end = -1
+    for span in validated_spans:
+        start_char = int(span["start_char"])
+        end_char = int(span["end_char"])
+        if start_char < previous_end:
+            raise ValueError("spans overlap or nest.")
+        previous_end = end_char
+    return validated_spans
+
+
+def _apply_full_page_tag_spans(
+    source_text: str,
+    spans: List[Dict[str, Any]],
+) -> str:
+    validated_spans = _validate_full_page_tag_spans(source_text, spans)
+    pieces: List[str] = []
+    cursor = 0
+    for span in validated_spans:
+        start_char = int(span["start_char"])
+        end_char = int(span["end_char"])
+        label = str(span["label"])
+        pieces.append(source_text[cursor:start_char])
+        pieces.append(f"<{label}>")
+        pieces.append(source_text[start_char:end_char])
+        pieces.append(f"</{label}>")
+        cursor = end_char
+    pieces.append(source_text[cursor:])
+    tagged_text = "".join(pieces)
+    reconstructed_source = tagged_text
+    for tag in _ALLOWED_FULL_MODE_TAGS:
+        reconstructed_source = reconstructed_source.replace(tag, "")
+    if reconstructed_source != source_text:
+        raise ValueError("tag insertion produced non-source-preserving output.")
+    return tagged_text
 
 
 def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
@@ -1094,14 +1164,14 @@ def ai_repair_poll_asset(
                                     usage_by_request[rid] = _extract_usage(resp["body"])
                                 pid, mode, xs = req_info[rid]
                                 if mode == "full":
-                                    rid2, tagged_text = _parse_full_page_tagged_text(raw)
+                                    rid2, spans = _parse_full_page_tag_spans(raw)
                                     source_text = page_text_by_uuid.get(str(pid))
                                     if source_text is None:
                                         raise ValueError(
                                             f"Missing page text for page_uuid={pid}."
                                         )
-                                    _validate_full_page_tagged_text(
-                                        source_text, tagged_text
+                                    tagged_text = _apply_full_page_tag_spans(
+                                        source_text, spans
                                     )
                                     parsed_full_pages.append((rid2, pid, tagged_text))
                                     success_ids.add(rid2)

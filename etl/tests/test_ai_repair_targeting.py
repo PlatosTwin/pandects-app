@@ -8,7 +8,8 @@ from etl.defs.d_ai_repair_asset import (
     _fetch_candidates,
     _repair_model_for_attempted,
     _repair_model_for_candidate,
-    _validate_full_page_tagged_text,
+    _apply_full_page_tag_spans,
+    _validate_full_page_tag_spans,
 )
 
 
@@ -176,16 +177,78 @@ class AiRepairTargetingTests(unittest.TestCase):
         self.assertEqual(len(candidates), 2)
         self.assertTrue(all(int(c["has_completed_requests"]) == 1 for c in candidates))
 
-    def test_full_page_validation_accepts_only_allowed_tag_insertions(self) -> None:
+    def test_full_page_span_validation_accepts_matching_non_overlapping_spans(self) -> None:
         source = "Section 1.01 text."
-        tagged = "<section>Section 1.01</section> text."
-        _validate_full_page_tagged_text(source, tagged)
+        spans = [
+            {
+                "start_char": 0,
+                "end_char": 12,
+                "label": "section",
+                "selected_text": "Section 1.01",
+            }
+        ]
+        validated = _validate_full_page_tag_spans(source, spans)
+        self.assertEqual(validated, spans)
 
-    def test_full_page_validation_rejects_non_source_preserving_output(self) -> None:
+    def test_full_page_span_validation_rejects_mismatched_selected_text(self) -> None:
         source = "Section 1.01 text."
-        contaminated = "PAGE_UUID=123\\nTask: Insert\\n" + source
+        contaminated = [
+            {
+                "start_char": 0,
+                "end_char": 12,
+                "label": "section",
+                "selected_text": "PAGE_UUID=12",
+            }
+        ]
         with self.assertRaises(ValueError):
-            _validate_full_page_tagged_text(source, contaminated)
+            _ = _validate_full_page_tag_spans(source, contaminated)
+
+    def test_full_page_span_validation_rejects_overlapping_spans(self) -> None:
+        source = "ARTICLE I\nSection 1.01"
+        spans = [
+            {
+                "start_char": 0,
+                "end_char": 9,
+                "label": "article",
+                "selected_text": "ARTICLE I",
+            },
+            {
+                "start_char": 8,
+                "end_char": 22,
+                "label": "section",
+                "selected_text": "I\nSection 1.01",
+            },
+        ]
+        with self.assertRaises(ValueError):
+            _ = _validate_full_page_tag_spans(source, spans)
+
+    def test_apply_full_page_tag_spans_inserts_tags_deterministically(self) -> None:
+        source = "ARTICLE I\nSection 1.01 text.\n-56-"
+        spans = [
+            {
+                "start_char": 0,
+                "end_char": 9,
+                "label": "article",
+                "selected_text": "ARTICLE I",
+            },
+            {
+                "start_char": 10,
+                "end_char": 22,
+                "label": "section",
+                "selected_text": "Section 1.01",
+            },
+            {
+                "start_char": 29,
+                "end_char": 33,
+                "label": "page",
+                "selected_text": "-56-",
+            },
+        ]
+        tagged = _apply_full_page_tag_spans(source, spans)
+        self.assertEqual(
+            tagged,
+            "<article>ARTICLE I</article>\n<section>Section 1.01</section> text.\n<page>-56-</page>",
+        )
 
 
 if __name__ == "__main__":

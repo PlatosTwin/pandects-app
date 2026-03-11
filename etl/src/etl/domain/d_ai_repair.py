@@ -198,15 +198,31 @@ def decide_repair_windows(
 
 def _json_schema_full_tagged_text() -> Dict[str, Any]:
     """
-    Full-page mode: return fully tagged text (string) and optional warnings.
+    Full-page mode: return exact source spans to tag and optional warnings.
     """
     return {
         "type": "object",
         "properties": {
-            "tagged_text": {"type": "string"},
+            "spans": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "start_char": {"type": "integer", "minimum": 0},
+                        "end_char": {"type": "integer", "minimum": 0},
+                        "label": {
+                            "type": "string",
+                            "enum": ["article", "section", "page"],
+                        },
+                        "selected_text": {"type": "string"},
+                    },
+                    "required": ["start_char", "end_char", "label", "selected_text"],
+                    "additionalProperties": False,
+                },
+            },
             "warnings": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["tagged_text", "warnings"],
+        "required": ["spans", "warnings"],
         "additionalProperties": False,
     }
 
@@ -252,16 +268,18 @@ def _system_prompt_full() -> str:
 
     First things first, if the page appears to be: 1) front matter; 2) part of the Table of Contents; 3) part of any signatures block sections; 4) part of a disclosure schedule in the Exhibits section; or 5) otherwise not from the main agreement, do not add tags. This will be the case rarely, if at all. Note that the recitals section IS part of the main agreement and should NOT be skipped; the recitals section often has "WHEREAS" clauses or "W I T N E S E T H" or a general description of the transaction and the parties.
 
-    If the page IS from the main agreement, then your task is to place a <section></section> tag around section HEADINGS (the number and title) and an <article></article> tag around article HEADINGS (the number and title). Note that articles are higher in the hierarchy than are sections, and that you are to ignore sub-sections. The tags should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy.
+    If the page IS from the main agreement, then your task is to identify the exact character spans that should be wrapped in tags. Use label "section" for section HEADINGS (the number and title), "article" for article HEADINGS (the number and title), and "page" for a page number at the very end of the page when applicable. Articles are higher in the hierarchy than sections, and you are to ignore sub-sections. The spans should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy.
 
     # Output invariants (MANDATORY)
     1. Use the provided page text as the base string.
-    2. You may only insert these exact tags: <article>, </article>, <section>, </section>, <page>, </page>.
-    3. Do not add, remove, reorder, or rewrite any other characters.
-    4. Never include prompt or metadata text in the output (for example: PAGE_UUID=, Task:, CANDIDATES=, EXCERPT_BASE_CHAR_OFFSET=, JSON keys, markdown fences).
-    5. If no tags apply, return the input text unchanged and set warnings accordingly.
+    2. Return only JSON matching the schema: a list of spans and warnings.
+    3. Every span must use 0-based character offsets into the ORIGINAL page text, with end_char exclusive.
+    4. For every span, selected_text must equal the exact substring from the original page text at [start_char:end_char].
+    5. Do not add overlapping spans or nested spans.
+    6. Do not return prompt or metadata text in any selected_text value.
+    7. If no tags apply, return an empty spans list.
 
-    Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, enclose that number in a <page> </page> tag.
+    Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, return a span with label "page" for that number.
 
     Some additional notes:
     1. Articles will almost always be preceeded by the word "Article" and may look like "Article I   Representations" or "Article 1  Warranties"
@@ -281,7 +299,7 @@ def _system_prompt_full() -> str:
     <page_snippet>
 
     <assistant_response>
-    ... any Ancillary Agreement or the transactions contemplated hereby or thereby. <section>10.19 Mutual Drafting.</section> This Agreement and the Ancillary Agreements shall be deemed...
+    {"spans":[{"start_char":64,"end_char":87,"label":"section","selected_text":"10.19 Mutual Drafting."}],"warnings":[]}
     </assistant_response>
 
     <page_snippet>
@@ -289,7 +307,7 @@ def _system_prompt_full() -> str:
     </page_snippet>
 
     <assistant_response>
-    ... Acceptance Time and all filings and notifications described in Section 5.4(b) will have been made and any waiting periods thereunder will have terminated or expired...
+    {"spans":[],"warnings":[]}
     </assistant_response>
 
     <page_snippet>
@@ -297,7 +315,10 @@ def _system_prompt_full() -> str:
     </page_snippet>
 
     <assistant_response>
-    NOW, THEREFORE, the parties hereto agree as follows:    <article>ARTICLE 1    DEFINITIONS</article>    <section>Section 1.01. Definitions.</section> (a) As used herein, the following terms have the following meanings:    “ 1934 Act ” means the Securities Exchange Act of 1934.
+    {"spans":[
+      {"start_char":52,"end_char":77,"label":"article","selected_text":"ARTICLE 1    DEFINITIONS"},
+      {"start_char":81,"end_char":106,"label":"section","selected_text":"Section 1.01. Definitions."}
+    ],"warnings":[]}
     </assistant_response>
 
     <page_snippet>
@@ -305,7 +326,7 @@ def _system_prompt_full() -> str:
     </page_snippet>
 
     <assistant_response>
-    ... <section>19.9 Representations of the Company</section> 19.7.1 The Company hereby warrants and represents that it shall not modify its operations outside of the ordinary course of business during the time...
+    {"spans":[{"start_char":4,"end_char":37,"label":"section","selected_text":"19.9 Representations of the Company"}],"warnings":[]}
     </assistant_response>
 
     <page_snippet>
@@ -313,7 +334,7 @@ def _system_prompt_full() -> str:
     </page_snippet>
 
     <assistant_response>
-    ... <section>10.1</section> The purchase price for the Purchased Assets and the Shares is (i) One Hundred and Twenty Million U.S. Dollars ($120,000,000),  plus  or  minus , as applicable...
+    {"spans":[{"start_char":4,"end_char":8,"label":"section","selected_text":"10.1"}],"warnings":[]}
     </assistant_response>
        ''')
 
@@ -450,7 +471,7 @@ def build_jsonl_lines_for_page(
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": "full_page_tagged_text",
+                    "name": "full_page_tag_spans",
                     "strict": True,
                     "schema": schema_full,
                 }
