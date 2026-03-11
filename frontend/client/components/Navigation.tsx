@@ -155,6 +155,8 @@ function NavigationComponent() {
                 <a
                   key={link.to}
                   href={link.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   data-panda-target={link.pandaTarget}
                   onClick={() =>
                     trackEvent("nav_primary_click", {
@@ -334,6 +336,8 @@ function NavigationComponent() {
                         {link.external ? (
                           <a
                             href={link.to}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             onClick={() =>
                               trackEvent("nav_primary_click", {
                                 nav_item: link.label,
