@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
@@ -11,14 +11,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { PageShell } from "@/components/PageShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +35,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Accordion,
   AccordionContent,
@@ -51,18 +42,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
-import { AgreementModal } from "@/components/AgreementModal";
 import { formatDateValue, formatEnumValue } from "@/lib/format-utils";
 import {
   Tooltip,
@@ -71,6 +53,21 @@ import {
 } from "@/components/ui/tooltip";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+const AgreementModal = lazy(() =>
+  import("@/components/AgreementModal").then((mod) => ({
+    default: mod.AgreementModal,
+  })),
+);
+const ProcessingStatusChart = lazy(() =>
+  import("@/components/AgreementIndexCharts").then((mod) => ({
+    default: mod.ProcessingStatusChart,
+  })),
+);
+const DealTypesChart = lazy(() =>
+  import("@/components/AgreementIndexCharts").then((mod) => ({
+    default: mod.DealTypesChart,
+  })),
+);
 
 const STAGE_TOOLTIP_COPY = {
   "0_staging":
@@ -207,7 +204,6 @@ const formatDealTypeLabel = (dealType: string) =>
 
 const dealTypeSeriesKey = (dealType: string) =>
   `dealType_${dealType.replace(/[^a-z0-9]+/gi, "_")}`;
-const PERCENT_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
 
 type MobileChartModalProps = {
   open: boolean;
@@ -788,30 +784,6 @@ export default function AgreementIndex() {
     });
     return rows;
   }, [dealTypeSummary, dealTypeSeries]);
-  const dealTypeChartDataByYear = useMemo(
-    () => new Map(dealTypeChartData.map((row) => [row.year, row])),
-    [dealTypeChartData],
-  );
-  const dealTypeChartDisplayData = useMemo(() => {
-    if (dealTypeChartMode === "count") {
-      return dealTypeChartData;
-    }
-    return dealTypeChartData.map((row) => {
-      const total = dealTypeSeries.reduce(
-        (sum, series) => sum + Number(row[series.key] ?? 0),
-        0,
-      );
-      const pctRow: { year: number } & Record<string, number> = {
-        year: row.year,
-      };
-      dealTypeSeries.forEach((series) => {
-        const value = Number(row[series.key] ?? 0);
-        pctRow[series.key] =
-          total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
-      });
-      return pctRow;
-    });
-  }, [dealTypeChartData, dealTypeSeries, dealTypeChartMode]);
   const dealTypeTotals = useMemo(() => {
     const total = dealTypeSeries.reduce((sum, series) => sum + series.total, 0);
     const metrics = dealTypeSeries.map((series) => {
@@ -849,17 +821,6 @@ export default function AgreementIndex() {
     }
     return ticks.length ? ticks : undefined;
   }, [dealTypeYearRange, dealTypeChartData]);
-  const dealTypeChartConfig = useMemo<ChartConfig>(
-    () =>
-      dealTypeSeries.reduce<ChartConfig>((acc, series) => {
-        acc[series.key] = {
-          label: series.label,
-          color: series.color,
-        };
-        return acc;
-      }, {}),
-    [dealTypeSeries],
-  );
 
   const stageSummaryRows = useMemo(() => {
     const stageOrder = [
@@ -919,195 +880,24 @@ export default function AgreementIndex() {
   );
 
   const renderStagedChart = (className?: string) => (
-    <div
-      className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
-        className,
-      )}
+    <Suspense
+      fallback={
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+          <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
+        </div>
+      }
     >
-      <ChartContainer
-        className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
-        config={{
-          processed: {
-            label: "Processed",
-            color: "hsl(142 71% 45%)",
-          },
-          staged: {
-            label: "Staged",
-            color: "hsl(38 92% 55%)",
-          },
-          awaiting: {
-            label: "Awaiting validation",
-            color: "hsl(0 84% 60%)",
-          },
-          notPaginated: {
-            label: "Not paginated",
-            color: "hsl(220 9% 60%)",
-          },
-        }}
-        role="img"
-        aria-label="Stacked bar chart showing processed, staged, awaiting validation, and not paginated agreements by filing year."
-        aria-describedby={`${stagedChartDescriptionId} ${stagedChartTableId}`}
-      >
-        <BarChart
-          data={stagedChartData}
-          margin={{ top: 6, right: 24, left: 8, bottom: 0 }}
-        >
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="year"
-            type="number"
-            allowDecimals={false}
-            domain={
-              stagedYearRange
-                ? [stagedYearRange.minYear, stagedYearRange.maxYear]
-                : ["dataMin", "dataMax"]
-            }
-            padding={{ left: 20, right: 20 }}
-            tickFormatter={(value) => String(value)}
-            tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
-            ticks={stagedYearTicks}
-          />
-          <YAxis allowDecimals={false} tickMargin={6} width={32} />
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                indicator="dashed"
-                labelFormatter={(_, payload) => {
-                  const year = payload?.[0]?.payload?.year;
-                  return `Filing year ${year ?? "—"}`;
-                }}
-                formatter={(value, name, item) => {
-                  const indicatorColor = item?.payload?.fill || item?.color;
-                  const payload = item?.payload as
-                    | {
-                        processed?: number;
-                        staged?: number;
-                        awaiting?: number;
-                        notPaginated?: number;
-                      }
-                    | undefined;
-                  const processed = Number(payload?.processed ?? 0);
-                  const staged = Number(payload?.staged ?? 0);
-                  const awaiting = Number(payload?.awaiting ?? 0);
-                  const notPaginated = Number(payload?.notPaginated ?? 0);
-                  const total = processed + staged + awaiting + notPaginated;
-                  const processedPct =
-                    total > 0 ? Math.round((processed / total) * 1000) / 10 : 0;
-                  const getPct = (count: number) =>
-                    total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
-                  const colorBlock = (
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                      style={
-                        indicatorColor
-                          ? { backgroundColor: indicatorColor }
-                          : undefined
-                      }
-                      aria-hidden="true"
-                    />
-                  );
-
-                  const countValue = Number(value);
-                  const pct =
-                    name === "Processed"
-                      ? processedPct
-                      : name === "Staged"
-                        ? getPct(staged)
-                        : name === "Awaiting validation"
-                          ? getPct(awaiting)
-                          : getPct(notPaginated);
-
-                  return (
-                    <div className="grid grid-cols-[auto_minmax(0,4.5rem)_minmax(0,1fr)] items-center gap-x-3">
-                      {colorBlock}
-                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
-                        {countValue.toLocaleString()}
-                      </span>
-                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {pct.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                }}
-              />
-            }
-          />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="processed"
-            stackId="agreements"
-            fill="var(--color-processed)"
-            name="Processed"
-          />
-          <Bar
-            dataKey="staged"
-            stackId="agreements"
-            fill="var(--color-staged)"
-            name="Staged"
-          />
-          <Bar
-            dataKey="awaiting"
-            stackId="agreements"
-            fill="var(--color-awaiting)"
-            name="Awaiting validation"
-          />
-          <Bar
-            dataKey="notPaginated"
-            stackId="agreements"
-            fill="var(--color-notPaginated)"
-            name="Not paginated"
-          />
-          {showSourceSplit ? (
-            <ReferenceLine
-              x={2020.5}
-              stroke="hsl(var(--foreground))"
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              isFront
-              label={(props) => {
-                if (!props.viewBox) return null;
-                const text = isMobile ? "2020/21" : "2020/2021 split";
-                const paddingX = isMobile ? 6 : 4;
-                const rectHeight = isMobile ? 16 : 14;
-                const charWidth = isMobile ? 6.1 : 5.4;
-                const textWidth = text.length * charWidth;
-                const rectWidth = textWidth + paddingX * 2;
-                const rectX = props.viewBox.x - rectWidth - 8;
-                const rectY = props.viewBox.y + 8;
-                const textX = rectX + rectWidth / 2;
-                const textY = rectY + rectHeight / 2 + 0.5;
-                return (
-                  <g pointerEvents="none">
-                    <rect
-                      x={rectX}
-                      y={rectY}
-                      width={rectWidth}
-                      height={rectHeight}
-                      rx={4}
-                      fill="hsl(var(--background))"
-                      stroke="hsl(var(--border))"
-                    />
-                    <text
-                      x={textX}
-                      y={textY}
-                      fill="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      {text}
-                    </text>
-                  </g>
-                );
-              }}
-            />
-          ) : null}
-        </BarChart>
-      </ChartContainer>
-    </div>
+      <ProcessingStatusChart
+        className={className}
+        data={stagedChartData}
+        describedBy={stagedChartDescriptionId}
+        isMobile={isMobile}
+        showSourceSplit={showSourceSplit}
+        tableId={stagedChartTableId}
+        yearRange={stagedYearRange}
+        yearTicks={stagedYearTicks}
+      />
+    </Suspense>
   );
   const renderStagedSummaryTable = (className?: string) => (
     <div
@@ -1247,218 +1037,28 @@ export default function AgreementIndex() {
   );
 
   const renderDealTypeChart = (className?: string) => (
-    <div
-      className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
-        className,
-      )}
+    <Suspense
+      fallback={
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+          <Skeleton className="mb-3 h-8 w-40" />
+          <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
+        </div>
+      }
     >
-      <div className="mb-3 flex items-center justify-end gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Chart mode
-        </span>
-        <ToggleGroup
-          type="single"
-          value={dealTypeChartMode}
-          onValueChange={(value) => {
-            if (value === "count" || value === "percent") {
-              setDealTypeChartMode(value);
-            }
-          }}
-          variant="outline"
-          size="xs"
-          aria-label="Deal type chart mode"
-          className="justify-start"
-        >
-          <ToggleGroupItem
-            value="count"
-            aria-label="Stacked counts"
-            className="text-muted-foreground data-[state=on]:text-foreground"
-          >
-            Counts
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="percent"
-            aria-label="100 percent stacked"
-            className="text-muted-foreground data-[state=on]:text-foreground"
-          >
-            100%
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-      <ChartContainer
-        className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
-        config={dealTypeChartConfig}
-        role="img"
-        aria-label={
-          dealTypeChartMode === "percent"
-            ? "100 percent stacked bar chart showing deal type share by filing year."
-            : "Stacked bar chart showing deal type counts by filing year."
-        }
-        aria-describedby={`${dealTypeChartDescriptionId} ${dealTypeChartTableId}`}
-      >
-        <BarChart
-          data={dealTypeChartDisplayData}
-          margin={{ top: 6, right: 24, left: 8, bottom: 0 }}
-        >
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="year"
-            type="number"
-            allowDecimals={false}
-            domain={
-              dealTypeYearRange
-                ? [dealTypeYearRange.minYear, dealTypeYearRange.maxYear]
-                : ["dataMin", "dataMax"]
-            }
-            padding={{ left: 20, right: 20 }}
-            tickFormatter={(value) => String(value)}
-            tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
-            ticks={dealTypeYearTicks}
-          />
-          <YAxis
-            tickMargin={6}
-            width={dealTypeChartMode === "percent" ? 44 : 32}
-            allowDecimals={dealTypeChartMode !== "percent"}
-            domain={dealTypeChartMode === "percent" ? [0, 100] : undefined}
-            ticks={
-              dealTypeChartMode === "percent" ? PERCENT_AXIS_TICKS : undefined
-            }
-            tickFormatter={(value) => {
-              const numericValue = Number(value);
-              if (!Number.isFinite(numericValue)) return "";
-              if (dealTypeChartMode === "percent") {
-                return `${Math.round(numericValue)}%`;
-              }
-              return String(numericValue);
-            }}
-          />
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                indicator="dashed"
-                labelFormatter={(_, payload) => {
-                  const year = payload?.[0]?.payload?.year;
-                  return `Filing year ${year ?? "—"}`;
-                }}
-                formatter={(value, _name, item) => {
-                  const indicatorColor = item?.payload?.fill || item?.color;
-                  const payload = item?.payload as
-                    | { year?: number }
-                    | undefined;
-                  const year = Number(payload?.year ?? NaN);
-                  const dataKey =
-                    typeof item.dataKey === "string" ? item.dataKey : "";
-                  const rawRow = Number.isFinite(year)
-                    ? dealTypeChartDataByYear.get(year)
-                    : undefined;
-                  const rawCount = Number(
-                    rawRow && dataKey ? (rawRow[dataKey] ?? 0) : 0,
-                  );
-                  const rawTotal = dealTypeSeries.reduce(
-                    (sum, series) => sum + Number(rawRow?.[series.key] ?? 0),
-                    0,
-                  );
-                  const rawPct =
-                    rawTotal > 0
-                      ? Math.round((rawCount / rawTotal) * 1000) / 10
-                      : 0;
-                  const valueNumber = Number(value);
-                  const valueLabel =
-                    dealTypeChartMode === "percent"
-                      ? `${valueNumber.toFixed(1)}%`
-                      : rawCount.toLocaleString();
-                  const metaLabel =
-                    dealTypeChartMode === "percent"
-                      ? rawCount.toLocaleString()
-                      : `${rawPct.toFixed(1)}%`;
-                  return (
-                    <div className="grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3">
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                        style={
-                          indicatorColor
-                            ? { backgroundColor: indicatorColor }
-                            : undefined
-                        }
-                        aria-hidden="true"
-                      />
-                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
-                        {valueLabel}
-                      </span>
-                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {metaLabel}
-                      </span>
-                    </div>
-                  );
-                }}
-              />
-            }
-          />
-          <ChartLegend
-            content={
-              <ChartLegendContent className="flex-wrap justify-start gap-x-4 gap-y-1 sm:justify-center" />
-            }
-          />
-          {dealTypeSeries.map((series) => (
-            <Bar
-              key={series.key}
-              dataKey={series.key}
-              stackId="deal-types"
-              fill={`var(--color-${series.key})`}
-              name={series.label}
-            />
-          ))}
-          {showDealTypeSourceSplit ? (
-            <ReferenceLine
-              x={2020.5}
-              stroke="hsl(var(--foreground))"
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              isFront
-              label={(props) => {
-                if (!props.viewBox) return null;
-                const text = isMobile ? "2020/21" : "2020/2021 split";
-                const paddingX = isMobile ? 6 : 4;
-                const rectHeight = isMobile ? 16 : 14;
-                const charWidth = isMobile ? 6.1 : 5.4;
-                const textWidth = text.length * charWidth;
-                const rectWidth = textWidth + paddingX * 2;
-                const rectX = props.viewBox.x - rectWidth - 8;
-                const rectY = props.viewBox.y + 8;
-                const textX = rectX + rectWidth / 2;
-                const textY = rectY + rectHeight / 2 + 0.5;
-                return (
-                  <g pointerEvents="none">
-                    <rect
-                      x={rectX}
-                      y={rectY}
-                      width={rectWidth}
-                      height={rectHeight}
-                      rx={4}
-                      fill="hsl(var(--background))"
-                      stroke="hsl(var(--border))"
-                    />
-                    <text
-                      x={textX}
-                      y={textY}
-                      fill="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      {text}
-                    </text>
-                  </g>
-                );
-              }}
-            />
-          ) : null}
-        </BarChart>
-      </ChartContainer>
-    </div>
+      <DealTypesChart
+        className={className}
+        data={dealTypeChartData}
+        describedBy={dealTypeChartDescriptionId}
+        isMobile={isMobile}
+        mode={dealTypeChartMode}
+        onModeChange={setDealTypeChartMode}
+        series={dealTypeSeries}
+        showSourceSplit={showDealTypeSourceSplit}
+        tableId={dealTypeChartTableId}
+        yearRange={dealTypeYearRange}
+        yearTicks={dealTypeYearTicks}
+      />
+    </Suspense>
   );
 
   const renderStageFunnelTable = (className?: string) => (
@@ -2330,16 +1930,18 @@ export default function AgreementIndex() {
       </Card>
 
       {selectedAgreement ? (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={() => setSelectedAgreement(null)}
-          agreement_uuid={selectedAgreement.agreement_uuid}
-          agreementMetadata={{
-            year: selectedAgreement.year,
-            target: selectedAgreement.target,
-            acquirer: selectedAgreement.acquirer,
-          }}
-        />
+        <Suspense fallback={null}>
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={() => setSelectedAgreement(null)}
+            agreement_uuid={selectedAgreement.agreement_uuid}
+            agreementMetadata={{
+              year: selectedAgreement.year,
+              target: selectedAgreement.target,
+              acquirer: selectedAgreement.acquirer,
+            }}
+          />
+        </Suspense>
       ) : null}
     </PageShell>
   );

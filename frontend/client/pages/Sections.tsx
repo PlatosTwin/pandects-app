@@ -25,7 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
@@ -431,7 +431,9 @@ export default function Search() {
               <div className="mt-4">
                 <Alert className="py-3 sm:py-4">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle>Limited mode</AlertTitle>
+                  <div className="text-sm font-medium leading-none tracking-tight">
+                    Limited mode
+                  </div>
                   <AlertDescription>
                     <div className="grid gap-2">
                       <p>
@@ -453,7 +455,9 @@ export default function Search() {
           {filterOptionsError && (
             <div className="mx-4 mt-4 sm:mx-8">
               <Alert variant="destructive" role="alert">
-                <AlertTitle>Filter options error</AlertTitle>
+                <div className="text-sm font-medium leading-none tracking-tight">
+                  Filter options error
+                </div>
                 <AlertDescription>{filterOptionsError}</AlertDescription>
               </Alert>
             </div>

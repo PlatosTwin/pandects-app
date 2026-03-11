@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { StaticRouter } from "react-router-dom/server";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PRERENDER_ROUTES } from "@shared/route-manifest.mjs";
 
 import About from "@/pages/About";
 import BulkData from "@/pages/BulkData";
@@ -13,30 +14,34 @@ import SourcesMethods from "@/pages/SourcesMethods";
 import XmlSchema from "@/pages/XmlSchema";
 import Taxonomy from "@/pages/Taxonomy";
 
-export type PrerenderPath =
-  | "/"
-  | "/about"
-  | "/bulk-data"
-  | "/contribute"
-  | "/feedback"
-  | "/sources-methods"
-  | "/xml-schema"
-  | "/taxonomy";
+const PRERENDER_COMPONENTS: Record<string, JSX.Element> = {
+  "/": <Landing />,
+  "/about": <About />,
+  "/bulk-data": <BulkData />,
+  "/contribute": <Contribute />,
+  "/feedback": <Feedback />,
+  "/sources-methods": <SourcesMethods />,
+  "/xml-schema": <XmlSchema />,
+  "/taxonomy": <Taxonomy />,
+};
 
-export function renderPage(pathname: PrerenderPath): string {
+export function renderPage(pathname: string): string {
+  if (!PRERENDER_ROUTES.some((route) => route.pathname === pathname)) {
+    throw new Error(`Unsupported prerender path: ${pathname}`);
+  }
+
   const app = (
     <AuthProvider>
       <StaticRouter location={pathname}>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<Landing />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/bulk-data" element={<BulkData />} />
-            <Route path="/contribute" element={<Contribute />} />
-            <Route path="/feedback" element={<Feedback />} />
-            <Route path="/sources-methods" element={<SourcesMethods />} />
-            <Route path="/xml-schema" element={<XmlSchema />} />
-            <Route path="/taxonomy" element={<Taxonomy />} />
+            {PRERENDER_ROUTES.map((route) => (
+              <Route
+                key={route.pathname}
+                path={route.pathname}
+                element={PRERENDER_COMPONENTS[route.pathname]}
+              />
+            ))}
           </Route>
         </Routes>
       </StaticRouter>

@@ -422,13 +422,13 @@ export function SearchSidebar({
 
   if (variant === "sheet") {
     return (
-      <div className={cn("flex h-full flex-col", className)}>
-        <div className="border-b border-border bg-muted/20 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Filters</h2>
-          </div>
-          <Button
-            onClick={onClearFilters}
+        <div className={cn("flex h-full flex-col", className)}>
+          <div className="border-b border-border bg-muted/20 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-foreground">Filters</div>
+            </div>
+            <Button
+              onClick={onClearFilters}
             variant="outline"
             size="sm"
             className="w-full justify-center gap-2"
@@ -474,9 +474,9 @@ export function SearchSidebar({
             {/* Header */}
             <div className="border-b border-border bg-muted/20 p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-medium text-foreground">
+                <div className="text-lg font-medium text-foreground">
                   Search Filters
-                </h2>
+                </div>
                 <button
                   type="button"
                   onClick={toggleCollapse}

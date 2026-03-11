@@ -5,9 +5,13 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
-import { bootstrapAnalytics, installGlobalErrorTracking, loadAnalyticsScript, trackPageview, trackTimeOnPageOnUnload } from "@/lib/analytics";
+import {
+  bootstrapAnalytics,
+  installGlobalErrorTracking,
+  loadAnalyticsScript,
+} from "@/lib/analytics";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -48,21 +52,6 @@ const queryClient = new QueryClient({
 
 bootstrapAnalytics();
 
-// Page view tracking component
-const PageViewTracker = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    trackPageview(location.pathname);
-    const untrackTime = trackTimeOnPageOnUnload(location.pathname);
-    return () => {
-      untrackTime?.();
-    };
-  }, [location.pathname]);
-
-  return null;
-};
-
 const App = () => {
   useEffect(() => {
     const schedule = window.requestIdleCallback
@@ -86,7 +75,6 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <PageViewTracker />
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Landing />} />

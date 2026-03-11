@@ -8,6 +8,7 @@ import {
   buildJsonLd,
   getSeoConfigForPath,
 } from "../shared/seo-helpers.mjs";
+import { PRERENDER_ROUTES } from "../shared/route-manifest.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,24 +26,13 @@ const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
 const outDir = path.join(spaDir, "prerender");
 fs.mkdirSync(outDir, { recursive: true });
 
-const routes = [
-  { pathname: "/", filename: "index.html" },
-  { pathname: "/about", filename: "about.html" },
-  { pathname: "/bulk-data", filename: "bulk-data.html" },
-  { pathname: "/contribute", filename: "contribute.html" },
-  { pathname: "/feedback", filename: "feedback.html" },
-  { pathname: "/sources-methods", filename: "sources-methods.html" },
-  { pathname: "/xml-schema", filename: "xml-schema.html" },
-  { pathname: "/taxonomy", filename: "taxonomy.html" },
-];
-
-for (const route of routes) {
+for (const route of PRERENDER_ROUTES) {
   const rendered = renderPage(route.pathname);
   const html = injectSeo(
     injectRootHtml(indexHtml, rendered),
     buildSeoBlock(route.pathname),
   );
-  fs.writeFileSync(path.join(outDir, route.filename), html, "utf-8");
+  fs.writeFileSync(path.join(outDir, route.prerenderFilename), html, "utf-8");
 }
 
 function injectRootHtml(html, rendered) {

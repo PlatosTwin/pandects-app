@@ -1,40 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import { SITEMAP_ROUTES } from "../shared/route-manifest.mjs";
 
 const DEFAULT_ORIGIN = "https://pandects.org";
 const origin = (process.env.PUBLIC_ORIGIN || DEFAULT_ORIGIN).replace(/\/+$/, "");
 
-const routeConfig = {
-  "/": { priority: "1.0", changefreq: "daily" },
-  "/sections": { priority: "0.9", changefreq: "weekly" },
-  "/bulk-data": { priority: "0.8", changefreq: "weekly" },
-  "/agreement-index": { priority: "0.8", changefreq: "weekly" },
-  "/sources-methods": { priority: "0.8", changefreq: "monthly" },
-  "/xml-schema": { priority: "0.7", changefreq: "monthly" },
-  "/taxonomy": { priority: "0.7", changefreq: "monthly" },
-  "/about": { priority: "0.7", changefreq: "monthly" },
-  "/feedback": { priority: "0.6", changefreq: "monthly" },
-  "/contribute": { priority: "0.6", changefreq: "monthly" },
-  "/privacy-policy": { priority: "0.5", changefreq: "yearly" },
-  "/terms": { priority: "0.5", changefreq: "yearly" },
-  "/license": { priority: "0.5", changefreq: "yearly" },
-};
-
-const routes = Object.keys(routeConfig);
-
 const now = new Date();
 const lastmod = now.toISOString();
 
-const urls = routes
+const urls = SITEMAP_ROUTES
   .map((route) => {
-    const loc = route === "/" ? `${origin}/` : `${origin}${route}`;
-    const config = routeConfig[route];
+    const loc = route.pathname === "/" ? `${origin}/` : `${origin}${route.pathname}`;
     return [
       "  <url>",
       `    <loc>${escapeXml(loc)}</loc>`,
       `    <lastmod>${escapeXml(lastmod)}</lastmod>`,
-      `    <changefreq>${config.changefreq}</changefreq>`,
-      `    <priority>${config.priority}</priority>`,
+      `    <changefreq>${route.changefreq}</changefreq>`,
+      `    <priority>${route.priority}</priority>`,
       "  </url>",
     ].join("\n");
   })

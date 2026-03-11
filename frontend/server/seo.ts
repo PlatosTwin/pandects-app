@@ -6,6 +6,7 @@ import {
   buildJsonLd,
   getSeoConfigForPath,
 } from "../shared/seo-helpers.mjs";
+import { ROUTE_DEFINITION_BY_PATH } from "../shared/route-manifest.mjs";
 
 export type SeoPage = {
   title: string;
@@ -21,28 +22,8 @@ export type SeoPage = {
 const DEFAULT_ORIGIN = "https://pandects.org";
 const CONFIGURED_ORIGIN = (process.env.PUBLIC_ORIGIN || "").trim().replace(/\/+$/, "");
 
-const KNOWN_ROUTES = new Set([
-  "/",
-  "/sections",
-  "/bulk-data",
-  "/agreement-index",
-  "/about",
-  "/sources-methods",
-  "/xml-schema",
-  "/feedback",
-  "/contribute",
-  "/privacy-policy",
-  "/terms",
-  "/license",
-  "/account",
-  "/auth/forgot-password",
-  "/auth/reset-password",
-  "/auth/verify-email",
-  "/auth/google/callback",
-]);
-
 export function isKnownRoute(pathname: string): boolean {
-  return KNOWN_ROUTES.has(normalizePathname(pathname));
+  return ROUTE_DEFINITION_BY_PATH.has(normalizePathname(pathname));
 }
 
 export function getPublicOrigin(req: Request): string {
