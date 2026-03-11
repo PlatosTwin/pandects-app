@@ -73,7 +73,7 @@ function docsPerfPlugin(): Plugin.PluginModule {
             cacheGroups: {
               openapi: {
                 name: "openapi",
-                chunks: "all",
+                chunks: "async",
                 enforce: true,
                 priority: 45,
                 reuseExistingChunk: true,

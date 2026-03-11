@@ -60,7 +60,15 @@ function TabList({
       return;
     }
 
-    setSelectedValue(isRequestSchema ? contentTypeValue : acceptTypeValue);
+    const nextSelectedValue = isRequestSchema
+      ? contentTypeValue
+      : acceptTypeValue;
+
+    if (!nextSelectedValue) {
+      return;
+    }
+
+    setSelectedValue(nextSelectedValue);
   }, [acceptTypeValue, contentTypeValue, isRequestSchema]);
 
   const handleTabChange = (
