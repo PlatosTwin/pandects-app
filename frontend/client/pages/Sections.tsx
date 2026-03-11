@@ -15,7 +15,6 @@ import {
 import { useSections } from "@/hooks/use-sections";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
-import { SearchPagination } from "@/components/SearchPagination";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +41,11 @@ const SearchSidebar = lazy(() =>
 const SearchResultsTable = lazy(() =>
   import("@/components/SearchResultsTable").then((mod) => ({
     default: mod.SearchResultsTable,
+  })),
+);
+const SearchPagination = lazy(() =>
+  import("@/components/SearchPagination").then((mod) => ({
+    default: mod.SearchPagination,
   })),
 );
 const AgreementModal = lazy(() =>
@@ -90,6 +94,161 @@ export default function Search() {
     toggleSelectAll,
     clearSelection,
   } = actions;
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const signInPath = useMemo(
+    () => buildAccountPathWithNext(`${location.pathname}${location.search}${location.hash}`),
+    [location.hash, location.pathname, location.search],
+  );
+
+  // Agreement modal state
+  const [selectedAgreement, setSelectedAgreement] = useState<{
+    agreement_uuid: string;
+    section_uuid: string;
+    metadata: {
+      year: string;
+      target: string;
+      acquirer: string;
+    };
+  } | null>(null);
+
+  const openAgreement = (result: (typeof searchResults)[0], position: number) => {
+    trackEvent("sections_result_click", {
+      position,
+      year: result.year,
+      verified: result.verified,
+    });
+    setSelectedAgreement({
+      agreement_uuid: result.agreement_uuid,
+      section_uuid: result.section_uuid,
+      metadata: {
+        year: result.year,
+        target: result.target,
+        acquirer: result.acquirer,
+      },
+    });
+  };
+
+  const closeAgreement = () => {
+    setSelectedAgreement(null);
+    if (
+      searchParams.has("agreement_uuid") ||
+      searchParams.has("section_uuid")
+    ) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("agreement_uuid");
+      next.delete("section_uuid");
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const agreementUuidFromUrl = searchParams.get("agreement_uuid");
+  const sectionUuidFromUrl = searchParams.get("section_uuid");
+
+  useEffect(() => {
+    if (
+      !agreementUuidFromUrl ||
+      !sectionUuidFromUrl ||
+      selectedAgreement != null
+    )
+      return;
+    setSelectedAgreement({
+      agreement_uuid: agreementUuidFromUrl,
+      section_uuid: sectionUuidFromUrl,
+      metadata: { year: "", target: "", acquirer: "" },
+    });
+  }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
+
+  useEffect(() => {
+    const warmup = () => {
+      void fetch(apiUrl("v1/dumps")).catch(() => undefined);
+    };
+    const schedule = window.requestIdleCallback
+      ? window.requestIdleCallback(warmup, { timeout: 2500 })
+      : window.setTimeout(warmup, 1800);
+    return () => {
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(schedule as number);
+      } else {
+        window.clearTimeout(schedule as number);
+      }
+    };
+  }, []);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [isDesktopLayout, setIsDesktopLayout] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= BREAKPOINT_LG;
+  });
+  const [resultsDensity, setResultsDensity] = useState<"comfy" | "compact">(
+    () => {
+      try {
+        const stored = localStorage.getItem("pandects.resultsDensity");
+        return stored === "compact" ? "compact" : "comfy";
+      } catch {
+        return "comfy";
+      }
+    }
+  );
+
+  const updateResultsDensity = (density: "comfy" | "compact") => {
+    setResultsDensity(density);
+    try {
+      localStorage.setItem("pandects.resultsDensity", density);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Auto-collapse sidebar on tablet and mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const isDesktop = window.innerWidth >= BREAKPOINT_LG;
+      setIsDesktopLayout(isDesktop);
+      setSidebarCollapsed(!isDesktop);
+    };
+
+    // Set initial state
+    handleResize();
+
+    // Listen for window resize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const shouldLoadFilterData =
+    isDesktopLayout || isMobileFiltersOpen || hasSearched;
+
+  const {
+    targets,
+    acquirers,
+    target_industries,
+    acquirer_industries,
+    isLoading: isLoadingFilterOptions,
+    error: filterOptionsError,
+  } = useFilterOptions({
+    deferMs: 1200,
+    enabled: shouldLoadFilterData,
+  });
+
+  // Static years data (not dynamic for now)
+  const years = AVAILABLE_YEARS;
+
+  const { taxonomyTree, isLoading: isLoadingTaxonomy } = useTaxonomy({
+    deferMs: 1200,
+    enabled: shouldLoadFilterData,
+  });
+  const clauseTypesNested: ClauseTypeTree = taxonomyTree ?? {};
+
+  const clauseTypePathByStandardId = useMemo(
+    () => indexClauseTypePaths(clauseTypesNested),
+    [clauseTypesNested]
+  );
+  const clauseTypeLabelById = useMemo(
+    () => indexClauseTypeLabels(clauseTypesNested),
+    [clauseTypesNested],
+  );
 
   // Wrap actions with tracking
   const trackingActions = {
@@ -164,97 +323,6 @@ export default function Search() {
     },
   };
 
-  // Get dynamic filter options
-  const {
-    targets,
-    acquirers,
-    target_industries,
-    acquirer_industries,
-    isLoading: isLoadingFilterOptions,
-    error: filterOptionsError,
-  } = useFilterOptions({ deferMs: 1200 });
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const signInPath = useMemo(
-    () => buildAccountPathWithNext(`${location.pathname}${location.search}${location.hash}`),
-    [location.hash, location.pathname, location.search],
-  );
-
-  // Agreement modal state
-  const [selectedAgreement, setSelectedAgreement] = useState<{
-    agreement_uuid: string;
-    section_uuid: string;
-    metadata: {
-      year: string;
-      target: string;
-      acquirer: string;
-    };
-  } | null>(null);
-
-  const openAgreement = (result: (typeof searchResults)[0], position: number) => {
-    trackEvent("sections_result_click", {
-      position,
-      year: result.year,
-      verified: result.verified,
-    });
-    setSelectedAgreement({
-      agreement_uuid: result.agreement_uuid,
-      section_uuid: result.section_uuid,
-      metadata: {
-        year: result.year,
-        target: result.target,
-        acquirer: result.acquirer,
-      },
-    });
-  };
-
-  const closeAgreement = () => {
-    setSelectedAgreement(null);
-    if (
-      searchParams.has("agreement_uuid") ||
-      searchParams.has("section_uuid")
-    ) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("agreement_uuid");
-      next.delete("section_uuid");
-      setSearchParams(next, { replace: true });
-    }
-  };
-
-  const agreementUuidFromUrl = searchParams.get("agreement_uuid");
-  const sectionUuidFromUrl = searchParams.get("section_uuid");
-
-  useEffect(() => {
-    if (
-      !agreementUuidFromUrl ||
-      !sectionUuidFromUrl ||
-      selectedAgreement != null
-    )
-      return;
-    setSelectedAgreement({
-      agreement_uuid: agreementUuidFromUrl,
-      section_uuid: sectionUuidFromUrl,
-      metadata: { year: "", target: "", acquirer: "" },
-    });
-  }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
-
-  // Static years data (not dynamic for now)
-  const years = AVAILABLE_YEARS;
-
-  const { taxonomyTree, isLoading: isLoadingTaxonomy } = useTaxonomy({
-    deferMs: 1200,
-  });
-  const clauseTypesNested: ClauseTypeTree = taxonomyTree ?? {};
-
-  const clauseTypePathByStandardId = useMemo(
-    () => indexClauseTypePaths(clauseTypesNested),
-    [clauseTypesNested]
-  );
-  const clauseTypeLabelById = useMemo(
-    () => indexClauseTypeLabels(clauseTypesNested),
-    [clauseTypesNested],
-  );
-
   // Allow Enter to trigger search when focus isn't inside an input/control.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -279,71 +347,33 @@ export default function Search() {
         activeElement?.closest('[role="dialog"]');
 
       if (!isEditable && !isInsideDropdown && !hasOpenDropdown) {
-        trackingActions.performSearch(true);
+        if (!hasSearched) {
+          trackEvent("sections_performed", {
+            filter_count: Object.values(filters).flat().length,
+            has_results: searchResults.length > 0,
+            result_count: total_count,
+          });
+        }
+        performSearch(true, clauseTypesNested);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clauseTypesNested, isSearching, performSearch]);
-
-  useEffect(() => {
-    const warmup = () => {
-      void fetch(apiUrl("v1/dumps")).catch(() => undefined);
-    };
-    const schedule = window.requestIdleCallback
-      ? window.requestIdleCallback(warmup, { timeout: 2500 })
-      : window.setTimeout(warmup, 1800);
-    return () => {
-      if (window.cancelIdleCallback) {
-        window.cancelIdleCallback(schedule as number);
-      } else {
-        window.clearTimeout(schedule as number);
-      }
-    };
-  }, []);
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [resultsDensity, setResultsDensity] = useState<"comfy" | "compact">(
-    () => {
-      try {
-        const stored = localStorage.getItem("pandects.resultsDensity");
-        return stored === "compact" ? "compact" : "comfy";
-      } catch {
-        return "comfy";
-      }
-    }
-  );
-
-  const updateResultsDensity = (density: "comfy" | "compact") => {
-    setResultsDensity(density);
-    try {
-      localStorage.setItem("pandects.resultsDensity", density);
-    } catch {
-      // ignore
-    }
-  };
-
-  // Auto-collapse sidebar on tablet and mobile
-  useEffect(() => {
-    const handleResize = () => {
-      const isTabletOrMobile = window.innerWidth < BREAKPOINT_LG;
-      setSidebarCollapsed(isTabletOrMobile);
-    };
-
-    // Set initial state
-    handleResize();
-
-    // Listen for window resize
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [
+    clauseTypesNested,
+    filters,
+    hasSearched,
+    isSearching,
+    performSearch,
+    searchResults.length,
+    total_count,
+  ]);
 
   return (
     <div className="w-full">
       <div className="flex min-h-full">
-        <div className="hidden lg:block">
+        {isDesktopLayout ? (
           <Suspense
             fallback={
               <div className="h-screen w-16 border-r border-border bg-card lg:w-80" />
@@ -367,7 +397,7 @@ export default function Search() {
               isCollapsed={sidebarCollapsed}
             />
           </Suspense>
-        </div>
+        ) : null}
 
         <div className="flex flex-col flex-1 min-w-0">
           <div className="border-b border-border px-4 py-4 sm:px-8 sm:py-6">
@@ -721,23 +751,25 @@ export default function Search() {
                     </div>
                   ) : (
                     <>
-                      <SearchPagination
-                        currentPage={currentPage}
-                        totalPages={total_pages}
-                        pageSize={page_size}
-                        totalCount={total_count}
-                        totalCountIsApproximate={totalCountIsApproximate}
-                        hasNext={has_next}
-                        hasPrev={has_prev}
-                        onPageChange={(page) =>
-                          trackingActions.goToPage(page)
-                        }
-                        onPageSizeChange={(nextPageSize) =>
-                          trackingActions.changePageSize(nextPageSize)
-                        }
-                        isLoading={isSearching}
-                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                      />
+                      <Suspense fallback={null}>
+                        <SearchPagination
+                          currentPage={currentPage}
+                          totalPages={total_pages}
+                          pageSize={page_size}
+                          totalCount={total_count}
+                          totalCountIsApproximate={totalCountIsApproximate}
+                          hasNext={has_next}
+                          hasPrev={has_prev}
+                          onPageChange={(page) =>
+                            trackingActions.goToPage(page)
+                          }
+                          onPageSizeChange={(nextPageSize) =>
+                            trackingActions.changePageSize(nextPageSize)
+                          }
+                          isLoading={isSearching}
+                          isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                        />
+                      </Suspense>
 
                       <Suspense
                         fallback={
@@ -794,23 +826,25 @@ export default function Search() {
                         </div>
                       )}
 
-                      <SearchPagination
-                        currentPage={currentPage}
-                        totalPages={total_pages}
-                        pageSize={page_size}
-                        totalCount={total_count}
-                        totalCountIsApproximate={totalCountIsApproximate}
-                        hasNext={has_next}
-                        hasPrev={has_prev}
-                        onPageChange={(page) =>
-                          trackingActions.goToPage(page)
-                        }
-                        onPageSizeChange={(nextPageSize) =>
-                          trackingActions.changePageSize(nextPageSize)
-                        }
-                        isLoading={isSearching}
-                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                      />
+                      <Suspense fallback={null}>
+                        <SearchPagination
+                          currentPage={currentPage}
+                          totalPages={total_pages}
+                          pageSize={page_size}
+                          totalCount={total_count}
+                          totalCountIsApproximate={totalCountIsApproximate}
+                          hasNext={has_next}
+                          hasPrev={has_prev}
+                          onPageChange={(page) =>
+                            trackingActions.goToPage(page)
+                          }
+                          onPageSizeChange={(nextPageSize) =>
+                            trackingActions.changePageSize(nextPageSize)
+                          }
+                          isLoading={isSearching}
+                          isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                        />
+                      </Suspense>
                     </>
                   )}
                 </div>
