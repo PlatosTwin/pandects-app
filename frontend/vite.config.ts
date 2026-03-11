@@ -101,8 +101,12 @@ function criticalCssPlugin(): Plugin {
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
       // Add preload hints for LCP image only if not already present (index.html may have them)
-      const hasLogoPreload = (nextHtml.match(/<link[^>]+>/g) || []).some(
-        (link) => link.includes("rel=\"preload\"") && link.includes("logo-128") && link.includes("as=\"image\"")
+      const headLinks = nextHtml.match(/<link[^>]+>/g) ?? [];
+      const hasLogoPreload = headLinks.some(
+        (link) =>
+          link.includes("rel=\"preload\"") &&
+          link.includes("logo-128") &&
+          link.includes("as=\"image\""),
       );
       if (ctx?.bundle && !hasLogoPreload) {
         const preloadHints: string[] = [];
@@ -153,8 +157,12 @@ function criticalCssPlugin(): Plugin {
       const htmlPath = path.join(options.dir || "dist/spa", "index.html");
       if (fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, "utf-8");
-        const hasLogoPreload = (html.match(/<link[^>]+>/g) || []).some(
-          (link) => link.includes("rel=\"preload\"") && link.includes("logo-128") && link.includes("as=\"image\"")
+        const headLinks = html.match(/<link[^>]+>/g) ?? [];
+        const hasLogoPreload = headLinks.some(
+          (link) =>
+            link.includes("rel=\"preload\"") &&
+            link.includes("logo-128") &&
+            link.includes("as=\"image\""),
         );
         if (hasLogoPreload) return;
 
