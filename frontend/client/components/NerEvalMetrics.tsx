@@ -8,6 +8,9 @@ type NerEvalMetricsProps = {
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(2)}%`;
 
+const getStatusDotClass = (value: number) =>
+  value >= 0.95 ? "bg-emerald-500" : "bg-muted-foreground/40";
+
 const SummaryMetric = ({ label, value }: { label: string; value: string }) => (
   <div className="text-center sm:text-left">
     <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
@@ -139,6 +142,7 @@ export function NerEvalMetrics({
                   return (["Strict", "Lenient"] as const).map((mode) => {
                     const modeKey = mode === "Strict" ? "strict" : "lenient";
                     const metrics = perEntity[modeKey][entityKey];
+                    const statusDotClass = getStatusDotClass(metrics.f1);
                     return (
                       <tr
                         key={`${entity}-${mode}`}
@@ -148,7 +152,12 @@ export function NerEvalMetrics({
                           scope="row"
                           className="w-[1%] whitespace-nowrap py-1.5 pr-2 text-left text-foreground font-normal sm:w-auto sm:py-2 sm:pr-3"
                         >
-                          <div>{entity}</div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex h-2 w-2 rounded-full ${statusDotClass}`}
+                            />
+                            <span>{entity}</span>
+                          </div>
                           <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground sm:hidden">
                             {mode}
                           </div>
@@ -216,12 +225,35 @@ export function NerEvalMetrics({
                   { label: "Page", key: "PAGE", showS: true },
                 ].map((row) => (
                   <tr key={row.label} className="border-b border-border/40">
-                    <th
-                      scope="row"
-                      className="w-[1%] whitespace-nowrap py-1.5 pr-2 text-left text-foreground font-normal sm:w-auto sm:py-2 sm:pr-3"
-                    >
-                      {row.label}
-                    </th>
+                    {(() => {
+                      const availableValues = (["B", "I", "E", "S"] as const)
+                        .map((metric) =>
+                          metric === "S"
+                            ? row.showS
+                              ? boundaries.PAGE.S
+                              : null
+                            : boundaries[row.key][metric],
+                        )
+                        .filter((value): value is number => value !== null);
+                      const statusDotClass = getStatusDotClass(
+                        availableValues.reduce((sum, value) => sum + value, 0) /
+                          availableValues.length,
+                      );
+
+                      return (
+                        <th
+                          scope="row"
+                          className="w-[1%] whitespace-nowrap py-1.5 pr-2 text-left text-foreground font-normal sm:w-auto sm:py-2 sm:pr-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex h-2 w-2 rounded-full ${statusDotClass}`}
+                            />
+                            <span>{row.label}</span>
+                          </div>
+                        </th>
+                      );
+                    })()}
                     {(["B", "I", "E", "S"] as const).map((metric) => {
                       const value =
                         metric === "S"
