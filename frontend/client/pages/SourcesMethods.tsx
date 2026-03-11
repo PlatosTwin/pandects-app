@@ -1384,6 +1384,38 @@ export default function SourcesMethods() {
                 deal metadata after the fact. This means that we might pull in
                 some filings that are not properly M&A agreements.
               </li>
+              <li>
+                We apply our taxonomy at the <em>section</em> level, meaning
+                that some sections may belong to multiple taxonomic categories.
+                For instance, sections that cover governing law and forum
+                selection in one pass will belong to both{" "}
+                <span className="font-mono text-sm text-foreground">
+                  Governing Law
+                </span>{" "}
+                and{" "}
+                <span className="font-mono text-sm text-foreground">
+                  Forum Selection / Venue; Submission to Jurisdiction
+                </span>
+                . In the future, to complement section-level classification, we
+                plan to create a clause-level taxonomy as well.
+              </li>
+              <li>
+                Our taxonomy model is under development. In the meantime, we
+                assign sections to taxonomic classes by sending the target
+                section title and the title of its parent article, as well as
+                section and article titles from both preceeding and following
+                sections, to{" "}
+                <span className="font-mono text-sm text-foreground">
+                  gpt-5.1
+                </span>{" "}
+                and{" "}
+                <span className="font-mono text-sm text-foreground">
+                  gpt-5-mini
+                </span>{" "}
+                (as our free token allowance permits). This means that
+                taxonomic classes are currently assigned based on titles alone,
+                with no attention to section content.
+              </li>
             </ul>
           </section>
 
@@ -1399,9 +1431,12 @@ export default function SourcesMethods() {
             <ol className="list-decimal ml-6 space-y-4 text-muted-foreground">
               <li className="space-y-2">
                 <div>
-                  <strong>Exhibit review:</strong> Every agreement surfaced by
-                  the Exhibit Model is reviewed by hand before we treat it as a
-                  confirmed merger agreement.
+                  <strong>Exhibit review:</strong> Before we treat an agreement
+                  as confirmed, we manually review every agreement surfaced by
+                  the Exhibit Model, except that non-amended agreements titled
+                  "Agreement and Plan of Merger", "Business Combination
+                  Agreement" or "Membership Interest Purchase Agreement" are
+                  assumed valid by default.
                 </div>
               </li>
               <li className="space-y-2">
