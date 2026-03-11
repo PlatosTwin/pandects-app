@@ -49,7 +49,7 @@ function NavigationComponent() {
 
   const primaryLinks = useMemo(
     () => [
-      { to: "/sections", label: "Search", pandaTarget: "nav-search" },
+      { to: "/search", label: "Search", pandaTarget: "nav-search" },
       {
         to: docsUrl,
         label: "Docs",

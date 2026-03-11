@@ -19,7 +19,7 @@ const ROUTE_MANIFEST = [
     priority: "1.0",
   },
   {
-    pathname: "/sections",
+    pathname: "/search",
     title: "Search Merger Agreements | Pandects",
     description:
       "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",

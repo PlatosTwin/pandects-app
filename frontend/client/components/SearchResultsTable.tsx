@@ -113,7 +113,7 @@ export function SearchResultsTable({
   const buildSectionLinkUrl = useCallback(
     (agreement_uuid: string, section_uuid: string) => {
       if (typeof window === "undefined") return "";
-      const u = new URL("/sections", window.location.origin);
+      const u = new URL("/search", window.location.origin);
       u.searchParams.set("agreement_uuid", agreement_uuid);
       u.searchParams.set("section_uuid", section_uuid);
       return u.toString();

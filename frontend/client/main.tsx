@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
   bootstrapAnalytics,
@@ -15,7 +15,7 @@ import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-const SectionsPage = lazy(() => import("./pages/Sections"));
+const SearchPage = lazy(() => import("./pages/Search"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
 const About = lazy(() => import("./pages/About"));
@@ -61,7 +61,7 @@ const App = () => {
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Landing />} />
-              <Route path="/sections" element={<SectionsPage />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/bulk-data" element={<BulkData />} />
               <Route path="/agreement-index" element={<AgreementIndex />} />
               <Route path="/sources-methods" element={<SourcesMethods />} />
