@@ -26,7 +26,7 @@ from requests.models import Response
 from requests.sessions import Session
 
 from etl.domain.b_pre_processing import format_content, split_to_pages
-from etl.defs.resources import PipelineConfig, ProcessingScope
+from etl.defs.resources import PipelineConfig
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.sec_utils import SEC_USER_AGENT
 
@@ -265,9 +265,6 @@ def classify_exhibit_candidates(
         days_override: If provided, overrides pipeline_config.staging_days_to_fetch.
                        Useful for day-by-day processing.
     """
-    if not pipeline_config.is_batched():
-        raise RuntimeError("classify_exhibit_candidates requires batched mode.")
-
     days_to_fetch = days_override if days_override is not None else pipeline_config.staging_days_to_fetch
     exhibit_candidates = fetch_material_exhibit_links(
         start_date=start_date,
@@ -1058,7 +1055,6 @@ def _run_cli() -> None:
     days = cast(int, args.days)
     classifier = ExhibitClassifier.load(model_path)
     pipeline_config = PipelineConfig(
-        scope=ProcessingScope.BATCHED,
         staging_days_to_fetch=days,
     )
     # Use classify_exhibit_candidates to get ALL candidates for logging

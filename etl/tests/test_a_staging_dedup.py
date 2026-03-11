@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from etl.defs.resources import PipelineConfig, ProcessingScope
+from etl.defs.resources import PipelineConfig
 from etl.domain.a_staging import (
     AgreementCandidateResult,
     _compute_content_fingerprint,
@@ -62,7 +62,7 @@ class StagingDedupTests(unittest.TestCase):
         )
 
     def test_fetch_new_filings_sec_index_dedupes_exact_matches_before_lsh(self) -> None:
-        pipeline_config = PipelineConfig(scope=ProcessingScope.BATCHED)
+        pipeline_config = PipelineConfig()
         context = _Context()
         classifier = Mock()
         shared_text = "agreement and plan of merger " * 500
@@ -115,7 +115,7 @@ class StagingDedupTests(unittest.TestCase):
         self.assertTrue(filings[0].auto_status_verified)
 
     def test_fetch_new_filings_sec_index_keeps_near_duplicate_lsh_behavior(self) -> None:
-        pipeline_config = PipelineConfig(scope=ProcessingScope.BATCHED)
+        pipeline_config = PipelineConfig()
         context = _Context()
         classifier = Mock()
         shared_minhash = _compute_minhash("agreement plan merger closing " * 20)

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from dagster import AssetExecutionContext
 from openai import OpenAI
-from etl.defs.resources import DBResource, PipelineConfig, ProcessingScope
+from etl.defs.resources import DBResource, PipelineConfig
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
@@ -329,8 +329,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
         pipeline_config = SimpleNamespace(
             xml_agreement_batch_size=10,
-            resume_open_batches=True,
-            scope=ProcessingScope.BATCHED,
+            resume_openai_batches=True,
         )
         context = SimpleNamespace(log=_FakeLog())
 

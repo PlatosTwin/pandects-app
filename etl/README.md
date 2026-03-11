@@ -97,8 +97,8 @@ Post-run refresh (`run_post_asset_refresh`) is currently automatic only for stag
 Defined in `src/etl/defs/resources.py` and loaded from `etl/configs/pipeline_config.yaml`:
 
 - `pre_processing_mode`: `from_scratch` | `cleanup`
-- `scope`: `batched` | `full`
-- `resume_open_batches`: resume compatible in-flight OpenAI batches when possible
+- `queue_run_mode`: `single_batch` | `drain` for queue-draining assets (`pre_processing`, `tagging`, fresh `xml`, generic `sections`, `taxonomy`)
+- `resume_openai_batches`: resume compatible in-flight OpenAI batches for XML verify and AI-repair assets
 - `pre_processing_agreement_batch_size`
 - `tagging_agreement_batch_size`
 - `xml_agreement_batch_size`
@@ -111,5 +111,7 @@ Defined in `src/etl/defs/resources.py` and loaded from `etl/configs/pipeline_con
   - `staging_rate_limit_window_seconds`
   - `staging_max_workers`
   - `staging_use_keyword_filter`
+
+Run-scoped XML/repair assets do not use `queue_run_mode`; they accept exactly one upstream batch and fail fast when that invariant is violated. `tx_metadata_asset` likewise requires `queue_run_mode=single_batch`.
 
 `refresh` remains present in config schema for compatibility, but post-asset refresh routing is currently controlled by asset name in `src/etl/utils/post_asset_refresh.py`.

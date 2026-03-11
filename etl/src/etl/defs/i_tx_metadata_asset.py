@@ -41,7 +41,7 @@ from etl.utils.openai_batch import (
 )
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
-from etl.utils.run_config import is_batched
+from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
 
 MAX_TX_METADATA_WEB_FAILURES = 3
@@ -298,10 +298,7 @@ def tx_metadata_asset(
 ) -> None:
     run_pre_asset_gating(context, db)
 
-    if not is_batched(context, pipeline_config):
-        context.log.warning("tx_metadata_asset runs only in batched mode; skipping.")
-        run_post_asset_refresh(context, db, pipeline_config)
-        return
+    ensure_single_batch_run(context, pipeline_config, asset_name="tx_metadata_asset")
 
     mode = pipeline_config.tx_metadata_mode
     batch_size = pipeline_config.tx_metadata_agreement_batch_size

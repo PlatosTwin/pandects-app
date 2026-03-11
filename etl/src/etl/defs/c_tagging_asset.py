@@ -18,7 +18,7 @@ from etl.domain.c_tagging import (
 from etl.utils.db_utils import upsert_tags
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_tagging_queue_sql
-from etl.utils.run_config import is_batched
+from etl.utils.run_config import runs_single_batch
 
 
 @dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
@@ -42,7 +42,7 @@ def tagging_asset(
 
     # batching controls
     agreement_batch_size = pipeline_config.tagging_agreement_batch_size
-    batched = is_batched(context, pipeline_config)
+    single_batch_run = runs_single_batch(context, pipeline_config)
 
     last_uuid: str = ""
     engine = db.get_engine()
@@ -108,7 +108,7 @@ def tagging_asset(
 
             last_uuid = str(agreement_uuids[-1])
 
-        if batched:
+        if single_batch_run:
             break
 
     run_post_asset_refresh(context, db, pipeline_config)

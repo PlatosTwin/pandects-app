@@ -1,4 +1,4 @@
-# pyright: reportAny=false, reportPrivateUsage=false
+# pyright: reportAny=false, reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 import json
 import unittest
 from datetime import date
@@ -9,9 +9,11 @@ from unittest.mock import patch
 from dagster import AssetExecutionContext
 from openai import OpenAI
 
+from etl.defs.resources import PipelineConfig, QueueRunMode
 from etl.defs.i_tx_metadata_asset import (
     _apply_offline_batch_output,
     _run_web_search_mode,
+    tx_metadata_asset,
 )
 
 
@@ -261,6 +263,22 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(parse_errors, 0)
         self.assertEqual(refreshed_uuids, ["agreement-1"])
         refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
+
+    def test_tx_metadata_asset_fails_fast_when_queue_run_mode_is_not_single_batch(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = SimpleNamespace()
+        pipeline_config = PipelineConfig(queue_run_mode=QueueRunMode.DRAIN)
+
+        with patch("etl.defs.i_tx_metadata_asset.run_pre_asset_gating", return_value=None):
+            with self.assertRaisesRegex(
+                ValueError,
+                "tx_metadata_asset requires pipeline_config.queue_run_mode='single_batch'",
+            ):
+                _ = tx_metadata_asset.node_def.compute_fn.decorated_fn(
+                    cast(AssetExecutionContext, cast(object, context)),
+                    cast(object, db),
+                    pipeline_config,
+                )
 
     def test_apply_offline_batch_output_raises_on_database_error(self) -> None:
         response_payload = {

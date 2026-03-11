@@ -33,7 +33,7 @@ from etl.utils.pipeline_state_sql import (
     canonical_fresh_xml_build_queue_sql,
     canonical_fresh_xml_verify_queue_sql,
 )
-from etl.utils.run_config import ensure_batched_scope, is_batched
+from etl.utils.run_config import runs_single_batch
 from etl.utils.schema_guards import assert_tables_exist
 
 
@@ -724,7 +724,7 @@ def xml_asset(
     """
     # batching controls
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
-    batched = is_batched(context, pipeline_config)
+    single_batch_run = runs_single_batch(context, pipeline_config)
 
     engine = db.get_engine()
     schema = db.database
@@ -820,7 +820,7 @@ def xml_asset(
                     len(agreement_uuids),
                 )
                 last_uuid = agreement_uuids[-1]
-                if batched:
+                if single_batch_run:
                     break
                 continue
 
@@ -863,7 +863,7 @@ def xml_asset(
                 raise RuntimeError(e)
             
             last_uuid = agreement_uuids[-1]
-        if batched:
+        if single_batch_run:
             break
 
     run_post_asset_refresh(context, db, pipeline_config)
@@ -880,9 +880,8 @@ def xml_verify_asset(
     pipeline_config: PipelineConfig,
     built_xml_agreement_uuids: List[str],
 ) -> List[str]:
-    ensure_batched_scope(context, pipeline_config, asset_name="xml_verify_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
-    resume_open_batches = pipeline_config.resume_open_batches
+    resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
     if not target_agreement_uuids:
         context.log.info("xml_verify_asset: no upstream agreements from xml_asset.")
@@ -891,7 +890,7 @@ def xml_verify_asset(
     if len(target_agreement_uuids) > agreement_batch_size:
         raise ValueError(
             "xml_verify_asset received more upstream agreements than xml_agreement_batch_size; "
-            + "scope='full' is not supported for xml_fresh_pipeline."
+            + "run-scoped XML verification accepts at most one upstream XML batch."
         )
 
     engine = db.get_engine()
@@ -1071,7 +1070,7 @@ def xml_verify_asset(
         len(hard_invalid_rows),
     )
 
-    if resume_open_batches:
+    if resume_openai_batches:
         with engine.begin() as conn:
             existing_batch = _fetch_unpulled_xml_verify_batch(
                 conn,

@@ -52,16 +52,18 @@ class StageQueueAlignmentTests(unittest.TestCase):
         self.assertIn("when coalesce(p.gold_label, p.source_page_type) = 'body' then", cycle_src.lower())
         self.assertIn("else p.processed_page_content", cycle_src.lower())
 
-    def test_scoped_xml_and_repair_assets_require_batched_scope(self) -> None:
+    def test_run_scoped_xml_and_repair_assets_validate_upstream_batch_shape(self) -> None:
         fresh_src = self._read("src/etl/defs/f_xml_asset.py")
         repair_src = self._read("src/etl/defs/f_xml_repair_cycle_asset.py")
         sections_src = self._read("src/etl/defs/g_sections_asset.py")
         ai_repair_src = self._read("src/etl/defs/d_ai_repair_asset.py")
-        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"xml_verify_asset\")", fresh_src)
-        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"post_repair_build_xml_asset\")", repair_src)
-        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"post_repair_verify_xml_asset\")", repair_src)
-        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=\"ai_repair_enqueue_asset\")", ai_repair_src)
-        self.assertIn("ensure_batched_scope(context, pipeline_config, asset_name=log_prefix)", sections_src)
+        self.assertIn("run-scoped XML verification accepts at most one upstream XML batch.", fresh_src)
+        self.assertIn("run-scoped XML rebuild accepts at most one upstream reconciliation batch.", repair_src)
+        self.assertIn("run-scoped XML verification accepts at most one upstream rebuild batch.", repair_src)
+        self.assertIn("run-scoped sections extraction accepts at most one upstream XML batch.", sections_src)
+        self.assertNotIn("ensure_batched_scope", fresh_src)
+        self.assertNotIn("ensure_batched_scope", repair_src)
+        self.assertNotIn("ensure_batched_scope", ai_repair_src)
         self.assertIn("agreement_version_batch_key", fresh_src)
         self.assertIn("agreement_version_batch_key", repair_src)
 

@@ -40,11 +40,11 @@ class PreProcessingMode(Enum):
     CLEANUP = "cleanup"
 
 
-class ProcessingScope(Enum):
-    """Scope of processing for a single run."""
+class QueueRunMode(Enum):
+    """Execution mode for queue-draining assets."""
 
-    BATCHED = "batched"
-    FULL = "full"
+    SINGLE_BATCH = "single_batch"
+    DRAIN = "drain"
 
 
 class TxMetadataMode(Enum):
@@ -72,9 +72,9 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pre-processing mode and batching behavior."""
 
     pre_processing_mode: PreProcessingMode = PreProcessingMode.FROM_SCRATCH
-    scope: ProcessingScope = ProcessingScope.BATCHED
+    queue_run_mode: QueueRunMode = QueueRunMode.SINGLE_BATCH
     refresh: bool = False  # run end-of-asset gating + summary refresh
-    resume_open_batches: bool = True  # resume matching in-flight LLM batches when possible
+    resume_openai_batches: bool = True  # resume matching in-flight OpenAI batches when possible
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
     pre_processing_validate_agreement_batch_size: int = 10  # used in 2-2_validate_pre_processing_asset
@@ -105,9 +105,9 @@ class PipelineConfig(dg.ConfigurableResource[object]):
         """Check if pre-processing should run in cleanup mode."""
         return self.pre_processing_mode == PreProcessingMode.CLEANUP
 
-    def is_batched(self) -> bool:
-        """Check if the pipeline should run a single batch per asset invocation."""
-        return self.scope == ProcessingScope.BATCHED
+    def runs_single_batch(self) -> bool:
+        """Check if queue-draining assets should stop after one batch."""
+        return self.queue_run_mode == QueueRunMode.SINGLE_BATCH
 
 
 class DBResource(dg.ConfigurableResource[object]):
@@ -280,9 +280,9 @@ def get_resources() -> dict[str, object]:
     # Convert YAML values to appropriate types, with fallback to current defaults
     allowed_pipeline_config_keys = {
         "pre_processing_mode",
-        "scope",
+        "queue_run_mode",
         "refresh",
-        "resume_open_batches",
+        "resume_openai_batches",
         "tagging_agreement_batch_size",
         "pre_processing_agreement_batch_size",
         "pre_processing_validate_agreement_batch_size",
@@ -322,9 +322,9 @@ def get_resources() -> dict[str, object]:
         mode_str = str(yaml_config["pre_processing_mode"]).lower()
         pipeline_config_kwargs["pre_processing_mode"] = PreProcessingMode(mode_str)
     
-    if "scope" in yaml_config:
-        scope_str = str(yaml_config["scope"]).lower()
-        pipeline_config_kwargs["scope"] = ProcessingScope(scope_str)
+    if "queue_run_mode" in yaml_config:
+        run_mode_str = str(yaml_config["queue_run_mode"]).lower()
+        pipeline_config_kwargs["queue_run_mode"] = QueueRunMode(run_mode_str)
 
     if "refresh" in yaml_config:
         pipeline_config_kwargs["refresh"] = _parse_bool(
@@ -332,10 +332,10 @@ def get_resources() -> dict[str, object]:
             field_name="refresh",
         )
 
-    if "resume_open_batches" in yaml_config:
-        pipeline_config_kwargs["resume_open_batches"] = _parse_bool(
-            yaml_config["resume_open_batches"],
-            field_name="resume_open_batches",
+    if "resume_openai_batches" in yaml_config:
+        pipeline_config_kwargs["resume_openai_batches"] = _parse_bool(
+            yaml_config["resume_openai_batches"],
+            field_name="resume_openai_batches",
         )
     
     if "tagging_agreement_batch_size" in yaml_config:

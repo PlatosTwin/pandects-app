@@ -17,7 +17,7 @@ from etl.domain.f_xml import XMLData
 from etl.utils.db_utils import upsert_xml
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.post_asset_refresh import run_post_asset_refresh
-from etl.utils.run_config import is_batched
+from etl.utils.run_config import runs_single_batch
 
 
 def _normalized_gold_label(raw_value: str | None) -> str | None:
@@ -38,7 +38,7 @@ def taxonomy_asset(
 ) -> None:
     # batching controls
     agreement_batch_size = pipeline_config.taxonomy_agreement_batch_size
-    batched = is_batched(context, pipeline_config)
+    single_batch_run = runs_single_batch(context, pipeline_config)
 
     engine = db.get_engine()
     schema = db.database
@@ -257,7 +257,7 @@ def taxonomy_asset(
 
             last_uuid = agr_rows[-1]["agreement_uuid"]
 
-        if batched:
+        if single_batch_run:
             break
 
     run_post_asset_refresh(context, db, pipeline_config)

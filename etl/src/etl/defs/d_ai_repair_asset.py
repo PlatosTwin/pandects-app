@@ -33,7 +33,6 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
 )
-from etl.utils.run_config import ensure_batched_scope
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
 from etl.utils.batch_keys import agreement_batch_key
@@ -567,11 +566,9 @@ def ai_repair_enqueue_asset(
     """
     engine = db.get_engine()
     client = _oai_client()
-    ensure_batched_scope(context, pipeline_config, asset_name="ai_repair_enqueue_asset")
-
     batch_completion_window = "24h"
     should_exit_after_tx = False
-    resume_open_batches = pipeline_config.resume_open_batches
+    resume_openai_batches = pipeline_config.resume_openai_batches
 
     enqueued_agreement_uuids: Set[str] = set()
 
@@ -593,7 +590,7 @@ def ai_repair_enqueue_asset(
         batch_size = pipeline_config.xml_agreement_batch_size
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
-        if resume_open_batches:
+        if resume_openai_batches:
             resume_probe_candidates = _fetch_candidates(
                 conn,
                 db.database,

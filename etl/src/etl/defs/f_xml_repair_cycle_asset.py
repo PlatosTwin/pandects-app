@@ -38,7 +38,6 @@ from etl.utils.pipeline_state_sql import (
     canonical_post_repair_build_queue_sql,
     canonical_post_repair_verify_queue_sql,
 )
-from etl.utils.run_config import ensure_batched_scope
 from etl.utils.schema_guards import assert_tables_exist
 
 
@@ -58,7 +57,6 @@ def post_repair_build_xml_asset(
       - have been attempted by AI repair, and
       - have newer tagged outputs than that invalid XML version.
     """
-    ensure_batched_scope(context, pipeline_config, asset_name="post_repair_build_xml_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     target_agreement_uuids = sorted(set(reconciled_agreement_uuids))
     if not target_agreement_uuids:
@@ -68,7 +66,7 @@ def post_repair_build_xml_asset(
     if len(target_agreement_uuids) > agreement_batch_size:
         raise ValueError(
             "post_repair_build_xml_asset received more upstream agreements than xml_agreement_batch_size; "
-            + "scope='full' is not supported for xml_repair_cycle_pipeline."
+            + "run-scoped XML rebuild accepts at most one upstream reconciliation batch."
         )
 
     engine = db.get_engine()
@@ -229,9 +227,8 @@ def post_repair_verify_xml_asset(
     """
     Verify only latest XML rows that came through the AI-repair cycle.
     """
-    ensure_batched_scope(context, pipeline_config, asset_name="post_repair_verify_xml_asset")
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
-    resume_open_batches = pipeline_config.resume_open_batches
+    resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(rebuilt_agreement_uuids))
     if not target_agreement_uuids:
         context.log.info("post_repair_verify_xml_asset: no upstream agreements from post_repair_build_xml_asset.")
@@ -240,7 +237,7 @@ def post_repair_verify_xml_asset(
     if len(target_agreement_uuids) > agreement_batch_size:
         raise ValueError(
             "post_repair_verify_xml_asset received more upstream agreements than xml_agreement_batch_size; "
-            + "scope='full' is not supported for xml_repair_cycle_pipeline."
+            + "run-scoped XML verification accepts at most one upstream rebuild batch."
         )
 
     engine = db.get_engine()
@@ -405,7 +402,7 @@ def post_repair_verify_xml_asset(
         len(hard_invalid_rows),
     )
 
-    if resume_open_batches:
+    if resume_openai_batches:
         with engine.begin() as conn:
             existing_batch = _fetch_unpulled_xml_verify_batch(
                 conn,

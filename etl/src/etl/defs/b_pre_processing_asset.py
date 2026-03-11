@@ -20,15 +20,17 @@ from etl.defs.resources import (
 )
 from etl.domain.b_pre_processing import (
     AgreementRow,
+    ClassifierModelProtocol,
     CleanupRow,
     ContextProtocol as PreProcessContext,
+    ReviewModelProtocol,
     cleanup,
     pre_process,
 )
 from etl.utils.db_utils import upsert_pages
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.pipeline_state_sql import canonical_pre_processing_queue_sql
-from etl.utils.run_config import is_pre_processing_cleanup_mode
+from etl.utils.run_config import is_pre_processing_cleanup_mode, runs_single_batch
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -52,10 +54,18 @@ def pre_processing_asset(
     """
     last_uuid: str = ""
     engine = db.get_engine()
-    inference_model = classifier_model.model()
-    review_inference_model = review_model.model(page_classifier=inference_model)
+    raw_inference_model = classifier_model.model()
+    inference_model = cast(
+        ClassifierModelProtocol,
+        cast(object, raw_inference_model),
+    )
+    review_inference_model = cast(
+        ReviewModelProtocol,
+        cast(object, review_model.model(page_classifier=raw_inference_model)),
+    )
 
     is_cleanup = is_pre_processing_cleanup_mode(context, pipeline_config)
+    single_batch_run = runs_single_batch(context, pipeline_config)
 
     batch_size = pipeline_config.pre_processing_agreement_batch_size
     schema = db.database
@@ -149,6 +159,9 @@ def pre_processing_asset(
                         raise RuntimeError(e)
 
                 last_uuid = rows[-1][0]
+
+            if single_batch_run:
+                break
 
     # CLEANUP mode
     # Just like FROM_SCRATCH mode, but we fetch pages that we've already split
@@ -285,5 +298,8 @@ def pre_processing_asset(
                     except Exception as e:
                         context.log.error(f"Error upserting pages: {e}")
                         raise RuntimeError(e)
+
+            if single_batch_run:
+                break
 
     run_post_asset_refresh(context, db, pipeline_config)
