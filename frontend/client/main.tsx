@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
@@ -35,21 +34,6 @@ const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Terms = lazy(() => import("./pages/Terms"));
 const License = lazy(() => import("./pages/License"));
 
-// Optimized QueryClient configuration to reduce initial JavaScript execution
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Reduce refetching on mount/window focus to minimize work
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      // Use staleTime to avoid unnecessary refetches
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      // Reduce retry attempts to fail faster
-      retry: 1,
-    },
-  },
-});
-
 bootstrapAnalytics();
 
 const App = () => {
@@ -69,43 +53,41 @@ const App = () => {
   useEffect(() => installGlobalErrorTracking(), []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Landing />} />
-                <Route path="/sections" element={<SectionsPage />} />
-                <Route path="/bulk-data" element={<BulkData />} />
-                <Route path="/agreement-index" element={<AgreementIndex />} />
-                <Route path="/sources-methods" element={<SourcesMethods />} />
-                <Route path="/xml-schema" element={<XmlSchema />} />
-                <Route path="/taxonomy" element={<Taxonomy />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/feedback" element={<Feedback />} />
-                <Route path="/contribute" element={<Contribute />} />
-                <Route path="/account" element={<Account />} />
-                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-                <Route path="/auth/verify-email" element={<VerifyEmail />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/license" element={<License />} />
-                <Route
-                  path="/auth/google/callback"
-                  element={<AuthGoogleCallback />}
-                />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Landing />} />
+              <Route path="/sections" element={<SectionsPage />} />
+              <Route path="/bulk-data" element={<BulkData />} />
+              <Route path="/agreement-index" element={<AgreementIndex />} />
+              <Route path="/sources-methods" element={<SourcesMethods />} />
+              <Route path="/xml-schema" element={<XmlSchema />} />
+              <Route path="/taxonomy" element={<Taxonomy />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/contribute" element={<Contribute />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/verify-email" element={<VerifyEmail />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/license" element={<License />} />
+              <Route
+                path="/auth/google/callback"
+                element={<AuthGoogleCallback />}
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   );
 };
 
