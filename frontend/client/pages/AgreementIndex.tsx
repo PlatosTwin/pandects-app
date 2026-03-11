@@ -618,6 +618,7 @@ export default function AgreementIndex() {
   const filteredLabel = filterQuery.trim()
     ? `Filtered by "${filterQuery.trim()}"`
     : "";
+  const isInitialAgreementLoad = loading && agreements.length === 0 && !error;
   const stagedChartData = useMemo(() => {
     const yearMap = new Map<
       number,
@@ -1169,7 +1170,7 @@ export default function AgreementIndex() {
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
                     {card.label}
                   </div>
-                  <div className="text-2xl font-semibold text-foreground">
+                  <div className="flex min-h-7 items-center text-2xl font-semibold tabular-nums text-foreground">
                     {summaryLoading ? (
                       <>
                         <Skeleton className="h-7 w-24" />
@@ -1531,7 +1532,10 @@ export default function AgreementIndex() {
                   className="pl-9"
                 />
               </div>
-              <Badge variant="secondary" className="self-start sm:self-auto">
+              <Badge
+                variant="secondary"
+                className="self-start tabular-nums sm:self-auto"
+              >
                 {total_count.toLocaleString("en-US")} agreements
               </Badge>
             </div>
@@ -1663,9 +1667,9 @@ export default function AgreementIndex() {
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, index) => (
+              <TableBody aria-busy={loading}>
+                {isInitialAgreementLoad ? (
+                  Array.from({ length: page_size }).map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
                       <TableCell colSpan={6} className="py-6">
                         <Skeleton className="h-4 w-full" />
@@ -1768,8 +1772,8 @@ export default function AgreementIndex() {
           </div>
 
           <div className="mt-6 space-y-4 lg:hidden">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, index) => (
+            {isInitialAgreementLoad ? (
+              Array.from({ length: page_size }).map((_, index) => (
                 <Card
                   key={`mobile-skeleton-${index}`}
                   className="border-border/60"
