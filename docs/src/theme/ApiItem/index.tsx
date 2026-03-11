@@ -5,10 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  * ========================================================================== */
 
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useMemo, useRef } from "react";
 
 import BrowserOnly from "@docusaurus/BrowserOnly";
-import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import { DocProvider } from "@docusaurus/plugin-content-docs/client";
 import { HtmlClassNameProvider } from "@docusaurus/theme-common";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
@@ -34,7 +33,19 @@ import type {
 import { ungzip } from "pako";
 import { Provider } from "react-redux";
 
-import { createStoreWithoutState, createStoreWithState } from "./store";
+import { createStoreWithState, createStoreWithoutState } from "./store";
+
+interface ApiFrontMatter extends DocFrontMatter {
+  readonly api?: string;
+}
+
+interface SchemaFrontMatter extends DocFrontMatter {
+  readonly schema?: boolean;
+}
+
+interface SampleFrontMatter extends DocFrontMatter {
+  readonly sample?: any;
+}
 
 const DEFAULT_API_SERVERS = [
   {
@@ -47,31 +58,16 @@ const DEFAULT_API_SERVERS = [
   },
 ];
 
-let ApiExplorer = (_: { item: any; infoPath: any }) => <div />;
+const LazyApiExplorerPanel = React.lazy(() => import("./ApiExplorerPanel"));
 
-if (ExecutionEnvironment.canUseDOM) {
-  ApiExplorer = require("@theme/ApiExplorer").default;
-}
-
-interface ApiFrontMatter extends DocFrontMatter {
-  readonly api?: ApiItemType;
-}
-
-interface SchemaFrontMatter extends DocFrontMatter {
-  readonly schema?: boolean;
-}
-
-interface SampleFrontMatter extends DocFrontMatter {
-  readonly sample?: any;
-}
-
-function base64ToUint8Array(base64: string) {
+function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
+
   return bytes;
 }
 
@@ -80,84 +76,77 @@ export default function ApiItem(props: Props): JSX.Element {
   const MDXComponent = props.content;
   const { frontMatter } = MDXComponent;
   const { info_path: infoPath } = frontMatter as DocFrontMatter;
-  let { api } = frontMatter as ApiFrontMatter;
+  const { api } = frontMatter as ApiFrontMatter;
   const { schema } = frontMatter as SchemaFrontMatter;
   const { sample } = frontMatter as SampleFrontMatter;
-  if (api) {
-    try {
-      api = JSON.parse(
-        new TextDecoder().decode(ungzip(base64ToUint8Array(api as any)))
-      );
-      if (!Array.isArray(api.servers) || api.servers.length === 0) {
-        api.servers = DEFAULT_API_SERVERS;
-      }
-    } catch {}
-  }
+  const rightPanelRef = useRef<HTMLDivElement | null>(null);
   const { siteConfig } = useDocusaurusContext();
   const themeConfig = siteConfig.themeConfig as ThemeConfig;
   const options = themeConfig.api;
   const isBrowser = useIsBrowser();
 
-  const statusRegex = new RegExp("(20[0-9]|2[1-9][0-9])");
-
-  let store: any = {};
-  const persistenceMiddleware = createPersistenceMiddleware(options);
-  const rightPanelRef = useRef<HTMLDivElement | null>(null);
-
-  if (!isBrowser) {
-    store = createStoreWithoutState({}, [persistenceMiddleware]);
-  }
-
-  if (isBrowser) {
-    let acceptArray: any = [];
-    for (const [code, content] of Object.entries(api?.responses ?? [])) {
-      if (statusRegex.test(code)) {
-        acceptArray.push(Object.keys(content.content ?? {}));
-      }
+  const parsedApi = useMemo(() => {
+    if (!api) {
+      return undefined;
     }
-    acceptArray = acceptArray.flat();
 
-    const content = api?.requestBody?.content ?? {};
-    const contentTypeArray = Object.keys(content);
-    const servers = api?.servers ?? [];
+    const decodedApi = JSON.parse(
+      new TextDecoder().decode(ungzip(base64ToUint8Array(api)))
+    ) as ApiItemType;
+
+    if (!Array.isArray(decodedApi.servers) || decodedApi.servers.length === 0) {
+      decodedApi.servers = DEFAULT_API_SERVERS;
+    }
+
+    return decodedApi;
+  }, [api]);
+
+  const store = useMemo(() => {
+    const persistenceMiddleware = createPersistenceMiddleware(options);
+
+    if (!isBrowser || !parsedApi) {
+      return createStoreWithoutState({}, [persistenceMiddleware]);
+    }
+
+    const acceptOptions = Object.entries(parsedApi.responses ?? {})
+      .filter(([statusCode]) => /2\d\d/.test(statusCode))
+      .flatMap(([, response]) => Object.keys(response.content ?? {}));
+    const contentTypeOptions = Object.keys(parsedApi.requestBody?.content ?? {});
     const params = {
       path: [] as ParameterObject[],
       query: [] as ParameterObject[],
       header: [] as ParameterObject[],
       cookie: [] as ParameterObject[],
     };
-    api?.parameters?.forEach(
-      (param: { in: "path" | "query" | "header" | "cookie" }) => {
-        const paramType = param.in;
-        const paramsArray: ParameterObject[] = params[paramType];
-        paramsArray.push(param as ParameterObject);
-      }
-    );
-    const auth = createAuth({
-      security: api?.security,
-      securitySchemes: api?.securitySchemes,
-      options,
+
+    parsedApi.parameters?.forEach((param) => {
+      params[param.in].push(param as ParameterObject);
     });
 
+    const auth = createAuth({
+      security: parsedApi.security,
+      securitySchemes: parsedApi.securitySchemes,
+      options,
+    });
     const storage = createStorage(options?.authPersistence ?? "sessionStorage");
-    const server = storage.getItem("server");
-    const serverObject = server
-      ? (JSON.parse(server) as ServerObject)
+    const storedServer = storage.getItem("server");
+    const serverValue = storedServer
+      ? (JSON.parse(storedServer) as ServerObject)
       : undefined;
 
-    store = createStoreWithState(
+    return createStoreWithState(
       {
         accept: {
-          value: acceptArray[0],
-          options: acceptArray,
+          value: acceptOptions[0],
+          options: acceptOptions,
         },
         contentType: {
-          value: contentTypeArray[0],
-          options: contentTypeArray,
+          value: contentTypeOptions[0],
+          options: contentTypeOptions,
         },
         server: {
-          value: serverObject?.url ? serverObject : undefined,
-          options: servers,
+          value: serverValue?.url ? serverValue : undefined,
+          options: parsedApi.servers ?? [],
         },
         response: { value: undefined },
         body: { type: "empty" },
@@ -167,18 +156,16 @@ export default function ApiItem(props: Props): JSX.Element {
       },
       [persistenceMiddleware]
     );
-  }
+  }, [isBrowser, options, parsedApi]);
 
   useEffect(() => {
-    if (!isBrowser) {
-      return;
-    }
     const panel = rightPanelRef.current;
     if (!panel) {
       return;
     }
 
     let rafId = 0;
+    let initialRafId = 0;
     const scheduleUpdate = () => {
       if (rafId !== 0) {
         return;
@@ -208,16 +195,24 @@ export default function ApiItem(props: Props): JSX.Element {
     const resizeObserver = new ResizeObserver(scheduleUpdate);
     resizeObserver.observe(panel);
     window.addEventListener("resize", scheduleUpdate, { passive: true });
-    scheduleUpdate();
+    initialRafId = window.requestAnimationFrame(() => {
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        scheduleUpdate();
+      });
+    });
 
     return () => {
+      if (initialRafId !== 0) {
+        window.cancelAnimationFrame(initialRafId);
+      }
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
       }
       resizeObserver.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [isBrowser]);
+  }, [api, schema, sample]);
 
   if (api) {
     return (
@@ -235,9 +230,14 @@ export default function ApiItem(props: Props): JSX.Element {
                   className="col col--5 openapi-right-panel__container"
                 >
                   <BrowserOnly fallback={<SkeletonLoader size="lg" />}>
-                    {() => {
-                      return <ApiExplorer item={api} infoPath={infoPath} />;
-                    }}
+                    {() => (
+                      <Suspense fallback={<SkeletonLoader size="lg" />}>
+                        <LazyApiExplorerPanel
+                          api={parsedApi!}
+                          infoPath={infoPath}
+                        />
+                      </Suspense>
+                    )}
                   </BrowserOnly>
                 </div>
               </div>

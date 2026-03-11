@@ -169,7 +169,7 @@ function ParamsItem({ param }: Props) {
   }
 
   return (
-    <div className="openapi-params__list-item">
+    <li className="openapi-params__list-item">
       <span className="openapi-schema__container">
         <strong
           className={clsx("openapi-schema__property", {
@@ -192,7 +192,7 @@ function ParamsItem({ param }: Props) {
       {renderDefaultValue()}
       <Example example={example} />
       <Example examples={examples} />
-    </div>
+    </li>
   );
 }
 

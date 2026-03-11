@@ -1,9 +1,25 @@
-import React, { useEffect } from "react";
+import React from "react";
+
+import Head from "@docusaurus/Head";
+import Layout from "@theme/Layout";
+
+const GETTING_STARTED_PATH = "/docs/guides/getting-started";
 
 export default function Home() {
-  useEffect(() => {
-    window.location.replace("/docs/guides/getting-started");
-  }, []);
-
-  return null;
+  return (
+    <Layout title="Pandects Docs">
+      <Head>
+        <meta
+          httpEquiv="refresh"
+          content={`0; url=${GETTING_STARTED_PATH}`}
+        />
+        <link rel="canonical" href={GETTING_STARTED_PATH} />
+      </Head>
+      <main className="container margin-vert--xl">
+        <p>
+          Continue to <a href={GETTING_STARTED_PATH}>Getting Started</a>.
+        </p>
+      </main>
+    </Layout>
+  );
 }

@@ -65,7 +65,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: require.resolve("./sidebars.ts"),
-          docItemComponent: "@theme/ApiItem",
+          docItemComponent: "@theme/DocItem",
         },
         blog: false,
         theme: {
