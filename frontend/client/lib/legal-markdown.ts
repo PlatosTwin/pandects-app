@@ -6,7 +6,15 @@ export type PreparedMarkdown = {
   subtitle?: string;
 };
 
+const preparedMarkdownCache = new Map<string, PreparedMarkdown>();
+const renderedHtmlCache = new Map<string, string>();
+
 export function prepareLegalMarkdownForPage(source: string): PreparedMarkdown {
+  const cached = preparedMarkdownCache.get(source);
+  if (cached) {
+    return cached;
+  }
+
   const withoutBom = source.replace(/^\uFEFF/, "");
   const lines = withoutBom.split(/\r?\n/);
 
@@ -33,7 +41,9 @@ export function prepareLegalMarkdownForPage(source: string): PreparedMarkdown {
     if (lines[effectiveDateIndex]?.trim() === "") lines.splice(effectiveDateIndex, 1);
   }
 
-  return { markdown: lines.join("\n").trim(), subtitle };
+  const prepared = { markdown: lines.join("\n").trim(), subtitle };
+  preparedMarkdownCache.set(source, prepared);
+  return prepared;
 }
 
 function slugifyHeading(text: string): string {
@@ -52,6 +62,11 @@ function slugifyHeading(text: string): string {
 }
 
 export function renderLegalMarkdownToHtml(markdown: string): string {
+  const cached = renderedHtmlCache.get(markdown);
+  if (cached) {
+    return cached;
+  }
+
   const env: { __usedHeadingIds?: Map<string, number> } = {};
 
   const md = new Remarkable({ html: false, typographer: true }).use(linkify);
@@ -69,6 +84,7 @@ export function renderLegalMarkdownToHtml(markdown: string): string {
     return `<h${level} id="${id}">`;
   };
 
-  return md.render(markdown, env);
+  const html = md.render(markdown, env);
+  renderedHtmlCache.set(markdown, html);
+  return html;
 }
-

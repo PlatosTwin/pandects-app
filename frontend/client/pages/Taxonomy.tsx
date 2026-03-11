@@ -31,8 +31,9 @@ import {
 
 export default function Taxonomy() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const { taxonomyTree, isLoading, error } = useTaxonomy({ fresh: true });
+  const { taxonomyTree, isLoading, error } = useTaxonomy();
   const [searchQuery, setSearchQuery] = useState("");
+  const [hasActivatedSearch, setHasActivatedSearch] = useState(false);
   const [openLevel1, setOpenLevel1] = useState<string[]>([]);
   const [openLevel2ByParent, setOpenLevel2ByParent] = useState<
     Record<string, string[]>
@@ -44,14 +45,20 @@ export default function Taxonomy() {
     [taxonomyTree],
   );
   const flattenedEntries = useMemo(
-    () => buildTaxonomySearchEntries(taxonomyEntries),
-    [taxonomyEntries],
+    () =>
+      hasActivatedSearch && taxonomyEntries.length > 0
+        ? buildTaxonomySearchEntries(taxonomyEntries)
+        : [],
+    [hasActivatedSearch, taxonomyEntries],
   );
   const normalizedQueryValue = normalizeForTaxonomySearch(searchQuery);
   const hasQuery = normalizedQueryValue.length > 0;
   const searchResults = useMemo(() => {
+    if (!hasQuery || flattenedEntries.length === 0) {
+      return [];
+    }
     return filterTaxonomySearchEntries(flattenedEntries, searchQuery);
-  }, [flattenedEntries, searchQuery]);
+  }, [flattenedEntries, hasQuery, searchQuery]);
   const orderedResults = useMemo(() => {
     const results = [...searchResults];
     const depthRank = (entry: TaxonomySearchEntry) => {
@@ -293,7 +300,11 @@ export default function Taxonomy() {
               <Input
                 id="taxonomy-search-input"
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(event) => {
+                  setHasActivatedSearch(true);
+                  setSearchQuery(event.target.value);
+                }}
+                onFocus={() => setHasActivatedSearch(true)}
                 placeholder="Search clause types or taxonomy IDs"
                 className="pl-9"
                 autoComplete="off"
