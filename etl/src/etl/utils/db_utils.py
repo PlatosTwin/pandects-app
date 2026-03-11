@@ -20,6 +20,7 @@ class AgreementRow(Protocol):
     form_type: str | None
     exhibit_type: str | None  # "2", "10", or "99"
     secondary_filing_url: str | None  # URL of duplicate filing if detected
+    auto_status_verified: bool
 
 
 class PageRow(Protocol):
@@ -76,6 +77,7 @@ def upsert_agreements(
               form_type,
               exhibit_type,
               secondary_filing_url,
+              status,
               source,
               ingested_date
             ) VALUES (
@@ -91,6 +93,7 @@ def upsert_agreements(
               :form_type,
               :exhibit_type,
               :secondary_filing_url,
+              :status,
               :source,
               DEFAULT
             )
@@ -111,6 +114,10 @@ def upsert_agreements(
             form_type = COALESCE(:form_type, form_type),
             exhibit_type = COALESCE(:exhibit_type, exhibit_type),
             secondary_filing_url = COALESCE(:secondary_filing_url, secondary_filing_url),
+            status = CASE
+                WHEN status IS NULL AND :auto_status_verified THEN 'verified'
+                ELSE status
+            END,
             source = COALESCE(:source, source)
         WHERE agreement_uuid = :agreement_uuid
           AND (
@@ -125,6 +132,7 @@ def upsert_agreements(
             OR NOT (form_type <=> COALESCE(:form_type, form_type))
             OR NOT (exhibit_type <=> COALESCE(:exhibit_type, exhibit_type))
             OR NOT (secondary_filing_url <=> COALESCE(:secondary_filing_url, secondary_filing_url))
+            OR (status IS NULL AND :auto_status_verified)
             OR NOT (source <=> COALESCE(:source, source))
           )
         """
@@ -154,6 +162,8 @@ def upsert_agreements(
             "form_type": f.form_type,
             "exhibit_type": f.exhibit_type,
             "secondary_filing_url": f.secondary_filing_url,
+            "status": "verified" if f.auto_status_verified else None,
+            "auto_status_verified": f.auto_status_verified,
             "source": "edgar",  # HARDCODED: Change this value to update the source
         }
         for f in staged_agreements

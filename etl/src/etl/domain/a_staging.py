@@ -2,6 +2,7 @@
 # pyright: reportMissingTypeStubs=false
 import argparse
 import datetime
+import hashlib
 import re
 import time
 import uuid
@@ -52,6 +53,7 @@ class FilingMetadata:
     form_type: str | None = None
     exhibit_type: str | None = None  # "2" or "10"
     secondary_filing_url: str | None = None  # URL of duplicate filing if detected
+    auto_status_verified: bool = False
 
 
 def get_uuid(x: str) -> str:
@@ -104,6 +106,8 @@ class AgreementCandidateResult:
     filing_date: str  # YYYYMMDD format from idx
     exhibit_type: str  # "2" or "10"
     page_count: int
+    auto_status_verified: bool
+    content_fingerprint: str  # Deterministic normalized-content fingerprint for exact duplicate detection
     minhash: MinHash  # For near-duplicate detection via LSH
 
 
@@ -181,6 +185,14 @@ class IndexFiling(TypedDict):
 # MinHash parameters for near-duplicate detection
 _MINHASH_NUM_PERM = 128  # Number of permutations (higher = more accurate, slower)
 _MINHASH_SHINGLE_SIZE = 5  # Size of word shingles
+_AUTO_VERIFY_FIRST_CHARS = 500
+_AUTO_VERIFY_MIN_PAGES = 15
+_AUTO_VERIFY_INCLUDE_PHRASES = (
+    "agreement and plan of merger",
+    "business combination",
+    "membership interest purchase",
+)
+_AUTO_VERIFY_EXCLUDE_PHRASES = ("amend", "restate")
 
 
 def _compute_minhash(rendered_text: str) -> MinHash:
@@ -208,6 +220,31 @@ def _compute_minhash(rendered_text: str) -> MinHash:
             shingle = " ".join(words[i:i + _MINHASH_SHINGLE_SIZE])
             mh.update(shingle.encode("utf-8"))
     return mh
+
+
+def _compute_content_fingerprint(rendered_text: str) -> str:
+    """Compute a stable fingerprint for exact duplicate detection.
+
+    Normalizes case and collapses whitespace so filings that differ only in SEC
+    wrapper formatting still collapse deterministically.
+    """
+    normalized = re.sub(r"\s+", " ", rendered_text.lower()).strip()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def should_auto_verify_agreement(rendered_text: str, page_count: int) -> bool:
+    """Return whether the rendered agreement qualifies for staging auto-verify."""
+    if page_count < _AUTO_VERIFY_MIN_PAGES:
+        return False
+
+    normalized_text = rendered_text.casefold()
+    first_window = normalized_text[:_AUTO_VERIFY_FIRST_CHARS]
+
+    if not any(phrase in first_window for phrase in _AUTO_VERIFY_INCLUDE_PHRASES):
+        return False
+    if any(phrase in first_window for phrase in _AUTO_VERIFY_EXCLUDE_PHRASES):
+        return False
+    return True
 
 
 def classify_exhibit_candidates(
@@ -246,9 +283,11 @@ def classify_exhibit_candidates(
     # Fetch content and filter out unsupported file types
     valid_candidates: list[ExhibitCandidate] = []
     agreement_texts: list[str] = []
+    content_fingerprints: list[str] = []
     minhashes: list[MinHash] = []
     page_counts: list[int] = []
-    cached_exhibits: dict[str, tuple[str, int, MinHash] | None] = {}
+    auto_statuses_verified: list[bool] = []
+    cached_exhibits: dict[str, tuple[str, int, str, MinHash, bool] | None] = {}
 
     for candidate in exhibit_candidates:
         cached = cached_exhibits.get(candidate.exhibit_url)
@@ -273,18 +312,27 @@ def classify_exhibit_candidates(
             agreement_text, page_count = _render_agreement_text_and_page_count(
                 content, is_txt=is_txt, is_html=is_html
             )
+            auto_status_verified = should_auto_verify_agreement(
+                agreement_text,
+                page_count,
+            )
+            content_fingerprint = _compute_content_fingerprint(agreement_text)
             minhash = _compute_minhash(agreement_text)
             cached_exhibits[candidate.exhibit_url] = (
                 agreement_text,
                 page_count,
+                content_fingerprint,
                 minhash,
+                auto_status_verified,
             )
         else:
-            agreement_text, page_count, minhash = cached
+            agreement_text, page_count, content_fingerprint, minhash, auto_status_verified = cached
 
         agreement_texts.append(agreement_text)
+        content_fingerprints.append(content_fingerprint)
         minhashes.append(minhash)
         page_counts.append(page_count)
+        auto_statuses_verified.append(auto_status_verified)
         valid_candidates.append(candidate)
 
     # Early return if no valid candidates (all fetches failed/skipped)
@@ -318,6 +366,8 @@ def classify_exhibit_candidates(
                 filing_date=candidate.filing_date,
                 exhibit_type=candidate.exhibit_type,
                 page_count=page_counts[idx],
+                auto_status_verified=auto_statuses_verified[idx],
+                content_fingerprint=content_fingerprints[idx],
                 minhash=minhashes[idx],
             )
         )
@@ -369,6 +419,7 @@ def fetch_new_filings_sec_index(
     # Track which indices belong to which duplicate group
     # union-find structure: parent[i] = parent index, or self if root
     parent: list[int] = list(range(len(ma_candidates)))
+    fingerprint_first_seen: dict[str, int] = {}
     
     def find(x: int) -> int:
         if parent[x] != x:
@@ -384,8 +435,15 @@ def fetch_new_filings_sec_index(
             else:
                 parent[px] = py
     
-    # Insert each candidate's MinHash into LSH and check for near-duplicates
+    # First merge exact duplicates deterministically by normalized-content fingerprint.
+    # Then use MinHash/LSH to catch near-duplicates with small title/signature differences.
     for idx, candidate in enumerate(ma_candidates):
+        first_seen_idx = fingerprint_first_seen.get(candidate.content_fingerprint)
+        if first_seen_idx is None:
+            fingerprint_first_seen[candidate.content_fingerprint] = idx
+        else:
+            union(idx, first_seen_idx)
+
         # Query for similar items before inserting
         similar_keys = lsh.query(candidate.minhash)
         for key in similar_keys:
@@ -452,6 +510,7 @@ def fetch_new_filings_sec_index(
                 form_type=primary.form_type,
                 exhibit_type=primary.exhibit_type,
                 secondary_filing_url=secondary_url,
+                auto_status_verified=primary.auto_status_verified,
             )
         )
 

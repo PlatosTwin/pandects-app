@@ -58,8 +58,10 @@ _t.*
 
 etl/backfills/*
 etl/src/etl/utils/backfill_*.py
+!etl/src/etl/utils/backfill_auto_verify_edgar.py
 etl/src/etl/utils/discover_*.py
 etl/tests/test_backfill_*.py
+!etl/tests/test_backfill_auto_verify_edgar.py
 etl/tests/test_rekey_section_uuids.py
 etl/tests/test_reset_stuck_agreements.py
 etl/src/etl/utils/rekey_section_uuids.py
