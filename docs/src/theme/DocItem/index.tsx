@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React from "react";
 
 import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import { DocProvider } from "@docusaurus/plugin-content-docs/client";
@@ -22,8 +22,6 @@ function isApiDoc(frontMatter: Record<string, unknown> | undefined): boolean {
   );
 }
 
-const LazyApiItem = React.lazy(() => import("@theme/ApiItem"));
-
 function ApiItemFallback(props: Props): JSX.Element {
   const docHtmlClassName = `docs-doc-id-${props.content.metadata.id}`;
 
@@ -46,6 +44,31 @@ function ApiItemFallback(props: Props): JSX.Element {
   );
 }
 
+function ClientApiItem(props: Props): JSX.Element {
+  const [ApiItem, setApiItem] =
+    React.useState<React.ComponentType<Props> | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    void import("@theme/ApiItem").then((module) => {
+      if (mounted) {
+        setApiItem(() => module.default);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (!ApiItem) {
+    return <ApiItemFallback {...props} />;
+  }
+
+  return <ApiItem {...props} />;
+}
+
 export default function DocItem(props: Props): JSX.Element {
   const frontMatter = props.content.frontMatter as Record<string, unknown>;
 
@@ -60,9 +83,5 @@ export default function DocItem(props: Props): JSX.Element {
     return <ApiItem {...props} />;
   }
 
-  return (
-    <Suspense fallback={<ApiItemFallback {...props} />}>
-      <LazyApiItem {...props} />
-    </Suspense>
-  );
+  return <ClientApiItem {...props} />;
 }

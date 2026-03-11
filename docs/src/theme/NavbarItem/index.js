@@ -4,7 +4,7 @@ import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import OriginalNavbarItem from "@theme-original/NavbarItem";
 
-const LOCAL_APP_URL = "http://localhost:8080/sections";
+const LOCAL_APP_URL = "http://localhost:8080/search";
 
 function isLocalHostname(hostname) {
   return (
@@ -18,7 +18,7 @@ export default function NavbarItem(props) {
   const { siteConfig } = useDocusaurusContext();
   const mainSiteUrl =
     siteConfig.customFields?.mainSiteUrl || "https://pandects.org";
-  const appHref = `${mainSiteUrl}/sections`;
+  const appHref = `${mainSiteUrl}/search`;
 
   let href = props.href;
   if (

@@ -6,6 +6,7 @@ import type * as Plugin from "@docusaurus/types/src/plugin";
 import type * as OpenApiPlugin from "docusaurus-plugin-openapi-docs";
 
 const brandLinks = require("../branding/links.json");
+const path = require("node:path");
 
 function createOpenApiSidebarDocItem(item: any, context: any) {
   const id = item.type === "schema" ? `schemas/${item.id}` : item.id;
@@ -36,6 +37,76 @@ function createOpenApiSidebarDocItem(item: any, context: any) {
         : (item.frontMatter?.sidebar_label as string) ?? item.title ?? id,
     customProps: context.sidebarOptions?.customProps,
     className: classNameParts.length > 0 ? classNameParts.join(" ") : undefined,
+  };
+}
+
+function isOpenApiModule(resource: string): boolean {
+  return (
+    resource.includes(`${path.sep}docusaurus-theme-openapi-docs${path.sep}`) ||
+    resource.includes(`${path.sep}docusaurus-plugin-openapi-docs${path.sep}`) ||
+    resource.includes(`${path.sep}postman-collection${path.sep}`) ||
+    resource.includes(`${path.sep}react-redux${path.sep}`) ||
+    resource.includes(`${path.sep}@reduxjs${path.sep}toolkit${path.sep}`) ||
+    resource.includes(`${path.sep}redux${path.sep}`) ||
+    resource.includes(`${path.sep}redux-thunk${path.sep}`) ||
+    resource.includes(`${path.sep}immer${path.sep}`) ||
+    resource.includes(`${path.sep}pako${path.sep}`) ||
+    resource.includes(path.join(__dirname, "src", "theme", "Api")) ||
+    resource.includes(path.join(__dirname, "src", "theme", "MimeTabs")) ||
+    resource.includes(path.join(__dirname, "src", "theme", "SchemaItem")) ||
+    resource.includes(path.join(__dirname, "src", "theme", "SchemaTabs")) ||
+    resource.includes(path.join(__dirname, "src", "theme", "ApiTabs"))
+  );
+}
+
+function docsPerfPlugin(): Plugin.PluginModule {
+  return {
+    name: "docs-perf-plugin",
+    configureWebpack(_config, isServer) {
+      if (isServer) {
+        return {};
+      }
+
+      return {
+        optimization: {
+          splitChunks: {
+            cacheGroups: {
+              openapi: {
+                name: "openapi",
+                chunks: "all",
+                enforce: true,
+                priority: 45,
+                reuseExistingChunk: true,
+                test(module: {
+                  nameForCondition?: (() => string | null | undefined) | undefined;
+                }) {
+                  const resource = module.nameForCondition?.() ?? "";
+                  return resource !== "" && isOpenApiModule(resource);
+                },
+              },
+              prism: {
+                name: "prism",
+                chunks: "all",
+                enforce: true,
+                priority: 44,
+                reuseExistingChunk: true,
+                test(module: {
+                  nameForCondition?: (() => string | null | undefined) | undefined;
+                }) {
+                  const resource = module.nameForCondition?.() ?? "";
+                  return (
+                    resource.includes(`${path.sep}prismjs${path.sep}`) ||
+                    resource.includes(
+                      `${path.sep}prism-react-renderer${path.sep}`
+                    )
+                  );
+                },
+              },
+            },
+          },
+        },
+      };
+    },
   };
 }
 
@@ -107,23 +178,12 @@ const config: Config = {
           {
             label: "App",
             position: "right",
-            href: `${brandLinks.mainSiteUrl}/sections`,
+            href: `${brandLinks.mainSiteUrl}/search`,
           },
         ],
       },
       prism: {
-        additionalLanguages: [
-          "ruby",
-          "csharp",
-          "php",
-          "java",
-          "powershell",
-          "json",
-          "bash",
-          "dart",
-          "objectivec",
-          "r",
-        ],
+        additionalLanguages: ["json", "bash", "python"],
       },
       languageTabs: [
         {
@@ -160,6 +220,7 @@ const config: Config = {
         } satisfies Plugin.PluginOptions,
       },
     ],
+    docsPerfPlugin,
   ],
 
   themes: ["docusaurus-theme-openapi-docs"],
