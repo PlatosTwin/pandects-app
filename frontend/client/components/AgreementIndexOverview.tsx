@@ -240,7 +240,7 @@ export function AgreementIndexOverview() {
   const [statusSummary, setStatusSummary] = useState<AgreementStatusYearRow[]>(
     [],
   );
-  const [statusSummaryLoading, setStatusSummaryLoading] = useState(true);
+  const [statusSummaryLoading, setStatusSummaryLoading] = useState(false);
   const [statusSummaryLoaded, setStatusSummaryLoaded] = useState(false);
   const [statusSummaryError, setStatusSummaryError] = useState<string | null>(
     null,
@@ -262,7 +262,7 @@ export function AgreementIndexOverview() {
   const dealTypesTabOpen = overviewTab === "deal-types";
 
   useEffect(() => {
-    if (statusSummaryLoaded || statusSummaryLoading) return;
+    if (statusSummaryLoaded) return;
 
     let cancelled = false;
     const controller = new AbortController();
@@ -306,10 +306,10 @@ export function AgreementIndexOverview() {
       cancelled = true;
       controller.abort();
     };
-  }, [statusSummaryLoaded, statusSummaryLoading]);
+  }, [statusSummaryLoaded]);
 
   useEffect(() => {
-    if (!dealTypesTabOpen || dealTypeSummaryLoaded || dealTypeSummaryLoading) {
+    if (!dealTypesTabOpen || dealTypeSummaryLoaded) {
       return;
     }
 
@@ -357,7 +357,7 @@ export function AgreementIndexOverview() {
       cancelled = true;
       controller.abort();
     };
-  }, [dealTypeSummaryLoaded, dealTypeSummaryLoading, dealTypesTabOpen]);
+  }, [dealTypeSummaryLoaded, dealTypesTabOpen]);
 
   const stagedChartData = useMemo(() => {
     const yearMap = new Map<

@@ -346,6 +346,7 @@ export default function AgreementIndex() {
                 Agreement overview
               </AccordionTrigger>
               <AccordionContent
+                disableAnimation
                 forceMount={hasLoadedOverview ? true : undefined}
                 className="pt-3"
               >
