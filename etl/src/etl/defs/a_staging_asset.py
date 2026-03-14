@@ -6,7 +6,7 @@ Returns the number of new filings processed.
 """
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, cast
 
@@ -18,6 +18,7 @@ from sqlalchemy.engine import Connection
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.a_staging import (
     FilingMetadata,
+    SecDailyIndexUnavailable,
     fetch_new_filings_sec_index,
     # To switch to DMA corpus flow, uncomment the line below and comment out fetch_new_filings_sec_index:
     # fetch_new_filings_dma_corpus,
@@ -75,6 +76,12 @@ def _update_pipeline_run_progress(
         ),
         {"run_id": run_id, "pulled_to": pulled_to, "count": rows_inserted},
     )
+
+
+def _latest_sec_index_date_available(today: date | None = None) -> date:
+    """Return the most recent date whose daily SEC index we should expect."""
+    reference_date = today if today is not None else date.today()
+    return reference_date - timedelta(days=1)
 
 
 @dg.asset(name="1_staging_asset")
@@ -147,6 +154,8 @@ def staging_asset(
     total_count = 0
     base_date = last_run.date()
     latest_pulled_to = last_run_date
+    processed_days = 0
+    latest_expected_index_date = _latest_sec_index_date_available()
     
     try:
         # Process day by day
@@ -161,13 +170,38 @@ def staging_asset(
             )
             
             # Fetch and classify filings for this single day
-            filings = fetch_new_filings_sec_index(
-                exhibit_classifier=classifier,
-                context=staging_context,
-                start_date=start_date_for_fetch,
-                pipeline_config=pipeline_config,
-                days_override=1,  # Process exactly one day
-            )
+            try:
+                filings = fetch_new_filings_sec_index(
+                    exhibit_classifier=classifier,
+                    context=staging_context,
+                    start_date=start_date_for_fetch,
+                    pipeline_config=pipeline_config,
+                    days_override=1,  # Process exactly one day
+                )
+            except SecDailyIndexUnavailable:
+                if index_date > latest_expected_index_date:
+                    context.log.info(
+                        (
+                            "Stopping staging early: SEC daily index for {index_date} is not "
+                            + "available, and the availability cutoff is "
+                            + "{latest_expected_index_date}."
+                        ).format(
+                            index_date=index_date,
+                            latest_expected_index_date=latest_expected_index_date,
+                        )
+                    )
+                    break
+                context.log.info(
+                    (
+                        "SEC daily index for {index_date} is missing, but it is on or before "
+                        + "the availability cutoff {latest_expected_index_date}; treating as an "
+                        + "empty day."
+                    ).format(
+                        index_date=index_date,
+                        latest_expected_index_date=latest_expected_index_date,
+                    )
+                )
+                filings = []
             # To switch to DMA corpus: 
             # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
             
@@ -192,6 +226,7 @@ def staging_asset(
                 _update_pipeline_run_progress(
                     conn, pipeline_runs_table, run_id, latest_pulled_to, total_count
                 )
+            processed_days += 1
 
         # DMA corpus flow (commented out - one-time batch processing):
         # # For DMA corpus flow: process all records in one batch (one-time run)
@@ -228,7 +263,9 @@ def staging_asset(
         #         {"run_id": run_id, "count": total_count},
         #     )
 
-        context.log.info(f"Staging complete: {total_count} total filings across {days_to_fetch} days")
+        context.log.info(
+            f"Staging complete: {total_count} total filings across {processed_days} processed days"
+        )
         run_post_asset_refresh(context, db, pipeline_config)
 
         # Update pipeline_runs at the last possible moment.

@@ -111,6 +111,14 @@ class AgreementCandidateResult:
     minhash: MinHash  # For near-duplicate detection via LSH
 
 
+class SecDailyIndexUnavailable(Exception):
+    """Raised when a requested SEC daily index has not been published yet."""
+
+    def __init__(self, index_url: str) -> None:
+        self.index_url = index_url
+        super().__init__(f"SEC daily index unavailable: {index_url}")
+
+
 class IndexFiling(TypedDict):
     form_type: str
     company_name: str
@@ -641,9 +649,12 @@ def parse_index_file(
     try:
         response = rate_limited_get(index_url, headers=headers, timeout=10.0)
         response.raise_for_status()
-    except Exception as exc:
-        context.log.info(f"Failed to fetch index {index_url}: {exc}")
-        return filings
+    except requests.exceptions.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code == 404:
+            context.log.info(f"SEC daily index not available yet: {index_url}")
+            raise SecDailyIndexUnavailable(index_url) from exc
+        raise
 
     lines = response.text.splitlines()
     found_separator = False
