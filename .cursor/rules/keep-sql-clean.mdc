@@ -1,0 +1,7 @@
+---
+alwaysApply: false
+---
+<keep_sql_clean>
+- If you determine that we need to add columns to a database table, or that we need to create a new index, do NOT hardwire that column/index creation in asset code. Instead, proceed as if those columns/indices exist, and then either: 1) output IN THE CHAT (not in separate .sql files) the MariaDB SQL required to create them, which I will run in my database manager by hand; or 2) if expressly instructed to, run it directly yourself.
+- All SQL is MariaDB SQL.
+</keep_sql_clean>

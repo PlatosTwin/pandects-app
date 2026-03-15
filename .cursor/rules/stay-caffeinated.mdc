@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+<stay_caffeinated>
+When running commands through the terminal, run them using caffeinate -i.
+</stay_caffeinated>

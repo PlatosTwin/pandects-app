@@ -175,7 +175,7 @@ from backend.services.sections_service import (
 from backend.services.usage import UsageBuffer
 from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
 
-# Compatibility export for tests and legacy import sites.
+# Retained for tests and modules that still import `metadata` from `backend.app`.
 metadata = _main_db_metadata
 
 # Contract surface consumed by `backend.routes.auth` via app_module indirection.
@@ -409,12 +409,14 @@ def _async_task_runner() -> AsyncTaskRunner | None:
         current_app.extensions["async_task_runner"] = runner
     return runner
 
-# ── Runtime compatibility aliases ─────────────────────────────────────────
+# Legacy names retained for tests and app-module indirection.
 _is_running_on_fly = _is_running_on_fly_auth_runtime
 _ensure_auth_tables_exist = _ensure_auth_tables_exist_auth_runtime
+# Cache the JWK client so repeated Google token verifications do not refetch keys.
 _google_jwk_client: object | None = None
 
 def _schema_prefix() -> str:
+    """Return the configured schema prefix for raw SQL assembly."""
     if has_app_context():
         config = _app_config_map(_current_app_object())
         raw = config.get("MAIN_DB_SCHEMA", "")
@@ -642,7 +644,7 @@ def _estimated_latest_sections_search_table_rows() -> int | None:
     return _svc_estimated_latest_sections_search_table_rows(_build_sections_service_deps())
 
 
-# Compatibility shim for tests that patch the legacy symbol.
+# Tests still patch this legacy symbol directly, so keep it as a thin wrapper.
 def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     *,
     query: object,
@@ -1070,7 +1072,7 @@ def _register_request_hooks(target_app: Flask) -> None:
         set_security_headers=_set_security_headers,
     )
 
-# ── API helper compatibility shims ────────────────────────────────────────
+# Legacy helper names kept so route dependency wiring and tests can import one app module.
 _encode_agreements_cursor = _core_encode_agreements_cursor
 _decode_agreements_cursor = _core_decode_agreements_cursor
 

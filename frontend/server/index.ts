@@ -58,18 +58,16 @@ export function createServer() {
     next();
   });
 
-  // Middleware
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Example API routes
+  // Frontend-owned utility endpoints live under /api/.
   app.get("/api/ping", (_req, res) => {
     res.json({ message: "Hello from Express server v2!" });
   });
 
   app.get("/api/demo", handleDemo);
 
-  // Serve static files in production
   if (process.env.NODE_ENV === "production") {
     const staticPath = path.join(__dirname, "../spa");
     const indexHtmlPath = path.join(staticPath, "index.html");
@@ -78,7 +76,6 @@ export function createServer() {
 
     app.use(express.static(staticPath));
 
-    // SPA fallback - serve index.html for all non-API routes
     app.get("*", (req, res) => {
       if (req.path.startsWith("/v1/")) {
         res.status(404).end();

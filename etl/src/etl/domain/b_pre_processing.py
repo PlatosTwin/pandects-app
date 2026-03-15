@@ -1417,7 +1417,6 @@ def cleanup(
     if not all_page_objs or not mutable_page_objs:
         return []
 
-    # context.pdb.set_trace()
     preds = classify(classifier_model, all_page_objs)
     _attach_preds_to_pages(all_page_objs, preds)
     _attach_review_predictions_to_pages(all_page_objs, review_model)
@@ -1445,8 +1444,8 @@ if __name__ == "__main__":
                 "agreement_uuid": "foo",
             }
         ],
-        clf_mdl,
-        review_mdl,
+        cast(ClassifierModelProtocol, cast(object, clf_mdl)),
+        cast(ReviewModelProtocol, cast(object, review_mdl)),
     )
 
     print()

@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 from datasketch import MinHash, MinHashLSH
 
-# import pandas as pd  # Only needed for DMA corpus flow (commented out)
+# import pandas as pd  # Retained for the dormant DMA corpus helper below.
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -127,7 +127,7 @@ class IndexFiling(TypedDict):
     file_name: str
 
 
-# DMA corpus flow (commented out - use SEC index flow instead)
+# Intentionally retained reference implementation for one-off DMA corpus ingestion.
 # def fetch_new_filings_dma_corpus(since: str | None = None) -> list[FilingMetadata]:
 #     """
 #     Fetch new filings from the DMA corpus (legacy/testing flow).

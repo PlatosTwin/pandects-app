@@ -32,6 +32,7 @@ class _StatementQuery(Protocol):
 
 
 def estimated_query_row_count(deps: SectionsServiceDeps, query: object) -> int | None:
+    """Ask the database for an approximate row count when exact counts are too expensive."""
     if not deps._SEARCH_EXPLAIN_ESTIMATE_ENABLED:
         return None
     db = deps.db
@@ -63,6 +64,7 @@ def estimated_query_row_count(deps: SectionsServiceDeps, query: object) -> int |
 
 
 def estimated_latest_sections_search_table_rows(deps: SectionsServiceDeps) -> int | None:
+    """Read MariaDB's table estimate for the unfiltered search corpus."""
     db = deps.db
     bind = db.session.get_bind()
     if bind.dialect.name == "sqlite":
@@ -99,6 +101,12 @@ def sections_total_count_metadata(
     has_next: bool,
     has_filters: bool,
 ) -> tuple[int, bool]:
+    """Return `(total_count, is_approximate)` without forcing expensive exact counts.
+
+    Filtered searches prefer conservative lower bounds once the user paginates past the
+    first page. Unfiltered searches can fall back to the table-level estimate because the
+    endpoint already reads from a denormalized latest-sections table.
+    """
     estimated_query_row_count_fn = deps._estimated_query_row_count
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
 
@@ -167,6 +175,8 @@ def run_sections(
     if page_size < 1 or page_size > max_page_size:
         page_size = min(25, max_page_size)
 
+    # Build the ID-only query first so filters, sort order, and count estimation all share
+    # the same search surface before we hydrate the selected rows.
     q = db.session.query(latest.section_uuid.label("section_uuid"))
 
     if years:

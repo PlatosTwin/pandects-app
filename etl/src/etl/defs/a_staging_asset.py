@@ -20,7 +20,7 @@ from etl.domain.a_staging import (
     FilingMetadata,
     SecDailyIndexUnavailable,
     fetch_new_filings_sec_index,
-    # To switch to DMA corpus flow, uncomment the line below and comment out fetch_new_filings_sec_index:
+    # Intentionally retained dormant alternate ingestion path for one-off DMA corpus runs:
     # fetch_new_filings_dma_corpus,
 )
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
@@ -86,21 +86,21 @@ def _latest_sec_index_date_available(today: date | None = None) -> date:
 
 @dg.asset(name="1_staging_asset")
 def staging_asset(
-    context: AssetExecutionContext, 
-    db: DBResource, 
+    context: AssetExecutionContext,
+    db: DBResource,
     pipeline_config: PipelineConfig
 ) -> int:
     """Stage new filings day-by-day with incremental commits.
-    
+
     Processes one day at a time, committing after each day. If the run crashes
     mid-way (e.g., on day 89 of 90), the next run resumes from where it left off
     rather than re-processing all days.
-    
+
     Args:
         context: Dagster execution context.
         db: Database resource for connection.
         pipeline_config: Pipeline configuration.
-        
+
     Returns:
         Total number of new filings processed across all days.
     """
@@ -109,7 +109,7 @@ def staging_asset(
     pipeline_runs_table = f"{schema}.pipeline_runs"
     context.log.info("Running staging")
 
-    # Get the most recent pull timestamp (even from a failed/terminated run)
+    # Resume from the latest recorded pull boundary even if the previous run failed later.
     with engine.begin() as conn:
         last_run: datetime | None = conn.execute(
             text(
@@ -125,15 +125,12 @@ def staging_asset(
         if last_run is None:
             last_run = datetime(2020, 12, 31)
 
-    # Load exhibit classifier once for all days
     classifier = ExhibitClassifier.load(_get_exhibit_classifier_path())
     staging_context = _DagsterContextAdapter(context)
 
-    # Calculate total days to process
     days_to_fetch = pipeline_config.staging_days_to_fetch
-    
-    # Insert STARTED record for this run and get the run_id.
-    # Use date-level granularity (midnight) for last_pulled_from/to
+
+    # Record the run before processing so day-by-day progress survives partial failures.
     last_run_date = datetime.combine(last_run.date(), datetime.min.time())
     with engine.begin() as conn:
         result = conn.execute(
@@ -146,7 +143,7 @@ def staging_asset(
             ),
             {
                 "from_ts": last_run_date,
-                "to_ts": last_run_date,  # Will be updated after successful completion
+                "to_ts": last_run_date,
             },
         )
         run_id = result.lastrowid
@@ -156,27 +153,24 @@ def staging_asset(
     latest_pulled_to = last_run_date
     processed_days = 0
     latest_expected_index_date = _latest_sec_index_date_available()
-    
+
     try:
-        # Process day by day
-        # Note: get_sec_index_urls fetches index for (start_date + day_offset), so we pass
-        # base_date as start_date and let the function fetch the correct day's index.
         for day_offset in range(days_to_fetch):
-            # The actual index date being fetched (start_date + 1 day due to how get_sec_index_urls works)
+            # `fetch_new_filings_sec_index(..., days_override=1)` reads the next index day after
+            # `start_date`, so `start_date_for_fetch` intentionally lags the target index date.
             index_date = base_date + timedelta(days=day_offset + 1)
             start_date_for_fetch = (base_date + timedelta(days=day_offset)).strftime("%Y-%m-%d")
             context.log.info(
                 f"Processing day {day_offset + 1}/{days_to_fetch}: fetching index for {index_date}"
             )
-            
-            # Fetch and classify filings for this single day
+
             try:
                 filings = fetch_new_filings_sec_index(
                     exhibit_classifier=classifier,
                     context=staging_context,
                     start_date=start_date_for_fetch,
                     pipeline_config=pipeline_config,
-                    days_override=1,  # Process exactly one day
+                    days_override=1,
                 )
             except SecDailyIndexUnavailable:
                 if index_date > latest_expected_index_date:
@@ -202,14 +196,13 @@ def staging_asset(
                     )
                 )
                 filings = []
-            # To switch to DMA corpus: 
+            # Intentionally retained dormant alternate flow:
             # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
-            
+
             day_count = len(filings)
             total_count += day_count
-            
-            # Commit this day's filings; keep pipeline_runs untouched until the end.
-            # Each day is its own transaction for crash recovery.
+
+            # Persist each day independently so retries resume from the last completed date.
             with engine.begin() as conn:
                 if filings:
                     try:
@@ -228,7 +221,7 @@ def staging_asset(
                 )
             processed_days += 1
 
-        # DMA corpus flow (commented out - one-time batch processing):
+        # Intentionally retained dormant DMA corpus flow for one-off staging runs:
         # # For DMA corpus flow: process all records in one batch (one-time run)
         # # Pass None to skip date filtering and get all rows from the CSV
         # context.log.info("Fetching all DMA corpus filings (one-time run)")
@@ -268,7 +261,7 @@ def staging_asset(
         )
         run_post_asset_refresh(context, db, pipeline_config)
 
-        # Update pipeline_runs at the last possible moment.
+        # Only mark the run successful after downstream refresh work completes.
         with engine.begin() as conn:
             _ = conn.execute(
                 text(

@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+<run_it_yourself>
+- Run the relevant checks yourself instead of asking the user to do it.
+- Prefer the narrowest tests and type checks that cover the files you changed.
+- After material backend changes, run targeted backend tests from the backend virtualenv.
+- After material ETL Python changes, run targeted ETL tests and the relevant `basedpyright` check from the ETL environment.
+- After material frontend changes in `frontend/`, run `npm test` and `npm run typecheck`.
+</run_it_yourself>
