@@ -1006,8 +1006,7 @@ export default function SourcesMethods() {
                 keywords indicating "Material Definitive Agreement" entries,
                 scrape each filing's index page to extract Exhibit 10.* and
                 2.* links, fetch and render the exhibit content as text,
-                and use the Exhibit Model to classify candidates, retaining
-                only those with probability of at least 0.5.
+                and use the Exhibit Model to classify candidates.
               </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
