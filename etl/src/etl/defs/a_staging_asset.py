@@ -20,8 +20,6 @@ from etl.domain.a_staging import (
     FilingMetadata,
     SecDailyIndexUnavailable,
     fetch_new_filings_sec_index,
-    # Intentionally retained dormant alternate ingestion path for one-off DMA corpus runs:
-    # fetch_new_filings_dma_corpus,
 )
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.db_utils import upsert_agreements as _upsert_agreements
@@ -196,9 +194,6 @@ def staging_asset(
                     )
                 )
                 filings = []
-            # Intentionally retained dormant alternate flow:
-            # filings = fetch_new_filings_dma_corpus(since=start_date_for_fetch)
-
             day_count = len(filings)
             total_count += day_count
 
@@ -220,41 +215,6 @@ def staging_asset(
                     conn, pipeline_runs_table, run_id, latest_pulled_to, total_count
                 )
             processed_days += 1
-
-        # Intentionally retained dormant DMA corpus flow for one-off staging runs:
-        # # For DMA corpus flow: process all records in one batch (one-time run)
-        # # Pass None to skip date filtering and get all rows from the CSV
-        # context.log.info("Fetching all DMA corpus filings (one-time run)")
-        # filings = fetch_new_filings_dma_corpus(since=None)
-        # 
-        # total_count = len(filings)
-        # 
-        # # Commit all filings in a single transaction
-        # with engine.begin() as conn:
-        #     if filings:
-        #         try:
-        #             upsert_agreements(filings, conn)
-        #             context.log.info(f"Upserted {total_count} agreements from DMA corpus")
-        #         except Exception as e:
-        #             context.log.error(f"Error upserting agreements: {e}")
-        #             raise RuntimeError(e)
-        #     else:
-        #         context.log.info("No M&A filings found in DMA corpus")
-        #     
-        #     # Update last_pulled_to to now (since this is a one-time run)
-        #     _update_last_pulled_to(conn, run_id, now)
-        #     
-        #     # Update rows_inserted count
-        #     _ = conn.execute(
-        #         text(
-        #             """
-        #             UPDATE pdx.pipeline_runs
-        #             SET rows_inserted = :count
-        #             WHERE run_id = :run_id
-        #             """
-        #         ),
-        #         {"run_id": run_id, "count": total_count},
-        #     )
 
         context.log.info(
             f"Staging complete: {total_count} total filings across {processed_days} processed days"

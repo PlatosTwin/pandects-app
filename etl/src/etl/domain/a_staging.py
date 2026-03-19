@@ -17,7 +17,6 @@ from urllib.parse import urlparse
 
 from datasketch import MinHash, MinHashLSH
 
-# import pandas as pd  # Retained for the dormant DMA corpus helper below.
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -125,69 +124,6 @@ class IndexFiling(TypedDict):
     cik: str
     date_filed: str
     file_name: str
-
-
-# Intentionally retained reference implementation for one-off DMA corpus ingestion.
-# def fetch_new_filings_dma_corpus(since: str | None = None) -> list[FilingMetadata]:
-#     """
-#     Fetch new filings from the DMA corpus (legacy/testing flow).
-#
-#     This function uses a local DMA corpus CSV file for testing purposes.
-#     For production use, use fetch_new_filings_sec_index instead.
-#
-#     Args:
-#         since: Optional date string to filter filings from. If None, returns all rows.
-#
-#     Returns:
-#         List of FilingMetadata objects.
-#     """
-#     df = pd.read_csv(
-#         "/Users/nikitabogdanov/PycharmProjects/merger_agreements/dma_corpus/dma_corpus_metadata.csv",
-#         usecols=cast(Any, ["target", "acquirer", "date_announcement", "url", "filename"]),
-#         parse_dates=cast(Any, ["date_announcement"]),
-#     )
-#
-#     # Drop duplicate filings by filename
-#     df.drop_duplicates(subset="filename", inplace=True)
-#
-#     # Keep only filings announced after `since` (if provided)
-#     if since is not None:
-#         cutoff = pd.to_datetime(since)
-#         df = df[df["date_announcement"] > cutoff]
-#
-#     # # Sort oldest first and take only the 10 oldest new filings
-#     # df.sort_values("date_announcement", ascending=True, inplace=True)
-#     # # df = df.head(10)
-#     # df = df.sample(frac=0.25)
-#
-#     # Build our results list via a memory‑light iterator
-#     results: list[FilingMetadata] = []
-#     for row in df.itertuples(index=False):
-#         # Cast to Any to work around pandas-stubs typing limitations with itertuples
-#         r = cast(Any, row)
-#         # Note: date_announcement from DMA corpus is NOT the filing_date
-#         # We don't have the actual SEC filing date in DMA corpus, so set filing_date to None
-#         date_ann = r.date_announcement
-#         if isinstance(date_ann, pd.Timestamp):
-#             announce_date = date_ann.to_pydatetime()
-#         elif isinstance(date_ann, datetime.datetime):
-#             announce_date = date_ann
-#         else:
-#             raise TypeError(
-#                 f"Unexpected date_announcement type: {type(date_ann).__name__}"
-#             )
-#         results.append(
-#             FilingMetadata(
-#                 agreement_uuid=get_uuid(str(r.filename)),
-#                 url=str(r.url),
-#                 # filing_date defaults to None for DMA corpus (no SEC filing date available)
-#                 target=str(r.target),
-#                 acquirer=str(r.acquirer),
-#                 announce_date=announce_date,  # Set announcement date from DMA corpus
-#             )
-#         )
-#
-#     return results
 
 
 # MinHash parameters for near-duplicate detection
