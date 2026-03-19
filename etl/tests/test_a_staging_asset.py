@@ -112,6 +112,23 @@ class StagingAssetTests(unittest.TestCase):
                 rate_limited_get=_missing_index,
             )
 
+    def test_parse_index_file_reraises_non_404_http_error(self) -> None:
+        response = cast(Response, cast(object, SimpleNamespace(status_code=500)))
+        error = HTTPError(response=response)
+
+        def _server_error(*_args: object, **_kwargs: object) -> Response:
+            raise error
+
+        context = _ParseContext()
+
+        with self.assertRaises(HTTPError):
+            _ = parse_index_file(
+                index_url="https://www.sec.gov/Archives/edgar/daily-index/2026/QTR1/form.20260314.idx",
+                user_agent="test-agent",
+                context=context,
+                rate_limited_get=_server_error,
+            )
+
     def test_staging_asset_treats_missing_historical_index_as_empty_day(self) -> None:
         conn = _FakeConn(last_run=datetime.datetime(2026, 3, 10, 17, 30))
         engine = _FakeEngine(conn)
