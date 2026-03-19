@@ -214,12 +214,12 @@ function MobileChartModal({
           type="button"
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          aria-label="Close"
+          aria-label={`Close ${title} chart`}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
-        <div className="flex h-full w-full items-center justify-center p-4">
-          <div className="w-full">{children}</div>
+        <div className="flex h-full w-full items-start justify-center overflow-y-auto p-4 pt-14">
+          <div className="w-full max-w-[980px]">{children}</div>
         </div>
       </div>
     </div>,
@@ -950,7 +950,7 @@ export function AgreementIndexOverview() {
                   aria-haspopup="dialog"
                   aria-describedby={stagedChartDescriptionId}
                 >
-                  Click to view on mobile
+                  Open processing status chart
                 </Button>
                 <MobileChartModal
                   open={isProcessingChartModalOpen}
@@ -1058,7 +1058,7 @@ export function AgreementIndexOverview() {
                   aria-haspopup="dialog"
                   aria-describedby={dealTypeChartDescriptionId}
                 >
-                  Click to view on mobile
+                  Open deal types chart
                 </Button>
                 <MobileChartModal
                   open={isDealTypesChartModalOpen}
