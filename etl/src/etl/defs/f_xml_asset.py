@@ -46,6 +46,7 @@ XML_REASON_BODY_HAS_NO_STRUCTURAL_CHILDREN = "body_has_no_structural_children"
 XML_REASON_BODY_STARTS_NON_ARTICLE = "body_starts_non_article"
 XML_REASON_BODY_CONTAINS_NON_ARTICLE_CHILDREN = "body_contains_non_article_children"
 XML_REASON_BODY_HAS_NO_ARTICLES = "body_has_no_articles"
+XML_REASON_TOO_FEW_ARTICLES = "too_few_articles"
 XML_REASON_FIRST_ARTICLE_NOT_ONE = "first_article_not_one"
 XML_REASON_SECTION_TITLE_INVALID_NUMBERING = "section_title_invalid_numbering"
 XML_REASON_SECTION_ARTICLE_MISMATCH = "section_article_mismatch"
@@ -346,6 +347,15 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             )
         )
         return violations
+
+    if len(articles) < 5:
+        violations.append(
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_TOO_FEW_ARTICLES,
+                reason_detail=f"Too few articles: found {len(articles)}, minimum required is 5.",
+                page_uuids=_collect_page_uuids(body),
+            )
+        )
 
     first_article_num = _extract_article_number_from_elem(articles[0])
     if first_article_num != 1:

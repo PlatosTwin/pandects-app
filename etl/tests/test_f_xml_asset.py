@@ -13,6 +13,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
+    XML_REASON_TOO_FEW_ARTICLES,
     _apply_xml_verify_batch_output,
     find_hard_rule_violations,
     xml_verify_asset,
@@ -40,6 +41,47 @@ class XMLVerifyAssetTests(unittest.TestCase):
             v for v in violations if v.reason_code == XML_REASON_SECTION_TITLE_INVALID_NUMBERING
         )
         self.assertEqual(target.page_uuids, ("page-22",))
+
+    def test_find_hard_rule_violations_rejects_fewer_than_five_articles(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        target = next(v for v in violations if v.reason_code == XML_REASON_TOO_FEW_ARTICLES)
+        self.assertEqual(
+            target.reason_detail,
+            "Too few articles: found 4, minimum required is 5.",
+        )
+
+    def test_find_hard_rule_violations_allows_five_articles(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(any(v.reason_code == XML_REASON_TOO_FEW_ARTICLES for v in violations))
 
     def test_apply_xml_verify_batch_output_sets_status_source_to_asset(self) -> None:
         class _FakeContent:

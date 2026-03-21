@@ -164,11 +164,22 @@ def sections_from_fresh_xml_asset(
     pipeline_config: PipelineConfig,
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
+    scoped_uuids = sorted(set(verified_fresh_agreement_uuids))
+    if len(scoped_uuids) > pipeline_config.xml_agreement_batch_size:
+        context.log.warning(
+            "sections_from_fresh_xml_asset: upstream agreement scope has %s uuids, "
+            + "which exceeds xml_agreement_batch_size=%s; falling back to canonical sections queue.",
+            len(scoped_uuids),
+            pipeline_config.xml_agreement_batch_size,
+        )
+        target_agreement_uuids = None
+    else:
+        target_agreement_uuids = scoped_uuids or None
     return _run_sections_for_agreements(
         context,
         db,
         pipeline_config,
-        target_agreement_uuids=verified_fresh_agreement_uuids,
+        target_agreement_uuids=target_agreement_uuids,
         log_prefix="sections_from_fresh_xml_asset",
     )
 
