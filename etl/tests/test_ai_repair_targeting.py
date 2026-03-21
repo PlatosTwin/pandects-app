@@ -65,7 +65,7 @@ class AiRepairTargetingTests(unittest.TestCase):
         self.assertEqual(_repair_model_for_attempted(0), "gpt-5-mini")
         self.assertEqual(_repair_model_for_attempted(1), "gpt-5-mini")
         with self.assertRaises(ValueError):
-            _ = _repair_model_for_attempted(2)
+            _repair_model_for_attempted(2)
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=False),
             "gpt-5-mini",
@@ -201,7 +201,110 @@ class AiRepairTargetingTests(unittest.TestCase):
             }
         ]
         with self.assertRaises(ValueError):
-            _ = _validate_full_page_tag_spans(source, contaminated)
+            _validate_full_page_tag_spans(source, contaminated)
+
+    def test_full_page_span_validation_realigns_nearby_exact_match(self) -> None:
+        source = "\nSection 6.03. Termination."
+        shifted = [
+            {
+                "start_char": 0,
+                "end_char": 26,
+                "label": "section",
+                "selected_text": "Section 6.03. Termination.",
+            }
+        ]
+
+        validated = _validate_full_page_tag_spans(source, shifted)
+
+        self.assertEqual(
+            validated,
+            [
+                {
+                    "start_char": 1,
+                    "end_char": 27,
+                    "label": "section",
+                    "selected_text": "Section 6.03. Termination.",
+                }
+            ],
+        )
+
+    def test_full_page_span_validation_realigns_whitespace_normalized_match(self) -> None:
+        source = "ARTICLE III \n\nREPRESENTATIONS AND WARRANTIES OF THE SELLER \n\nAND IOS CAPITAL"
+        normalized = [
+            {
+                "start_char": 0,
+                "end_char": len(source) - 2,
+                "label": "article",
+                "selected_text": "ARTICLE III\n\nREPRESENTATIONS AND WARRANTIES OF THE SELLER\n\nAND IOS CAPITAL",
+            }
+        ]
+
+        validated = _validate_full_page_tag_spans(source, normalized)
+
+        self.assertEqual(
+            validated,
+            [
+                {
+                    "start_char": 0,
+                    "end_char": len(source),
+                    "label": "article",
+                    "selected_text": source,
+                }
+            ],
+        )
+
+    def test_full_page_span_validation_realigns_out_of_bounds_page_number(self) -> None:
+        source = "Body text\n- 32 -"
+        shifted = [
+            {
+                "start_char": len(source) + 2,
+                "end_char": len(source) + 8,
+                "label": "page",
+                "selected_text": "- 32 -",
+            }
+        ]
+
+        validated = _validate_full_page_tag_spans(source, shifted)
+
+        self.assertEqual(
+            validated,
+            [
+                {
+                    "start_char": len("Body text\n"),
+                    "end_char": len(source),
+                    "label": "page",
+                    "selected_text": "- 32 -",
+                }
+            ],
+        )
+
+    def test_full_page_span_validation_rejects_far_away_exact_match(self) -> None:
+        source = "Intro text. " + ("x" * 200) + "Section 9.12 Financing Sources."
+        far_off = [
+            {
+                "start_char": 10,
+                "end_char": 33,
+                "label": "section",
+                "selected_text": "Section 9.12 Financing Sources.",
+            }
+        ]
+
+        with self.assertRaises(ValueError):
+            _validate_full_page_tag_spans(source, far_off)
+
+    def test_full_page_span_validation_rejects_ambiguous_nearby_exact_matches(self) -> None:
+        source = "TAG" + ("x" * 17) + "TAG"
+        ambiguous = [
+            {
+                "start_char": 10,
+                "end_char": 13,
+                "label": "section",
+                "selected_text": "TAG",
+            }
+        ]
+
+        with self.assertRaises(ValueError):
+            _validate_full_page_tag_spans(source, ambiguous)
 
     def test_full_page_span_validation_rejects_overlapping_spans(self) -> None:
         source = "ARTICLE I\nSection 1.01"
@@ -220,7 +323,7 @@ class AiRepairTargetingTests(unittest.TestCase):
             },
         ]
         with self.assertRaises(ValueError):
-            _ = _validate_full_page_tag_spans(source, spans)
+            _validate_full_page_tag_spans(source, spans)
 
     def test_apply_full_page_tag_spans_inserts_tags_deterministically(self) -> None:
         source = "ARTICLE I\nSection 1.01 text.\n-56-"
@@ -252,4 +355,4 @@ class AiRepairTargetingTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    _ = unittest.main()
+    unittest.main()
