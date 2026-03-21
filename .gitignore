@@ -56,7 +56,7 @@ _t.*
 # Various backfill and ad hoc utilities
 ############################
 
-etl/backfills/*
+etl/backfills/**
 etl/src/etl/utils/backfill_*.py
 !etl/src/etl/utils/backfill_auto_verify_edgar.py
 etl/src/etl/utils/discover_*.py

@@ -498,6 +498,12 @@ def strip_formatting_tags(
             return stripped
         return text
 
+    def _line_break_text_from_tag(tag: Tag) -> str:
+        br_count = len(tag.find_all("br"))
+        if br_count == 0:
+            return ""
+        return "\n\n" * br_count
+
     def _trim_text_node_after_opening_quote(text: str) -> str:
         return re.sub(r'([“"‘«‹])\s+$', r"\1", text)
 
@@ -586,6 +592,8 @@ def strip_formatting_tags(
 
             # Get the text content of the tag
             tag_text = tag.get_text()
+            if not tag_text and tag.find("br") is not None:
+                tag_text = _line_break_text_from_tag(tag)
             tag_text = _quote_only_tag_text(tag_text)
             tag_text = _trim_tag_text_at_quote_edges(
                 tag_text,

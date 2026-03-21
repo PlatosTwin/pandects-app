@@ -419,6 +419,19 @@ class PreProcessingTests(unittest.TestCase):
         self.assertIn("since Reference Date, Seller has not", text)
         self.assertNotIn("sinceReference Date", text)
 
+    def test_format_content_preserves_break_wrapped_by_formatting_tag(self) -> None:
+        html = (
+            "<p>"
+            "<font>Article I</font>"
+            "<font><br/></font>"
+            "<font>Definitions</font>"
+            "</p>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "Article I Definitions")
+
     def test_format_content_does_not_add_space_before_closing_quote_with_empty_inline_tags(self) -> None:
         html = (
             "<p>"
