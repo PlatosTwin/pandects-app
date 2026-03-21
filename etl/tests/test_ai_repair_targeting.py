@@ -62,17 +62,17 @@ class _FakeConn:
 
 class AiRepairTargetingTests(unittest.TestCase):
     def test_repair_model_routing_by_attempt_state(self) -> None:
-        self.assertEqual(_repair_model_for_attempted(0), "gpt-5-mini")
-        self.assertEqual(_repair_model_for_attempted(1), "gpt-5-mini")
+        self.assertEqual(_repair_model_for_attempted(0), "gpt-5.4-mini")
+        self.assertEqual(_repair_model_for_attempted(1), "gpt-5.4-mini")
         with self.assertRaises(ValueError):
             _repair_model_for_attempted(2)
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=False),
-            "gpt-5-mini",
+            "gpt-5.4-mini",
         )
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=True),
-            "gpt-5.1",
+            "gpt-5.4",
         )
 
     def test_fetch_candidates_uses_reason_page_targets_and_agreement_ranking(self) -> None:

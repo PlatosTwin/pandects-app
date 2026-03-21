@@ -15,7 +15,7 @@ class AiRepairDomainTests(unittest.TestCase):
             page_uuid="11111111-1111-1111-1111-111111111111",
             text="Sample text.",
             decision=decision,
-            model="gpt-5.1",
+            model="gpt-5.4",
             uncertain_spans=[],
             xml_version=7,
         )

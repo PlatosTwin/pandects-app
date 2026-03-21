@@ -83,7 +83,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     pre_processing_validate_ungate_max_remaining_risk: float = 0.08  # conservative release threshold
     pre_processing_validate_min_llm_confidence: float = 0.85  # minimum LLM confidence to apply label change
     pre_processing_validate_min_model_support: float = 0.08  # minimum CRF class probability for relabel support
-    pre_processing_validate_model: str = "gpt-5-mini"  # responses/batch model for page validation
+    pre_processing_validate_model: str = "gpt-5.4-mini"  # responses/batch model for page validation
     pre_processing_validate_completion_window: str = "24h"  # OpenAI batch completion window
     pre_processing_validate_snippet_chars: int = 1200  # max chars for current page snippet
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets

@@ -112,7 +112,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -133,7 +133,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": None,
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -151,7 +151,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
