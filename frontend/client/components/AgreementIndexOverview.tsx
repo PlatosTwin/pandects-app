@@ -96,7 +96,7 @@ type MobileChartModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  describedBy?: string;
+  description?: string;
   children: React.ReactNode;
 };
 
@@ -116,11 +116,12 @@ function MobileChartModal({
   open,
   onOpenChange,
   title,
-  describedBy,
+  description,
   children,
 }: MobileChartModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [mounted, setMounted] = useState(false);
+  const descriptionId = useId();
 
   useEffect(() => {
     setMounted(true);
@@ -141,7 +142,6 @@ function MobileChartModal({
       right: body.style.right,
       width: body.style.width,
       overflow: body.style.overflow,
-      touchAction: body.style.touchAction,
     };
 
     body.style.position = "fixed";
@@ -150,7 +150,6 @@ function MobileChartModal({
     body.style.right = "0";
     body.style.width = "100%";
     body.style.overflow = "hidden";
-    body.style.touchAction = "none";
     body.dataset.mobileChartModalCount = String(currentModalCount + 1);
     if (root) {
       root.setAttribute("aria-hidden", "true");
@@ -178,7 +177,6 @@ function MobileChartModal({
       body.style.right = prev.right;
       body.style.width = prev.width;
       body.style.overflow = prev.overflow;
-      body.style.touchAction = prev.touchAction;
       const nextModalCount = Math.max(
         0,
         Number(body.dataset.mobileChartModalCount ?? "1") - 1,
@@ -206,9 +204,14 @@ function MobileChartModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        aria-describedby={describedBy}
+        aria-describedby={description ? descriptionId : undefined}
         className="absolute inset-0 bg-background"
       >
+        {description ? (
+          <p id={descriptionId} className="sr-only">
+            {description}
+          </p>
+        ) : null}
         <button
           ref={closeButtonRef}
           type="button"
@@ -956,7 +959,7 @@ export function AgreementIndexOverview() {
                   open={isProcessingChartModalOpen}
                   onOpenChange={setIsProcessingChartModalOpen}
                   title="Processing status"
-                  describedBy={stagedChartDescriptionId}
+                  description="Shows annual counts for processed, awaiting validation, staged, and not paginated agreements."
                 >
                   <div className="mx-auto w-full max-w-[980px]">
                     <h2 className="mb-2 text-base font-semibold">
@@ -1064,7 +1067,7 @@ export function AgreementIndexOverview() {
                   open={isDealTypesChartModalOpen}
                   onOpenChange={setIsDealTypesChartModalOpen}
                   title="Deal types"
-                  describedBy={dealTypeChartDescriptionId}
+                  description="Shows annual deal type counts for processed agreements."
                 >
                   <div className="mx-auto w-full max-w-[980px]">
                     <h2 className="mb-2 text-base font-semibold">
