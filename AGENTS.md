@@ -26,6 +26,19 @@
 - For ETL Python changes, use the ETL environment and run targeted tests or `basedpyright` for the touched area.
 - For material frontend changes in `frontend/`, run `npm test` and `npm run typecheck`.
 
+## Common Workflows
+- Backend local run (from repo root): `FLASK_APP=backend.app flask run`
+- ETL pipelines with repo config:
+  - `dagster job execute -f etl/src/etl/defs/jobs.py -j cleanup_pipeline -c etl/configs/pipeline_config.yaml`
+  - `dagster job execute -f etl/src/etl/defs/jobs.py -j xml_fresh_pipeline -c etl/configs/pipeline_config.yaml`
+  - `dagster job execute -f etl/src/etl/defs/jobs.py -j xml_repair_cycle_pipeline -c etl/configs/pipeline_config.yaml`
+- Frontend email template render/sync (from `frontend/`):
+  - `npm run render:emails`
+  - `npm run render:emails:sync`
+- Docs app (from `docs/`):
+  - `npm run dev:clean`
+  - `npm run build`
+
 ## Cursor Rules
 - Read `.cursor/rules/` before making substantial changes.
 - Treat the Cursor rules as repo-specific supplements. If a rule duplicates or conflicts with higher-priority instructions, follow the higher-priority instruction and keep the repo-specific intent in mind.
