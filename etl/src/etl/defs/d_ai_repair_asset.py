@@ -877,6 +877,156 @@ def _parse_full_page_tag_spans(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str,
     return rid, parsed_spans
 
 
+def _choose_best_alignment_candidate(
+    candidates: List[Tuple[int, int]],
+    *,
+    approx_start: int,
+    approx_end: int,
+) -> Tuple[int, int]:
+    if not candidates:
+        raise ValueError("No alignment candidates available.")
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            abs(item[0] - approx_start),
+            abs(item[1] - approx_end),
+            item[0],
+            item[1],
+        ),
+    )
+    best = ranked[0]
+    if len(ranked) > 1:
+        best_score = (
+            abs(best[0] - approx_start),
+            abs(best[1] - approx_end),
+        )
+        second = ranked[1]
+        second_score = (
+            abs(second[0] - approx_start),
+            abs(second[1] - approx_end),
+        )
+        if second_score == best_score:
+            raise ValueError("Span alignment is ambiguous near the provided offsets.")
+    return best
+
+
+def _find_nearby_exact_alignment(
+    source_text: str,
+    selected_text: str,
+    *,
+    approx_start: int,
+    approx_end: int,
+    radius: int = 128,
+) -> Tuple[int, int] | None:
+    if not selected_text:
+        return None
+    lo = max(0, approx_start - radius)
+    hi = min(len(source_text), approx_end + radius)
+    candidates: List[Tuple[int, int]] = []
+    search_from = lo
+    while search_from <= hi:
+        idx = source_text.find(selected_text, search_from, hi)
+        if idx == -1:
+            break
+        candidates.append((idx, idx + len(selected_text)))
+        search_from = idx + 1
+    if not candidates:
+        return None
+    return _choose_best_alignment_candidate(
+        candidates,
+        approx_start=approx_start,
+        approx_end=approx_end,
+    )
+
+
+def _find_nearby_whitespace_insensitive_alignment(
+    source_text: str,
+    selected_text: str,
+    *,
+    approx_start: int,
+    approx_end: int,
+    radius: int = 128,
+) -> Tuple[int, int] | None:
+    selected_compact_chars = [ch for ch in selected_text if not ch.isspace()]
+    if not selected_compact_chars:
+        return None
+    selected_compact = "".join(selected_compact_chars)
+
+    lo = max(0, approx_start - radius)
+    hi = min(len(source_text), approx_end + radius)
+    window = source_text[lo:hi]
+    compact_chars: List[str] = []
+    compact_to_source: List[int] = []
+    for idx, ch in enumerate(window):
+        if ch.isspace():
+            continue
+        compact_chars.append(ch)
+        compact_to_source.append(lo + idx)
+    compact_window = "".join(compact_chars)
+    if not compact_window:
+        return None
+
+    candidates: List[Tuple[int, int]] = []
+    search_from = 0
+    while search_from <= len(compact_window):
+        idx = compact_window.find(selected_compact, search_from)
+        if idx == -1:
+            break
+        source_start = compact_to_source[idx]
+        source_end = compact_to_source[idx + len(selected_compact) - 1] + 1
+        candidates.append((source_start, source_end))
+        search_from = idx + 1
+    if not candidates:
+        return None
+    return _choose_best_alignment_candidate(
+        candidates,
+        approx_start=approx_start,
+        approx_end=approx_end,
+    )
+
+
+def _align_span_to_source(
+    source_text: str,
+    *,
+    start_char: int,
+    end_char: int,
+    selected_text: str,
+) -> Tuple[int, int, str]:
+    if end_char <= start_char:
+        raise ValueError("span offsets are out of bounds.")
+    approx_start = min(max(start_char, 0), len(source_text))
+    approx_end = min(max(end_char, 0), len(source_text))
+
+    if start_char >= 0 and end_char <= len(source_text):
+        direct_text = source_text[start_char:end_char]
+    else:
+        direct_text = ""
+    if direct_text == selected_text:
+        return start_char, end_char, direct_text
+
+    exact_alignment = _find_nearby_exact_alignment(
+        source_text,
+        selected_text,
+        approx_start=approx_start,
+        approx_end=approx_end,
+    )
+    if exact_alignment is not None:
+        aligned_start, aligned_end = exact_alignment
+        return aligned_start, aligned_end, source_text[aligned_start:aligned_end]
+
+    whitespace_alignment = _find_nearby_whitespace_insensitive_alignment(
+        source_text,
+        selected_text,
+        approx_start=approx_start,
+        approx_end=approx_end,
+    )
+    if whitespace_alignment is not None:
+        aligned_start, aligned_end = whitespace_alignment
+        return aligned_start, aligned_end, source_text[aligned_start:aligned_end]
+
+    raise ValueError("selected_text could not be aligned to source text near the provided offsets.")
+
+
 def _validate_full_page_tag_spans(
     source_text: str,
     spans: List[Dict[str, Any]],
@@ -887,16 +1037,18 @@ def _validate_full_page_tag_spans(
         end_char = int(span["end_char"])
         label = str(span["label"])
         selected_text = str(span["selected_text"])
-        if start_char < 0 or end_char <= start_char or end_char > len(source_text):
-            raise ValueError("span offsets are out of bounds.")
-        if source_text[start_char:end_char] != selected_text:
-            raise ValueError("selected_text does not match source text at provided offsets.")
+        aligned_start, aligned_end, aligned_text = _align_span_to_source(
+            source_text,
+            start_char=start_char,
+            end_char=end_char,
+            selected_text=selected_text,
+        )
         validated_spans.append(
             {
-                "start_char": start_char,
-                "end_char": end_char,
+                "start_char": aligned_start,
+                "end_char": aligned_end,
                 "label": label,
-                "selected_text": selected_text,
+                "selected_text": aligned_text,
             }
         )
 

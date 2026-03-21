@@ -270,6 +270,8 @@ def _system_prompt_full() -> str:
 
     If the page IS from the main agreement, then your task is to identify the exact character spans that should be wrapped in tags. Use label "section" for section HEADINGS (the number and title), "article" for article HEADINGS (the number and title), and "page" for a page number at the very end of the page when applicable. Articles are higher in the hierarchy than sections, and you are to ignore sub-sections. The spans should encompass only the number AND heading title--NOT the body text of the section or article itself. References to sections and article--rather than headings--should never be tagged. Once again, your task is to tag HEADINGS; you will ignore REFERENCES. Be attentive to context to ensure accuracy.
 
+    Precision matters more than recall. False positives are worse than missed spans. If you are uncertain whether text is truly a heading, do not tag it.
+
     # Output invariants (MANDATORY)
     1. Use the provided page text as the base string.
     2. Return only JSON matching the schema: a list of spans and warnings.
@@ -278,19 +280,25 @@ def _system_prompt_full() -> str:
     5. Do not add overlapping spans or nested spans.
     6. Do not return prompt or metadata text in any selected_text value.
     7. If no tags apply, return an empty spans list.
+    8. Only tag text that is physically present on this page exactly as shown. Do not infer, reconstruct, or borrow headings from prior or subsequent pages.
+    9. Before emitting a span, verify that selected_text is a contiguous substring from this exact page text and that the offsets point to that text. If you are unsure about the exact boundaries, omit the span.
 
     Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, return a span with label "page" for that number.
 
     Some additional notes:
     1. Articles will almost always be preceeded by the word "Article" and may look like "Article I   Representations" or "Article 1  Warranties"
     2. Sections will often but not always be preceeded by the word "Section"; sometimes they will be just numbers, like "5.01   Company Representations", and sometimes they will just be numbers (which should be tagged) followed by the section body (which should not be tagged), like "5.01"
+    2.1. Bare numeric headings like "10.1" or "12.2" should be tagged only when they appear as the heading at the start of a new block or paragraph.
+    2.2. Do not tag bare numbers that merely appear inside a continuing paragraph or sentence.
     3. If you are placing an <article> or <section> tag around long sentences, you're probably doing something wrong, like confusing the section body for the heading title. See #2, above, and the second-to-last last example, below.
     4. Sub-section do not count as sections, thus ignore headings like "9.1.4" or "9.1(a)". Do not splice tags into these; ignore them entirely. Tag only the section heading itself, in this case "9.1 [title text]," which would come at some point before "9.1.4"
     5. Sometimes there will be lots of extra spaces between the word "Section" or "Article" and the heading's title. This is fine and should not affect your decision to tag or not tag.
     6. Sometimes you will encounter long sections of definitions, where terms in double quotes are juxtaposed to section or article references, such as in: “Disposition Actions”\n\nSection 8(d)\n\n.
     6.1. Context should enable you to distinguish these long definitions pages from the Table of Contents; that is, definitions sections are almost always in the main body of agreements and thus should almost never be skipped.
     6.2. Context should also help you avoid mistakenly tagging article or section references in these definitions pages. A crude rule of thumb is that, if you are tagging an article or section and the text before and after it is in double quotes, you're probably doing something wrong.
+    6.3. If the candidate text is surrounded by ordinary running prose, quotations, or inline sentence text, it is probably a reference rather than a heading.
     7. Do not hallucinate headings that are not present. Do not rewrite or reflow text; preserve all characters exactly and only insert tags.
+    8. All-caps text should not be tagged unless it is clearly functioning as a heading block on this page.
 
     # Examples
 

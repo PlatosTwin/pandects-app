@@ -3,6 +3,7 @@ import unittest
 
 from etl.domain.d_ai_repair import (
     RepairDecision,
+    _system_prompt_full,
     _user_prompt_full,
     build_jsonl_lines_for_page,
 )
@@ -40,6 +41,13 @@ class AiRepairDomainTests(unittest.TestCase):
         self.assertEqual(prompt, page_text)
         self.assertNotIn("PAGE_UUID=", prompt)
         self.assertNotIn("Task: Insert", prompt)
+
+    def test_full_mode_system_prompt_biases_toward_precision(self) -> None:
+        prompt = _system_prompt_full()
+        self.assertIn("False positives are worse than missed spans.", prompt)
+        self.assertIn("Do not infer, reconstruct, or borrow headings", prompt)
+        self.assertIn("Bare numeric headings like", prompt)
+        self.assertIn("it is probably a reference rather than a heading", prompt)
 
 
 if __name__ == "__main__":
