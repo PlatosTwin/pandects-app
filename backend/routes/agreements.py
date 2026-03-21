@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import cast
+from typing import Any, Protocol, cast
 
 from flask import Flask, Response, abort, jsonify, request
 from flask.views import MethodView
@@ -19,6 +19,22 @@ from backend.schemas.public_api import (
     AgreementsListResponseSchema,
     SectionResponseSchema,
 )
+
+
+class _SummaryEligibleAgreementModel(Protocol):
+    __table__: Any
+    verified: Any
+
+
+def _agreement_is_summary_eligible_expr(agreements: _SummaryEligibleAgreementModel) -> object:
+    agreement_table = agreements.__table__
+    gated_col = agreement_table.c.get("gated")
+    if gated_col is None:
+        return text("1 = 1")
+    return or_(
+        func.coalesce(gated_col, 0) != 1,
+        func.coalesce(agreements.verified, 0) == 1,
+    )
 
 
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
@@ -525,7 +541,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         latest_filing_date = cast(
             object | None,
             db.session.query(func.max(agreements.filing_date))
-            .filter(agreements.filing_date.isnot(None), agreements.filing_date != "")
+            .filter(
+                agreements.filing_date.isnot(None),
+                agreements.filing_date != "",
+                _agreement_is_summary_eligible_expr(agreements),
+            )
             .scalar(),
         )
         if isinstance(latest_filing_date, (date, datetime)):

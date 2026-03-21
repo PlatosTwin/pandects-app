@@ -567,6 +567,43 @@ class MainRoutesTests(unittest.TestCase):
             ],
         )
 
+    def test_agreements_status_summary_excludes_gated_unverified_from_latest_filing_date(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_status_summary ("
+                        "year INTEGER NOT NULL, color TEXT NOT NULL, current_stage TEXT NOT NULL, count INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(text("DELETE FROM agreement_status_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_status_summary (year, color, current_stage, count) VALUES "
+                        "(2023, 'green', 'processed', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
+                        "VALUES ('a_gated_pending', '2025-06-01', 'Target Pending', 'Acquirer Pending', 0, 1, 'http://example.com/a_gated_pending')"
+                    )
+                )
+
+        try:
+            client = self.app.test_client()
+            res = client.get("/v1/agreements-status-summary")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM agreement_status_summary"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_pending'"))
+
     def test_mysql_agreement_year_expr_avoids_str_to_date(self):
         mysql_bind = SimpleNamespace(dialect=SimpleNamespace(name="mysql"))
         with (

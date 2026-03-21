@@ -8,6 +8,14 @@ from sqlalchemy.engine import Connection
 from etl.defs.resources import DBResource
 from etl.utils.pipeline_state_sql import canonical_stage_state_sql
 
+
+def _summary_eligible_agreement_where_sql(*, alias: str = "a") -> str:
+    return (
+        f"COALESCE(LOWER({alias}.status), '') <> 'invalid'\n"
+        f"              AND NOT (COALESCE({alias}.gated, 0) = 1 AND COALESCE({alias}.verified, 0) = 0)"
+    )
+
+
 def _ensure_deal_type_summary_table(
     conn: Connection,
     *,
@@ -171,7 +179,7 @@ def _refresh_summary_table(conn: Connection, *, schema: str) -> None:
                 ON p.agreement_uuid = a.agreement_uuid
             LEFT JOIN tmp_sections_agg s
                 ON s.agreement_uuid = a.agreement_uuid
-            WHERE COALESCE(LOWER(a.status), '') <> 'invalid'
+            WHERE {_summary_eligible_agreement_where_sql(alias='a')}
             GROUP BY
                 1,
                 2,
@@ -207,7 +215,7 @@ def _refresh_status_summary_table(conn: Connection, *, schema: str) -> None:
             JOIN {agreements_table} a
                 ON a.agreement_uuid = s.agreement_uuid
             WHERE s.year IS NOT NULL
-              AND COALESCE(LOWER(a.status), '') <> 'invalid'
+              AND {_summary_eligible_agreement_where_sql(alias='a')}
             GROUP BY s.year, s.color, s.current_stage
             """
         )
@@ -233,7 +241,7 @@ def _refresh_deal_type_summary_table(conn: Connection, *, schema: str) -> None:
             JOIN {agreements_table} a
                 ON a.agreement_uuid = x.agreement_uuid
             WHERE YEAR(DATE(a.filing_date)) IS NOT NULL
-              AND COALESCE(LOWER(a.status), '') <> 'invalid'
+              AND {_summary_eligible_agreement_where_sql(alias='a')}
             GROUP BY
                 YEAR(DATE(a.filing_date)),
                 COALESCE(a.deal_type, 'unknown')

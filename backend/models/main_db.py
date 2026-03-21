@@ -200,6 +200,7 @@ else:
         Column("target_pe", Integer, nullable=True),
         Column("acquirer_pe", Integer, nullable=True),
         Column("verified", Integer, nullable=True),
+        Column("gated", Integer, nullable=True),
         Column("transaction_size", Integer, nullable=True),
         Column("transaction_type", TEXT, nullable=True),
         Column("consideration_type", TEXT, nullable=True),
@@ -357,6 +358,7 @@ class Agreements(db.Model):
     target_pe: ClassVar[Mapped[int | None]]
     acquirer_pe: ClassVar[Mapped[int | None]]
     verified: ClassVar[Mapped[int | None]]
+    gated: ClassVar[Mapped[int | None]]
     transaction_size: ClassVar[Mapped[int | None]]
     transaction_type: ClassVar[Mapped[str | None]]
     consideration_type: ClassVar[Mapped[str | None]]

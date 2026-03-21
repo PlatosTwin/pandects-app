@@ -109,12 +109,20 @@ class SummaryDataTests(unittest.TestCase):
         )
         self.assertIn("FROM pdx.agreements AS a", summary_insert_sql)
         self.assertIn("COALESCE(LOWER(a.status), '') <> 'invalid'", summary_insert_sql)
+        self.assertIn(
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
+            summary_insert_sql,
+        )
         status_insert_sql = next(
             sql
             for sql in conn.executed_sql
             if "INSERT INTO pdx.agreement_status_summary" in sql
         )
         self.assertIn("COALESCE(LOWER(a.status), '') <> 'invalid'", status_insert_sql)
+        self.assertIn(
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
+            status_insert_sql,
+        )
         deal_type_insert_sql = next(
             sql
             for sql in conn.executed_sql
@@ -124,6 +132,10 @@ class SummaryDataTests(unittest.TestCase):
         self.assertIn("COALESCE(a.deal_type, 'unknown')", deal_type_insert_sql)
         self.assertIn("COUNT(*) AS `count`", deal_type_insert_sql)
         self.assertIn("COALESCE(LOWER(a.status), '') <> 'invalid'", deal_type_insert_sql)
+        self.assertIn(
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
+            deal_type_insert_sql,
+        )
 
     def test_refresh_summary_data_uses_canonical_stage_sql(self) -> None:
         class _ScalarResult:
