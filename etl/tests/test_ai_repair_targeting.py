@@ -11,6 +11,7 @@ from etl.defs.d_ai_repair_asset import (
     _apply_full_page_tag_spans,
     _validate_full_page_tag_spans,
 )
+from etl.defs.resources import AIRepairAttemptPriority
 
 
 class _FakeResult:
@@ -62,13 +63,13 @@ class _FakeConn:
 
 class AiRepairTargetingTests(unittest.TestCase):
     def test_repair_model_routing_by_attempt_state(self) -> None:
-        self.assertEqual(_repair_model_for_attempted(0), "gpt-5.4-mini")
-        self.assertEqual(_repair_model_for_attempted(1), "gpt-5.4-mini")
+        self.assertEqual(_repair_model_for_attempted(0), "gpt-5-mini")
+        self.assertEqual(_repair_model_for_attempted(1), "gpt-5-mini")
         with self.assertRaises(ValueError):
             _repair_model_for_attempted(2)
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=False),
-            "gpt-5.4-mini",
+            "gpt-5-mini",
         )
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=True),
@@ -154,6 +155,79 @@ class AiRepairTargetingTests(unittest.TestCase):
         candidates = _fetch_candidates(cast(Connection, cast(object, conn)), "pdx", agreement_limit=1)
 
         self.assertEqual({str(row["agreement_uuid"]) for row in candidates}, {"agreement-new"})
+
+    def test_fetch_candidates_can_prioritize_attempted_over_unattempted(self) -> None:
+        invalid_rows = [
+            {"agreement_uuid": "agreement-new", "xml_version": 10, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-new-1"},
+            {"agreement_uuid": "agreement-new", "xml_version": 10, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-new-2"},
+            {"agreement_uuid": "agreement-retry", "xml_version": 11, "ai_repair_attempted": 1, "reason_code": "section_non_sequential", "page_uuid": "page-retry-1"},
+        ]
+        page_rows = [
+            {"page_uuid": "page-new-1", "agreement_uuid": "agreement-new", "page_order": 1, "text": "n1"},
+            {"page_uuid": "page-new-2", "agreement_uuid": "agreement-new", "page_order": 2, "text": "n2"},
+            {"page_uuid": "page-retry-1", "agreement_uuid": "agreement-retry", "page_order": 1, "text": "r1"},
+        ]
+        conn = _FakeConn(
+            invalid_rows,
+            existing_request_rows=[],
+            completed_request_rows=[],
+            page_rows=page_rows,
+        )
+
+        candidates = _fetch_candidates(
+            cast(Connection, cast(object, conn)),
+            "pdx",
+            agreement_limit=1,
+            attempt_priority=AIRepairAttemptPriority.ATTEMPTED_FIRST,
+        )
+
+        self.assertEqual({str(row["agreement_uuid"]) for row in candidates}, {"agreement-retry"})
+
+    def test_fetch_candidates_keeps_fewest_pages_first_within_attempt_group(self) -> None:
+        invalid_rows = [
+            {"agreement_uuid": "agreement-a", "xml_version": 10, "ai_repair_attempted": 1, "reason_code": "section_non_sequential", "page_uuid": "page-a-1"},
+            {"agreement_uuid": "agreement-a", "xml_version": 10, "ai_repair_attempted": 1, "reason_code": "section_non_sequential", "page_uuid": "page-a-2"},
+            {"agreement_uuid": "agreement-b", "xml_version": 11, "ai_repair_attempted": 1, "reason_code": "section_non_sequential", "page_uuid": "page-b-1"},
+            {"agreement_uuid": "agreement-c", "xml_version": 12, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-c-1"},
+            {"agreement_uuid": "agreement-c", "xml_version": 12, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-c-2"},
+            {"agreement_uuid": "agreement-d", "xml_version": 13, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-d-1"},
+        ]
+        page_rows = [
+            {"page_uuid": "page-a-1", "agreement_uuid": "agreement-a", "page_order": 1, "text": "a1"},
+            {"page_uuid": "page-a-2", "agreement_uuid": "agreement-a", "page_order": 2, "text": "a2"},
+            {"page_uuid": "page-b-1", "agreement_uuid": "agreement-b", "page_order": 1, "text": "b1"},
+            {"page_uuid": "page-c-1", "agreement_uuid": "agreement-c", "page_order": 1, "text": "c1"},
+            {"page_uuid": "page-c-2", "agreement_uuid": "agreement-c", "page_order": 2, "text": "c2"},
+            {"page_uuid": "page-d-1", "agreement_uuid": "agreement-d", "page_order": 1, "text": "d1"},
+        ]
+        conn = _FakeConn(
+            invalid_rows,
+            existing_request_rows=[],
+            completed_request_rows=[],
+            page_rows=page_rows,
+        )
+
+        unattempted_first = _fetch_candidates(
+            cast(Connection, cast(object, conn)),
+            "pdx",
+            agreement_limit=2,
+            attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+        )
+        attempted_first = _fetch_candidates(
+            cast(Connection, cast(object, conn)),
+            "pdx",
+            agreement_limit=2,
+            attempt_priority=AIRepairAttemptPriority.ATTEMPTED_FIRST,
+        )
+
+        self.assertEqual(
+            {str(row["agreement_uuid"]) for row in unattempted_first},
+            {"agreement-c", "agreement-d"},
+        )
+        self.assertEqual(
+            {str(row["agreement_uuid"]) for row in attempted_first},
+            {"agreement-a", "agreement-b"},
+        )
 
     def test_fetch_candidates_sets_completed_history_flag(self) -> None:
         invalid_rows = [

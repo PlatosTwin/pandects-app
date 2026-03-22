@@ -68,6 +68,13 @@ class EmbedTarget(Enum):
     SECTION = "section"
 
 
+class AIRepairAttemptPriority(Enum):
+    """Ordering for AI-repair agreement selection."""
+
+    NOT_ATTEMPTED_FIRST = "not_attempted_first"
+    ATTEMPTED_FIRST = "attempted_first"
+
+
 class PipelineConfig(dg.ConfigurableResource[object]):
     """Configuration for pre-processing mode and batching behavior."""
 
@@ -83,10 +90,11 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     pre_processing_validate_ungate_max_remaining_risk: float = 0.08  # conservative release threshold
     pre_processing_validate_min_llm_confidence: float = 0.85  # minimum LLM confidence to apply label change
     pre_processing_validate_min_model_support: float = 0.08  # minimum CRF class probability for relabel support
-    pre_processing_validate_model: str = "gpt-5.4-mini"  # responses/batch model for page validation
+    pre_processing_validate_model: str = "gpt-5-mini"  # responses/batch model for page validation
     pre_processing_validate_completion_window: str = "24h"  # OpenAI batch completion window
     pre_processing_validate_snippet_chars: int = 1200  # max chars for current page snippet
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
+    ai_repair_attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     taxonomy_mode: TaxonomyMode = TaxonomyMode.GOLD_BACKFILL  # inference | gold_backfill
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
@@ -295,6 +303,7 @@ def get_resources() -> dict[str, object]:
         "pre_processing_validate_completion_window",
         "pre_processing_validate_snippet_chars",
         "xml_agreement_batch_size",
+        "ai_repair_attempt_priority",
         "taxonomy_agreement_batch_size",
         "taxonomy_mode",
         "tx_metadata_agreement_batch_size",
@@ -391,6 +400,10 @@ def get_resources() -> dict[str, object]:
     
     if "xml_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
+
+    if "ai_repair_attempt_priority" in yaml_config:
+        priority_str = str(yaml_config["ai_repair_attempt_priority"]).lower()
+        pipeline_config_kwargs["ai_repair_attempt_priority"] = AIRepairAttemptPriority(priority_str)
 
     if "taxonomy_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["taxonomy_agreement_batch_size"] = int(yaml_config["taxonomy_agreement_batch_size"])

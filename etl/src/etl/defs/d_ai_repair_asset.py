@@ -25,6 +25,7 @@ import os
 import time
 
 from etl.defs.resources import DBResource, PipelineConfig
+from etl.defs.resources import AIRepairAttemptPriority
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_FIRST_ARTICLE_NOT_ONE,
@@ -64,7 +65,7 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
 )
 
-AI_REPAIR_FIRST_PASS_MODEL = "gpt-5.4-mini"
+AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
 AI_REPAIR_RETRY_MODEL = "gpt-5.4"
 _ALLOWED_FULL_MODE_TAGS: Tuple[str, ...] = (
     "<article>",
@@ -103,12 +104,14 @@ def _fetch_candidates(
     conn: Connection,
     schema: str,
     agreement_limit: int,
+    attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
     exclude_in_flight: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Pull page-level AI-repair targets derived from invalid latest XML reasons.
     Targets come from xml_status_reasons.page_uuid rows and are ordered by
-    unattempted agreements first, then by fewest unresolved target pages.
+    configured attempted/not-attempted priority, then by fewest unresolved
+    target pages.
     """
     pages_table = f"{schema}.pages"
     ai_repair_requests_table = f"{schema}.ai_repair_requests"
@@ -237,9 +240,14 @@ def _fetch_candidates(
     if not unresolved_by_agreement:
         return []
 
+    attempted_rank = {
+        AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST: {0: 0, 1: 1},
+        AIRepairAttemptPriority.ATTEMPTED_FIRST: {1: 0, 0: 1},
+    }[attempt_priority]
+
     ranked_agreements = sorted(
         unresolved_by_agreement.items(),
-        key=lambda item: (item[1][0], len(item[1][3]), item[0]),
+        key=lambda item: (attempted_rank[item[1][0]], len(item[1][3]), item[0]),
     )[:agreement_limit]
     selected_page_rows: List[Dict[str, Any]] = []
     page_uuid_to_target: Dict[str, Tuple[str, int, int, int]] = {}
@@ -595,6 +603,7 @@ def ai_repair_enqueue_asset(
                 conn,
                 db.database,
                 agreement_limit=batch_size,
+                attempt_priority=pipeline_config.ai_repair_attempt_priority,
                 exclude_in_flight=False,
             )
             resume_probe_agreement_uuids = sorted(
@@ -651,6 +660,7 @@ def ai_repair_enqueue_asset(
                 conn,
                 db.database,
                 agreement_limit=batch_size,
+                attempt_priority=pipeline_config.ai_repair_attempt_priority,
             )
             if not candidates:
                 context.log.info("ai_repair_enqueue_asset: no candidates.")
@@ -674,6 +684,10 @@ def ai_repair_enqueue_asset(
                     candidate_agreement_count - candidate_already_attempted,
                     candidate_already_attempted,
                     len(candidates),
+                )
+                context.log.info(
+                    "ai_repair_enqueue_asset: attempt priority=%s",
+                    pipeline_config.ai_repair_attempt_priority.value,
                 )
 
             # 2) build full-page JSONL for targeted pages

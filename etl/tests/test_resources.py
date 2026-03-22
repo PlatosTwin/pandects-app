@@ -3,7 +3,13 @@ import unittest
 from typing import cast
 from unittest.mock import patch
 
-from etl.defs.resources import DBResource, PipelineConfig, QueueRunMode, get_resources
+from etl.defs.resources import (
+    AIRepairAttemptPriority,
+    DBResource,
+    PipelineConfig,
+    QueueRunMode,
+    get_resources,
+)
 
 
 class DBResourceTests(unittest.TestCase):
@@ -31,6 +37,7 @@ class DBResourceTests(unittest.TestCase):
             return_value={
                 "queue_run_mode": "drain",
                 "resume_openai_batches": False,
+                "ai_repair_attempt_priority": "attempted_first",
             },
         ):
             resources = get_resources()
@@ -38,6 +45,10 @@ class DBResourceTests(unittest.TestCase):
         pipeline_config = cast(PipelineConfig, resources["pipeline_config"])
         self.assertEqual(pipeline_config.queue_run_mode, QueueRunMode.DRAIN)
         self.assertFalse(pipeline_config.resume_openai_batches)
+        self.assertEqual(
+            pipeline_config.ai_repair_attempt_priority,
+            AIRepairAttemptPriority.ATTEMPTED_FIRST,
+        )
 
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:
         with patch(
