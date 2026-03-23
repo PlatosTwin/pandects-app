@@ -99,6 +99,16 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     staging_rate_limit_window_seconds: float = 1.025  # used in staging_asset alt flow
     staging_max_workers: int = 8  # used in staging_asset alt flow
     staging_use_keyword_filter: bool = True  # used in staging_asset alt flow
+    # Compatibility-only fields retained so historical Dagster runs can be resumed/retried.
+    pre_processing_validate_agreement_batch_size: int = 10
+    pre_processing_validate_candidate_min_risk: float = 0.1
+    pre_processing_validate_candidate_pages_per_agreement: int = 24
+    pre_processing_validate_completion_window: str = "24h"
+    pre_processing_validate_min_llm_confidence: float = 0.85
+    pre_processing_validate_min_model_support: float = 0.08
+    pre_processing_validate_model: str = "gpt-5-mini"
+    pre_processing_validate_snippet_chars: int = 1200
+    pre_processing_validate_ungate_max_remaining_risk: float = 0.08
 
     def is_pre_processing_cleanup_mode(self) -> bool:
         """Check if pre-processing should run in cleanup mode."""
@@ -299,6 +309,15 @@ def get_resources() -> dict[str, object]:
         "staging_rate_limit_window_seconds",
         "staging_max_workers",
         "staging_use_keyword_filter",
+        "pre_processing_validate_agreement_batch_size",
+        "pre_processing_validate_candidate_min_risk",
+        "pre_processing_validate_candidate_pages_per_agreement",
+        "pre_processing_validate_completion_window",
+        "pre_processing_validate_min_llm_confidence",
+        "pre_processing_validate_min_model_support",
+        "pre_processing_validate_model",
+        "pre_processing_validate_snippet_chars",
+        "pre_processing_validate_ungate_max_remaining_risk",
     }
     unknown_keys = sorted(set(yaml_config) - allowed_pipeline_config_keys)
     if unknown_keys:
@@ -385,6 +404,51 @@ def get_resources() -> dict[str, object]:
         pipeline_config_kwargs["staging_use_keyword_filter"] = _parse_bool(
             yaml_config["staging_use_keyword_filter"],
             field_name="staging_use_keyword_filter",
+        )
+
+    if "pre_processing_validate_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_agreement_batch_size"] = int(
+            yaml_config["pre_processing_validate_agreement_batch_size"]
+        )
+
+    if "pre_processing_validate_candidate_min_risk" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_candidate_min_risk"] = float(
+            yaml_config["pre_processing_validate_candidate_min_risk"]
+        )
+
+    if "pre_processing_validate_candidate_pages_per_agreement" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_candidate_pages_per_agreement"] = int(
+            yaml_config["pre_processing_validate_candidate_pages_per_agreement"]
+        )
+
+    if "pre_processing_validate_completion_window" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_completion_window"] = str(
+            yaml_config["pre_processing_validate_completion_window"]
+        ).strip()
+
+    if "pre_processing_validate_min_llm_confidence" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_min_llm_confidence"] = float(
+            yaml_config["pre_processing_validate_min_llm_confidence"]
+        )
+
+    if "pre_processing_validate_min_model_support" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_min_model_support"] = float(
+            yaml_config["pre_processing_validate_min_model_support"]
+        )
+
+    if "pre_processing_validate_model" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_model"] = str(
+            yaml_config["pre_processing_validate_model"]
+        ).strip()
+
+    if "pre_processing_validate_snippet_chars" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_snippet_chars"] = int(
+            yaml_config["pre_processing_validate_snippet_chars"]
+        )
+
+    if "pre_processing_validate_ungate_max_remaining_risk" in yaml_config:
+        pipeline_config_kwargs["pre_processing_validate_ungate_max_remaining_risk"] = float(
+            yaml_config["pre_processing_validate_ungate_max_remaining_risk"]
         )
     
     return {

@@ -1,7 +1,7 @@
 """Transaction metadata enrichment: offline (document-only) or web-search mode.
 
 Offline mode: selects agreements missing target, acquirer, or deal_type; sends
-front_matter + first two body pages to gpt-5.4-mini via OpenAI Batch API; updates
+front_matter + first two body pages to gpt-5-mini via OpenAI Batch API; updates
 target, acquirer, deal_type only. Offline batch state is persisted so interrupted
 runs can resume polling/apply work on the next invocation.
 
@@ -473,7 +473,7 @@ def _run_offline_mode(
         if not concat.strip():
             context.log.warning(f"tx_metadata_asset (offline): no page text for {agr_uuid}; skipping.")
             continue
-        line = build_offline_tx_metadata_request_body(agr_uuid, concat, model="gpt-5.4-mini")
+        line = build_offline_tx_metadata_request_body(agr_uuid, concat, model="gpt-5-mini")
         lines.append(line)
 
     if not lines:
