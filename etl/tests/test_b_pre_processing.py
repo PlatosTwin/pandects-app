@@ -432,6 +432,28 @@ class PreProcessingTests(unittest.TestCase):
 
         self.assertEqual(text, "Article I Definitions")
 
+    def test_format_content_preserves_heading_space_for_inline_br_within_formatting_tag(self) -> None:
+        html = (
+            "<div style='margin-bottom:12pt;text-align:center'>"
+            "<font style='font-weight:bold'>EXHIBIT A<br/><br/>DEFINED TERMS</font>"
+            "</div>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "EXHIBIT A DEFINED TERMS")
+
+    def test_format_content_preserves_section_spacing_for_inline_br_within_formatting_tag(self) -> None:
+        html = (
+            "<div style='text-align:center'>"
+            "<font style='font-weight:bold'>Section 1.2<br/>Representations</font>"
+            "</div>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "Section 1.2 Representations")
+
     def test_format_content_does_not_add_space_before_closing_quote_with_empty_inline_tags(self) -> None:
         html = (
             "<p>"

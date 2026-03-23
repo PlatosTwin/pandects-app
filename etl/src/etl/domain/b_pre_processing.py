@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 # Standard library
+import difflib
 import os
 import re
 import threading
@@ -35,6 +36,14 @@ _PADDED_QUOTED_TERM_RE = re.compile(
     r'(?<![A-Za-z0-9])([“"])\s+([^"”\n]{1,220}?)\s+([”"])(?![A-Za-z0-9])'
 )
 _FRAGMENTED_SECTION_HEAD_RE = re.compile(r"\b\d+\.\d+\s*\n\n[A-Za-z]{1,8}\n\n[A-Za-z]{1,16}\b")
+_HEADING_PREFIX_RE = re.compile(
+    r"(?i)^\s*(article|exhibit|annex|appendix|schedule|section|signature page)\b"
+)
+_SECTION_TOKEN_RE = re.compile(r"(?i)\bsection\s+\d+(?:\.\d+)*[A-Za-z]")
+_ARTICLE_TOKEN_RE = re.compile(r"(?i)\barticle\s+(?:[IVXLCDM]+|\d+)[A-Za-z]")
+_EXHIBIT_TOKEN_RE = re.compile(
+    r"(?i)\b(exhibit|annex|appendix|schedule)\s+[A-Z0-9]+[A-Za-z]"
+)
 
 
 class ClassifierProbs(TypedDict):
@@ -504,6 +513,62 @@ def strip_formatting_tags(
             return ""
         return "\n\n" * br_count
 
+    def _collapse_internal_br_to_spaces(tag: Tag) -> str:
+        raw = tag.get_text(separator=" ", strip=False)
+        raw = raw.replace("\u00a0", " ").replace("\xa0", " ")
+        return re.sub(r"\s+", " ", raw).strip()
+
+    def _is_whitespace_insertion_only(source_text: str, target_text: str) -> bool:
+        source_text = source_text.replace("\u00a0", " ").replace("\xa0", " ")
+        target_text = target_text.replace("\u00a0", " ").replace("\xa0", " ")
+        if source_text == target_text:
+            return False
+        matcher = difflib.SequenceMatcher(a=source_text, b=target_text, autojunk=False)
+        for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
+            if opcode == "equal":
+                continue
+            if opcode != "insert":
+                return False
+            inserted = target_text[b0:b1]
+            if inserted == "" or inserted.strip() != "":
+                return False
+            if a0 != a1:
+                return False
+        return True
+
+    def _is_heading_like_inline_br_text(text: str) -> bool:
+        compact = re.sub(r"\s+", " ", text).strip()
+        if len(compact) < 6 or len(compact) > 160:
+            return False
+        if (
+            "," in compact
+            or ";" in compact
+            or ":" in compact
+            or "?" in compact
+            or "!" in compact
+        ):
+            return False
+
+        words = [w for w in re.split(r"\s+", compact) if re.search(r"[A-Za-z]", w)]
+        if len(words) < 2:
+            return False
+
+        if (
+            _SECTION_TOKEN_RE.search(compact)
+            or _ARTICLE_TOKEN_RE.search(compact)
+            or _EXHIBIT_TOKEN_RE.search(compact)
+        ):
+            return True
+
+        letters = [ch for ch in compact if ch.isalpha()]
+        if not letters:
+            return False
+        upper_ratio = sum(1 for ch in letters if ch.isupper()) / len(letters)
+        if upper_ratio >= 0.72:
+            return True
+
+        return _HEADING_PREFIX_RE.match(compact) is not None
+
     def _trim_text_node_after_opening_quote(text: str) -> str:
         return re.sub(r'([“"‘«‹])\s+$', r"\1", text)
 
@@ -592,8 +657,16 @@ def strip_formatting_tags(
 
             # Get the text content of the tag
             tag_text = tag.get_text()
-            if not tag_text and tag.find("br") is not None:
-                tag_text = _line_break_text_from_tag(tag)
+            if tag.find("br") is not None:
+                collapsed_br_text = _collapse_internal_br_to_spaces(tag)
+                if (
+                    collapsed_br_text
+                    and _is_heading_like_inline_br_text(collapsed_br_text)
+                    and _is_whitespace_insertion_only(tag_text, collapsed_br_text)
+                ):
+                    tag_text = collapsed_br_text
+                elif not tag_text.strip():
+                    tag_text = _line_break_text_from_tag(tag)
             tag_text = _quote_only_tag_text(tag_text)
             tag_text = _trim_tag_text_at_quote_edges(
                 tag_text,
