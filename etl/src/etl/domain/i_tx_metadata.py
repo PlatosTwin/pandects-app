@@ -143,28 +143,6 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
                 },
                 "required": ["citations", "notes"],
             },
-            "metadata_run_stats": {
-                "anyOf": [
-                    {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "token_usage": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "properties": {
-                                    "input_tokens": {"type": "integer", "minimum": 0},
-                                    "output_tokens": {"type": "integer", "minimum": 0},
-                                    "total_tokens": {"type": "integer", "minimum": 0},
-                                },
-                                "required": list(TOKEN_USAGE_REQUIRED_FIELDS),
-                            }
-                        },
-                        "required": ["token_usage"],
-                    },
-                    {"type": "null"},
-                ]
-            },
         },
         "required": [
             "consideration_type",
@@ -182,7 +160,6 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
             "deal_type",
             "purpose",
             "metadata_sources",
-            "metadata_run_stats",
         ],
     }
 
@@ -191,7 +168,7 @@ def json_schema_transaction_metadata_web_search_only() -> Dict[str, Any]:
     """Schema for web-search mode: same as full but omit deal_type (collected offline)."""
     full = copy.deepcopy(json_schema_transaction_metadata())
     props = {k: v for k, v in full["properties"].items() if k not in ("deal_type",)}
-    required = [k for k in full["required"] if k not in ("deal_type", "metadata_run_stats")]
+    required = [k for k in full["required"] if k != "deal_type"]
     # Remove deal_type from metadata_sources.citations.field enum if present
     if "metadata_sources" in props and "properties" in props["metadata_sources"]:
         cites = props["metadata_sources"]["properties"].get("citations", {})

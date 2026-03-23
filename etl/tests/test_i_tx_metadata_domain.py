@@ -66,7 +66,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         schema = json_schema_transaction_metadata_web_search_only()
         self.assertNotIn("deal_type", schema["properties"])
         self.assertNotIn("deal_type", schema["required"])
-        self.assertNotIn("metadata_run_stats", schema["required"])
+        self.assertNotIn("metadata_run_stats", schema["properties"])
         field_enum = schema["properties"]["metadata_sources"]["properties"]["citations"]["items"][
             "properties"
         ]["field"]["enum"]
