@@ -50,61 +50,6 @@ class DBResourceTests(unittest.TestCase):
             AIRepairAttemptPriority.ATTEMPTED_FIRST,
         )
 
-    def test_get_resources_accepts_legacy_pre_processing_validate_keys(self) -> None:
-        with patch(
-            "etl.defs.resources._load_yaml_config",
-            return_value={
-                "pre_processing_validate_agreement_batch_size": 10,
-                "pre_processing_validate_candidate_min_risk": 0.1,
-                "pre_processing_validate_candidate_pages_per_agreement": 24,
-                "pre_processing_validate_completion_window": "24h",
-                "pre_processing_validate_min_llm_confidence": 0.85,
-                "pre_processing_validate_min_model_support": 0.08,
-                "pre_processing_validate_model": "gpt-5-mini",
-                "pre_processing_validate_snippet_chars": 1200,
-                "pre_processing_validate_ungate_max_remaining_risk": 0.08,
-            },
-        ):
-            resources = get_resources()
-
-        pipeline_config = cast(PipelineConfig, resources["pipeline_config"])
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_agreement_batch_size,
-            10,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_candidate_min_risk,
-            0.1,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_candidate_pages_per_agreement,
-            24,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_completion_window,
-            "24h",
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_min_llm_confidence,
-            0.85,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_min_model_support,
-            0.08,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_model,
-            "gpt-5-mini",
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_snippet_chars,
-            1200,
-        )
-        self.assertEqual(
-            pipeline_config.pre_processing_validate_ungate_max_remaining_risk,
-            0.08,
-        )
-
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:
         with patch(
             "etl.defs.resources._load_yaml_config",

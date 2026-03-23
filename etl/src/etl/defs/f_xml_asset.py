@@ -1020,7 +1020,7 @@ def xml_verify_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
 
