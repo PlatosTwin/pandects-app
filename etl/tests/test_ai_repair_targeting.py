@@ -73,7 +73,7 @@ class AiRepairTargetingTests(unittest.TestCase):
         )
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=True),
-            "gpt-5.4",
+            "gpt-5.1",
         )
 
     def test_fetch_candidates_uses_reason_page_targets_and_agreement_ranking(self) -> None:

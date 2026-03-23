@@ -66,7 +66,7 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
 )
 
 AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
-AI_REPAIR_RETRY_MODEL = "gpt-5.4"
+AI_REPAIR_RETRY_MODEL = "gpt-5.1"
 _ALLOWED_FULL_MODE_TAGS: Tuple[str, ...] = (
     "<article>",
     "</article>",
