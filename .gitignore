@@ -67,6 +67,7 @@ etl/tests/test_reset_stuck_agreements.py
 etl/src/etl/utils/rekey_section_uuids.py
 etl/src/etl/utils/reset_stuck_agreements.py
 etl/src/etl/utils/preproc_diff_audit.py
+etl/src/etl/utils/recover_ai_repair_batch.py
 etl/tests/test_preproc_diff_audit.py
 
 
