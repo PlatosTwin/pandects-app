@@ -105,6 +105,7 @@ class _FakeWebConn:
         self.executed_sql: list[str] = []
         self.last_update_params: dict[str, object] | None = None
         self.last_select_params: dict[str, object] | None = None
+        self.last_select_rows: list[dict[str, object]] | None = None
         self.fail_on_update = fail_on_update
         self.failure_upserts = 0
         self.failure_clears = 0
@@ -116,6 +117,7 @@ class _FakeWebConn:
                 "acquirer": "Acquirer A",
                 "filing_date": today_iso,
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
+                "failure_count": 0,
             }
         ]
 
@@ -124,8 +126,9 @@ class _FakeWebConn:
         self.executed_sql.append(sql)
         if "FROM information_schema.tables" in sql:
             return _FakeResult(scalar_rows=["tx_metadata_web_failures"])
-        if "SELECT a.agreement_uuid, a.target, a.acquirer, a.filing_date, a.url" in sql:
+        if "SELECT" in sql and "FROM pdx.agreements a" in sql:
             self.last_select_params = dict(params)
+            self.last_select_rows = self.select_rows
             return _FakeResult(rows=self.select_rows)
         if "INSERT INTO pdx.tx_metadata_web_failures" in sql:
             self.failure_upserts += 1
@@ -150,11 +153,12 @@ class _FakeWebEngine:
 
 
 class _FakeResponsesClient:
-    def __init__(self, *, response_text: str) -> None:
+    def __init__(self, *, response_text: str, usage: dict[str, int] | None = None) -> None:
         self._response_text = response_text
+        self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
 
     def create(self, **_kwargs: object) -> object:
-        return SimpleNamespace(output_text=self._response_text)
+        return SimpleNamespace(output_text=self._response_text, usage=self._usage)
 
 
 class _FlakyResponsesClient:
@@ -169,21 +173,28 @@ class _FlakyResponsesClient:
         self.calls += 1
         if isinstance(value, Exception):
             raise value
-        return SimpleNamespace(output_text=value)
+        return SimpleNamespace(
+            output_text=value,
+            usage={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        )
 
 
 class _FakeWebClient:
-    def __init__(self, *, response_text: str) -> None:
-        self.responses = _FakeResponsesClient(response_text=response_text)
+    def __init__(self, *, response_text: str, usage: dict[str, int] | None = None) -> None:
+        self.responses = _FakeResponsesClient(response_text=response_text, usage=usage)
 
 
 class _FakeLog:
+    def __init__(self) -> None:
+        self.info_calls: list[tuple[object, ...]] = []
+        self.warning_calls: list[tuple[object, ...]] = []
+
     def info(self, *args: object, **kwargs: object) -> None:
-        _ = args
+        self.info_calls.append(args)
         _ = kwargs
 
     def warning(self, *args: object, **kwargs: object) -> None:
-        _ = args
+        self.warning_calls.append(args)
         _ = kwargs
 
 
@@ -206,28 +217,33 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 "purpose": "strategic",
                 "metadata_sources": {
                     "citations": [
-                        {
-                            "url": "https://example.com/deal",
-                            "fields": [
-                                "consideration_type",
-                                "purchase_price.cash",
-                                "purchase_price.stock",
-                                "purchase_price.assets",
-                                "target_public",
-                                "acquirer_public",
-                                "target_industry",
-                                "acquirer_industry",
-                                "announce_date",
-                                "deal_status",
-                                "attitude",
-                                "purpose",
-                            ],
-                        }
+                        self._citation("consideration_type"),
+                        self._citation("purchase_price.cash"),
+                        self._citation("purchase_price.stock"),
+                        self._citation("purchase_price.assets"),
+                        self._citation("target_public"),
+                        self._citation("acquirer_public"),
+                        self._citation("target_industry"),
+                        self._citation("acquirer_industry"),
+                        self._citation("announce_date"),
+                        self._citation("deal_status"),
+                        self._citation("attitude"),
+                        self._citation("purpose"),
                     ],
                     "notes": None,
                 },
             }
         )
+
+    def _citation(self, field: str) -> dict[str, object]:
+        return {
+            "field": field,
+            "url": "https://example.com/deal",
+            "source_type": "company_press_release",
+            "published_at": "2024-01-01",
+            "locator": "press release",
+            "excerpt": f"Support for {field}.",
+        }
 
     def test_apply_offline_batch_output_refreshes_projection_for_updated_agreement(self) -> None:
         response_payload = {
@@ -331,7 +347,13 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             )
 
         refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
-        self.assertEqual(conn.last_select_params, {"lim": 10, "max_failures": 3})
+        self.assertEqual(conn.last_select_params, {"lim": 10})
+        assert conn.last_update_params is not None
+        metadata_payload = json.loads(cast(str, conn.last_update_params["metadata_sources"]))
+        self.assertEqual(
+            metadata_payload["metadata_run_stats"]["token_usage"],
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        )
 
     def test_run_web_search_mode_raises_on_database_update_error(self) -> None:
         conn = _FakeWebConn(fail_on_update=True)
@@ -390,6 +412,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                     "acquirer": None,
                     "filing_date": date.today().isoformat(),
                     "url": "https://www.sec.gov/Archives/edgar/data/999/only-url.htm",
+                    "failure_count": 0,
                 }
             ]
         )
@@ -424,6 +447,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                     "acquirer": "Acquirer A",
                     "filing_date": "2000-01-01",
                     "url": "https://www.sec.gov/Archives/edgar/data/999/old.htm",
+                    "failure_count": 0,
                 }
             ]
         )
@@ -479,6 +503,79 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(conn.failure_upserts, 1)
         self.assertEqual(conn.failure_clears, 0)
+
+    def test_run_web_search_mode_prioritizes_lower_failure_count(self) -> None:
+        conn = _FakeWebConn(
+            select_rows=[
+                {
+                    "agreement_uuid": "agreement-clean",
+                    "target": "Target A",
+                    "acquirer": "Acquirer A",
+                    "filing_date": date.today().isoformat(),
+                    "url": "https://www.sec.gov/Archives/edgar/data/123/clean.htm",
+                    "failure_count": 0,
+                },
+                {
+                    "agreement_uuid": "agreement-retry",
+                    "target": "Target B",
+                    "acquirer": "Acquirer B",
+                    "filing_date": date.today().isoformat(),
+                    "url": "https://www.sec.gov/Archives/edgar/data/123/retry.htm",
+                    "failure_count": 4,
+                },
+            ]
+        )
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        with (
+            patch(
+                "etl.defs.i_tx_metadata_asset._oai_client",
+                return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=2,
+            )
+
+        self.assertIsNotNone(conn.last_select_rows)
+        assert conn.last_select_rows is not None
+        self.assertEqual(conn.last_select_rows[0]["agreement_uuid"], "agreement-clean")
+        self.assertEqual(conn.last_select_rows[1]["agreement_uuid"], "agreement-retry")
+
+    def test_run_web_search_mode_logs_failed_uuid_summary(self) -> None:
+        conn = _FakeWebConn()
+        engine = _FakeWebEngine(conn)
+        fake_log = _FakeLog()
+        context = SimpleNamespace(log=fake_log)
+        flaky_responses = _FlakyResponsesClient(
+            responses=[
+                RuntimeError("transient web-search failure"),
+                RuntimeError("still failing"),
+                RuntimeError("final failure"),
+            ]
+        )
+        flaky_client = SimpleNamespace(responses=flaky_responses)
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=flaky_client),
+            patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
+        ):
+            _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=10,
+            )
+
+        self.assertTrue(
+            any("failed agreements by stage" in str(call[0]) for call in fake_log.warning_calls)
+        )
 
 
 if __name__ == "__main__":

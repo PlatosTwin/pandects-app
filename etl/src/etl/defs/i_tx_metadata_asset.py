@@ -1,7 +1,7 @@
 """Transaction metadata enrichment: offline (document-only) or web-search mode.
 
 Offline mode: selects agreements missing target, acquirer, or deal_type; sends
-front_matter + first two body pages to gpt-5.4-mini via OpenAI Batch API; updates
+front_matter + first two body pages to gpt-5-mini via OpenAI Batch API; updates
 target, acquirer, deal_type only. Offline batch state is persisted so interrupted
 runs can resume polling/apply work on the next invocation.
 
@@ -44,7 +44,6 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_g
 from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
 
-MAX_TX_METADATA_WEB_FAILURES = 3
 MAX_TX_METADATA_FAILURE_PAYLOAD_CHARS = 20_000
 
 
@@ -165,7 +164,6 @@ def _record_web_failure(
     error_stage: str,
     failure_reason: str,
     raw_payload: str | None,
-    max_failures: int,
 ) -> None:
     _ = conn.execute(
         text(
@@ -183,7 +181,7 @@ def _record_web_failure(
             VALUES (
                 :agreement_uuid,
                 1,
-                CASE WHEN 1 >= :max_failures THEN 1 ELSE 0 END,
+                0,
                 :error_stage,
                 :failure_reason,
                 :last_raw_payload,
@@ -192,7 +190,7 @@ def _record_web_failure(
             )
             ON DUPLICATE KEY UPDATE
                 failure_count = failure_count + 1,
-                quarantined = CASE WHEN failure_count + 1 >= :max_failures THEN 1 ELSE quarantined END,
+                quarantined = 0,
                 last_error_stage = VALUES(last_error_stage),
                 last_failure_reason = VALUES(last_failure_reason),
                 last_raw_payload = VALUES(last_raw_payload),
@@ -201,7 +199,6 @@ def _record_web_failure(
         ),
         {
             "agreement_uuid": agreement_uuid,
-            "max_failures": max_failures,
             "error_stage": error_stage,
             "failure_reason": failure_reason,
             "last_raw_payload": _truncate_failure_payload(raw_payload),
@@ -219,6 +216,26 @@ def _clear_web_failure(conn: Connection, schema: str, *, agreement_uuid: str) ->
         ),
         {"agreement_uuid": agreement_uuid},
     )
+
+
+def _extract_response_usage(resp: Any) -> Dict[str, int]:
+    usage = getattr(resp, "usage", None)
+    if usage is None:
+        raise ValueError("web-search response missing usage.")
+    if hasattr(usage, "model_dump"):
+        usage_obj = usage.model_dump()
+    elif isinstance(usage, dict):
+        usage_obj = usage
+    else:
+        raise TypeError("web-search response usage must be a dict-like object.")
+
+    extracted: Dict[str, int] = {}
+    for key in ("input_tokens", "output_tokens", "total_tokens"):
+        value = usage_obj.get(key)
+        if not isinstance(value, int):
+            raise TypeError(f"web-search response usage.{key} must be an integer.")
+        extracted[key] = value
+    return extracted
 
 
 def _apply_offline_batch_output(
@@ -473,7 +490,7 @@ def _run_offline_mode(
         if not concat.strip():
             context.log.warning(f"tx_metadata_asset (offline): no page text for {agr_uuid}; skipping.")
             continue
-        line = build_offline_tx_metadata_request_body(agr_uuid, concat, model="gpt-5.4-mini")
+        line = build_offline_tx_metadata_request_body(agr_uuid, concat, model="gpt-5-mini")
         lines.append(line)
 
     if not lines:
@@ -562,11 +579,15 @@ def _run_web_search_mode(
             table_names=("tx_metadata_web_failures",),
         )
 
-    max_failures = MAX_TX_METADATA_WEB_FAILURES
-
     select_q = text(
         f"""
-        SELECT a.agreement_uuid, a.target, a.acquirer, a.filing_date, a.url
+        SELECT
+            a.agreement_uuid,
+            a.target,
+            a.acquirer,
+            a.filing_date,
+            a.url,
+            COALESCE(wf.failure_count, 0) AS failure_count
         FROM {agreements_table} a
         LEFT JOIN {schema}.tx_metadata_web_failures wf
           ON wf.agreement_uuid = a.agreement_uuid
@@ -578,27 +599,23 @@ def _run_web_search_mode(
             )
             OR (a.url IS NOT NULL AND TRIM(a.url) <> '')
           )
-          AND COALESCE(wf.quarantined, 0) = 0
-          AND COALESCE(wf.failure_count, 0) < :max_failures
-        ORDER BY (filing_date IS NULL) ASC, filing_date ASC, agreement_uuid ASC
+        ORDER BY
+            COALESCE(wf.failure_count, 0) ASC,
+            (filing_date IS NULL) ASC,
+            filing_date ASC,
+            agreement_uuid ASC
         LIMIT :lim
         """
     )
     with engine.begin() as conn:
-        rows = conn.execute(
-            select_q,
-            {
-                "lim": batch_size,
-                "max_failures": max_failures,
-            },
-        ).mappings().fetchall()
+        rows = conn.execute(select_q, {"lim": batch_size}).mappings().fetchall()
     agreements = [dict(r) for r in rows]
     if not agreements:
         context.log.info("tx_metadata_asset (web_search): no agreements need web metadata.")
         return
 
     context.log.info(f"tx_metadata_asset (web_search): selected {len(agreements)} agreements for enrichment")
-    model_name = "gpt-5.4"
+    model_name = "gpt-5.1"
     client = _oai_client()
 
     class _WebSearchRequestError(RuntimeError):
@@ -610,7 +627,7 @@ def _run_web_search_mode(
         agreement_row: Dict[str, Any],
         *,
         max_attempts: int = 3,
-    ) -> tuple[Dict[str, Any], str]:
+    ) -> tuple[Dict[str, Any], str, Dict[str, int]]:
         agr_uuid_local = str(agreement_row["agreement_uuid"])
         body = build_tx_metadata_request_body_web_search_only(agreement_row, model=model_name)
         last_error: Exception | None = None
@@ -621,8 +638,9 @@ def _run_web_search_mode(
                 raw_text = getattr(resp, "output_text", None) or ""
                 if not isinstance(raw_text, str):
                     raise TypeError("output_text is not a string.")
+                usage = _extract_response_usage(resp)
                 last_raw_payload = raw_text
-                return parse_tx_metadata_response_text_web_search(raw_text), raw_text
+                return parse_tx_metadata_response_text_web_search(raw_text), raw_text, usage
             except Exception as exc:
                 last_error = exc
                 if attempt == max_attempts:
@@ -644,17 +662,20 @@ def _run_web_search_mode(
             raw_payload=last_raw_payload,
         ) from last_error
 
-    success_data: List[Tuple[str, Dict[str, Any], Any, str]] = []
+    success_data: List[Tuple[str, Dict[str, Any], Any, str, Dict[str, int]]] = []
     attempted = 0
     parse_errors = 0
+    failed_uuid_by_stage: Dict[str, List[str]] = {"request_or_parse": [], "validation": []}
+    token_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     for agreement in agreements:
         attempted += 1
         agr_uuid = agreement["agreement_uuid"]
         try:
-            obj, raw_payload = _request_web_search_payload(agreement)
-            success_data.append((agr_uuid, obj, agreement.get("filing_date"), raw_payload))
+            obj, raw_payload, response_usage = _request_web_search_payload(agreement)
+            success_data.append((agr_uuid, obj, agreement.get("filing_date"), raw_payload, response_usage))
         except _WebSearchRequestError as e:
             parse_errors += 1
+            failed_uuid_by_stage["request_or_parse"].append(str(agr_uuid))
             context.log.warning(f"tx_metadata_asset (web_search): failed for {agr_uuid}: {e}")
             with engine.begin() as conn:
                 _record_web_failure(
@@ -664,7 +685,6 @@ def _run_web_search_mode(
                     error_stage="request_or_parse",
                     failure_reason=str(e),
                     raw_payload=e.raw_payload,
-                    max_failures=max_failures,
                 )
 
     update_web_q = text(
@@ -717,16 +737,18 @@ def _run_web_search_mode(
     updated = 0
     skipped_due_to_error = 0
     refreshed_uuids: list[str] = []
-    for uuid, obj, filing_date, raw_payload in success_data:
+    for uuid, obj, filing_date, raw_payload, response_usage in success_data:
         try:
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid,
                 tx_metadata_obj=obj,
+                response_usage=response_usage,
                 filing_date=filing_date,
                 pending_max_age_years=3,
             )
         except (TypeError, ValueError, KeyError) as e:
             skipped_due_to_error += 1
+            failed_uuid_by_stage["validation"].append(str(uuid))
             context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
             with engine.begin() as conn:
                 _record_web_failure(
@@ -736,7 +758,6 @@ def _run_web_search_mode(
                     error_stage="validation",
                     failure_reason=str(e),
                     raw_payload=raw_payload,
-                    max_failures=max_failures,
                 )
             continue
 
@@ -747,13 +768,25 @@ def _run_web_search_mode(
                 _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
                 refreshed_uuids.append(str(uuid))
                 updated += 1
+            for key, value in response_usage.items():
+                token_totals[key] += value
+
+    if failed_uuid_by_stage["request_or_parse"] or failed_uuid_by_stage["validation"]:
+        context.log.warning(
+            "tx_metadata_asset (web_search): failed agreements by stage request_or_parse=%s validation=%s",
+            failed_uuid_by_stage["request_or_parse"],
+            failed_uuid_by_stage["validation"],
+        )
 
     context.log.info(
-        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s",
+        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s, request_or_parse_failures=%s, validation_failures=%s, token_totals=%s",
         attempted,
         len(success_data),
         updated,
         parse_errors,
         skipped_due_to_error,
         len(refreshed_uuids),
+        len(failed_uuid_by_stage["request_or_parse"]),
+        len(failed_uuid_by_stage["validation"]),
+        token_totals,
     )

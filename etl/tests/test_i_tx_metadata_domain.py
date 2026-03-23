@@ -2,10 +2,12 @@
 import json
 import unittest
 from datetime import date
+from typing import cast
 
 from etl.domain.i_tx_metadata import (
     build_tx_metadata_request_body_web_search_only,
     build_tx_metadata_update_params_web_search_only,
+    build_web_search_runtime_metadata,
     json_schema_transaction_metadata_web_search_only,
     parse_tx_metadata_response_text_web_search,
 )
@@ -29,37 +31,46 @@ class TxMetadataDomainTests(unittest.TestCase):
             "purpose": "strategic",
             "metadata_sources": {
                 "citations": [
-                    {
-                        "url": "https://example.com/deal",
-                        "fields": [
-                            "consideration_type",
-                            "purchase_price.cash",
-                            "purchase_price.stock",
-                            "purchase_price.assets",
-                            "target_public",
-                            "acquirer_public",
-                            "acquirer_pe",
-                            "target_industry",
-                            "acquirer_industry",
-                            "announce_date",
-                            "deal_status",
-                            "attitude",
-                            "purpose",
-                        ],
-                    }
+                    self._citation("consideration_type"),
+                    self._citation("purchase_price.cash"),
+                    self._citation("purchase_price.stock"),
+                    self._citation("purchase_price.assets"),
+                    self._citation("target_public"),
+                    self._citation("acquirer_public"),
+                    self._citation("acquirer_pe"),
+                    self._citation("target_industry"),
+                    self._citation("acquirer_industry"),
+                    self._citation("announce_date"),
+                    self._citation("deal_status"),
+                    self._citation("attitude"),
+                    self._citation("purpose"),
                 ],
                 "notes": None,
             },
         }
 
+    def _citation(self, field: str) -> dict[str, object]:
+        return {
+            "field": field,
+            "url": "https://example.com/deal",
+            "source_type": "company_press_release",
+            "published_at": "2024-01-01",
+            "locator": "press release",
+            "excerpt": f"Support for {field}.",
+        }
+
+    def _usage(self) -> dict[str, int]:
+        return {"input_tokens": 111, "output_tokens": 22, "total_tokens": 133}
+
     def test_schema_web_search_only_excludes_deal_type(self) -> None:
         schema = json_schema_transaction_metadata_web_search_only()
         self.assertNotIn("deal_type", schema["properties"])
         self.assertNotIn("deal_type", schema["required"])
-        fields_enum = schema["properties"]["metadata_sources"]["properties"]["citations"]["items"][
+        self.assertNotIn("metadata_run_stats", schema["required"])
+        field_enum = schema["properties"]["metadata_sources"]["properties"]["citations"]["items"][
             "properties"
-        ]["fields"]["items"]["enum"]
-        self.assertNotIn("deal_type", fields_enum)
+        ]["field"]["enum"]
+        self.assertNotIn("deal_type", field_enum)
 
     def test_parse_web_search_response_requires_all_keys(self) -> None:
         invalid_payload = {"consideration_type": "all_cash"}
@@ -70,6 +81,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=self._valid_web_search_obj(),
+            response_usage=self._usage(),
         )
         self.assertEqual(params["uuid"], "agreement-1")
         self.assertEqual(params["consideration"], "cash")
@@ -79,6 +91,11 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertIsInstance(params["metadata_sources"], str)
         self.assertEqual(params["metadata_uncited_fields"], "[]")
         self.assertNotIn("deal_type", params)
+        metadata_payload = json.loads(params["metadata_sources"])
+        self.assertEqual(
+            metadata_payload["metadata_run_stats"],
+            {"token_usage": self._usage()},
+        )
 
     def test_build_update_params_web_search_only_totals_all_cash_when_other_components_null(self) -> None:
         payload = self._valid_web_search_obj()
@@ -88,6 +105,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
         )
 
         self.assertEqual(params["price_total"], 562_500_000.0)
@@ -100,6 +118,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
         )
 
         self.assertIsNone(params["price_total"])
@@ -112,7 +131,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.4",
+            model="gpt-5.1",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -133,7 +152,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": None,
             },
-            model="gpt-5.4",
+            model="gpt-5.1",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -151,20 +170,20 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.4",
+            model="gpt-5.1",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
         assert isinstance(input_text, str)
         self.assertIn("sec_filing_url: https://www.sec.gov/Archives/edgar/data/123/abc.htm", input_text)
-        self.assertNotIn("acquirer:", input_text)
+        self.assertIn("acquirer: Acquirer A", input_text)
+        self.assertIn("sec_filing_date: 2024-01-01", input_text)
         self.assertNotIn("target:", input_text)
-        self.assertNotIn("sec_filing_date:", input_text)
 
     def test_build_update_params_web_search_only_requires_citation_coverage_for_non_null_fields(self) -> None:
         payload = self._valid_web_search_obj()
         payload["metadata_sources"] = {
-            "citations": [{"url": "https://example.com/deal", "fields": ["consideration_type"]}],
+            "citations": [self._citation("consideration_type")],
             "notes": None,
         }
 
@@ -172,6 +191,7 @@ class TxMetadataDomainTests(unittest.TestCase):
             _ = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid="agreement-1",
                 tx_metadata_obj=payload,
+                response_usage=self._usage(),
             )
 
     def test_build_update_params_web_search_only_allows_missing_non_core_citations(self) -> None:
@@ -185,18 +205,13 @@ class TxMetadataDomainTests(unittest.TestCase):
         payload["acquirer_industry"] = "52"
         payload["metadata_sources"] = {
             "citations": [
-                {
-                    "url": "https://example.com/deal",
-                    "fields": [
-                        "consideration_type",
-                        "purchase_price.cash",
-                        "purchase_price.stock",
-                        "purchase_price.assets",
-                        "target_public",
-                        "acquirer_public",
-                        "announce_date",
-                    ],
-                }
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("announce_date"),
             ],
             "notes": None,
         }
@@ -204,6 +219,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
         )
         self.assertEqual(
             params["metadata_uncited_fields"],
@@ -236,17 +252,12 @@ class TxMetadataDomainTests(unittest.TestCase):
         payload["purpose"] = None
         payload["metadata_sources"] = {
             "citations": [
-                {
-                    "url": "https://example.com/deal",
-                    "fields": [
-                        "consideration_type",
-                        "purchase_price.cash",
-                        "purchase_price.stock",
-                        "purchase_price.assets",
-                        "target_public",
-                        "acquirer_public",
-                    ],
-                }
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
             ],
             "notes": None,
         }
@@ -254,6 +265,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
         )
         self.assertEqual(
             params["metadata_uncited_fields"],
@@ -272,6 +284,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
             filing_date="2000-01-01",
             pending_max_age_years=3,
         )
@@ -283,25 +296,20 @@ class TxMetadataDomainTests(unittest.TestCase):
         payload["close_date"] = "2024-02-01"
         payload["metadata_sources"] = {
             "citations": [
-                {
-                    "url": "https://example.com/deal",
-                    "fields": [
-                        "consideration_type",
-                        "purchase_price.cash",
-                        "purchase_price.stock",
-                        "purchase_price.assets",
-                        "target_public",
-                        "acquirer_public",
-                        "acquirer_pe",
-                        "target_industry",
-                        "acquirer_industry",
-                        "announce_date",
-                        "close_date",
-                        "deal_status",
-                        "attitude",
-                        "purpose",
-                    ],
-                }
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("acquirer_pe"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("close_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
             ],
             "notes": None,
         }
@@ -310,6 +318,7 @@ class TxMetadataDomainTests(unittest.TestCase):
             _ = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid="agreement-1",
                 tx_metadata_obj=payload,
+                response_usage=self._usage(),
                 filing_date=date.today().isoformat(),
                 pending_max_age_years=3,
             )
@@ -322,10 +331,75 @@ class TxMetadataDomainTests(unittest.TestCase):
         params = build_tx_metadata_update_params_web_search_only(
             agreement_uuid="agreement-1",
             tx_metadata_obj=payload,
+            response_usage=self._usage(),
             filing_date=today_iso,
             pending_max_age_years=3,
         )
         self.assertEqual(params["deal_status"], "pending")
+
+    def test_build_update_params_web_search_only_rejects_legacy_citation_shape(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["metadata_sources"] = {
+            "citations": [{"url": "https://example.com/deal", "fields": ["consideration_type"]}],
+            "notes": None,
+        }
+        with self.assertRaisesRegex(TypeError, "citations\\[\\]\\.field"):
+            _ = build_tx_metadata_update_params_web_search_only(
+                agreement_uuid="agreement-1",
+                tx_metadata_obj=payload,
+                response_usage=self._usage(),
+            )
+
+    def test_build_update_params_web_search_only_rejects_non_usd_note_with_prices(self) -> None:
+        payload = self._valid_web_search_obj()
+        metadata_sources = payload["metadata_sources"]
+        self.assertIsInstance(metadata_sources, dict)
+        payload["metadata_sources"] = {
+            "citations": cast(dict[str, object], metadata_sources)["citations"],
+            "notes": "Price omitted because consideration is not stated in USD.",
+        }
+        with self.assertRaisesRegex(ValueError, "Non-USD price notes require"):
+            _ = build_tx_metadata_update_params_web_search_only(
+                agreement_uuid="agreement-1",
+                tx_metadata_obj=payload,
+                response_usage=self._usage(),
+            )
+
+    def test_build_update_params_web_search_only_allows_non_usd_note_with_null_prices(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": None, "stock": None, "assets": None}
+        payload["metadata_sources"] = {
+            "citations": [
+                self._citation("consideration_type"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("acquirer_pe"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
+            ],
+            "notes": "Price omitted because consideration is not stated in USD.",
+        }
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+        self.assertIsNone(params["price_cash"])
+        self.assertIsNone(params["price_total"])
+
+    def test_build_web_search_runtime_metadata_validates_usage(self) -> None:
+        self.assertEqual(
+            build_web_search_runtime_metadata(response_usage=self._usage()),
+            {"token_usage": self._usage()},
+        )
+        with self.assertRaisesRegex(TypeError, "response_usage.input_tokens"):
+            _ = build_web_search_runtime_metadata(
+                response_usage={"input_tokens": "bad", "output_tokens": 2, "total_tokens": 3}
+            )
 
 
 if __name__ == "__main__":

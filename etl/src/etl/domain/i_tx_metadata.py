@@ -47,6 +47,8 @@ NON_CORE_CITATION_OPTIONAL_FIELDS = (
     "purpose",
 )
 
+TOKEN_USAGE_REQUIRED_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
+
 
 def json_schema_transaction_metadata() -> Dict[str, Any]:
     return {
@@ -121,22 +123,47 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {
-                                "url": {"type": "string"},
-                                "fields": {
-                                    "type": "array",
-                                    "minItems": 1,
-                                    "items": {
-                                        "type": "string",
-                                        "enum": list(CITABLE_FIELDS_WITH_DEAL_TYPE),
-                                    },
+                                "field": {
+                                    "type": "string",
+                                    "enum": list(CITABLE_FIELDS_WITH_DEAL_TYPE),
                                 },
+                                "url": {"type": "string"},
+                                "source_type": {"type": "string", "minLength": 1},
+                                "published_at": {
+                                    "type": ["string", "null"],
+                                    "pattern": r"^\d{4}-\d{2}-\d{2}$",
+                                },
+                                "locator": {"type": ["string", "null"]},
+                                "excerpt": {"type": "string", "minLength": 1},
                             },
-                            "required": ["url", "fields"],
+                            "required": ["field", "url", "source_type", "published_at", "locator", "excerpt"],
                         },
                     },
                     "notes": {"type": ["string", "null"]},
                 },
                 "required": ["citations", "notes"],
+            },
+            "metadata_run_stats": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "token_usage": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "input_tokens": {"type": "integer", "minimum": 0},
+                                    "output_tokens": {"type": "integer", "minimum": 0},
+                                    "total_tokens": {"type": "integer", "minimum": 0},
+                                },
+                                "required": list(TOKEN_USAGE_REQUIRED_FIELDS),
+                            }
+                        },
+                        "required": ["token_usage"],
+                    },
+                    {"type": "null"},
+                ]
             },
         },
         "required": [
@@ -155,6 +182,7 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
             "deal_type",
             "purpose",
             "metadata_sources",
+            "metadata_run_stats",
         ],
     }
 
@@ -163,16 +191,14 @@ def json_schema_transaction_metadata_web_search_only() -> Dict[str, Any]:
     """Schema for web-search mode: same as full but omit deal_type (collected offline)."""
     full = copy.deepcopy(json_schema_transaction_metadata())
     props = {k: v for k, v in full["properties"].items() if k not in ("deal_type",)}
-    required = [k for k in full["required"] if k != "deal_type"]
-    # Remove deal_type from metadata_sources.citations.fields enum if present
+    required = [k for k in full["required"] if k not in ("deal_type", "metadata_run_stats")]
+    # Remove deal_type from metadata_sources.citations.field enum if present
     if "metadata_sources" in props and "properties" in props["metadata_sources"]:
         cites = props["metadata_sources"]["properties"].get("citations", {})
         if "items" in cites and "properties" in cites["items"]:
-            flds = cites["items"]["properties"].get("fields", {})
-            if "items" in flds and "enum" in flds["items"]:
-                flds["items"]["enum"] = [
-                    x for x in flds["items"]["enum"] if x != "deal_type"
-                ]
+            field_prop = cites["items"]["properties"].get("field", {})
+            if "enum" in field_prop:
+                field_prop["enum"] = [x for x in field_prop["enum"] if x != "deal_type"]
     return {
         "type": "object",
         "additionalProperties": False,
@@ -189,6 +215,8 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "2) the purchase price components (USD), without accounting for any assumed debt, notes, etc. "
     "(i.e., equity value / consideration paid to sellers, not enterprise value). "
     "Return full USD amounts (e.g., $4.18 billion -> 4180000000), not shorthand units; "
+    "Never convert non-USD prices into USD yourself. "
+    "If the deal value is stated only in a non-USD currency, set all purchase_price fields to null and explain that briefly in `metadata_sources.notes`. "
     "If sources only provide enterprise value / transaction value including assumed debt and you cannot isolate equity consideration, use null for purchase price. "
     "3) whether the target was public or private at announcement. Public means the target itself is publicly traded (listed or OTC) or is an SEC reporting issuer; "
     "if the target is a privately held subsidiary of a public parent, treat the target as private unless the target itself is publicly traded/SEC-reporting. "
@@ -217,8 +245,9 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "Use no more than 12 web searches for this transaction. "
     "Stop searching once every non-null output field has citation coverage and no unresolved source conflicts remain. "
     "Avoid redundant lookups; do not re-run materially identical searches unless needed to resolve a conflict. "
-    "For sources, populate `metadata_sources.citations` with URLs and explicitly list which fields each URL supports. "
-    "Every non-null output field must appear in at least one citation's `fields` list. "
+    "For sources, populate `metadata_sources.citations` with one evidence record per supported field. "
+    "Each evidence record must include the field name, URL, source_type, published_at when available, locator when available, and a short supporting excerpt. "
+    "Every non-null output field must appear in at least one citation record's `field`. "
     "When sources conflict, prefer SEC/company-primary sources and explain conflict resolution in notes. "
     "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
 )
@@ -251,31 +280,17 @@ def build_tx_metadata_request_body_web_search_only(
     else:
         raise TypeError("agreement.url must be a string or null.")
     filing_date_str = _filing_date_to_str(agreement.get("filing_date"))
-    has_both_names = bool(target) and bool(acquirer)
     has_url = bool(sec_url)
 
-    if has_both_names:
-        context_lines = [
-            "Known transaction context:",
-            f"- acquirer: {acquirer}",
-            f"- target: {target}",
-            f"- sec_filing_date: {filing_date_str}",
-        ]
-        if has_url:
-            context_lines.append(f"- sec_filing_url: {sec_url}")
-        input_text = "\n".join(context_lines)
-    elif has_url:
-        # If both parties are not available, anchor the run to the filing URL only.
-        input_text = f"Known transaction context:\n- sec_filing_url: {sec_url}"
-    else:
-        # Defensive fallback: keep any available context rather than emitting an empty input.
-        context_lines = ["Known transaction context:"]
-        if acquirer:
-            context_lines.append(f"- acquirer: {acquirer}")
-        if target:
-            context_lines.append(f"- target: {target}")
-        context_lines.append(f"- sec_filing_date: {filing_date_str}")
-        input_text = "\n".join(context_lines)
+    context_lines = ["Known transaction context:"]
+    if acquirer:
+        context_lines.append(f"- acquirer: {acquirer}")
+    if target:
+        context_lines.append(f"- target: {target}")
+    context_lines.append(f"- sec_filing_date: {filing_date_str}")
+    if has_url:
+        context_lines.append(f"- sec_filing_url: {sec_url}")
+    input_text = "\n".join(context_lines)
 
     return {
         "model": model,
@@ -319,6 +334,18 @@ def parse_tx_metadata_response_text_web_search(raw_text: str) -> Dict[str, Any]:
     if not REQUIRED_KEYS_WEB_SEARCH.issubset(obj.keys()):
         raise ValueError("Missing required keys in response JSON.")
     return obj
+
+
+def build_web_search_runtime_metadata(*, response_usage: Dict[str, Any]) -> Dict[str, Any]:
+    token_usage: Dict[str, int] = {}
+    for key in TOKEN_USAGE_REQUIRED_FIELDS:
+        value = response_usage.get(key)
+        if not isinstance(value, int):
+            raise TypeError(f"response_usage.{key} must be an integer.")
+        if value < 0:
+            raise ValueError(f"response_usage.{key} must be >= 0.")
+        token_usage[key] = value
+    return {"token_usage": token_usage}
 
 
 def _parse_optional_date_like(value: object | None, *, field_name: str) -> Optional[date]:
@@ -388,7 +415,7 @@ def build_offline_tx_metadata_request_body(
     agreement_uuid: str,
     concatenated_page_text: str,
     *,
-    model: str = "gpt-5.4-mini",
+    model: str = "gpt-5-mini",
 ) -> Dict[str, Any]:
     """Build request body for offline extraction (one agreement). No tools; JSON output."""
     schema = json_schema_offline_metadata()
@@ -582,23 +609,27 @@ def build_tx_metadata_update_params(
     for c in citations:
         if not isinstance(c, dict):
             raise TypeError("metadata_sources.citations items must be objects.")
+        field_name = c.get("field")
         url = c.get("url")
-        fields = c.get("fields")
+        source_type = c.get("source_type")
+        published_at = c.get("published_at")
+        locator = c.get("locator")
+        excerpt = c.get("excerpt")
+        if not isinstance(field_name, str) or field_name not in citation_fields_supported:
+            raise TypeError("metadata_sources.citations[].field contains an unsupported value.")
         if not isinstance(url, str) or not url:
             raise TypeError("metadata_sources.citations[].url must be a non-empty string.")
         if not re.match(r"^https?://", url):
             raise TypeError("metadata_sources.citations[].url must start with http:// or https://.")
-        if not isinstance(fields, list) or not all(isinstance(f, str) for f in fields):
-            raise TypeError("metadata_sources.citations[].fields must be an array of strings.")
-        if not fields:
-            raise TypeError("metadata_sources.citations[].fields must not be empty.")
-        invalid_fields = [f for f in fields if f not in citation_fields_supported]
-        if invalid_fields:
-            raise TypeError(
-                "metadata_sources.citations[].fields contains unsupported value(s): "
-                + ", ".join(sorted(set(invalid_fields)))
-            )
-        cited_fields.update(fields)
+        if not isinstance(source_type, str) or not source_type.strip():
+            raise TypeError("metadata_sources.citations[].source_type must be a non-empty string.")
+        if published_at is not None:
+            _ = _parse_optional_date_like(published_at, field_name="metadata_sources.citations[].published_at")
+        if locator is not None and not isinstance(locator, str):
+            raise TypeError("metadata_sources.citations[].locator must be a string or null.")
+        if not isinstance(excerpt, str) or not excerpt.strip():
+            raise TypeError("metadata_sources.citations[].excerpt must be a non-empty string.")
+        cited_fields.add(field_name)
     def _validate_naics(code: object | None, *, field_name: str) -> Optional[str]:
         if code is None:
             return None
@@ -724,7 +755,25 @@ def build_tx_metadata_update_params(
     )
     metadata_uncited_fields = json.dumps(uncited_non_core_fields, ensure_ascii=False, separators=(",", ":"))
 
-    metadata_sources = json.dumps(sources_obj, ensure_ascii=False, separators=(",", ":"))
+    runtime_metadata = tx_metadata_obj.get("metadata_run_stats")
+    if runtime_metadata is not None:
+        if not isinstance(runtime_metadata, dict):
+            raise TypeError("metadata_run_stats must be an object or null.")
+        token_usage_obj = runtime_metadata.get("token_usage")
+        if not isinstance(token_usage_obj, dict):
+            raise TypeError("metadata_run_stats.token_usage must be an object.")
+        runtime_metadata = build_web_search_runtime_metadata(response_usage=token_usage_obj)
+
+    notes_normalized = notes.strip().lower() if isinstance(notes, str) else ""
+    has_non_usd_note = "not stated in usd" in notes_normalized or "non-usd" in notes_normalized or "non usd" in notes_normalized
+    if has_non_usd_note and any(value is not None for value in (price_cash, price_stock, price_assets)):
+        raise ValueError("Non-USD price notes require all purchase_price fields to be null.")
+
+    metadata_payload = {
+        "metadata_sources": sources_obj,
+        "metadata_run_stats": runtime_metadata,
+    }
+    metadata_sources = json.dumps(metadata_payload, ensure_ascii=False, separators=(",", ":"))
 
     return {
         "consideration": consideration,
@@ -754,11 +803,16 @@ def build_tx_metadata_update_params_web_search_only(
     *,
     agreement_uuid: str,
     tx_metadata_obj: Dict[str, Any],
+    response_usage: Dict[str, Any],
     filing_date: object | None = None,
     pending_max_age_years: int = 3,
 ) -> Dict[str, Any]:
     """Build UPDATE params for web-search mode: same as full but omit target, acquirer, deal_type."""
-    obj_with_deal_type = {**tx_metadata_obj, "deal_type": tx_metadata_obj.get("deal_type", None)}
+    obj_with_deal_type = {
+        **tx_metadata_obj,
+        "deal_type": tx_metadata_obj.get("deal_type", None),
+        "metadata_run_stats": build_web_search_runtime_metadata(response_usage=response_usage),
+    }
     params = build_tx_metadata_update_params(
         agreement_uuid=agreement_uuid,
         tx_metadata_obj=obj_with_deal_type,
