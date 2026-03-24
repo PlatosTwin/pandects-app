@@ -313,7 +313,11 @@ def parse_tx_metadata_response_text_web_search(raw_text: str) -> Dict[str, Any]:
     return obj
 
 
-def build_web_search_runtime_metadata(*, response_usage: Dict[str, Any]) -> Dict[str, Any]:
+def build_web_search_runtime_metadata(
+    *,
+    response_usage: Dict[str, Any],
+    search_count: int = 0,
+) -> Dict[str, Any]:
     token_usage: Dict[str, int] = {}
     for key in TOKEN_USAGE_REQUIRED_FIELDS:
         value = response_usage.get(key)
@@ -322,7 +326,9 @@ def build_web_search_runtime_metadata(*, response_usage: Dict[str, Any]) -> Dict
         if value < 0:
             raise ValueError(f"response_usage.{key} must be >= 0.")
         token_usage[key] = value
-    return {"token_usage": token_usage}
+    if search_count < 0:
+        raise ValueError("search_count must be >= 0.")
+    return {"token_usage": token_usage, "search_count": search_count}
 
 
 def _parse_optional_date_like(value: object | None, *, field_name: str) -> Optional[date]:
@@ -739,7 +745,13 @@ def build_tx_metadata_update_params(
         token_usage_obj = runtime_metadata.get("token_usage")
         if not isinstance(token_usage_obj, dict):
             raise TypeError("metadata_run_stats.token_usage must be an object.")
-        runtime_metadata = build_web_search_runtime_metadata(response_usage=token_usage_obj)
+        raw_search_count = runtime_metadata.get("search_count", 0)
+        if not isinstance(raw_search_count, int):
+            raise TypeError("metadata_run_stats.search_count must be an integer.")
+        runtime_metadata = build_web_search_runtime_metadata(
+            response_usage=token_usage_obj,
+            search_count=raw_search_count,
+        )
 
     notes_normalized = notes.strip().lower() if isinstance(notes, str) else ""
     has_non_usd_note = "not stated in usd" in notes_normalized or "non-usd" in notes_normalized or "non usd" in notes_normalized
@@ -781,6 +793,7 @@ def build_tx_metadata_update_params_web_search_only(
     agreement_uuid: str,
     tx_metadata_obj: Dict[str, Any],
     response_usage: Dict[str, Any],
+    search_count: int = 0,
     filing_date: object | None = None,
     pending_max_age_years: int = 3,
 ) -> Dict[str, Any]:
@@ -788,7 +801,10 @@ def build_tx_metadata_update_params_web_search_only(
     obj_with_deal_type = {
         **tx_metadata_obj,
         "deal_type": tx_metadata_obj.get("deal_type", None),
-        "metadata_run_stats": build_web_search_runtime_metadata(response_usage=response_usage),
+        "metadata_run_stats": build_web_search_runtime_metadata(
+            response_usage=response_usage,
+            search_count=search_count,
+        ),
     }
     params = build_tx_metadata_update_params(
         agreement_uuid=agreement_uuid,

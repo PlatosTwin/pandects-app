@@ -94,7 +94,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         metadata_payload = json.loads(params["metadata_sources"])
         self.assertEqual(
             metadata_payload["metadata_run_stats"],
-            {"token_usage": self._usage()},
+            {"token_usage": self._usage(), "search_count": 0},
         )
 
     def test_build_update_params_web_search_only_totals_all_cash_when_other_components_null(self) -> None:
@@ -393,12 +393,21 @@ class TxMetadataDomainTests(unittest.TestCase):
 
     def test_build_web_search_runtime_metadata_validates_usage(self) -> None:
         self.assertEqual(
-            build_web_search_runtime_metadata(response_usage=self._usage()),
-            {"token_usage": self._usage()},
+            build_web_search_runtime_metadata(
+                response_usage=self._usage(),
+                search_count=3,
+            ),
+            {"token_usage": self._usage(), "search_count": 3},
         )
         with self.assertRaisesRegex(TypeError, "response_usage.input_tokens"):
             _ = build_web_search_runtime_metadata(
-                response_usage={"input_tokens": "bad", "output_tokens": 2, "total_tokens": 3}
+                response_usage={"input_tokens": "bad", "output_tokens": 2, "total_tokens": 3},
+                search_count=0,
+            )
+        with self.assertRaisesRegex(ValueError, "search_count must be >= 0"):
+            _ = build_web_search_runtime_metadata(
+                response_usage=self._usage(),
+                search_count=-1,
             )
 
 

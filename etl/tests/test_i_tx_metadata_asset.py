@@ -152,19 +152,41 @@ class _FakeWebEngine:
         return _FakeBeginContext(self._conn)
 
 
+def _fake_web_search_output(search_count: int) -> list[object]:
+    return [
+        SimpleNamespace(
+            type="web_search_call",
+            action=SimpleNamespace(type="search"),
+        )
+        for _ in range(search_count)
+    ]
+
+
 class _FakeResponsesClient:
-    def __init__(self, *, response_text: str, usage: dict[str, int] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        response_text: str,
+        usage: dict[str, int] | None = None,
+        search_count: int = 1,
+    ) -> None:
         self._response_text = response_text
         self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        self._search_count = search_count
 
     def create(self, **_kwargs: object) -> object:
-        return SimpleNamespace(output_text=self._response_text, usage=self._usage)
+        return SimpleNamespace(
+            output_text=self._response_text,
+            usage=self._usage,
+            output=_fake_web_search_output(self._search_count),
+        )
 
 
 class _FlakyResponsesClient:
-    def __init__(self, responses: list[object]) -> None:
+    def __init__(self, responses: list[object], *, search_count: int = 1) -> None:
         self._responses = responses
         self.calls = 0
+        self._search_count = search_count
 
     def create(self, **_kwargs: object) -> object:
         if self.calls >= len(self._responses):
@@ -176,12 +198,23 @@ class _FlakyResponsesClient:
         return SimpleNamespace(
             output_text=value,
             usage={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            output=_fake_web_search_output(self._search_count),
         )
 
 
 class _FakeWebClient:
-    def __init__(self, *, response_text: str, usage: dict[str, int] | None = None) -> None:
-        self.responses = _FakeResponsesClient(response_text=response_text, usage=usage)
+    def __init__(
+        self,
+        *,
+        response_text: str,
+        usage: dict[str, int] | None = None,
+        search_count: int = 1,
+    ) -> None:
+        self.responses = _FakeResponsesClient(
+            response_text=response_text,
+            usage=usage,
+            search_count=search_count,
+        )
 
 
 class _FakeLog:
@@ -338,7 +371,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             ),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh,
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -354,6 +387,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             metadata_payload["metadata_run_stats"]["token_usage"],
             {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
         )
+        self.assertEqual(metadata_payload["metadata_run_stats"]["search_count"], 1)
 
     def test_run_web_search_mode_raises_on_database_update_error(self) -> None:
         conn = _FakeWebConn(fail_on_update=True)
@@ -365,7 +399,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
         ):
             with self.assertRaisesRegex(RuntimeError, "database update failed"):
-                _run_web_search_mode(
+                _ = _run_web_search_mode(
                     context=cast(AssetExecutionContext, cast(object, context)),
                     engine=engine,
                     schema="pdx",
@@ -390,7 +424,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh,
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -426,7 +460,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             ),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh,
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -461,7 +495,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             ),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh,
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -493,7 +527,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=flaky_client),
             patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -534,7 +568,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             ),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -565,7 +599,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=flaky_client),
             patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
         ):
-            _run_web_search_mode(
+            _ = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",

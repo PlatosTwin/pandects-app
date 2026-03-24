@@ -238,6 +238,24 @@ def _extract_response_usage(resp: Any) -> Dict[str, int]:
     return extracted
 
 
+def _extract_web_search_count(resp: Any) -> int:
+    output = getattr(resp, "output", None)
+    if output is None:
+        return 0
+    if not isinstance(output, list):
+        raise TypeError("web-search response output must be a list when present.")
+
+    search_count = 0
+    for item in output:
+        item_type = getattr(item, "type", None)
+        if item_type != "web_search_call":
+            continue
+        action = getattr(item, "action", None)
+        if getattr(action, "type", None) == "search":
+            search_count += 1
+    return search_count
+
+
 def _apply_offline_batch_output(
     context: AssetExecutionContext,
     engine: Any,
@@ -333,10 +351,18 @@ def tx_metadata_asset(
             batch_size,
         )
     else:
-        _run_web_search_mode(
+        summary = _run_web_search_mode(
             context, engine,
             schema,
             agreements_table, batch_size,
+        )
+        context.add_output_metadata(
+            {
+                "total_web_searches": summary["total_searches"],
+                "web_searches_by_agreement": dg.MetadataValue.json(
+                    summary["searches_by_agreement"]
+                ),
+            }
         )
 
     run_post_asset_refresh(context, db, pipeline_config)
@@ -570,7 +596,7 @@ def _run_web_search_mode(
     schema: str,
     agreements_table: str,
     batch_size: int,
-) -> None:
+) -> Dict[str, Any]:
     """Web-search: select agreements needing metadata with names or URL context; sync API; update web columns."""
     with engine.begin() as conn:
         assert_tables_exist(
@@ -612,7 +638,7 @@ def _run_web_search_mode(
     agreements = [dict(r) for r in rows]
     if not agreements:
         context.log.info("tx_metadata_asset (web_search): no agreements need web metadata.")
-        return
+        return {"total_searches": 0, "searches_by_agreement": {}}
 
     context.log.info(f"tx_metadata_asset (web_search): selected {len(agreements)} agreements for enrichment")
     model_name = "gpt-5.1"
@@ -627,7 +653,7 @@ def _run_web_search_mode(
         agreement_row: Dict[str, Any],
         *,
         max_attempts: int = 3,
-    ) -> tuple[Dict[str, Any], str, Dict[str, int]]:
+    ) -> tuple[Dict[str, Any], str, Dict[str, int], int]:
         agr_uuid_local = str(agreement_row["agreement_uuid"])
         body = build_tx_metadata_request_body_web_search_only(agreement_row, model=model_name)
         last_error: Exception | None = None
@@ -639,8 +665,14 @@ def _run_web_search_mode(
                 if not isinstance(raw_text, str):
                     raise TypeError("output_text is not a string.")
                 usage = _extract_response_usage(resp)
+                search_count = _extract_web_search_count(resp)
                 last_raw_payload = raw_text
-                return parse_tx_metadata_response_text_web_search(raw_text), raw_text, usage
+                return (
+                    parse_tx_metadata_response_text_web_search(raw_text),
+                    raw_text,
+                    usage,
+                    search_count,
+                )
             except Exception as exc:
                 last_error = exc
                 if attempt == max_attempts:
@@ -662,17 +694,30 @@ def _run_web_search_mode(
             raw_payload=last_raw_payload,
         ) from last_error
 
-    success_data: List[Tuple[str, Dict[str, Any], Any, str, Dict[str, int]]] = []
+    success_data: List[Tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]] = []
     attempted = 0
     parse_errors = 0
     failed_uuid_by_stage: Dict[str, List[str]] = {"request_or_parse": [], "validation": []}
     token_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    total_searches = 0
+    searches_by_agreement: Dict[str, int] = {}
     for agreement in agreements:
         attempted += 1
         agr_uuid = agreement["agreement_uuid"]
         try:
-            obj, raw_payload, response_usage = _request_web_search_payload(agreement)
-            success_data.append((agr_uuid, obj, agreement.get("filing_date"), raw_payload, response_usage))
+            obj, raw_payload, response_usage, search_count = _request_web_search_payload(agreement)
+            success_data.append(
+                (
+                    agr_uuid,
+                    obj,
+                    agreement.get("filing_date"),
+                    raw_payload,
+                    response_usage,
+                    search_count,
+                )
+            )
+            searches_by_agreement[str(agr_uuid)] = search_count
+            total_searches += search_count
         except _WebSearchRequestError as e:
             parse_errors += 1
             failed_uuid_by_stage["request_or_parse"].append(str(agr_uuid))
@@ -737,12 +782,13 @@ def _run_web_search_mode(
     updated = 0
     skipped_due_to_error = 0
     refreshed_uuids: list[str] = []
-    for uuid, obj, filing_date, raw_payload, response_usage in success_data:
+    for uuid, obj, filing_date, raw_payload, response_usage, search_count in success_data:
         try:
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid,
                 tx_metadata_obj=obj,
                 response_usage=response_usage,
+                search_count=search_count,
                 filing_date=filing_date,
                 pending_max_age_years=3,
             )
@@ -779,7 +825,7 @@ def _run_web_search_mode(
         )
 
     context.log.info(
-        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s, request_or_parse_failures=%s, validation_failures=%s, token_totals=%s",
+        "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s, request_or_parse_failures=%s, validation_failures=%s, total_searches=%s, token_totals=%s",
         attempted,
         len(success_data),
         updated,
@@ -788,5 +834,10 @@ def _run_web_search_mode(
         len(refreshed_uuids),
         len(failed_uuid_by_stage["request_or_parse"]),
         len(failed_uuid_by_stage["validation"]),
+        total_searches,
         token_totals,
     )
+    return {
+        "total_searches": total_searches,
+        "searches_by_agreement": searches_by_agreement,
+    }
