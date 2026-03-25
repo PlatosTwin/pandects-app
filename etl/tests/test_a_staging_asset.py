@@ -1,4 +1,4 @@
-# pyright: reportAny=false
+# pyright: reportAny=false, reportPrivateUsage=false
 import datetime
 import unittest
 from types import SimpleNamespace
@@ -9,9 +9,18 @@ from dagster import AssetExecutionContext
 from requests.exceptions import HTTPError
 from requests.models import Response
 
-from etl.defs.a_staging_asset import staging_asset
+from etl.defs.a_staging_asset import (
+    _PersistedAgreement,
+    _build_duplicate_resolutions,
+    staging_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.a_staging import SecDailyIndexUnavailable, parse_index_file
+from etl.domain.a_staging import (
+    ExhibitSignature,
+    SecDailyIndexUnavailable,
+    _compute_minhash,
+    parse_index_file,
+)
 
 
 class _FakeLog:
@@ -149,6 +158,7 @@ class StagingAssetTests(unittest.TestCase):
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",
                 side_effect=[[], unavailable, [], []],
             ) as fetch_new_filings,
+            patch("etl.defs.a_staging_asset._reconcile_cross_day_duplicates", return_value=0),
             patch("etl.defs.a_staging_asset.run_post_asset_refresh", return_value=None),
         ):
             decorated_fn = getattr(cast(object, staging_asset.op.compute_fn), "decorated_fn")
@@ -190,6 +200,7 @@ class StagingAssetTests(unittest.TestCase):
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",
                 side_effect=[[], [], [], unavailable],
             ) as fetch_new_filings,
+            patch("etl.defs.a_staging_asset._reconcile_cross_day_duplicates", return_value=0),
             patch("etl.defs.a_staging_asset.run_post_asset_refresh", return_value=None),
         ):
             decorated_fn = getattr(cast(object, staging_asset.op.compute_fn), "decorated_fn")
@@ -210,6 +221,46 @@ class StagingAssetTests(unittest.TestCase):
             datetime.datetime(2026, 3, 13),
         )
         self.assertEqual(success_update["count"], 0)
+
+    def test_build_duplicate_resolutions_collapses_cross_day_duplicate(self) -> None:
+        early = _PersistedAgreement(
+            agreement_uuid="early",
+            url="https://example.com/early.htm",
+            filing_date=datetime.date(2021, 7, 12),
+            ingested_date=datetime.datetime(2026, 2, 28, 23, 2, 34),
+            secondary_filing_url=None,
+        )
+        late = _PersistedAgreement(
+            agreement_uuid="late",
+            url="https://example.com/late.htm",
+            filing_date=datetime.date(2021, 7, 13),
+            ingested_date=datetime.datetime(2026, 2, 28, 23, 4, 49),
+            secondary_filing_url=None,
+        )
+        signatures = {
+            early.url: ExhibitSignature(
+                page_count=120,
+                auto_status_verified=True,
+                content_fingerprint="same-doc",
+                minhash=_compute_minhash("agreement and plan of merger " * 40),
+            ),
+            late.url: ExhibitSignature(
+                page_count=120,
+                auto_status_verified=True,
+                content_fingerprint="same-doc",
+                minhash=_compute_minhash("agreement and plan of merger " * 40),
+            ),
+        }
+
+        resolutions = _build_duplicate_resolutions(
+            ingested_agreements=[late],
+            candidate_agreements=[early, late],
+            signatures_by_url=signatures,
+        )
+
+        self.assertEqual(len(resolutions), 1)
+        self.assertEqual(resolutions[0].survivor.agreement_uuid, "early")
+        self.assertEqual(resolutions[0].loser.agreement_uuid, "late")
 
 
 if __name__ == "__main__":

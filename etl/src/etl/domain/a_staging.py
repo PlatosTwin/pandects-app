@@ -110,6 +110,14 @@ class AgreementCandidateResult:
     minhash: MinHash  # For near-duplicate detection via LSH
 
 
+@dataclass(frozen=True)
+class ExhibitSignature:
+    page_count: int
+    auto_status_verified: bool
+    content_fingerprint: str
+    minhash: MinHash
+
+
 class SecDailyIndexUnavailable(Exception):
     """Raised when a requested SEC daily index has not been published yet."""
 
@@ -174,6 +182,22 @@ def _compute_content_fingerprint(rendered_text: str) -> str:
     """
     normalized = re.sub(r"\s+", " ", rendered_text.lower()).strip()
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def fetch_exhibit_signature(exhibit_url: str, *, user_agent: str = SEC_USER_AGENT) -> ExhibitSignature | None:
+    fetch_result = _fetch_exhibit_content(exhibit_url, user_agent=user_agent)
+    if fetch_result is None:
+        return None
+    content, is_txt, is_html = fetch_result
+    agreement_text, page_count = _render_agreement_text_and_page_count(
+        content, is_txt=is_txt, is_html=is_html
+    )
+    return ExhibitSignature(
+        page_count=page_count,
+        auto_status_verified=should_auto_verify_agreement(agreement_text, page_count),
+        content_fingerprint=_compute_content_fingerprint(agreement_text),
+        minhash=_compute_minhash(agreement_text),
+    )
 
 
 def should_auto_verify_agreement(rendered_text: str, page_count: int) -> bool:
