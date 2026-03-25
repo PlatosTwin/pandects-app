@@ -1,5 +1,6 @@
 # pyright: reportAny=false, reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 import json
+import threading
 import unittest
 from datetime import date
 from types import SimpleNamespace
@@ -104,11 +105,13 @@ class _FakeWebConn:
     ) -> None:
         self.executed_sql: list[str] = []
         self.last_update_params: dict[str, object] | None = None
+        self.update_params_history: list[dict[str, object]] = []
         self.last_select_params: dict[str, object] | None = None
         self.last_select_rows: list[dict[str, object]] | None = None
         self.fail_on_update = fail_on_update
         self.failure_upserts = 0
         self.failure_clears = 0
+        self.update_calls = 0
         today_iso = date.today().isoformat()
         self.select_rows = select_rows or [
             {
@@ -140,6 +143,8 @@ class _FakeWebConn:
             if self.fail_on_update:
                 raise RuntimeError("database update failed")
             self.last_update_params = dict(params)
+            self.update_params_history.append(dict(params))
+            self.update_calls += 1
             return _FakeResult(rowcount=1)
         raise AssertionError(f"Unexpected SQL in test: {sql}")
 
@@ -182,17 +187,48 @@ class _FakeResponsesClient:
         )
 
 
+class _RoutingResponsesClient:
+    def __init__(
+        self,
+        responses_by_input_fragment: dict[str, object],
+        *,
+        usage: dict[str, int] | None = None,
+        search_count: int = 1,
+    ) -> None:
+        self._responses_by_input_fragment = responses_by_input_fragment
+        self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        self._search_count = search_count
+
+    def create(self, **kwargs: object) -> object:
+        input_text = kwargs.get("input")
+        if not isinstance(input_text, str):
+            raise TypeError("input must be a string in fake client.")
+        for fragment, response in self._responses_by_input_fragment.items():
+            if fragment not in input_text:
+                continue
+            if isinstance(response, Exception):
+                raise response
+            return SimpleNamespace(
+                output_text=response,
+                usage=self._usage,
+                output=_fake_web_search_output(self._search_count),
+            )
+        raise RuntimeError(f"no fake response configured for input: {input_text}")
+
+
 class _FlakyResponsesClient:
     def __init__(self, responses: list[object], *, search_count: int = 1) -> None:
         self._responses = responses
         self.calls = 0
         self._search_count = search_count
+        self._lock = threading.Lock()
 
     def create(self, **_kwargs: object) -> object:
-        if self.calls >= len(self._responses):
-            raise RuntimeError("no more fake responses configured")
-        value = self._responses[self.calls]
-        self.calls += 1
+        with self._lock:
+            if self.calls >= len(self._responses):
+                raise RuntimeError("no more fake responses configured")
+            value = self._responses[self.calls]
+            self.calls += 1
         if isinstance(value, Exception):
             raise value
         return SimpleNamespace(
@@ -217,6 +253,21 @@ class _FakeWebClient:
         )
 
 
+class _RoutingWebClient:
+    def __init__(
+        self,
+        responses_by_input_fragment: dict[str, object],
+        *,
+        usage: dict[str, int] | None = None,
+        search_count: int = 1,
+    ) -> None:
+        self.responses = _RoutingResponsesClient(
+            responses_by_input_fragment=responses_by_input_fragment,
+            usage=usage,
+            search_count=search_count,
+        )
+
+
 class _FakeLog:
     def __init__(self) -> None:
         self.info_calls: list[tuple[object, ...]] = []
@@ -232,6 +283,22 @@ class _FakeLog:
 
 
 class TxMetadataProjectionRefreshTests(unittest.TestCase):
+    def _agreement_row(
+        self,
+        agreement_uuid: str,
+        *,
+        failure_count: int = 0,
+        url: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "agreement_uuid": agreement_uuid,
+            "target": f"Target {agreement_uuid}",
+            "acquirer": f"Acquirer {agreement_uuid}",
+            "filing_date": date.today().isoformat(),
+            "url": url or f"https://www.sec.gov/Archives/edgar/data/{agreement_uuid}.htm",
+            "failure_count": failure_count,
+        }
+
     def _valid_web_search_payload(self) -> str:
         return json.dumps(
             {
@@ -388,6 +455,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
         )
         self.assertEqual(metadata_payload["metadata_run_stats"]["search_count"], 1)
+        self.assertEqual(conn.update_calls, 1)
 
     def test_run_web_search_mode_raises_on_database_update_error(self) -> None:
         conn = _FakeWebConn(fail_on_update=True)
@@ -537,6 +605,155 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(conn.failure_upserts, 1)
         self.assertEqual(conn.failure_clears, 0)
+
+    def test_run_web_search_mode_checkpoints_each_chunk_of_ten(self) -> None:
+        select_rows = [
+            self._agreement_row(f"agreement-{index:02d}")
+            for index in range(12)
+        ]
+        conn = _FakeWebConn(select_rows=select_rows)
+        engine = _FakeWebEngine(conn)
+        fake_log = _FakeLog()
+        context = SimpleNamespace(log=fake_log)
+
+        with (
+            patch(
+                "etl.defs.i_tx_metadata_asset._oai_client",
+                return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=12,
+            )
+
+        self.assertEqual(conn.update_calls, 12)
+        first_checkpoint = {cast(str, params["uuid"]) for params in conn.update_params_history[:10]}
+        second_checkpoint = {cast(str, params["uuid"]) for params in conn.update_params_history[10:]}
+        self.assertEqual(len(first_checkpoint), 10)
+        self.assertEqual(len(second_checkpoint), 2)
+        self.assertEqual(
+            first_checkpoint | second_checkpoint,
+            {f"agreement-{index:02d}" for index in range(12)},
+        )
+        self.assertTrue(
+            any(
+                call[:4] == (
+                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+                    1,
+                    2,
+                    10,
+                )
+                for call in fake_log.info_calls
+            )
+        )
+        self.assertTrue(
+            any(
+                call[:4] == (
+                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+                    2,
+                    2,
+                    2,
+                )
+                for call in fake_log.info_calls
+            )
+        )
+
+    def test_run_web_search_mode_commits_first_chunk_before_later_chunk_failure(self) -> None:
+        select_rows = [
+            self._agreement_row(f"agreement-{index:02d}")
+            for index in range(12)
+        ]
+        conn = _FakeWebConn(select_rows=select_rows)
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        later_chunk_failures: dict[str, object] = {
+            "agreement-10.htm": RuntimeError("later chunk failed"),
+            "agreement-11.htm": RuntimeError("later chunk failed"),
+        }
+        responses_by_input_fragment: dict[str, object] = {
+            f"agreement-{index:02d}.htm": self._valid_web_search_payload()
+            for index in range(10)
+        }
+        responses_by_input_fragment.update(later_chunk_failures)
+        flaky_client = _RoutingWebClient(
+            responses_by_input_fragment=responses_by_input_fragment
+        )
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=flaky_client),
+            patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=12,
+            )
+
+        self.assertEqual(conn.update_calls, 10)
+        self.assertEqual(conn.failure_upserts, 2)
+
+    def test_run_web_search_mode_mixed_outcomes_track_metrics(self) -> None:
+        select_rows = [
+            self._agreement_row("agreement-success"),
+            self._agreement_row("agreement-request-failure"),
+            self._agreement_row("agreement-validation-failure"),
+        ]
+        conn = _FakeWebConn(select_rows=select_rows)
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        invalid_payload = json.dumps(
+            {
+                "consideration_type": "all_cash",
+                "purchase_price": {"cash": 100.0, "stock": 0.0, "assets": 0.0},
+                "target_public": True,
+                "acquirer_public": False,
+                "target_pe": None,
+                "acquirer_pe": None,
+                "target_industry": "311",
+                "acquirer_industry": "52",
+                "announce_date": "2024-01-01",
+                "close_date": None,
+                "deal_status": "pending",
+                "attitude": "friendly",
+                "purpose": "strategic",
+                "metadata_sources": {"citations": [], "notes": None},
+            }
+        )
+        flaky_client = _RoutingWebClient(
+            responses_by_input_fragment={
+                "agreement-success.htm": self._valid_web_search_payload(),
+                "agreement-request-failure.htm": RuntimeError("request failed"),
+                "agreement-validation-failure.htm": invalid_payload,
+            },
+            search_count=2,
+        )
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=flaky_client),
+            patch("etl.defs.i_tx_metadata_asset.time.sleep", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            summary = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=3,
+            )
+
+        self.assertEqual(conn.update_calls, 1)
+        self.assertEqual(conn.failure_upserts, 2)
+        self.assertEqual(summary["total_searches"], 4)
+        self.assertEqual(summary["searches_by_agreement"]["agreement-success"], 2)
+        self.assertEqual(summary["searches_by_agreement"]["agreement-validation-failure"], 2)
 
     def test_run_web_search_mode_prioritizes_lower_failure_count(self) -> None:
         conn = _FakeWebConn(

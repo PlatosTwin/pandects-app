@@ -17,6 +17,7 @@ import io
 import json
 import os
 import time
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Any, Dict, List, Tuple
 
 import dagster as dg
@@ -45,6 +46,8 @@ from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
 
 MAX_TX_METADATA_FAILURE_PAYLOAD_CHARS = 20_000
+WEB_SEARCH_MAX_WORKERS = 25
+WEB_SEARCH_COMMIT_BATCH_SIZE = 10
 
 
 def _oai_client() -> OpenAI:
@@ -216,6 +219,72 @@ def _clear_web_failure(conn: Connection, schema: str, *, agreement_uuid: str) ->
         ),
         {"agreement_uuid": agreement_uuid},
     )
+
+
+def _chunk_agreements(
+    agreements: list[Dict[str, Any]],
+    *,
+    chunk_size: int,
+) -> list[list[Dict[str, Any]]]:
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive.")
+    return [
+        agreements[index:index + chunk_size]
+        for index in range(0, len(agreements), chunk_size)
+    ]
+
+
+def _persist_web_search_successes(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    update_web_q: Any,
+    successes: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]],
+    failed_uuid_by_stage: Dict[str, List[str]],
+    token_totals: Dict[str, int],
+    refreshed_uuids: list[str],
+) -> tuple[int, int, int]:
+    updated = 0
+    validation_failures = 0
+    refreshed = 0
+    for uuid, obj, filing_date, raw_payload, response_usage, search_count in successes:
+        try:
+            params = build_tx_metadata_update_params_web_search_only(
+                agreement_uuid=uuid,
+                tx_metadata_obj=obj,
+                response_usage=response_usage,
+                search_count=search_count,
+                filing_date=filing_date,
+                pending_max_age_years=3,
+            )
+        except (TypeError, ValueError, KeyError) as e:
+            validation_failures += 1
+            failed_uuid_by_stage["validation"].append(str(uuid))
+            context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
+            with engine.begin() as conn:
+                _record_web_failure(
+                    conn,
+                    schema,
+                    agreement_uuid=str(uuid),
+                    error_stage="validation",
+                    failure_reason=str(e),
+                    raw_payload=raw_payload,
+                )
+            continue
+
+        with engine.begin() as conn:
+            result = conn.execute(update_web_q, params)
+            _clear_web_failure(conn, schema, agreement_uuid=str(uuid))
+            if int(result.rowcount or 0) > 0:
+                _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
+                refreshed_uuids.append(str(uuid))
+                updated += 1
+                refreshed += 1
+            for key, value in response_usage.items():
+                token_totals[key] += value
+
+    return updated, validation_failures, refreshed
 
 
 def _extract_response_usage(resp: Any) -> Dict[str, int]:
@@ -640,8 +709,13 @@ def _run_web_search_mode(
         context.log.info("tx_metadata_asset (web_search): no agreements need web metadata.")
         return {"total_searches": 0, "searches_by_agreement": {}}
 
-    context.log.info(f"tx_metadata_asset (web_search): selected {len(agreements)} agreements for enrichment")
-    model_name = "gpt-5.1"
+    context.log.info(
+        "tx_metadata_asset (web_search): selected %s agreements for enrichment (max_workers=%s, commit_batch_size=%s)",
+        len(agreements),
+        WEB_SEARCH_MAX_WORKERS,
+        WEB_SEARCH_COMMIT_BATCH_SIZE,
+    )
+    model_name = "gpt-5-mini"
     client = _oai_client()
 
     class _WebSearchRequestError(RuntimeError):
@@ -694,44 +768,13 @@ def _run_web_search_mode(
             raw_payload=last_raw_payload,
         ) from last_error
 
-    success_data: List[Tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]] = []
     attempted = 0
+    parsed = 0
     parse_errors = 0
     failed_uuid_by_stage: Dict[str, List[str]] = {"request_or_parse": [], "validation": []}
     token_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     total_searches = 0
     searches_by_agreement: Dict[str, int] = {}
-    for agreement in agreements:
-        attempted += 1
-        agr_uuid = agreement["agreement_uuid"]
-        try:
-            obj, raw_payload, response_usage, search_count = _request_web_search_payload(agreement)
-            success_data.append(
-                (
-                    agr_uuid,
-                    obj,
-                    agreement.get("filing_date"),
-                    raw_payload,
-                    response_usage,
-                    search_count,
-                )
-            )
-            searches_by_agreement[str(agr_uuid)] = search_count
-            total_searches += search_count
-        except _WebSearchRequestError as e:
-            parse_errors += 1
-            failed_uuid_by_stage["request_or_parse"].append(str(agr_uuid))
-            context.log.warning(f"tx_metadata_asset (web_search): failed for {agr_uuid}: {e}")
-            with engine.begin() as conn:
-                _record_web_failure(
-                    conn,
-                    schema,
-                    agreement_uuid=str(agr_uuid),
-                    error_stage="request_or_parse",
-                    failure_reason=str(e),
-                    raw_payload=e.raw_payload,
-                )
-
     update_web_q = text(
         f"""
         UPDATE {agreements_table}
@@ -782,40 +825,133 @@ def _run_web_search_mode(
     updated = 0
     skipped_due_to_error = 0
     refreshed_uuids: list[str] = []
-    for uuid, obj, filing_date, raw_payload, response_usage, search_count in success_data:
-        try:
-            params = build_tx_metadata_update_params_web_search_only(
-                agreement_uuid=uuid,
-                tx_metadata_obj=obj,
-                response_usage=response_usage,
-                search_count=search_count,
-                filing_date=filing_date,
-                pending_max_age_years=3,
-            )
-        except (TypeError, ValueError, KeyError) as e:
-            skipped_due_to_error += 1
-            failed_uuid_by_stage["validation"].append(str(uuid))
-            context.log.warning(f"tx_metadata_asset (web_search): invalid params for {uuid}: {e}")
-            with engine.begin() as conn:
-                _record_web_failure(
-                    conn,
-                    schema,
-                    agreement_uuid=str(uuid),
-                    error_stage="validation",
-                    failure_reason=str(e),
-                    raw_payload=raw_payload,
-                )
-            continue
+    agreement_chunks = _chunk_agreements(
+        agreements,
+        chunk_size=WEB_SEARCH_COMMIT_BATCH_SIZE,
+    )
+    total_chunks = len(agreement_chunks)
+    next_chunk_to_log = 1
+    queued_agreements = list(agreements)
+    next_agreement_index = 0
+    completed_success_buffer: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]] = []
+    persisted_success_count = 0
+    active_futures: Dict[Future[tuple[Dict[str, Any], str, Dict[str, int], int]], Dict[str, Any]] = {}
 
-        with engine.begin() as conn:
-            result = conn.execute(update_web_q, params)
-            _clear_web_failure(conn, schema, agreement_uuid=str(uuid))
-            if int(result.rowcount or 0) > 0:
-                _ = refresh_latest_sections_search(conn, schema, [str(uuid)])
-                refreshed_uuids.append(str(uuid))
-                updated += 1
-            for key, value in response_usage.items():
-                token_totals[key] += value
+    def _submit_available_work(executor: ThreadPoolExecutor) -> None:
+        nonlocal next_agreement_index, next_chunk_to_log
+        while (
+            next_agreement_index < len(queued_agreements)
+            and len(active_futures) < WEB_SEARCH_MAX_WORKERS
+        ):
+            agreement = queued_agreements[next_agreement_index]
+            next_agreement_index += 1
+            if (next_agreement_index - 1) % WEB_SEARCH_COMMIT_BATCH_SIZE == 0:
+                chunk_number = ((next_agreement_index - 1) // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
+                chunk_size = min(
+                    WEB_SEARCH_COMMIT_BATCH_SIZE,
+                    len(queued_agreements) - (next_agreement_index - 1),
+                )
+                context.log.info(
+                    "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements",
+                    chunk_number,
+                    total_chunks,
+                    chunk_size,
+                )
+                next_chunk_to_log = chunk_number + 1
+            future = executor.submit(_request_web_search_payload, agreement)
+            active_futures[future] = agreement
+
+    with ThreadPoolExecutor(max_workers=WEB_SEARCH_MAX_WORKERS) as executor:
+        _submit_available_work(executor)
+        while active_futures:
+            done, _ = wait(active_futures.keys(), return_when=FIRST_COMPLETED)
+            for future in done:
+                agreement = active_futures.pop(future)
+                attempted += 1
+                agr_uuid = str(agreement["agreement_uuid"])
+                try:
+                    obj, raw_payload, response_usage, search_count = future.result()
+                    completed_success_buffer.append(
+                        (
+                            agr_uuid,
+                            obj,
+                            agreement.get("filing_date"),
+                            raw_payload,
+                            response_usage,
+                            search_count,
+                        )
+                    )
+                    parsed += 1
+                    searches_by_agreement[agr_uuid] = search_count
+                    total_searches += search_count
+                except _WebSearchRequestError as e:
+                    parse_errors += 1
+                    failed_uuid_by_stage["request_or_parse"].append(agr_uuid)
+                    context.log.warning(f"tx_metadata_asset (web_search): failed for {agr_uuid}: {e}")
+                    with engine.begin() as conn:
+                        _record_web_failure(
+                            conn,
+                            schema,
+                            agreement_uuid=agr_uuid,
+                            error_stage="request_or_parse",
+                            failure_reason=str(e),
+                            raw_payload=e.raw_payload,
+                        )
+
+            while len(completed_success_buffer) >= WEB_SEARCH_COMMIT_BATCH_SIZE:
+                batch_successes = completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
+                del completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
+                chunk_number = (persisted_success_count // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
+                batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
+                    context=context,
+                    engine=engine,
+                    schema=schema,
+                    update_web_q=update_web_q,
+                    successes=batch_successes,
+                    failed_uuid_by_stage=failed_uuid_by_stage,
+                    token_totals=token_totals,
+                    refreshed_uuids=refreshed_uuids,
+                )
+                updated += batch_updated
+                skipped_due_to_error += batch_validation_failures
+                persisted_success_count += len(batch_successes)
+                context.log.info(
+                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+                    chunk_number,
+                    total_chunks,
+                    len(batch_successes),
+                    0,
+                    batch_validation_failures,
+                    batch_updated,
+                    batch_refreshed,
+                )
+
+            _submit_available_work(executor)
+
+    if completed_success_buffer:
+        chunk_number = (persisted_success_count // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
+        batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
+            context=context,
+            engine=engine,
+            schema=schema,
+            update_web_q=update_web_q,
+            successes=completed_success_buffer,
+            failed_uuid_by_stage=failed_uuid_by_stage,
+            token_totals=token_totals,
+            refreshed_uuids=refreshed_uuids,
+        )
+        updated += batch_updated
+        skipped_due_to_error += batch_validation_failures
+        context.log.info(
+            "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+            chunk_number,
+            total_chunks,
+            len(completed_success_buffer),
+            0,
+            batch_validation_failures,
+            batch_updated,
+            batch_refreshed,
+        )
 
     if failed_uuid_by_stage["request_or_parse"] or failed_uuid_by_stage["validation"]:
         context.log.warning(
@@ -827,7 +963,7 @@ def _run_web_search_mode(
     context.log.info(
         "tx_metadata_asset (web_search): attempted=%s, parsed=%s, updated=%s, parse_errors=%s, skipped_due_to_error=%s, refreshed_latest_sections_search=%s, request_or_parse_failures=%s, validation_failures=%s, total_searches=%s, token_totals=%s",
         attempted,
-        len(success_data),
+        parsed,
         updated,
         parse_errors,
         skipped_due_to_error,
