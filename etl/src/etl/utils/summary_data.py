@@ -37,6 +37,27 @@ def _ensure_deal_type_summary_table(
     )
 
 
+def _ensure_agreement_overview_summary_table(
+    conn: Connection,
+    *,
+    schema: str,
+    table: str,
+) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {schema}.{table} (
+                singleton_key TINYINT NOT NULL,
+                metadata_coverage_pct DECIMAL(5, 1) NULL,
+                taxonomy_coverage_pct DECIMAL(5, 1) NULL,
+                latest_filing_date DATE NULL,
+                PRIMARY KEY (singleton_key)
+            )
+            """
+        )
+    )
+
+
 def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
     pages_table = f"{schema}.pages"
     sections_table = f"{schema}.sections"
@@ -250,6 +271,78 @@ def _refresh_deal_type_summary_table(conn: Connection, *, schema: str) -> None:
     )
 
 
+def _refresh_agreement_overview_summary_table(conn: Connection, *, schema: str) -> None:
+    overview_summary_table = f"{schema}.agreement_overview_summary"
+    agreements_table = f"{schema}.agreements"
+    sections_table = f"{schema}.sections"
+
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO {overview_summary_table} (
+                singleton_key,
+                metadata_coverage_pct,
+                taxonomy_coverage_pct,
+                latest_filing_date
+            )
+            SELECT
+                1 AS singleton_key,
+                ROUND(
+                    100.0 * SUM(CASE WHEN COALESCE(a.metadata, 0) = 1 THEN 1 ELSE 0 END)
+                    / NULLIF(COUNT(*), 0),
+                    1
+                ) AS metadata_coverage_pct,
+                (
+                    SELECT ROUND(
+                        100.0 * SUM(
+                            CASE
+                                WHEN (
+                                    (
+                                        s.section_standard_id IS NOT NULL
+                                        AND TRIM(s.section_standard_id) <> ''
+                                        AND TRIM(s.section_standard_id) <> '[]'
+                                    )
+                                    OR (
+                                        s.section_standard_id_gold_label IS NOT NULL
+                                        AND TRIM(s.section_standard_id_gold_label) <> ''
+                                        AND TRIM(s.section_standard_id_gold_label) <> '[]'
+                                    )
+                                ) THEN 1
+                                ELSE 0
+                            END
+                        ) / NULLIF(COUNT(*), 0),
+                        1
+                    )
+                    FROM {sections_table} s
+                    JOIN tmp_xml_latest x
+                        ON x.agreement_uuid = s.agreement_uuid
+                       AND x.version = s.xml_version
+                    JOIN {agreements_table} a2
+                        ON a2.agreement_uuid = s.agreement_uuid
+                    WHERE {_summary_eligible_agreement_where_sql(alias='a2')}
+                ) AS taxonomy_coverage_pct,
+                (
+                    SELECT MAX(
+                        CASE
+                            WHEN a3.filing_date IS NULL THEN NULL
+                            WHEN TRIM(a3.filing_date) REGEXP '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN
+                                SUBSTRING(TRIM(a3.filing_date), 1, 10)
+                            ELSE NULL
+                        END
+                    )
+                    FROM {agreements_table} a3
+                    WHERE a3.filing_date IS NOT NULL
+                      AND {_summary_eligible_agreement_where_sql(alias='a3')}
+                ) AS latest_filing_date
+            FROM tmp_xml_eligible x
+            JOIN {agreements_table} a
+                ON a.agreement_uuid = x.agreement_uuid
+            WHERE {_summary_eligible_agreement_where_sql(alias='a')}
+            """
+        )
+    )
+
+
 def refresh_summary_data(
     context: AssetExecutionContext | None,
     db: DBResource,
@@ -261,6 +354,7 @@ def refresh_summary_data(
     summary_table = f"{schema}.summary_data"
     status_summary_table = f"{schema}.agreement_status_summary"
     deal_type_summary_table = f"{schema}.agreement_deal_type_summary"
+    overview_summary_table = f"{schema}.agreement_overview_summary"
 
     lock_name = f"{schema}.summary_data_refresh"
     lock_timeout_seconds = 300
@@ -284,13 +378,20 @@ def refresh_summary_data(
                 schema=schema,
                 table="agreement_deal_type_summary",
             )
+            _ensure_agreement_overview_summary_table(
+                conn,
+                schema=schema,
+                table="agreement_overview_summary",
+            )
             _ = conn.execute(text(f"TRUNCATE TABLE {summary_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {status_summary_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {deal_type_summary_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {overview_summary_table}"))
             _build_summary_temp_tables(conn, schema=schema)
             _refresh_summary_table(conn, schema=schema)
             _refresh_status_summary_table(conn, schema=schema)
             _refresh_deal_type_summary_table(conn, schema=schema)
+            _refresh_agreement_overview_summary_table(conn, schema=schema)
         finally:
             _ = conn.execute(
                 text("SELECT RELEASE_LOCK(:lock_name)"), {"lock_name": lock_name}

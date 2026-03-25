@@ -102,6 +102,9 @@ class SummaryDataTests(unittest.TestCase):
         self.assertTrue(
             any("TRUNCATE TABLE pdx.agreement_deal_type_summary" in sql for sql in conn.executed_sql)
         )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_overview_summary" in sql for sql in conn.executed_sql)
+        )
         summary_insert_sql = next(
             sql
             for sql in conn.executed_sql
@@ -135,6 +138,21 @@ class SummaryDataTests(unittest.TestCase):
         self.assertIn(
             "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
             deal_type_insert_sql,
+        )
+        overview_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_overview_summary" in sql
+        )
+        self.assertIn("COALESCE(a.metadata, 0) = 1", overview_insert_sql)
+        self.assertIn("section_standard_id_gold_label", overview_insert_sql)
+        self.assertIn("JOIN tmp_xml_latest x", overview_insert_sql)
+        self.assertIn("TRIM(a3.filing_date) REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}'", overview_insert_sql)
+        self.assertIn("SUBSTRING(TRIM(a3.filing_date), 1, 10)", overview_insert_sql)
+        self.assertNotIn("a3.filing_date != ''", overview_insert_sql)
+        self.assertIn(
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
+            overview_insert_sql,
         )
 
     def test_refresh_summary_data_uses_canonical_stage_sql(self) -> None:

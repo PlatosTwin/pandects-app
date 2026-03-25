@@ -37,6 +37,15 @@ def _agreement_is_summary_eligible_expr(agreements: _SummaryEligibleAgreementMod
     )
 
 
+def _to_float_or_none(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
     agreements_blp = Blueprint(
         "agreements",
@@ -536,18 +545,29 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         return {"results": results, **meta}
 
     def get_agreements_status_summary() -> dict[str, object]:
-        agreements = deps.Agreements
         db = deps.db
-        latest_filing_date = cast(
-            object | None,
-            db.session.query(func.max(agreements.filing_date))
-            .filter(
-                agreements.filing_date.isnot(None),
-                agreements.filing_date != "",
-                _agreement_is_summary_eligible_expr(agreements),
+        overview_row = (
+            db.session.execute(
+                text(
+                    f"""
+                    SELECT
+                        metadata_coverage_pct,
+                        taxonomy_coverage_pct,
+                        latest_filing_date
+                    FROM {deps._schema_prefix()}agreement_overview_summary
+                    LIMIT 1
+                    """
+                )
             )
-            .scalar(),
+            .mappings()
+            .first()
         )
+        overview_row_dict = (
+            deps._row_mapping_as_dict(cast(object, overview_row))
+            if overview_row is not None
+            else {}
+        )
+        latest_filing_date = overview_row_dict.get("latest_filing_date")
         if isinstance(latest_filing_date, (date, datetime)):
             latest_filing_date = latest_filing_date.isoformat()
         elif latest_filing_date is not None:
@@ -582,7 +602,16 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     "count": deps._to_int(cast(object, row_dict.get("count"))),
                 }
             )
-        return {"years": years, "latest_filing_date": latest_filing_date}
+        return {
+            "years": years,
+            "latest_filing_date": latest_filing_date,
+            "metadata_coverage_pct": _to_float_or_none(
+                overview_row_dict.get("metadata_coverage_pct")
+            ),
+            "taxonomy_coverage_pct": _to_float_or_none(
+                overview_row_dict.get("taxonomy_coverage_pct")
+            ),
+        }
 
     def get_agreements_deal_types_summary() -> dict[str, object]:
         db = deps.db

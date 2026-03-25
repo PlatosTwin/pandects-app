@@ -69,6 +69,8 @@ type AgreementStatusYearRow = {
 type AgreementStatusSummaryResponse = {
   years: AgreementStatusYearRow[];
   latest_filing_date: string | null;
+  metadata_coverage_pct: number | null;
+  taxonomy_coverage_pct: number | null;
 };
 
 type AgreementDealTypeYearRow = {
@@ -250,6 +252,10 @@ export function AgreementIndexOverview() {
   );
   const [statusSummaryLatestFilingDate, setStatusSummaryLatestFilingDate] =
     useState<string | null>(null);
+  const [statusSummaryMetadataCoveragePct, setStatusSummaryMetadataCoveragePct] =
+    useState<number | null>(null);
+  const [statusSummaryTaxonomyCoveragePct, setStatusSummaryTaxonomyCoveragePct] =
+    useState<number | null>(null);
   const [dealTypeSummary, setDealTypeSummary] = useState<
     AgreementDealTypeYearRow[]
   >([]);
@@ -284,6 +290,8 @@ export function AgreementIndexOverview() {
         if (!cancelled) {
           setStatusSummary(data.years ?? []);
           setStatusSummaryLatestFilingDate(data.latest_filing_date ?? null);
+          setStatusSummaryMetadataCoveragePct(data.metadata_coverage_pct ?? null);
+          setStatusSummaryTaxonomyCoveragePct(data.taxonomy_coverage_pct ?? null);
           setStatusSummaryLoaded(true);
         }
       } catch (err) {
@@ -413,32 +421,48 @@ export function AgreementIndexOverview() {
   }, [stagedChartData]);
   const stagedSummaryMetrics = useMemo(() => {
     const total = stagedTotals.total;
-    const pct = (value: number) =>
+    const pctOfTotal = (value: number) =>
       total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
+    const formatCoverageValue = (value: number | null) =>
+      value === null ? "—" : `${value.toFixed(1)}%`;
+    const formatCoverageDetail = (value: number | null) =>
+      value === null ? "—% of processed" : `${value.toFixed(1)}% of processed`;
     return [
       {
         key: "staged",
         label: "Staged",
         value: stagedTotals.staged,
-        pct: pct(stagedTotals.staged),
+        detail: `${pctOfTotal(stagedTotals.staged).toFixed(1)}% of total`,
       },
       {
         key: "awaiting",
         label: "Awaiting validation",
         value: stagedTotals.awaiting,
-        pct: pct(stagedTotals.awaiting),
+        detail: `${pctOfTotal(stagedTotals.awaiting).toFixed(1)}% of total`,
       },
       {
         key: "processed",
         label: "Processed",
         value: stagedTotals.processed,
-        pct: pct(stagedTotals.processed),
+        detail: `${pctOfTotal(stagedTotals.processed).toFixed(1)}% of total`,
       },
       {
         key: "not-paginated",
         label: "Not paginated",
         value: stagedTotals.notPaginated,
-        pct: pct(stagedTotals.notPaginated),
+        detail: `${pctOfTotal(stagedTotals.notPaginated).toFixed(1)}% of total`,
+      },
+      {
+        key: "metadata-coverage",
+        label: "Metadata coverage",
+        value: formatCoverageValue(statusSummaryMetadataCoveragePct),
+        detail: formatCoverageDetail(statusSummaryMetadataCoveragePct),
+      },
+      {
+        key: "taxonomy-coverage",
+        label: "Taxonomy coverage",
+        value: formatCoverageValue(statusSummaryTaxonomyCoveragePct),
+        detail: formatCoverageDetail(statusSummaryTaxonomyCoveragePct),
       },
       {
         key: "latest",
@@ -446,10 +470,17 @@ export function AgreementIndexOverview() {
         value: statusSummaryLatestFilingDate
           ? formatDateValue(statusSummaryLatestFilingDate)
           : "—",
-        pct: null,
+        detail: "Max filing date",
       },
     ] as const;
-  }, [stagedTotals, statusSummaryLatestFilingDate]);
+  }, [
+    stagedTotals,
+    statusSummaryLatestFilingDate,
+    statusSummaryMetadataCoveragePct,
+    statusSummaryTaxonomyCoveragePct,
+  ]);
+  const stagedPrimarySummaryMetrics = stagedSummaryMetrics.slice(0, 4);
+  const stagedSecondarySummaryMetrics = stagedSummaryMetrics.slice(4);
   const stagedYearRange = useMemo(() => {
     if (stagedChartData.length === 0) return null;
     const minYear = stagedChartData[0].year;
@@ -664,56 +695,53 @@ export function AgreementIndexOverview() {
                 ? metric.value.toLocaleString("en-US")
                 : metric.value}
             </dd>
-            <dd className="text-xs text-muted-foreground">
-              {metric.pct !== null
-                ? `${metric.pct.toFixed(1)}% of total`
-                : "Max filing date"}
-            </dd>
+            <dd className="text-xs text-muted-foreground">{metric.detail}</dd>
           </dl>
         ))}
       </div>
-      <div className="hidden overflow-x-auto sm:block">
-        <Table className="min-w-[520px]">
-          <caption className="sr-only">
-            Summary totals for staged, awaiting validation, and processed
-            agreements, plus the latest ingested filing date.
-          </caption>
-          <TableHeader>
-            <TableRow>
-              {stagedSummaryMetrics.map((metric) => (
-                <TableHead
-                  key={metric.key}
-                  scope="col"
-                  className="text-xs uppercase tracking-wide text-muted-foreground"
-                >
-                  {metric.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              {stagedSummaryMetrics.map((metric) => (
-                <TableCell key={metric.key} className="align-top">
-                  <div className="text-base font-semibold text-foreground">
-                    {typeof metric.value === "number"
-                      ? metric.value.toLocaleString("en-US")
-                      : metric.value}
-                  </div>
-                  {metric.pct !== null ? (
-                    <div className="text-xs font-mono tabular-nums text-muted-foreground">
-                      {metric.pct.toFixed(1)}% of total
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      Max filing date
-                    </div>
-                  )}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableBody>
-        </Table>
+      <div className="hidden gap-0 overflow-hidden rounded-md border border-border/60 bg-background/70 sm:grid">
+        <div className="grid min-w-[520px] grid-cols-4">
+          {stagedPrimarySummaryMetrics.map((metric, index) => (
+            <div
+              key={metric.key}
+              className={cn(
+                "p-4",
+                index > 0 && "border-l border-border/60",
+              )}
+            >
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {metric.label}
+              </div>
+              <div className="mt-2 text-base font-semibold text-foreground">
+                {typeof metric.value === "number"
+                  ? metric.value.toLocaleString("en-US")
+                  : metric.value}
+              </div>
+              <div className="text-xs text-muted-foreground">{metric.detail}</div>
+            </div>
+          ))}
+        </div>
+        <div className="grid min-w-[520px] grid-cols-3 border-t border-border/60">
+          {stagedSecondarySummaryMetrics.map((metric, index) => (
+            <div
+              key={metric.key}
+              className={cn(
+                "p-4",
+                index > 0 && "border-l border-border/60",
+              )}
+            >
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {metric.label}
+              </div>
+              <div className="mt-2 text-base font-semibold text-foreground">
+                {typeof metric.value === "number"
+                  ? metric.value.toLocaleString("en-US")
+                  : metric.value}
+              </div>
+              <div className="text-xs text-muted-foreground">{metric.detail}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

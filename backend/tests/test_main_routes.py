@@ -130,9 +130,25 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "CREATE TABLE IF NOT EXISTS agreement_overview_summary ("
+                        "singleton_key INTEGER NOT NULL PRIMARY KEY, "
+                        "metadata_coverage_pct REAL NULL, "
+                        "taxonomy_coverage_pct REAL NULL, "
+                        "latest_filing_date TEXT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
                         "(2020, 'merger', 1), "
                         "(2021, 'stock_acquisition', 2)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_overview_summary "
+                        "(singleton_key, metadata_coverage_pct, taxonomy_coverage_pct, latest_filing_date) VALUES "
+                        "(1, 61.5, 87.2, '2023-04-01')"
                     )
                 )
                 conn.execute(
@@ -567,6 +583,36 @@ class MainRoutesTests(unittest.TestCase):
             ],
         )
 
+    def test_agreements_status_summary_includes_overview_metrics(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_overview_summary ("
+                        "singleton_key INTEGER NOT NULL PRIMARY KEY, "
+                        "metadata_coverage_pct REAL NULL, "
+                        "taxonomy_coverage_pct REAL NULL, "
+                        "latest_filing_date TEXT NULL)"
+                    )
+                )
+                conn.execute(text("DELETE FROM agreement_overview_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_overview_summary "
+                        "(singleton_key, metadata_coverage_pct, taxonomy_coverage_pct, latest_filing_date) VALUES "
+                        "(1, 61.5, 87.2, '2023-04-01')"
+                    )
+                )
+
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-status-summary")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
+        self.assertEqual(body.get("metadata_coverage_pct"), 61.5)
+        self.assertEqual(body.get("taxonomy_coverage_pct"), 87.2)
+
     def test_agreements_status_summary_excludes_gated_unverified_from_latest_filing_date(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
@@ -577,11 +623,28 @@ class MainRoutesTests(unittest.TestCase):
                         "year INTEGER NOT NULL, color TEXT NOT NULL, current_stage TEXT NOT NULL, count INTEGER NOT NULL)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_overview_summary ("
+                        "singleton_key INTEGER NOT NULL PRIMARY KEY, "
+                        "metadata_coverage_pct REAL NULL, "
+                        "taxonomy_coverage_pct REAL NULL, "
+                        "latest_filing_date TEXT NULL)"
+                    )
+                )
                 conn.execute(text("DELETE FROM agreement_status_summary"))
+                conn.execute(text("DELETE FROM agreement_overview_summary"))
                 conn.execute(
                     text(
                         "INSERT INTO agreement_status_summary (year, color, current_stage, count) VALUES "
                         "(2023, 'green', 'processed', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_overview_summary "
+                        "(singleton_key, metadata_coverage_pct, taxonomy_coverage_pct, latest_filing_date) VALUES "
+                        "(1, 50.0, 75.0, '2023-04-01')"
                     )
                 )
                 conn.execute(
@@ -597,11 +660,14 @@ class MainRoutesTests(unittest.TestCase):
             self.assertEqual(res.status_code, 200)
             body = res.get_json()
             self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
+            self.assertEqual(body.get("metadata_coverage_pct"), 50.0)
+            self.assertEqual(body.get("taxonomy_coverage_pct"), 75.0)
         finally:
             with self.app.app_context():
                 engine = self.app_module.db.engine
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM agreement_status_summary"))
+                    conn.execute(text("DELETE FROM agreement_overview_summary"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_pending'"))
 
     def test_mysql_agreement_year_expr_avoids_str_to_date(self):
