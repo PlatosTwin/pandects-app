@@ -182,6 +182,10 @@ else:
         Column("exhibit_type", TEXT, nullable=True),
         Column("target", TEXT, nullable=True),
         Column("acquirer", TEXT, nullable=True),
+        Column("target_counsel", TEXT, nullable=True),
+        Column("acquirer_counsel", TEXT, nullable=True),
+        Column("target_counsel_normalized", TEXT, nullable=True),
+        Column("acquirer_counsel_normalized", TEXT, nullable=True),
         Column("transaction_price_total", TEXT, nullable=True),
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
@@ -341,6 +345,10 @@ class Agreements(db.Model):
     exhibit_type: ClassVar[Mapped[str | None]]
     target: ClassVar[Mapped[str | None]]
     acquirer: ClassVar[Mapped[str | None]]
+    target_counsel: ClassVar[Mapped[str | None]]
+    acquirer_counsel: ClassVar[Mapped[str | None]]
+    target_counsel_normalized: ClassVar[Mapped[str | None]]
+    acquirer_counsel_normalized: ClassVar[Mapped[str | None]]
     transaction_price_total: ClassVar[Mapped[str | None]]
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]

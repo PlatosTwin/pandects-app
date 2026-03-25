@@ -1,9 +1,11 @@
 """Transaction metadata enrichment: offline (document-only) or web-search mode.
 
-Offline mode: selects agreements missing target, acquirer, or deal_type; sends
-front_matter + first two body pages to gpt-5-mini via OpenAI Batch API; updates
-target, acquirer, deal_type only. Offline batch state is persisted so interrupted
-runs can resume polling/apply work on the next invocation.
+Offline mode can run two independent document-only subflows:
+- metadata extraction for target, acquirer, and deal_type
+- counsel extraction from the counsel section for target/acquirer counsel
+
+Each subflow persists its own batch state so interrupted runs can resume polling
+and applying without blocking the other.
 
 Web-search mode: selects agreements with metadata=0 and target/acquirer set;
 uses Responses API with web_search; updates web-sourced fields only (not target,
@@ -28,9 +30,12 @@ from openai import OpenAI
 
 from etl.defs.resources import DBResource, PipelineConfig, TxMetadataMode
 from etl.domain.i_tx_metadata import (
+    build_offline_counsel_request_body,
+    build_offline_counsel_update_params,
     build_offline_tx_metadata_request_body,
     build_offline_update_params,
     build_tx_metadata_request_body_web_search_only,
+    parse_offline_counsel_response_text,
     build_tx_metadata_update_params_web_search_only,
     parse_offline_tx_metadata_response_text,
     parse_tx_metadata_response_text_web_search,
@@ -41,6 +46,7 @@ from etl.utils.openai_batch import (
     read_openai_file_text,
 )
 from etl.utils.latest_sections_search import refresh_latest_sections_search
+from etl.utils.pipeline_state_sql import canonical_components_cte_sql
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
@@ -48,6 +54,9 @@ from etl.utils.schema_guards import assert_tables_exist
 MAX_TX_METADATA_FAILURE_PAYLOAD_CHARS = 20_000
 WEB_SEARCH_MAX_WORKERS = 25
 WEB_SEARCH_COMMIT_BATCH_SIZE = 10
+OFFLINE_METADATA_BATCH_KIND = "metadata"
+OFFLINE_COUNSEL_BATCH_KIND = "counsel"
+COUNSEL_SECTION_STANDARD_ID = "d75eeddb4839a607"
 
 
 def _oai_client() -> OpenAI:
@@ -57,11 +66,17 @@ def _oai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-def _fetch_unapplied_offline_batch(conn: Connection, schema: str) -> Dict[str, Any] | None:
+def _fetch_unapplied_offline_batch(
+    conn: Connection,
+    schema: str,
+    *,
+    batch_kind: str,
+) -> Dict[str, Any] | None:
     row = conn.execute(
         text(
             f"""
             SELECT
+                batch_kind,
                 batch_id,
                 status,
                 input_file_id,
@@ -71,10 +86,12 @@ def _fetch_unapplied_offline_batch(conn: Connection, schema: str) -> Dict[str, A
                 request_total
             FROM {schema}.tx_metadata_offline_batches
             WHERE applied = 0
+              AND batch_kind = :batch_kind
             ORDER BY created_at ASC
             LIMIT 1
             """
-        )
+        ),
+        {"batch_kind": batch_kind},
     ).mappings().first()
     if row is None:
         return None
@@ -85,6 +102,7 @@ def _upsert_offline_batch_row(
     conn: Connection,
     schema: str,
     *,
+    batch_kind: str,
     batch: Any,
     completion_window: str,
     request_total: int,
@@ -93,6 +111,7 @@ def _upsert_offline_batch_row(
         text(
             f"""
             INSERT INTO {schema}.tx_metadata_offline_batches (
+                batch_kind,
                 batch_id,
                 created_at,
                 status,
@@ -104,6 +123,7 @@ def _upsert_offline_batch_row(
                 applied
             )
             VALUES (
+                :batch_kind,
                 :batch_id,
                 UTC_TIMESTAMP(),
                 :status,
@@ -124,6 +144,7 @@ def _upsert_offline_batch_row(
             """
         ),
         {
+            "batch_kind": batch_kind,
             "batch_id": batch.id,
             "status": batch.status,
             "input_file_id": getattr(batch, "input_file_id", None),
@@ -134,17 +155,23 @@ def _upsert_offline_batch_row(
         },
     )
 
-
-def _mark_offline_batch_applied(conn: Connection, schema: str, batch_id: str) -> None:
+def _mark_offline_batch_applied(
+    conn: Connection,
+    schema: str,
+    *,
+    batch_kind: str,
+    batch_id: str,
+) -> None:
     _ = conn.execute(
         text(
             f"""
             UPDATE {schema}.tx_metadata_offline_batches
             SET applied = 1, applied_at = UTC_TIMESTAMP()
             WHERE batch_id = :batch_id
+              AND batch_kind = :batch_kind
             """
         ),
-        {"batch_id": batch_id},
+        {"batch_id": batch_id, "batch_kind": batch_kind},
     )
 
 
@@ -332,29 +359,33 @@ def _apply_offline_batch_output(
     schema: str,
     agreements_table: str,
     batch: Any,
+    *,
+    update_sql: Any | None = None,
+    parse_response_text: Any | None = None,
+    build_update_params: Any | None = None,
+    log_prefix: str = "tx_metadata_asset (offline)",
 ) -> Tuple[int, int, list[str]]:
     ofid = getattr(batch, "output_file_id", None)
     if not ofid:
-        context.log.warning("tx_metadata_asset (offline): batch has no output_file_id.")
+        context.log.warning("%s: batch has no output_file_id.", log_prefix)
         return 0, 0, []
 
     out_content = client.files.content(ofid)
     out_text = read_openai_file_text(out_content)
-
-    update_offline_q = text(
-        f"""
-        UPDATE {agreements_table}
-        SET
-            target = COALESCE(target, :target),
-            acquirer = COALESCE(acquirer, :acquirer),
-            deal_type = COALESCE(deal_type, :deal_type)
-        WHERE agreement_uuid = :uuid
-          AND (
-            NOT (target <=> COALESCE(target, :target))
-            OR NOT (acquirer <=> COALESCE(acquirer, :acquirer))
-            OR NOT (deal_type <=> COALESCE(deal_type, :deal_type))
-          )
-        """
+    resolved_update_sql = (
+        _metadata_offline_update_sql(agreements_table)
+        if update_sql is None
+        else update_sql
+    )
+    resolved_parse_response_text = (
+        parse_offline_tx_metadata_response_text
+        if parse_response_text is None
+        else parse_response_text
+    )
+    resolved_build_update_params = (
+        build_offline_update_params
+        if build_update_params is None
+        else build_update_params
     )
     updated = 0
     parse_errors = 0
@@ -378,20 +409,64 @@ def _apply_offline_batch_output(
                 parse_errors += 1
                 continue
             raw_text = extract_output_text_from_batch_body(body)
-            parsed = parse_offline_tx_metadata_response_text(raw_text)
-            params = build_offline_update_params(agreement_uuid=rid, parsed=parsed)
+            parsed = resolved_parse_response_text(raw_text)
+            params = resolved_build_update_params(agreement_uuid=rid, parsed=parsed)
         except (TypeError, ValueError, KeyError) as e:
             parse_errors += 1
-            context.log.warning(f"tx_metadata_asset (offline): parse error for {rid}: {e}")
+            context.log.warning("%s: parse error for %s: %s", log_prefix, rid, e)
             continue
 
         with engine.begin() as conn:
-            result = conn.execute(update_offline_q, params)
+            result = conn.execute(resolved_update_sql, params)
             if int(result.rowcount or 0) > 0:
                 _ = refresh_latest_sections_search(conn, schema, [str(rid)])
                 refreshed_uuids.append(str(rid))
         updated += 1
     return updated, parse_errors, refreshed_uuids
+
+
+def _metadata_offline_update_sql(agreements_table: str) -> Any:
+    return text(
+        f"""
+        UPDATE {agreements_table}
+        SET
+            target = COALESCE(target, :target),
+            acquirer = COALESCE(acquirer, :acquirer),
+            deal_type = COALESCE(deal_type, :deal_type)
+        WHERE agreement_uuid = :uuid
+          AND (
+            NOT (target <=> COALESCE(target, :target))
+            OR NOT (acquirer <=> COALESCE(acquirer, :acquirer))
+            OR NOT (deal_type <=> COALESCE(deal_type, :deal_type))
+          )
+        """
+    )
+
+
+def _counsel_offline_update_sql(agreements_table: str) -> Any:
+    return text(
+        f"""
+        UPDATE {agreements_table}
+        SET
+            target_counsel = COALESCE(target_counsel, :target_counsel),
+            acquirer_counsel = COALESCE(acquirer_counsel, :acquirer_counsel),
+            target_counsel_normalized = COALESCE(target_counsel_normalized, :target_counsel_normalized),
+            acquirer_counsel_normalized = COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
+        WHERE agreement_uuid = :uuid
+          AND (
+            NOT (target_counsel <=> COALESCE(target_counsel, :target_counsel))
+            OR NOT (acquirer_counsel <=> COALESCE(acquirer_counsel, :acquirer_counsel))
+            OR NOT (
+                target_counsel_normalized
+                <=> COALESCE(target_counsel_normalized, :target_counsel_normalized)
+            )
+            OR NOT (
+                acquirer_counsel_normalized
+                <=> COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
+            )
+          )
+        """
+    )
 
 
 @dg.asset(deps=[], name="8_tx_metadata_asset")
@@ -454,59 +529,271 @@ def _run_offline_mode(
             schema=schema,
             table_names=("tx_metadata_offline_batches",),
         )
-        existing_batch = _fetch_unapplied_offline_batch(conn, schema)
+    _run_offline_metadata_subflow(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        pages_table=pages_table,
+        tagged_outputs_table=tagged_outputs_table,
+        batch_size=batch_size,
+    )
+    _run_offline_counsel_subflow(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_size=batch_size,
+    )
 
+
+def _run_offline_metadata_subflow(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    client: OpenAI,
+    schema: str,
+    agreements_table: str,
+    pages_table: str,
+    tagged_outputs_table: str,
+    batch_size: int,
+) -> None:
+    log_prefix = "tx_metadata_asset (offline metadata)"
+    existing_batch = _load_existing_offline_batch(
+        engine,
+        schema=schema,
+        batch_kind=OFFLINE_METADATA_BATCH_KIND,
+    )
     if existing_batch is not None:
-        existing_batch_id = existing_batch["batch_id"]
-        context.log.info(
-            f"tx_metadata_asset (offline): resuming existing batch {existing_batch_id}."
-        )
-        batch = poll_batch_until_terminal(
-            context,
-            client,
-            existing_batch_id,
-            log_prefix="tx_metadata_asset (offline)",
-        )
-        request_total = int(existing_batch["request_total"])
-        with engine.begin() as conn:
-            _upsert_offline_batch_row(
-                conn,
-                schema,
-                batch=batch,
-                completion_window=str(existing_batch["completion_window"]),
-                request_total=request_total,
-            )
-
-        if batch.status != "completed":
-            context.log.warning(
-                f"tx_metadata_asset (offline): batch {batch.id} ended with status={batch.status}; not applying updates."
-            )
-            with engine.begin() as conn:
-                _mark_offline_batch_applied(conn, schema, batch.id)
-            return
-
-        updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+        _resume_and_apply_offline_batch(
             context=context,
             engine=engine,
             client=client,
             schema=schema,
             agreements_table=agreements_table,
-            batch=batch,
-        )
-        with engine.begin() as conn:
-            _mark_offline_batch_applied(conn, schema, batch.id)
-        context.log.info(
-            "tx_metadata_asset (offline): resumed batch %s completed; updated=%s, parse_errors=%s, refreshed_latest_sections_search=%s",
-            batch.id,
-            updated,
-            parse_errors,
-            len(refreshed_uuids),
+            batch_kind=OFFLINE_METADATA_BATCH_KIND,
+            batch_row=existing_batch,
+            update_sql=_metadata_offline_update_sql(agreements_table),
+            parse_response_text=parse_offline_tx_metadata_response_text,
+            build_update_params=build_offline_update_params,
+            log_prefix=log_prefix,
         )
         return
 
-    # Select page payloads for agreements that are actually runnable in offline mode:
-    # target/acquirer/deal_type missing, not gated, and has non-empty text in
-    # (all front_matter + first 2 body pages). Then cap at batch_size agreements.
+    lines = _build_offline_metadata_lines(
+        context=context,
+        engine=engine,
+        agreements_table=agreements_table,
+        pages_table=pages_table,
+        tagged_outputs_table=tagged_outputs_table,
+        batch_size=batch_size,
+    )
+    if not lines:
+        context.log.info("%s: no runnable agreements need target/acquirer/deal_type.", log_prefix)
+        return
+    _create_and_apply_offline_batch(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_kind=OFFLINE_METADATA_BATCH_KIND,
+        lines=lines,
+        request_filename="tx_metadata_offline_metadata_requests.jsonl",
+        update_sql=_metadata_offline_update_sql(agreements_table),
+        parse_response_text=parse_offline_tx_metadata_response_text,
+        build_update_params=build_offline_update_params,
+        log_prefix=log_prefix,
+    )
+
+
+def _run_offline_counsel_subflow(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    client: OpenAI,
+    schema: str,
+    agreements_table: str,
+    batch_size: int,
+) -> None:
+    log_prefix = "tx_metadata_asset (offline counsel)"
+    existing_batch = _load_existing_offline_batch(
+        engine,
+        schema=schema,
+        batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
+    )
+    if existing_batch is not None:
+        _resume_and_apply_offline_batch(
+            context=context,
+            engine=engine,
+            client=client,
+            schema=schema,
+            agreements_table=agreements_table,
+            batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
+            batch_row=existing_batch,
+            update_sql=_counsel_offline_update_sql(agreements_table),
+            parse_response_text=parse_offline_counsel_response_text,
+            build_update_params=build_offline_counsel_update_params,
+            log_prefix=log_prefix,
+        )
+        return
+
+    lines = _build_offline_counsel_lines(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_size=batch_size,
+    )
+    if not lines:
+        context.log.info("%s: no runnable agreements need counsel extraction.", log_prefix)
+        return
+    _create_and_apply_offline_batch(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
+        lines=lines,
+        request_filename="tx_metadata_offline_counsel_requests.jsonl",
+        update_sql=_counsel_offline_update_sql(agreements_table),
+        parse_response_text=parse_offline_counsel_response_text,
+        build_update_params=build_offline_counsel_update_params,
+        log_prefix=log_prefix,
+    )
+
+
+def _load_existing_offline_batch(engine: Any, *, schema: str, batch_kind: str) -> Dict[str, Any] | None:
+    with engine.begin() as conn:
+        return _fetch_unapplied_offline_batch(conn, schema, batch_kind=batch_kind)
+
+
+def _resume_and_apply_offline_batch(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    client: OpenAI,
+    schema: str,
+    agreements_table: str,
+    batch_kind: str,
+    batch_row: Dict[str, Any],
+    update_sql: Any,
+    parse_response_text: Any,
+    build_update_params: Any,
+    log_prefix: str,
+) -> None:
+    batch = poll_batch_until_terminal(
+        context,
+        client,
+        str(batch_row["batch_id"]),
+        log_prefix=log_prefix,
+    )
+    with engine.begin() as conn:
+        _upsert_offline_batch_row(
+            conn,
+            schema,
+            batch_kind=batch_kind,
+            batch=batch,
+            completion_window=str(batch_row["completion_window"]),
+            request_total=int(batch_row["request_total"]),
+        )
+    if batch.status != "completed":
+        context.log.warning("%s: batch %s ended with status=%s; not applying updates.", log_prefix, batch.id, batch.status)
+        with engine.begin() as conn:
+            _mark_offline_batch_applied(conn, schema, batch_kind=batch_kind, batch_id=str(batch.id))
+        return
+    updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch=batch,
+        update_sql=update_sql,
+        parse_response_text=parse_response_text,
+        build_update_params=build_update_params,
+        log_prefix=log_prefix,
+    )
+    with engine.begin() as conn:
+        _mark_offline_batch_applied(conn, schema, batch_kind=batch_kind, batch_id=str(batch.id))
+    context.log.info(
+        "%s: resumed batch %s completed; updated=%s, parse_errors=%s, refreshed_latest_sections_search=%s",
+        log_prefix,
+        batch.id,
+        updated,
+        parse_errors,
+        len(refreshed_uuids),
+    )
+
+
+def _create_and_apply_offline_batch(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    client: OpenAI,
+    schema: str,
+    agreements_table: str,
+    batch_kind: str,
+    lines: List[Dict[str, Any]],
+    request_filename: str,
+    update_sql: Any,
+    parse_response_text: Any,
+    build_update_params: Any,
+    log_prefix: str,
+) -> None:
+    jsonl_buf = io.StringIO()
+    for line in lines:
+        _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+    jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+    jsonl_bytes.name = request_filename
+    in_file = client.files.create(purpose="batch", file=jsonl_bytes)
+    completion_window = "24h"
+    batch = client.batches.create(
+        input_file_id=in_file.id,
+        endpoint="/v1/responses",
+        completion_window=completion_window,
+    )
+    with engine.begin() as conn:
+        _upsert_offline_batch_row(
+            conn,
+            schema,
+            batch_kind=batch_kind,
+            batch=batch,
+            completion_window=completion_window,
+            request_total=len(lines),
+        )
+    context.log.info("%s: created batch %s with %s requests; polling until complete.", log_prefix, batch.id, len(lines))
+    _resume_and_apply_offline_batch(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_kind=batch_kind,
+        batch_row={
+            "batch_id": batch.id,
+            "completion_window": completion_window,
+            "request_total": len(lines),
+        },
+        update_sql=update_sql,
+        parse_response_text=parse_response_text,
+        build_update_params=build_update_params,
+        log_prefix=log_prefix,
+    )
+
+
+def _build_offline_metadata_lines(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    agreements_table: str,
+    pages_table: str,
+    tagged_outputs_table: str,
+    batch_size: int,
+) -> List[Dict[str, Any]]:
     pages_q = text(
         f"""
         WITH candidate_pages AS (
@@ -527,7 +814,7 @@ def _run_offline_mode(
                 (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
                 AND (a.paginated = True OR a.paginated IS NULL)
                 AND a.gated = 0
-              AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
+                AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
         ),
         selected_pages AS (
             SELECT agreement_uuid, page_order, page_text
@@ -557,106 +844,118 @@ def _run_offline_mode(
     )
     with engine.begin() as conn:
         page_rows = conn.execute(pages_q, {"lim": batch_size}).mappings().fetchall()
-    if not page_rows:
-        context.log.info("tx_metadata_asset (offline): no runnable agreements need target/acquirer/deal_type.")
-        return
-
-    # Group by agreement_uuid and concatenate text (order preserved by ORDER BY above)
     by_agr: Dict[str, List[str]] = {}
-    for r in page_rows:
-        agr_uuid = r["agreement_uuid"]
-        text_val = r["page_text"] or ""
-        by_agr.setdefault(agr_uuid, []).append(text_val)
-    agreement_uuids = list(by_agr.keys())
-    context.log.info(
-        "tx_metadata_asset (offline): selected %s runnable agreements (batch_size=%s).",
-        len(agreement_uuids),
-        batch_size,
-    )
-    agreement_texts = {
-        agr_uuid: "\n\n".join(texts)
-        for agr_uuid, texts in by_agr.items()
-    }
-
-    # Build JSONL for Batch API: one line per agreement
+    for row in page_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        page_text = str(row["page_text"] or "")
+        by_agr.setdefault(agreement_uuid, []).append(page_text)
     lines: List[Dict[str, Any]] = []
-    for agr_uuid in agreement_uuids:
-        concat = agreement_texts.get(agr_uuid) or ""
-        if not concat.strip():
-            context.log.warning(f"tx_metadata_asset (offline): no page text for {agr_uuid}; skipping.")
+    for agreement_uuid, texts in by_agr.items():
+        concat = "\n\n".join(texts).strip()
+        if not concat:
+            context.log.warning("tx_metadata_asset (offline metadata): no page text for %s; skipping.", agreement_uuid)
             continue
-        line = build_offline_tx_metadata_request_body(agr_uuid, concat, model="gpt-5-mini")
-        lines.append(line)
+        lines.append(build_offline_tx_metadata_request_body(agreement_uuid, concat, model="gpt-5-mini"))
+    return lines
 
-    if not lines:
-        context.log.info("tx_metadata_asset (offline): no agreements with page text to send.")
-        return
 
-    jsonl_buf = io.StringIO()
-    for line in lines:
-        _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
-    jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
-    jsonl_bytes.name = "tx_metadata_offline_requests.jsonl"
-    in_file = client.files.create(purpose="batch", file=jsonl_bytes)
-    completion_window = "24h"
-    batch = client.batches.create(
-        input_file_id=in_file.id,
-        endpoint="/v1/responses",
-        completion_window=completion_window,
+def _build_offline_counsel_lines(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    agreements_table: str,
+    batch_size: int,
+) -> List[Dict[str, Any]]:
+    sections_table = f"{schema}.sections"
+    xml_table = f"{schema}.xml"
+    counsel_q = text(
+        f"""
+        {canonical_components_cte_sql(schema)}
+        ,
+        matching_sections AS (
+            SELECT
+                a.agreement_uuid,
+                a.target,
+                a.acquirer,
+                s.section_uuid,
+                s.xml_content
+            FROM state_components sc
+            JOIN {agreements_table} a
+              ON a.agreement_uuid = sc.agreement_uuid
+            JOIN {xml_table} x
+              ON x.agreement_uuid = sc.agreement_uuid
+             AND x.latest = 1
+             AND x.status = 'verified'
+             AND x.version = sc.latest_xml_version
+            JOIN {sections_table} s
+              ON s.agreement_uuid = x.agreement_uuid
+             AND s.xml_version = x.version
+            WHERE sc.agreement_uuid IS NOT NULL
+              AND (
+                    a.target_counsel IS NULL
+                    OR a.acquirer_counsel IS NULL
+                    OR a.target_counsel_normalized IS NULL
+                    OR a.acquirer_counsel_normalized IS NULL
+              )
+              AND a.target IS NOT NULL
+              AND TRIM(a.target) <> ''
+              AND a.acquirer IS NOT NULL
+              AND TRIM(a.acquirer) <> ''
+              AND sc.has_latest_xml = 1
+              AND sc.latest_xml_status = 'verified'
+              AND sc.latest_section_count > 0
+              AND sc.has_stale_body_tags = 0
+              AND COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id
+        ),
+        selected_agreements AS (
+            SELECT agreement_uuid
+            FROM matching_sections
+            GROUP BY agreement_uuid
+            ORDER BY agreement_uuid ASC
+            LIMIT :lim
+        )
+        SELECT
+            ms.agreement_uuid,
+            ms.target,
+            ms.acquirer,
+            ms.section_uuid,
+            ms.xml_content
+        FROM matching_sections ms
+        JOIN selected_agreements sa
+          ON sa.agreement_uuid = ms.agreement_uuid
+        ORDER BY ms.agreement_uuid ASC, ms.section_uuid ASC
+        """
     )
     with engine.begin() as conn:
-        _upsert_offline_batch_row(
-            conn,
-            schema,
-            batch=batch,
-            completion_window=completion_window,
-            request_total=len(lines),
+        rows = conn.execute(
+            counsel_q,
+            {"counsel_standard_id": COUNSEL_SECTION_STANDARD_ID, "lim": batch_size},
+        ).mappings().fetchall()
+    grouped_texts: Dict[str, List[str]] = {}
+    target_by_agreement: Dict[str, str] = {}
+    acquirer_by_agreement: Dict[str, str] = {}
+    for row in rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        grouped_texts.setdefault(agreement_uuid, []).append(str(row["xml_content"] or ""))
+        _ = target_by_agreement.setdefault(agreement_uuid, str(row["target"]))
+        _ = acquirer_by_agreement.setdefault(agreement_uuid, str(row["acquirer"]))
+    lines: List[Dict[str, Any]] = []
+    for agreement_uuid, section_texts in grouped_texts.items():
+        joined_text = "\n\n".join(section_texts).strip()
+        if not joined_text:
+            context.log.warning("tx_metadata_asset (offline counsel): no counsel section text for %s; skipping.", agreement_uuid)
+            continue
+        lines.append(
+            build_offline_counsel_request_body(
+                agreement_uuid,
+                section_text=joined_text,
+                target_name=target_by_agreement[agreement_uuid],
+                acquirer_name=acquirer_by_agreement[agreement_uuid],
+                model="gpt-5-mini",
+            )
         )
-    context.log.info(
-        f"tx_metadata_asset (offline): created batch {batch.id} with {len(lines)} requests; polling until complete."
-    )
-
-    final_batch = poll_batch_until_terminal(
-        context,
-        client,
-        batch.id,
-        log_prefix="tx_metadata_asset (offline)",
-    )
-    with engine.begin() as conn:
-        _upsert_offline_batch_row(
-            conn,
-            schema,
-            batch=final_batch,
-            completion_window=completion_window,
-            request_total=len(lines),
-        )
-
-    if final_batch.status != "completed":
-        context.log.warning(
-            f"tx_metadata_asset (offline): batch {final_batch.id} ended with status={final_batch.status}; not applying updates."
-        )
-        with engine.begin() as conn:
-            _mark_offline_batch_applied(conn, schema, final_batch.id)
-        return
-
-    updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
-        context=context,
-        engine=engine,
-        client=client,
-        schema=schema,
-        agreements_table=agreements_table,
-        batch=final_batch,
-    )
-    with engine.begin() as conn:
-        _mark_offline_batch_applied(conn, schema, final_batch.id)
-
-    context.log.info(
-        "tx_metadata_asset (offline): batch %s completed; updated=%s, parse_errors=%s, refreshed_latest_sections_search=%s",
-        final_batch.id,
-        updated,
-        parse_errors,
-        len(refreshed_uuids),
-    )
+    return lines
 
 
 def _run_web_search_mode(

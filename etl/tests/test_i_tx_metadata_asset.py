@@ -13,8 +13,15 @@ from openai import OpenAI
 from etl.defs.resources import PipelineConfig, QueueRunMode
 from etl.defs.i_tx_metadata_asset import (
     _apply_offline_batch_output,
+    _build_offline_counsel_lines,
+    _counsel_offline_update_sql,
     _run_web_search_mode,
     tx_metadata_asset,
+)
+from etl.domain.i_tx_metadata import normalize_counsel_name
+from etl.domain.i_tx_metadata import (
+    build_offline_counsel_update_params,
+    parse_offline_counsel_response_text,
 )
 
 
@@ -151,6 +158,24 @@ class _FakeWebConn:
 
 class _FakeWebEngine:
     def __init__(self, conn: _FakeWebConn) -> None:
+        self._conn = conn
+
+    def begin(self) -> _FakeBeginContext:
+        return _FakeBeginContext(self._conn)
+
+
+class _FakeCounselSelectionConn:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+        self.executed_sql: list[str] = []
+
+    def execute(self, statement: object, _params: dict[str, object]) -> _FakeResult:
+        self.executed_sql.append(str(statement))
+        return _FakeResult(rows=self.rows)
+
+
+class _FakeCounselSelectionEngine:
+    def __init__(self, conn: _FakeCounselSelectionConn) -> None:
         self._conn = conn
 
     def begin(self) -> _FakeBeginContext:
@@ -425,6 +450,99 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 agreements_table="pdx.agreements",
                 batch=SimpleNamespace(output_file_id="file-1"),
             )
+
+    def test_apply_offline_batch_output_supports_counsel_updates(self) -> None:
+        response_payload = {
+            "custom_id": "agreement-1",
+            "response": {
+                "status_code": 200,
+                "body": {
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "text": (
+                                        '{"target_counsel":"Wachtell, Lipton, Rosen & Katz",'
+                                        '"acquirer_counsel":"Kirkland & Ellis LLP"}'
+                                    )
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+        client = _FakeOfflineClient(json.dumps(response_payload))
+        conn = _FakeOfflineConn(rowcount=1)
+        engine = _FakeOfflineEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        with patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh:
+            updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                client=cast(OpenAI, cast(object, client)),
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch=SimpleNamespace(output_file_id="file-1"),
+                update_sql=_counsel_offline_update_sql("pdx.agreements"),
+                parse_response_text=parse_offline_counsel_response_text,
+                build_update_params=build_offline_counsel_update_params,
+                log_prefix="tx_metadata_asset (offline counsel)",
+            )
+
+        self.assertEqual(updated, 1)
+        self.assertEqual(parse_errors, 0)
+        self.assertEqual(refreshed_uuids, ["agreement-1"])
+        refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
+
+    def test_build_offline_counsel_lines_uses_matching_sections(self) -> None:
+        conn = _FakeCounselSelectionConn(
+            [
+                {
+                    "agreement_uuid": "agreement-1",
+                    "target": "Target A",
+                    "acquirer": "Acquirer A",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is Wachtell, Lipton, Rosen &amp; Katz.</section>",
+                },
+                {
+                    "agreement_uuid": "agreement-1",
+                    "target": "Target A",
+                    "acquirer": "Acquirer A",
+                    "section_uuid": "section-2",
+                    "xml_content": "<section>Acquirer counsel is Kirkland &amp; Ellis LLP.</section>",
+                },
+            ]
+        )
+        engine = _FakeCounselSelectionEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        lines = _build_offline_counsel_lines(
+            context=cast(AssetExecutionContext, cast(object, context)),
+            engine=engine,
+            schema="pdx",
+            agreements_table="pdx.agreements",
+            batch_size=10,
+        )
+
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["custom_id"], "agreement-1")
+        self.assertIn("Target name: Target A", str(lines[0]["body"]["input"][0]["content"]))
+        self.assertTrue(
+            any(
+                "COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id"
+                in sql
+                for sql in conn.executed_sql
+            )
+        )
+
+    def test_normalize_counsel_name_ignores_punctuation_and_spacing(self) -> None:
+        self.assertEqual(
+            normalize_counsel_name("Wachtell,  Lipton, Rosen + Katz LLP"),
+            normalize_counsel_name("wachtell lipton rosen and katz llp"),
+        )
 
     def test_run_web_search_mode_refreshes_projection_for_updated_agreement(self) -> None:
         conn = _FakeWebConn()

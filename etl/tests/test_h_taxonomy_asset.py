@@ -7,7 +7,7 @@ from unittest.mock import patch
 from dagster import AssetExecutionContext
 
 from etl.defs.h_taxonomy_asset import taxonomy_asset
-from etl.defs.resources import TaxonomyMode
+from etl.defs.resources import QueueRunMode, TaxonomyMode
 
 
 class _FakeResult:
@@ -68,7 +68,7 @@ class _FakeConn:
 
 
 class _FakeEngine:
-    def __init__(self, conn: _FakeConn) -> None:
+    def __init__(self, conn: object) -> None:
         self._conn = conn
 
     def begin(self) -> _FakeBeginContext:
@@ -101,10 +101,10 @@ class TaxonomyAssetProjectionRefreshTests(unittest.TestCase):
         pipeline_config = SimpleNamespace(
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.INFERENCE,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
         )
 
         with (
-            patch("etl.defs.h_taxonomy_asset.is_batched", return_value=True),
             patch(
                 "etl.defs.h_taxonomy_asset.predict_taxonomy",
                 return_value=(
@@ -166,10 +166,10 @@ class TaxonomyAssetProjectionRefreshTests(unittest.TestCase):
         pipeline_config = SimpleNamespace(
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.INFERENCE,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
         )
 
         with (
-            patch("etl.defs.h_taxonomy_asset.is_batched", return_value=True),
             patch(
                 "etl.defs.h_taxonomy_asset.predict_taxonomy",
                 return_value=(
@@ -234,10 +234,10 @@ class TaxonomyAssetProjectionRefreshTests(unittest.TestCase):
         pipeline_config = SimpleNamespace(
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.INFERENCE,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
         )
 
         with (
-            patch("etl.defs.h_taxonomy_asset.is_batched", return_value=True),
             patch(
                 "etl.defs.h_taxonomy_asset.predict_taxonomy",
                 return_value=(
@@ -286,10 +286,10 @@ class TaxonomyAssetProjectionRefreshTests(unittest.TestCase):
         pipeline_config = SimpleNamespace(
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.GOLD_BACKFILL,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
         )
 
         with (
-            patch("etl.defs.h_taxonomy_asset.is_batched", return_value=True),
             patch(
                 "etl.defs.h_taxonomy_asset.predict_taxonomy",
                 side_effect=AssertionError(

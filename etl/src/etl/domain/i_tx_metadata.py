@@ -479,6 +479,144 @@ def build_offline_update_params(
     }
 
 
+def json_schema_offline_counsel() -> Dict[str, Any]:
+    """JSON schema for offline counsel extraction."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "target_counsel": {"type": ["string", "null"]},
+            "acquirer_counsel": {"type": ["string", "null"]},
+        },
+        "required": ["target_counsel", "acquirer_counsel"],
+    }
+
+
+TX_METADATA_OFFLINE_COUNSEL_INSTRUCTIONS = (
+    "You are an expert at reading M&A agreement documents. "
+    "Using ONLY the provided section text plus the provided target and acquirer party names, "
+    "extract the law firm serving as counsel to each side. "
+    "Return two fields: "
+    "1) target_counsel: the law firm representing the target/seller/company being acquired. "
+    "2) acquirer_counsel: the law firm representing the acquirer/buyer/parent. "
+    "If either side is unclear, return null for that field. "
+    "Return the firm name only, not individual lawyers, addresses, or extra commentary. "
+    "Return only valid JSON matching the schema; no commentary."
+)
+
+
+def build_offline_counsel_request_body(
+    agreement_uuid: str,
+    *,
+    section_text: str,
+    target_name: str,
+    acquirer_name: str,
+    model: str = "gpt-5-mini",
+) -> Dict[str, Any]:
+    """Build request body for counsel extraction from the counsel section."""
+    schema = json_schema_offline_counsel()
+    prompt = (
+        f"Target name: {target_name}\n"
+        f"Acquirer name: {acquirer_name}\n\n"
+        "Counsel section text:\n"
+        f"{section_text}"
+    )
+    return {
+        "custom_id": agreement_uuid,
+        "method": "POST",
+        "url": "/v1/responses",
+        "body": {
+            "model": model,
+            "instructions": TX_METADATA_OFFLINE_COUNSEL_INSTRUCTIONS,
+            "input": [{"role": "user", "content": prompt}],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "offline_tx_counsel",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+        },
+    }
+
+
+_COUNSEL_PUNCT_RE = re.compile(r"[^a-z0-9& ]+")
+_COUNSEL_SPACE_RE = re.compile(r"\s+")
+
+
+def normalize_counsel_name(value: object | None) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("Counsel name must be a string or null.")
+    cleaned = value.strip().lower()
+    if not cleaned:
+        return None
+    cleaned = cleaned.replace("+", " and ")
+    cleaned = cleaned.replace("@", " at ")
+    cleaned = cleaned.replace("/", " ")
+    cleaned = re.sub(r"\band\b", "&", cleaned)
+    cleaned = re.sub(r"\bllp\b", "llp", cleaned)
+    cleaned = re.sub(r"\bl\.l\.p\.\b", "llp", cleaned)
+    cleaned = re.sub(r"\blp\b", "lp", cleaned)
+    cleaned = re.sub(r"\bl\.p\.\b", "lp", cleaned)
+    cleaned = re.sub(r"\blimited liability partnership\b", "llp", cleaned)
+    cleaned = re.sub(r"\bp\.c\.\b", "pc", cleaned)
+    cleaned = re.sub(r"\bp c\b", "pc", cleaned)
+    cleaned = re.sub(r"\ba\.p\.c\.\b", "apc", cleaned)
+    cleaned = _COUNSEL_PUNCT_RE.sub(" ", cleaned)
+    cleaned = _COUNSEL_SPACE_RE.sub(" ", cleaned).strip()
+    return cleaned or None
+
+
+def parse_offline_counsel_response_text(raw_text: str) -> Dict[str, Any]:
+    obj = json.loads(raw_text)
+    if not isinstance(obj, dict):
+        raise ValueError("Response JSON is not an object.")
+    for key in ("target_counsel", "acquirer_counsel"):
+        if key not in obj:
+            raise ValueError(f"Missing required key in response JSON: {key!r}.")
+        if obj[key] is not None and not isinstance(obj[key], str):
+            raise TypeError(f"{key} must be a string or null.")
+    target_counsel_raw = obj.get("target_counsel")
+    acquirer_counsel_raw = obj.get("acquirer_counsel")
+    target_counsel = (
+        target_counsel_raw.strip() if isinstance(target_counsel_raw, str) and target_counsel_raw.strip() else None
+    )
+    acquirer_counsel = (
+        acquirer_counsel_raw.strip()
+        if isinstance(acquirer_counsel_raw, str) and acquirer_counsel_raw.strip()
+        else None
+    )
+    return {
+        "target_counsel": target_counsel,
+        "acquirer_counsel": acquirer_counsel,
+        "target_counsel_normalized": normalize_counsel_name(target_counsel),
+        "acquirer_counsel_normalized": normalize_counsel_name(acquirer_counsel),
+    }
+
+
+def build_offline_counsel_update_params(
+    *,
+    agreement_uuid: str,
+    parsed: Dict[str, Any],
+) -> Dict[str, Any]:
+    target_counsel = parsed.get("target_counsel")
+    acquirer_counsel = parsed.get("acquirer_counsel")
+    if target_counsel is not None and not isinstance(target_counsel, str):
+        raise TypeError("target_counsel must be a string or null.")
+    if acquirer_counsel is not None and not isinstance(acquirer_counsel, str):
+        raise TypeError("acquirer_counsel must be a string or null.")
+    return {
+        "uuid": agreement_uuid,
+        "target_counsel": target_counsel or None,
+        "acquirer_counsel": acquirer_counsel or None,
+        "target_counsel_normalized": normalize_counsel_name(target_counsel),
+        "acquirer_counsel_normalized": normalize_counsel_name(acquirer_counsel),
+    }
+
+
 def map_consideration_type_to_db(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
