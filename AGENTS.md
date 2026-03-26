@@ -22,9 +22,23 @@
 
 ## Validation
 - Use the narrowest relevant validation for the files you touch.
-- For backend Python changes, activate `backend/venv` and run targeted `unittest` modules from the repo root, for example: `python3 -m unittest backend.tests.test_auth -v`
-- For ETL Python changes, use the ETL environment and run targeted tests or `basedpyright` for the touched area.
+- Do not use `uv` for validation in this repo unless the user explicitly asks for it.
+- For backend Python changes, run targeted `unittest` modules from the repo root with the repo's backend interpreter, for example: `caffeinate -i backend/venv/bin/python -m unittest backend.tests.test_auth -v`
+- For ETL Python changes, run targeted tests or `basedpyright` for the touched area with the ETL environment, for example: `caffeinate -i etl/.venv/bin/python -m unittest etl.tests.test_resources -v` or `caffeinate -i etl/.venv/bin/basedpyright etl/src/etl/defs/i_tx_metadata_asset.py`
 - For material frontend changes in `frontend/`, run `npm test` and `npm run typecheck`.
+
+## Shell and Database Access
+- When you need live database access, do not stop at "the sandbox cannot access the DB". Request elevated shell access immediately and run the query yourself.
+- Main application SQL is MariaDB SQL. Auth data is a separate database bind and may be SQLite locally or Postgres in production; do not assume the auth DB uses MariaDB.
+- Prefer running shell commands with `caffeinate -i`, including tests, one-off scripts, and DB clients.
+- Prefer direct virtualenv/tool paths over activation hand-waving when you can name the exact binary, for example `backend/venv/bin/python`, `etl/.venv/bin/python`, or `etl/.venv/bin/basedpyright`.
+- If backend imports fail because main-db reflection is not needed for the task, set `SKIP_MAIN_DB_REFLECTION=1` for that command instead of treating import-time reflection as a blocker.
+- If a task depends on schema inspection or SQL verification, do the inspection directly instead of guessing. Include the exact command you ran in your notes to the user when it matters.
+- Safe MariaDB command patterns to prefer:
+  - `caffeinate -i mysql -h "$MARIADB_HOST" -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"`
+  - `caffeinate -i mysql -h "$MARIADB_HOST" -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "SHOW TABLES LIKE 'agreements';"`
+  - `caffeinate -i mysql -h "$MARIADB_HOST" -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "DESCRIBE agreements;"`
+- Required main DB env vars are `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_HOST`, and `MARIADB_DATABASE`. `backend/.env.example` shows the expected names. If those vars are missing locally, say that clearly instead of claiming DB access is impossible in principle.
 
 ## Common Workflows
 - Backend local run (from repo root): `FLASK_APP=backend.app flask run`
