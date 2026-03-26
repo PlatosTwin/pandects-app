@@ -126,9 +126,6 @@ export default function AgreementIndex() {
   const [summary, setSummary] = useState<AgreementIndexSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [statusAccordionValue, setStatusAccordionValue] = useState<
-    string | undefined
-  >(undefined);
   const [hasLoadedOverview, setHasLoadedOverview] = useState(false);
 
   const [agreements, setAgreements] = useState<AgreementIndexRow[]>([]);
@@ -330,9 +327,7 @@ export default function AgreementIndex() {
           <Accordion
             type="single"
             collapsible
-            value={statusAccordionValue}
             onValueChange={(value) => {
-              setStatusAccordionValue(value);
               if (value === "staged") {
                 setHasLoadedOverview(true);
               }
@@ -347,7 +342,6 @@ export default function AgreementIndex() {
               </AccordionTrigger>
               <AccordionContent
                 disableAnimation
-                forceMount={hasLoadedOverview ? true : undefined}
                 className="pt-3"
               >
                 {hasLoadedOverview ? (
