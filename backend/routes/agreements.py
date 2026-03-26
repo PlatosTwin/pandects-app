@@ -551,7 +551,9 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 text(
                     f"""
                     SELECT
+                        metadata_covered_agreements,
                         metadata_coverage_pct,
+                        taxonomy_covered_sections,
                         taxonomy_coverage_pct,
                         latest_filing_date
                     FROM {deps._schema_prefix()}agreement_overview_summary
@@ -605,8 +607,14 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         return {
             "years": years,
             "latest_filing_date": latest_filing_date,
+            "metadata_covered_agreements": deps._to_int(
+                cast(object, overview_row_dict.get("metadata_covered_agreements"))
+            ),
             "metadata_coverage_pct": _to_float_or_none(
                 overview_row_dict.get("metadata_coverage_pct")
+            ),
+            "taxonomy_covered_sections": deps._to_int(
+                cast(object, overview_row_dict.get("taxonomy_covered_sections"))
             ),
             "taxonomy_coverage_pct": _to_float_or_none(
                 overview_row_dict.get("taxonomy_coverage_pct")

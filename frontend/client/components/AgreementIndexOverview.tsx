@@ -69,7 +69,9 @@ type AgreementStatusYearRow = {
 type AgreementStatusSummaryResponse = {
   years: AgreementStatusYearRow[];
   latest_filing_date: string | null;
+  metadata_covered_agreements: number | null;
   metadata_coverage_pct: number | null;
+  taxonomy_covered_sections: number | null;
   taxonomy_coverage_pct: number | null;
 };
 
@@ -252,8 +254,16 @@ export function AgreementIndexOverview() {
   );
   const [statusSummaryLatestFilingDate, setStatusSummaryLatestFilingDate] =
     useState<string | null>(null);
+  const [
+    statusSummaryMetadataCoveredAgreements,
+    setStatusSummaryMetadataCoveredAgreements,
+  ] = useState<number | null>(null);
   const [statusSummaryMetadataCoveragePct, setStatusSummaryMetadataCoveragePct] =
     useState<number | null>(null);
+  const [
+    statusSummaryTaxonomyCoveredSections,
+    setStatusSummaryTaxonomyCoveredSections,
+  ] = useState<number | null>(null);
   const [statusSummaryTaxonomyCoveragePct, setStatusSummaryTaxonomyCoveragePct] =
     useState<number | null>(null);
   const [dealTypeSummary, setDealTypeSummary] = useState<
@@ -290,7 +300,13 @@ export function AgreementIndexOverview() {
         if (!cancelled) {
           setStatusSummary(data.years ?? []);
           setStatusSummaryLatestFilingDate(data.latest_filing_date ?? null);
+          setStatusSummaryMetadataCoveredAgreements(
+            data.metadata_covered_agreements ?? null,
+          );
           setStatusSummaryMetadataCoveragePct(data.metadata_coverage_pct ?? null);
+          setStatusSummaryTaxonomyCoveredSections(
+            data.taxonomy_covered_sections ?? null,
+          );
           setStatusSummaryTaxonomyCoveragePct(data.taxonomy_coverage_pct ?? null);
           setStatusSummaryLoaded(true);
         }
@@ -423,10 +439,11 @@ export function AgreementIndexOverview() {
     const total = stagedTotals.total;
     const pctOfTotal = (value: number) =>
       total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
-    const formatCoverageValue = (value: number | null) =>
-      value === null ? "—" : `${value.toFixed(1)}%`;
-    const formatCoverageDetail = (value: number | null) =>
-      value === null ? "—% of processed" : `${value.toFixed(1)}% of processed`;
+    const formatPctDetail = (
+      value: number | null,
+      denominatorLabel: "processed" | "sections",
+    ) =>
+      value === null ? `—% of ${denominatorLabel}` : `${value.toFixed(1)}% of ${denominatorLabel}`;
     return [
       {
         key: "staged",
@@ -455,14 +472,14 @@ export function AgreementIndexOverview() {
       {
         key: "metadata-coverage",
         label: "Metadata coverage",
-        value: formatCoverageValue(statusSummaryMetadataCoveragePct),
-        detail: formatCoverageDetail(statusSummaryMetadataCoveragePct),
+        value: statusSummaryMetadataCoveredAgreements ?? "—",
+        detail: formatPctDetail(statusSummaryMetadataCoveragePct, "processed"),
       },
       {
         key: "taxonomy-coverage",
         label: "Taxonomy coverage",
-        value: formatCoverageValue(statusSummaryTaxonomyCoveragePct),
-        detail: formatCoverageDetail(statusSummaryTaxonomyCoveragePct),
+        value: statusSummaryTaxonomyCoveredSections ?? "—",
+        detail: formatPctDetail(statusSummaryTaxonomyCoveragePct, "sections"),
       },
       {
         key: "latest",
@@ -476,7 +493,9 @@ export function AgreementIndexOverview() {
   }, [
     stagedTotals,
     statusSummaryLatestFilingDate,
+    statusSummaryMetadataCoveredAgreements,
     statusSummaryMetadataCoveragePct,
+    statusSummaryTaxonomyCoveredSections,
     statusSummaryTaxonomyCoveragePct,
   ]);
   const stagedPrimarySummaryMetrics = stagedSummaryMetrics.slice(0, 4);

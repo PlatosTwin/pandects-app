@@ -48,11 +48,29 @@ def _ensure_agreement_overview_summary_table(
             f"""
             CREATE TABLE IF NOT EXISTS {schema}.{table} (
                 singleton_key TINYINT NOT NULL,
+                metadata_covered_agreements BIGINT NULL,
                 metadata_coverage_pct DECIMAL(5, 1) NULL,
+                taxonomy_covered_sections BIGINT NULL,
                 taxonomy_coverage_pct DECIMAL(5, 1) NULL,
                 latest_filing_date DATE NULL,
                 PRIMARY KEY (singleton_key)
             )
+            """
+        )
+    )
+    _ = conn.execute(
+        text(
+            f"""
+            ALTER TABLE {schema}.{table}
+            ADD COLUMN IF NOT EXISTS metadata_covered_agreements BIGINT NULL
+            """
+        )
+    )
+    _ = conn.execute(
+        text(
+            f"""
+            ALTER TABLE {schema}.{table}
+            ADD COLUMN IF NOT EXISTS taxonomy_covered_sections BIGINT NULL
             """
         )
     )
@@ -281,17 +299,46 @@ def _refresh_agreement_overview_summary_table(conn: Connection, *, schema: str) 
             f"""
             INSERT INTO {overview_summary_table} (
                 singleton_key,
+                metadata_covered_agreements,
                 metadata_coverage_pct,
+                taxonomy_covered_sections,
                 taxonomy_coverage_pct,
                 latest_filing_date
             )
             SELECT
                 1 AS singleton_key,
+                SUM(CASE WHEN COALESCE(a.metadata, 0) = 1 THEN 1 ELSE 0 END) AS metadata_covered_agreements,
                 ROUND(
                     100.0 * SUM(CASE WHEN COALESCE(a.metadata, 0) = 1 THEN 1 ELSE 0 END)
                     / NULLIF(COUNT(*), 0),
                     1
                 ) AS metadata_coverage_pct,
+                (
+                    SELECT SUM(
+                        CASE
+                            WHEN (
+                                (
+                                    s.section_standard_id IS NOT NULL
+                                    AND TRIM(s.section_standard_id) <> ''
+                                    AND TRIM(s.section_standard_id) <> '[]'
+                                )
+                                OR (
+                                    s.section_standard_id_gold_label IS NOT NULL
+                                    AND TRIM(s.section_standard_id_gold_label) <> ''
+                                    AND TRIM(s.section_standard_id_gold_label) <> '[]'
+                                )
+                            ) THEN 1
+                            ELSE 0
+                        END
+                    )
+                    FROM {sections_table} s
+                    JOIN tmp_xml_latest x
+                        ON x.agreement_uuid = s.agreement_uuid
+                       AND x.version = s.xml_version
+                    JOIN {agreements_table} a2
+                        ON a2.agreement_uuid = s.agreement_uuid
+                    WHERE {_summary_eligible_agreement_where_sql(alias='a2')}
+                ) AS taxonomy_covered_sections,
                 (
                     SELECT ROUND(
                         100.0 * SUM(

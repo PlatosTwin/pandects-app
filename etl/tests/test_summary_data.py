@@ -145,6 +145,8 @@ class SummaryDataTests(unittest.TestCase):
             if "INSERT INTO pdx.agreement_overview_summary" in sql
         )
         self.assertIn("COALESCE(a.metadata, 0) = 1", overview_insert_sql)
+        self.assertIn("metadata_covered_agreements", overview_insert_sql)
+        self.assertIn("taxonomy_covered_sections", overview_insert_sql)
         self.assertIn("section_standard_id_gold_label", overview_insert_sql)
         self.assertIn("TRIM(s.section_standard_id) <> '[]'", overview_insert_sql)
         self.assertIn("TRIM(s.section_standard_id_gold_label) <> '[]'", overview_insert_sql)
@@ -155,6 +157,25 @@ class SummaryDataTests(unittest.TestCase):
         self.assertIn(
             "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)",
             overview_insert_sql,
+        )
+        ensure_table_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "CREATE TABLE IF NOT EXISTS pdx.agreement_overview_summary" in sql
+        )
+        self.assertIn("metadata_covered_agreements BIGINT NULL", ensure_table_sql)
+        self.assertIn("taxonomy_covered_sections BIGINT NULL", ensure_table_sql)
+        self.assertTrue(
+            any(
+                "ADD COLUMN IF NOT EXISTS metadata_covered_agreements BIGINT NULL" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "ADD COLUMN IF NOT EXISTS taxonomy_covered_sections BIGINT NULL" in sql
+                for sql in conn.executed_sql
+            )
         )
 
     def test_refresh_summary_data_uses_canonical_stage_sql(self) -> None:
