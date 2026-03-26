@@ -454,6 +454,52 @@ class PreProcessingTests(unittest.TestCase):
 
         self.assertEqual(text, "Section 1.2 Representations")
 
+    def test_format_content_preserves_article_heading_space_across_adjacent_inline_tags(self) -> None:
+        html = "<p>ARTICLE <b>II</b><b>THE MERGERS</b></p>"
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "ARTICLE II THE MERGERS")
+
+    def test_format_content_preserves_article_heading_space_when_next_tag_starts_with_br(self) -> None:
+        html = (
+            "<div>"
+            "<font>ARTICLE II</font>"
+            "<font><br/>THE MERGERS</font>"
+            "</div>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "ARTICLE II THE MERGERS")
+
+    def test_format_content_preserves_article_heading_space_for_nested_malformed_inline_tags(self) -> None:
+        html = (
+            "<p>"
+            "<font><b>Article&nbsp;I</b></font>"
+            "<b><font style='text-transform: uppercase'><br/></font>"
+            "THE MERGER AND THE HOLDCO MERGER</b>"
+            "</p>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "Article I THE MERGER AND THE HOLDCO MERGER")
+
+    def test_format_content_does_not_leave_trailing_space_before_heading_line_break(self) -> None:
+        html = (
+            "<div>"
+            "<font>Article XI</font>"
+            "<a name='x'></a><font style='display:inline-block;visibility:hidden;width:0pt;'>\u200b</font><br/>"
+            "<font style='display:inline-block;visibility:hidden;width:0pt;'>\u200b</font><br/>"
+            "<b>Miscellaneous</b>"
+            "</div>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "Article XI\n\nMiscellaneous")
+
     def test_format_content_does_not_add_space_before_closing_quote_with_empty_inline_tags(self) -> None:
         html = (
             "<p>"

@@ -44,6 +44,16 @@ _ARTICLE_TOKEN_RE = re.compile(r"(?i)\barticle\s+(?:[IVXLCDM]+|\d+)[A-Za-z]")
 _EXHIBIT_TOKEN_RE = re.compile(
     r"(?i)\b(exhibit|annex|appendix|schedule)\s+[A-Z0-9]+[A-Za-z]"
 )
+_ARTICLE_HEADING_LABEL_RE = re.compile(r"(?i)^(?:[IVXLCDM]+|\d+)$")
+_EXHIBIT_HEADING_LABEL_RE = re.compile(r"^[A-Z0-9]+$")
+_ARTICLE_HEADING_PREFIX_RE = re.compile(r"(?i)^article\s+(?:[IVXLCDM]+|\d+)$")
+_EXHIBIT_HEADING_PREFIX_RE = re.compile(
+    r"(?i)^(?:exhibit|annex|appendix|schedule)\s+[A-Z0-9]+$"
+)
+_ROMAN_NUMERAL_RE = re.compile(r"(?i)^[IVXLCDM]+$")
+_HEADING_LABEL_LINE_TRAILING_SPACE_RE = re.compile(
+    r"(?im)^((?:article|exhibit|annex|appendix|schedule)\s+[A-Z0-9IVXLCDM.]+) \n\n"
+)
 
 
 class ClassifierProbs(TypedDict):
@@ -337,6 +347,10 @@ def _normalize_padded_quoted_terms(text: str) -> str:
     return normalize_padded_quoted_terms(text)
 
 
+def _strip_heading_label_trailing_space_before_breaks(text: str) -> str:
+    return _HEADING_LABEL_LINE_TRAILING_SPACE_RE.sub(r"\1\n\n", text)
+
+
 def move_leading_quicklinks_to_footer(text: str) -> str:
     lines = text.split("\n")
     nonempty_entries: list[tuple[int, str]] = []
@@ -410,6 +424,42 @@ def strip_formatting_tags(
     for tag in list(soup.find_all(True)):
         if _has_hidden_ancestor(tag):
             tag.decompose()
+
+    def _looks_like_heading_boundary(
+        left_text: str,
+        right_text: str,
+        *,
+        left_outer_text: str = "",
+    ) -> bool:
+        left = re.sub(r"\s+", " ", left_text).strip()
+        right = re.sub(r"\s+", " ", right_text).strip()
+        if not left or not right:
+            return False
+
+        left_outer = re.sub(r"\s+", " ", left_outer_text).strip()
+        article_left = left
+        exhibit_left = left
+        if left_outer:
+            article_left = f"{left_outer} {left}".strip()
+            exhibit_left = article_left
+
+        right_first_word = right.split(" ", 1)[0]
+        right_token = re.sub(r"^[^A-Za-z0-9]+|[^A-Za-z0-9]+$", "", right_first_word)
+        if (
+            _ARTICLE_HEADING_PREFIX_RE.fullmatch(article_left)
+            and bool(re.search(r"[A-Za-z]", right_first_word))
+            and not _ROMAN_NUMERAL_RE.fullmatch(right_token)
+        ):
+            return True
+
+        if (
+            _EXHIBIT_HEADING_PREFIX_RE.fullmatch(exhibit_left)
+            and bool(re.search(r"[A-Za-z]", right_first_word))
+            and not _ROMAN_NUMERAL_RE.fullmatch(right_token)
+        ):
+            return True
+
+        return False
 
     if remove_tags is None:
         remove_tags = [
@@ -716,6 +766,14 @@ def strip_formatting_tags(
                 # Avoid splitting a single word that is visually styled across tags,
                 # e.g. "D<small>EFINITIONS</small>" -> "DEFINITIONS".
                 split_word_boundary = bool(prev_last_char.isalpha() and tag_first_char.isalpha())
+                prev_outer_text = ""
+                if isinstance(prev_sibling, Tag):
+                    prev_outer_text = _node_text(_previous_substantive_sibling(prev_sibling))
+                heading_boundary = _looks_like_heading_boundary(
+                    prev_text,
+                    tag_text,
+                    left_outer_text=prev_outer_text,
+                )
                 starts_with_closing_punct = bool(tag_first_char in no_space_before_chars)
                 is_closing_quote_tag = bool(tag_text.strip() in closing_quote_chars)
                 starts_with_closing_quote = bool(tag_first_char in closing_quote_chars)
@@ -725,7 +783,7 @@ def strip_formatting_tags(
                 if (
                     not prev_ends_space
                     and not tag_starts_space
-                    and not split_word_boundary
+                    and (not split_word_boundary or heading_boundary)
                     and prev_last_char not in opening_quote_chars
                     and not starts_with_closing_punct
                     and not starts_with_closing_quote
@@ -745,6 +803,11 @@ def strip_formatting_tags(
                 next_first_char = next_text.lstrip()[0] if next_text.lstrip() else ""
                 wrapped_by_quotes = within_quote_run
                 split_word_boundary = bool(tag_last_char.isalpha() and next_first_char.isalpha())
+                heading_boundary = _looks_like_heading_boundary(
+                    tag_text,
+                    next_text,
+                    left_outer_text=prev_text,
+                )
                 starts_with_closing_punct = bool(next_first_char in no_space_before_chars)
                 ends_with_opening_punct = bool(tag_last_char in no_space_after_chars)
                 is_opening_quote_tag = bool(tag_text.strip() in opening_quote_chars)
@@ -755,7 +818,7 @@ def strip_formatting_tags(
                 if (
                     not next_starts_space
                     and not tag_ends_space
-                    and not split_word_boundary
+                    and (not split_word_boundary or heading_boundary)
                     and next_first_char not in closing_quote_chars
                     and not starts_with_closing_punct
                     and not ends_with_opening_punct
@@ -780,6 +843,21 @@ def strip_formatting_tags(
     for node in soup.find_all(string=True):
         text = str(node).replace("\u00a0", " ").replace("\xa0", " ")
         _ = node.replace_with(NavigableString(text))
+
+    for node in list(soup.find_all(string=True)):
+        if not isinstance(node, NavigableString):
+            continue
+        next_sibling = node.next_sibling
+        if not isinstance(next_sibling, NavigableString):
+            continue
+        left_text = str(node)
+        right_text = str(next_sibling)
+        if not left_text.strip() or not right_text.strip():
+            continue
+        if left_text.rstrip() != left_text or right_text.lstrip() != right_text:
+            continue
+        if _looks_like_heading_boundary(left_text, right_text):
+            _ = next_sibling.replace_with(NavigableString(f" {right_text}"))
 
     return soup
 
@@ -1033,6 +1111,7 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
         primary_text = move_leading_quicklinks_to_footer(_normalize_padded_quoted_terms(normalize_text(
             block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
         )))
+        primary_text = _strip_heading_label_trailing_space_before_breaks(primary_text)
         if _has_fragmented_section_heads(primary_text):
             sequence_preserved_text = move_leading_quicklinks_to_footer(
                 _normalize_padded_quoted_terms(normalize_text(
@@ -1041,12 +1120,16 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
                     .strip()
                 ))
             )
+            sequence_preserved_text = _strip_heading_label_trailing_space_before_breaks(
+                sequence_preserved_text
+            )
             if not _has_fragmented_section_heads(sequence_preserved_text):
                 primary_text = sequence_preserved_text
         if len(primary_text) <= 2000:
             relaxed_text = move_leading_quicklinks_to_footer(
                 _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
             )
+            relaxed_text = _strip_heading_label_trailing_space_before_breaks(relaxed_text)
             if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
                 return relaxed_text
         return primary_text
