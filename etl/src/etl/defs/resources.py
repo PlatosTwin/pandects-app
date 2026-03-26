@@ -57,7 +57,8 @@ class TxMetadataMode(Enum):
 class TaxonomyMode(Enum):
     """Taxonomy asset execution mode."""
 
-    INFERENCE = "inference"
+    LLM = "llm"
+    ML = "ml"
     GOLD_BACKFILL = "gold_backfill"
 
 
@@ -87,7 +88,10 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
     ai_repair_attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
-    taxonomy_mode: TaxonomyMode = TaxonomyMode.GOLD_BACKFILL  # inference | gold_backfill
+    taxonomy_mode: TaxonomyMode = TaxonomyMode.LLM  # llm | ml | gold_backfill
+    taxonomy_section_title_regex: str | None = None  # optional REGEXP filter for taxonomy prediction modes
+    taxonomy_llm_model: str = "gpt-5-mini"  # used in taxonomy_asset llm mode
+    taxonomy_llm_sections_per_request: int = 5  # sections bundled into each LLM request within a batch
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
     embed_agreement_batch_size: int = 10  # used in 9_embed_sections when embed_target=agreement
@@ -288,6 +292,9 @@ def get_resources() -> dict[str, object]:
         "ai_repair_attempt_priority",
         "taxonomy_agreement_batch_size",
         "taxonomy_mode",
+        "taxonomy_section_title_regex",
+        "taxonomy_llm_model",
+        "taxonomy_llm_sections_per_request",
         "tx_metadata_agreement_batch_size",
         "tx_metadata_mode",
         "embed_agreement_batch_size",
@@ -348,6 +355,22 @@ def get_resources() -> dict[str, object]:
     if "taxonomy_mode" in yaml_config:
         mode_str = str(yaml_config["taxonomy_mode"]).lower()
         pipeline_config_kwargs["taxonomy_mode"] = TaxonomyMode(mode_str)
+
+    if "taxonomy_section_title_regex" in yaml_config:
+        raw_regex = yaml_config["taxonomy_section_title_regex"]
+        pipeline_config_kwargs["taxonomy_section_title_regex"] = (
+            None if raw_regex is None else str(raw_regex).strip() or None
+        )
+
+    if "taxonomy_llm_model" in yaml_config:
+        pipeline_config_kwargs["taxonomy_llm_model"] = str(
+            yaml_config["taxonomy_llm_model"]
+        ).strip()
+
+    if "taxonomy_llm_sections_per_request" in yaml_config:
+        pipeline_config_kwargs["taxonomy_llm_sections_per_request"] = int(
+            yaml_config["taxonomy_llm_sections_per_request"]
+        )
     
     if "tx_metadata_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["tx_metadata_agreement_batch_size"] = int(yaml_config["tx_metadata_agreement_batch_size"])

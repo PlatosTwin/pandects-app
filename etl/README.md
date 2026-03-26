@@ -103,6 +103,10 @@ Defined in `src/etl/defs/resources.py` and loaded from `etl/configs/pipeline_con
 - `tagging_agreement_batch_size`
 - `xml_agreement_batch_size`
 - `taxonomy_agreement_batch_size`
+- `taxonomy_mode`: `llm` | `ml` | `gold_backfill`
+- `taxonomy_section_title_regex`
+- `taxonomy_llm_model`
+- `taxonomy_llm_sections_per_request`
 - `tx_metadata_agreement_batch_size`
 - `tx_metadata_mode`: `offline` | `web_search`
 - Staging controls:

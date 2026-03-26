@@ -1,32 +1,791 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
+
+import io
+import json
+import os
+from collections import defaultdict
+from typing import Any, cast
+
 import dagster as dg
 from dagster import AssetExecutionContext
+from openai import OpenAI
 from sqlalchemy import bindparam, text
-from typing import cast
+from sqlalchemy.engine import Connection
 
 from etl.defs.g_sections_asset import sections_asset
 from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel, TaxonomyMode
+from etl.domain.f_xml import XMLData
 from etl.domain.h_taxonomy import (
+    ContextProtocol as TaxonomyContext,
+    TaxonomyLLMRow,
     TaxonomyPredictor,
     TaxonomyRow,
-    ContextProtocol as TaxonomyContext,
     apply_standard_ids_to_xml,
+    build_taxonomy_llm_request_body,
+    build_taxonomy_prompt_payload,
+    parse_taxonomy_llm_response_text,
     predict_taxonomy,
+    serialize_taxonomy_labels,
 )
-from etl.domain.f_xml import XMLData
+from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.db_utils import upsert_xml
 from etl.utils.latest_sections_search import refresh_latest_sections_search
+from etl.utils.openai_batch import (
+    extract_output_text_from_batch_body,
+    poll_batch_until_terminal,
+    read_openai_file_text,
+)
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import runs_single_batch
+from etl.utils.schema_guards import assert_tables_exist
 
 
-def _normalized_gold_label(raw_value: str | None) -> str | None:
+TAXONOMY_LLM_BATCHES_TABLE = "taxonomy_llm_batches"
+TAXONOMY_LLM_REQUEST_FILENAME = "taxonomy_llm_requests.jsonl"
+DEFAULT_TAXONOMY_LLM_SECTIONS_PER_REQUEST = 5
+TAXONOMY_LLM_COMPLETION_WINDOW = "24h"
+
+
+def _oai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is required for taxonomy_asset llm mode.")
+    return OpenAI(api_key=api_key)
+
+
+def _normalized_payload(raw_value: str | None) -> str | None:
     if raw_value is None:
         return None
     cleaned = raw_value.strip()
-    if cleaned in {"", "[]"}:
+    if cleaned == "":
         return None
     return cleaned
+
+
+def _normalized_nonempty_payload(raw_value: str | None) -> str | None:
+    cleaned = _normalized_payload(raw_value)
+    if cleaned in {None, "[]"}:
+        return None
+    return cleaned
+
+
+def _prediction_missing_clause(column_name: str) -> str:
+    return f"({column_name} IS NULL OR TRIM({column_name}) = '')"
+
+
+def _prediction_clause_for_mode(mode: TaxonomyMode) -> str:
+    if mode == TaxonomyMode.LLM:
+        return _prediction_missing_clause("s.section_standard_id_gold_label")
+    if mode == TaxonomyMode.ML:
+        return (
+            _prediction_missing_clause("s.section_standard_id_gold_label")
+            + " AND "
+            + _prediction_missing_clause("s.section_standard_id")
+        )
+    return (
+        "s.section_standard_id_gold_label IS NOT NULL "
+        "AND TRIM(s.section_standard_id_gold_label) <> '' "
+        "AND TRIM(s.section_standard_id_gold_label) <> '[]'"
+    )
+
+
+def _taxonomy_regex_clause(regex: str | None) -> str:
+    if not regex:
+        return ""
+    return " AND s.section_title_normed REGEXP :section_title_regex"
+
+
+def _fetch_taxonomy_json(conn: Connection, schema: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT
+                l1.standard_id AS l1_standard_id,
+                l1.label AS l1_label,
+                l2.standard_id AS l2_standard_id,
+                l2.label AS l2_label,
+                l3.standard_id AS l3_standard_id,
+                l3.label AS l3_label
+            FROM {schema}.taxonomy_l1 l1
+            LEFT JOIN {schema}.taxonomy_l2 l2
+                ON l1.standard_id = l2.parent_id
+            LEFT JOIN {schema}.taxonomy_l3 l3
+                ON l2.standard_id = l3.parent_id
+            ORDER BY l1.standard_id, l2.standard_id, l3.standard_id
+            """
+        )
+    ).mappings()
+    return [dict(row) for row in rows]
+
+
+def _fetch_unapplied_taxonomy_llm_batch(
+    conn: Connection,
+    schema: str,
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        text(
+            f"""
+            SELECT
+                batch_id,
+                status,
+                input_file_id,
+                output_file_id,
+                error_file_id,
+                completion_window,
+                request_total,
+                model_name,
+                batch_key
+            FROM {schema}.{TAXONOMY_LLM_BATCHES_TABLE}
+            WHERE applied = 0
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        )
+    ).mappings().first()
+    if row is None:
+        return None
+    return dict(row)
+
+
+def _upsert_taxonomy_llm_batch_row(
+    conn: Connection,
+    schema: str,
+    *,
+    batch: Any,
+    completion_window: str,
+    request_total: int,
+    model_name: str,
+    batch_key: str,
+) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO {schema}.{TAXONOMY_LLM_BATCHES_TABLE} (
+                batch_id,
+                created_at,
+                status,
+                input_file_id,
+                output_file_id,
+                error_file_id,
+                completion_window,
+                request_total,
+                model_name,
+                batch_key,
+                applied
+            )
+            VALUES (
+                :batch_id,
+                UTC_TIMESTAMP(),
+                :status,
+                :input_file_id,
+                :output_file_id,
+                :error_file_id,
+                :completion_window,
+                :request_total,
+                :model_name,
+                :batch_key,
+                0
+            )
+            ON DUPLICATE KEY UPDATE
+                status = VALUES(status),
+                input_file_id = VALUES(input_file_id),
+                output_file_id = VALUES(output_file_id),
+                error_file_id = VALUES(error_file_id),
+                completion_window = VALUES(completion_window),
+                request_total = VALUES(request_total),
+                model_name = VALUES(model_name),
+                batch_key = VALUES(batch_key)
+            """
+        ),
+        {
+            "batch_id": batch.id,
+            "status": batch.status,
+            "input_file_id": getattr(batch, "input_file_id", None),
+            "output_file_id": getattr(batch, "output_file_id", None),
+            "error_file_id": getattr(batch, "error_file_id", None),
+            "completion_window": completion_window,
+            "request_total": request_total,
+            "model_name": model_name,
+            "batch_key": batch_key,
+        },
+    )
+
+
+def _mark_taxonomy_llm_batch_applied(
+    conn: Connection,
+    schema: str,
+    *,
+    batch_id: str,
+) -> None:
+    _ = conn.execute(
+        text(
+            f"""
+            UPDATE {schema}.{TAXONOMY_LLM_BATCHES_TABLE}
+            SET applied = 1, applied_at = UTC_TIMESTAMP()
+            WHERE batch_id = :batch_id
+            """
+        ),
+        {"batch_id": batch_id},
+    )
+
+
+def _select_agreement_batch(
+    conn: Connection,
+    *,
+    sections_table: str,
+    xml_table: str,
+    mode: TaxonomyMode,
+    last_uuid: str,
+    agreement_batch_size: int,
+    section_title_regex: str | None,
+) -> list[str]:
+    params: dict[str, object] = {"last": last_uuid, "lim": agreement_batch_size}
+    regex_clause = ""
+    if mode in {TaxonomyMode.LLM, TaxonomyMode.ML} and section_title_regex:
+        regex_clause = _taxonomy_regex_clause(section_title_regex)
+        params["section_title_regex"] = section_title_regex
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT DISTINCT s.agreement_uuid
+            FROM {sections_table} s
+            JOIN {xml_table} x
+              ON x.agreement_uuid = s.agreement_uuid
+             AND x.version = s.xml_version
+            WHERE s.agreement_uuid > :last
+              AND x.latest = 1
+              AND x.status = 'verified'
+              AND {_prediction_clause_for_mode(mode)}
+              {regex_clause}
+            ORDER BY s.agreement_uuid
+            LIMIT :lim
+            """
+        ),
+        params,
+    ).mappings().fetchall()
+    return [str(row["agreement_uuid"]) for row in rows]
+
+
+def _fetch_prediction_rows(
+    conn: Connection,
+    *,
+    sections_table: str,
+    xml_table: str,
+    agreement_uuids: list[str],
+    mode: TaxonomyMode,
+    section_title_regex: str | None,
+) -> list[dict[str, Any]]:
+    if not agreement_uuids:
+        return []
+    params: dict[str, object] = {"agreements": tuple(agreement_uuids)}
+    regex_clause = ""
+    if section_title_regex:
+        regex_clause = _taxonomy_regex_clause(section_title_regex)
+        params["section_title_regex"] = section_title_regex
+    query = text(
+        f"""
+        SELECT
+            s.section_uuid,
+            s.agreement_uuid,
+            s.article_title,
+            s.section_title,
+            s.article_title_normed,
+            s.section_title_normed,
+            s.article_order,
+            s.section_order,
+            s.xml_content,
+            s.section_standard_id_gold_label
+        FROM {sections_table} s
+        JOIN {xml_table} x
+          ON x.agreement_uuid = s.agreement_uuid
+         AND x.version = s.xml_version
+        WHERE s.agreement_uuid IN :agreements
+          AND x.latest = 1
+          AND x.status = 'verified'
+          AND {_prediction_clause_for_mode(mode)}
+          {regex_clause}
+        ORDER BY
+            s.agreement_uuid,
+            COALESCE(s.article_order, -1),
+            COALESCE(s.section_order, -1),
+            s.section_uuid
+        """
+    ).bindparams(bindparam("agreements", expanding=True))
+    rows = conn.execute(query, params).mappings().fetchall()
+    return [dict(row) for row in rows]
+
+
+def _fetch_gold_rows(
+    conn: Connection,
+    *,
+    sections_table: str,
+    xml_table: str,
+    agreement_uuids: list[str],
+) -> list[dict[str, Any]]:
+    if not agreement_uuids:
+        return []
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT
+                s.section_uuid,
+                s.agreement_uuid,
+                s.section_standard_id_gold_label
+            FROM {sections_table} s
+            JOIN {xml_table} x
+              ON x.agreement_uuid = s.agreement_uuid
+             AND x.version = s.xml_version
+            WHERE s.agreement_uuid IN :agreements
+              AND x.latest = 1
+              AND x.status = 'verified'
+              AND {_prediction_clause_for_mode(TaxonomyMode.GOLD_BACKFILL)}
+            ORDER BY
+                s.agreement_uuid,
+                COALESCE(s.article_order, -1),
+                COALESCE(s.section_order, -1),
+                s.section_uuid
+            """
+        ).bindparams(bindparam("agreements", expanding=True)),
+        {"agreements": tuple(agreement_uuids)},
+    ).mappings().fetchall()
+    return [dict(row) for row in rows]
+
+
+def _build_llm_rows(prediction_rows: list[dict[str, Any]]) -> list[TaxonomyLLMRow]:
+    built_rows: list[TaxonomyLLMRow] = []
+    by_agreement: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in prediction_rows:
+        by_agreement[str(row["agreement_uuid"])].append(row)
+
+    for agreement_uuid in sorted(by_agreement):
+        rows = by_agreement[agreement_uuid]
+        for idx, row in enumerate(rows):
+            prev_row = rows[idx - 1] if idx > 0 else None
+            next_row = rows[idx + 1] if idx + 1 < len(rows) else None
+            built_rows.append(
+                {
+                    "section_uuid": str(row["section_uuid"]),
+                    "agreement_uuid": agreement_uuid,
+                    "article_title_normed": cast(str | None, row.get("article_title_normed")),
+                    "section_title_normed": cast(str | None, row.get("section_title_normed")),
+                    "prev_article_title_normed": cast(
+                        str | None,
+                        None if prev_row is None else prev_row.get("article_title_normed"),
+                    ),
+                    "prev_section_title_normed": cast(
+                        str | None,
+                        None if prev_row is None else prev_row.get("section_title_normed"),
+                    ),
+                    "next_article_title_normed": cast(
+                        str | None,
+                        None if next_row is None else next_row.get("article_title_normed"),
+                    ),
+                    "next_section_title_normed": cast(
+                        str | None,
+                        None if next_row is None else next_row.get("section_title_normed"),
+                    ),
+                }
+            )
+    return built_rows
+
+
+def _apply_xml_updates_for_agreements(
+    conn: Connection,
+    *,
+    db: DBResource,
+    agreement_uuids: list[str],
+    section_mapping_by_agreement: dict[str, dict[str, str]],
+) -> int:
+    if not agreement_uuids:
+        return 0
+    xml_rows = conn.execute(
+        text(
+            f"""
+            SELECT m.agreement_uuid, m.xml, m.version
+            FROM {db.database}.xml m
+            WHERE m.agreement_uuid IN :agreements
+              AND m.latest = 1
+              AND m.status = 'verified'
+            """
+        ).bindparams(bindparam("agreements", expanding=True)),
+        {"agreements": tuple(agreement_uuids)},
+    ).mappings().fetchall()
+
+    staged_xml: list[XMLData] = []
+    for row in xml_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        mapping = section_mapping_by_agreement.get(agreement_uuid, {})
+        if not mapping:
+            continue
+        new_xml = apply_standard_ids_to_xml(str(row["xml"]), mapping)
+        staged_xml.append(
+            XMLData(
+                agreement_uuid=agreement_uuid,
+                xml=new_xml,
+                version=int(row.get("version", 1) or 1),
+            )
+        )
+    if staged_xml:
+        upsert_xml(staged_xml, db.database, conn)
+    return len(staged_xml)
+
+
+def _apply_ml_predictions(
+    context: AssetExecutionContext,
+    conn: Connection,
+    *,
+    db: DBResource,
+    sections_table: str,
+    prediction_rows: list[dict[str, Any]],
+    model: TaxonomyPredictor,
+) -> tuple[int, int, list[str]]:
+    rows: list[TaxonomyRow] = [cast(TaxonomyRow, cast(object, row)) for row in prediction_rows]
+    sec_idx, preds = predict_taxonomy(
+        rows,
+        model,
+        cast(TaxonomyContext, cast(object, context)),
+    )
+    updates: list[dict[str, object]] = []
+    mapping_by_agreement: dict[str, dict[str, str]] = defaultdict(dict)
+    for meta, pred in zip(sec_idx, preds):
+        inferred_label = cast(str, cast(object, pred.get("label")))
+        payload = serialize_taxonomy_labels([inferred_label])
+        alt_probs = pred.get("alt_probs") or [0.0, 0.0, 0.0]
+        updates.append(
+            {
+                "section_uuid": meta["section_uuid"],
+                "label": payload,
+                "a": float(alt_probs[0]) if len(alt_probs) > 0 else 0.0,
+                "b": float(alt_probs[1]) if len(alt_probs) > 1 else 0.0,
+                "c": float(alt_probs[2]) if len(alt_probs) > 2 else 0.0,
+            }
+        )
+        mapping_by_agreement[meta["agreement_uuid"]][meta["section_uuid"]] = payload
+
+    updated_rows = 0
+    if updates:
+        update_sql = text(
+            f"""
+            UPDATE {sections_table}
+            SET section_standard_id = :label,
+                alt_label_a_prob = :a,
+                alt_label_b_prob = :b,
+                alt_label_c_prob = :c
+            WHERE section_uuid = :section_uuid
+            """
+        )
+        for start in range(0, len(updates), 250):
+            result = conn.execute(update_sql, updates[start : start + 250])
+            updated_rows += int(result.rowcount or 0)
+
+    agreement_uuids = sorted(mapping_by_agreement)
+    xml_updated = _apply_xml_updates_for_agreements(
+        conn,
+        db=db,
+        agreement_uuids=agreement_uuids,
+        section_mapping_by_agreement=mapping_by_agreement,
+    )
+    refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
+    context.log.info(
+        (
+            "taxonomy_asset (ml): updated %s sections across %s agreements; "
+            "upserted %s XMLs; refreshed latest_sections_search rows=%s"
+        ),
+        updated_rows,
+        len(agreement_uuids),
+        xml_updated,
+        refreshed,
+    )
+    return updated_rows, xml_updated, agreement_uuids
+
+
+def _apply_gold_backfill(
+    context: AssetExecutionContext,
+    conn: Connection,
+    *,
+    db: DBResource,
+    gold_rows: list[dict[str, Any]],
+) -> tuple[int, list[str]]:
+    mapping_by_agreement: dict[str, dict[str, str]] = defaultdict(dict)
+    for row in gold_rows:
+        payload = _normalized_nonempty_payload(
+            cast(str | None, row.get("section_standard_id_gold_label"))
+        )
+        if payload is None:
+            continue
+        agreement_uuid = str(row["agreement_uuid"])
+        mapping_by_agreement[agreement_uuid][str(row["section_uuid"])] = payload
+
+    agreement_uuids = sorted(mapping_by_agreement)
+    xml_updated = _apply_xml_updates_for_agreements(
+        conn,
+        db=db,
+        agreement_uuids=agreement_uuids,
+        section_mapping_by_agreement=mapping_by_agreement,
+    )
+    refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
+    context.log.info(
+        (
+            "taxonomy_asset (gold_backfill): applied gold labels across %s agreements; "
+            "upserted %s XMLs; refreshed latest_sections_search rows=%s"
+        ),
+        len(agreement_uuids),
+        xml_updated,
+        refreshed,
+    )
+    return xml_updated, agreement_uuids
+
+
+def _create_taxonomy_llm_lines(
+    *,
+    prediction_rows: list[dict[str, Any]],
+    taxonomy_json: list[dict[str, Any]],
+    model_name: str,
+    batch_key: str,
+    sections_per_request: int,
+) -> list[dict[str, Any]]:
+    llm_rows = _build_llm_rows(prediction_rows)
+    lines: list[dict[str, Any]] = []
+    for batch_idx, start in enumerate(range(0, len(llm_rows), sections_per_request)):
+        chunk = llm_rows[start : start + sections_per_request]
+        lines.append(
+            build_taxonomy_llm_request_body(
+                custom_id=f"{batch_key}:{batch_idx}",
+                section_payloads=[build_taxonomy_prompt_payload(row) for row in chunk],
+                taxonomy_json=taxonomy_json,
+                model=model_name,
+            )
+        )
+    return lines
+
+
+def _apply_taxonomy_llm_batch_output(
+    context: AssetExecutionContext,
+    *,
+    engine: Any,
+    client: OpenAI,
+    db: DBResource,
+    sections_table: str,
+    batch: Any,
+    model_name: str,
+) -> tuple[int, int, list[str]]:
+    output_file_id = getattr(batch, "output_file_id", None)
+    if not output_file_id:
+        context.log.warning("taxonomy_asset (llm): batch %s has no output_file_id.", batch.id)
+        return 0, 0, []
+
+    out_content = client.files.content(output_file_id)
+    out_text = read_openai_file_text(out_content)
+    payload_by_section_uuid: dict[str, str] = {}
+    parse_errors = 0
+
+    for line_str in out_text.strip().splitlines():
+        if not line_str.strip():
+            continue
+        custom_id = "unknown"
+        try:
+            raw = json.loads(line_str)
+            custom_id = str(raw.get("custom_id") or "unknown")
+            response = raw.get("response")
+            if not isinstance(response, dict):
+                raise ValueError("Missing response object.")
+            status_code = response.get("status_code")
+            if status_code not in (200, 201, 202):
+                raise ValueError(f"Unexpected status_code={status_code!r}.")
+            body = response.get("body")
+            if not isinstance(body, dict):
+                raise ValueError("Missing response body.")
+            parsed = parse_taxonomy_llm_response_text(
+                extract_output_text_from_batch_body(body)
+            )
+            for section_uuid, categories in parsed.items():
+                payload_by_section_uuid[section_uuid] = serialize_taxonomy_labels(categories)
+        except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            parse_errors += 1
+            context.log.warning(
+                "taxonomy_asset (llm): parse error for %s: %s",
+                custom_id,
+                exc,
+            )
+
+    if not payload_by_section_uuid:
+        return 0, parse_errors, []
+
+    section_uuids = sorted(payload_by_section_uuid)
+    with engine.begin() as conn:
+        section_rows = conn.execute(
+            text(
+                f"""
+                SELECT section_uuid, agreement_uuid
+                FROM {sections_table}
+                WHERE section_uuid IN :section_uuids
+                """
+            ).bindparams(bindparam("section_uuids", expanding=True)),
+            {"section_uuids": tuple(section_uuids)},
+        ).mappings().fetchall()
+
+        mapping_by_agreement: dict[str, dict[str, str]] = defaultdict(dict)
+        updates: list[dict[str, str]] = []
+        for row in section_rows:
+            section_uuid = str(row["section_uuid"])
+            agreement_uuid = str(row["agreement_uuid"])
+            payload = payload_by_section_uuid[section_uuid]
+            updates.append(
+                {
+                    "section_uuid": section_uuid,
+                    "gold_label_payload": payload,
+                    "model_name": model_name,
+                }
+            )
+            mapping_by_agreement[agreement_uuid][section_uuid] = payload
+
+        if updates:
+            update_sql = text(
+                f"""
+                UPDATE {sections_table}
+                SET section_standard_id_gold_label = :gold_label_payload,
+                    gold_label_model = :model_name
+                WHERE section_uuid = :section_uuid
+                """
+            )
+            for start in range(0, len(updates), 250):
+                _ = conn.execute(update_sql, updates[start : start + 250])
+
+        agreement_uuids = sorted(mapping_by_agreement)
+        xml_updated = _apply_xml_updates_for_agreements(
+            conn,
+            db=db,
+            agreement_uuids=agreement_uuids,
+            section_mapping_by_agreement=mapping_by_agreement,
+        )
+        refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
+
+    context.log.info(
+        (
+            "taxonomy_asset (llm): applied %s section labels across %s agreements; "
+            "upserted %s XMLs; refreshed latest_sections_search rows=%s"
+        ),
+        len(payload_by_section_uuid),
+        len(agreement_uuids),
+        xml_updated,
+        refreshed,
+    )
+    return len(payload_by_section_uuid), parse_errors, agreement_uuids
+
+
+def _resume_and_apply_taxonomy_llm_batch(
+    context: AssetExecutionContext,
+    *,
+    engine: Any,
+    client: OpenAI,
+    db: DBResource,
+    sections_table: str,
+    batch_row: dict[str, Any],
+) -> None:
+    batch = poll_batch_until_terminal(
+        context,
+        client,
+        str(batch_row["batch_id"]),
+        log_prefix="taxonomy_asset (llm)",
+    )
+    with engine.begin() as conn:
+        _upsert_taxonomy_llm_batch_row(
+            conn,
+            db.database,
+            batch=batch,
+            completion_window=str(batch_row["completion_window"]),
+            request_total=int(batch_row["request_total"]),
+            model_name=str(batch_row["model_name"]),
+            batch_key=str(batch_row["batch_key"]),
+        )
+    if batch.status == "completed":
+        _ = _apply_taxonomy_llm_batch_output(
+            context,
+            engine=engine,
+            client=client,
+            db=db,
+            sections_table=sections_table,
+            batch=batch,
+            model_name=str(batch_row["model_name"]),
+        )
+    else:
+        context.log.warning(
+            "taxonomy_asset (llm): batch %s ended with status=%s; no labels applied.",
+            batch.id,
+            batch.status,
+        )
+    with engine.begin() as conn:
+        _mark_taxonomy_llm_batch_applied(conn, db.database, batch_id=str(batch.id))
+
+
+def _create_and_apply_taxonomy_llm_batch(
+    context: AssetExecutionContext,
+    *,
+    engine: Any,
+    client: OpenAI,
+    db: DBResource,
+    sections_table: str,
+    prediction_rows: list[dict[str, Any]],
+    model_name: str,
+    sections_per_request: int,
+) -> None:
+    agreement_uuids = sorted({str(row["agreement_uuid"]) for row in prediction_rows})
+    batch_key = agreement_batch_key(agreement_uuids)
+    with engine.begin() as conn:
+        taxonomy_json = _fetch_taxonomy_json(conn, db.database)
+    lines = _create_taxonomy_llm_lines(
+        prediction_rows=prediction_rows,
+        taxonomy_json=taxonomy_json,
+        model_name=model_name,
+        batch_key=batch_key,
+        sections_per_request=sections_per_request,
+    )
+    if not lines:
+        context.log.info("taxonomy_asset (llm): no request lines to submit.")
+        return
+
+    jsonl_buf = io.StringIO()
+    for line in lines:
+        _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+    jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+    jsonl_bytes.name = TAXONOMY_LLM_REQUEST_FILENAME
+
+    input_file = client.files.create(purpose="batch", file=jsonl_bytes)
+    batch = client.batches.create(
+        input_file_id=input_file.id,
+        endpoint="/v1/responses",
+        completion_window=TAXONOMY_LLM_COMPLETION_WINDOW,
+    )
+    with engine.begin() as conn:
+        _upsert_taxonomy_llm_batch_row(
+            conn,
+            db.database,
+            batch=batch,
+            completion_window=TAXONOMY_LLM_COMPLETION_WINDOW,
+            request_total=len(lines),
+            model_name=model_name,
+            batch_key=batch_key,
+        )
+    context.log.info(
+        "taxonomy_asset (llm): created batch %s with %s requests for %s agreements.",
+        batch.id,
+        len(lines),
+        len(agreement_uuids),
+    )
+    _resume_and_apply_taxonomy_llm_batch(
+        context,
+        engine=engine,
+        client=client,
+        db=db,
+        sections_table=sections_table,
+        batch_row={
+            "batch_id": batch.id,
+            "completion_window": TAXONOMY_LLM_COMPLETION_WINDOW,
+            "request_total": len(lines),
+            "model_name": model_name,
+            "batch_key": batch_key,
+        },
+    )
 
 
 @dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
@@ -36,226 +795,121 @@ def taxonomy_asset(
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,
 ) -> None:
-    # batching controls
     agreement_batch_size = pipeline_config.taxonomy_agreement_batch_size
+    llm_sections_per_request = pipeline_config.taxonomy_llm_sections_per_request
     single_batch_run = runs_single_batch(context, pipeline_config)
+    mode = pipeline_config.taxonomy_mode
+    section_title_regex = pipeline_config.taxonomy_section_title_regex
+
+    if llm_sections_per_request <= 0:
+        raise ValueError("taxonomy_llm_sections_per_request must be > 0.")
 
     engine = db.get_engine()
     schema = db.database
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
     last_uuid = ""
-    mode = pipeline_config.taxonomy_mode
 
-    model: TaxonomyPredictor | None = None
-    if mode == TaxonomyMode.INFERENCE:
-        model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
+    if mode == TaxonomyMode.LLM:
+        with engine.begin() as conn:
+            assert_tables_exist(conn, schema=schema, table_names=(TAXONOMY_LLM_BATCHES_TABLE,))
+
+    ml_model: TaxonomyPredictor | None = None
+    if mode == TaxonomyMode.ML:
+        ml_model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
+
     context.log.info("Running taxonomy in mode=%s", mode.value)
 
     while True:
-        with engine.begin() as conn:
-            # 1) Pick a batch of agreements for this mode
-            agreement_where_clause = (
-                "s.section_standard_id IS NULL"
-                if mode == TaxonomyMode.INFERENCE
-                else (
-                    "s.section_standard_id_gold_label IS NOT NULL "
-                    "AND TRIM(s.section_standard_id_gold_label) <> '' "
-                    "AND TRIM(s.section_standard_id_gold_label) <> '[]'"
+        if mode == TaxonomyMode.LLM and pipeline_config.resume_openai_batches:
+            with engine.begin() as conn:
+                existing_batch = _fetch_unapplied_taxonomy_llm_batch(conn, schema)
+            if existing_batch is not None:
+                context.log.info(
+                    "taxonomy_asset (llm): resuming unapplied batch %s.",
+                    existing_batch["batch_id"],
                 )
-            )
-            agr_rows = (
-                conn.execute(
-                    text(
-                        f"""
-                        SELECT DISTINCT s.agreement_uuid
-                        FROM {sections_table} s
-                        JOIN {xml_table} x
-                          ON x.agreement_uuid = s.agreement_uuid
-                         AND x.version = s.xml_version
-                        WHERE s.agreement_uuid > :last
-                          AND x.latest = 1
-                          AND x.status = 'verified'
-                          AND {agreement_where_clause}
-                        ORDER BY s.agreement_uuid
-                        LIMIT :lim
-                        """
-                    ),
-                    {"last": last_uuid, "lim": agreement_batch_size},
+                _resume_and_apply_taxonomy_llm_batch(
+                    context,
+                    engine=engine,
+                    client=_oai_client(),
+                    db=db,
+                    sections_table=sections_table,
+                    batch_row=existing_batch,
                 )
-                .mappings()
-                .fetchall()
-            )
-
-            if not agr_rows:
-                break
-
-            agr_list = [r["agreement_uuid"] for r in agr_rows]
-
-            # 2) Fetch sections and labels for this mode
-            if mode == TaxonomyMode.INFERENCE:
-                section_sql = text(
-                    f"""
-                    SELECT s.section_uuid,
-                           s.agreement_uuid,
-                           s.article_title,
-                           s.section_title,
-                           s.xml_content,
-                           s.section_standard_id_gold_label
-                    FROM {sections_table} s
-                    JOIN {xml_table} x
-                      ON x.agreement_uuid = s.agreement_uuid
-                     AND x.version = s.xml_version
-                    WHERE s.agreement_uuid IN :agreements
-                      AND x.latest = 1
-                      AND x.status = 'verified'
-                      AND s.section_standard_id IS NULL
-                    ORDER BY s.agreement_uuid, s.section_uuid
-                    """
-                ).bindparams(bindparam("agreements", expanding=True))
-            else:
-                section_sql = text(
-                    f"""
-                    SELECT s.section_uuid,
-                           s.agreement_uuid,
-                           s.section_standard_id_gold_label
-                    FROM {sections_table} s
-                    JOIN {xml_table} x
-                      ON x.agreement_uuid = s.agreement_uuid
-                     AND x.version = s.xml_version
-                    WHERE s.agreement_uuid IN :agreements
-                      AND x.latest = 1
-                      AND x.status = 'verified'
-                      AND s.section_standard_id_gold_label IS NOT NULL
-                      AND TRIM(s.section_standard_id_gold_label) <> ''
-                      AND TRIM(s.section_standard_id_gold_label) <> '[]'
-                    ORDER BY s.agreement_uuid, s.section_uuid
-                    """
-                ).bindparams(bindparam("agreements", expanding=True))
-
-            sec_rows = (
-                conn.execute(
-                    section_sql,
-                    {"agreements": tuple(agr_list)},
-                )
-                .mappings()
-                .fetchall()
-            )
-
-            if not sec_rows:
-                last_uuid = agr_rows[-1]["agreement_uuid"]
+                if single_batch_run:
+                    break
                 continue
 
-            # 3) Build section updates + XML mapping
-            upd_rows: list[dict[str, object]] = []
-            by_agr: dict[str, dict[str, str]] = {}
+        with engine.begin() as conn:
+            agreement_uuids = _select_agreement_batch(
+                conn,
+                sections_table=sections_table,
+                xml_table=xml_table,
+                mode=mode,
+                last_uuid=last_uuid,
+                agreement_batch_size=agreement_batch_size,
+                section_title_regex=section_title_regex,
+            )
+            if not agreement_uuids:
+                break
 
-            if mode == TaxonomyMode.INFERENCE:
-                if model is None:
-                    raise RuntimeError("Taxonomy model was not initialized for inference mode.")
-                rows: list[TaxonomyRow] = [
-                    cast(TaxonomyRow, cast(object, dict(r))) for r in sec_rows
-                ]
-                sec_idx, preds = predict_taxonomy(
-                    rows, model, cast(TaxonomyContext, cast(object, context))
+            if mode == TaxonomyMode.ML:
+                prediction_rows = _fetch_prediction_rows(
+                    conn,
+                    sections_table=sections_table,
+                    xml_table=xml_table,
+                    agreement_uuids=agreement_uuids,
+                    mode=mode,
+                    section_title_regex=section_title_regex,
                 )
-                gold_label_by_section_uuid = {
-                    cast(str, r["section_uuid"]): cast(str | None, r.get("section_standard_id_gold_label"))
-                    for r in sec_rows
-                }
-                for meta, pred in zip(sec_idx, preds):
-                    inferred_label = cast(str, cast(object, pred.get("label")))
-                    alt_probs = pred.get("alt_probs") or [0.0, 0.0, 0.0]
-                    upd_rows.append(
-                        {
-                            "section_uuid": meta["section_uuid"],
-                            "label": inferred_label,
-                            "a": float(alt_probs[0]) if len(alt_probs) > 0 else 0.0,
-                            "b": float(alt_probs[1]) if len(alt_probs) > 1 else 0.0,
-                            "c": float(alt_probs[2]) if len(alt_probs) > 2 else 0.0,
-                        }
+                if prediction_rows:
+                    if ml_model is None:
+                        raise RuntimeError("Taxonomy model was not initialized for ml mode.")
+                    _ = _apply_ml_predictions(
+                        context,
+                        conn,
+                        db=db,
+                        sections_table=sections_table,
+                        prediction_rows=prediction_rows,
+                        model=ml_model,
                     )
-
-                    gold_label = gold_label_by_section_uuid.get(meta["section_uuid"])
-                    normalized_gold_label = _normalized_gold_label(gold_label)
-                    label_for_xml = normalized_gold_label if normalized_gold_label is not None else inferred_label
-                    by_agr.setdefault(meta["agreement_uuid"], {})[
-                        meta["section_uuid"]
-                    ] = label_for_xml
+            elif mode == TaxonomyMode.GOLD_BACKFILL:
+                gold_rows = _fetch_gold_rows(
+                    conn,
+                    sections_table=sections_table,
+                    xml_table=xml_table,
+                    agreement_uuids=agreement_uuids,
+                )
+                if gold_rows:
+                    _ = _apply_gold_backfill(
+                        context,
+                        conn,
+                        db=db,
+                        gold_rows=gold_rows,
+                    )
             else:
-                for row in sec_rows:
-                    agreement_uuid = cast(str, row["agreement_uuid"])
-                    section_uuid = cast(str, row["section_uuid"])
-                    gold_label = _normalized_gold_label(
-                        cast(str | None, row["section_standard_id_gold_label"])
+                prediction_rows = _fetch_prediction_rows(
+                    conn,
+                    sections_table=sections_table,
+                    xml_table=xml_table,
+                    agreement_uuids=agreement_uuids,
+                    mode=mode,
+                    section_title_regex=section_title_regex,
+                )
+                if prediction_rows:
+                    _create_and_apply_taxonomy_llm_batch(
+                        context,
+                        engine=engine,
+                        client=_oai_client(),
+                        db=db,
+                        sections_table=sections_table,
+                        prediction_rows=prediction_rows,
+                        model_name=pipeline_config.taxonomy_llm_model,
+                        sections_per_request=llm_sections_per_request,
                     )
-                    if gold_label is None:
-                        continue
-                    by_agr.setdefault(agreement_uuid, {})[section_uuid] = gold_label
 
-            if upd_rows:
-                upd_sql = text(
-                    f"""
-                    UPDATE {sections_table}
-                    SET section_standard_id = :label,
-                        alt_label_a_prob = :a,
-                        alt_label_b_prob = :b,
-                        alt_label_c_prob = :c
-                    WHERE section_uuid = :section_uuid
-                    """
-                )
-                for i in range(0, len(upd_rows), 250):
-                    batch = upd_rows[i : i + 250]
-                    _ = conn.execute(upd_sql, batch)
-
-            xml_rows = (
-                conn.execute(
-                    text(
-                        f"""
-                        SELECT m.agreement_uuid, m.xml, m.version
-                        FROM {xml_table} m
-                        WHERE m.agreement_uuid IN :agreements
-                          AND m.latest = 1
-                          AND m.status = 'verified'
-                        """
-                    ).bindparams(bindparam("agreements", expanding=True)),
-                    {"agreements": tuple(agr_list)},
-                )
-                .mappings()
-                .fetchall()
-            )
-
-            staged_xml: list[XMLData] = []
-            for r in xml_rows:
-                agr_uuid = r["agreement_uuid"]
-                xml_str = r["xml"]
-                xml_version = r.get("version", 1)  # Get the existing version
-                mapping = by_agr.get(agr_uuid, {})
-                if not mapping:
-                    continue
-                new_xml = apply_standard_ids_to_xml(xml_str, mapping)
-                # Preserve the existing version—taxonomy updates don't increment
-                staged_xml.append(XMLData(
-                    agreement_uuid=agr_uuid,
-                    xml=new_xml,
-                    version=xml_version
-                ))
-
-            if staged_xml:
-                upsert_xml(staged_xml, db.database, conn)
-            refreshed = refresh_latest_sections_search(conn, db.database, agr_list)
-            context.log.info(
-                (
-                    "taxonomy_asset: batch updated %s sections across %s agreements; "
-                    "upserted %s XMLs; refreshed latest_sections_search rows=%s"
-                ),
-                len(upd_rows),
-                len(agr_list),
-                len(staged_xml),
-                refreshed,
-            )
-
-            last_uuid = agr_rows[-1]["agreement_uuid"]
+            last_uuid = agreement_uuids[-1]
 
         if single_batch_run:
             break

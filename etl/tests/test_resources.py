@@ -8,6 +8,7 @@ from etl.defs.resources import (
     DBResource,
     PipelineConfig,
     QueueRunMode,
+    TaxonomyMode,
     get_resources,
 )
 
@@ -38,6 +39,10 @@ class DBResourceTests(unittest.TestCase):
                 "queue_run_mode": "drain",
                 "resume_openai_batches": False,
                 "ai_repair_attempt_priority": "attempted_first",
+                "taxonomy_mode": "ml",
+                "taxonomy_section_title_regex": "^governing",
+                "taxonomy_llm_model": "gpt-5-mini",
+                "taxonomy_llm_sections_per_request": 7,
             },
         ):
             resources = get_resources()
@@ -49,6 +54,17 @@ class DBResourceTests(unittest.TestCase):
             pipeline_config.ai_repair_attempt_priority,
             AIRepairAttemptPriority.ATTEMPTED_FIRST,
         )
+        self.assertEqual(pipeline_config.taxonomy_mode, TaxonomyMode.ML)
+        self.assertEqual(pipeline_config.taxonomy_section_title_regex, "^governing")
+        self.assertEqual(pipeline_config.taxonomy_llm_model, "gpt-5-mini")
+        self.assertEqual(pipeline_config.taxonomy_llm_sections_per_request, 7)
+
+    def test_pipeline_config_defaults_taxonomy_to_llm(self) -> None:
+        config = PipelineConfig()
+        self.assertEqual(config.taxonomy_mode, TaxonomyMode.LLM)
+        self.assertIsNone(config.taxonomy_section_title_regex)
+        self.assertEqual(config.taxonomy_llm_model, "gpt-5-mini")
+        self.assertEqual(config.taxonomy_llm_sections_per_request, 5)
 
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:
         with patch(
