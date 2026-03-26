@@ -146,6 +146,8 @@ class SummaryDataTests(unittest.TestCase):
         )
         self.assertIn("COALESCE(a.metadata, 0) = 1", overview_insert_sql)
         self.assertIn("section_standard_id_gold_label", overview_insert_sql)
+        self.assertIn("TRIM(s.section_standard_id) <> '[]'", overview_insert_sql)
+        self.assertIn("TRIM(s.section_standard_id_gold_label) <> '[]'", overview_insert_sql)
         self.assertIn("JOIN tmp_xml_latest x", overview_insert_sql)
         self.assertIn("TRIM(a3.filing_date) REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}'", overview_insert_sql)
         self.assertIn("SUBSTRING(TRIM(a3.filing_date), 1, 10)", overview_insert_sql)
