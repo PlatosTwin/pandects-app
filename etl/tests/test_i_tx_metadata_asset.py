@@ -14,6 +14,7 @@ from etl.defs.resources import PipelineConfig, QueueRunMode
 from etl.defs.i_tx_metadata_asset import (
     _apply_offline_batch_output,
     _build_offline_counsel_lines,
+    _build_offline_metadata_lines,
     _counsel_offline_update_sql,
     _run_web_search_mode,
     tx_metadata_asset,
@@ -176,6 +177,24 @@ class _FakeCounselSelectionConn:
 
 class _FakeCounselSelectionEngine:
     def __init__(self, conn: _FakeCounselSelectionConn) -> None:
+        self._conn = conn
+
+    def begin(self) -> _FakeBeginContext:
+        return _FakeBeginContext(self._conn)
+
+
+class _FakeMetadataSelectionConn:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+        self.executed_sql: list[str] = []
+
+    def execute(self, statement: object, _params: dict[str, object]) -> _FakeResult:
+        self.executed_sql.append(str(statement))
+        return _FakeResult(rows=self.rows)
+
+
+class _FakeMetadataSelectionEngine:
+    def __init__(self, conn: _FakeMetadataSelectionConn) -> None:
         self._conn = conn
 
     def begin(self) -> _FakeBeginContext:
@@ -532,10 +551,103 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertIn("Target name: Target A", str(lines[0]["body"]["input"][0]["content"]))
         self.assertTrue(
             any(
-                "COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id"
-                in sql
+                "JSON_CONTAINS(" in sql
+                and "COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id" in sql
                 for sql in conn.executed_sql
             )
+        )
+
+    def test_build_offline_counsel_lines_prioritizes_missing_all_fields_then_oldest_filing_date(self) -> None:
+        conn = _FakeCounselSelectionConn(
+            [
+                {
+                    "agreement_uuid": "agreement-older-missing-all",
+                    "target": "Target A",
+                    "acquirer": "Acquirer A",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is A.</section>",
+                },
+                {
+                    "agreement_uuid": "agreement-newer-missing-all",
+                    "target": "Target B",
+                    "acquirer": "Acquirer B",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is B.</section>",
+                },
+                {
+                    "agreement_uuid": "agreement-oldest-partial",
+                    "target": "Target C",
+                    "acquirer": "Acquirer C",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is C.</section>",
+                },
+            ]
+        )
+        engine = _FakeCounselSelectionEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        lines = _build_offline_counsel_lines(
+            context=cast(AssetExecutionContext, cast(object, context)),
+            engine=engine,
+            schema="pdx",
+            agreements_table="pdx.agreements",
+            batch_size=3,
+        )
+
+        self.assertEqual(
+            [str(line["custom_id"]) for line in lines],
+            [
+                "agreement-older-missing-all",
+                "agreement-newer-missing-all",
+                "agreement-oldest-partial",
+            ],
+        )
+        self.assertTrue(
+            any("missing_all_counsel_fields DESC" in sql and "filing_date ASC" in sql for sql in conn.executed_sql)
+        )
+
+    def test_build_offline_metadata_lines_prioritizes_missing_all_fields_then_oldest_filing_date(self) -> None:
+        conn = _FakeMetadataSelectionConn(
+            [
+                {
+                    "agreement_uuid": "agreement-older-missing-all",
+                    "page_order": 1,
+                    "page_text": "Older missing all front matter",
+                },
+                {
+                    "agreement_uuid": "agreement-newer-missing-all",
+                    "page_order": 1,
+                    "page_text": "Newer missing all front matter",
+                },
+                {
+                    "agreement_uuid": "agreement-oldest-partial",
+                    "page_order": 1,
+                    "page_text": "Oldest partial front matter",
+                },
+            ]
+        )
+        engine = _FakeMetadataSelectionEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        lines = _build_offline_metadata_lines(
+            context=cast(AssetExecutionContext, cast(object, context)),
+            engine=engine,
+            agreements_table="pdx.agreements",
+            pages_table="pdx.pages",
+            tagged_outputs_table="pdx.tagged_outputs",
+            batch_size=3,
+        )
+
+        self.assertEqual(
+            [str(line["custom_id"]) for line in lines],
+            [
+                "agreement-older-missing-all",
+                "agreement-newer-missing-all",
+                "agreement-oldest-partial",
+            ],
+        )
+        self.assertTrue(
+            any("missing_all_metadata_fields DESC" in sql and "filing_date ASC" in sql for sql in conn.executed_sql)
         )
 
     def test_normalize_counsel_name_ignores_punctuation_and_spacing(self) -> None:

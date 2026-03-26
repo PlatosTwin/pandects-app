@@ -799,6 +799,14 @@ def _build_offline_metadata_lines(
         WITH candidate_pages AS (
             SELECT
                 a.agreement_uuid,
+                a.filing_date,
+                CASE
+                    WHEN (a.target IS NULL OR TRIM(a.target) = '')
+                     AND (a.acquirer IS NULL OR TRIM(a.acquirer) = '')
+                     AND (a.deal_type IS NULL OR TRIM(a.deal_type) = '')
+                    THEN 1
+                    ELSE 0
+                END AS missing_all_metadata_fields,
                 p.page_order,
                 coalesce(p.gold_label, p.source_page_type) AS source_page_type,
                 coalesce(t.tagged_text_gold, t.tagged_text_corrected, t.tagged_text, p.processed_page_content) AS page_text,
@@ -817,13 +825,16 @@ def _build_offline_metadata_lines(
                 AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
         ),
         selected_pages AS (
-            SELECT agreement_uuid, page_order, page_text
+            SELECT agreement_uuid, filing_date, missing_all_metadata_fields, page_order, page_text
             FROM candidate_pages
             WHERE source_page_type = 'front_matter'
                OR (source_page_type = 'body' AND rn <= 2)
         ),
         selected_agreements AS (
-            SELECT agreement_uuid
+            SELECT
+                agreement_uuid,
+                MAX(missing_all_metadata_fields) AS missing_all_metadata_fields,
+                MAX(filing_date) AS filing_date
             FROM selected_pages
             GROUP BY agreement_uuid
             HAVING SUM(
@@ -832,14 +843,23 @@ def _build_offline_metadata_lines(
                     ELSE 0
                 END
             ) > 0
-            ORDER BY agreement_uuid ASC
+            ORDER BY
+                missing_all_metadata_fields DESC,
+                (filing_date IS NULL) ASC,
+                filing_date ASC,
+                agreement_uuid ASC
             LIMIT :lim
         )
         SELECT sp.agreement_uuid, sp.page_order, sp.page_text
         FROM selected_pages sp
         JOIN selected_agreements sa
             ON sa.agreement_uuid = sp.agreement_uuid
-        ORDER BY sp.agreement_uuid ASC, sp.page_order ASC
+        ORDER BY
+            sa.missing_all_metadata_fields DESC,
+            (sa.filing_date IS NULL) ASC,
+            sa.filing_date ASC,
+            sp.agreement_uuid ASC,
+            sp.page_order ASC
         """
     )
     with engine.begin() as conn:
@@ -876,6 +896,21 @@ def _build_offline_counsel_lines(
         matching_sections AS (
             SELECT
                 a.agreement_uuid,
+                a.filing_date,
+                CASE
+                    WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
+                     AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
+                     AND (
+                        a.target_counsel_normalized IS NULL
+                        OR TRIM(a.target_counsel_normalized) = ''
+                     )
+                     AND (
+                        a.acquirer_counsel_normalized IS NULL
+                        OR TRIM(a.acquirer_counsel_normalized) = ''
+                     )
+                    THEN 1
+                    ELSE 0
+                END AS missing_all_counsel_fields,
                 a.target,
                 a.acquirer,
                 s.section_uuid,
@@ -906,13 +941,26 @@ def _build_offline_counsel_lines(
               AND sc.latest_xml_status = 'verified'
               AND sc.latest_section_count > 0
               AND sc.has_stale_body_tags = 0
-              AND COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id
+              AND (
+                    COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id
+                    OR JSON_CONTAINS(
+                        COALESCE(s.section_standard_id_gold_label, s.section_standard_id),
+                        JSON_QUOTE(:counsel_standard_id)
+                    ) = 1
+              )
         ),
         selected_agreements AS (
-            SELECT agreement_uuid
+            SELECT
+                agreement_uuid,
+                MAX(missing_all_counsel_fields) AS missing_all_counsel_fields,
+                MAX(filing_date) AS filing_date
             FROM matching_sections
             GROUP BY agreement_uuid
-            ORDER BY agreement_uuid ASC
+            ORDER BY
+                missing_all_counsel_fields DESC,
+                (filing_date IS NULL) ASC,
+                filing_date ASC,
+                agreement_uuid ASC
             LIMIT :lim
         )
         SELECT
@@ -924,7 +972,12 @@ def _build_offline_counsel_lines(
         FROM matching_sections ms
         JOIN selected_agreements sa
           ON sa.agreement_uuid = ms.agreement_uuid
-        ORDER BY ms.agreement_uuid ASC, ms.section_uuid ASC
+        ORDER BY
+            sa.missing_all_counsel_fields DESC,
+            (sa.filing_date IS NULL) ASC,
+            sa.filing_date ASC,
+            ms.agreement_uuid ASC,
+            ms.section_uuid ASC
         """
     )
     with engine.begin() as conn:
