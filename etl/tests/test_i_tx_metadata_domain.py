@@ -112,7 +112,7 @@ class TxMetadataDomainTests(unittest.TestCase):
 
     def test_build_update_params_web_search_only_keeps_total_null_when_mixed_is_incomplete(self) -> None:
         payload = self._valid_web_search_obj()
-        payload["purchase_price"] = {"cash": 10.0, "stock": None, "assets": 5.0}
+        payload["purchase_price"] = {"cash": 10.0, "stock": None, "assets": None}
         payload["consideration_type"] = "mixed"
 
         params = build_tx_metadata_update_params_web_search_only(
@@ -122,6 +122,45 @@ class TxMetadataDomainTests(unittest.TestCase):
         )
 
         self.assertIsNone(params["price_total"])
+
+    def test_build_update_params_web_search_only_totals_mixed_cash_and_stock(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 152_400_000.0, "stock": 493_637_000.0, "assets": None}
+        payload["consideration_type"] = "mixed"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_total"], 646_037_000.0)
+
+    def test_build_update_params_web_search_only_totals_mixed_cash_and_assets(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 10.0, "stock": None, "assets": 5.0}
+        payload["consideration_type"] = "mixed"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_total"], 15.0)
+
+    def test_build_update_params_web_search_only_totals_mixed_stock_and_assets(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": None, "stock": 10.0, "assets": 5.0}
+        payload["consideration_type"] = "mixed"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_total"], 15.0)
 
     def test_build_tx_metadata_request_body_web_search_only_includes_sec_url(self) -> None:
         request_body = build_tx_metadata_request_body_web_search_only(

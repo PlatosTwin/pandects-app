@@ -681,30 +681,17 @@ def build_tx_metadata_update_params(
     }
     if all(v is None for v in raw_components.values()):
         price_total = None
+    elif consideration == "cash":
+        price_total = price_cash
+    elif consideration == "stock":
+        price_total = price_stock
     else:
-        if consideration == "cash":
-            applicable_components = {"cash"}
-        elif consideration == "stock":
-            applicable_components = {"stock"}
+        non_null_components = [value for value in raw_components.values() if value is not None]
+        if len(non_null_components) >= 2:
+            price_total = float(sum(non_null_components))
         else:
-            applicable_components = {"cash", "stock", "assets"}
-
-        total_components_for_sum: list[float] = []
-        has_unknown_applicable_component = False
-        for component, value in raw_components.items():
-            if value is None:
-                if component in applicable_components:
-                    has_unknown_applicable_component = True
-                    break
-                total_components_for_sum.append(0.0)
-            else:
-                total_components_for_sum.append(value)
-
-        if has_unknown_applicable_component:
-            # Keep total unknown when any applicable component is unknown.
+            # Mixed deals need at least two populated components before the total is reliable.
             price_total = None
-        else:
-            price_total = float(sum(total_components_for_sum))
 
     target_type = map_public_flag_to_type(tx_metadata_obj.get("target_public"))
     acquirer_type = map_public_flag_to_type(tx_metadata_obj.get("acquirer_public"))
