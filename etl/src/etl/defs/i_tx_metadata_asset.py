@@ -52,7 +52,7 @@ from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
 
 MAX_TX_METADATA_FAILURE_PAYLOAD_CHARS = 20_000
-WEB_SEARCH_MAX_WORKERS = 25
+WEB_SEARCH_MAX_WORKERS = 30
 WEB_SEARCH_COMMIT_BATCH_SIZE = 10
 OFFLINE_METADATA_BATCH_KIND = "metadata"
 OFFLINE_COUNSEL_BATCH_KIND = "counsel"
