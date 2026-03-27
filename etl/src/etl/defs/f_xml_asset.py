@@ -224,6 +224,109 @@ def _mark_xml_verify_batch_pulled(conn: Connection, schema: str, batch_id: str) 
     )
 
 
+def _load_xml_verify_batch_agreement_uuids(
+    client: OpenAI,
+    batch_row: Dict[str, Any],
+) -> List[str]:
+    input_file_id = batch_row.get("input_file_id")
+    if not input_file_id:
+        raise ValueError("xml verify batch row has no input_file_id")
+
+    raw_text = read_openai_file_text(client.files.content(str(input_file_id))).strip()
+    if not raw_text:
+        raise ValueError(f"xml verify batch input file {input_file_id} is empty")
+
+    agreement_uuids: set[str] = set()
+    for line in raw_text.splitlines():
+        payload = json.loads(line)
+        custom_id = payload.get("custom_id")
+        if not isinstance(custom_id, str):
+            raise ValueError("xml verify batch input line is missing string custom_id")
+        agreement_uuid, _ = _parse_custom_id(custom_id)
+        agreement_uuids.add(agreement_uuid)
+
+    if not agreement_uuids:
+        raise ValueError("xml verify batch input file contained no agreement targets")
+    return sorted(agreement_uuids)
+
+
+def _resume_xml_verify_batch(
+    context: AssetExecutionContext,
+    engine: Any,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    client: OpenAI,
+    *,
+    schema: str,
+    xml_table: str,
+    batch_scope: str,
+    batch_row: Dict[str, Any],
+    agreement_uuids: List[str],
+    log_prefix: str,
+    hard_invalid_updated: int,
+) -> List[str]:
+    batch_id = str(batch_row["batch_id"])
+    batch_key = batch_row.get("batch_key")
+    context.log.info(
+        "%s: resuming unpulled batch %s for %s agreements.",
+        log_prefix,
+        batch_id,
+        len(agreement_uuids),
+    )
+    batch = poll_batch_until_terminal(
+        context,
+        client,
+        batch_id,
+        log_prefix=log_prefix,
+    )
+    request_total = int(batch_row["request_total"])
+    with engine.begin() as conn:
+        _upsert_xml_verify_batch_row(
+            conn,
+            schema,
+            batch=batch,
+            completion_window=str(batch_row["completion_window"]),
+            request_total=request_total,
+            batch_scope=batch_scope,
+            batch_key=str(batch_key) if batch_key is not None else None,
+        )
+
+    if batch.status != "completed":
+        context.log.warning(
+            "%s: resumed batch %s ended with status=%s; no status updates applied.",
+            log_prefix,
+            batch.id,
+            batch.status,
+        )
+        with engine.begin() as conn:
+            _mark_xml_verify_batch_pulled(conn, schema, str(batch.id))
+        run_post_asset_refresh(context, db, pipeline_config)
+        return agreement_uuids
+
+    updated, parse_errors = _apply_xml_verify_batch_output(
+        context=context,
+        engine=engine,
+        client=client,
+        xml_table=xml_table,
+        xml_status_reasons_table=f"{schema}.xml_status_reasons",
+        batch=batch,
+        log_prefix=log_prefix,
+    )
+    with engine.begin() as conn:
+        _mark_xml_verify_batch_pulled(conn, schema, str(batch.id))
+    context.log.info(
+        "%s: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
+        log_prefix,
+        batch.id,
+        updated,
+        parse_errors,
+        hard_invalid_updated,
+    )
+
+    run_post_asset_refresh(context, db, pipeline_config)
+    return agreement_uuids
+
+
 def _roman_to_int(value: str) -> int | None:
     roman = value.strip().upper()
     if not roman:
@@ -744,6 +847,21 @@ def xml_asset(
     xml_table = f"{schema}.xml"
     context.log.info("Running XML generation")
 
+    if pipeline_config.resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_verify_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            )
+        if stranded_verify_batch is not None:
+            context.log.info(
+                "xml_asset: deferring new XML generation because unpulled verify batch %s is waiting to resume.",
+                stranded_verify_batch["batch_id"],
+            )
+            run_post_asset_refresh(context, db, pipeline_config)
+            return []
+
     last_uuid = ''
     built_agreement_uuids: List[str] = []
     while True:
@@ -893,6 +1011,53 @@ def xml_verify_asset(
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
+
+    engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    client = _oai_client()
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
+
+    if resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            )
+        if stranded_batch is not None:
+            try:
+                stranded_agreement_uuids = _load_xml_verify_batch_agreement_uuids(
+                    client,
+                    stranded_batch,
+                )
+            except Exception as e:
+                context.log.warning(
+                    "xml_verify_asset: failed to load agreement scope for unpulled batch %s: %s",
+                    stranded_batch["batch_id"],
+                    e,
+                )
+            else:
+                target_scope = set(target_agreement_uuids)
+                stranded_scope = set(stranded_agreement_uuids)
+                if not target_scope or target_scope != stranded_scope:
+                    return _resume_xml_verify_batch(
+                        context,
+                        engine,
+                        db,
+                        pipeline_config,
+                        client,
+                        schema=schema,
+                        xml_table=xml_table,
+                        batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                        batch_row=stranded_batch,
+                        agreement_uuids=stranded_agreement_uuids,
+                        log_prefix="xml_verify_asset",
+                        hard_invalid_updated=0,
+                    )
+
     if not target_agreement_uuids:
         context.log.info("xml_verify_asset: no upstream agreements from xml_asset.")
         run_post_asset_refresh(context, db, pipeline_config)
@@ -902,14 +1067,6 @@ def xml_verify_asset(
             "xml_verify_asset received more upstream agreements than xml_agreement_batch_size; "
             + "run-scoped XML verification accepts at most one upstream XML batch."
         )
-
-    engine = db.get_engine()
-    schema = db.database
-    xml_table = f"{schema}.xml"
-    client = _oai_client()
-
-    with engine.begin() as conn:
-        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
         bindparam("auuids", expanding=True)
@@ -1089,60 +1246,25 @@ def xml_verify_asset(
                 batch_key=verify_batch_key,
             )
         if existing_batch is not None:
-            existing_batch_id = str(existing_batch["batch_id"])
             context.log.info(
                 "xml_verify_asset: resuming matching unpulled batch %s for batch_key=%s.",
-                existing_batch_id,
+                existing_batch["batch_id"],
                 verify_batch_key[:12],
             )
-            batch = poll_batch_until_terminal(
+            return _resume_xml_verify_batch(
                 context,
+                engine,
+                db,
+                pipeline_config,
                 client,
-                existing_batch_id,
+                schema=schema,
+                xml_table=xml_table,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_row=existing_batch,
+                agreement_uuids=selected_for_verify,
                 log_prefix="xml_verify_asset",
+                hard_invalid_updated=hard_invalid_updated,
             )
-            request_total = int(existing_batch["request_total"])
-            with engine.begin() as conn:
-                _upsert_xml_verify_batch_row(
-                    conn,
-                    schema,
-                    batch=batch,
-                    completion_window=str(existing_batch["completion_window"]),
-                    request_total=request_total,
-                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
-                    batch_key=verify_batch_key,
-                )
-
-            if batch.status != "completed":
-                context.log.warning(
-                    "xml_verify_asset: resumed batch %s ended with status=%s; no status updates applied.",
-                    batch.id,
-                    batch.status,
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-            else:
-                updated, parse_errors = _apply_xml_verify_batch_output(
-                    context=context,
-                    engine=engine,
-                    client=client,
-                    xml_table=xml_table,
-                    xml_status_reasons_table=f"{schema}.xml_status_reasons",
-                    batch=batch,
-                    log_prefix="xml_verify_asset",
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-                context.log.info(
-                    "xml_verify_asset: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
-                    batch.id,
-                    updated,
-                    parse_errors,
-                    hard_invalid_updated,
-                )
-
-            run_post_asset_refresh(context, db, pipeline_config)
-            return selected_for_verify
 
     jsonl_buf = io.StringIO()
     for line in lines:

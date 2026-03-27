@@ -19,11 +19,13 @@ from etl.defs.f_xml_asset import (
     _apply_xml_verify_batch_output,
     _build_xml_verify_batch_request_body,
     _fetch_unpulled_xml_verify_batch,
+    _load_xml_verify_batch_agreement_uuids,
     find_hard_rule_violations,
     _mark_xml_verify_batch_pulled,
     _oai_client,
     _parse_custom_id,
     _render_tag_tree_from_root,
+    _resume_xml_verify_batch,
     _set_xml_status_with_reasons,
     _upsert_xml_verify_batch_row,
 )
@@ -75,6 +77,21 @@ def post_repair_build_xml_asset(
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     xml_table = f"{schema}.xml"
+
+    if pipeline_config.resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_verify_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_REPAIR,
+            )
+        if stranded_verify_batch is not None:
+            context.log.info(
+                "post_repair_build_xml_asset: deferring new rebuilds because unpulled verify batch %s is waiting to resume.",
+                stranded_verify_batch["batch_id"],
+            )
+            run_post_asset_refresh(context, db, pipeline_config)
+            return []
 
     with engine.begin() as conn:
         agreement_uuids = (
@@ -230,6 +247,53 @@ def post_repair_verify_xml_asset(
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(rebuilt_agreement_uuids))
+
+    engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    client = _oai_client()
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
+
+    if resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_REPAIR,
+            )
+        if stranded_batch is not None:
+            try:
+                stranded_agreement_uuids = _load_xml_verify_batch_agreement_uuids(
+                    client,
+                    stranded_batch,
+                )
+            except Exception as e:
+                context.log.warning(
+                    "post_repair_verify_xml_asset: failed to load agreement scope for unpulled batch %s: %s",
+                    stranded_batch["batch_id"],
+                    e,
+                )
+            else:
+                target_scope = set(target_agreement_uuids)
+                stranded_scope = set(stranded_agreement_uuids)
+                if not target_scope or target_scope != stranded_scope:
+                    return _resume_xml_verify_batch(
+                        context,
+                        engine,
+                        db,
+                        pipeline_config,
+                        client,
+                        schema=schema,
+                        xml_table=xml_table,
+                        batch_scope=XML_VERIFY_BATCH_SCOPE_REPAIR,
+                        batch_row=stranded_batch,
+                        agreement_uuids=stranded_agreement_uuids,
+                        log_prefix="post_repair_verify_xml_asset",
+                        hard_invalid_updated=0,
+                    )
+
     if not target_agreement_uuids:
         context.log.info("post_repair_verify_xml_asset: no upstream agreements from post_repair_build_xml_asset.")
         run_post_asset_refresh(context, db, pipeline_config)
@@ -239,14 +303,6 @@ def post_repair_verify_xml_asset(
             "post_repair_verify_xml_asset received more upstream agreements than xml_agreement_batch_size; "
             + "run-scoped XML verification accepts at most one upstream rebuild batch."
         )
-
-    engine = db.get_engine()
-    schema = db.database
-    xml_table = f"{schema}.xml"
-    client = _oai_client()
-
-    with engine.begin() as conn:
-        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     queue_q = text(canonical_post_repair_verify_queue_sql(schema, scoped=True)).bindparams(
         bindparam("auuids", expanding=True)
@@ -411,60 +467,25 @@ def post_repair_verify_xml_asset(
                 batch_key=verify_batch_key,
             )
         if existing_batch is not None:
-            existing_batch_id = str(existing_batch["batch_id"])
             context.log.info(
                 "post_repair_verify_xml_asset: resuming matching unpulled batch %s for batch_key=%s.",
-                existing_batch_id,
+                existing_batch["batch_id"],
                 verify_batch_key[:12],
             )
-            batch = poll_batch_until_terminal(
+            return _resume_xml_verify_batch(
                 context,
+                engine,
+                db,
+                pipeline_config,
                 client,
-                existing_batch_id,
+                schema=schema,
+                xml_table=xml_table,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_REPAIR,
+                batch_row=existing_batch,
+                agreement_uuids=selected_for_verify,
                 log_prefix="post_repair_verify_xml_asset",
+                hard_invalid_updated=hard_invalid_updated,
             )
-            request_total = int(existing_batch["request_total"])
-            with engine.begin() as conn:
-                _upsert_xml_verify_batch_row(
-                    conn,
-                    schema,
-                    batch=batch,
-                    completion_window=str(existing_batch["completion_window"]),
-                    request_total=request_total,
-                    batch_scope=XML_VERIFY_BATCH_SCOPE_REPAIR,
-                    batch_key=verify_batch_key,
-                )
-
-            if batch.status != "completed":
-                context.log.warning(
-                    "post_repair_verify_xml_asset: resumed batch %s ended with status=%s; no status updates applied.",
-                    batch.id,
-                    batch.status,
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-            else:
-                updated, parse_errors = _apply_xml_verify_batch_output(
-                    context=context,
-                    engine=engine,
-                    client=client,
-                    xml_table=xml_table,
-                    xml_status_reasons_table=f"{schema}.xml_status_reasons",
-                    batch=batch,
-                    log_prefix="post_repair_verify_xml_asset",
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-                context.log.info(
-                    "post_repair_verify_xml_asset: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
-                    batch.id,
-                    updated,
-                    parse_errors,
-                    hard_invalid_updated,
-                )
-
-            run_post_asset_refresh(context, db, pipeline_config)
-            return selected_for_verify
 
     jsonl_buf = io.StringIO()
     for line in lines:
