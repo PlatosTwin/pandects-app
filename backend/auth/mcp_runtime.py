@@ -307,6 +307,10 @@ class OidcMcpIdentityProvider(McpIdentityProvider):
         return _normalize_external_identity(payload)
 
 
+class ZitadelMcpIdentityProvider(OidcMcpIdentityProvider):
+    pass
+
+
 class _ProviderRegistry(dict[str, type[McpIdentityProvider]]):
     def register(
         self, name: str, provider_cls: type[McpIdentityProvider]
@@ -317,6 +321,7 @@ class _ProviderRegistry(dict[str, type[McpIdentityProvider]]):
 
 _PROVIDER_REGISTRY = _ProviderRegistry()
 _PROVIDER_REGISTRY.register("oidc", OidcMcpIdentityProvider)
+_PROVIDER_REGISTRY.register("zitadel", ZitadelMcpIdentityProvider)
 
 
 def register_mcp_identity_provider(
@@ -434,6 +439,7 @@ __all__ = [
     "McpPrincipal",
     "McpIdentityProvider",
     "OidcMcpIdentityProvider",
+    "ZitadelMcpIdentityProvider",
     "_mcp_jwk_client",
     "_mcp_identity_provider",
     "mcp_identity_provider_name",

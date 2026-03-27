@@ -309,6 +309,17 @@ class McpTests(unittest.TestCase):
             if previous is not None:
                 os.environ["MCP_IDENTITY_PROVIDER"] = previous
 
+    def test_identity_provider_name_is_normalized(self):
+        previous = os.environ.get("MCP_IDENTITY_PROVIDER")
+        os.environ["MCP_IDENTITY_PROVIDER"] = " ZITADEL "
+        try:
+            self.assertEqual(self.mcp_runtime.mcp_identity_provider_name(), "zitadel")
+        finally:
+            if previous is None:
+                os.environ.pop("MCP_IDENTITY_PROVIDER", None)
+            else:
+                os.environ["MCP_IDENTITY_PROVIDER"] = previous
+
     def test_identity_provider_can_be_selected_by_env(self):
         runtime = self.mcp_runtime
         previous = os.environ.get("MCP_IDENTITY_PROVIDER")
@@ -330,6 +341,21 @@ class McpTests(unittest.TestCase):
         try:
             provider = runtime._identity_provider()
             self.assertIsInstance(provider, StubProvider)
+        finally:
+            runtime._mcp_identity_provider = None
+            if previous is None:
+                os.environ.pop("MCP_IDENTITY_PROVIDER", None)
+            else:
+                os.environ["MCP_IDENTITY_PROVIDER"] = previous
+
+    def test_zitadel_identity_provider_can_be_selected_by_env(self):
+        runtime = self.mcp_runtime
+        previous = os.environ.get("MCP_IDENTITY_PROVIDER")
+        runtime._mcp_identity_provider = None
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        try:
+            provider = runtime._identity_provider()
+            self.assertIsInstance(provider, runtime.ZitadelMcpIdentityProvider)
         finally:
             runtime._mcp_identity_provider = None
             if previous is None:
