@@ -28,12 +28,13 @@ import {
   createApiKey,
   deleteAccount,
   fetchUsage,
+  listExternalSubjects,
   listApiKeys,
   loginWithGoogleCredential,
   resendVerificationEmail,
   revokeApiKey,
 } from "@/lib/auth-api";
-import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
+import type { ApiKeySummary, ExternalSubjectLink, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 import { loadGoogleIdentityServices } from "@/lib/google-identity";
 import { setSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
@@ -47,6 +48,7 @@ import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
+import { isZitadelLinkConfigured, startZitadelLinkFlow } from "@/lib/zitadel-link";
 import brandLinks from "@branding/links.json";
 
 type UsageChartPoint = {
@@ -158,10 +160,40 @@ export default function Account() {
   }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const linked = params.get("mcpLinked");
+    const linkError = params.get("mcpLinkError");
+    if (linked !== "1" && !linkError) return;
+
+    if (linked === "1") {
+      toast({
+        title: "MCP access linked",
+        description: "Your ZITADEL identity can now authenticate to Pandects MCP.",
+      });
+      setMcpLinkPending(false);
+    } else if (linkError) {
+      toast({
+        title: "Could not link MCP access",
+        description: linkError,
+      });
+      setMcpLinkPending(false);
+    }
+
+    params.delete("mcpLinked");
+    params.delete("mcpLinkError");
+    const nextQuery = params.toString();
+    navigate(
+      { pathname: location.pathname, search: nextQuery ? `?${nextQuery}` : "" },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
 
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
+  const [externalSubjects, setExternalSubjects] = useState<ExternalSubjectLink[]>([]);
   const [usageByDay, setUsageByDay] = useState<UsageByDay[]>([]);
   const [usageTotal, setUsageTotal] = useState(0);
   const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("1m");
@@ -173,6 +205,7 @@ export default function Account() {
   const [accountDataLoading, setAccountDataLoading] = useState(false);
   const [accountDataLoaded, setAccountDataLoaded] = useState(false);
   const [accountDataError, setAccountDataError] = useState<string | null>(null);
+  const [mcpLinkPending, setMcpLinkPending] = useState(false);
 
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -284,8 +317,9 @@ export default function Account() {
   const loadAccountData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setAccountDataLoading(true);
     try {
-      const keys = await listApiKeys();
+      const [keys, links] = await Promise.all([listApiKeys(), listExternalSubjects()]);
       setApiKeys(keys.keys);
+      setExternalSubjects(links.links);
       const selectedKeyExists =
         usageKeyFilterRef.current === "all"
           || keys.keys.some((key) => key.id === usageKeyFilterRef.current);
@@ -320,6 +354,7 @@ export default function Account() {
   useEffect(() => {
     if (!user) {
       setApiKeys([]);
+      setExternalSubjects([]);
       setUsageByDay([]);
       setUsageTotal(0);
       setUsagePeriod("1m");
@@ -399,6 +434,7 @@ export default function Account() {
     confirmPassword.length > 0 && confirmPassword !== password;
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const zitadelLinkConfigured = isZitadelLinkConfigured();
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
   const usageKeyOptions = useMemo(() => {
@@ -1258,6 +1294,82 @@ export default function Account() {
               <AlertDescription>{redactedReminder}</AlertDescription>
             </Alert>
           ) : null}
+
+          <Card className="p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold">MCP access</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Link a ZITADEL identity to use OAuth bearer tokens against Pandects MCP.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Linked identities can authenticate to <code>/mcp</code> with the scopes granted in ZITADEL.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                disabled={!zitadelLinkConfigured || mcpLinkPending || accountDataLoading || accountDataBootstrapping}
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setMcpLinkPending(true);
+                  void startZitadelLinkFlow({ returnTo: "/account" }).catch((err) => {
+                    setMcpLinkPending(false);
+                    toast({
+                      title: "Could not start ZITADEL linking",
+                      description: err instanceof Error ? err.message : String(err),
+                    });
+                  });
+                }}
+              >
+                {mcpLinkPending ? "Redirecting to ZITADEL…" : "Connect ZITADEL"}
+              </Button>
+            </div>
+
+            {!zitadelLinkConfigured ? (
+              <Alert className="mt-4">
+                <AlertTitle>ZITADEL linking is not configured</AlertTitle>
+                <AlertDescription>
+                  Set the frontend ZITADEL OAuth environment variables before enabling MCP linking in the account UI.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="mt-4 grid gap-3">
+              <h3 className="text-sm font-medium">Linked identities</h3>
+              {accountDataBootstrapping ? (
+                <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                  Loading linked identities…
+                </div>
+              ) : externalSubjects.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                  No external identities linked yet.
+                </div>
+              ) : (
+                externalSubjects.map((link) => (
+                  <div key={link.id} className="rounded-md border border-border/60 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {link.provider ?? "External"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Linked {formatDate(link.created_at)}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Issuer</div>
+                        <div className="font-mono text-xs break-all">{link.issuer}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Subject</div>
+                        <div className="font-mono text-xs break-all">{link.subject}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
 
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

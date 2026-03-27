@@ -1,6 +1,12 @@
 import { apiUrl } from "@/lib/api-config";
 import { authFetchJson } from "@/lib/auth-fetch";
-import type { ApiKeySummary, AuthUser, UsageByDay, UsagePeriod } from "@/lib/auth-types";
+import type {
+  ApiKeySummary,
+  AuthUser,
+  ExternalSubjectLink,
+  UsageByDay,
+  UsagePeriod,
+} from "@/lib/auth-types";
 
 export type LegalAcceptancePayload = {
   checked_at_ms: number;
@@ -128,6 +134,26 @@ export async function verifyEmail(token: string) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
+  });
+}
+
+export async function listExternalSubjects() {
+  return authFetchJson<{ links: ExternalSubjectLink[] }>(
+    apiUrl("v1/auth/external-subjects"),
+  );
+}
+
+export async function linkExternalSubject(payload: {
+  provider?: string;
+  access_token: string;
+}) {
+  return authFetchJson<{
+    status: "linked" | "already_linked";
+    link: ExternalSubjectLink;
+  }>(apiUrl("v1/auth/external-subjects"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 }
 

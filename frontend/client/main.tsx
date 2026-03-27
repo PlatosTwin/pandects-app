@@ -27,6 +27,7 @@ const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
 const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
+const AuthZitadelCallback = lazy(() => import("./pages/AuthZitadelCallback"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -84,7 +85,11 @@ const App = () => {
                 <Route
                   path="/auth/google/callback"
                   element={<AuthGoogleCallback />}
-              />
+                />
+                <Route
+                  path="/auth/zitadel/callback"
+                  element={<AuthZitadelCallback />}
+                />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>

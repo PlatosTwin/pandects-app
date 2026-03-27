@@ -18,4 +18,12 @@ export interface UsageByDay {
   count: number;
 }
 
+export interface ExternalSubjectLink {
+  id: number;
+  issuer: string;
+  subject: string;
+  created_at: string;
+  provider?: string;
+}
+
 export type UsagePeriod = "1w" | "1m" | "1y" | "all";

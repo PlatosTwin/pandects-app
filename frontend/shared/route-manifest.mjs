@@ -270,6 +270,17 @@ const ROUTE_MANIFEST = [
     prerender: false,
   },
   {
+    pathname: "/auth/zitadel/callback",
+    title: "Linking MCP Access | Pandects",
+    description: "Completing your Pandects MCP access link.",
+    robots: NOINDEX,
+    pageType: "WebPage",
+    pageName: "Linking MCP Access",
+    pageDescription: "Completing your Pandects MCP access link.",
+    sitemap: false,
+    prerender: false,
+  },
+  {
     pathname: "/auth/verify-email",
     title: "Verify Email | Pandects",
     description: "Verify your Pandects account email address.",

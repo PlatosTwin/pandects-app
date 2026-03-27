@@ -64,6 +64,25 @@ Recommended flow:
 3. Frontend or admin tooling calls `POST /v1/auth/external-subjects` with the Pandects session and the ZITADEL access token.
 4. After the link exists, the same external identity can call `/mcp` directly with `Authorization: Bearer <zitadel-access-token>`.
 
+For the frontend-driven ZITADEL link flow, set these frontend env vars:
+
+```env
+VITE_ZITADEL_AUTHORITY=https://<your-zitadel-domain>
+VITE_ZITADEL_CLIENT_ID=<your-public-zitadel-client-id>
+VITE_ZITADEL_REDIRECT_URI=https://app.pandects.org/auth/zitadel/callback
+VITE_ZITADEL_SCOPES=openid profile email offline_access sections:search agreements:search agreements:read
+
+# Optional if your ZITADEL setup expects them explicitly
+VITE_ZITADEL_RESOURCE=https://api.pandects.org/mcp
+VITE_ZITADEL_AUDIENCE=https://api.pandects.org/mcp
+
+# Optional overrides if you do not want the default /oauth/v2 paths
+VITE_ZITADEL_AUTHORIZATION_ENDPOINT=
+VITE_ZITADEL_TOKEN_ENDPOINT=
+```
+
+The account page uses those vars to start an OAuth PKCE flow, exchange the authorization code for an access token in the browser, and then call `POST /v1/auth/external-subjects`.
+
 Example link call:
 
 ```bash
