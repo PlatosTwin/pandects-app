@@ -1289,16 +1289,9 @@ def ai_repair_poll_asset(
                         for row in page_rows
                     }
 
-                if b.status in _AI_REPAIR_FAILED_BATCH_STATUSES:
-                    _bulk_update_status(conn, db.database, req_ids_all, "failed")
+                batch_failed_terminal = b.status in _AI_REPAIR_FAILED_BATCH_STATUSES
+                if batch_failed_terminal:
                     terminal_failed_batches.append((str(bid), str(b.status), total, failed))
-                    context.log.error(
-                        "Batch %s ended with status=%s; marked %s requests as failed.",
-                        bid,
-                        b.status,
-                        len(req_ids_all),
-                    )
-                    continue
 
                 success_ids: Set[str] = set()
                 http_success_ids: Set[str] = set()
@@ -1439,13 +1432,24 @@ def ai_repair_poll_asset(
                 # Explicit failures
                 _bulk_update_status(conn, db.database, failed_ids, "failed")
 
-                # Leftovers: neither output nor error line → completed_no_output
+                # Leftovers on completed batches produced no output/error payloads.
+                # Leftovers on expired/failed/cancelled batches never returned and
+                # should be retried on a future enqueue.
                 leftover_ids = req_ids_all - http_success_ids - failed_ids - parse_error_ids
-                _bulk_update_status(conn, db.database, leftover_ids, "completed_no_output")
+                leftover_status = "failed" if batch_failed_terminal else "completed_no_output"
+                _bulk_update_status(conn, db.database, leftover_ids, leftover_status)
 
                 # Summary
                 context.log.info(
-                    f"Batch {bid}: success={len(success_ids)} failed={len(failed_ids)} parse_error={len(parse_error_ids)} no_output={len(no_output_ids)}"
+                    "Batch %s: success=%s failed=%s parse_error=%s no_output=%s leftover=%s"
+                    % (
+                        bid,
+                        len(success_ids),
+                        len(failed_ids),
+                        len(parse_error_ids),
+                        len(no_output_ids),
+                        len(leftover_ids),
+                    )
                 )
 
         # Emit progress summary for running batches outside of transaction
