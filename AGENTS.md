@@ -41,17 +41,20 @@
 - Required main DB env vars are `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_HOST`, and `MARIADB_DATABASE`. `backend/.env.example` shows the expected names. If those vars are missing locally, say that clearly instead of claiming DB access is impossible in principle.
 
 ## Common Workflows
+- Full local dev stack (from repo root): `./dev-all.sh`
 - Backend local run (from repo root): `FLASK_APP=backend.app flask run`
 - ETL pipelines with repo config:
   - `dagster job execute -f etl/src/etl/defs/jobs.py -j cleanup_pipeline -c etl/configs/pipeline_config.yaml`
   - `dagster job execute -f etl/src/etl/defs/jobs.py -j xml_fresh_pipeline -c etl/configs/pipeline_config.yaml`
   - `dagster job execute -f etl/src/etl/defs/jobs.py -j xml_repair_cycle_pipeline -c etl/configs/pipeline_config.yaml`
+- ETL local Launchpad/dev server (from `etl/`): `dg dev`
 - Frontend email template render/sync (from `frontend/`):
   - `npm run render:emails`
   - `npm run render:emails:sync`
 - Docs app (from `docs/`):
   - `npm run dev:clean`
   - `npm run build`
+  - `npm run clean-api && npm run gen-api`
 
 ## Cursor Rules
 - Read `.cursor/rules/` before making substantial changes.
