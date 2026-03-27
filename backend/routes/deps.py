@@ -28,6 +28,11 @@ class UserLikeProtocol(Protocol):
     email_verified_at: datetime | None
 
 
+class ExternalIdentityLikeProtocol(Protocol):
+    issuer: str
+    subject: str
+
+
 class ApiKeyLikeProtocol(Protocol):
     id: str
     name: str | None
@@ -111,6 +116,15 @@ class IssuePasswordResetTokenProtocol(Protocol):
 
 class RecordSignonEventProtocol(Protocol):
     def __call__(self, *, user_id: str, provider: str, action: str) -> None: ...
+
+
+class AuthenticateExternalIdentityProtocol(Protocol):
+    def __call__(
+        self,
+        *,
+        access_token: str,
+        provider_name: str | None = None,
+    ) -> ExternalIdentityLikeProtocol: ...
 
 
 class RequireVerifiedUserProtocol(Protocol):
@@ -251,6 +265,8 @@ class AuthDeps:
     AuthApiKeySchema: type[Schema]
     AuthDeleteAccountSchema: type[Schema]
     AuthEmailSchema: type[Schema]
+    AuthExternalSubject: Any
+    AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
     AuthGoogleCredentialSchema: type[Schema]
     AuthLoginSchema: type[Schema]
@@ -267,6 +283,7 @@ class AuthDeps:
     _auth_enumeration_delay: Callable[[], None]
     _auth_is_mocked: Callable[[], bool]
     _auth_session_transport: Callable[[], str]
+    _authenticate_external_identity: AuthenticateExternalIdentityProtocol
     _clear_auth_cookies: Callable[[WerkzeugResponse], None]
     _clear_google_nonce_cookie: Callable[[WerkzeugResponse], None]
     _clear_google_oauth_cookie: Callable[[WerkzeugResponse], None]
@@ -317,6 +334,7 @@ class AuthDeps:
     _user_has_current_legal_acceptances: UserHasCurrentLegalAcceptancesProtocol
     _utc_now: Callable[[], datetime]
     _utc_today: Callable[[], date]
+    _resolve_mcp_identity_provider_name: Callable[[str | None], str]
     _verify_turnstile_token: VerifyTurnstileTokenProtocol
     check_password_hash: Callable[[str, str], bool]
     db: Any

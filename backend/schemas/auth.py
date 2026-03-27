@@ -41,6 +41,11 @@ class AuthGoogleCredentialSchema(Schema):
     legal = fields.Dict(required=False, allow_none=True)
 
 
+class AuthExternalSubjectLinkSchema(Schema):
+    access_token = fields.Str(required=True)
+    provider = fields.Str(required=False, allow_none=True)
+
+
 class AuthFlagInaccurateSchema(Schema):
     source = fields.Str(required=True)
     agreement_uuid = fields.Str(required=True)

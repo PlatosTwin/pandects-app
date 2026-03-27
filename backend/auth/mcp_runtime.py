@@ -83,6 +83,12 @@ def mcp_identity_provider_name() -> str:
     return raw or "oidc"
 
 
+def resolve_mcp_identity_provider_name(provider_name: str | None = None) -> str:
+    if isinstance(provider_name, str) and provider_name.strip():
+        return provider_name.strip().lower()
+    return mcp_identity_provider_name()
+
+
 def mcp_public_base_url() -> str:
     raw = os.environ.get("MCP_PUBLIC_BASE_URL", "").strip()
     if raw:
@@ -330,19 +336,31 @@ def register_mcp_identity_provider(
     return _PROVIDER_REGISTRY.register(name, provider_cls)
 
 
+def _provider_by_name(provider_name: str) -> McpIdentityProvider:
+    provider_cls = _PROVIDER_REGISTRY.get(provider_name)
+    if provider_cls is None:
+        raise RuntimeError(f"Unsupported MCP identity provider: {provider_name}.")
+    return provider_cls()
+
+
 def _identity_provider() -> McpIdentityProvider:
     global _mcp_identity_provider
     provider = _mcp_identity_provider
     if provider is None:
-        provider_name = mcp_identity_provider_name()
-        provider_cls = _PROVIDER_REGISTRY.get(provider_name)
-        if provider_cls is None:
-            raise RuntimeError(
-                f"Unsupported MCP identity provider: {provider_name}."
-            )
-        provider = provider_cls()
+        provider = _provider_by_name(mcp_identity_provider_name())
         _mcp_identity_provider = provider
     return provider
+
+
+def authenticate_external_identity(
+    *, access_token: str, provider_name: str | None = None
+) -> ExternalIdentity:
+    resolved_provider_name = resolve_mcp_identity_provider_name(provider_name)
+    if resolved_provider_name == mcp_identity_provider_name():
+        return _identity_provider().authenticate_access_token(access_token)
+    return _provider_by_name(resolved_provider_name).authenticate_access_token(
+        access_token
+    )
 
 
 def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
@@ -410,7 +428,7 @@ def authenticate_mcp_request() -> McpPrincipal:
         )
 
     try:
-        external_identity = _identity_provider().authenticate_access_token(token)
+        external_identity = authenticate_external_identity(access_token=token)
         user = _linked_verified_user(
             issuer=external_identity.issuer,
             subject=external_identity.subject,
@@ -442,8 +460,10 @@ __all__ = [
     "ZitadelMcpIdentityProvider",
     "_mcp_jwk_client",
     "_mcp_identity_provider",
+    "authenticate_external_identity",
     "mcp_identity_provider_name",
     "register_mcp_identity_provider",
+    "resolve_mcp_identity_provider_name",
     "_normalize_external_identity",
     "authenticate_mcp_request",
     "mcp_protocol_version",

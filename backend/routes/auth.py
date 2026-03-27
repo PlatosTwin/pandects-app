@@ -13,6 +13,7 @@ from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, req
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
+from backend.auth.mcp_runtime import McpAuthError
 from backend.routes.deps import AuthDeps
 
 
@@ -444,6 +445,129 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         deps._require_auth_db()
         user, _ctx = deps._require_verified_user()
         resp = make_response(jsonify({"user": {"id": user.id, "email": user.email}}))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/external-subjects", methods=["GET"])
+    def auth_list_external_subjects():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="External identity linking is unavailable in mocked auth mode.")
+        try:
+            links = (
+                deps.AuthExternalSubject.query.filter_by(user_id=user.id)
+                .order_by(deps.AuthExternalSubject.created_at.desc())
+                .all()
+            )
+        except SQLAlchemyError:
+            abort(503, description="Auth backend is unavailable right now.")
+        resp = make_response(
+            jsonify(
+                {
+                    "links": [
+                        {
+                            "id": link.id,
+                            "issuer": link.issuer,
+                            "subject": link.subject,
+                            "created_at": link.created_at.isoformat(),
+                        }
+                        for link in links
+                    ]
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/external-subjects", methods=["POST"])
+    def auth_link_external_subject():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="External identity linking is unavailable in mocked auth mode.")
+        data = deps._load_json(deps.AuthExternalSubjectLinkSchema())
+        access_token = data.get("access_token")
+        provider = data.get("provider")
+        if not isinstance(access_token, str) or not access_token.strip():
+            abort(400, description="External access token is required.")
+        if provider is not None and not isinstance(provider, str):
+            abort(400, description="Provider must be a string.")
+        provider_name = deps._resolve_mcp_identity_provider_name(
+            provider if isinstance(provider, str) else None
+        )
+        try:
+            external_identity = deps._authenticate_external_identity(
+                access_token=access_token.strip(),
+                provider_name=provider_name,
+            )
+        except Exception as exc:
+            message = str(exc)
+            if "Unsupported MCP identity provider" in message:
+                abort(400, description="Unsupported external identity provider.")
+            if isinstance(exc, McpAuthError):
+                if exc.status_code >= 500:
+                    abort(503, description="External identity provider is unavailable right now.")
+                abort(400, description="External access token is invalid or expired.")
+            abort(503, description="External identity provider is unavailable right now.")
+
+        try:
+            existing = deps.AuthExternalSubject.query.filter_by(
+                issuer=external_identity.issuer,
+                subject=external_identity.subject,
+            ).first()
+            if existing is not None:
+                if existing.user_id != user.id:
+                    abort(409, description="External identity is already linked to another account.")
+                resp = make_response(
+                    jsonify(
+                        {
+                            "status": "already_linked",
+                            "link": {
+                                "id": existing.id,
+                                "provider": provider_name,
+                                "issuer": existing.issuer,
+                                "subject": existing.subject,
+                                "created_at": existing.created_at.isoformat(),
+                            },
+                        }
+                    )
+                )
+                resp.headers["Cache-Control"] = "no-store"
+                return resp
+
+            link = deps.AuthExternalSubject(
+                user_id=user.id,
+                issuer=external_identity.issuer,
+                subject=external_identity.subject,
+            )
+            deps.db.session.add(link)
+            deps._record_signon_event(
+                user_id=user.id, provider=provider_name, action="link"
+            )
+            deps.db.session.commit()
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+        resp = make_response(
+            jsonify(
+                {
+                    "status": "linked",
+                    "link": {
+                        "id": link.id,
+                        "provider": provider_name,
+                        "issuer": link.issuer,
+                        "subject": link.subject,
+                        "created_at": link.created_at.isoformat(),
+                    },
+                }
+            ),
+            201,
+        )
         resp.headers["Cache-Control"] = "no-store"
         return resp
 

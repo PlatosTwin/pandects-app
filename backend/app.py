@@ -44,12 +44,17 @@ from backend.schemas.auth import (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
     AuthEmailSchema,
+    AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
     AuthGoogleCredentialSchema,
     AuthLoginSchema,
     AuthPasswordResetSchema,
     AuthRegisterSchema,
     AuthTokenSchema,
+)
+from backend.auth.mcp_runtime import (
+    authenticate_external_identity as _authenticate_external_identity,
+    resolve_mcp_identity_provider_name as _resolve_mcp_identity_provider_name,
 )
 from backend.models.main_db import (
     Agreements,
@@ -185,6 +190,7 @@ _AUTH_SCHEMA_EXPORTS = (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
     AuthEmailSchema,
+    AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
     AuthGoogleCredentialSchema,
     AuthLoginSchema,
@@ -1183,12 +1189,21 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)
 
+    def _authenticate_external_identity_for_routes(
+        *, access_token: str, provider_name: str | None = None
+    ):
+        return _authenticate_external_identity(
+            access_token=access_token, provider_name=provider_name
+        )
+
     auth_deps = AuthDeps(
         ApiKey=ApiKey,
         ApiUsageDaily=ApiUsageDaily,
         AuthApiKeySchema=AuthApiKeySchema,
         AuthDeleteAccountSchema=AuthDeleteAccountSchema,
         AuthEmailSchema=AuthEmailSchema,
+        AuthExternalSubject=AuthExternalSubject,
+        AuthExternalSubjectLinkSchema=AuthExternalSubjectLinkSchema,
         AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
         AuthGoogleCredentialSchema=AuthGoogleCredentialSchema,
         AuthLoginSchema=AuthLoginSchema,
@@ -1205,6 +1220,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _auth_enumeration_delay=_auth_enumeration_delay,
         _auth_is_mocked=_auth_is_mocked,
         _auth_session_transport=_auth_session_transport,
+        _authenticate_external_identity=_authenticate_external_identity_for_routes,
         _clear_auth_cookies=_clear_auth_cookies,
         _clear_google_nonce_cookie=_clear_google_nonce_cookie,
         _clear_google_oauth_cookie=_clear_google_oauth_cookie,
@@ -1255,6 +1271,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _user_has_current_legal_acceptances=_user_has_current_legal_acceptances,
         _utc_now=_utc_now,
         _utc_today=_utc_today,
+        _resolve_mcp_identity_provider_name=_resolve_mcp_identity_provider_name,
         _verify_turnstile_token=_verify_turnstile_token_for_routes,
         check_password_hash=check_password_hash,
         db=db,

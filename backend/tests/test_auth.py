@@ -30,7 +30,7 @@ _AUTH_DB_TEMP.close()
 os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 
-from backend.app import create_test_app, db, ApiKey, ApiUsageDaily, AuthUser  # noqa: E402
+from backend.app import create_test_app, db, ApiKey, ApiUsageDaily, AuthExternalSubject, AuthUser  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 
 
@@ -61,6 +61,7 @@ class AuthFlowTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM api_usage_daily"))
                 conn.execute(text("DELETE FROM api_keys"))
                 conn.execute(text("DELETE FROM legal_acceptances"))
+                conn.execute(text("DELETE FROM auth_external_subjects"))
                 conn.execute(text("DELETE FROM auth_signon_events"))
                 conn.execute(text("DELETE FROM auth_users"))
         backend_app._rate_limit_state.clear()
@@ -463,6 +464,188 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 400)
+
+    def test_external_subject_link_and_list(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        client = self.app.test_client()
+
+        res = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "link@example.com",
+                "password": "password123",
+                "legal": {
+                    "checked_at_ms": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        with self.app.app_context():
+            user = self._require_user("link@example.com")
+            verify_token = backend_app._issue_email_verification_token(
+                user_id=user.id, email=user.email
+            )
+
+        res = client.post("/v1/auth/email/verify", json={"token": verify_token})
+        self.assertEqual(res.status_code, 200)
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "link@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIsInstance(payload, dict)
+        session_token = payload.get("session_token")
+        self.assertIsInstance(session_token, str)
+        headers = {"Authorization": f"Bearer {session_token}"}
+
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "zitadel-access-token")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-user-123",
+                },
+            )()
+
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            res = client.post(
+                "/v1/auth/external-subjects",
+                headers=headers,
+                json={
+                    "provider": "zitadel",
+                    "access_token": "zitadel-access-token",
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+            link_payload = res.get_json()
+            self.assertEqual(link_payload["status"], "linked")
+            self.assertEqual(link_payload["link"]["provider"], "zitadel")
+            self.assertEqual(
+                link_payload["link"]["issuer"],
+                "https://pandects-test-zitadel.example.com",
+            )
+            self.assertEqual(link_payload["link"]["subject"], "zitadel-user-123")
+
+            res = client.post(
+                "/v1/auth/external-subjects",
+                headers=headers,
+                json={
+                    "provider": "zitadel",
+                    "access_token": "zitadel-access-token",
+                },
+            )
+            self.assertEqual(res.status_code, 200)
+            link_payload = res.get_json()
+            self.assertEqual(link_payload["status"], "already_linked")
+
+            res = client.get("/v1/auth/external-subjects", headers=headers)
+            self.assertEqual(res.status_code, 200)
+            list_payload = res.get_json()
+            self.assertEqual(len(list_payload["links"]), 1)
+            self.assertEqual(
+                list_payload["links"][0]["issuer"],
+                "https://pandects-test-zitadel.example.com",
+            )
+        finally:
+            backend_app._authenticate_external_identity = original_authenticate
+
+        with self.app.app_context():
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].issuer, "https://pandects-test-zitadel.example.com")
+            self.assertEqual(rows[0].subject, "zitadel-user-123")
+
+    def test_external_subject_link_conflicts_when_identity_is_owned_by_another_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        client = self.app.test_client()
+
+        for email in ("first-link@example.com", "second-link@example.com"):
+            res = client.post(
+                "/v1/auth/register",
+                json={
+                    "email": email,
+                    "password": "password123",
+                    "legal": {
+                        "checked_at_ms": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    },
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+            with self.app.app_context():
+                user = self._require_user(email)
+                verify_token = backend_app._issue_email_verification_token(
+                    user_id=user.id, email=user.email
+                )
+            res = client.post("/v1/auth/email/verify", json={"token": verify_token})
+            self.assertEqual(res.status_code, 200)
+
+        with self.app.app_context():
+            first = self._require_user("first-link@example.com")
+            second = self._require_user("second-link@example.com")
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=first.id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-user-123",
+                )
+            )
+            db.session.commit()
+
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "second-link@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIsInstance(payload, dict)
+        session_token = payload.get("session_token")
+        self.assertIsInstance(session_token, str)
+        headers = {"Authorization": f"Bearer {session_token}"}
+
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "zitadel-access-token")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-user-123",
+                },
+            )()
+
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            res = client.post(
+                "/v1/auth/external-subjects",
+                headers=headers,
+                json={
+                    "provider": "zitadel",
+                    "access_token": "zitadel-access-token",
+                },
+            )
+        finally:
+            backend_app._authenticate_external_identity = original_authenticate
+
+        self.assertEqual(res.status_code, 409)
 
         res = client.post(
             "/v1/auth/flag-inaccurate",
