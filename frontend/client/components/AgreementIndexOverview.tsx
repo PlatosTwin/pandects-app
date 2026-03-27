@@ -222,10 +222,20 @@ function MobileChartModal({
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label={`Close ${title} chart`}
+          style={{
+            right: "max(1rem, env(safe-area-inset-right))",
+            top: "max(1rem, env(safe-area-inset-top))",
+          }}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
-        <div className="flex h-full w-full items-start justify-center overflow-y-auto p-4 pt-14">
+        <div
+          className="flex h-full w-full items-start justify-center overflow-y-auto p-4 [-webkit-overflow-scrolling:touch]"
+          style={{
+            paddingTop: "max(3.5rem, env(safe-area-inset-top))",
+            paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+          }}
+        >
           <div className="w-full max-w-[980px]">{children}</div>
         </div>
       </div>
@@ -762,6 +772,33 @@ export function AgreementIndexOverview() {
           ))}
         </div>
       </div>
+      <table className="sr-only">
+        <caption>
+          Summary totals for staged, awaiting validation, processed, and not
+          paginated agreements, plus metadata coverage, taxonomy coverage, and
+          latest ingested filing date.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">Value</th>
+            <th scope="col">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stagedSummaryMetrics.map((metric) => (
+            <tr key={`staged-summary-${metric.key}`}>
+              <th scope="row">{metric.label}</th>
+              <td>
+                {typeof metric.value === "number"
+                  ? metric.value.toLocaleString("en-US")
+                  : metric.value}
+              </td>
+              <td>{metric.detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 
