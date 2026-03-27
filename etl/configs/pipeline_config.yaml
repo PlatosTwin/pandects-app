@@ -11,7 +11,7 @@ resources:
       ai_repair_attempt_priority: not_attempted_first
       taxonomy_agreement_batch_size: 10
       taxonomy_mode: llm
-      taxonomy_section_title_regex:
+      taxonomy_section_title_regex: null
       taxonomy_llm_model: gpt-5-mini
       taxonomy_llm_sections_per_request: 5
       tx_metadata_agreement_batch_size: 10
