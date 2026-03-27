@@ -35,6 +35,7 @@ from backend.models import (
     ApiUsageDaily,
     ApiUsageDailyIp,
     ApiUsageHourly,
+    AuthExternalSubject,
     AuthSession,
     AuthUser,
     LegalAcceptance,
@@ -82,6 +83,7 @@ from backend.routes.sections import register_sections_routes
 from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
 from backend.routes.auth import register_auth_routes
+from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.core.config import (
     app_config_map as _app_config_map,
     configure_app as _configure_app_core,
@@ -1093,6 +1095,15 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(taxonomy_blp)
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(dumps_blp)
+    target_app.register_blueprint(
+        register_mcp_routes(
+            target_app,
+            deps=McpDeps(
+                sections_service_deps=sections_deps.sections_service_deps,
+                agreements_deps=agreements_deps,
+            ),
+        )
+    )
 
 
 def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:

@@ -21,6 +21,24 @@ class AuthUser(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
 
 
+class AuthExternalSubject(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_external_subjects"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    issuer = db.Column(db.String(255), nullable=False)
+    subject = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.UniqueConstraint("issuer", "subject"),
+        db.Index("ix_auth_external_subjects_user_issuer", "user_id", "issuer"),
+    )
+
+
 class AuthSession(db.Model):
     __bind_key__ = "auth"
     __tablename__ = "auth_sessions"
