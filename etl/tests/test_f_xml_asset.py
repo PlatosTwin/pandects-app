@@ -11,6 +11,7 @@ from openai import OpenAI
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.defs.f_xml_asset import (
     XML_REASON_BODY_STARTS_NON_ARTICLE,
+    XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
     XML_REASON_TOO_FEW_ARTICLES,
@@ -82,6 +83,33 @@ class XMLVerifyAssetTests(unittest.TestCase):
         violations = find_hard_rule_violations(root)
 
         self.assertFalse(any(v.reason_code == XML_REASON_TOO_FEW_ARTICLES for v in violations))
+
+    def test_find_hard_rule_violations_targets_previous_section_on_forward_gap(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2" />
+                  <section title="Section 1.4 Intentionally Deleted. Section 1.5 Closing." pageUUID="page-3">
+                    <pageUUID>page-4</pageUUID>
+                  </section>
+                  <section title="Section 1.6 Transfer Taxes" pageUUID="page-4" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
+        self.assertEqual(target.page_uuids, ("page-3",))
 
     def test_apply_xml_verify_batch_output_sets_status_source_to_asset(self) -> None:
         class _FakeContent:

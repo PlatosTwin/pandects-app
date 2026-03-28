@@ -401,6 +401,36 @@ def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
     return tuple(page_uuids)
 
 
+def _section_title_has_additional_numbering(title: str) -> bool:
+    match = SECTION_NUMBER_RE.match(title)
+    if match is None:
+        return False
+    suffix = title[match.end() :]
+    return re.search(r"\b(?:SECTION\s+)?\d+\s*\.\s*\d+\b", suffix, re.IGNORECASE) is not None
+
+
+def _target_section_non_sequential_page_uuids(
+    *,
+    section_title: str,
+    expected_section_num: int,
+    found_section_num: int,
+    current_page_uuids: Tuple[str, ...],
+    previous_page_uuids: Tuple[str, ...],
+) -> Tuple[str, ...]:
+    """
+    Target the page most likely to contain the root cause of a numbering gap.
+
+    When numbering jumps forward, the preceding section is often the malformed one
+    that absorbed the missing heading during tagging/OCR. For duplicates or
+    backward jumps, the current section is still the better target.
+    """
+    if _section_title_has_additional_numbering(section_title):
+        return current_page_uuids
+    if found_section_num > expected_section_num and previous_page_uuids:
+        return previous_page_uuids
+    return current_page_uuids
+
+
 def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
     violations: List[XMLHardRuleViolation] = []
     body = root.find("body")
@@ -484,6 +514,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             continue
 
         expected_section_num = 1
+        previous_section_page_uuids: Tuple[str, ...] = ()
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
             section_page_uuids = _collect_page_uuids(section_elem)
@@ -512,12 +543,19 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
                         reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
-                        page_uuids=section_page_uuids,
+                        page_uuids=_target_section_non_sequential_page_uuids(
+                            section_title=section_title,
+                            expected_section_num=expected_section_num,
+                            found_section_num=section_num,
+                            current_page_uuids=section_page_uuids,
+                            previous_page_uuids=previous_section_page_uuids,
+                        ),
                     )
                 )
                 expected_section_num = section_num + 1
             else:
                 expected_section_num += 1
+            previous_section_page_uuids = section_page_uuids
 
     if empty_article_count > 1:
         violations.append(
