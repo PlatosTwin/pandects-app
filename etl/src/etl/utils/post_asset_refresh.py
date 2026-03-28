@@ -15,6 +15,9 @@ _MAIN_STAGE_REFRESH_ASSET_NAMES = {
     "6_sections_asset",
     "6-1_sections_from_fresh_xml",
     "6-2_sections_from_repair_xml",
+    "7_taxonomy_asset",
+    "8_tx_metadata_asset",
+    "9_embed_sections",
 }
 
 
