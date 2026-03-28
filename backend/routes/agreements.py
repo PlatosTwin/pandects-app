@@ -41,6 +41,8 @@ def _agreement_is_public_eligible_expr(agreements: _PublicEligibleAgreementModel
 def _to_float_or_none(value: object) -> float | None:
     if value is None:
         return None
+    if not isinstance(value, (int, float, str)):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -728,6 +730,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             return resp, 200
 
         db = deps.db
+        agreements = deps.Agreements
         schema_prefix = deps._schema_prefix
         _xml_eligible = (
             "EXISTS ("

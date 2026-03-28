@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from sqlalchemy import Float, and_, cast as sql_cast, or_
+from sqlalchemy.sql.elements import ColumnElement
 
 
 _TRANSACTION_PRICE_BUCKETS: dict[str, tuple[float, float | None]] = {
@@ -22,8 +23,8 @@ _TRANSACTION_PRICE_BUCKETS: dict[str, tuple[float, float | None]] = {
 def build_transaction_price_bucket_filter(
     column: Any,
     selected_buckets: Iterable[str],
-) -> object | None:
-    predicates: list[object] = []
+) -> ColumnElement[bool] | None:
+    predicates: list[ColumnElement[bool]] = []
     numeric_column = sql_cast(column, Float)
 
     for bucket in selected_buckets:

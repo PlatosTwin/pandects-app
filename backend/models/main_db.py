@@ -96,8 +96,8 @@ class _MySQLVector(NullType):
 # Register a tolerant placeholder so reflected tables still load.
 _mysql_base_ischema_names = cast(dict[str, object], mysql_dialect.base.ischema_names)
 _mysql_dialect_ischema_names = cast(dict[str, object], mysql_dialect.dialect.ischema_names)
-_mysql_base_ischema_names.setdefault("vector", _MySQLVector)
-_mysql_dialect_ischema_names.setdefault("vector", _MySQLVector)
+_ = _mysql_base_ischema_names.setdefault("vector", _MySQLVector)
+_ = _mysql_dialect_ischema_names.setdefault("vector", _MySQLVector)
 
 if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
     engine = create_engine(
@@ -368,7 +368,6 @@ class Agreements(db.Model):
     acquirer_pe: ClassVar[Mapped[int | None]]
     verified: ClassVar[Mapped[int | None]]
     gated: ClassVar[Mapped[int | None]]
-    metadata: ClassVar[Mapped[int | None]]
     transaction_size: ClassVar[Mapped[int | None]]
     transaction_type: ClassVar[Mapped[str | None]]
     consideration_type: ClassVar[Mapped[str | None]]
