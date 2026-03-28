@@ -673,6 +673,53 @@ def _dedupe_reason_rows(reason_rows: List[Dict[str, Any]]) -> List[Dict[str, Any
     return deduped
 
 
+def _normalized_reason_row_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
+    reason_code = str(row["reason_code"])
+    reason_detail = None if row.get("reason_detail") is None else str(row["reason_detail"])
+    page_uuid = None if row.get("page_uuid") is None else str(row["page_uuid"])
+    return (reason_code, reason_detail or "", page_uuid or "")
+
+
+def _normalized_reason_row_keys(reason_rows: List[Dict[str, Any]]) -> Tuple[Tuple[str, str, str], ...]:
+    deduped_rows = _dedupe_reason_rows(reason_rows)
+    return tuple(sorted(_normalized_reason_row_key(row) for row in deduped_rows))
+
+
+def _fetch_existing_reason_rows(
+    conn: Connection,
+    xml_status_reasons_table: str,
+    *,
+    agreement_uuid: str,
+    version: int,
+) -> List[Dict[str, Any]]:
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT reason_code, reason_detail, page_uuid
+            FROM {xml_status_reasons_table}
+            WHERE agreement_uuid = :agreement_uuid
+              AND xml_version = :version
+            """
+        ),
+        {"agreement_uuid": agreement_uuid, "version": version},
+    ).mappings().fetchall()
+    return [
+        {
+            "reason_code": str(row["reason_code"]),
+            "reason_detail": None if row.get("reason_detail") is None else str(row["reason_detail"]),
+            "page_uuid": None if row.get("page_uuid") is None else str(row["page_uuid"]),
+        }
+        for row in rows
+    ]
+
+
+def _reason_rows_changed(
+    existing_reason_rows: List[Dict[str, Any]],
+    new_reason_rows: List[Dict[str, Any]],
+) -> bool:
+    return _normalized_reason_row_keys(existing_reason_rows) != _normalized_reason_row_keys(new_reason_rows)
+
+
 def _replace_xml_status_reasons(
     conn: Connection,
     xml_status_reasons_table: str,
@@ -740,6 +787,12 @@ def _set_xml_status_with_reasons(
     reason_rows: List[Dict[str, Any]],
 ) -> int:
     deduped_rows = _dedupe_reason_rows(reason_rows)
+    existing_reason_rows = _fetch_existing_reason_rows(
+        conn,
+        xml_status_reasons_table,
+        agreement_uuid=agreement_uuid,
+        version=version,
+    )
     primary_reason_code = deduped_rows[0]["reason_code"] if status == "invalid" and deduped_rows else None
     primary_reason_detail = deduped_rows[0]["reason_detail"] if status == "invalid" and deduped_rows else None
     result = conn.execute(
@@ -775,6 +828,19 @@ def _set_xml_status_with_reasons(
         version=version,
         reason_rows=deduped_rows if status == "invalid" else [],
     )
+    if status == "invalid" and _reason_rows_changed(existing_reason_rows, deduped_rows):
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {xml_table}
+                SET ai_repair_attempted = 0
+                WHERE agreement_uuid = :agreement_uuid
+                  AND version = :version
+                  AND ai_repair_attempted = 1
+                """
+            ),
+            {"agreement_uuid": agreement_uuid, "version": version},
+        )
     return int(result.rowcount or 0)
 
 

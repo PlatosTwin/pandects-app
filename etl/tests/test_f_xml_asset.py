@@ -15,6 +15,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
     XML_REASON_TOO_FEW_ARTICLES,
+    _reason_rows_changed,
     _apply_xml_verify_batch_output,
     find_hard_rule_violations,
     xml_verify_asset,
@@ -111,6 +112,28 @@ class XMLVerifyAssetTests(unittest.TestCase):
         target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
         self.assertEqual(target.page_uuids, ("page-3",))
 
+    def test_reason_rows_changed_ignores_order(self) -> None:
+        existing = [
+            {"reason_code": "section_non_sequential", "reason_detail": "gap", "page_uuid": "page-2"},
+            {"reason_code": "section_article_mismatch", "reason_detail": "mismatch", "page_uuid": "page-3"},
+        ]
+        new = [
+            {"reason_code": "section_article_mismatch", "reason_detail": "mismatch", "page_uuid": "page-3"},
+            {"reason_code": "section_non_sequential", "reason_detail": "gap", "page_uuid": "page-2"},
+        ]
+
+        self.assertFalse(_reason_rows_changed(existing, new))
+
+    def test_reason_rows_changed_detects_page_target_change(self) -> None:
+        existing = [
+            {"reason_code": "section_non_sequential", "reason_detail": "gap", "page_uuid": "page-2"},
+        ]
+        new = [
+            {"reason_code": "section_non_sequential", "reason_detail": "gap", "page_uuid": "page-3"},
+        ]
+
+        self.assertTrue(_reason_rows_changed(existing, new))
+
     def test_apply_xml_verify_batch_output_sets_status_source_to_asset(self) -> None:
         class _FakeContent:
             def __init__(self, text_value: str) -> None:
@@ -131,15 +154,33 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 self.files = _FakeFiles(text_value)
 
         class _FakeResult:
-            def __init__(self, rowcount: int) -> None:
+            def __init__(
+                self,
+                rowcount: int,
+                rows: list[dict[str, object]] | None = None,
+            ) -> None:
                 self.rowcount = rowcount
+                self._rows = rows or []
+
+            class _Mappings:
+                def __init__(self, rows: list[dict[str, object]]) -> None:
+                    self._rows = rows
+
+                def fetchall(self) -> list[dict[str, object]]:
+                    return self._rows
+
+            def mappings(self):
+                return _FakeResult._Mappings(self._rows)
 
         class _FakeConn:
             def __init__(self) -> None:
                 self.executed: list[tuple[str, dict[str, object]]] = []
 
             def execute(self, statement: object, params: dict[str, object]) -> _FakeResult:
-                self.executed.append((str(statement), params))
+                sql = str(statement)
+                self.executed.append((sql, params))
+                if "SELECT reason_code, reason_detail, page_uuid" in sql:
+                    return _FakeResult(0, rows=[])
                 return _FakeResult(1)
 
         class _BeginContext:
@@ -201,8 +242,10 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
-        self.assertEqual(len(conn.executed), 2)
-        executed_sql, params = conn.executed[0]
+        self.assertEqual(len(conn.executed), 3)
+        select_sql, _ = conn.executed[0]
+        self.assertIn("SELECT reason_code, reason_detail, page_uuid", select_sql)
+        executed_sql, params = conn.executed[1]
         self.assertIn("status_source = 'asset'", executed_sql)
         self.assertIn("status_reason_code = :reason_code", executed_sql)
         self.assertIn("status_reason_detail = :reason_detail", executed_sql)
@@ -211,7 +254,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertEqual(params["status"], "verified")
         self.assertIsNone(params["reason_code"])
         self.assertIsNone(params["reason_detail"])
-        delete_sql, _ = conn.executed[1]
+        delete_sql, _ = conn.executed[2]
         self.assertIn("DELETE FROM pdx.xml_status_reasons", delete_sql)
 
     def test_apply_xml_verify_batch_output_sets_llm_invalid_reason_code(self) -> None:
@@ -234,15 +277,33 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 self.files = _FakeFiles(text_value)
 
         class _FakeResult:
-            def __init__(self, rowcount: int) -> None:
+            def __init__(
+                self,
+                rowcount: int,
+                rows: list[dict[str, object]] | None = None,
+            ) -> None:
                 self.rowcount = rowcount
+                self._rows = rows or []
+
+            class _Mappings:
+                def __init__(self, rows: list[dict[str, object]]) -> None:
+                    self._rows = rows
+
+                def fetchall(self) -> list[dict[str, object]]:
+                    return self._rows
+
+            def mappings(self):
+                return _FakeResult._Mappings(self._rows)
 
         class _FakeConn:
             def __init__(self) -> None:
                 self.executed: list[tuple[str, dict[str, object]]] = []
 
             def execute(self, statement: object, params: dict[str, object]) -> _FakeResult:
-                self.executed.append((str(statement), params))
+                sql = str(statement)
+                self.executed.append((sql, params))
+                if "SELECT reason_code, reason_detail, page_uuid" in sql:
+                    return _FakeResult(0, rows=[])
                 return _FakeResult(1)
 
         class _BeginContext:
@@ -302,16 +363,20 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
-        self.assertEqual(len(conn.executed), 3)
-        _, params = conn.executed[0]
+        self.assertEqual(len(conn.executed), 5)
+        select_sql, _ = conn.executed[0]
+        self.assertIn("SELECT reason_code, reason_detail, page_uuid", select_sql)
+        _, params = conn.executed[1]
         self.assertEqual(params["agreement_uuid"], "agreement-2")
         self.assertEqual(params["version"], 4)
         self.assertEqual(params["status"], "invalid")
         self.assertEqual(params["reason_code"], XML_REASON_LLM_INVALID)
         self.assertIsNone(params["reason_detail"])
-        insert_sql, insert_params = conn.executed[2]
+        insert_sql, insert_params = conn.executed[3]
         self.assertIn("INSERT INTO pdx.xml_status_reasons", insert_sql)
         self.assertEqual(insert_params["reason_code"], XML_REASON_LLM_INVALID)
+        reset_sql, _ = conn.executed[4]
+        self.assertIn("SET ai_repair_attempted = 0", reset_sql)
 
     def test_xml_verify_asset_hard_invalid_sets_status_source_to_asset(self) -> None:
         class _FakeLog:
