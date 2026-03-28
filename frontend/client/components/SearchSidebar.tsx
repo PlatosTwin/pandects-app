@@ -217,7 +217,7 @@ export function SearchSidebar({
         )}
       </div>
 
-      {/* Transaction Price Filters - Nested and Disabled */}
+      {/* Transaction Price Filters */}
       <div className="space-y-4">
         <div className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
           Transaction Price
@@ -229,7 +229,6 @@ export function SearchSidebar({
             selectedValues={filters.transaction_price_total || []}
             onToggle={(value) => onToggleFilterValue("transaction_price_total", value)}
             hideSearch={true}
-            disabled={true}
           />
           <CheckboxFilter
             label="Stock"
@@ -237,7 +236,6 @@ export function SearchSidebar({
             selectedValues={filters.transaction_price_stock || []}
             onToggle={(value) => onToggleFilterValue("transaction_price_stock", value)}
             hideSearch={true}
-            disabled={true}
           />
           <CheckboxFilter
             label="Cash"
@@ -245,7 +243,6 @@ export function SearchSidebar({
             selectedValues={filters.transaction_price_cash || []}
             onToggle={(value) => onToggleFilterValue("transaction_price_cash", value)}
             hideSearch={true}
-            disabled={true}
           />
           <CheckboxFilter
             label="Assets"
@@ -253,7 +250,6 @@ export function SearchSidebar({
             selectedValues={filters.transaction_price_assets || []}
             onToggle={(value) => onToggleFilterValue("transaction_price_assets", value)}
             hideSearch={true}
-            disabled={true}
           />
         </div>
       </div>
@@ -266,7 +262,6 @@ export function SearchSidebar({
           selectedValues={filters.transaction_consideration || []}
           onToggle={(value) => onToggleFilterValue("transaction_consideration", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -279,7 +274,6 @@ export function SearchSidebar({
           selectedValues={filters.target_type || []}
           onToggle={(value) => onToggleFilterValue("target_type", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -292,7 +286,6 @@ export function SearchSidebar({
           selectedValues={filters.acquirer_type || []}
           onToggle={(value) => onToggleFilterValue("acquirer_type", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -305,7 +298,6 @@ export function SearchSidebar({
           selectedValues={filters.target_industry || []}
           onToggle={(value) => onToggleFilterValue("target_industry", value)}
           hideSearch={false}
-          disabled={true}
         />
       </div>
 
@@ -317,7 +309,6 @@ export function SearchSidebar({
           selectedValues={filters.acquirer_industry || []}
           onToggle={(value) => onToggleFilterValue("acquirer_industry", value)}
           hideSearch={false}
-          disabled={true}
         />
       </div>
 
@@ -329,7 +320,6 @@ export function SearchSidebar({
           selectedValues={filters.deal_status || []}
           onToggle={(value) => onToggleFilterValue("deal_status", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -342,7 +332,6 @@ export function SearchSidebar({
           selectedValues={filters.attitude || []}
           onToggle={(value) => onToggleFilterValue("attitude", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -367,7 +356,6 @@ export function SearchSidebar({
           selectedValues={filters.purpose || []}
           onToggle={(value) => onToggleFilterValue("purpose", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -380,7 +368,6 @@ export function SearchSidebar({
           selectedValues={filters.target_pe || []}
           onToggle={(value) => onToggleFilterValue("target_pe", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>
@@ -393,7 +380,6 @@ export function SearchSidebar({
           selectedValues={filters.acquirer_pe || []}
           onToggle={(value) => onToggleFilterValue("acquirer_pe", value)}
           hideSearch={true}
-          disabled={true}
           formatValues={true}
         />
       </div>

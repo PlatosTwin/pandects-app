@@ -8,6 +8,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, func, or_, text
 
+from backend.filtering import build_transaction_price_bucket_filter
 from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -167,14 +168,30 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 q = q.filter(agreements.target.in_(targets))
             if acquirers:
                 q = q.filter(agreements.acquirer.in_(acquirers))
-            if transaction_price_totals:
-                q = q.filter(agreements.transaction_price_total.in_(transaction_price_totals))
-            if transaction_price_stocks:
-                q = q.filter(agreements.transaction_price_stock.in_(transaction_price_stocks))
-            if transaction_price_cashes:
-                q = q.filter(agreements.transaction_price_cash.in_(transaction_price_cashes))
-            if transaction_price_assets:
-                q = q.filter(agreements.transaction_price_assets.in_(transaction_price_assets))
+            transaction_price_total_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_total,
+                transaction_price_totals,
+            )
+            if transaction_price_total_filter is not None:
+                q = q.filter(transaction_price_total_filter)
+            transaction_price_stock_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_stock,
+                transaction_price_stocks,
+            )
+            if transaction_price_stock_filter is not None:
+                q = q.filter(transaction_price_stock_filter)
+            transaction_price_cash_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_cash,
+                transaction_price_cashes,
+            )
+            if transaction_price_cash_filter is not None:
+                q = q.filter(transaction_price_cash_filter)
+            transaction_price_assets_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_assets,
+                transaction_price_assets,
+            )
+            if transaction_price_assets_filter is not None:
+                q = q.filter(transaction_price_assets_filter)
             if transaction_considerations:
                 q = q.filter(agreements.transaction_consideration.in_(transaction_considerations))
             if target_types:

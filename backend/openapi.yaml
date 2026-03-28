@@ -64,8 +64,8 @@ paths:
         style: form
       - in: query
         name: transaction_price_total
-        description: 'Pending: currently deactivated in the Search UI. Accepted but
-          currently ignored by the query engine.'
+        description: Transaction value buckets for total consideration, using the
+          Search UI labels (for example `100M - 250M`).
         schema:
           type: array
           default: []
@@ -76,8 +76,8 @@ paths:
         style: form
       - in: query
         name: transaction_price_stock
-        description: 'Pending: currently deactivated in the Search UI. Accepted but
-          currently ignored by the query engine.'
+        description: Transaction value buckets for the stock portion of consideration,
+          using the Search UI labels (for example `100M - 250M`).
         schema:
           type: array
           default: []
@@ -88,8 +88,8 @@ paths:
         style: form
       - in: query
         name: transaction_price_cash
-        description: 'Pending: currently deactivated in the Search UI. Accepted but
-          currently ignored by the query engine.'
+        description: Transaction value buckets for the cash portion of consideration,
+          using the Search UI labels (for example `100M - 250M`).
         schema:
           type: array
           default: []
@@ -100,8 +100,8 @@ paths:
         style: form
       - in: query
         name: transaction_price_assets
-        description: 'Pending: currently deactivated in the Search UI. Accepted but
-          currently ignored by the query engine.'
+        description: Transaction value buckets for the asset portion of consideration,
+          using the Search UI labels (for example `100M - 250M`).
         schema:
           type: array
           default: []
@@ -112,8 +112,8 @@ paths:
         style: form
       - in: query
         name: transaction_consideration
-        description: 'Pending: currently deactivated in the Search UI. Transaction
-          consideration category values from the agreement record.'
+        description: Transaction consideration category values from the agreement
+          record.
         schema:
           type: array
           default: []
@@ -124,8 +124,7 @@ paths:
         style: form
       - in: query
         name: target_type
-        description: 'Pending: currently deactivated in the Search UI. Target company
-          type values (for example `public` or `private`).'
+        description: Target company type values (for example `public` or `private`).
         schema:
           type: array
           default: []
@@ -136,8 +135,7 @@ paths:
         style: form
       - in: query
         name: acquirer_type
-        description: 'Pending: currently deactivated in the Search UI. Acquirer company
-          type values (for example `public` or `private`).'
+        description: Acquirer company type values (for example `public` or `private`).
         schema:
           type: array
           default: []
@@ -148,8 +146,7 @@ paths:
         style: form
       - in: query
         name: target_industry
-        description: 'Pending: currently deactivated in the Search UI. Target industry
-          values from normalized agreement metadata.'
+        description: Target industry values from normalized agreement metadata.
         schema:
           type: array
           default: []
@@ -160,8 +157,7 @@ paths:
         style: form
       - in: query
         name: acquirer_industry
-        description: 'Pending: currently deactivated in the Search UI. Acquirer industry
-          values from normalized agreement metadata.'
+        description: Acquirer industry values from normalized agreement metadata.
         schema:
           type: array
           default: []
@@ -172,8 +168,7 @@ paths:
         style: form
       - in: query
         name: deal_status
-        description: 'Pending: currently deactivated in the Search UI. Deal status
-          values (for example `pending`, `complete`, `cancelled`).'
+        description: Deal status values (for example `pending`, `complete`, `cancelled`).
         schema:
           type: array
           default: []
@@ -184,8 +179,7 @@ paths:
         style: form
       - in: query
         name: attitude
-        description: 'Pending: currently deactivated in the Search UI. Deal attitude
-          values (for example `friendly`, `hostile`, `unsolicited`).'
+        description: Deal attitude values (for example `friendly`, `hostile`, `unsolicited`).
         schema:
           type: array
           default: []
@@ -207,8 +201,7 @@ paths:
         style: form
       - in: query
         name: purpose
-        description: 'Pending: currently deactivated in the Search UI. Strategic purpose
-          values from agreement metadata.'
+        description: Strategic purpose values from agreement metadata.
         schema:
           type: array
           default: []
@@ -219,8 +212,8 @@ paths:
         style: form
       - in: query
         name: target_pe
-        description: 'Pending: currently deactivated in the Search UI. Target private-equity
-          backed filter. Supported values: `true`, `false`.'
+        description: 'Target private-equity backed filter. Supported values: `true`,
+          `false`.'
         schema:
           type: array
           default: []
@@ -231,8 +224,8 @@ paths:
         style: form
       - in: query
         name: acquirer_pe
-        description: 'Pending: currently deactivated in the Search UI. Acquirer private-equity
-          backed filter. Supported values: `true`, `false`.'
+        description: 'Acquirer private-equity backed filter. Supported values: `true`,
+          `false`.'
         schema:
           type: array
           default: []

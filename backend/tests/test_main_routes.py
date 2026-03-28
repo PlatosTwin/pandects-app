@@ -57,17 +57,18 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(
                     text(
                         "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, transaction_price_assets, "
                         "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
                         "deal_status, attitude, purpose, target_pe, acquirer_pe) "
                         "VALUES "
                         "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
-                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
+                        "'50000000', NULL, '50000000', NULL, 'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
                         "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
-                        "'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
+                        "'150000000', '150000000', NULL, NULL, 'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
                         "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
-                        "'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
+                        "'300000000', NULL, NULL, '300000000', 'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
                         "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
-                        "'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
+                        "'12000000000', NULL, '12000000000', NULL, 'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
                     )
                 )
                 conn.execute(
@@ -110,7 +111,7 @@ class MainRoutesTests(unittest.TestCase):
                         "section_standard_ids, article_title, section_title"
                         ") VALUES ("
                         "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
-                        "NULL, NULL, 'Target A', 'Acquirer A', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                        "NULL, NULL, 'Target A', 'Acquirer A', '50000000', NULL, '50000000', NULL, 'cash', 'public', "
                         "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
                         "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
                         ")"
@@ -236,6 +237,8 @@ class MainRoutesTests(unittest.TestCase):
             "/v1/agreements"
             "?year=2021"
             "&deal_type=stock_acquisition"
+            "&transaction_price_total=100M%20-%20250M"
+            "&transaction_price_stock=100M%20-%20250M"
             "&target_pe=true"
             "&acquirer_pe=false"
             "&transaction_consideration=stock"
@@ -253,6 +256,31 @@ class MainRoutesTests(unittest.TestCase):
         results = body.get("results", [])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("agreement_uuid"), "a2")
+
+    def test_search_filters_include_enabled_metadata_fields(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/sections"
+            "?transaction_price_total=0%20-%20100M"
+            "&transaction_price_cash=0%20-%20100M"
+            "&transaction_consideration=cash"
+            "&target_type=public"
+            "&acquirer_type=public"
+            "&target_industry=tech"
+            "&acquirer_industry=tech"
+            "&deal_status=complete"
+            "&attitude=friendly"
+            "&purpose=strategic"
+            "&target_pe=false"
+            "&acquirer_pe=false"
+            "&page=1&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000001")
 
     def test_agreements_bulk_year_field_uses_filing_date_prefix(self):
         try:

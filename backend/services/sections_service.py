@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Protocol, cast
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, and_, or_, asc, desc
+from sqlalchemy.exc import SQLAlchemyError
 
+from backend.filtering import build_transaction_price_bucket_filter
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.schemas.sections import SectionsArgsPayload
 
@@ -150,6 +151,10 @@ def run_sections(
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
+    transaction_price_totals = parsed_args["transaction_price_total"]
+    transaction_price_stocks = parsed_args["transaction_price_stock"]
+    transaction_price_cashes = parsed_args["transaction_price_cash"]
+    transaction_price_assets = parsed_args["transaction_price_assets"]
     transaction_considerations = parsed_args["transaction_consideration"]
     target_types = parsed_args["target_type"]
     acquirer_types = parsed_args["acquirer_type"]
@@ -193,6 +198,30 @@ def run_sections(
         q = q.filter(latest.target.in_(targets))
     if acquirers:
         q = q.filter(latest.acquirer.in_(acquirers))
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_total,
+        transaction_price_totals,
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_stock,
+        transaction_price_stocks,
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_cash,
+        transaction_price_cashes,
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_assets,
+        transaction_price_assets,
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
 
     if standard_ids:
         standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
@@ -268,6 +297,10 @@ def run_sections(
             targets,
             acquirers,
             standard_ids,
+            transaction_price_totals,
+            transaction_price_stocks,
+            transaction_price_cashes,
+            transaction_price_assets,
             transaction_considerations,
             target_types,
             acquirer_types,
