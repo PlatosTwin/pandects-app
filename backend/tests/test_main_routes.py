@@ -600,6 +600,59 @@ class MainRoutesTests(unittest.TestCase):
         xml = body.get("xml", "")
         self.assertIn("[REDACTED]", xml)
 
+    def test_public_agreement_endpoints_exclude_gated_unverified_agreements(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
+                        "VALUES ('a_gated_hidden', '2025-06-01', 'Target Hidden', 'Acquirer Hidden', 0, 1, 'http://example.com/a_gated_hidden')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a_gated_hidden', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000071\"><text>HIDDEN</text></section></article></document>', 1, 'verified', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a_gated_hidden', '00000000-0000-0000-0000-000000000071', 'ARTICLE I', 'Hidden Section', '<section>HIDDEN</section>', '[\"s-hidden\"]', 1)"
+                    )
+                )
+
+        try:
+            client = self.app.test_client()
+
+            list_res = client.get("/v1/agreements?agreement_uuid=a_gated_hidden&page_size=10")
+            self.assertEqual(list_res.status_code, 200)
+            self.assertEqual(list_res.get_json().get("results", []), [])
+
+            detail_res = client.get("/v1/agreements/a_gated_hidden")
+            self.assertEqual(detail_res.status_code, 404)
+
+            index_res = client.get("/v1/agreements-index?query=Target Hidden&page=1&page_size=10")
+            self.assertEqual(index_res.status_code, 200)
+            self.assertEqual(index_res.get_json().get("results", []), [])
+
+            filters_res = client.get("/v1/filter-options")
+            self.assertEqual(filters_res.status_code, 200)
+            body = filters_res.get_json()
+            self.assertNotIn("Target Hidden", body.get("targets", []))
+            self.assertNotIn("Acquirer Hidden", body.get("acquirers", []))
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_gated_hidden'"))
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_gated_hidden'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
+                self.app_module._filter_options_cache["payload"] = None
+                self.app_module._filter_options_cache["ts"] = 0
+
     def test_agreements_deal_types_summary(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements-deal-types-summary")

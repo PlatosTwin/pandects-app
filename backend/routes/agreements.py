@@ -22,12 +22,12 @@ from backend.schemas.public_api import (
 )
 
 
-class _SummaryEligibleAgreementModel(Protocol):
+class _PublicEligibleAgreementModel(Protocol):
     __table__: Any
     verified: Any
 
 
-def _agreement_is_summary_eligible_expr(agreements: _SummaryEligibleAgreementModel) -> object:
+def _agreement_is_public_eligible_expr(agreements: _PublicEligibleAgreementModel) -> object:
     agreement_table = agreements.__table__
     gated_col = agreement_table.c.get("gated")
     if gated_col is None:
@@ -149,6 +149,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             q = (
                 db.session.query(*item_columns)
                 .join(xml, deps._agreement_latest_xml_join_condition())
+                .filter(_agreement_is_public_eligible_expr(agreements))
             )
 
             if include_xml:
@@ -367,7 +368,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     xml.xml,
                 )
                 .join(xml, deps._agreement_latest_xml_join_condition())
-                .filter(agreements.agreement_uuid == agreement_uuid)
+                .filter(
+                    agreements.agreement_uuid == agreement_uuid,
+                    _agreement_is_public_eligible_expr(agreements),
+                )
                 .first()
             )
 
@@ -513,11 +517,13 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 agreements.verified,
             )
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(_agreement_is_public_eligible_expr(agreements))
         )
         count_q = (
             db.session.query(func.count(agreements.agreement_uuid))
             .select_from(agreements)
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(_agreement_is_public_eligible_expr(agreements))
         )
 
         if query:
@@ -736,6 +742,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             "  WHERE s.agreement_uuid = a.agreement_uuid"
             ")"
         ).format(t=schema_prefix())
+        _is_public_eligible = (
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
+            if "gated" in agreements.__table__.c
+            else "1 = 1"
+        )
 
         targets = [
             cast(str, row[0])
@@ -746,6 +757,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.target IS NOT NULL
                       AND a.target <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.target
@@ -762,6 +774,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.acquirer IS NOT NULL
                       AND a.acquirer <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.acquirer
@@ -778,6 +791,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.target_industry IS NOT NULL
                       AND a.target_industry <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.target_industry
@@ -794,6 +808,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.acquirer_industry IS NOT NULL
                       AND a.acquirer_industry <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.acquirer_industry
