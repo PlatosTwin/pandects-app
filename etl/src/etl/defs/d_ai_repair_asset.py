@@ -47,8 +47,6 @@ from etl.domain.d_ai_repair import (
     build_jsonl_lines_for_page,
 )
 
-
-# If you prefer, you can plumb this via resources; this is fine too:
 def _oai_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
