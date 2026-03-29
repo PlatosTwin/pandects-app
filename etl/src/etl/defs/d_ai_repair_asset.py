@@ -358,60 +358,6 @@ def _fetch_open_ai_repair_batch(
     return dict(row)
 
 
-def _fetch_open_ai_repair_batch_by_agreement_overlap(
-    conn: Connection,
-    schema: str,
-    *,
-    agreement_uuids: List[str],
-) -> Dict[str, Any] | None:
-    if not agreement_uuids:
-        return None
-    ai_repair_batches_table = f"{schema}.ai_repair_batches"
-    ai_repair_requests_table = f"{schema}.ai_repair_requests"
-    pages_table = f"{schema}.pages"
-    q = text(
-        f"""
-        SELECT
-            b.batch_id,
-            b.status,
-            b.completion_window,
-            b.request_total,
-            b.batch_key,
-            COUNT(DISTINCT p.agreement_uuid) AS matched_agreements
-        FROM {ai_repair_batches_table} b
-        JOIN {ai_repair_requests_table} r
-            ON r.batch_id = b.batch_id
-        JOIN {pages_table} p
-            ON p.page_uuid = r.page_uuid
-        WHERE b.status NOT IN :terminal_statuses
-          AND p.agreement_uuid IN :auuids
-        GROUP BY
-            b.batch_id,
-            b.status,
-            b.completion_window,
-            b.request_total,
-            b.batch_key
-        ORDER BY
-            matched_agreements DESC,
-            b.created_at ASC
-        LIMIT 1
-        """
-    ).bindparams(
-        bindparam("terminal_statuses", expanding=True),
-        bindparam("auuids", expanding=True),
-    )
-    row = conn.execute(
-        q,
-        {
-            "terminal_statuses": list(_AI_REPAIR_TERMINAL_BATCH_STATUSES),
-            "auuids": agreement_uuids,
-        },
-    ).mappings().first()
-    if row is None:
-        return None
-    return dict(row)
-
-
 def _fetch_batch_agreement_uuids(
     conn: Connection,
     schema: str,
@@ -571,7 +517,6 @@ def ai_repair_enqueue_asset(
     Target pages are derived from hard-rule XML violations for the latest invalid XML.
     """
     engine = db.get_engine()
-    client = _oai_client()
     batch_completion_window = "24h"
     should_exit_after_tx = False
     resume_openai_batches = pipeline_config.resume_openai_batches
@@ -597,43 +542,10 @@ def ai_repair_enqueue_asset(
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         if resume_openai_batches:
-            resume_probe_candidates = _fetch_candidates(
+            matched_open_batch = _fetch_open_ai_repair_batch(
                 conn,
                 db.database,
-                agreement_limit=batch_size,
-                attempt_priority=pipeline_config.ai_repair_attempt_priority,
-                exclude_in_flight=False,
             )
-            resume_probe_agreement_uuids = sorted(
-                {str(r["agreement_uuid"]) for r in resume_probe_candidates}
-            )
-            matched_open_batch: Dict[str, Any] | None = None
-            match_strategy = ""
-            if resume_probe_agreement_uuids:
-                probe_key = agreement_batch_key(resume_probe_agreement_uuids)
-                matched_open_batch = _fetch_open_ai_repair_batch(
-                    conn,
-                    db.database,
-                    batch_key=probe_key,
-                )
-                if matched_open_batch is not None:
-                    match_strategy = "exact_batch_key"
-                else:
-                    matched_open_batch = _fetch_open_ai_repair_batch_by_agreement_overlap(
-                        conn,
-                        db.database,
-                        agreement_uuids=resume_probe_agreement_uuids,
-                    )
-                    if matched_open_batch is not None:
-                        match_strategy = "agreement_overlap"
-
-            if matched_open_batch is None and not resume_probe_agreement_uuids:
-                matched_open_batch = _fetch_open_ai_repair_batch(
-                    conn,
-                    db.database,
-                )
-                if matched_open_batch is not None:
-                    match_strategy = "oldest_open_batch"
             if matched_open_batch is not None:
                 resumed_batch_id = str(matched_open_batch["batch_id"])
                 resumed_agreement_uuids = _fetch_batch_agreement_uuids(
@@ -644,10 +556,9 @@ def ai_repair_enqueue_asset(
                 if resumed_agreement_uuids:
                     enqueued_agreement_uuids.update(resumed_agreement_uuids)
                     context.log.info(
-                        "ai_repair_enqueue_asset: resuming open batch %s for %s agreements (strategy=%s).",
+                        "ai_repair_enqueue_asset: resuming stranded batch %s for %s agreements.",
                         resumed_batch_id,
                         len(resumed_agreement_uuids),
-                        match_strategy or "unknown",
                     )
                     should_exit_after_tx = True
 
@@ -729,6 +640,7 @@ def ai_repair_enqueue_asset(
                 context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
                 should_exit_after_tx = True
             else:
+                client = _oai_client()
                 llm_agreement_uuids = sorted(
                     {
                         str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
