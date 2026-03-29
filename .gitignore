@@ -30,6 +30,7 @@ fly-wg*.conf
 
 frontend/dist/
 backend/build/
+/bin/
 
 
 ############################
