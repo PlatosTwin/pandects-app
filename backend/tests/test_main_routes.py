@@ -262,18 +262,18 @@ class MainRoutesTests(unittest.TestCase):
                     text(
                         "INSERT INTO agreement_target_industry_summary "
                         "(year, industry, deal_count, total_transaction_value) VALUES "
-                        "(2020, 'tech', 1, 50000000), "
-                        "(2021, 'healthcare', 1, 150000000), "
-                        "(2022, 'energy', 1, 300000000)"
+                        "(2020, '111', 1, 50000000), "
+                        "(2021, '21', 1, 150000000), "
+                        "(2022, '211', 1, 300000000)"
                     )
                 )
                 conn.execute(
                     text(
                         "INSERT INTO agreement_industry_pairing_summary "
                         "(target_industry, acquirer_industry, deal_count, total_transaction_value) VALUES "
-                        "('energy', 'industrial', 1, 300000000), "
-                        "('healthcare', 'tech', 1, 150000000), "
-                        "('tech', 'tech', 1, 50000000)"
+                        "('211', '21', 1, 300000000), "
+                        "('21', '111', 1, 150000000), "
+                        "('111', '111', 1, 50000000)"
                     )
                 )
                 conn.execute(
@@ -1107,13 +1107,51 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(matrix_by_key[("public", "public_buyer")]["deal_count"], 1)
         self.assertEqual(matrix_by_key[("private", "public_buyer")]["deal_count"], 1)
         self.assertEqual(matrix_by_key[("private", "private_equity")]["deal_count"], 1)
+        self.assertEqual(
+            ownership.get("deal_size_by_year", []),
+            [
+                {
+                    "year": 2020,
+                    "public_deal_count": 1,
+                    "private_deal_count": 0,
+                    "public_p25_transaction_value": 50000000.0,
+                    "public_median_transaction_value": 50000000.0,
+                    "public_p75_transaction_value": 50000000.0,
+                    "private_p25_transaction_value": None,
+                    "private_median_transaction_value": None,
+                    "private_p75_transaction_value": None,
+                },
+                {
+                    "year": 2021,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": 150000000.0,
+                    "private_median_transaction_value": 150000000.0,
+                    "private_p75_transaction_value": 150000000.0,
+                },
+                {
+                    "year": 2022,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": 300000000.0,
+                    "private_median_transaction_value": 300000000.0,
+                    "private_p75_transaction_value": 300000000.0,
+                },
+            ],
+        )
 
         industries = body.get("industries", {})
         by_year = industries.get("target_industries_by_year", [])
         self.assertIn(
             {
                 "year": 2020,
-                "industry": "tech",
+                "industry": "Crop Production",
                 "deal_count": 1,
                 "total_transaction_value": 50000000.0,
             },
@@ -1121,8 +1159,8 @@ class MainRoutesTests(unittest.TestCase):
         )
         self.assertIn(
             {
-                "target_industry": "healthcare",
-                "acquirer_industry": "tech",
+                "target_industry": "Mining, Quarrying, and Oil and Gas Extraction",
+                "acquirer_industry": "Crop Production",
                 "deal_count": 1,
                 "total_transaction_value": 150000000.0,
             },

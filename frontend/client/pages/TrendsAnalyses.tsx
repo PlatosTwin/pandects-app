@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
-import { formatCurrencyValue, formatEnumValue } from "@/lib/format-utils";
+import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
 type HeatmapMetric = "deal_count" | "median_transaction_value";
@@ -100,7 +100,7 @@ const INDUSTRY_COLORS = [
 ];
 
 function formatMoney(value: number | null | undefined) {
-  return formatCurrencyValue(value ?? null).replace(".00", "");
+  return formatCompactCurrencyValue(value ?? null);
 }
 
 function formatCount(value: number | null | undefined) {
@@ -260,7 +260,9 @@ function OwnershipStructurePanel({
           displayValue:
             matrixMetric === "deal_count"
               ? formatCount(numericValue)
-              : formatMoney(numericValue),
+              : rawValue === null
+                ? "—"
+                : formatMoney(numericValue),
           intensity: maxValue > 0 ? numericValue / maxValue : 0,
         };
       },
@@ -816,19 +818,6 @@ export default function TrendsAnalyses() {
       subtitle="A set of deeper cuts on ownership structure and sector composition, built from public-eligible agreements and designed to complement the headline leaderboards."
     >
       <div className="space-y-6">
-        <Card variant="subtle">
-          <CardHeader>
-            <CardTitle className="text-xl">Method</CardTitle>
-            <CardDescription className="max-w-4xl text-sm sm:text-base">
-              Ownership views use `target_type`, `acquirer_type`, `target_pe`, and `acquirer_pe`.
-              Public/private target charts collapse PE-backed targets into the private bucket, while
-              the buyer matrix breaks out private-equity acquirers separately. Industry views use
-              the existing target and acquirer industry fields and emphasize compositional change
-              rather than raw table scans.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
         {loading ? <TrendsSkeleton /> : null}
 
         {!loading && error ? (

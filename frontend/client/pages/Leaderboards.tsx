@@ -15,6 +15,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatCompactCurrencyValue } from "@/lib/format-utils";
 
 type LeaderboardMetric = "deal_count" | "total_transaction_value";
 type LeaderboardView = "table" | "chart";
@@ -73,11 +74,7 @@ function formatDealCount(value: number) {
 }
 
 function formatTransactionValue(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return formatCompactCurrencyValue(value);
 }
 
 function LeaderboardSection({ description, side, title }: CounselSectionProps) {
@@ -183,11 +180,6 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Multi-firm disclosures are fully attributed to each listed firm. Transaction-value totals
-            use reported deal value where available.
-          </p>
-
           {rows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/80 bg-background/70 px-4 py-8 text-sm text-muted-foreground">
               No counsel leaderboard data is available yet.
@@ -311,17 +303,6 @@ export default function Leaderboards() {
       subtitle="Canonical counsel rankings for acquirer and target sides. The metric toggle swaps between distinct top-15 sets for deal count and total transaction value."
     >
       <div className="space-y-6">
-        <Card variant="subtle">
-          <CardHeader>
-            <CardTitle className="text-xl">Method</CardTitle>
-            <CardDescription className="max-w-4xl text-sm sm:text-base">
-              These rankings use canonical counsel entities from the source data model rather than
-              string-level UI cleanup. Buy-side corresponds to acquirer counsel; sell-side corresponds
-              to target or seller counsel.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
         {loading ? <LeaderboardsSkeleton /> : null}
 
         {!loading && error ? (

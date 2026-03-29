@@ -52,6 +52,13 @@ def _to_float_or_none(value: object) -> float | None:
         return None
 
 
+def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str]) -> str:
+    raw_text = str(raw_value or "").strip()
+    if not raw_text:
+        return ""
+    return label_by_code.get(raw_text, raw_text)
+
+
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
     agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
     agreement_trends_lock = Lock()
@@ -835,6 +842,35 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 """
             )
         ).mappings().all()
+        naics_sector_rows = db.session.execute(
+            text(
+                f"""
+                SELECT sector_code, sector_desc
+                FROM {schema_prefix}naics_sectors
+                """
+            )
+        ).mappings().all()
+        naics_sub_sector_rows = db.session.execute(
+            text(
+                f"""
+                SELECT sub_sector_code, sub_sector_desc
+                FROM {schema_prefix}naics_sub_sectors
+                """
+            )
+        ).mappings().all()
+        naics_label_by_code: dict[str, str] = {}
+        for row in naics_sector_rows:
+            sector_code = row.get("sector_code")
+            sector_desc = row.get("sector_desc")
+            if sector_code is None or not isinstance(sector_desc, str):
+                continue
+            naics_label_by_code[str(sector_code)] = sector_desc
+        for row in naics_sub_sector_rows:
+            sub_sector_code = row.get("sub_sector_code")
+            sub_sector_desc = row.get("sub_sector_desc")
+            if sub_sector_code is None or not isinstance(sub_sector_desc, str):
+                continue
+            naics_label_by_code[str(sub_sector_code)] = sub_sector_desc
 
         ownership_mix_by_year: dict[int, dict[str, object]] = {}
         for row in ownership_mix_rows:
@@ -947,7 +983,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "target_industries_by_year": [
                     {
                         "year": deps._to_int(row.get("year")),
-                        "industry": str(row.get("industry") or ""),
+                        "industry": _normalize_industry_label(
+                            row.get("industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
                         "deal_count": deps._to_int(row.get("deal_count")),
                         "total_transaction_value": _to_float_or_none(
                             row.get("total_transaction_value")
@@ -957,8 +996,14 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 ],
                 "pairings": [
                     {
-                        "target_industry": str(row.get("target_industry") or ""),
-                        "acquirer_industry": str(row.get("acquirer_industry") or ""),
+                        "target_industry": _normalize_industry_label(
+                            row.get("target_industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
+                        "acquirer_industry": _normalize_industry_label(
+                            row.get("acquirer_industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
                         "deal_count": deps._to_int(row.get("deal_count")),
                         "total_transaction_value": _to_float_or_none(
                             row.get("total_transaction_value")

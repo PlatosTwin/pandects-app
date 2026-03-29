@@ -16,6 +16,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  buildVerticalYearCoordinatesGenerator,
+  buildYearAxisGuides,
+} from "@/lib/year-axis";
 
 export type CounselLeaderboardChartSeries = {
   key: string;
@@ -80,6 +84,10 @@ export function CounselLeaderboardChart({
       return nextRow;
     });
   }, [data, series]);
+  const yearAxisGuides = useMemo(
+    () => buildYearAxisGuides(percentData),
+    [percentData],
+  );
 
   return (
     <div
@@ -96,16 +104,32 @@ export function CounselLeaderboardChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.18)"
+            strokeDasharray="2 4"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.minorYears,
+            )}
+          />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.32)"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.majorYears,
+            )}
+          />
           <XAxis
             dataKey="year"
             type="number"
             allowDecimals={false}
             domain={["dataMin", "dataMax"]}
+            ticks={yearAxisGuides.majorYears}
             tickFormatter={(value) => String(value)}
             tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
+            minTickGap={8}
+            interval={0}
           />
           <YAxis
             domain={[0, 100]}

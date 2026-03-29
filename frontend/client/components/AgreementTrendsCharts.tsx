@@ -18,6 +18,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  buildVerticalYearCoordinatesGenerator,
+  buildYearAxisGuides,
+} from "@/lib/year-axis";
 
 export type TrendsChartSeries = {
   color: string;
@@ -140,6 +144,10 @@ export function TrendsStackedShareAreaChart({
       return nextRow;
     });
   }, [data, series]);
+  const yearAxisGuides = useMemo(
+    () => buildYearAxisGuides(percentData),
+    [percentData],
+  );
 
   return (
     <div className={cn("rounded-lg border border-border/60 bg-muted/20 p-3", className)}>
@@ -151,16 +159,32 @@ export function TrendsStackedShareAreaChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.18)"
+            strokeDasharray="2 4"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.minorYears,
+            )}
+          />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.32)"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.majorYears,
+            )}
+          />
           <XAxis
             dataKey="year"
             type="number"
             allowDecimals={false}
             domain={["dataMin", "dataMax"]}
+            ticks={yearAxisGuides.majorYears}
             tickFormatter={(value) => String(value)}
             tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
+            minTickGap={8}
+            interval={0}
           />
           <YAxis
             domain={[0, 100]}
@@ -245,6 +269,11 @@ export function TrendsMedianBandChart({
   tableId,
   valueFormatter,
 }: TrendsMedianBandChartProps) {
+  const yearAxisGuides = useMemo(
+    () => buildYearAxisGuides(data),
+    [data],
+  );
+
   return (
     <div className={cn("rounded-lg border border-border/60 bg-muted/20 p-3", className)}>
       <ChartContainer
@@ -255,16 +284,32 @@ export function TrendsMedianBandChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.18)"
+            strokeDasharray="2 4"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.minorYears,
+            )}
+          />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.32)"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.majorYears,
+            )}
+          />
           <XAxis
             dataKey="year"
             type="number"
             allowDecimals={false}
             domain={["dataMin", "dataMax"]}
+            ticks={yearAxisGuides.majorYears}
             tickFormatter={(value) => String(value)}
             tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
+            minTickGap={8}
+            interval={0}
           />
           <YAxis
             tickMargin={6}
@@ -283,25 +328,31 @@ export function TrendsMedianBandChart({
                   const payload = item?.payload as TrendsMedianBandChartRow | undefined;
                   if (!payload) return null;
                   if (name === "Public targets") {
+                    const hasValues = payload.public_median !== null;
                     return (
                       <div className="space-y-1">
                         <div className="font-medium text-foreground">Public targets</div>
                         <div className="font-mono text-xs text-muted-foreground">
-                          P25 {valueFormatter(payload.public_low)} · Median{" "}
-                          {valueFormatter(payload.public_median)} · P75{" "}
-                          {valueFormatter(payload.public_low + payload.public_band)}
+                          P25 {hasValues ? valueFormatter(payload.public_low) : "—"} · Median{" "}
+                          {hasValues ? valueFormatter(payload.public_median) : "—"} · P75{" "}
+                          {hasValues
+                            ? valueFormatter(payload.public_low + payload.public_band)
+                            : "—"}
                         </div>
                       </div>
                     );
                   }
                   if (name === "Private targets") {
+                    const hasValues = payload.private_median !== null;
                     return (
                       <div className="space-y-1">
                         <div className="font-medium text-foreground">Private targets</div>
                         <div className="font-mono text-xs text-muted-foreground">
-                          P25 {valueFormatter(payload.private_low)} · Median{" "}
-                          {valueFormatter(payload.private_median)} · P75{" "}
-                          {valueFormatter(payload.private_low + payload.private_band)}
+                          P25 {hasValues ? valueFormatter(payload.private_low) : "—"} · Median{" "}
+                          {hasValues ? valueFormatter(payload.private_median) : "—"} · P75{" "}
+                          {hasValues
+                            ? valueFormatter(payload.private_low + payload.private_band)
+                            : "—"}
                         </div>
                       </div>
                     );
@@ -384,6 +435,11 @@ export function TrendsPercentLineChart({
   lineColor,
   tableId,
 }: TrendsPercentLineChartProps) {
+  const yearAxisGuides = useMemo(
+    () => buildYearAxisGuides(data),
+    [data],
+  );
+
   return (
     <div className={cn("rounded-lg border border-border/60 bg-muted/20 p-3", className)}>
       <ChartContainer
@@ -399,16 +455,32 @@ export function TrendsPercentLineChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <LineChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} />
+          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.18)"
+            strokeDasharray="2 4"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.minorYears,
+            )}
+          />
+          <CartesianGrid
+            horizontal={false}
+            stroke="hsl(var(--border) / 0.32)"
+            verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
+              yearAxisGuides.majorYears,
+            )}
+          />
           <XAxis
             dataKey="year"
             type="number"
             allowDecimals={false}
             domain={["dataMin", "dataMax"]}
+            ticks={yearAxisGuides.majorYears}
             tickFormatter={(value) => String(value)}
             tickMargin={6}
-            minTickGap={16}
-            interval="preserveStartEnd"
+            minTickGap={8}
+            interval={0}
           />
           <YAxis
             domain={[0, 100]}
