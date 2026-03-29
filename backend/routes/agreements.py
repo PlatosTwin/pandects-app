@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import date, datetime
 from threading import Lock
 from typing import Any, Protocol, cast
@@ -43,7 +44,7 @@ def _agreement_is_public_eligible_expr(agreements: _PublicEligibleAgreementModel
 def _to_float_or_none(value: object) -> float | None:
     if value is None:
         return None
-    if not isinstance(value, (int, float, str)):
+    if not isinstance(value, (int, float, Decimal, str)):
         return None
     try:
         return float(value)

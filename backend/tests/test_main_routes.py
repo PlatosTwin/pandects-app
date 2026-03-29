@@ -852,6 +852,12 @@ class MainRoutesTests(unittest.TestCase):
         with self.app.app_context():
             engine = self.app_module.db.engine
             with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_status_summary ("
+                        "year INTEGER NOT NULL, color TEXT NOT NULL, current_stage TEXT NOT NULL, count INTEGER NOT NULL)"
+                    )
+                )
                 conn.execute(text("DROP TABLE IF EXISTS agreement_overview_summary"))
                 conn.execute(
                     text(
@@ -864,7 +870,14 @@ class MainRoutesTests(unittest.TestCase):
                         "latest_filing_date TEXT NULL)"
                     )
                 )
+                conn.execute(text("DELETE FROM agreement_status_summary"))
                 conn.execute(text("DELETE FROM agreement_overview_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_status_summary (year, color, current_stage, count) VALUES "
+                        "(2023, 'green', 'processed', 1)"
+                    )
+                )
                 conn.execute(
                     text(
                         "INSERT INTO agreement_overview_summary "
