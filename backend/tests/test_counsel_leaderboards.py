@@ -85,6 +85,40 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
             payload["sell_side"]["top_by_count"][0]["counsel"],
             "Wilson Sonsini Goodrich & Rosati",
         )
+        self.assertEqual(
+            payload["buy_side"]["annual"][0],
+            {
+                "year": 2022,
+                "top_by_count": [
+                    {
+                        "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                        "years": [
+                            {
+                                "year": 2022,
+                                "deal_count": 1,
+                                "total_transaction_value": 300000000.0,
+                            }
+                        ],
+                    }
+                ],
+                "top_by_value": [
+                    {
+                        "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                        "years": [
+                            {
+                                "year": 2022,
+                                "deal_count": 1,
+                                "total_transaction_value": 300000000.0,
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
         self.assertTrue(
             any(
                 row["counsel"] == "Goodwin Procter"

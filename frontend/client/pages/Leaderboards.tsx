@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { CounselLeaderboardChart } from "@/components/CounselLeaderboardChart";
 import { PageShell } from "@/components/PageShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -34,6 +35,11 @@ type CounselLeaderboardEntry = {
 };
 
 type CounselLeaderboardSide = {
+  annual: {
+    year: number;
+    top_by_count: CounselLeaderboardEntry[];
+    top_by_value: CounselLeaderboardEntry[];
+  }[];
   top_by_count: CounselLeaderboardEntry[];
   top_by_value: CounselLeaderboardEntry[];
 };
@@ -80,22 +86,49 @@ function formatTransactionValue(value: number) {
 function LeaderboardSection({ description, side, title }: CounselSectionProps) {
   const [metric, setMetric] = useState<LeaderboardMetric>("deal_count");
   const [view, setView] = useState<LeaderboardView>("table");
+  const [tableYear, setTableYear] = useState<string>("all");
   const descriptionId = useId();
   const tableId = useId();
 
-  const rows = metric === "deal_count" ? side.top_by_count : side.top_by_value;
+  const currentYear = new Date().getFullYear();
+  const yearOptions = useMemo(
+    () => [
+      ...Array.from({ length: 5 }, (_, index) => {
+        const year = currentYear - index;
+        return {
+          value: String(year),
+          label: String(year),
+        };
+      }),
+      { value: "all", label: "All time" },
+    ],
+    [currentYear],
+  );
+  const selectedAnnual = useMemo(
+    () => side.annual.find((entry) => String(entry.year) === tableYear) ?? null,
+    [side.annual, tableYear],
+  );
+  const tableRows =
+    tableYear === "all"
+      ? metric === "deal_count"
+        ? side.top_by_count
+        : side.top_by_value
+      : metric === "deal_count"
+        ? selectedAnnual?.top_by_count ?? []
+        : selectedAnnual?.top_by_value ?? [];
+  const chartRows = metric === "deal_count" ? side.top_by_count : side.top_by_value;
   const chartSeries = useMemo(
     () =>
-      rows.map((row, index) => ({
+      chartRows.map((row, index) => ({
         key: `firm_${index}`,
         label: row.counsel,
         color: LEADERBOARD_COLORS[index % LEADERBOARD_COLORS.length],
       })),
-    [rows],
+    [chartRows],
   );
   const chartData = useMemo(() => {
     const years = new Set<number>();
-    rows.forEach((row) => {
+    chartRows.forEach((row) => {
       row.years.forEach((yearRow) => {
         years.add(yearRow.year);
       });
@@ -105,13 +138,13 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
       .sort((a, b) => a - b)
       .map((year) => {
         const nextRow: { year: number } & Record<string, number> = { year };
-        rows.forEach((row, index) => {
+        chartRows.forEach((row, index) => {
           const yearRow = row.years.find((item) => item.year === year);
           nextRow[`firm_${index}`] = yearRow ? yearRow[metric] : 0;
         });
         return nextRow;
       });
-  }, [metric, rows]);
+  }, [chartRows, metric]);
 
   return (
     <section aria-labelledby={descriptionId} className="space-y-4">
@@ -180,9 +213,33 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rows.length === 0 ? (
+          {view === "table" ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Table window
+              </span>
+              <RadioGroup
+                value={tableYear}
+                onValueChange={setTableYear}
+                aria-label={`${title} table year`}
+                className="flex flex-wrap gap-3"
+              >
+                {yearOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-sm text-foreground"
+                  >
+                    <RadioGroupItem value={option.value} id={`${tableId}-${option.value}`} />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+          ) : null}
+
+          {view === "table" && tableRows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/80 bg-background/70 px-4 py-8 text-sm text-muted-foreground">
-              No counsel leaderboard data is available yet.
+              No counsel leaderboard data is available for that year yet.
             </div>
           ) : view === "table" ? (
             <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/80">
@@ -195,7 +252,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => (
+                  {tableRows.map((row) => (
                     <TableRow key={row.counsel}>
                       <TableCell className="font-medium">{row.counsel}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">

@@ -59,6 +59,76 @@ class _FirmAggregate:
     yearly: dict[int, dict[str, Decimal | int]] = field(default_factory=dict)
 
 
+def _sorted_year_payload(yearly: dict[int, dict[str, Decimal | int]]) -> list[dict[str, object]]:
+    return [
+        {
+            "year": year,
+            "deal_count": int(bucket["deal_count"]),
+            "total_transaction_value": float(
+                _decimal_from_value(bucket["total_transaction_value"])
+            ),
+        }
+        for year, bucket in sorted(yearly.items())
+    ]
+
+
+def _build_ranked_rows(
+    side_aggregates: dict[str, _FirmAggregate],
+    *,
+    limit: int,
+    year: int | None = None,
+) -> dict[str, object]:
+    rows: list[dict[str, object]] = []
+    for aggregate in side_aggregates.values():
+        display_name = min(
+            aggregate.display_candidates.items(),
+            key=lambda item: (-item[1], len(item[0]), item[0].lower()),
+        )[0]
+        if year is None:
+            deal_count = aggregate.deal_count
+            total_transaction_value = float(aggregate.total_transaction_value)
+            years = _sorted_year_payload(aggregate.yearly)
+        else:
+            year_bucket = aggregate.yearly.get(year)
+            if year_bucket is None:
+                continue
+            deal_count = int(year_bucket["deal_count"])
+            total_transaction_value = float(
+                _decimal_from_value(year_bucket["total_transaction_value"])
+            )
+            years = _sorted_year_payload({year: year_bucket})
+
+        rows.append(
+            {
+                "counsel": display_name,
+                "deal_count": deal_count,
+                "total_transaction_value": total_transaction_value,
+                "years": years,
+            }
+        )
+
+    top_by_count = sorted(
+        rows,
+        key=lambda item: (
+            -int(item["deal_count"]),
+            -float(item["total_transaction_value"]),
+            str(item["counsel"]).lower(),
+        ),
+    )[:limit]
+    top_by_value = sorted(
+        rows,
+        key=lambda item: (
+            -float(item["total_transaction_value"]),
+            -int(item["deal_count"]),
+            str(item["counsel"]).lower(),
+        ),
+    )[:limit]
+    return {
+        "top_by_count": top_by_count,
+        "top_by_value": top_by_value,
+    }
+
+
 def _decimal_from_value(value: object | None) -> Decimal:
     if value is None:
         return Decimal("0")
@@ -244,50 +314,24 @@ def build_counsel_leaderboards_from_assignments(
         )
 
     def to_payload(side_aggregates: dict[str, _FirmAggregate]) -> dict[str, object]:
-        rows: list[dict[str, object]] = []
-        for aggregate in side_aggregates.values():
-            display_name = min(
-                aggregate.display_candidates.items(),
-                key=lambda item: (-item[1], len(item[0]), item[0].lower()),
-            )[0]
-            years = [
-                {
-                    "year": year,
-                    "deal_count": int(bucket["deal_count"]),
-                    "total_transaction_value": float(
-                        _decimal_from_value(bucket["total_transaction_value"])
-                    ),
-                }
-                for year, bucket in sorted(aggregate.yearly.items())
-            ]
-            rows.append(
-                {
-                    "counsel": display_name,
-                    "deal_count": aggregate.deal_count,
-                    "total_transaction_value": float(aggregate.total_transaction_value),
-                    "years": years,
-                }
-            )
-
-        top_by_count = sorted(
-            rows,
-            key=lambda item: (
-                -int(item["deal_count"]),
-                -float(item["total_transaction_value"]),
-                str(item["counsel"]).lower(),
-            ),
-        )[:limit]
-        top_by_value = sorted(
-            rows,
-            key=lambda item: (
-                -float(item["total_transaction_value"]),
-                -int(item["deal_count"]),
-                str(item["counsel"]).lower(),
-            ),
-        )[:limit]
+        all_years = sorted(
+            {
+                year
+                for aggregate in side_aggregates.values()
+                for year in aggregate.yearly.keys()
+            },
+            reverse=True,
+        )
+        annual = [
+            {
+                "year": year,
+                **_build_ranked_rows(side_aggregates, limit=limit, year=year),
+            }
+            for year in all_years
+        ]
         return {
-            "top_by_count": top_by_count,
-            "top_by_value": top_by_value,
+            **_build_ranked_rows(side_aggregates, limit=limit),
+            "annual": annual,
         }
 
     return {
