@@ -50,6 +50,7 @@ class RouteContractTests(unittest.TestCase):
             "/v1/taxonomy",
             "/v1/naics",
             "/v1/counsel",
+            "/v1/agreement-trends",
             "/v1/dumps",
             "/v1/auth/register",
             "/v1/auth/login",

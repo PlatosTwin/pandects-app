@@ -17,6 +17,12 @@ class SummaryDataTests(unittest.TestCase):
             def scalar(self) -> object:
                 return self._value
 
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
+
         class _FakeConn:
             def __init__(self) -> None:
                 self.executed_sql: list[str] = []
@@ -65,6 +71,12 @@ class SummaryDataTests(unittest.TestCase):
             def scalar(self) -> object:
                 return self._value
 
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
+
         class _FakeConn:
             def __init__(self) -> None:
                 self.executed_sql: list[str] = []
@@ -104,6 +116,21 @@ class SummaryDataTests(unittest.TestCase):
         )
         self.assertTrue(
             any("TRUNCATE TABLE pdx.agreement_overview_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_ownership_mix_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_ownership_deal_size_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_buyer_type_matrix_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_target_industry_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_industry_pairing_summary" in sql for sql in conn.executed_sql)
         )
         summary_insert_sql = next(
             sql
@@ -177,6 +204,56 @@ class SummaryDataTests(unittest.TestCase):
                 for sql in conn.executed_sql
             )
         )
+        ownership_mix_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_ownership_mix_summary" in sql
+        )
+        self.assertIn("FROM tmp_agreement_trends_base", ownership_mix_insert_sql)
+        self.assertIn("GROUP BY filing_year, target_bucket", ownership_mix_insert_sql)
+        target_industry_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_target_industry_summary" in sql
+        )
+        self.assertIn("FROM tmp_agreement_trends_base", target_industry_insert_sql)
+        self.assertIn("GROUP BY filing_year, target_industry", target_industry_insert_sql)
+        pairing_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_industry_pairing_summary" in sql
+        )
+        self.assertIn("GROUP BY target_industry, acquirer_industry", pairing_insert_sql)
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_ownership_mix_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_ownership_deal_size_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_buyer_type_matrix_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_target_industry_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_industry_pairing_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
 
     def test_refresh_summary_data_uses_canonical_stage_sql(self) -> None:
         class _ScalarResult:
@@ -185,6 +262,12 @@ class SummaryDataTests(unittest.TestCase):
 
             def scalar(self) -> object:
                 return self._value
+
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
 
         class _FakeConn:
             def __init__(self) -> None:

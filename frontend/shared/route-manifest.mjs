@@ -128,6 +128,21 @@ const ROUTE_MANIFEST = [
     priority: "0.7",
   },
   {
+    pathname: "/trends-analyses",
+    title: "Trends & Analyses | Pandects",
+    description:
+      "Explore ownership structure and industry trend visualizations across the Pandects M&A agreement dataset.",
+    robots: INDEX_FOLLOW,
+    pageType: "WebPage",
+    pageName: "Trends & Analyses",
+    pageDescription:
+      "Explore ownership structure and industry trend visualizations across the Pandects M&A agreement dataset.",
+    sitemap: true,
+    prerender: false,
+    changefreq: "weekly",
+    priority: "0.7",
+  },
+  {
     pathname: "/about",
     title: "About | Pandects",
     description:

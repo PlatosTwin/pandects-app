@@ -52,6 +52,8 @@ def _to_float_or_none(value: object) -> float | None:
 
 
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
+    agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
+    agreement_trends_lock = Lock()
     counsel_leaderboards_cache: dict[str, object] = {"ts": 0.0, "payload": None}
     counsel_leaderboards_lock = Lock()
 
@@ -774,6 +776,202 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             counsel_leaderboards_cache["ts"] = now
         return payload
 
+    def get_agreement_trends() -> dict[str, object]:
+        now = deps.time.time()
+        with agreement_trends_lock:
+            cached_payload = agreement_trends_cache["payload"]
+            cached_ts = cast(float, agreement_trends_cache["ts"])
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
+            )
+        if cache_is_valid and isinstance(cached_payload, dict):
+            return cached_payload
+
+        db = deps.db
+        schema_prefix = deps._schema_prefix()
+        ownership_mix_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, target_bucket, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_ownership_mix_summary
+                ORDER BY year ASC, target_bucket ASC
+                """
+            )
+        ).mappings().all()
+        ownership_deal_size_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value
+                FROM {schema_prefix}agreement_ownership_deal_size_summary
+                ORDER BY year ASC, target_bucket ASC
+                """
+            )
+        ).mappings().all()
+        buyer_matrix_rows = db.session.execute(
+            text(
+                f"""
+                SELECT target_bucket, buyer_bucket, deal_count, median_transaction_value
+                FROM {schema_prefix}agreement_buyer_type_matrix_summary
+                ORDER BY target_bucket ASC, buyer_bucket ASC
+                """
+            )
+        ).mappings().all()
+        target_industry_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, industry, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_target_industry_summary
+                ORDER BY year ASC, industry ASC
+                """
+            )
+        ).mappings().all()
+        industry_pairing_rows = db.session.execute(
+            text(
+                f"""
+                SELECT target_industry, acquirer_industry, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_industry_pairing_summary
+                ORDER BY deal_count DESC, total_transaction_value DESC, target_industry ASC, acquirer_industry ASC
+                """
+            )
+        ).mappings().all()
+
+        ownership_mix_by_year: dict[int, dict[str, object]] = {}
+        for row in ownership_mix_rows:
+            year = deps._to_int(row.get("year"))
+            year_row = ownership_mix_by_year.setdefault(
+                year,
+                {
+                    "year": year,
+                    "public_deal_count": 0,
+                    "private_deal_count": 0,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 0.0,
+                },
+            )
+            target_bucket = str(row.get("target_bucket") or "")
+            if target_bucket == "public":
+                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["public_total_transaction_value"] = _to_float_or_none(
+                    row.get("total_transaction_value")
+                ) or 0.0
+            elif target_bucket == "private":
+                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["private_total_transaction_value"] = _to_float_or_none(
+                    row.get("total_transaction_value")
+                ) or 0.0
+
+        ownership_deal_size_by_year: dict[int, dict[str, object]] = {}
+        for row in ownership_deal_size_rows:
+            year = deps._to_int(row.get("year"))
+            year_row = ownership_deal_size_by_year.setdefault(
+                year,
+                {
+                    "year": year,
+                    "public_deal_count": 0,
+                    "private_deal_count": 0,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": None,
+                    "private_median_transaction_value": None,
+                    "private_p75_transaction_value": None,
+                },
+            )
+            target_bucket = str(row.get("target_bucket") or "")
+            if target_bucket == "public":
+                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["public_p25_transaction_value"] = _to_float_or_none(
+                    row.get("p25_transaction_value")
+                )
+                year_row["public_median_transaction_value"] = _to_float_or_none(
+                    row.get("median_transaction_value")
+                )
+                year_row["public_p75_transaction_value"] = _to_float_or_none(
+                    row.get("p75_transaction_value")
+                )
+            elif target_bucket == "private":
+                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["private_p25_transaction_value"] = _to_float_or_none(
+                    row.get("p25_transaction_value")
+                )
+                year_row["private_median_transaction_value"] = _to_float_or_none(
+                    row.get("median_transaction_value")
+                )
+                year_row["private_p75_transaction_value"] = _to_float_or_none(
+                    row.get("p75_transaction_value")
+                )
+
+        buyer_matrix_lookup = {
+            (
+                str(row.get("target_bucket") or ""),
+                str(row.get("buyer_bucket") or ""),
+            ): row
+            for row in buyer_matrix_rows
+        }
+        buyer_matrix = []
+        for target_bucket in ("public", "private"):
+            for buyer_bucket in (
+                "public_buyer",
+                "private_strategic",
+                "private_equity",
+                "other",
+            ):
+                row = buyer_matrix_lookup.get((target_bucket, buyer_bucket))
+                buyer_matrix.append(
+                    {
+                        "target_bucket": target_bucket,
+                        "buyer_bucket": buyer_bucket,
+                        "deal_count": deps._to_int(row.get("deal_count")) if row else 0,
+                        "median_transaction_value": (
+                            _to_float_or_none(row.get("median_transaction_value"))
+                            if row
+                            else None
+                        ),
+                    }
+                )
+
+        payload = {
+            "ownership": {
+                "mix_by_year": [
+                    ownership_mix_by_year[year]
+                    for year in sorted(ownership_mix_by_year.keys())
+                ],
+                "deal_size_by_year": [
+                    ownership_deal_size_by_year[year]
+                    for year in sorted(ownership_deal_size_by_year.keys())
+                ],
+                "buyer_type_matrix": buyer_matrix,
+            },
+            "industries": {
+                "target_industries_by_year": [
+                    {
+                        "year": deps._to_int(row.get("year")),
+                        "industry": str(row.get("industry") or ""),
+                        "deal_count": deps._to_int(row.get("deal_count")),
+                        "total_transaction_value": _to_float_or_none(
+                            row.get("total_transaction_value")
+                        ) or 0.0,
+                    }
+                    for row in target_industry_rows
+                ],
+                "pairings": [
+                    {
+                        "target_industry": str(row.get("target_industry") or ""),
+                        "acquirer_industry": str(row.get("acquirer_industry") or ""),
+                        "deal_count": deps._to_int(row.get("deal_count")),
+                        "total_transaction_value": _to_float_or_none(
+                            row.get("total_transaction_value")
+                        ) or 0.0,
+                    }
+                    for row in industry_pairing_rows
+                ],
+            },
+        }
+        with agreement_trends_lock:
+            agreement_trends_cache["payload"] = payload
+            agreement_trends_cache["ts"] = now
+        return payload
+
     def get_filter_options() -> tuple[Response, int] | Response:
         now = deps.time.time()
         with deps._filter_options_lock:
@@ -903,6 +1101,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
     target_app.add_url_rule(
         "/v1/counsel-leaderboards",
         view_func=get_counsel_leaderboards,
+        methods=["GET"],
+    )
+    target_app.add_url_rule(
+        "/v1/agreement-trends",
+        view_func=get_agreement_trends,
         methods=["GET"],
     )
     target_app.add_url_rule(

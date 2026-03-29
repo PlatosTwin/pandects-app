@@ -173,6 +173,53 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_mix_summary ("
+                        "year INTEGER NOT NULL, "
+                        "target_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_deal_size_summary ("
+                        "year INTEGER NOT NULL, "
+                        "target_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "p25_transaction_value REAL NULL, "
+                        "median_transaction_value REAL NULL, "
+                        "p75_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_buyer_type_matrix_summary ("
+                        "target_bucket TEXT NOT NULL, "
+                        "buyer_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "median_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_target_industry_summary ("
+                        "year INTEGER NOT NULL, "
+                        "industry TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_industry_pairing_summary ("
+                        "target_industry TEXT NOT NULL, "
+                        "acquirer_industry TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
                         "(2020, 'merger', 1), "
                         "(2021, 'stock_acquisition', 2)"
@@ -183,6 +230,50 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO agreement_overview_summary "
                         "(singleton_key, metadata_covered_agreements, metadata_coverage_pct, taxonomy_covered_sections, taxonomy_coverage_pct, latest_filing_date) VALUES "
                         "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_mix_summary (year, target_bucket, deal_count, total_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000), "
+                        "(2021, 'private', 1, 150000000), "
+                        "(2022, 'private', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_deal_size_summary "
+                        "(year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000, 50000000, 50000000), "
+                        "(2021, 'private', 1, 150000000, 150000000, 150000000), "
+                        "(2022, 'private', 1, 300000000, 300000000, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_buyer_type_matrix_summary "
+                        "(target_bucket, buyer_bucket, deal_count, median_transaction_value) VALUES "
+                        "('public', 'public_buyer', 1, 50000000), "
+                        "('private', 'public_buyer', 1, 150000000), "
+                        "('private', 'private_equity', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_target_industry_summary "
+                        "(year, industry, deal_count, total_transaction_value) VALUES "
+                        "(2020, 'tech', 1, 50000000), "
+                        "(2021, 'healthcare', 1, 150000000), "
+                        "(2022, 'energy', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_industry_pairing_summary "
+                        "(target_industry, acquirer_industry, deal_count, total_transaction_value) VALUES "
+                        "('energy', 'industrial', 1, 300000000), "
+                        "('healthcare', 'tech', 1, 150000000), "
+                        "('tech', 'tech', 1, 50000000)"
                     )
                 )
                 conn.execute(
@@ -958,6 +1049,71 @@ class MainRoutesTests(unittest.TestCase):
                     },
                 ]
             },
+        )
+
+    def test_agreement_trends_summary(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreement-trends")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+
+        ownership = body.get("ownership", {})
+        mix_by_year = ownership.get("mix_by_year", [])
+        self.assertEqual(
+            mix_by_year,
+            [
+                {
+                    "year": 2020,
+                    "public_deal_count": 1,
+                    "private_deal_count": 0,
+                    "public_total_transaction_value": 50000000.0,
+                    "private_total_transaction_value": 0.0,
+                },
+                {
+                    "year": 2021,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 150000000.0,
+                },
+                {
+                    "year": 2022,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 300000000.0,
+                },
+            ],
+        )
+
+        buyer_matrix = ownership.get("buyer_type_matrix", [])
+        matrix_by_key = {
+            (row["target_bucket"], row["buyer_bucket"]): row for row in buyer_matrix
+        }
+        self.assertEqual(matrix_by_key[("public", "public_buyer")]["deal_count"], 1)
+        self.assertEqual(matrix_by_key[("private", "public_buyer")]["deal_count"], 1)
+        self.assertEqual(matrix_by_key[("private", "private_equity")]["deal_count"], 1)
+
+        industries = body.get("industries", {})
+        by_year = industries.get("target_industries_by_year", [])
+        self.assertIn(
+            {
+                "year": 2020,
+                "industry": "tech",
+                "deal_count": 1,
+                "total_transaction_value": 50000000.0,
+            },
+            by_year,
+        )
+        self.assertIn(
+            {
+                "target_industry": "healthcare",
+                "acquirer_industry": "tech",
+                "deal_count": 1,
+                "total_transaction_value": 150000000.0,
+            },
+            industries.get("pairings", []),
         )
 
 

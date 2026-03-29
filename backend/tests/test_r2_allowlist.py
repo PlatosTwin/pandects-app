@@ -8,8 +8,13 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PUSH_TO_R2_PATH = _REPO_ROOT / "bulk" / "push_to_r2.sh"
 _EXPECTED_PUBLIC_API_TABLES = {
+    "agreement_buyer_type_matrix_summary",
     "agreement_deal_type_summary",
+    "agreement_industry_pairing_summary",
+    "agreement_ownership_deal_size_summary",
+    "agreement_ownership_mix_summary",
     "agreement_status_summary",
+    "agreement_target_industry_summary",
     "agreements",
     "latest_sections_search",
     "latest_sections_search_standard_ids",

@@ -78,6 +78,7 @@ function NavigationComponent() {
       { type: "link", to: "/taxonomy", label: "Taxonomy" },
       { type: "separator", key: "data-divider" },
       { type: "link", to: "/leaderboards", label: "Leaderboards" },
+      { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
     ] as const,
     [],
   );
