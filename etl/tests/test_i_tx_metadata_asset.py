@@ -166,13 +166,22 @@ class _FakeWebEngine:
 
 
 class _FakeCounselSelectionConn:
-    def __init__(self, rows: list[dict[str, object]]) -> None:
-        self.rows = rows
+    def __init__(
+        self,
+        *,
+        candidate_rows: list[dict[str, object]],
+        section_rows: list[dict[str, object]],
+    ) -> None:
+        self.candidate_rows = candidate_rows
+        self.section_rows = section_rows
         self.executed_sql: list[str] = []
 
     def execute(self, statement: object, _params: dict[str, object]) -> _FakeResult:
-        self.executed_sql.append(str(statement))
-        return _FakeResult(rows=self.rows)
+        sql = str(statement)
+        self.executed_sql.append(sql)
+        if "FROM pdx.latest_sections_search_standard_ids lssi" in sql and "s.xml_content" in sql:
+            return _FakeResult(rows=self.section_rows)
+        return _FakeResult(rows=self.candidate_rows)
 
 
 class _FakeCounselSelectionEngine:
@@ -419,7 +428,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         context = SimpleNamespace(log=_FakeLog())
 
         with patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh:
-            updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+            updated, parse_errors, refreshed_uuids, processed_uuids = _apply_offline_batch_output(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 client=cast(OpenAI, cast(object, client)),
@@ -431,6 +440,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
         self.assertEqual(refreshed_uuids, ["agreement-1"])
+        self.assertEqual(processed_uuids, ["agreement-1"])
         refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
 
     def test_tx_metadata_asset_fails_fast_when_queue_run_mode_is_not_single_batch(self) -> None:
@@ -507,7 +517,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         context = SimpleNamespace(log=_FakeLog())
 
         with patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh:
-            updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+            updated, parse_errors, refreshed_uuids, processed_uuids = _apply_offline_batch_output(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 client=cast(OpenAI, cast(object, client)),
@@ -523,6 +533,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(updated, 1)
         self.assertEqual(parse_errors, 0)
         self.assertEqual(refreshed_uuids, ["agreement-1"])
+        self.assertEqual(processed_uuids, ["agreement-1"])
         refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
 
     def test_apply_offline_batch_output_does_not_count_noop_update_as_updated(self) -> None:
@@ -546,7 +557,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         context = SimpleNamespace(log=_FakeLog())
 
         with patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh:
-            updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+            updated, parse_errors, refreshed_uuids, processed_uuids = _apply_offline_batch_output(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 client=cast(OpenAI, cast(object, client)),
@@ -558,6 +569,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(updated, 0)
         self.assertEqual(parse_errors, 0)
         self.assertEqual(refreshed_uuids, [])
+        self.assertEqual(processed_uuids, ["agreement-1"])
         refresh.assert_not_called()
 
     def test_run_offline_mode_starts_metadata_processing_while_counsel_is_preparing(self) -> None:
@@ -667,22 +679,27 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
     def test_build_offline_counsel_lines_uses_matching_sections(self) -> None:
         conn = _FakeCounselSelectionConn(
-            [
+            candidate_rows=[
                 {
                     "agreement_uuid": "agreement-1",
                     "target": "Target A",
                     "acquirer": "Acquirer A",
+                    "filing_date": date(2024, 1, 1),
+                    "missing_all_counsel_fields": 1,
+                }
+            ],
+            section_rows=[
+                {
+                    "agreement_uuid": "agreement-1",
                     "section_uuid": "section-1",
                     "xml_content": "<section>Target counsel is Wachtell, Lipton, Rosen &amp; Katz.</section>",
                 },
                 {
                     "agreement_uuid": "agreement-1",
-                    "target": "Target A",
-                    "acquirer": "Acquirer A",
                     "section_uuid": "section-2",
                     "xml_content": "<section>Acquirer counsel is Kirkland &amp; Ellis LLP.</section>",
                 },
-            ]
+            ],
         )
         engine = _FakeCounselSelectionEngine(conn)
         context = SimpleNamespace(log=_FakeLog())
@@ -700,37 +717,54 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertIn("Target name: Target A", str(lines[0]["body"]["input"][0]["content"]))
         self.assertTrue(
             any(
-                "JSON_CONTAINS(" in sql
-                and "COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id" in sql
+                "FROM pdx.latest_sections_search_standard_ids lssi" in sql
+                and "lssi.standard_id = :counsel_standard_id" in sql
                 for sql in conn.executed_sql
             )
         )
 
     def test_build_offline_counsel_lines_prioritizes_missing_all_fields_then_oldest_filing_date(self) -> None:
         conn = _FakeCounselSelectionConn(
-            [
+            candidate_rows=[
                 {
                     "agreement_uuid": "agreement-older-missing-all",
                     "target": "Target A",
                     "acquirer": "Acquirer A",
-                    "section_uuid": "section-1",
-                    "xml_content": "<section>Target counsel is A.</section>",
+                    "filing_date": date(2023, 1, 1),
+                    "missing_all_counsel_fields": 1,
                 },
                 {
                     "agreement_uuid": "agreement-newer-missing-all",
                     "target": "Target B",
                     "acquirer": "Acquirer B",
-                    "section_uuid": "section-1",
-                    "xml_content": "<section>Target counsel is B.</section>",
+                    "filing_date": date(2024, 1, 1),
+                    "missing_all_counsel_fields": 1,
                 },
                 {
                     "agreement_uuid": "agreement-oldest-partial",
                     "target": "Target C",
                     "acquirer": "Acquirer C",
+                    "filing_date": date(2022, 1, 1),
+                    "missing_all_counsel_fields": 0,
+                },
+            ],
+            section_rows=[
+                {
+                    "agreement_uuid": "agreement-older-missing-all",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is A.</section>",
+                },
+                {
+                    "agreement_uuid": "agreement-newer-missing-all",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is B.</section>",
+                },
+                {
+                    "agreement_uuid": "agreement-oldest-partial",
                     "section_uuid": "section-1",
                     "xml_content": "<section>Target counsel is C.</section>",
                 },
-            ]
+            ],
         )
         engine = _FakeCounselSelectionEngine(conn)
         context = SimpleNamespace(log=_FakeLog())

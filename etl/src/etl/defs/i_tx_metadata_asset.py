@@ -20,11 +20,11 @@ import json
 import os
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 from openai import OpenAI
 
@@ -51,7 +51,6 @@ from etl.utils.openai_batch import (
     read_openai_file_text,
 )
 from etl.utils.latest_sections_search import refresh_latest_sections_search
-from etl.utils.pipeline_state_sql import canonical_components_cte_sql
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
@@ -369,11 +368,11 @@ def _apply_offline_batch_output(
     parse_response_text: Any | None = None,
     build_update_params: Any | None = None,
     log_prefix: str = "tx_metadata_asset (offline)",
-) -> Tuple[int, int, list[str]]:
+ ) -> Tuple[int, int, list[str], list[str]]:
     ofid = getattr(batch, "output_file_id", None)
     if not ofid:
         context.log.warning("%s: batch has no output_file_id.", log_prefix)
-        return 0, 0, []
+        return 0, 0, [], []
 
     out_content = client.files.content(ofid)
     out_text = read_openai_file_text(out_content)
@@ -395,6 +394,7 @@ def _apply_offline_batch_output(
     updated = 0
     parse_errors = 0
     refreshed_uuids: list[str] = []
+    processed_uuids: list[str] = []
     for line_str in out_text.strip().splitlines():
         if not line_str.strip():
             continue
@@ -420,6 +420,7 @@ def _apply_offline_batch_output(
             parse_errors += 1
             context.log.warning("%s: parse error for %s: %s", log_prefix, rid, e)
             continue
+        processed_uuids.append(str(rid))
 
         with engine.begin() as conn:
             result = conn.execute(resolved_update_sql, params)
@@ -427,7 +428,7 @@ def _apply_offline_batch_output(
                 _ = refresh_latest_sections_search(conn, schema, [str(rid)])
                 refreshed_uuids.append(str(rid))
                 updated += 1
-    return updated, parse_errors, refreshed_uuids
+    return updated, parse_errors, refreshed_uuids, processed_uuids
 
 
 def _metadata_offline_update_sql(agreements_table: str) -> Any:
@@ -470,20 +471,43 @@ def _sync_counsel_mappings(
     engine: Any,
     schema: str,
     agreements_table: str,
+    agreement_uuids: Sequence[str] | None = None,
 ) -> None:
     counsel_table = f"{schema}.counsel"
     agreement_counsel_table = f"{schema}.agreement_counsel"
-    sync_sql = text(
-        f"""
-        SELECT
-            agreement_uuid,
-            target_counsel,
-            acquirer_counsel
-        FROM {agreements_table}
-        WHERE (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
-           OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
-        ORDER BY agreement_uuid ASC
-        """
+    target_uuids = tuple(sorted({agreement_uuid for agreement_uuid in (agreement_uuids or []) if agreement_uuid}))
+    if agreement_uuids is not None and not target_uuids:
+        context.log.info("tx_metadata_asset (offline counsel): no agreement counsel rows needed syncing.")
+        return
+    sync_sql = (
+        text(
+            f"""
+            SELECT
+                agreement_uuid,
+                target_counsel,
+                acquirer_counsel
+            FROM {agreements_table}
+            WHERE agreement_uuid IN :agreement_uuids
+              AND (
+                    (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
+                    OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
+              )
+            ORDER BY agreement_uuid ASC
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+        if agreement_uuids is not None
+        else text(
+            f"""
+            SELECT
+                agreement_uuid,
+                target_counsel,
+                acquirer_counsel
+            FROM {agreements_table}
+            WHERE (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
+               OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
+            ORDER BY agreement_uuid ASC
+            """
+        )
     )
     load_counsel_sql = text(
         f"""
@@ -533,7 +557,10 @@ def _sync_counsel_mappings(
 
     with engine.begin() as conn:
         assert_tables_exist(conn, schema=schema, table_names=("counsel", "agreement_counsel"))
-        agreements = conn.execute(sync_sql).mappings().fetchall()
+        agreements = conn.execute(
+            sync_sql,
+            {"agreement_uuids": target_uuids} if agreement_uuids is not None else {},
+        ).mappings().fetchall()
         counsel_rows = conn.execute(load_counsel_sql).mappings().fetchall()
         counsel_by_key = {
             str(row["canonical_name_normalized"]): int(row["counsel_id"])
@@ -733,6 +760,7 @@ def _run_offline_mode(
         engine=engine,
         schema=schema,
         agreements_table=agreements_table,
+        agreement_uuids=_collect_counsel_sync_uuids(initial_results),
     )
 
     metadata_result = initial_results.get(OFFLINE_METADATA_BATCH_KIND)
@@ -754,7 +782,7 @@ def _run_offline_mode(
     )
     if follow_up_counsel_batch is None:
         return
-    _ = _process_offline_batches(
+    follow_up_results = _process_offline_batches(
         context=context,
         engine=engine,
         schema=schema,
@@ -766,7 +794,18 @@ def _run_offline_mode(
         engine=engine,
         schema=schema,
         agreements_table=agreements_table,
+        agreement_uuids=_collect_counsel_sync_uuids(follow_up_results),
     )
+
+
+def _collect_counsel_sync_uuids(results: dict[str, dict[str, Any]]) -> list[str]:
+    counsel_result = results.get(OFFLINE_COUNSEL_BATCH_KIND)
+    if counsel_result is None:
+        return []
+    processed_uuids = counsel_result.get("processed_uuids")
+    if not isinstance(processed_uuids, list):
+        return []
+    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
 
 
 def _prepare_offline_metadata_batch(
@@ -929,8 +968,9 @@ def _resume_and_apply_offline_batch(
             "updated": 0,
             "parse_errors": 0,
             "refreshed_uuids": [],
+            "processed_uuids": [],
         }
-    updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+    updated, parse_errors, refreshed_uuids, processed_uuids = _apply_offline_batch_output(
         context=context,
         engine=engine,
         client=client,
@@ -959,6 +999,7 @@ def _resume_and_apply_offline_batch(
         "updated": updated,
         "parse_errors": parse_errors,
         "refreshed_uuids": refreshed_uuids,
+        "processed_uuids": processed_uuids,
     }
 
 
@@ -1147,104 +1188,112 @@ def _build_offline_counsel_lines(
     agreements_table: str,
     batch_size: int,
 ) -> List[Dict[str, Any]]:
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    standard_ids_table = f"{schema}.latest_sections_search_standard_ids"
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
-    counsel_q = text(
+    candidate_q = text(
         f"""
-        {canonical_components_cte_sql(schema)}
-        ,
-        matching_sections AS (
-            SELECT
-                a.agreement_uuid,
-                a.filing_date,
-                CASE
-                    WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
-                     AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
-                    THEN 1
-                    ELSE 0
-                END AS missing_all_counsel_fields,
-                a.target,
-                a.acquirer,
-                s.section_uuid,
-                s.xml_content
-            FROM state_components sc
-            JOIN {agreements_table} a
-              ON a.agreement_uuid = sc.agreement_uuid
-            JOIN {xml_table} x
-              ON x.agreement_uuid = sc.agreement_uuid
-             AND x.latest = 1
-             AND x.status = 'verified'
-             AND x.version = sc.latest_xml_version
-            JOIN {sections_table} s
-              ON s.agreement_uuid = x.agreement_uuid
-             AND s.xml_version = x.version
-            WHERE sc.agreement_uuid IS NOT NULL
-              AND (
-                    a.target_counsel IS NULL
-                    OR a.acquirer_counsel IS NULL
-              )
-              AND a.target IS NOT NULL
-              AND TRIM(a.target) <> ''
-              AND a.acquirer IS NOT NULL
-              AND TRIM(a.acquirer) <> ''
-              AND sc.has_latest_xml = 1
-              AND sc.latest_xml_status = 'verified'
-              AND sc.latest_section_count > 0
-              AND sc.has_stale_body_tags = 0
-              AND (
-                    COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id
-                    OR JSON_CONTAINS(
-                        COALESCE(s.section_standard_id_gold_label, s.section_standard_id),
-                        JSON_QUOTE(:counsel_standard_id)
-                    ) = 1
-              )
-        ),
-        selected_agreements AS (
-            SELECT
-                agreement_uuid,
-                MAX(missing_all_counsel_fields) AS missing_all_counsel_fields,
-                MAX(filing_date) AS filing_date
-            FROM matching_sections
-            GROUP BY agreement_uuid
-            ORDER BY
-                missing_all_counsel_fields DESC,
-                (filing_date IS NULL) ASC,
-                filing_date ASC,
-                agreement_uuid ASC
-            LIMIT :lim
-        )
         SELECT
-            ms.agreement_uuid,
-            ms.target,
-            ms.acquirer,
-            ms.section_uuid,
-            ms.xml_content
-        FROM matching_sections ms
-        JOIN selected_agreements sa
-          ON sa.agreement_uuid = ms.agreement_uuid
+            a.agreement_uuid,
+            a.target,
+            a.acquirer,
+            a.filing_date,
+            CASE
+                WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
+                 AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
+                THEN 1
+                ELSE 0
+            END AS missing_all_counsel_fields
+        FROM {agreements_table} a
+        JOIN {xml_table} x
+          ON x.agreement_uuid = a.agreement_uuid
+         AND x.latest = 1
+         AND x.status = 'verified'
+        WHERE (a.target_counsel IS NULL OR a.acquirer_counsel IS NULL)
+          AND a.target IS NOT NULL
+          AND TRIM(a.target) <> ''
+          AND a.acquirer IS NOT NULL
+          AND TRIM(a.acquirer) <> ''
+          AND EXISTS (
+                SELECT 1
+                FROM {standard_ids_table} lssi
+                WHERE lssi.agreement_uuid = a.agreement_uuid
+                  AND lssi.standard_id = :counsel_standard_id
+          )
+          AND NOT EXISTS (
+                SELECT 1
+                FROM {pages_table} p
+                JOIN {tagged_outputs_table} t
+                  ON t.page_uuid = p.page_uuid
+                WHERE p.agreement_uuid = a.agreement_uuid
+                  AND COALESCE(p.gold_label, p.source_page_type) = 'body'
+                  AND x.created_date IS NOT NULL
+                  AND t.updated_date > x.created_date
+          )
         ORDER BY
-            sa.missing_all_counsel_fields DESC,
-            (sa.filing_date IS NULL) ASC,
-            sa.filing_date ASC,
-            ms.agreement_uuid ASC,
-            ms.section_uuid ASC
+            missing_all_counsel_fields DESC,
+            (a.filing_date IS NULL) ASC,
+            a.filing_date ASC,
+            a.agreement_uuid ASC
+        LIMIT :lim
         """
     )
+    section_q = (
+        text(
+            f"""
+            SELECT
+                lssi.agreement_uuid,
+                lssi.section_uuid,
+                s.xml_content
+            FROM {standard_ids_table} lssi
+            JOIN {sections_table} s
+              ON s.section_uuid = lssi.section_uuid
+             AND s.agreement_uuid = lssi.agreement_uuid
+            JOIN {xml_table} x
+              ON x.agreement_uuid = s.agreement_uuid
+             AND x.version = s.xml_version
+             AND x.latest = 1
+             AND x.status = 'verified'
+            WHERE lssi.standard_id = :counsel_standard_id
+              AND lssi.agreement_uuid IN :agreement_uuids
+            ORDER BY
+                lssi.agreement_uuid ASC,
+                lssi.section_uuid ASC
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+    )
     with engine.begin() as conn:
-        rows = conn.execute(
-            counsel_q,
+        candidate_rows = conn.execute(
+            candidate_q,
             {"counsel_standard_id": COUNSEL_SECTION_STANDARD_ID, "lim": batch_size},
         ).mappings().fetchall()
+        agreement_order = [str(row["agreement_uuid"]) for row in candidate_rows]
+        if not agreement_order:
+            return []
+        rows = conn.execute(
+            section_q,
+            {
+                "counsel_standard_id": COUNSEL_SECTION_STANDARD_ID,
+                "agreement_uuids": agreement_order,
+            },
+        ).mappings().fetchall()
     grouped_texts: Dict[str, List[str]] = {}
-    target_by_agreement: Dict[str, str] = {}
-    acquirer_by_agreement: Dict[str, str] = {}
+    target_by_agreement = {
+        str(row["agreement_uuid"]): str(row["target"])
+        for row in candidate_rows
+    }
+    acquirer_by_agreement = {
+        str(row["agreement_uuid"]): str(row["acquirer"])
+        for row in candidate_rows
+    }
     for row in rows:
         agreement_uuid = str(row["agreement_uuid"])
         grouped_texts.setdefault(agreement_uuid, []).append(str(row["xml_content"] or ""))
-        _ = target_by_agreement.setdefault(agreement_uuid, str(row["target"]))
-        _ = acquirer_by_agreement.setdefault(agreement_uuid, str(row["acquirer"]))
     lines: List[Dict[str, Any]] = []
-    for agreement_uuid, section_texts in grouped_texts.items():
+    for agreement_uuid in agreement_order:
+        section_texts = grouped_texts.get(agreement_uuid, [])
         joined_text = "\n\n".join(section_texts).strip()
         if not joined_text:
             context.log.warning("tx_metadata_asset (offline counsel): no counsel section text for %s; skipping.", agreement_uuid)
