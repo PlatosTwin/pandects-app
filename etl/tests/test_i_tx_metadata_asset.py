@@ -560,13 +560,11 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(refreshed_uuids, [])
         refresh.assert_not_called()
 
-    def test_run_offline_mode_creates_metadata_and_counsel_batches_before_waiting(self) -> None:
+    def test_run_offline_mode_starts_metadata_processing_while_counsel_is_preparing(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
         engine = _NoopEngine()
         creation_order: list[str] = []
-        started_batch_kinds: list[str] = []
-        started_together = threading.Event()
-        lock = threading.Lock()
+        metadata_started = threading.Event()
 
         def fake_create_offline_batch(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
             creation_order.append(batch_kind)
@@ -577,13 +575,8 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             }
 
         def fake_resume_and_apply(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
-            with lock:
-                self.assertEqual(creation_order, ["metadata", "counsel"])
-                started_batch_kinds.append(batch_kind)
-                if len(started_batch_kinds) == 2:
-                    started_together.set()
-            if not started_together.wait(0.5):
-                raise AssertionError("expected both offline batches to begin processing before either completed")
+            if batch_kind == "metadata":
+                metadata_started.set()
             return {
                 "batch_id": f"batch-{batch_kind}",
                 "batch_kind": batch_kind,
@@ -593,12 +586,17 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 "refreshed_uuids": [],
             }
 
+        def fake_build_counsel_lines(**_kwargs: object) -> list[dict[str, object]]:
+            if not metadata_started.wait(0.5):
+                raise AssertionError("expected metadata processing to start before counsel prep finished")
+            return [{"custom_id": "agreement-c"}]
+
         with (
             patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=SimpleNamespace()),
             patch("etl.defs.i_tx_metadata_asset.assert_tables_exist"),
             patch("etl.defs.i_tx_metadata_asset._load_existing_offline_batch", side_effect=[None, None]),
             patch("etl.defs.i_tx_metadata_asset._build_offline_metadata_lines", return_value=[{"custom_id": "agreement-m"}]),
-            patch("etl.defs.i_tx_metadata_asset._build_offline_counsel_lines", return_value=[{"custom_id": "agreement-c"}]),
+            patch("etl.defs.i_tx_metadata_asset._build_offline_counsel_lines", side_effect=fake_build_counsel_lines),
             patch("etl.defs.i_tx_metadata_asset._create_offline_batch", side_effect=fake_create_offline_batch),
             patch("etl.defs.i_tx_metadata_asset._resume_and_apply_offline_batch", side_effect=fake_resume_and_apply),
             patch("etl.defs.i_tx_metadata_asset._sync_counsel_mappings") as sync_counsel,
@@ -613,7 +611,6 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 batch_size=10,
             )
 
-        self.assertCountEqual(started_batch_kinds, ["metadata", "counsel"])
         self.assertEqual(creation_order, ["metadata", "counsel"])
         self.assertEqual(sync_counsel.call_count, 1)
 

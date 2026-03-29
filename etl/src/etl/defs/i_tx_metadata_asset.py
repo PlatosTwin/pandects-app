@@ -669,7 +669,6 @@ def _run_offline_mode(
             schema=schema,
             table_names=("tx_metadata_offline_batches",),
         )
-    pending_batches: list[dict[str, Any]] = []
     metadata_batch = _prepare_offline_metadata_batch(
         context=context,
         engine=engine,
@@ -680,26 +679,55 @@ def _run_offline_mode(
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
     )
-    if metadata_batch is not None:
-        pending_batches.append(metadata_batch)
-    counsel_batch = _prepare_offline_counsel_batch(
-        context=context,
-        engine=engine,
-        client=client,
-        schema=schema,
-        agreements_table=agreements_table,
-        batch_size=batch_size,
-    )
-    if counsel_batch is not None:
-        pending_batches.append(counsel_batch)
+    initial_results: dict[str, dict[str, Any]] = {}
+    if metadata_batch is None:
+        counsel_batch = _prepare_offline_counsel_batch(
+            context=context,
+            engine=engine,
+            client=client,
+            schema=schema,
+            agreements_table=agreements_table,
+            batch_size=batch_size,
+        )
+        initial_results = _process_offline_batches(
+            context=context,
+            engine=engine,
+            schema=schema,
+            agreements_table=agreements_table,
+            pending_batches=[counsel_batch] if counsel_batch is not None else [],
+        )
+    else:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            metadata_future = executor.submit(
+                _process_offline_batches,
+                context=context,
+                engine=engine,
+                schema=schema,
+                agreements_table=agreements_table,
+                pending_batches=[metadata_batch],
+            )
+            counsel_batch = _prepare_offline_counsel_batch(
+                context=context,
+                engine=engine,
+                client=client,
+                schema=schema,
+                agreements_table=agreements_table,
+                batch_size=batch_size,
+            )
+            counsel_future = None
+            if counsel_batch is not None:
+                counsel_future = executor.submit(
+                    _process_offline_batches,
+                    context=context,
+                    engine=engine,
+                    schema=schema,
+                    agreements_table=agreements_table,
+                    pending_batches=[counsel_batch],
+                )
+            initial_results.update(metadata_future.result())
+            if counsel_future is not None:
+                initial_results.update(counsel_future.result())
 
-    initial_results = _process_offline_batches(
-        context=context,
-        engine=engine,
-        schema=schema,
-        agreements_table=agreements_table,
-        pending_batches=pending_batches,
-    )
     _sync_counsel_mappings(
         context=context,
         engine=engine,
@@ -824,6 +852,7 @@ def _prepare_offline_counsel_batch(
             "log_prefix": log_prefix,
         }
 
+    context.log.info("%s: selecting agreements and assembling counsel section text.", log_prefix)
     lines = _build_offline_counsel_lines(
         context=context,
         engine=engine,
@@ -831,6 +860,7 @@ def _prepare_offline_counsel_batch(
         agreements_table=agreements_table,
         batch_size=batch_size,
     )
+    context.log.info("%s: assembled %s counsel requests.", log_prefix, len(lines))
     if not lines:
         context.log.info("%s: no runnable agreements need counsel extraction.", log_prefix)
         return None
