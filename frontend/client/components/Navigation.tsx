@@ -47,6 +47,7 @@ function NavigationComponent() {
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
     "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  const dataSeparatorClass = "bg-border";
 
   const primaryLinks = useMemo(
     () => [
@@ -220,7 +221,7 @@ function NavigationComponent() {
               <DropdownMenuContent align="start" className="w-56">
                 {dataLinks.map((item) =>
                   item.type === "separator" ? (
-                    <DropdownMenuSeparator key={item.key} className="bg-border/50" />
+                    <DropdownMenuSeparator key={item.key} className={dataSeparatorClass} />
                   ) : (
                     <DropdownMenuItem key={item.to} asChild>
                       <Link
@@ -395,7 +396,7 @@ function NavigationComponent() {
                           <div
                             key={item.key}
                             aria-hidden="true"
-                            className="mx-2 my-1 h-px bg-border/50"
+                            className={cn("mx-2 my-1 h-px", dataSeparatorClass)}
                           />
                         ) : (
                           <SheetClose asChild key={item.to}>
