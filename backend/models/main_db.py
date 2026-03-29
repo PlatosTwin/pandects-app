@@ -167,6 +167,18 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    counsel_table = Table(
+        "counsel",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    agreement_counsel_table = Table(
+        "agreement_counsel",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -184,8 +196,6 @@ else:
         Column("acquirer", TEXT, nullable=True),
         Column("target_counsel", TEXT, nullable=True),
         Column("acquirer_counsel", TEXT, nullable=True),
-        Column("target_counsel_normalized", TEXT, nullable=True),
-        Column("acquirer_counsel_normalized", TEXT, nullable=True),
         Column("transaction_price_total", TEXT, nullable=True),
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
@@ -320,6 +330,24 @@ else:
         Column("agreement_uuid", CHAR(36), nullable=False),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    counsel_table = Table(
+        "counsel",
+        metadata,
+        Column("counsel_id", Integer, primary_key=True, autoincrement=True),
+        Column("canonical_name", TEXT, nullable=False),
+        Column("canonical_name_normalized", TEXT, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    agreement_counsel_table = Table(
+        "agreement_counsel",
+        metadata,
+        Column("agreement_uuid", CHAR(36), primary_key=True),
+        Column("side", TEXT, primary_key=True),
+        Column("position", Integer, primary_key=True),
+        Column("raw_name", TEXT, nullable=False),
+        Column("counsel_id", Integer, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
 
 
 class Sections(db.Model):
@@ -347,8 +375,6 @@ class Agreements(db.Model):
     acquirer: ClassVar[Mapped[str | None]]
     target_counsel: ClassVar[Mapped[str | None]]
     acquirer_counsel: ClassVar[Mapped[str | None]]
-    target_counsel_normalized: ClassVar[Mapped[str | None]]
-    acquirer_counsel_normalized: ClassVar[Mapped[str | None]]
     transaction_price_total: ClassVar[Mapped[str | None]]
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
@@ -415,6 +441,22 @@ class LatestSectionsSearchStandardId(db.Model):
     standard_id: ClassVar[Mapped[str]]
     section_uuid: ClassVar[Mapped[str]]
     agreement_uuid: ClassVar[Mapped[str]]
+
+
+class Counsel(db.Model):
+    __table__ = counsel_table
+    counsel_id: ClassVar[Mapped[int]]
+    canonical_name: ClassVar[Mapped[str]]
+    canonical_name_normalized: ClassVar[Mapped[str]]
+
+
+class AgreementCounsel(db.Model):
+    __table__ = agreement_counsel_table
+    agreement_uuid: ClassVar[Mapped[str]]
+    side: ClassVar[Mapped[str]]
+    position: ClassVar[Mapped[int]]
+    raw_name: ClassVar[Mapped[str]]
+    counsel_id: ClassVar[Mapped[int]]
 
 
 class XML(db.Model):

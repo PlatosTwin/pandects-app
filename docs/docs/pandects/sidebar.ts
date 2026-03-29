@@ -84,6 +84,22 @@ const sidebar: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "counsel",
+      link: {
+        type: "doc",
+        id: "pandects/counsel",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-counsel",
+          label: "/v1/counsel",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "dumps",
       link: {
         type: "doc",

@@ -113,6 +113,21 @@ const ROUTE_MANIFEST = [
     priority: "0.7",
   },
   {
+    pathname: "/leaderboards",
+    title: "Leaderboards | Pandects",
+    description:
+      "Compare top buy-side and sell-side counsel by deal count or transaction value across the Pandects agreement dataset.",
+    robots: INDEX_FOLLOW,
+    pageType: "WebPage",
+    pageName: "Leaderboards",
+    pageDescription:
+      "Compare top buy-side and sell-side counsel by deal count or transaction value across the Pandects agreement dataset.",
+    sitemap: true,
+    prerender: false,
+    changefreq: "weekly",
+    priority: "0.7",
+  },
+  {
     pathname: "/about",
     title: "About | Pandects",
     description:

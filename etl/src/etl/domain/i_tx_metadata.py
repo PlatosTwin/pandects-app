@@ -541,35 +541,6 @@ def build_offline_counsel_request_body(
     }
 
 
-_COUNSEL_PUNCT_RE = re.compile(r"[^a-z0-9& ]+")
-_COUNSEL_SPACE_RE = re.compile(r"\s+")
-
-
-def normalize_counsel_name(value: object | None) -> Optional[str]:
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise TypeError("Counsel name must be a string or null.")
-    cleaned = value.strip().lower()
-    if not cleaned:
-        return None
-    cleaned = cleaned.replace("+", " and ")
-    cleaned = cleaned.replace("@", " at ")
-    cleaned = cleaned.replace("/", " ")
-    cleaned = re.sub(r"\band\b", "&", cleaned)
-    cleaned = re.sub(r"\bllp\b", "llp", cleaned)
-    cleaned = re.sub(r"\bl\.l\.p\.\b", "llp", cleaned)
-    cleaned = re.sub(r"\blp\b", "lp", cleaned)
-    cleaned = re.sub(r"\bl\.p\.\b", "lp", cleaned)
-    cleaned = re.sub(r"\blimited liability partnership\b", "llp", cleaned)
-    cleaned = re.sub(r"\bp\.c\.\b", "pc", cleaned)
-    cleaned = re.sub(r"\bp c\b", "pc", cleaned)
-    cleaned = re.sub(r"\ba\.p\.c\.\b", "apc", cleaned)
-    cleaned = _COUNSEL_PUNCT_RE.sub(" ", cleaned)
-    cleaned = _COUNSEL_SPACE_RE.sub(" ", cleaned).strip()
-    return cleaned or None
-
-
 def parse_offline_counsel_response_text(raw_text: str) -> Dict[str, Any]:
     obj = json.loads(raw_text)
     if not isinstance(obj, dict):
@@ -592,8 +563,6 @@ def parse_offline_counsel_response_text(raw_text: str) -> Dict[str, Any]:
     return {
         "target_counsel": target_counsel,
         "acquirer_counsel": acquirer_counsel,
-        "target_counsel_normalized": normalize_counsel_name(target_counsel),
-        "acquirer_counsel_normalized": normalize_counsel_name(acquirer_counsel),
     }
 
 
@@ -612,8 +581,6 @@ def build_offline_counsel_update_params(
         "uuid": agreement_uuid,
         "target_counsel": target_counsel or None,
         "acquirer_counsel": acquirer_counsel or None,
-        "target_counsel_normalized": normalize_counsel_name(target_counsel),
-        "acquirer_counsel_normalized": normalize_counsel_name(acquirer_counsel),
     }
 
 

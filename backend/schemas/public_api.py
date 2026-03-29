@@ -222,6 +222,21 @@ class NaicsResponseSchema(Schema):
     )
 
 
+class CounselEntrySchema(Schema):
+    counsel_id = fields.Int(required=True)
+    canonical_name = fields.Str(required=True)
+
+
+class CounselResponseSchema(Schema):
+    counsel: object = cast(
+        object,
+        fields.List(
+            fields.Nested(CounselEntrySchema),
+            required=True,
+        ),
+    )
+
+
 __all__ = [
     "AgreementArgsPayload",
     "AgreementArgsSchema",
@@ -231,6 +246,8 @@ __all__ = [
     "AgreementsBulkArgsSchema",
     "AgreementsIndexArgsSchema",
     "AgreementsListResponseSchema",
+    "CounselEntrySchema",
+    "CounselResponseSchema",
     "DumpEntrySchema",
     "NaicsResponseSchema",
     "NaicsSectorSchema",

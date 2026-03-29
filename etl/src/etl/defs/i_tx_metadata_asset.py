@@ -28,6 +28,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from openai import OpenAI
 
+from etl.domain.counsel import (
+    canonicalize_counsel_name,
+    format_counsel_display_name,
+    split_counsel_names,
+)
 from etl.defs.resources import DBResource, PipelineConfig, TxMetadataMode
 from etl.domain.i_tx_metadata import (
     build_offline_counsel_request_body,
@@ -449,23 +454,158 @@ def _counsel_offline_update_sql(agreements_table: str) -> Any:
         UPDATE {agreements_table}
         SET
             target_counsel = COALESCE(target_counsel, :target_counsel),
-            acquirer_counsel = COALESCE(acquirer_counsel, :acquirer_counsel),
-            target_counsel_normalized = COALESCE(target_counsel_normalized, :target_counsel_normalized),
-            acquirer_counsel_normalized = COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
+            acquirer_counsel = COALESCE(acquirer_counsel, :acquirer_counsel)
         WHERE agreement_uuid = :uuid
           AND (
             NOT (target_counsel <=> COALESCE(target_counsel, :target_counsel))
             OR NOT (acquirer_counsel <=> COALESCE(acquirer_counsel, :acquirer_counsel))
-            OR NOT (
-                target_counsel_normalized
-                <=> COALESCE(target_counsel_normalized, :target_counsel_normalized)
-            )
-            OR NOT (
-                acquirer_counsel_normalized
-                <=> COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
-            )
           )
         """
+    )
+
+
+def _sync_counsel_mappings(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    agreements_table: str,
+) -> None:
+    counsel_table = f"{schema}.counsel"
+    agreement_counsel_table = f"{schema}.agreement_counsel"
+    sync_sql = text(
+        f"""
+        SELECT
+            agreement_uuid,
+            target_counsel,
+            acquirer_counsel
+        FROM {agreements_table}
+        WHERE (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
+           OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
+        ORDER BY agreement_uuid ASC
+        """
+    )
+    load_counsel_sql = text(
+        f"""
+        SELECT counsel_id, canonical_name, canonical_name_normalized
+        FROM {counsel_table}
+        """
+    )
+    insert_counsel_sql = text(
+        f"""
+        INSERT INTO {counsel_table} (
+            canonical_name,
+            canonical_name_normalized
+        ) VALUES (
+            :canonical_name,
+            :canonical_name_normalized
+        )
+        """
+    )
+    select_counsel_id_sql = text(
+        f"""
+        SELECT counsel_id
+        FROM {counsel_table}
+        WHERE canonical_name_normalized = :canonical_name_normalized
+        LIMIT 1
+        """
+    )
+    delete_mapping_sql = text(
+        f"DELETE FROM {agreement_counsel_table} WHERE agreement_uuid = :agreement_uuid"
+    )
+    insert_mapping_sql = text(
+        f"""
+        INSERT INTO {agreement_counsel_table} (
+            agreement_uuid,
+            side,
+            position,
+            raw_name,
+            counsel_id
+        ) VALUES (
+            :agreement_uuid,
+            :side,
+            :position,
+            :raw_name,
+            :counsel_id
+        )
+        """
+    )
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("counsel", "agreement_counsel"))
+        agreements = conn.execute(sync_sql).mappings().fetchall()
+        counsel_rows = conn.execute(load_counsel_sql).mappings().fetchall()
+        counsel_by_key = {
+            str(row["canonical_name_normalized"]): int(row["counsel_id"])
+            for row in counsel_rows
+            if row.get("canonical_name_normalized") is not None and row.get("counsel_id") is not None
+        }
+
+        mapping_rows: list[dict[str, object]] = []
+        synced_agreements = 0
+        for agreement in agreements:
+            agreement_uuid = str(agreement["agreement_uuid"])
+            conn.execute(delete_mapping_sql, {"agreement_uuid": agreement_uuid})
+            synced_agreements += 1
+
+            for side, raw_value in (
+                ("target", agreement.get("target_counsel")),
+                ("acquirer", agreement.get("acquirer_counsel")),
+            ):
+                seen_keys: set[str] = set()
+                position = 0
+                for raw_name in split_counsel_names(raw_value):
+                    canonical_name_normalized = canonicalize_counsel_name(raw_name)
+                    canonical_name = format_counsel_display_name(raw_name)
+                    if canonical_name_normalized is None or canonical_name is None:
+                        continue
+                    if canonical_name_normalized in seen_keys:
+                        continue
+                    seen_keys.add(canonical_name_normalized)
+                    position += 1
+
+                    counsel_id = counsel_by_key.get(canonical_name_normalized)
+                    if counsel_id is None:
+                        result = conn.execute(
+                            insert_counsel_sql,
+                            {
+                                "canonical_name": canonical_name,
+                                "canonical_name_normalized": canonical_name_normalized,
+                            },
+                        )
+                        inserted_id = getattr(result, "lastrowid", None)
+                        if inserted_id is None:
+                            inserted_row = conn.execute(
+                                select_counsel_id_sql,
+                                {
+                                    "canonical_name_normalized": canonical_name_normalized,
+                                },
+                            ).mappings().first()
+                            if inserted_row is None or inserted_row.get("counsel_id") is None:
+                                raise RuntimeError(
+                                    f"Unable to resolve counsel_id for {canonical_name_normalized!r}."
+                                )
+                            counsel_id = int(inserted_row["counsel_id"])
+                        else:
+                            counsel_id = int(inserted_id)
+                        counsel_by_key[canonical_name_normalized] = counsel_id
+
+                    mapping_rows.append(
+                        {
+                            "agreement_uuid": agreement_uuid,
+                            "side": side,
+                            "position": position,
+                            "raw_name": raw_name,
+                            "counsel_id": counsel_id,
+                        }
+                    )
+
+        if mapping_rows:
+            conn.execute(insert_mapping_sql, mapping_rows)
+    context.log.info(
+        "tx_metadata_asset (offline counsel): synced %s agreement counsel rows across %s agreements.",
+        len(mapping_rows),
+        synced_agreements,
     )
 
 
@@ -638,6 +778,12 @@ def _run_offline_counsel_subflow(
             build_update_params=build_offline_counsel_update_params,
             log_prefix=log_prefix,
         )
+        _sync_counsel_mappings(
+            context=context,
+            engine=engine,
+            schema=schema,
+            agreements_table=agreements_table,
+        )
         return
 
     lines = _build_offline_counsel_lines(
@@ -649,6 +795,12 @@ def _run_offline_counsel_subflow(
     )
     if not lines:
         context.log.info("%s: no runnable agreements need counsel extraction.", log_prefix)
+        _sync_counsel_mappings(
+            context=context,
+            engine=engine,
+            schema=schema,
+            agreements_table=agreements_table,
+        )
         return
     _create_and_apply_offline_batch(
         context=context,
@@ -663,6 +815,12 @@ def _run_offline_counsel_subflow(
         parse_response_text=parse_offline_counsel_response_text,
         build_update_params=build_offline_counsel_update_params,
         log_prefix=log_prefix,
+    )
+    _sync_counsel_mappings(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
     )
 
 
@@ -900,14 +1058,6 @@ def _build_offline_counsel_lines(
                 CASE
                     WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
                      AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
-                     AND (
-                        a.target_counsel_normalized IS NULL
-                        OR TRIM(a.target_counsel_normalized) = ''
-                     )
-                     AND (
-                        a.acquirer_counsel_normalized IS NULL
-                        OR TRIM(a.acquirer_counsel_normalized) = ''
-                     )
                     THEN 1
                     ELSE 0
                 END AS missing_all_counsel_fields,
@@ -930,8 +1080,6 @@ def _build_offline_counsel_lines(
               AND (
                     a.target_counsel IS NULL
                     OR a.acquirer_counsel IS NULL
-                    OR a.target_counsel_normalized IS NULL
-                    OR a.acquirer_counsel_normalized IS NULL
               )
               AND a.target IS NOT NULL
               AND TRIM(a.target) <> ''

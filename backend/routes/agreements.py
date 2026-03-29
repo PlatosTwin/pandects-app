@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from threading import Lock
 from typing import Any, Protocol, cast
 
 from flask import Flask, Response, abort, jsonify, request
@@ -8,6 +9,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, func, or_, text
 
+from backend.counsel_leaderboards import build_counsel_leaderboards_from_assignments
 from backend.filtering import build_transaction_price_bucket_filter
 from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
@@ -50,6 +52,9 @@ def _to_float_or_none(value: object) -> float | None:
 
 
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
+    counsel_leaderboards_cache: dict[str, object] = {"ts": 0.0, "payload": None}
+    counsel_leaderboards_lock = Lock()
+
     agreements_blp = Blueprint(
         "agreements",
         "agreements",
@@ -714,6 +719,61 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
         return payload
 
+    def get_counsel_leaderboards() -> dict[str, object]:
+        now = deps.time.time()
+        with counsel_leaderboards_lock:
+            cached_payload = counsel_leaderboards_cache["payload"]
+            cached_ts = cast(float, counsel_leaderboards_cache["ts"])
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
+            )
+        if cache_is_valid and isinstance(cached_payload, dict):
+            return cached_payload
+
+        db = deps.db
+        rows = (
+            db.session.execute(
+                text(
+                    f"""
+                    SELECT
+                        CASE ac.side
+                            WHEN 'acquirer' THEN 'buy_side'
+                            WHEN 'target' THEN 'sell_side'
+                            ELSE ac.side
+                        END AS side,
+                        c.canonical_name_normalized AS counsel_key,
+                        c.canonical_name AS counsel,
+                        a.filing_date AS filing_date,
+                        a.transaction_price_total AS transaction_price_total
+                    FROM {deps._schema_prefix()}agreement_counsel ac
+                    JOIN {deps._schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {deps._schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    JOIN {deps._schema_prefix()}xml x
+                      ON x.agreement_uuid = a.agreement_uuid
+                     AND x.latest = 1
+                     AND (x.status IS NULL OR x.status = 'verified')
+                    WHERE NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)
+                    ORDER BY a.filing_date ASC, ac.agreement_uuid ASC, ac.side ASC, ac.position ASC
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+        payload = build_counsel_leaderboards_from_assignments(
+            [
+                deps._row_mapping_as_dict(cast(object, row))
+                for row in rows
+            ]
+        )
+        with counsel_leaderboards_lock:
+            counsel_leaderboards_cache["payload"] = payload
+            counsel_leaderboards_cache["ts"] = now
+        return payload
+
     def get_filter_options() -> tuple[Response, int] | Response:
         now = deps.time.time()
         with deps._filter_options_lock:
@@ -839,6 +899,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
     )
     target_app.add_url_rule(
         "/v1/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
+    )
+    target_app.add_url_rule(
+        "/v1/counsel-leaderboards",
+        view_func=get_counsel_leaderboards,
+        methods=["GET"],
     )
     target_app.add_url_rule(
         "/v1/agreements-status-summary",

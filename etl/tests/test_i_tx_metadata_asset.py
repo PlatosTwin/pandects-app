@@ -19,7 +19,6 @@ from etl.defs.i_tx_metadata_asset import (
     _run_web_search_mode,
     tx_metadata_asset,
 )
-from etl.domain.i_tx_metadata import normalize_counsel_name
 from etl.domain.i_tx_metadata import (
     build_offline_counsel_update_params,
     parse_offline_counsel_response_text,
@@ -650,10 +649,20 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             any("missing_all_metadata_fields DESC" in sql and "filing_date ASC" in sql for sql in conn.executed_sql)
         )
 
-    def test_normalize_counsel_name_ignores_punctuation_and_spacing(self) -> None:
+    def test_build_offline_counsel_update_params_only_emits_raw_counsel_fields(self) -> None:
         self.assertEqual(
-            normalize_counsel_name("Wachtell,  Lipton, Rosen + Katz LLP"),
-            normalize_counsel_name("wachtell lipton rosen and katz llp"),
+            build_offline_counsel_update_params(
+                agreement_uuid="agreement-1",
+                parsed={
+                    "target_counsel": "Wachtell, Lipton, Rosen & Katz",
+                    "acquirer_counsel": "Kirkland & Ellis LLP",
+                },
+            ),
+            {
+                "uuid": "agreement-1",
+                "target_counsel": "Wachtell, Lipton, Rosen & Katz",
+                "acquirer_counsel": "Kirkland & Ellis LLP",
+            },
         )
 
     def test_run_web_search_mode_refreshes_projection_for_updated_agreement(self) -> None:

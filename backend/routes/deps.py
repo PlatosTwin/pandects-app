@@ -220,6 +220,7 @@ class AgreementsDeps:
 
 @dataclass(frozen=True)
 class ReferenceDataDeps:
+    Counsel: Any
     NaicsSector: Any
     NaicsSubSector: Any
     PUBLIC_DEV_BASE: str
@@ -229,8 +230,11 @@ class ReferenceDataDeps:
     TaxonomyL3: Any
     _DUMPS_CACHE_TTL_SECONDS: int
     _DUMPS_MANIFEST_CACHE_TTL_SECONDS: int
+    _COUNSEL_TTL_SECONDS: int
     _NAICS_TTL_SECONDS: int
     _TAXONOMY_TTL_SECONDS: int
+    _counsel_cache: dict[str, Any]
+    _counsel_lock: Any
     _dumps_cache: dict[str, Any]
     _dumps_cache_lock: Any
     _dumps_manifest_cache: dict[str, Any]

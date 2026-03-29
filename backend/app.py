@@ -52,6 +52,7 @@ from backend.schemas.auth import (
 )
 from backend.models.main_db import (
     Agreements,
+    Counsel,
     LatestSectionsSearch,
     NaicsSector,
     NaicsSubSector,
@@ -323,6 +324,9 @@ _filter_options_lock = Lock()
 _TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
 _taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _taxonomy_lock = Lock()
+_COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
+_counsel_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
+_counsel_lock = Lock()
 _NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
 _naics_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _naics_lock = Lock()
@@ -1084,7 +1088,7 @@ def _register_blueprints(target_app: Flask) -> None:
         target_app,
         deps=agreements_deps,
     )
-    taxonomy_blp, naics_blp, dumps_blp = register_reference_data_routes(
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
     api_ext.register_blueprint(sections_list_blp)
@@ -1092,6 +1096,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(sections_blp)
     api_ext.register_blueprint(taxonomy_blp)
     api_ext.register_blueprint(naics_blp)
+    api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
 
 
@@ -1132,6 +1137,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         time=time,
     )
     reference_data_deps = ReferenceDataDeps(
+        Counsel=Counsel,
         NaicsSector=NaicsSector,
         NaicsSubSector=NaicsSubSector,
         PUBLIC_DEV_BASE=PUBLIC_DEV_BASE,
@@ -1141,8 +1147,11 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxonomyL3=TaxonomyL3,
         _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
         _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
+        _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
         _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
         _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
+        _counsel_cache=cast(dict[str, object], cast(object, _counsel_cache)),
+        _counsel_lock=_counsel_lock,
         _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),
         _dumps_cache_lock=_dumps_cache_lock,
         _dumps_manifest_cache=cast(dict[str, object], cast(object, _dumps_manifest_cache)),

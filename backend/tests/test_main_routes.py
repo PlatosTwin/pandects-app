@@ -57,17 +57,22 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(
                     text(
                         "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "target_counsel, acquirer_counsel, "
                         "transaction_price_total, transaction_price_stock, transaction_price_cash, transaction_price_assets, "
                         "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
                         "deal_status, attitude, purpose, target_pe, acquirer_pe) "
                         "VALUES "
                         "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
+                        "'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', "
                         "'50000000', NULL, '50000000', NULL, 'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
                         "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
+                        "'Wilson Sonsini Goodrich & Rosati Professional Corporation', 'Wiggin & Dana, LLP', "
                         "'150000000', '150000000', NULL, NULL, 'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
                         "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
+                        "'Wachtell, Lipton, Rosen & Katz', 'Skadden, Arps, Slate, Meagher & Flom LLP', "
                         "'300000000', NULL, NULL, '300000000', 'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
                         "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
+                        "'Sullivan & Cromwell LLP', 'Simpson Thacher & Bartlett LLP', "
                         "'12000000000', NULL, '12000000000', NULL, 'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
                     )
                 )
@@ -85,6 +90,32 @@ class MainRoutesTests(unittest.TestCase):
                         "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000042\"><text>LATEST INVALID</text></section></article></document>', 2, 'invalid', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "(1, 'Wilson Sonsini Goodrich & Rosati', 'wilson sonsini goodrich rosati'), "
+                        "(2, 'Goodwin Procter', 'goodwin procter'), "
+                        "(3, 'Wiggin & Dana', 'wiggin dana'), "
+                        "(4, 'Skadden, Arps, Slate, Meagher & Flom', 'skadden arps slate meagher flom'), "
+                        "(5, 'Wachtell, Lipton, Rosen & Katz', 'wachtell lipton rosen katz'), "
+                        "(6, 'Sullivan & Cromwell', 'sullivan cromwell'), "
+                        "(7, 'Simpson Thacher & Bartlett', 'simpson thacher bartlett')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "('a1', 'target', 1, 'Wilson Sonsini Goodrich & Rosati, P.C.', 1), "
+                        "('a1', 'target', 2, 'Goodwin Procter LLP', 2), "
+                        "('a1', 'acquirer', 1, 'Wiggin and Dana LLP', 3), "
+                        "('a2', 'target', 1, 'Wilson Sonsini Goodrich & Rosati Professional Corporation', 1), "
+                        "('a2', 'acquirer', 1, 'Wiggin & Dana, LLP', 3), "
+                        "('a3', 'target', 1, 'Wachtell, Lipton, Rosen & Katz', 5), "
+                        "('a3', 'acquirer', 1, 'Skadden, Arps, Slate, Meagher & Flom LLP', 4), "
+                        "('a4', 'target', 1, 'Sullivan & Cromwell LLP', 6), "
+                        "('a4', 'acquirer', 1, 'Simpson Thacher & Bartlett LLP', 7)"
                     )
                 )
                 conn.execute(
@@ -666,6 +697,66 @@ class MainRoutesTests(unittest.TestCase):
             ],
         )
 
+    def test_counsel_leaderboards_aggregate_variants_and_multi_firm_entries(self):
+        client = self.app.test_client()
+        res = client.get("/v1/counsel-leaderboards")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+
+        buy_side = body.get("buy_side", {})
+        sell_side = body.get("sell_side", {})
+
+        buy_top_by_count = buy_side.get("top_by_count", [])
+        self.assertEqual(buy_top_by_count[0]["counsel"], "Wiggin & Dana")
+        self.assertEqual(buy_top_by_count[0]["deal_count"], 2)
+        self.assertEqual(buy_top_by_count[0]["total_transaction_value"], 200000000.0)
+
+        buy_top_by_value = buy_side.get("top_by_value", [])
+        self.assertEqual(
+            buy_top_by_value[0],
+            {
+                "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                "deal_count": 1,
+                "total_transaction_value": 300000000.0,
+                "years": [
+                    {
+                        "year": 2022,
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                    }
+                ],
+            },
+        )
+
+        sell_top_by_count = sell_side.get("top_by_count", [])
+        self.assertEqual(sell_top_by_count[0]["counsel"], "Wilson Sonsini Goodrich & Rosati")
+        self.assertEqual(sell_top_by_count[0]["deal_count"], 2)
+        self.assertEqual(sell_top_by_count[0]["total_transaction_value"], 200000000.0)
+        self.assertEqual(
+            sell_top_by_count[0]["years"],
+            [
+                {
+                    "year": 2020,
+                    "deal_count": 1,
+                    "total_transaction_value": 50000000.0,
+                },
+                {
+                    "year": 2021,
+                    "deal_count": 1,
+                    "total_transaction_value": 150000000.0,
+                },
+            ],
+        )
+
+        self.assertTrue(
+            any(
+                row["counsel"] == "Goodwin Procter"
+                and row["deal_count"] == 1
+                and row["total_transaction_value"] == 50000000.0
+                for row in sell_top_by_count
+            )
+        )
+
     def test_agreements_status_summary_includes_overview_metrics(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
@@ -823,6 +914,47 @@ class MainRoutesTests(unittest.TestCase):
                                 "sub_sector_desc": "Oil and Gas Extraction",
                             }
                         ],
+                    },
+                ]
+            },
+        )
+
+    def test_counsel_reference_list(self):
+        client = self.app.test_client()
+        res = client.get("/v1/counsel")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "counsel": [
+                    {
+                        "counsel_id": 2,
+                        "canonical_name": "Goodwin Procter",
+                    },
+                    {
+                        "counsel_id": 7,
+                        "canonical_name": "Simpson Thacher & Bartlett",
+                    },
+                    {
+                        "counsel_id": 4,
+                        "canonical_name": "Skadden, Arps, Slate, Meagher & Flom",
+                    },
+                    {
+                        "counsel_id": 6,
+                        "canonical_name": "Sullivan & Cromwell",
+                    },
+                    {
+                        "counsel_id": 5,
+                        "canonical_name": "Wachtell, Lipton, Rosen & Katz",
+                    },
+                    {
+                        "counsel_id": 3,
+                        "canonical_name": "Wiggin & Dana",
+                    },
+                    {
+                        "counsel_id": 1,
+                        "canonical_name": "Wilson Sonsini Goodrich & Rosati",
                     },
                 ]
             },

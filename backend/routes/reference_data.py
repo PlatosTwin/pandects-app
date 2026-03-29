@@ -10,10 +10,13 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.routes.deps import ReferenceDataDeps
-from backend.schemas.public_api import DumpEntrySchema, NaicsResponseSchema
+from backend.schemas.public_api import (
+    CounselResponseSchema,
+    DumpEntrySchema,
+    NaicsResponseSchema,
+)
 
-
-def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint]:
+def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint]:
     taxonomy_blp = Blueprint(
         "taxonomy",
         "taxonomy",
@@ -26,6 +29,13 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
         "naics",
         url_prefix="/v1/naics",
         description="Access the NAICS sector and subsector taxonomy",
+    )
+
+    counsel_blp = Blueprint(
+        "counsel",
+        "counsel",
+        url_prefix="/v1/counsel",
+        description="Access canonical counsel names",
     )
 
     dumps_blp = Blueprint(
@@ -182,6 +192,51 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
 
         return payload, False
 
+    def _counsel_payload() -> dict[str, object]:
+        db = deps.db
+        counsel = deps.Counsel
+        rows = cast(
+            list[tuple[object, object]],
+            db.session.query(
+                counsel.counsel_id,
+                counsel.canonical_name,
+            )
+            .order_by(counsel.canonical_name.asc(), counsel.counsel_id.asc())
+            .all(),
+        )
+
+        payload_rows: list[dict[str, object]] = []
+        for counsel_id, canonical_name in rows:
+            if not isinstance(counsel_id, int):
+                raise ValueError("counsel.counsel_id must be an integer.")
+            if not isinstance(canonical_name, str):
+                raise ValueError("counsel.canonical_name must be a string.")
+            payload_rows.append(
+                {
+                    "counsel_id": counsel_id,
+                    "canonical_name": canonical_name,
+                }
+            )
+        return {"counsel": payload_rows}
+
+    def _get_counsel_payload_cached() -> tuple[dict[str, object], bool]:
+        now = deps.time.time()
+        with deps._counsel_lock:
+            cached_payload = deps._counsel_cache["payload"]
+            cached_ts = deps._counsel_cache["ts"]
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._COUNSEL_TTL_SECONDS
+            )
+        if cache_is_valid and cached_payload is not None:
+            return cached_payload, True
+
+        payload = _counsel_payload()
+        with deps._counsel_lock:
+            deps._counsel_cache["payload"] = payload
+            deps._counsel_cache["ts"] = now
+
+        return payload, False
+
     def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
         now = deps.time.time()
         with deps._taxonomy_lock:
@@ -229,6 +284,22 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
             payload, _ = _get_naics_payload_cached()
             resp = jsonify(payload)
             resp.headers["Cache-Control"] = f"public, max-age={deps._NAICS_TTL_SECONDS}"
+            return resp
+
+    @counsel_blp.route("")
+    class CounselResource(MethodView):
+        @counsel_blp.doc(
+            operationId="getCounsel",
+            summary="Retrieve canonical counsel names",
+            description=(
+                "Returns canonical counsel IDs and names for counsel entities referenced across agreements."
+            ),
+        )
+        @counsel_blp.response(200, CounselResponseSchema)
+        def get(self) -> Response:
+            payload, _ = _get_counsel_payload_cached()
+            resp = jsonify(payload)
+            resp.headers["Cache-Control"] = f"public, max-age={deps._COUNSEL_TTL_SECONDS}"
             return resp
 
     @dumps_blp.route("")
@@ -367,4 +438,4 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
 
             return dump_list
 
-    return taxonomy_blp, naics_blp, dumps_blp
+    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp
