@@ -1,7 +1,0 @@
----
-alwaysApply: true
----
-<stay_caffeinated>
-When running commands through the terminal, run them using `caffeinate -i`.
-Apply this to tests, local scripts, package scripts, and DB client commands by default.
-</stay_caffeinated>
