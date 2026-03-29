@@ -103,6 +103,59 @@ const MEDIAN_CHART_CONFIG = {
   },
 } satisfies ChartConfig;
 
+function chartColorVar(key: string) {
+  return `var(--color-${key.replace(/[^a-zA-Z0-9_-]/g, "")})`;
+}
+
+function TrendsMedianBandTooltipContent({
+  active,
+  payload,
+  valueFormatter,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: TrendsMedianBandChartRow }>;
+  valueFormatter: (value: number) => string;
+}) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) {
+    return null;
+  }
+
+  const renderBucket = (
+    title: string,
+    p25: number | null,
+    median: number | null,
+    p75: number | null,
+  ) => (
+    <div className="space-y-1">
+      <div className="font-medium text-foreground">{title}</div>
+      <div className="font-mono text-xs text-muted-foreground">
+        P25 {p25 !== null ? valueFormatter(p25) : "—"} · Median{" "}
+        {median !== null ? valueFormatter(median) : "—"} · P75{" "}
+        {p75 !== null ? valueFormatter(p75) : "—"}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="grid min-w-[12rem] gap-3 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+      <div className="font-medium text-foreground">Filing year {row.year}</div>
+      {renderBucket(
+        "Public targets",
+        row.public_median !== null ? row.public_low : null,
+        row.public_median,
+        row.public_median !== null ? row.public_low + row.public_band : null,
+      )}
+      {renderBucket(
+        "Private targets",
+        row.private_median !== null ? row.private_low : null,
+        row.private_median,
+        row.private_median !== null ? row.private_low + row.private_band : null,
+      )}
+    </div>
+  );
+}
+
 export function TrendsStackedShareAreaChart({
   ariaLabel,
   className,
@@ -216,7 +269,7 @@ export function TrendsStackedShareAreaChart({
                   );
 
                   return (
-                    <div className="grid grid-cols-[auto_minmax(0,6rem)_minmax(0,1fr)] items-center gap-x-3">
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,6rem)_minmax(0,1fr)] items-center gap-x-3">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
                         style={
@@ -226,6 +279,9 @@ export function TrendsStackedShareAreaChart({
                         }
                         aria-hidden="true"
                       />
+                      <span className="truncate text-left text-foreground">
+                        {item.name}
+                      </span>
                       <span className="text-left font-mono font-medium tabular-nums text-foreground">
                         {valueFormatter(rawValue)}
                       </span>
@@ -249,8 +305,8 @@ export function TrendsStackedShareAreaChart({
               dataKey={item.key}
               type="monotone"
               stackId="share"
-              stroke={`var(--color-${item.key})`}
-              fill={`var(--color-${item.key})`}
+              stroke={chartColorVar(item.key)}
+              fill={chartColorVar(item.key)}
               fillOpacity={0.95}
               name={item.label}
             />
@@ -316,52 +372,7 @@ export function TrendsMedianBandChart({
             width={68}
             tickFormatter={(value) => valueFormatter(Number(value))}
           />
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                indicator="dashed"
-                labelFormatter={(_, payload) => {
-                  const year = payload?.[0]?.payload?.year;
-                  return `Filing year ${year ?? "—"}`;
-                }}
-                formatter={(_value, name, item) => {
-                  const payload = item?.payload as TrendsMedianBandChartRow | undefined;
-                  if (!payload) return null;
-                  if (name === "Public targets") {
-                    const hasValues = payload.public_median !== null;
-                    return (
-                      <div className="space-y-1">
-                        <div className="font-medium text-foreground">Public targets</div>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          P25 {hasValues ? valueFormatter(payload.public_low) : "—"} · Median{" "}
-                          {hasValues ? valueFormatter(payload.public_median) : "—"} · P75{" "}
-                          {hasValues
-                            ? valueFormatter(payload.public_low + payload.public_band)
-                            : "—"}
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (name === "Private targets") {
-                    const hasValues = payload.private_median !== null;
-                    return (
-                      <div className="space-y-1">
-                        <div className="font-medium text-foreground">Private targets</div>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          P25 {hasValues ? valueFormatter(payload.private_low) : "—"} · Median{" "}
-                          {hasValues ? valueFormatter(payload.private_median) : "—"} · P75{" "}
-                          {hasValues
-                            ? valueFormatter(payload.private_low + payload.private_band)
-                            : "—"}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-            }
-          />
+          <ChartTooltip content={<TrendsMedianBandTooltipContent valueFormatter={valueFormatter} />} />
           <ChartLegend
             content={
               <ChartLegendContent className="flex-wrap justify-start gap-x-4 gap-y-1 sm:justify-center" />
@@ -531,19 +542,22 @@ export function TrendsHeatmapTable({
 }: TrendsHeatmapTableProps) {
   return (
     <div className={cn("overflow-x-auto rounded-lg border border-border/60 bg-background/80", className)}>
-      <table className="w-full min-w-[38rem] border-collapse text-sm">
+      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-border/60">
-            <th className="px-3 py-2 text-left font-semibold text-foreground">
+            <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
               Segment
             </th>
             {columns.map((column) => (
               <th
                 key={column}
-                className="px-3 py-2 text-center font-semibold text-foreground"
+                className="w-44 px-3 py-2 text-center font-semibold text-foreground"
+                title={column}
               >
-                {column}
+                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                  {column}
+                </span>
               </th>
             ))}
           </tr>
@@ -551,8 +565,10 @@ export function TrendsHeatmapTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row} className="border-b border-border/40 last:border-0">
-              <th className="px-3 py-3 text-left font-medium text-foreground">
-                {row}
+              <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
+                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                  {row}
+                </span>
               </th>
               {columns.map((column) => {
                 const cell = getCell(row, column);
@@ -562,10 +578,10 @@ export function TrendsHeatmapTable({
                   cell.intensity > 0.58 ? "text-white" : "text-foreground";
 
                 return (
-                  <td key={`${row}-${column}`} className="px-2 py-2">
+                  <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
                     <div
                       className={cn(
-                        "rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
+                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
                         foregroundClass,
                       )}
                       style={

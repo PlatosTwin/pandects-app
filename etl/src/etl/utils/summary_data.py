@@ -2,6 +2,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
 from collections import defaultdict
+from decimal import Decimal
 from dagster import AssetExecutionContext
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -34,6 +35,51 @@ def _quantile(values: list[float], percentile: float) -> float | None:
     return sorted_values[lower_index] + (
         (sorted_values[upper_index] - sorted_values[lower_index]) * weight
     )
+
+
+def _coerce_int(value: object | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, Decimal):
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if isinstance(value, float):
+        if not value.is_integer():
+            return None
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped and stripped.lstrip("-").isdigit():
+            try:
+                return int(stripped)
+            except (TypeError, ValueError, OverflowError):
+                return None
+    return None
+
+
+def _coerce_float(value: object | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        try:
+            return float(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return float(stripped)
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return None
 
 
 def _summary_eligible_agreement_where_sql(*, alias: str = "a") -> str:
@@ -599,20 +645,20 @@ def _refresh_agreement_trends_summary_tables(conn: Connection, *, schema: str) -
     ownership_values: dict[tuple[int, str], list[float]] = defaultdict(list)
     buyer_values: dict[tuple[str, str], list[float]] = defaultdict(list)
     for row in eligible_value_rows:
-        year = row.get("filing_year")
+        year = _coerce_int(row.get("filing_year"))
         target_bucket = row.get("target_bucket")
         buyer_bucket = row.get("buyer_bucket")
-        transaction_value = row.get("transaction_price_total")
-        if not isinstance(year, int):
+        transaction_value = _coerce_float(row.get("transaction_price_total"))
+        if year is None:
             continue
         if not isinstance(target_bucket, str):
             continue
         if not isinstance(buyer_bucket, str):
             continue
-        if not isinstance(transaction_value, (int, float)):
+        if transaction_value is None:
             continue
-        ownership_values[(year, target_bucket)].append(float(transaction_value))
-        buyer_values[(target_bucket, buyer_bucket)].append(float(transaction_value))
+        ownership_values[(year, target_bucket)].append(transaction_value)
+        buyer_values[(target_bucket, buyer_bucket)].append(transaction_value)
 
     ownership_count_rows = conn.execute(
         text(
@@ -625,10 +671,10 @@ def _refresh_agreement_trends_summary_tables(conn: Connection, *, schema: str) -
     ).mappings().all()
     ownership_deal_size_rows = []
     for row in ownership_count_rows:
-        year = row.get("year")
+        year = _coerce_int(row.get("year"))
         target_bucket = row.get("target_bucket")
         deal_count = row.get("deal_count")
-        if not isinstance(year, int) or not isinstance(target_bucket, str):
+        if year is None or not isinstance(target_bucket, str):
             continue
         count_value = int(deal_count or 0)
         values = ownership_values.get((year, target_bucket), [])

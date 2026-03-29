@@ -1,14 +1,19 @@
 # pyright: reportAny=false, reportPrivateUsage=false
 import unittest
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import Mock
 
 from etl.defs.resources import DBResource
-from etl.utils.summary_data import refresh_summary_data
+from etl.utils.summary_data import _coerce_float, _coerce_int, refresh_summary_data
 
 
 class SummaryDataTests(unittest.TestCase):
+    def test_summary_coercion_accepts_decimal_values(self) -> None:
+        self.assertEqual(_coerce_int(Decimal("2024")), 2024)
+        self.assertEqual(_coerce_float(Decimal("150000000.25")), 150000000.25)
+
     def test_refresh_summary_data_does_not_check_other_runs(self) -> None:
         class _ScalarResult:
             def __init__(self, value: object):

@@ -134,6 +134,10 @@ function formatTargetBucketLabel(value: string) {
   return value === "public" ? "Public targets" : "Private targets";
 }
 
+function buildIndustrySeriesKey(index: number) {
+  return `industry_${index}`;
+}
+
 function TrendsSkeleton() {
   return (
     <div className="space-y-6">
@@ -274,13 +278,11 @@ function OwnershipStructurePanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-xl sm:text-2xl">
+            <CardTitle id={mixDescriptionId} className="text-xl sm:text-2xl">
               Public vs. Private Target Mix Over Time
             </CardTitle>
-            <CardDescription id={mixDescriptionId} className="max-w-3xl text-sm sm:text-base">
-              Tracks how the target mix shifts by filing year. PE-backed targets are grouped into
-              the private bucket, and the metric toggle swaps between share of deal count and share
-              of reported transaction value.
+            <CardDescription className="text-sm sm:text-base">
+              Share of public vs. private targets by filing year.
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
@@ -322,16 +324,14 @@ function OwnershipStructurePanel({
 
       <Card variant="subtle">
         <CardHeader>
-          <CardTitle className="text-xl sm:text-2xl">
-            Public vs. Private Deal Size
-          </CardTitle>
-          <CardDescription
-            id={dealSizeDescriptionId}
-            className="max-w-3xl text-sm sm:text-base"
-          >
-            Median reported deal value by year, with an interquartile band to show how tightly or
-            loosely transaction sizes cluster for each target bucket.
-          </CardDescription>
+          <div className="space-y-2">
+            <CardTitle id={dealSizeDescriptionId} className="text-xl sm:text-2xl">
+              Public vs. Private Deal Size
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Median deal value by year; shaded bands show the 25th to 75th percentile range.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <p id={dealSizeTableId} className="sr-only">
@@ -351,13 +351,11 @@ function OwnershipStructurePanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-xl sm:text-2xl">
+            <CardTitle id={matrixDescriptionId} className="text-xl sm:text-2xl">
               Target Type by Buyer Type
             </CardTitle>
-            <CardDescription id={matrixDescriptionId} className="max-w-3xl text-sm sm:text-base">
-              A compact cross-section of who buys what: public and private targets on the rows,
-              buyer buckets on the columns, with private equity sourced from the `acquirer_pe`
-              field rather than inferred from type text.
+            <CardDescription className="text-sm sm:text-base">
+              Counts or median deal value for each target-buyer bucket combination.
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
@@ -447,8 +445,8 @@ function IndustryDynamicsPanel({
     const data = years.map((year) => {
       const nextRow: { year: number } & Record<string, number> = { year };
       let otherValue = 0;
-      topIndustries.forEach((industry) => {
-        nextRow[industry] = 0;
+      topIndustries.forEach((_industry, index) => {
+        nextRow[buildIndustrySeriesKey(index)] = 0;
       });
       industries.target_industries_by_year
         .filter((row) => row.year === year)
@@ -457,8 +455,9 @@ function IndustryDynamicsPanel({
             compositionMetric === "deal_count"
               ? row.deal_count
               : row.total_transaction_value;
-          if (topIndustries.includes(row.industry)) {
-            nextRow[row.industry] = metricValue;
+          const industryIndex = topIndustries.indexOf(row.industry);
+          if (industryIndex >= 0) {
+            nextRow[buildIndustrySeriesKey(industryIndex)] = metricValue;
           } else {
             otherValue += metricValue;
           }
@@ -470,7 +469,7 @@ function IndustryDynamicsPanel({
     });
 
     const series = topIndustries.map((industry, index) => ({
-      key: industry,
+      key: buildIndustrySeriesKey(index),
       label: formatIndustryLabel(industry),
       color: INDUSTRY_COLORS[index % INDUSTRY_COLORS.length],
     }));
@@ -598,16 +597,11 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-xl sm:text-2xl">
+            <CardTitle id={compositionDescriptionId} className="text-xl sm:text-2xl">
               Industry Composition Over Time
             </CardTitle>
-            <CardDescription
-              id={compositionDescriptionId}
-              className="max-w-3xl text-sm sm:text-base"
-            >
-              Shows how target-industry mix evolves across filing years. The chart keeps the top
-              industries in view and rolls the long tail into an `Other` bucket to stay readable on
-              desktop and mobile.
+            <CardDescription className="text-sm sm:text-base">
+              Share of deals by target industry over time.
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
@@ -651,13 +645,11 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-xl sm:text-2xl">Top Industry Pairings</CardTitle>
-            <CardDescription
-              id={pairingsDescriptionId}
-              className="max-w-3xl text-sm sm:text-base"
-            >
-              A ranked matrix of target and acquirer industry intersections. Darker cells indicate
-              the pairings where activity or value is concentrating most heavily.
+            <CardTitle id={pairingsDescriptionId} className="text-xl sm:text-2xl">
+              Top Industry Pairings
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Most common target and acquirer industry combinations.
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
@@ -700,13 +692,11 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-xl sm:text-2xl">Sector Concentration Trend</CardTitle>
-            <CardDescription
-              id={concentrationDescriptionId}
-              className="max-w-3xl text-sm sm:text-base"
-            >
-              Tracks how much of annual activity sits inside the top five target industries. Rising
-              share means M&amp;A is becoming more concentrated in a narrower set of sectors.
+            <CardTitle id={concentrationDescriptionId} className="text-xl sm:text-2xl">
+              Sector Concentration Trend
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Share of annual activity accounted for by the five largest target industries.
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">

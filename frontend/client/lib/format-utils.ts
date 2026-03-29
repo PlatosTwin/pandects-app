@@ -73,7 +73,7 @@ export function formatCompactCurrencyValue(value?: number | null): string {
       maximumFractionDigits,
       minimumFractionDigits: 0,
     }).format(scaledValue);
-    return `${sign}${rounded}${suffix}`;
+    return `${sign}$${rounded}${suffix}`;
   };
 
   if (absoluteValue >= 1_000_000_000) {
@@ -85,7 +85,7 @@ export function formatCompactCurrencyValue(value?: number | null): string {
   if (absoluteValue >= 1_000) {
     return compact(absoluteValue / 1_000, "K");
   }
-  return `${sign}${new Intl.NumberFormat("en-US", {
+  return `${sign}$${new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   }).format(absoluteValue)}`;
 }
