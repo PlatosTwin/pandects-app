@@ -16,6 +16,7 @@ from etl.defs.i_tx_metadata_asset import (
     _build_offline_counsel_lines,
     _build_offline_metadata_lines,
     _counsel_offline_update_sql,
+    _run_offline_mode,
     _run_web_search_mode,
     tx_metadata_asset,
 )
@@ -198,6 +199,15 @@ class _FakeMetadataSelectionEngine:
 
     def begin(self) -> _FakeBeginContext:
         return _FakeBeginContext(self._conn)
+
+
+class _NoopConn:
+    pass
+
+
+class _NoopEngine:
+    def begin(self) -> _FakeBeginContext:
+        return _FakeBeginContext(_NoopConn())
 
 
 def _fake_web_search_output(search_count: int) -> list[object]:
@@ -514,6 +524,149 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(parse_errors, 0)
         self.assertEqual(refreshed_uuids, ["agreement-1"])
         refresh.assert_called_once_with(conn, "pdx", ["agreement-1"])
+
+    def test_apply_offline_batch_output_does_not_count_noop_update_as_updated(self) -> None:
+        response_payload = {
+            "custom_id": "agreement-1",
+            "response": {
+                "status_code": 200,
+                "body": {
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [{"text": '{"target":"Target A","acquirer":"Acquirer A","deal_type":"merger"}'}],
+                        }
+                    ]
+                },
+            },
+        }
+        client = _FakeOfflineClient(json.dumps(response_payload))
+        conn = _FakeOfflineConn(rowcount=0)
+        engine = _FakeOfflineEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        with patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh:
+            updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                client=cast(OpenAI, cast(object, client)),
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch=SimpleNamespace(output_file_id="file-1"),
+            )
+
+        self.assertEqual(updated, 0)
+        self.assertEqual(parse_errors, 0)
+        self.assertEqual(refreshed_uuids, [])
+        refresh.assert_not_called()
+
+    def test_run_offline_mode_creates_metadata_and_counsel_batches_before_waiting(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        engine = _NoopEngine()
+        creation_order: list[str] = []
+        started_batch_kinds: list[str] = []
+        started_together = threading.Event()
+        lock = threading.Lock()
+
+        def fake_create_offline_batch(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
+            creation_order.append(batch_kind)
+            return {
+                "batch_id": f"batch-{batch_kind}",
+                "completion_window": "24h",
+                "request_total": 1,
+            }
+
+        def fake_resume_and_apply(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
+            with lock:
+                self.assertEqual(creation_order, ["metadata", "counsel"])
+                started_batch_kinds.append(batch_kind)
+                if len(started_batch_kinds) == 2:
+                    started_together.set()
+            if not started_together.wait(0.5):
+                raise AssertionError("expected both offline batches to begin processing before either completed")
+            return {
+                "batch_id": f"batch-{batch_kind}",
+                "batch_kind": batch_kind,
+                "status": "completed",
+                "updated": 0,
+                "parse_errors": 0,
+                "refreshed_uuids": [],
+            }
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=SimpleNamespace()),
+            patch("etl.defs.i_tx_metadata_asset.assert_tables_exist"),
+            patch("etl.defs.i_tx_metadata_asset._load_existing_offline_batch", side_effect=[None, None]),
+            patch("etl.defs.i_tx_metadata_asset._build_offline_metadata_lines", return_value=[{"custom_id": "agreement-m"}]),
+            patch("etl.defs.i_tx_metadata_asset._build_offline_counsel_lines", return_value=[{"custom_id": "agreement-c"}]),
+            patch("etl.defs.i_tx_metadata_asset._create_offline_batch", side_effect=fake_create_offline_batch),
+            patch("etl.defs.i_tx_metadata_asset._resume_and_apply_offline_batch", side_effect=fake_resume_and_apply),
+            patch("etl.defs.i_tx_metadata_asset._sync_counsel_mappings") as sync_counsel,
+        ):
+            _run_offline_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                pages_table="pdx.pages",
+                tagged_outputs_table="pdx.tagged_outputs",
+                batch_size=10,
+            )
+
+        self.assertCountEqual(started_batch_kinds, ["metadata", "counsel"])
+        self.assertEqual(creation_order, ["metadata", "counsel"])
+        self.assertEqual(sync_counsel.call_count, 1)
+
+    def test_run_offline_mode_rechecks_counsel_after_metadata_updates(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        engine = _NoopEngine()
+        created_batch_kinds: list[str] = []
+
+        def fake_create_offline_batch(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
+            created_batch_kinds.append(batch_kind)
+            return {
+                "batch_id": f"batch-{batch_kind}-{len(created_batch_kinds)}",
+                "completion_window": "24h",
+                "request_total": 1,
+            }
+
+        def fake_resume_and_apply(*, batch_kind: str, **_kwargs: object) -> dict[str, object]:
+            updated = 2 if batch_kind == "metadata" else 1
+            return {
+                "batch_id": f"batch-{batch_kind}",
+                "batch_kind": batch_kind,
+                "status": "completed",
+                "updated": updated,
+                "parse_errors": 0,
+                "refreshed_uuids": [],
+            }
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=SimpleNamespace()),
+            patch("etl.defs.i_tx_metadata_asset.assert_tables_exist"),
+            patch("etl.defs.i_tx_metadata_asset._load_existing_offline_batch", side_effect=[None, None, None]),
+            patch("etl.defs.i_tx_metadata_asset._build_offline_metadata_lines", return_value=[{"custom_id": "agreement-m"}]),
+            patch(
+                "etl.defs.i_tx_metadata_asset._build_offline_counsel_lines",
+                side_effect=[[], [{"custom_id": "agreement-c"}]],
+            ) as build_counsel_lines,
+            patch("etl.defs.i_tx_metadata_asset._create_offline_batch", side_effect=fake_create_offline_batch),
+            patch("etl.defs.i_tx_metadata_asset._resume_and_apply_offline_batch", side_effect=fake_resume_and_apply),
+            patch("etl.defs.i_tx_metadata_asset._sync_counsel_mappings") as sync_counsel,
+        ):
+            _run_offline_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                pages_table="pdx.pages",
+                tagged_outputs_table="pdx.tagged_outputs",
+                batch_size=10,
+            )
+
+        self.assertEqual(created_batch_kinds, ["metadata", "counsel"])
+        self.assertEqual(build_counsel_lines.call_count, 2)
+        self.assertEqual(sync_counsel.call_count, 2)
 
     def test_build_offline_counsel_lines_uses_matching_sections(self) -> None:
         conn = _FakeCounselSelectionConn(

@@ -426,7 +426,7 @@ def _apply_offline_batch_output(
             if int(result.rowcount or 0) > 0:
                 _ = refresh_latest_sections_search(conn, schema, [str(rid)])
                 refreshed_uuids.append(str(rid))
-        updated += 1
+                updated += 1
     return updated, parse_errors, refreshed_uuids
 
 
@@ -669,7 +669,8 @@ def _run_offline_mode(
             schema=schema,
             table_names=("tx_metadata_offline_batches",),
         )
-    _run_offline_metadata_subflow(
+    pending_batches: list[dict[str, Any]] = []
+    metadata_batch = _prepare_offline_metadata_batch(
         context=context,
         engine=engine,
         client=client,
@@ -679,7 +680,9 @@ def _run_offline_mode(
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
     )
-    _run_offline_counsel_subflow(
+    if metadata_batch is not None:
+        pending_batches.append(metadata_batch)
+    counsel_batch = _prepare_offline_counsel_batch(
         context=context,
         engine=engine,
         client=client,
@@ -687,9 +690,58 @@ def _run_offline_mode(
         agreements_table=agreements_table,
         batch_size=batch_size,
     )
+    if counsel_batch is not None:
+        pending_batches.append(counsel_batch)
+
+    initial_results = _process_offline_batches(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        pending_batches=pending_batches,
+    )
+    _sync_counsel_mappings(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+    )
+
+    metadata_result = initial_results.get(OFFLINE_METADATA_BATCH_KIND)
+    metadata_updated = int(metadata_result["updated"]) if metadata_result is not None else 0
+    if metadata_updated <= 0:
+        return
+
+    context.log.info(
+        "tx_metadata_asset (offline): metadata filled %s agreements; rechecking counsel candidates now that target/acquirer may be available.",
+        metadata_updated,
+    )
+    follow_up_counsel_batch = _prepare_offline_counsel_batch(
+        context=context,
+        engine=engine,
+        client=client,
+        schema=schema,
+        agreements_table=agreements_table,
+        batch_size=batch_size,
+    )
+    if follow_up_counsel_batch is None:
+        return
+    _ = _process_offline_batches(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        pending_batches=[follow_up_counsel_batch],
+    )
+    _sync_counsel_mappings(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+    )
 
 
-def _run_offline_metadata_subflow(
+def _prepare_offline_metadata_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
@@ -699,7 +751,7 @@ def _run_offline_metadata_subflow(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
-) -> None:
+) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline metadata)"
     existing_batch = _load_existing_offline_batch(
         engine,
@@ -707,20 +759,14 @@ def _run_offline_metadata_subflow(
         batch_kind=OFFLINE_METADATA_BATCH_KIND,
     )
     if existing_batch is not None:
-        _resume_and_apply_offline_batch(
-            context=context,
-            engine=engine,
-            client=client,
-            schema=schema,
-            agreements_table=agreements_table,
-            batch_kind=OFFLINE_METADATA_BATCH_KIND,
-            batch_row=existing_batch,
-            update_sql=_metadata_offline_update_sql(agreements_table),
-            parse_response_text=parse_offline_tx_metadata_response_text,
-            build_update_params=build_offline_update_params,
-            log_prefix=log_prefix,
-        )
-        return
+        return {
+            "batch_kind": OFFLINE_METADATA_BATCH_KIND,
+            "batch_row": existing_batch,
+            "update_sql": _metadata_offline_update_sql(agreements_table),
+            "parse_response_text": parse_offline_tx_metadata_response_text,
+            "build_update_params": build_offline_update_params,
+            "log_prefix": log_prefix,
+        }
 
     lines = _build_offline_metadata_lines(
         context=context,
@@ -732,24 +778,28 @@ def _run_offline_metadata_subflow(
     )
     if not lines:
         context.log.info("%s: no runnable agreements need target/acquirer/deal_type.", log_prefix)
-        return
-    _create_and_apply_offline_batch(
+        return None
+    batch_row = _create_offline_batch(
         context=context,
         engine=engine,
         client=client,
         schema=schema,
-        agreements_table=agreements_table,
         batch_kind=OFFLINE_METADATA_BATCH_KIND,
         lines=lines,
         request_filename="tx_metadata_offline_metadata_requests.jsonl",
-        update_sql=_metadata_offline_update_sql(agreements_table),
-        parse_response_text=parse_offline_tx_metadata_response_text,
-        build_update_params=build_offline_update_params,
         log_prefix=log_prefix,
     )
+    return {
+        "batch_kind": OFFLINE_METADATA_BATCH_KIND,
+        "batch_row": batch_row,
+        "update_sql": _metadata_offline_update_sql(agreements_table),
+        "parse_response_text": parse_offline_tx_metadata_response_text,
+        "build_update_params": build_offline_update_params,
+        "log_prefix": log_prefix,
+    }
 
 
-def _run_offline_counsel_subflow(
+def _prepare_offline_counsel_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
@@ -757,7 +807,7 @@ def _run_offline_counsel_subflow(
     schema: str,
     agreements_table: str,
     batch_size: int,
-) -> None:
+) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline counsel)"
     existing_batch = _load_existing_offline_batch(
         engine,
@@ -765,26 +815,14 @@ def _run_offline_counsel_subflow(
         batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
     )
     if existing_batch is not None:
-        _resume_and_apply_offline_batch(
-            context=context,
-            engine=engine,
-            client=client,
-            schema=schema,
-            agreements_table=agreements_table,
-            batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
-            batch_row=existing_batch,
-            update_sql=_counsel_offline_update_sql(agreements_table),
-            parse_response_text=parse_offline_counsel_response_text,
-            build_update_params=build_offline_counsel_update_params,
-            log_prefix=log_prefix,
-        )
-        _sync_counsel_mappings(
-            context=context,
-            engine=engine,
-            schema=schema,
-            agreements_table=agreements_table,
-        )
-        return
+        return {
+            "batch_kind": OFFLINE_COUNSEL_BATCH_KIND,
+            "batch_row": existing_batch,
+            "update_sql": _counsel_offline_update_sql(agreements_table),
+            "parse_response_text": parse_offline_counsel_response_text,
+            "build_update_params": build_offline_counsel_update_params,
+            "log_prefix": log_prefix,
+        }
 
     lines = _build_offline_counsel_lines(
         context=context,
@@ -795,33 +833,25 @@ def _run_offline_counsel_subflow(
     )
     if not lines:
         context.log.info("%s: no runnable agreements need counsel extraction.", log_prefix)
-        _sync_counsel_mappings(
-            context=context,
-            engine=engine,
-            schema=schema,
-            agreements_table=agreements_table,
-        )
-        return
-    _create_and_apply_offline_batch(
+        return None
+    batch_row = _create_offline_batch(
         context=context,
         engine=engine,
         client=client,
         schema=schema,
-        agreements_table=agreements_table,
         batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
         lines=lines,
         request_filename="tx_metadata_offline_counsel_requests.jsonl",
-        update_sql=_counsel_offline_update_sql(agreements_table),
-        parse_response_text=parse_offline_counsel_response_text,
-        build_update_params=build_offline_counsel_update_params,
         log_prefix=log_prefix,
     )
-    _sync_counsel_mappings(
-        context=context,
-        engine=engine,
-        schema=schema,
-        agreements_table=agreements_table,
-    )
+    return {
+        "batch_kind": OFFLINE_COUNSEL_BATCH_KIND,
+        "batch_row": batch_row,
+        "update_sql": _counsel_offline_update_sql(agreements_table),
+        "parse_response_text": parse_offline_counsel_response_text,
+        "build_update_params": build_offline_counsel_update_params,
+        "log_prefix": log_prefix,
+    }
 
 
 def _load_existing_offline_batch(engine: Any, *, schema: str, batch_kind: str) -> Dict[str, Any] | None:
@@ -842,7 +872,7 @@ def _resume_and_apply_offline_batch(
     parse_response_text: Any,
     build_update_params: Any,
     log_prefix: str,
-) -> None:
+) -> dict[str, Any]:
     batch = poll_batch_until_terminal(
         context,
         client,
@@ -862,7 +892,14 @@ def _resume_and_apply_offline_batch(
         context.log.warning("%s: batch %s ended with status=%s; not applying updates.", log_prefix, batch.id, batch.status)
         with engine.begin() as conn:
             _mark_offline_batch_applied(conn, schema, batch_kind=batch_kind, batch_id=str(batch.id))
-        return
+        return {
+            "batch_id": str(batch.id),
+            "batch_kind": batch_kind,
+            "status": str(batch.status),
+            "updated": 0,
+            "parse_errors": 0,
+            "refreshed_uuids": [],
+        }
     updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
         context=context,
         engine=engine,
@@ -885,23 +922,27 @@ def _resume_and_apply_offline_batch(
         parse_errors,
         len(refreshed_uuids),
     )
+    return {
+        "batch_id": str(batch.id),
+        "batch_kind": batch_kind,
+        "status": str(batch.status),
+        "updated": updated,
+        "parse_errors": parse_errors,
+        "refreshed_uuids": refreshed_uuids,
+    }
 
 
-def _create_and_apply_offline_batch(
+def _create_offline_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
     client: OpenAI,
     schema: str,
-    agreements_table: str,
     batch_kind: str,
     lines: List[Dict[str, Any]],
     request_filename: str,
-    update_sql: Any,
-    parse_response_text: Any,
-    build_update_params: Any,
     log_prefix: str,
-) -> None:
+) -> dict[str, Any]:
     jsonl_buf = io.StringIO()
     for line in lines:
         _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -923,24 +964,55 @@ def _create_and_apply_offline_batch(
             completion_window=completion_window,
             request_total=len(lines),
         )
-    context.log.info("%s: created batch %s with %s requests; polling until complete.", log_prefix, batch.id, len(lines))
-    _resume_and_apply_offline_batch(
-        context=context,
-        engine=engine,
-        client=client,
-        schema=schema,
-        agreements_table=agreements_table,
-        batch_kind=batch_kind,
-        batch_row={
-            "batch_id": batch.id,
-            "completion_window": completion_window,
-            "request_total": len(lines),
-        },
-        update_sql=update_sql,
-        parse_response_text=parse_response_text,
-        build_update_params=build_update_params,
-        log_prefix=log_prefix,
-    )
+    context.log.info("%s: created batch %s with %s requests.", log_prefix, batch.id, len(lines))
+    return {
+        "batch_id": batch.id,
+        "completion_window": completion_window,
+        "request_total": len(lines),
+    }
+
+
+def _process_offline_batches(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    agreements_table: str,
+    pending_batches: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    if not pending_batches:
+        return {}
+
+    def _run_single_batch(batch_spec: dict[str, Any]) -> dict[str, Any]:
+        return _resume_and_apply_offline_batch(
+            context=context,
+            engine=engine,
+            client=_oai_client(),
+            schema=schema,
+            agreements_table=agreements_table,
+            batch_kind=str(batch_spec["batch_kind"]),
+            batch_row=batch_spec["batch_row"],
+            update_sql=batch_spec["update_sql"],
+            parse_response_text=batch_spec["parse_response_text"],
+            build_update_params=batch_spec["build_update_params"],
+            log_prefix=str(batch_spec["log_prefix"]),
+        )
+
+    if len(pending_batches) == 1:
+        batch_spec = pending_batches[0]
+        return {
+            str(batch_spec["batch_kind"]): _run_single_batch(batch_spec),
+        }
+
+    results: dict[str, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=min(len(pending_batches), 2)) as executor:
+        future_to_kind = {
+            executor.submit(_run_single_batch, batch_spec): str(batch_spec["batch_kind"])
+            for batch_spec in pending_batches
+        }
+        for future, batch_kind in future_to_kind.items():
+            results[batch_kind] = future.result()
+    return results
 
 
 def _build_offline_metadata_lines(
