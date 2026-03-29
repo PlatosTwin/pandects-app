@@ -112,16 +112,17 @@ def sections_total_count_metadata(
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
 
     if has_filters:
-        if page == 1:
-            estimate = estimated_query_row_count_fn(query)
-            if estimate is not None:
-                adjusted_estimate = max(item_count, estimate)
-                return adjusted_estimate, True
-        if has_next:
-            minimum_total = ((page - 1) * page_size) + item_count + 1
-            return minimum_total, True
         exact_total = ((page - 1) * page_size) + item_count
-        return exact_total, False
+        if not has_next:
+            return exact_total, False
+
+        minimum_total = exact_total + 1
+        estimate = estimated_query_row_count_fn(query)
+        if estimate is not None:
+            adjusted_estimate = max(minimum_total, estimate)
+            return adjusted_estimate, True
+
+        return minimum_total, True
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:

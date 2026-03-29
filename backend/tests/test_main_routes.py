@@ -621,6 +621,34 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total_count, 488296)
         self.assertTrue(is_approximate)
 
+    def test_search_total_count_metadata_uses_query_estimate_for_filtered_search_beyond_page_one(self):
+        with patch.object(self.app_module, "_estimated_query_row_count", return_value=240):
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=6,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=True,
+            )
+
+        self.assertEqual(total_count, 240)
+        self.assertTrue(is_approximate)
+
+    def test_search_total_count_metadata_preserves_filtered_lower_bound_when_estimate_is_too_small(self):
+        with patch.object(self.app_module, "_estimated_query_row_count", return_value=120):
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=6,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=True,
+            )
+
+        self.assertEqual(total_count, 151)
+        self.assertTrue(is_approximate)
+
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()
         res = client.get("/v1/sections?standard_id=s-old&page=1&page_size=10")
