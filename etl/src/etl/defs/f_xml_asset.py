@@ -409,9 +409,61 @@ def _section_title_has_additional_numbering(title: str) -> bool:
     return re.search(r"\b(?:SECTION\s+)?\d+\s*\.\s*\d+\b", suffix, re.IGNORECASE) is not None
 
 
+def _merge_page_uuid_targets(*page_uuid_groups: Tuple[str, ...]) -> Tuple[str, ...]:
+    merged: List[str] = []
+    seen: set[str] = set()
+    for group in page_uuid_groups:
+        for page_uuid in group:
+            if page_uuid in seen:
+                continue
+            seen.add(page_uuid)
+            merged.append(page_uuid)
+    return tuple(merged)
+
+
+def _section_title_mentions_number(
+    title: str,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    match = SECTION_NUMBER_RE.match(title)
+    search_text = title[match.end():] if match is not None else title
+    return (
+        re.search(
+            rf"\b(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
+            search_text,
+            re.IGNORECASE,
+        )
+        is not None
+    )
+
+
+def _section_body_mentions_number(
+    section_elem: ET.Element,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    pattern = re.compile(
+        rf"(?:^|[\n\r.;:])\s*(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
+        re.IGNORECASE,
+    )
+    for node in section_elem.iter():
+        if node.tag in {"page", "pageUUID"}:
+            continue
+        text_value = (node.text or "").strip()
+        if text_value and pattern.search(text_value):
+            return True
+    return False
+
+
 def _target_section_non_sequential_page_uuids(
     *,
+    previous_section_elem: ET.Element | None,
+    current_section_elem: ET.Element,
     section_title: str,
+    section_article_num: int,
     expected_section_num: int,
     found_section_num: int,
     current_page_uuids: Tuple[str, ...],
@@ -424,10 +476,31 @@ def _target_section_non_sequential_page_uuids(
     that absorbed the missing heading during tagging/OCR. For duplicates or
     backward jumps, the current section is still the better target.
     """
-    if _section_title_has_additional_numbering(section_title):
+    if _section_title_has_additional_numbering(section_title) or _section_title_mentions_number(
+        section_title,
+        article_num=section_article_num,
+        section_num=expected_section_num,
+    ):
         return current_page_uuids
     if found_section_num > expected_section_num and previous_page_uuids:
-        return previous_page_uuids
+        previous_mentions_expected = (
+            previous_section_elem is not None
+            and _section_body_mentions_number(
+                previous_section_elem,
+                article_num=section_article_num,
+                section_num=expected_section_num,
+            )
+        )
+        current_mentions_expected = _section_body_mentions_number(
+            current_section_elem,
+            article_num=section_article_num,
+            section_num=expected_section_num,
+        )
+        if previous_mentions_expected and not current_mentions_expected:
+            return previous_page_uuids
+        if current_mentions_expected:
+            return current_page_uuids
+        return _merge_page_uuid_targets(previous_page_uuids, current_page_uuids)
     return current_page_uuids
 
 
@@ -514,6 +587,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             continue
 
         expected_section_num = 1
+        previous_section_elem: ET.Element | None = None
         previous_section_page_uuids: Tuple[str, ...] = ()
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
@@ -544,7 +618,10 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                         reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
                         reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
                         page_uuids=_target_section_non_sequential_page_uuids(
+                            previous_section_elem=previous_section_elem,
+                            current_section_elem=section_elem,
                             section_title=section_title,
+                            section_article_num=section_article_num,
                             expected_section_num=expected_section_num,
                             found_section_num=section_num,
                             current_page_uuids=section_page_uuids,
@@ -555,6 +632,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 expected_section_num = section_num + 1
             else:
                 expected_section_num += 1
+            previous_section_elem = section_elem
             previous_section_page_uuids = section_page_uuids
 
     if empty_article_count > 1:

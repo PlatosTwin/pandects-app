@@ -112,6 +112,56 @@ class XMLVerifyAssetTests(unittest.TestCase):
         target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
         self.assertEqual(target.page_uuids, ("page-3",))
 
+    def test_find_hard_rule_violations_targets_previous_section_when_it_mentions_missing_heading(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2">
+                    <text>Section 1.3 Interim Covenants.</text>
+                  </section>
+                  <section title="Section 1.4 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
+        self.assertEqual(target.page_uuids, ("page-2",))
+
+    def test_find_hard_rule_violations_targets_both_adjacent_pages_when_forward_gap_is_ambiguous(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2" />
+                  <section title="Section 1.4 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
+        self.assertEqual(target.page_uuids, ("page-2", "page-3"))
+
     def test_reason_rows_changed_ignores_order(self) -> None:
         existing = [
             {"reason_code": "section_non_sequential", "reason_detail": "gap", "page_uuid": "page-2"},
