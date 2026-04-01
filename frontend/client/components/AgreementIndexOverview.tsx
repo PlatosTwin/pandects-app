@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
-import { formatDateValue, formatEnumValue } from "@/lib/format-utils";
+import { formatDateValue, formatEnumValue, formatNumberValue } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -71,8 +71,18 @@ type AgreementStatusSummaryResponse = {
   latest_filing_date: string | null;
   metadata_covered_agreements: number | null;
   metadata_coverage_pct: number | null;
+  metadata_field_coverage: MetadataFieldCoverageRow[];
   taxonomy_covered_sections: number | null;
   taxonomy_coverage_pct: number | null;
+};
+
+type MetadataFieldCoverageRow = {
+  field: string;
+  label: string;
+  eligible_agreements: number;
+  covered_agreements: number;
+  coverage_pct: number | null;
+  note: string | null;
 };
 
 type AgreementDealTypeYearRow = {
@@ -270,6 +280,8 @@ export function AgreementIndexOverview() {
   ] = useState<number | null>(null);
   const [statusSummaryMetadataCoveragePct, setStatusSummaryMetadataCoveragePct] =
     useState<number | null>(null);
+  const [statusSummaryMetadataFieldCoverage, setStatusSummaryMetadataFieldCoverage] =
+    useState<MetadataFieldCoverageRow[]>([]);
   const [
     statusSummaryTaxonomyCoveredSections,
     setStatusSummaryTaxonomyCoveredSections,
@@ -289,6 +301,96 @@ export function AgreementIndexOverview() {
   const dealTypeChartDescriptionId = useId();
   const dealTypeChartTableId = useId();
   const dealTypesTabOpen = overviewTab === "deal-types";
+
+  const renderMetadataFieldCoverageTooltip = () => (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-foreground">
+          Coverage by field
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Pricing fields use consideration-aware denominators rather than all
+          processed agreements.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {statusSummaryMetadataFieldCoverage.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Field-level coverage is unavailable.
+          </p>
+        ) : (
+          statusSummaryMetadataFieldCoverage.map((row) => (
+            <div
+              key={row.field}
+              className="rounded-md border border-border/60 bg-background/70 p-2"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="text-xs font-medium text-foreground">
+                  {row.label}
+                </div>
+                <div className="text-xs font-mono tabular-nums text-muted-foreground">
+                  {row.coverage_pct === null ? "—" : `${row.coverage_pct.toFixed(1)}%`}
+                </div>
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {formatNumberValue(row.covered_agreements, {
+                  maximumFractionDigits: 0,
+                })}
+                {" / "}
+                {formatNumberValue(row.eligible_agreements, {
+                  maximumFractionDigits: 0,
+                })}
+                {" applicable deals"}
+              </div>
+              {row.note ? (
+                <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  {row.note}
+                </div>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const renderMetricLabel = (
+    label: string,
+    metricKey: string,
+  ): React.ReactNode => {
+    if (metricKey !== "metadata-coverage") {
+      return label;
+    }
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span>{label}</span>
+        <AdaptiveTooltip
+          trigger={
+            <button
+              type="button"
+              aria-label="Metadata coverage details by field"
+              className="tooltip-help-trigger-compact"
+            >
+              ?
+            </button>
+          }
+          content={renderMetadataFieldCoverageTooltip()}
+          tooltipProps={{
+            side: "top",
+            align: "start",
+            className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[340px] overflow-y-auto text-xs",
+          }}
+          popoverProps={{
+            side: "top",
+            align: "start",
+            className:
+              "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] overflow-y-auto p-3 text-xs",
+          }}
+          delayDuration={0}
+        />
+      </span>
+    );
+  };
 
   useEffect(() => {
     if (statusSummaryLoaded) return;
@@ -314,6 +416,9 @@ export function AgreementIndexOverview() {
             data.metadata_covered_agreements ?? null,
           );
           setStatusSummaryMetadataCoveragePct(data.metadata_coverage_pct ?? null);
+          setStatusSummaryMetadataFieldCoverage(
+            data.metadata_field_coverage ?? [],
+          );
           setStatusSummaryTaxonomyCoveredSections(
             data.taxonomy_covered_sections ?? null,
           );
@@ -717,7 +822,7 @@ export function AgreementIndexOverview() {
             className="rounded-md border border-border/60 bg-background/70 p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {metric.label}
+              {renderMetricLabel(metric.label, metric.key)}
             </dt>
             <dd className="mt-1 text-base font-semibold text-foreground">
               {typeof metric.value === "number"
@@ -739,7 +844,7 @@ export function AgreementIndexOverview() {
               )}
             >
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {metric.label}
+                {renderMetricLabel(metric.label, metric.key)}
               </div>
               <div className="mt-2 text-base font-semibold text-foreground">
                 {typeof metric.value === "number"
@@ -760,7 +865,7 @@ export function AgreementIndexOverview() {
               )}
             >
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {metric.label}
+                {renderMetricLabel(metric.label, metric.key)}
               </div>
               <div className="mt-2 text-base font-semibold text-foreground">
                 {typeof metric.value === "number"

@@ -59,6 +59,129 @@ def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str
     return label_by_code.get(raw_text, raw_text)
 
 
+_METADATA_FIELD_COVERAGE_CONFIG = (
+    {
+        "field": "transaction_consideration",
+        "label": "Consideration",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "transaction_price_total",
+        "label": "Total price",
+        "eligible_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "covered_sql": "a.transaction_price_total IS NOT NULL AND TRIM(a.transaction_price_total) <> ''",
+        "note": "Derived from consideration and populated price components; some mixed deals legitimately have no total.",
+    },
+    {
+        "field": "transaction_price_cash",
+        "label": "Cash price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('cash', 'mixed')",
+        "covered_sql": "a.transaction_price_cash IS NOT NULL AND TRIM(a.transaction_price_cash) <> ''",
+        "note": "Only applies to cash or mixed deals.",
+    },
+    {
+        "field": "transaction_price_stock",
+        "label": "Stock price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('stock', 'mixed')",
+        "covered_sql": "a.transaction_price_stock IS NOT NULL AND TRIM(a.transaction_price_stock) <> ''",
+        "note": "Only applies to stock or mixed deals.",
+    },
+    {
+        "field": "transaction_price_assets",
+        "label": "Asset price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') = 'mixed'",
+        "covered_sql": "a.transaction_price_assets IS NOT NULL AND TRIM(a.transaction_price_assets) <> ''",
+        "note": "Shown only against mixed deals; null can still be valid when no asset component exists.",
+    },
+    {
+        "field": "target_type",
+        "label": "Target type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_type IS NOT NULL AND TRIM(a.target_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "acquirer_type",
+        "label": "Acquirer type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_type IS NOT NULL AND TRIM(a.acquirer_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "target_pe",
+        "label": "Target PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_pe",
+        "label": "Acquirer PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "target_industry",
+        "label": "Target industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_industry IS NOT NULL AND TRIM(a.target_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_industry",
+        "label": "Acquirer industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_industry IS NOT NULL AND TRIM(a.acquirer_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "announce_date",
+        "label": "Announce date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.announce_date IS NOT NULL AND TRIM(a.announce_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "close_date",
+        "label": "Close date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.close_date IS NOT NULL AND TRIM(a.close_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_status",
+        "label": "Deal status",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_status IS NOT NULL AND TRIM(a.deal_status) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "attitude",
+        "label": "Attitude",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.attitude IS NOT NULL AND TRIM(a.attitude) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_type",
+        "label": "Deal type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_type IS NOT NULL AND TRIM(a.deal_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "purpose",
+        "label": "Purpose",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.purpose IS NOT NULL AND TRIM(a.purpose) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+)
+
+
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
     agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
     agreement_trends_lock = Lock()
@@ -77,6 +200,78 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         url_prefix="/v1/sections",
         description="Retrieve full text for a given section",
     )
+
+    def get_metadata_field_coverage() -> list[dict[str, object]]:
+        coverage_rows: list[dict[str, object]] = []
+        agreement_where_parts = ["1 = 1"]
+        agreement_columns = deps.Agreements.__table__.c
+        if agreement_columns.get("status") is not None:
+            agreement_where_parts.append("COALESCE(LOWER(a.status), '') <> 'invalid'")
+        if agreement_columns.get("gated") is not None and agreement_columns.get("verified") is not None:
+            agreement_where_parts.append(
+                "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
+            )
+        agreement_where = "\n                      AND ".join(agreement_where_parts)
+        agreements_table = f"{deps._schema_prefix()}agreements"
+        aggregate_select_lines: list[str] = []
+        for config in _METADATA_FIELD_COVERAGE_CONFIG:
+            field = cast(str, config["field"])
+            eligible_sql = cast(str, config["eligible_sql"])
+            covered_sql = cast(str, config["covered_sql"])
+            aggregate_select_lines.extend(
+                [
+                    (
+                        f"SUM(CASE WHEN {eligible_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_eligible_agreements"
+                    ),
+                    (
+                        f"SUM(CASE WHEN {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_covered_agreements"
+                    ),
+                ]
+            )
+        aggregate_select = ",\n                            ".join(aggregate_select_lines)
+        row = (
+            deps.db.session.execute(
+                text(
+                    f"""
+                    SELECT
+                        {aggregate_select}
+                    FROM {agreements_table} a
+                    WHERE {agreement_where}
+                    """
+                )
+            )
+            .mappings()
+            .first()
+        )
+        row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
+
+        for config in _METADATA_FIELD_COVERAGE_CONFIG:
+            field = cast(str, config["field"])
+            eligible_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_eligible_agreements"))
+            ) or 0
+            covered_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_covered_agreements"))
+            ) or 0
+            coverage_pct = (
+                round((covered_agreements / eligible_agreements) * 100, 1)
+                if eligible_agreements > 0
+                else None
+            )
+            coverage_rows.append(
+                {
+                    "field": config["field"],
+                    "label": config["label"],
+                    "eligible_agreements": eligible_agreements,
+                    "covered_agreements": covered_agreements,
+                    "coverage_pct": coverage_pct,
+                    "note": config["note"],
+                }
+            )
+
+        return coverage_rows
 
     @agreements_blp.route("")
     class AgreementsListResource(MethodView):
@@ -659,6 +854,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             "taxonomy_coverage_pct": _to_float_or_none(
                 overview_row_dict.get("taxonomy_coverage_pct")
             ),
+            "metadata_field_coverage": get_metadata_field_coverage(),
         }
 
     def get_agreements_deal_types_summary() -> dict[str, object]:

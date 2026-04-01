@@ -934,6 +934,7 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(text("DELETE FROM agreement_status_summary"))
                 conn.execute(text("DELETE FROM agreement_overview_summary"))
+                conn.execute(text("DELETE FROM agreements"))
                 conn.execute(
                     text(
                         "INSERT INTO agreement_status_summary (year, color, current_stage, count) VALUES "
@@ -947,6 +948,23 @@ class MainRoutesTests(unittest.TestCase):
                         "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
                     )
                 )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, gated, url, "
+                        "transaction_consideration, transaction_price_total, transaction_price_cash, "
+                        "transaction_price_stock, transaction_price_assets, target_type, acquirer_type, "
+                        "target_pe, acquirer_pe, target_industry, acquirer_industry, announce_date, "
+                        "close_date, deal_status, attitude, deal_type, purpose"
+                        ") VALUES "
+                        "('cash_complete', '2023-04-01', 'Target Cash', 'Acquirer Cash', 1, 0, 'http://example.com/cash_complete', "
+                        "'cash', '100', '100', NULL, NULL, 'public', 'private', 1, 0, '52', '51', "
+                        "'2023-01-01', '2023-03-01', 'complete', 'friendly', 'merger', 'strategic'), "
+                        "('stock_missing_optional', '2023-04-02', 'Target Stock', 'Acquirer Stock', 1, 0, 'http://example.com/stock_missing_optional', "
+                        "'stock', '250', NULL, '250', NULL, 'private', 'public', NULL, NULL, NULL, '54', "
+                        "'2023-02-01', NULL, 'pending', NULL, 'stock_acquisition', NULL)"
+                    )
+                )
 
         client = self.app.test_client()
         res = client.get("/v1/agreements-status-summary")
@@ -957,6 +975,20 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("metadata_coverage_pct"), 61.5)
         self.assertEqual(body.get("taxonomy_covered_sections"), 4567)
         self.assertEqual(body.get("taxonomy_coverage_pct"), 87.2)
+        metadata_field_coverage = {
+            row["field"]: row for row in body.get("metadata_field_coverage", [])
+        }
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["eligible_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["eligible_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["eligible_agreements"], 0)
+        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["covered_agreements"], 0)
+        self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["coverage_pct"])
+        self.assertEqual(metadata_field_coverage["target_pe"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["purpose"]["covered_agreements"], 1)
 
     def test_agreements_status_summary_excludes_gated_unverified_from_latest_filing_date(self):
         with self.app.app_context():
