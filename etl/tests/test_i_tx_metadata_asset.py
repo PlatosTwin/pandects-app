@@ -18,6 +18,7 @@ from etl.defs.i_tx_metadata_asset import (
     _counsel_offline_update_sql,
     _run_offline_mode,
     _run_web_search_mode,
+    _web_search_missing_core_metadata_sql,
     tx_metadata_asset,
 )
 from etl.domain.i_tx_metadata import (
@@ -129,6 +130,7 @@ class _FakeWebConn:
                 "filing_date": today_iso,
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
                 "failure_count": 0,
+                "initial_metadata_pass": 1,
             }
         ]
 
@@ -240,8 +242,10 @@ class _FakeResponsesClient:
         self._response_text = response_text
         self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         self._search_count = search_count
+        self.models: list[object] = []
 
     def create(self, **_kwargs: object) -> object:
+        self.models.append(_kwargs.get("model"))
         return SimpleNamespace(
             output_text=self._response_text,
             usage=self._usage,
@@ -260,8 +264,10 @@ class _RoutingResponsesClient:
         self._responses_by_input_fragment = responses_by_input_fragment
         self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         self._search_count = search_count
+        self.models: list[object] = []
 
     def create(self, **kwargs: object) -> object:
+        self.models.append(kwargs.get("model"))
         input_text = kwargs.get("input")
         if not isinstance(input_text, str):
             raise TypeError("input must be a string in fake client.")
@@ -350,6 +356,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         agreement_uuid: str,
         *,
         failure_count: int = 0,
+        initial_metadata_pass: int = 1,
         url: str | None = None,
     ) -> dict[str, object]:
         return {
@@ -359,6 +366,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             "filing_date": date.today().isoformat(),
             "url": url or f"https://www.sec.gov/Archives/edgar/data/{agreement_uuid}.htm",
             "failure_count": failure_count,
+            "initial_metadata_pass": initial_metadata_pass,
         }
 
     def _valid_web_search_payload(self) -> str:
@@ -406,6 +414,18 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             "locator": "press release",
             "excerpt": f"Support for {field}.",
         }
+
+    def test_web_search_missing_core_metadata_sql_is_consideration_aware(self) -> None:
+        sql = _web_search_missing_core_metadata_sql(alias="a")
+
+        self.assertIn("COALESCE(a.transaction_consideration, '') = 'cash'", sql)
+        self.assertIn("NOT (a.transaction_price_cash IS NOT NULL AND TRIM(a.transaction_price_cash) <> '')", sql)
+        self.assertIn("COALESCE(a.transaction_consideration, '') = 'stock'", sql)
+        self.assertIn("NOT (a.transaction_price_stock IS NOT NULL AND TRIM(a.transaction_price_stock) <> '')", sql)
+        self.assertIn("COALESCE(a.transaction_consideration, '') = 'mixed'", sql)
+        self.assertIn("CASE WHEN a.transaction_price_cash IS NOT NULL AND TRIM(a.transaction_price_cash) <> '' THEN 1 ELSE 0 END", sql)
+        self.assertIn("NOT (a.target_type IS NOT NULL AND TRIM(a.target_type) <> '')", sql)
+        self.assertIn("NOT (a.acquirer_type IS NOT NULL AND TRIM(a.acquirer_type) <> '')", sql)
 
     def test_apply_offline_batch_output_refreshes_projection_for_updated_agreement(self) -> None:
         response_payload = {
@@ -879,6 +899,47 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         )
         self.assertEqual(metadata_payload["metadata_run_stats"]["search_count"], 1)
         self.assertEqual(conn.update_calls, 1)
+        select_sql = next(sql for sql in conn.executed_sql if "FROM pdx.agreements a" in sql)
+        self.assertIn("COALESCE(a.metadata, 0) = 0", select_sql)
+        self.assertIn("COALESCE(a.metadata, 0) = 1", select_sql)
+        self.assertIn("initial_metadata_pass DESC", select_sql)
+
+    def test_run_web_search_mode_uses_gpt_5_1_for_requeues_without_mixing_chunk_models(self) -> None:
+        conn = _FakeWebConn(
+            select_rows=[
+                self._agreement_row("agreement-initial", initial_metadata_pass=1),
+                self._agreement_row("agreement-requeue", initial_metadata_pass=0),
+            ]
+        )
+        engine = _FakeWebEngine(conn)
+        fake_log = _FakeLog()
+        context = SimpleNamespace(log=fake_log)
+        client = _RoutingWebClient(
+            responses_by_input_fragment={
+                "agreement-initial.htm": self._valid_web_search_payload(),
+                "agreement-requeue.htm": self._valid_web_search_payload(),
+            }
+        )
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=client),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=2,
+            )
+
+        self.assertEqual(client.responses.models, ["gpt-5-mini", "gpt-5.1"])
+        self.assertTrue(
+            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5-mini" for call in fake_log.info_calls)
+        )
+        self.assertTrue(
+            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5.1" for call in fake_log.info_calls)
+        )
 
     def test_run_web_search_mode_raises_on_database_update_error(self) -> None:
         conn = _FakeWebConn(fail_on_update=True)
@@ -1066,7 +1127,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertTrue(
             any(
                 call[:4] == (
-                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s model=%s",
                     1,
                     2,
                     10,
@@ -1077,7 +1138,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertTrue(
             any(
                 call[:4] == (
-                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
+                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s model=%s",
                     2,
                     2,
                     2,
