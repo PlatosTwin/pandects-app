@@ -362,6 +362,69 @@ def _date_years_ago(anchor: date, years: int) -> date:
         return anchor.replace(year=anchor.year - years, month=2, day=28)
 
 
+def _sanitize_web_search_metadata_obj(
+    tx_metadata_obj: Dict[str, Any],
+    *,
+    filing_date: object | None,
+    pending_max_age_years: int,
+) -> Dict[str, Any]:
+    sanitized = copy.deepcopy(tx_metadata_obj)
+    metadata_sources = sanitized.get("metadata_sources")
+    if isinstance(metadata_sources, dict):
+        citations = metadata_sources.get("citations")
+        if isinstance(citations, list):
+            for citation in citations:
+                if not isinstance(citation, dict):
+                    continue
+                published_at = citation.get("published_at")
+                if published_at is None:
+                    continue
+                try:
+                    _ = _parse_optional_date_like(
+                        published_at,
+                        field_name="metadata_sources.citations[].published_at",
+                    )
+                except (TypeError, ValueError):
+                    citation["published_at"] = None
+
+    def _safe_date_string(field_name: str) -> Optional[str]:
+        raw_value = sanitized.get(field_name)
+        if raw_value is None:
+            return None
+        try:
+            parsed = _parse_optional_date_like(raw_value, field_name=field_name)
+        except (TypeError, ValueError):
+            sanitized[field_name] = None
+            return None
+        return parsed.isoformat() if parsed is not None else None
+
+    announce_date = _safe_date_string("announce_date")
+    close_date = _safe_date_string("close_date")
+    deal_status = sanitized.get("deal_status")
+    if not isinstance(deal_status, str):
+        return sanitized
+
+    if announce_date is not None and close_date is not None and close_date < announce_date:
+        sanitized["close_date"] = None
+        close_date = None
+    if deal_status == "complete" and close_date is None:
+        sanitized["deal_status"] = None
+        return sanitized
+    if deal_status == "pending" and close_date is not None:
+        sanitized["close_date"] = None
+        return sanitized
+    if deal_status == "pending":
+        try:
+            filing_date_obj = _parse_optional_date_like(filing_date, field_name="filing_date")
+        except (TypeError, ValueError):
+            filing_date_obj = None
+        if filing_date_obj is not None:
+            cutoff = _date_years_ago(date.today(), pending_max_age_years)
+            if filing_date_obj <= cutoff:
+                sanitized["deal_status"] = None
+    return sanitized
+
+
 # --- Offline mode: target, acquirer, deal_type from document only ---
 
 def json_schema_offline_metadata() -> Dict[str, Any]:
@@ -890,8 +953,13 @@ def build_tx_metadata_update_params_web_search_only(
     pending_max_age_years: int = 3,
 ) -> Dict[str, Any]:
     """Build UPDATE params for web-search mode: same as full but omit target, acquirer, deal_type."""
+    sanitized_obj = _sanitize_web_search_metadata_obj(
+        tx_metadata_obj,
+        filing_date=filing_date,
+        pending_max_age_years=pending_max_age_years,
+    )
     obj_with_deal_type = {
-        **tx_metadata_obj,
+        **sanitized_obj,
         "deal_type": tx_metadata_obj.get("deal_type", None),
         "metadata_run_stats": build_web_search_runtime_metadata(
             response_usage=response_usage,

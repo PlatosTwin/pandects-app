@@ -353,14 +353,15 @@ class TxMetadataDomainTests(unittest.TestCase):
             "notes": None,
         }
 
-        with self.assertRaisesRegex(ValueError, "pending' requires close_date to be null"):
-            _ = build_tx_metadata_update_params_web_search_only(
-                agreement_uuid="agreement-1",
-                tx_metadata_obj=payload,
-                response_usage=self._usage(),
-                filing_date=date.today().isoformat(),
-                pending_max_age_years=3,
-            )
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+            filing_date=date.today().isoformat(),
+            pending_max_age_years=3,
+        )
+        self.assertEqual(params["deal_status"], "pending")
+        self.assertIsNone(params["close_date"])
 
     def test_build_update_params_web_search_only_allows_pending_for_recent_filing(self) -> None:
         payload = self._valid_web_search_obj()
@@ -403,6 +404,88 @@ class TxMetadataDomainTests(unittest.TestCase):
                 tx_metadata_obj=payload,
                 response_usage=self._usage(),
             )
+
+    def test_build_update_params_web_search_only_nulls_invalid_citation_published_at(self) -> None:
+        payload = self._valid_web_search_obj()
+        metadata_sources = cast(dict[str, object], payload["metadata_sources"])
+        citations = cast(list[dict[str, object]], metadata_sources["citations"])
+        citations[0]["published_at"] = "2024-02-30"
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        metadata_payload = json.loads(params["metadata_sources"])
+        self.assertIsNone(metadata_payload["metadata_sources"]["citations"][0]["published_at"])
+
+    def test_build_update_params_web_search_only_nulls_complete_status_without_close_date(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["deal_status"] = "complete"
+        payload["close_date"] = None
+        payload["metadata_sources"] = {
+            "citations": [
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("acquirer_pe"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
+            ],
+            "notes": None,
+        }
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertIsNone(params["deal_status"])
+        self.assertIsNone(params["close_date"])
+
+    def test_build_update_params_web_search_only_nulls_close_date_when_earlier_than_announce_date(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["deal_status"] = "complete"
+        payload["announce_date"] = "2024-03-01"
+        payload["close_date"] = "2024-02-01"
+        payload["metadata_sources"] = {
+            "citations": [
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("acquirer_pe"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("close_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
+            ],
+            "notes": None,
+        }
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["announce_date"], "2024-03-01")
+        self.assertIsNone(params["close_date"])
+        self.assertIsNone(params["deal_status"])
 
     def test_build_update_params_web_search_only_allows_non_usd_note_with_null_prices(self) -> None:
         payload = self._valid_web_search_obj()
