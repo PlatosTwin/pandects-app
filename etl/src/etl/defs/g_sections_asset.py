@@ -36,12 +36,15 @@ def _run_sections_for_agreements(
 
     scoped_uuids = sorted(set(target_agreement_uuids or []))
     use_scope = len(scoped_uuids) > 0
-    if use_scope:
-        if len(scoped_uuids) > agreement_batch_size:
-            raise ValueError(
-                f"{log_prefix}: received more upstream agreements than xml_agreement_batch_size; "
-                + "run-scoped sections extraction accepts at most one upstream XML batch."
-            )
+    scoped_limit = max(agreement_batch_size, len(scoped_uuids))
+    if use_scope and len(scoped_uuids) > agreement_batch_size:
+        context.log.info(
+            "%s: upstream scope has %s agreements, exceeding xml_agreement_batch_size=%s; "
+            + "processing the full run-scoped XML set.",
+            log_prefix,
+            len(scoped_uuids),
+            agreement_batch_size,
+        )
 
     while True:
         with engine.begin() as conn:
@@ -51,7 +54,7 @@ def _run_sections_for_agreements(
                         text(canonical_fresh_sections_queue_sql(schema, scoped=True)).bindparams(
                             bindparam("auuids", expanding=True)
                         ),
-                        {"auuids": tuple(scoped_uuids), "lim": agreement_batch_size},
+                        {"auuids": tuple(scoped_uuids), "lim": scoped_limit},
                     )
                     .scalars()
                     .all()

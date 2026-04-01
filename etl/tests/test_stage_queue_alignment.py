@@ -52,15 +52,16 @@ class StageQueueAlignmentTests(unittest.TestCase):
         self.assertIn("when coalesce(p.gold_label, p.source_page_type) = 'body' then", cycle_src.lower())
         self.assertIn("else p.processed_page_content", cycle_src.lower())
 
-    def test_run_scoped_xml_and_repair_assets_validate_upstream_batch_shape(self) -> None:
+    def test_run_scoped_xml_and_repair_assets_handle_scoped_batch_limits(self) -> None:
         fresh_src = self._read("src/etl/defs/f_xml_asset.py")
         repair_src = self._read("src/etl/defs/f_xml_repair_cycle_asset.py")
         sections_src = self._read("src/etl/defs/g_sections_asset.py")
         ai_repair_src = self._read("src/etl/defs/d_ai_repair_asset.py")
         self.assertIn("run-scoped XML verification accepts at most one upstream XML batch.", fresh_src)
-        self.assertIn("run-scoped XML rebuild accepts at most one upstream reconciliation batch.", repair_src)
-        self.assertIn("run-scoped XML verification accepts at most one upstream rebuild batch.", repair_src)
-        self.assertIn("run-scoped sections extraction accepts at most one upstream XML batch.", sections_src)
+        self.assertIn("scoped_limit = max(agreement_batch_size, len(target_agreement_uuids))", repair_src)
+        self.assertIn("processing the full run-scoped repair set.", repair_src)
+        self.assertIn("scoped_limit = max(agreement_batch_size, len(scoped_uuids))", sections_src)
+        self.assertIn("processing the full run-scoped XML set.", sections_src)
         self.assertNotIn("ensure_batched_scope", fresh_src)
         self.assertNotIn("ensure_batched_scope", repair_src)
         self.assertNotIn("ensure_batched_scope", ai_repair_src)

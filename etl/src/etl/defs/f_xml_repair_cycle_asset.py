@@ -61,14 +61,17 @@ def post_repair_build_xml_asset(
     """
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     target_agreement_uuids = sorted(set(reconciled_agreement_uuids))
+    scoped_limit = max(agreement_batch_size, len(target_agreement_uuids))
     if not target_agreement_uuids:
         context.log.info("post_repair_build_xml_asset: no upstream agreements from reconcile_tags.")
         run_post_asset_refresh(context, db, pipeline_config)
         return []
     if len(target_agreement_uuids) > agreement_batch_size:
-        raise ValueError(
-            "post_repair_build_xml_asset received more upstream agreements than xml_agreement_batch_size; "
-            + "run-scoped XML rebuild accepts at most one upstream reconciliation batch."
+        context.log.info(
+            "post_repair_build_xml_asset: upstream scope has %s agreements, exceeding xml_agreement_batch_size=%s; "
+            + "processing the full run-scoped repair set.",
+            len(target_agreement_uuids),
+            agreement_batch_size,
         )
 
     engine = db.get_engine()
@@ -99,7 +102,7 @@ def post_repair_build_xml_asset(
                 text(canonical_post_repair_build_queue_sql(schema, scoped=True)).bindparams(
                     bindparam("target_uuids", expanding=True)
                 ),
-                {"limit": agreement_batch_size, "target_uuids": target_agreement_uuids},
+                {"limit": scoped_limit, "target_uuids": target_agreement_uuids},
             )
             .scalars()
             .all()
@@ -247,6 +250,7 @@ def post_repair_verify_xml_asset(
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(rebuilt_agreement_uuids))
+    scoped_limit = max(agreement_batch_size, len(target_agreement_uuids))
 
     engine = db.get_engine()
     schema = db.database
@@ -299,9 +303,11 @@ def post_repair_verify_xml_asset(
         run_post_asset_refresh(context, db, pipeline_config)
         return []
     if len(target_agreement_uuids) > agreement_batch_size:
-        raise ValueError(
-            "post_repair_verify_xml_asset received more upstream agreements than xml_agreement_batch_size; "
-            + "run-scoped XML verification accepts at most one upstream rebuild batch."
+        context.log.info(
+            "post_repair_verify_xml_asset: upstream scope has %s agreements, exceeding xml_agreement_batch_size=%s; "
+            + "processing the full run-scoped repair set.",
+            len(target_agreement_uuids),
+            agreement_batch_size,
         )
 
     queue_q = text(canonical_post_repair_verify_queue_sql(schema, scoped=True)).bindparams(
@@ -310,7 +316,7 @@ def post_repair_verify_xml_asset(
     with engine.begin() as conn:
         eligible_uuids = conn.execute(
             queue_q,
-            {"lim": agreement_batch_size, "auuids": target_agreement_uuids},
+            {"lim": scoped_limit, "auuids": target_agreement_uuids},
         ).scalars().all()
     if not eligible_uuids:
         context.log.info(
