@@ -8,6 +8,7 @@ resources:
       tagging_agreement_batch_size: 10
       pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10
+      ai_repair_page_budget: 400
       ai_repair_attempt_priority: not_attempted_first
       taxonomy_agreement_batch_size: 10
       taxonomy_mode: llm

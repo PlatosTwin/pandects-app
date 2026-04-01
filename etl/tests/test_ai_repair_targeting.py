@@ -104,12 +104,20 @@ class AiRepairTargetingTests(unittest.TestCase):
 
         self.assertEqual(
             {str(row["agreement_uuid"]) for row in candidates},
-            {"agreement-a", "agreement-b"},
+            {"agreement-b", "agreement-c"},
         )
         request_ids = {
             f"{row['page_uuid']}::full::{row['xml_version']}" for row in candidates
         }
-        self.assertEqual(request_ids, {"page-a1::full::5", "page-a2::full::5", "page-b1::full::3"})
+        self.assertEqual(
+            request_ids,
+            {
+                "page-b1::full::3",
+                "page-c1::full::8",
+                "page-c2::full::8",
+                "page-c3::full::8",
+            },
+        )
 
     def test_fetch_candidates_skips_previously_processed_requests(self) -> None:
         invalid_rows = [
@@ -250,6 +258,62 @@ class AiRepairTargetingTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 2)
         self.assertTrue(all(int(c["has_completed_requests"]) == 1 for c in candidates))
+
+    def test_fetch_candidates_prioritizes_pure_section_non_sequential_over_mixed_reason_agreements(self) -> None:
+        invalid_rows = [
+            {"agreement_uuid": "agreement-gap-only", "xml_version": 30, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-gap-only-1"},
+            {"agreement_uuid": "agreement-mixed", "xml_version": 31, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-mixed-1"},
+            {"agreement_uuid": "agreement-mixed", "xml_version": 31, "ai_repair_attempted": 0, "reason_code": "section_article_mismatch", "page_uuid": "page-mixed-2"},
+        ]
+        page_rows = [
+            {"page_uuid": "page-gap-only-1", "agreement_uuid": "agreement-gap-only", "page_order": 1, "text": "g1"},
+            {"page_uuid": "page-mixed-1", "agreement_uuid": "agreement-mixed", "page_order": 1, "text": "m1"},
+            {"page_uuid": "page-mixed-2", "agreement_uuid": "agreement-mixed", "page_order": 2, "text": "m2"},
+        ]
+        conn = _FakeConn(
+            invalid_rows,
+            existing_request_rows=[],
+            completed_request_rows=[],
+            page_rows=page_rows,
+        )
+
+        candidates = _fetch_candidates(cast(Connection, cast(object, conn)), "pdx", agreement_limit=1)
+
+        self.assertEqual({str(row["agreement_uuid"]) for row in candidates}, {"agreement-gap-only"})
+
+    def test_fetch_candidates_can_cap_selection_by_page_budget(self) -> None:
+        invalid_rows = [
+            {"agreement_uuid": "agreement-a", "xml_version": 40, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-a-1"},
+            {"agreement_uuid": "agreement-b", "xml_version": 41, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-b-1"},
+            {"agreement_uuid": "agreement-b", "xml_version": 41, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-b-2"},
+            {"agreement_uuid": "agreement-c", "xml_version": 42, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-c-1"},
+            {"agreement_uuid": "agreement-c", "xml_version": 42, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-c-2"},
+            {"agreement_uuid": "agreement-c", "xml_version": 42, "ai_repair_attempted": 0, "reason_code": "section_non_sequential", "page_uuid": "page-c-3"},
+        ]
+        page_rows = [
+            {"page_uuid": "page-a-1", "agreement_uuid": "agreement-a", "page_order": 1, "text": "a1"},
+            {"page_uuid": "page-b-1", "agreement_uuid": "agreement-b", "page_order": 1, "text": "b1"},
+            {"page_uuid": "page-b-2", "agreement_uuid": "agreement-b", "page_order": 2, "text": "b2"},
+            {"page_uuid": "page-c-1", "agreement_uuid": "agreement-c", "page_order": 1, "text": "c1"},
+            {"page_uuid": "page-c-2", "agreement_uuid": "agreement-c", "page_order": 2, "text": "c2"},
+            {"page_uuid": "page-c-3", "agreement_uuid": "agreement-c", "page_order": 3, "text": "c3"},
+        ]
+        conn = _FakeConn(
+            invalid_rows,
+            existing_request_rows=[],
+            completed_request_rows=[],
+            page_rows=page_rows,
+        )
+
+        candidates = _fetch_candidates(
+            cast(Connection, cast(object, conn)),
+            "pdx",
+            agreement_limit=None,
+            page_budget=3,
+        )
+
+        self.assertEqual({str(row["agreement_uuid"]) for row in candidates}, {"agreement-a", "agreement-b"})
+        self.assertEqual(len(candidates), 3)
 
     def test_full_page_span_validation_accepts_matching_non_overlapping_spans(self) -> None:
         source = "Section 1.01 text."

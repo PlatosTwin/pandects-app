@@ -86,6 +86,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
+    ai_repair_page_budget: int = 0  # when > 0, ai_repair_enqueue selects by page budget instead of agreement count
     ai_repair_attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     taxonomy_mode: TaxonomyMode = TaxonomyMode.LLM  # llm | ml | gold_backfill
@@ -289,6 +290,7 @@ def get_resources() -> dict[str, object]:
         "tagging_agreement_batch_size",
         "pre_processing_agreement_batch_size",
         "xml_agreement_batch_size",
+        "ai_repair_page_budget",
         "ai_repair_attempt_priority",
         "taxonomy_agreement_batch_size",
         "taxonomy_mode",
@@ -344,6 +346,9 @@ def get_resources() -> dict[str, object]:
     
     if "xml_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
+
+    if "ai_repair_page_budget" in yaml_config:
+        pipeline_config_kwargs["ai_repair_page_budget"] = int(yaml_config["ai_repair_page_budget"])
 
     if "ai_repair_attempt_priority" in yaml_config:
         priority_str = str(yaml_config["ai_repair_attempt_priority"]).lower()

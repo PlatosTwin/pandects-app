@@ -101,15 +101,18 @@ def _repair_model_for_candidate(
 def _fetch_candidates(
     conn: Connection,
     schema: str,
-    agreement_limit: int,
+    agreement_limit: int | None,
+    page_budget: int | None = None,
     attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
     exclude_in_flight: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Pull page-level AI-repair targets derived from invalid latest XML reasons.
     Targets come from xml_status_reasons.page_uuid rows and are ordered by
-    configured attempted/not-attempted priority, then by fewest unresolved
-    target pages.
+    configured attempted/not-attempted priority, then by whether the
+    agreement has only section_non_sequential reasons, then by fewest
+    unresolved target pages. When page_budget is set, selected agreements are
+    capped by total unresolved target pages instead of agreement count.
     """
     pages_table = f"{schema}.pages"
     ai_repair_requests_table = f"{schema}.ai_repair_requests"
@@ -136,11 +139,13 @@ def _fetch_candidates(
     xml_version_by_agreement: Dict[str, int] = {}
     ai_repair_attempted_by_agreement: Dict[str, int] = {}
     page_uuids_by_agreement: Dict[str, List[str]] = {}
+    reason_codes_by_agreement: Dict[str, set[str]] = {}
     request_ids: List[str] = []
 
     for row in invalid_rows:
         agreement_uuid = str(row["agreement_uuid"])
         xml_version = int(row["xml_version"])
+        reason_code = str(row["reason_code"])
         attempted_raw = row.get("ai_repair_attempted")
         attempted = int(attempted_raw or 0)
         if attempted not in (0, 1):
@@ -169,6 +174,7 @@ def _fetch_candidates(
             raise ValueError(
                 f"Inconsistent ai_repair_attempted values for agreement {agreement_uuid}: {payload_attempted} and {attempted}."
             )
+        reason_codes_by_agreement.setdefault(agreement_uuid, set()).add(reason_code)
 
         page_uuids = page_uuids_by_agreement.setdefault(agreement_uuid, [])
         if page_uuid in page_uuids:
@@ -212,10 +218,15 @@ def _fetch_candidates(
         ).scalars().all()
     )
 
-    unresolved_by_agreement: Dict[str, Tuple[int, int, int, List[str]]] = {}
+    unresolved_by_agreement: Dict[str, Tuple[int, int, int, int, List[str]]] = {}
     for agreement_uuid, page_uuids in page_uuids_by_agreement.items():
         attempted = int(ai_repair_attempted_by_agreement[agreement_uuid])
         xml_version = int(xml_version_by_agreement[agreement_uuid])
+        reason_codes = reason_codes_by_agreement.get(agreement_uuid, set())
+        section_non_sequential_only = int(
+            bool(reason_codes)
+            and reason_codes == {XML_REASON_SECTION_NON_SEQUENTIAL}
+        )
         has_completed_requests = any(
             _full_request_id(page_uuid, xml_version) in completed_request_ids
             for page_uuid in page_uuids
@@ -230,6 +241,7 @@ def _fetch_candidates(
             continue
         unresolved_by_agreement[agreement_uuid] = (
             attempted,
+            section_non_sequential_only,
             int(has_completed_requests),
             xml_version,
             unresolved_page_uuids,
@@ -245,12 +257,30 @@ def _fetch_candidates(
 
     ranked_agreements = sorted(
         unresolved_by_agreement.items(),
-        key=lambda item: (attempted_rank[item[1][0]], len(item[1][3]), item[0]),
-    )[:agreement_limit]
+        key=lambda item: (
+            attempted_rank[item[1][0]],
+            0 if item[1][1] == 1 else 1,
+            len(item[1][4]),
+            item[0],
+        ),
+    )
+    if page_budget is not None and page_budget > 0:
+        selected_ranked_agreements: List[Tuple[str, Tuple[int, int, int, int, List[str]]]] = []
+        selected_page_total = 0
+        for agreement_uuid, payload in ranked_agreements:
+            unresolved_page_count = len(payload[4])
+            if selected_page_total + unresolved_page_count > page_budget:
+                break
+            selected_ranked_agreements.append((agreement_uuid, payload))
+            selected_page_total += unresolved_page_count
+        ranked_agreements = selected_ranked_agreements
+    elif agreement_limit is not None:
+        ranked_agreements = ranked_agreements[:agreement_limit]
+
     selected_page_rows: List[Dict[str, Any]] = []
     page_uuid_to_target: Dict[str, Tuple[str, int, int, int]] = {}
     for agreement_uuid, payload in ranked_agreements:
-        attempted, has_completed_requests, xml_version, unresolved_page_uuids = payload
+        attempted, _section_non_sequential_only, has_completed_requests, xml_version, unresolved_page_uuids = payload
         for page_uuid in unresolved_page_uuids:
             page_uuid_to_target[page_uuid] = (
                 agreement_uuid,
@@ -539,6 +569,7 @@ def ai_repair_enqueue_asset(
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.xml_agreement_batch_size
+        page_budget = int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0)
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         if resume_openai_batches:
@@ -568,7 +599,8 @@ def ai_repair_enqueue_asset(
             candidates = _fetch_candidates(
                 conn,
                 db.database,
-                agreement_limit=batch_size,
+                agreement_limit=None if page_budget > 0 else batch_size,
+                page_budget=page_budget if page_budget > 0 else None,
                 attempt_priority=pipeline_config.ai_repair_attempt_priority,
             )
             if not candidates:
