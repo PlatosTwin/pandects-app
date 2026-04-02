@@ -45,6 +45,38 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
             "Wiggin & Dana",
         )
 
+    def test_canonicalization_merges_known_aliases_and_typos(self) -> None:
+        self.assertEqual(
+            format_counsel_display_name("JonesDay"),
+            "Jones Day",
+        )
+        self.assertEqual(
+            canonicalize_counsel_name("Skadden, Arps, Slate, Meager & Flom"),
+            canonicalize_counsel_name("Skadden, Arps, Slate, Meagher & Flom LLP & Affiliates"),
+        )
+        self.assertEqual(
+            format_counsel_display_name("McGuire Woods"),
+            "McGuireWoods",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Davis Polk & Wardwell London"),
+            "Davis Polk & Wardwell",
+        )
+
+    def test_split_counsel_names_handles_known_multi_firm_ampersand_entries(self) -> None:
+        self.assertEqual(
+            split_counsel_names("Davis Polk & Wardwell & Osler, Hoskin & Harcourt"),
+            ["Davis Polk & Wardwell", "Osler, Hoskin & Harcourt"],
+        )
+        self.assertEqual(
+            split_counsel_names("Meitar | Law Offices & Greenberg Traurig"),
+            ["Meitar | Law Offices", "Greenberg Traurig"],
+        )
+        self.assertEqual(
+            split_counsel_names("Sidley & Austin, Orrick, Herrington & Sutcliffe"),
+            ["Sidley Austin", "Orrick, Herrington & Sutcliffe"],
+        )
+
     def test_build_counsel_leaderboards_fully_attributes_multi_firm_entries(self) -> None:
         payload = build_counsel_leaderboards(
             [
