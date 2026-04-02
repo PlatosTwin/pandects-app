@@ -334,13 +334,66 @@ class MainRoutesTests(unittest.TestCase):
                     )
                 )
 
-    def _ensure_counsel_seed_rows(self) -> None:
+    def setUp(self) -> None:
+        self._restore_base_dataset()
+
+    def _restore_base_dataset(self) -> None:
         with self.app.app_context():
             engine = self.app_module.db.engine
             with engine.begin() as conn:
+                conn.execute(text("DELETE FROM tax_clause_assignments"))
+                conn.execute(text("DELETE FROM clauses"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l3"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l2"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l1"))
+                conn.execute(text("DELETE FROM latest_sections_search_standard_ids"))
+                conn.execute(text("DELETE FROM latest_sections_search"))
+                conn.execute(text("DELETE FROM sections"))
+                conn.execute(text("DELETE FROM agreement_counsel"))
+                conn.execute(text("DELETE FROM counsel"))
+                conn.execute(text("DELETE FROM xml"))
+                conn.execute(text("DELETE FROM agreements"))
                 conn.execute(
                     text(
-                        "INSERT OR IGNORE INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "target_counsel, acquirer_counsel, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, transaction_price_assets, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, purpose, target_pe, acquirer_pe) "
+                        "VALUES "
+                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
+                        "'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', "
+                        "'50000000', NULL, '50000000', NULL, 'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
+                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
+                        "'Wilson Sonsini Goodrich & Rosati Professional Corporation', 'Wiggin & Dana, LLP', "
+                        "'150000000', '150000000', NULL, NULL, 'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
+                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
+                        "'Wachtell, Lipton, Rosen & Katz', 'Skadden, Arps, Slate, Meagher & Flom LLP', "
+                        "'300000000', NULL, NULL, '300000000', 'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
+                        "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
+                        "'Sullivan & Cromwell LLP', 'Simpson Thacher & Bartlett LLP', "
+                        "'12000000000', NULL, '12000000000', NULL, 'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a1', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>STALE</text></section>"
+                        "</article></document>', 1, NULL, 0), "
+                        "('a1', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>HIDE</text></section>"
+                        "</article></document>', 2, NULL, 1), "
+                        "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified', 1), "
+                        "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000042\"><text>LATEST INVALID</text></section></article></document>', 2, 'invalid', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
                         "(1, 'Wilson Sonsini Goodrich & Rosati', 'wilson sonsini goodrich rosati'), "
                         "(2, 'Goodwin Procter', 'goodwin procter'), "
                         "(3, 'Wiggin & Dana', 'wiggin dana'), "
@@ -352,7 +405,7 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
-                        "INSERT OR IGNORE INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
                         "('a1', 'target', 1, 'Wilson Sonsini Goodrich & Rosati, P.C.', 1), "
                         "('a1', 'target', 2, 'Goodwin Procter LLP', 2), "
                         "('a1', 'acquirer', 1, 'Wiggin and Dana LLP', 3), "
@@ -364,6 +417,86 @@ class MainRoutesTests(unittest.TestCase):
                         "('a4', 'acquirer', 1, 'Simpson Thacher & Bartlett LLP', 7)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a1', '00000000-0000-0000-0000-000000000001', "
+                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]', 2), "
+                        "('a1', '00000000-0000-0000-0000-000000000002', "
+                        "'ARTICLE I', 'Old Section', '<section>STALE</section>', '[\"s-old\"]', 1), "
+                        "('a4', '00000000-0000-0000-0000-000000000041', "
+                        "'ARTICLE I', 'Old Verified Section', '<section>OLD VERIFIED</section>', '[\"s4-old\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_counsel, acquirer_counsel, target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target A', 'Acquirer A', '50000000', NULL, '50000000', NULL, 'cash', 'public', "
+                        "'public', 'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
+                    )
+                )
+                conn.execute(text("DROP TABLE IF EXISTS agreement_status_summary"))
+                conn.execute(text("DROP TABLE IF EXISTS agreement_overview_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l1 (standard_id, label) VALUES "
+                        "('tax_root', 'Tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l2 (standard_id, label, parent_id) VALUES "
+                        "('tax_operational', 'Operational Tax Matters', 'tax_root')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES "
+                        "('tax_transfer', 'Transfer Taxes', 'tax_operational'), "
+                        "('tax_treatment', 'Tax Treatment of the Transaction', 'tax_operational')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-a1-1', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 1, "
+                        "'(a)', 0, 55, 'Parent shall bear all transfer taxes.', 'enumerated_split', 'operative'"
+                        "), ("
+                        "'clause-a1-2', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 2, "
+                        "'(b)', 56, 120, 'Company and Parent intend the merger to qualify as tax-free.', 'enumerated_split', 'rep_warranty'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
+                        "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+            self.app_module._filter_options_cache["payload"] = None
+            self.app_module._filter_options_cache["ts"] = 0
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
@@ -881,7 +1014,6 @@ class MainRoutesTests(unittest.TestCase):
                 self.app_module._filter_options_cache["ts"] = 0
 
     def test_filter_options_include_counsel_lists(self):
-        self._ensure_counsel_seed_rows()
         self.app_module._filter_options_cache["payload"] = None
         self.app_module._filter_options_cache["ts"] = 0
         client = self.app.test_client()
@@ -909,7 +1041,6 @@ class MainRoutesTests(unittest.TestCase):
         )
 
     def test_counsel_leaderboards_aggregate_variants_and_multi_firm_entries(self):
-        self._ensure_counsel_seed_rows()
         client = self.app.test_client()
         res = client.get("/v1/counsel-leaderboards")
         self.assertEqual(res.status_code, 200)
