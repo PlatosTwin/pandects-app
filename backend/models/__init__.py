@@ -12,6 +12,8 @@ from backend.models.auth import (
 )
 from backend.models.main_db import (
     Agreements,
+    AgreementCounsel,
+    Counsel,
     LatestSectionsSearch,
     LatestSectionsSearchStandardId,
     NaicsSector,
@@ -35,6 +37,8 @@ __all__ = [
     "AuthUser",
     "LegalAcceptance",
     "Agreements",
+    "AgreementCounsel",
+    "Counsel",
     "LatestSectionsSearch",
     "LatestSectionsSearchStandardId",
     "NaicsSector",

@@ -52,6 +52,7 @@ from backend.schemas.auth import (
 )
 from backend.models.main_db import (
     Agreements,
+    AgreementCounsel,
     Counsel,
     LatestSectionsSearch,
     NaicsSector,
@@ -196,6 +197,8 @@ _AUTH_SCHEMA_EXPORTS = (
 class _FilterOptionsPayload(TypedDict):
     targets: list[str]
     acquirers: list[str]
+    target_counsels: list[str]
+    acquirer_counsels: list[str]
     target_industries: list[str]
     acquirer_industries: list[str]
 
@@ -624,6 +627,8 @@ def _pagination_metadata(
 def _build_sections_service_deps() -> SectionsServiceDeps:
     return SectionsServiceDeps(
         db=db,
+        AgreementCounsel=AgreementCounsel,
+        Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
         Sections=Sections,
         _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
@@ -1108,6 +1113,8 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     )
     agreements_deps = AgreementsDeps(
         Agreements=Agreements,
+        AgreementCounsel=AgreementCounsel,
+        Counsel=Counsel,
         Sections=Sections,
         XML=XML,
         _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,

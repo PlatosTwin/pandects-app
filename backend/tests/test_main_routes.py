@@ -137,13 +137,13 @@ class MainRoutesTests(unittest.TestCase):
                         "filing_company_cik, form_type, exhibit_type, target, acquirer, "
                         "transaction_price_total, transaction_price_stock, transaction_price_cash, "
                         "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
-                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "target_counsel, acquirer_counsel, target_industry, acquirer_industry, announce_date, close_date, deal_status, "
                         "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
                         "section_standard_ids, article_title, section_title"
                         ") VALUES ("
                         "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
                         "NULL, NULL, 'Target A', 'Acquirer A', '50000000', NULL, '50000000', NULL, 'cash', 'public', "
-                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'public', 'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
                         "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
                         ")"
                     )
@@ -366,6 +366,8 @@ class MainRoutesTests(unittest.TestCase):
             "&transaction_consideration=stock"
             "&target_type=private"
             "&acquirer_type=public"
+            "&target_counsel=Wilson%20Sonsini%20Goodrich%20%26%20Rosati"
+            "&acquirer_counsel=Wiggin%20%26%20Dana"
             "&target_industry=healthcare"
             "&acquirer_industry=tech"
             "&deal_status=pending"
@@ -388,6 +390,8 @@ class MainRoutesTests(unittest.TestCase):
             "&transaction_consideration=cash"
             "&target_type=public"
             "&acquirer_type=public"
+            "&target_counsel=Wilson%20Sonsini%20Goodrich%20%26%20Rosati"
+            "&acquirer_counsel=Wiggin%20%26%20Dana"
             "&target_industry=tech"
             "&acquirer_industry=tech"
             "&deal_status=complete"
@@ -756,8 +760,8 @@ class MainRoutesTests(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(
                     text(
-                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
-                        "VALUES ('a_gated_hidden', '2025-06-01', 'Target Hidden', 'Acquirer Hidden', 0, 1, 'http://example.com/a_gated_hidden')"
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url, target_counsel, acquirer_counsel) "
+                        "VALUES ('a_gated_hidden', '2025-06-01', 'Target Hidden', 'Acquirer Hidden', 0, 1, 'http://example.com/a_gated_hidden', 'Target Hidden Counsel LLP', 'Acquirer Hidden Counsel LLP')"
                     )
                 )
                 conn.execute(
@@ -793,6 +797,8 @@ class MainRoutesTests(unittest.TestCase):
             body = filters_res.get_json()
             self.assertNotIn("Target Hidden", body.get("targets", []))
             self.assertNotIn("Acquirer Hidden", body.get("acquirers", []))
+            self.assertNotIn("Target Hidden Counsel LLP", body.get("target_counsels", []))
+            self.assertNotIn("Acquirer Hidden Counsel LLP", body.get("acquirer_counsels", []))
         finally:
             with self.app.app_context():
                 engine = self.app_module.db.engine
@@ -802,6 +808,18 @@ class MainRoutesTests(unittest.TestCase):
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
                 self.app_module._filter_options_cache["payload"] = None
                 self.app_module._filter_options_cache["ts"] = 0
+
+    def test_filter_options_include_counsel_lists(self):
+        client = self.app.test_client()
+        res = client.get("/v1/filter-options")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIn(
+            "Wilson Sonsini Goodrich & Rosati",
+            body.get("target_counsels", []),
+        )
+        self.assertIn("Goodwin Procter", body.get("target_counsels", []))
+        self.assertIn("Wiggin & Dana", body.get("acquirer_counsels", []))
 
     def test_agreements_deal_types_summary(self):
         client = self.app.test_client()

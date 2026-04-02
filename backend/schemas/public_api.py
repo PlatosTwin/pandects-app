@@ -45,6 +45,8 @@ class AgreementsBulkArgsSchema(Schema):
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
+    target_counsel = fields.List(fields.Str(), load_default=[])
+    acquirer_counsel = fields.List(fields.Str(), load_default=[])
     target_industry = fields.List(fields.Str(), load_default=[])
     acquirer_industry = fields.List(fields.Str(), load_default=[])
     deal_status = fields.List(fields.Str(), load_default=[])
@@ -84,6 +86,8 @@ class AgreementsBulkArgsPayload(TypedDict):
     transaction_consideration: list[str]
     target_type: list[str]
     acquirer_type: list[str]
+    target_counsel: list[str]
+    acquirer_counsel: list[str]
     target_industry: list[str]
     acquirer_industry: list[str]
     deal_status: list[str]

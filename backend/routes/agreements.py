@@ -11,7 +11,10 @@ from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, func, or_, text
 
 from backend.counsel_leaderboards import build_counsel_leaderboards_from_assignments
-from backend.filtering import build_transaction_price_bucket_filter
+from backend.filtering import (
+    build_canonical_counsel_agreement_uuid_subquery,
+    build_transaction_price_bucket_filter,
+)
 from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -312,6 +315,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             transaction_considerations = parsed_args["transaction_consideration"]
             target_types = parsed_args["target_type"]
             acquirer_types = parsed_args["acquirer_type"]
+            target_counsels = parsed_args["target_counsel"]
+            acquirer_counsels = parsed_args["acquirer_counsel"]
             target_industries = parsed_args["target_industry"]
             acquirer_industries = parsed_args["acquirer_industry"]
             deal_statuses = parsed_args["deal_status"]
@@ -324,6 +329,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             section_uuid = parsed_args["section_uuid"]
 
             agreements = deps.Agreements
+            agreement_counsel = deps.AgreementCounsel
+            counsel = deps.Counsel
             xml = deps.XML
             sections = deps.Sections
             db = deps.db
@@ -411,6 +418,22 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 q = q.filter(agreements.target_type.in_(target_types))
             if acquirer_types:
                 q = q.filter(agreements.acquirer_type.in_(acquirer_types))
+            target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+                side="target",
+                canonical_names=target_counsels,
+                agreement_counsel=agreement_counsel,
+                counsel=counsel,
+            )
+            if target_counsel_subquery is not None:
+                q = q.filter(agreements.agreement_uuid.in_(target_counsel_subquery))
+            acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+                side="acquirer",
+                canonical_names=acquirer_counsels,
+                agreement_counsel=agreement_counsel,
+                counsel=counsel,
+            )
+            if acquirer_counsel_subquery is not None:
+                q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subquery))
             if target_industries:
                 q = q.filter(agreements.target_industry.in_(target_industries))
             if acquirer_industries:
@@ -1285,6 +1308,50 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 )
             ).fetchall()
         ]
+        target_counsels = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT c.canonical_name
+                    FROM {schema_prefix()}agreement_counsel ac
+                    JOIN {schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    WHERE ac.side = 'target'
+                      AND c.canonical_name IS NOT NULL
+                      AND c.canonical_name <> ''
+                      AND {_is_public_eligible}
+                      AND {_has_sections}
+                      AND {_xml_eligible}
+                    ORDER BY c.canonical_name
+                    """
+                )
+            ).fetchall()
+        ]
+        acquirer_counsels = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT c.canonical_name
+                    FROM {schema_prefix()}agreement_counsel ac
+                    JOIN {schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    WHERE ac.side = 'acquirer'
+                      AND c.canonical_name IS NOT NULL
+                      AND c.canonical_name <> ''
+                      AND {_is_public_eligible}
+                      AND {_has_sections}
+                      AND {_xml_eligible}
+                    ORDER BY c.canonical_name
+                    """
+                )
+            ).fetchall()
+        ]
         target_industries = [
             cast(str, row[0])
             for row in db.session.execute(
@@ -1323,6 +1390,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         payload = {
             "targets": targets,
             "acquirers": acquirers,
+            "target_counsels": target_counsels,
+            "acquirer_counsels": acquirer_counsels,
             "target_industries": target_industries,
             "acquirer_industries": acquirer_industries,
         }

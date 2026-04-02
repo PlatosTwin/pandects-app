@@ -38,6 +38,8 @@ export const pluralizeLabel = (label: string): string => {
     "Transaction Consideration": "types",
     "Target Type": "types",
     "Acquirer Type": "types",
+    "Target Counsel": "firms",
+    "Acquirer Counsel": "firms",
     "Target Industry": "industries",
     "Acquirer Industry": "industries",
     "Deal Status": "statuses",

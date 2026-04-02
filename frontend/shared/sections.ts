@@ -13,6 +13,8 @@ export interface SearchFilters {
   transaction_consideration?: string[];
   target_type?: string[];
   acquirer_type?: string[];
+  target_counsel?: string[];
+  acquirer_counsel?: string[];
   target_industry?: string[];
   acquirer_industry?: string[];
   deal_status?: string[];
@@ -66,6 +68,8 @@ export interface SearchResponse {
 export interface FilterOptionsResponse {
   targets: string[];
   acquirers: string[];
+  target_counsels: string[];
+  acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
 }

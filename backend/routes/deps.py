@@ -167,6 +167,8 @@ class VerifyTurnstileTokenProtocol(Protocol):
 @dataclass(frozen=True)
 class SectionsServiceDeps:
     db: Any
+    AgreementCounsel: Any
+    Counsel: Any
     LatestSectionsSearch: Any
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
@@ -191,6 +193,8 @@ class SectionsDeps:
 @dataclass(frozen=True)
 class AgreementsDeps:
     Agreements: Any
+    AgreementCounsel: Any
+    Counsel: Any
     Sections: Any
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int

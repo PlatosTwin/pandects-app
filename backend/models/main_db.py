@@ -305,6 +305,8 @@ else:
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
+        Column("target_counsel", TEXT, nullable=True),
+        Column("acquirer_counsel", TEXT, nullable=True),
         Column("target_industry", TEXT, nullable=True),
         Column("acquirer_industry", TEXT, nullable=True),
         Column("announce_date", TEXT, nullable=True),
@@ -382,6 +384,8 @@ class Agreements(db.Model):
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]
+    target_counsel: ClassVar[Mapped[str | None]]
+    acquirer_counsel: ClassVar[Mapped[str | None]]
     target_industry: ClassVar[Mapped[str | None]]
     acquirer_industry: ClassVar[Mapped[str | None]]
     announce_date: ClassVar[Mapped[str | None]]

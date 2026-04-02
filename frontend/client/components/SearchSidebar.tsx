@@ -34,6 +34,8 @@ interface SearchSidebarProps {
     transaction_consideration?: string[];
     target_type?: string[];
     acquirer_type?: string[];
+    target_counsel?: string[];
+    acquirer_counsel?: string[];
     target_industry?: string[];
     acquirer_industry?: string[];
     deal_status?: string[];
@@ -48,6 +50,8 @@ interface SearchSidebarProps {
   years: string[];
   targets: string[];
   acquirers: string[];
+  target_counsels: string[];
+  acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
   clauseTypesNested: ClauseTypeTree;
@@ -68,6 +72,8 @@ export function SearchSidebar({
   years,
   targets,
   acquirers,
+  target_counsels,
+  acquirer_counsels,
   target_industries,
   acquirer_industries,
   clauseTypesNested,
@@ -287,6 +293,28 @@ export function SearchSidebar({
           onToggle={(value) => onToggleFilterValue("acquirer_type", value)}
           hideSearch={true}
           formatValues={true}
+        />
+      </div>
+
+      {/* Target Counsel Filter */}
+      <div>
+        <CheckboxFilter
+          label="Target Counsel"
+          options={target_counsels}
+          selectedValues={filters.target_counsel || []}
+          onToggle={(value) => onToggleFilterValue("target_counsel", value)}
+          hideSearch={false}
+        />
+      </div>
+
+      {/* Acquirer Counsel Filter */}
+      <div>
+        <CheckboxFilter
+          label="Acquirer Counsel"
+          options={acquirer_counsels}
+          selectedValues={filters.acquirer_counsel || []}
+          onToggle={(value) => onToggleFilterValue("acquirer_counsel", value)}
+          hideSearch={false}
         />
       </div>
 

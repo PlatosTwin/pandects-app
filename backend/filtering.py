@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from sqlalchemy import Float, and_, cast as sql_cast, or_
+from sqlalchemy import Float, and_, cast as sql_cast, or_, select
 from sqlalchemy.sql.elements import ColumnElement
 
 
@@ -43,3 +43,25 @@ def build_transaction_price_bucket_filter(
         return None
 
     return or_(*predicates)
+
+
+def build_canonical_counsel_agreement_uuid_subquery(
+    *,
+    side: str,
+    canonical_names: Iterable[str],
+    agreement_counsel: Any,
+    counsel: Any,
+) -> Any | None:
+    selected_names = [value for value in canonical_names if value]
+    if not selected_names:
+        return None
+
+    return (
+        select(agreement_counsel.agreement_uuid)
+        .join(counsel, counsel.counsel_id == agreement_counsel.counsel_id)
+        .where(
+            agreement_counsel.side == side,
+            counsel.canonical_name.in_(selected_names),
+        )
+        .distinct()
+    )

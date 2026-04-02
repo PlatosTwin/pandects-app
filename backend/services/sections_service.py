@@ -5,7 +5,10 @@ from typing import Protocol, cast
 from sqlalchemy import text, and_, or_, asc, desc
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.filtering import build_transaction_price_bucket_filter
+from backend.filtering import (
+    build_canonical_counsel_agreement_uuid_subquery,
+    build_transaction_price_bucket_filter,
+)
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.schemas.sections import SectionsArgsPayload
 
@@ -138,6 +141,8 @@ def run_sections(
     parsed_args: SectionsArgsPayload,
 ) -> dict[str, object]:
     db = deps.db
+    agreement_counsel = deps.AgreementCounsel
+    counsel = deps.Counsel
     latest = deps.LatestSectionsSearch
     sections = deps.Sections
     row_mapping_as_dict = deps._row_mapping_as_dict
@@ -159,6 +164,8 @@ def run_sections(
     transaction_considerations = parsed_args["transaction_consideration"]
     target_types = parsed_args["target_type"]
     acquirer_types = parsed_args["acquirer_type"]
+    target_counsels = parsed_args["target_counsel"]
+    acquirer_counsels = parsed_args["acquirer_counsel"]
     target_industries = parsed_args["target_industry"]
     acquirer_industries = parsed_args["acquirer_industry"]
     deal_statuses = parsed_args["deal_status"]
@@ -236,6 +243,22 @@ def run_sections(
         q = q.filter(latest.transaction_consideration.in_(transaction_considerations))
     if acquirer_types:
         q = q.filter(latest.acquirer_type.in_(acquirer_types))
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=target_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(target_counsel_subquery))
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=acquirer_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(acquirer_counsel_subquery))
     if target_industries:
         q = q.filter(latest.target_industry.in_(target_industries))
     if acquirer_industries:

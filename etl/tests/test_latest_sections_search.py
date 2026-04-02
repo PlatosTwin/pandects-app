@@ -34,6 +34,8 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
                 transaction_consideration TEXT,
                 target_type TEXT,
                 acquirer_type TEXT,
+                target_counsel TEXT,
+                acquirer_counsel TEXT,
                 target_industry TEXT,
                 acquirer_industry TEXT,
                 announce_date TEXT,
@@ -98,6 +100,8 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
                 transaction_consideration TEXT,
                 target_type TEXT,
                 acquirer_type TEXT,
+                target_counsel TEXT,
+                acquirer_counsel TEXT,
                 target_industry TEXT,
                 acquirer_industry TEXT,
                 announce_date TEXT,
@@ -134,12 +138,13 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
                 """
             INSERT INTO agreements (
                 agreement_uuid, filing_date, target, acquirer, transaction_consideration,
-                target_type, acquirer_type, target_industry, acquirer_industry,
+                target_type, acquirer_type, target_counsel, acquirer_counsel,
+                target_industry, acquirer_industry,
                 deal_status, attitude, deal_type, purpose, target_pe, acquirer_pe,
                 verified, url
             ) VALUES (
                 'a1', '2020-01-01', 'Target A', 'Acquirer A', 'cash',
-                'public', 'public', 'tech', 'tech',
+                'public', 'public', 'Target Counsel LLP', 'Acquirer Counsel LLP', 'tech', 'tech',
                 'complete', 'friendly', 'merger', 'strategic', 0, 0,
                 1, 'http://example.com/a1'
             )

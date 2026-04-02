@@ -85,6 +85,18 @@ export const buildSearchParams = (
     );
   }
 
+  if (searchFilters.target_counsel && searchFilters.target_counsel.length > 0) {
+    searchFilters.target_counsel.forEach((counsel) =>
+      params.append("target_counsel", counsel),
+    );
+  }
+
+  if (searchFilters.acquirer_counsel && searchFilters.acquirer_counsel.length > 0) {
+    searchFilters.acquirer_counsel.forEach((counsel) =>
+      params.append("acquirer_counsel", counsel),
+    );
+  }
+
   if (searchFilters.target_industry && searchFilters.target_industry.length > 0) {
     searchFilters.target_industry.forEach((industry) =>
       params.append("target_industry", industry),

@@ -223,6 +223,8 @@ export default function Search() {
   const {
     targets,
     acquirers,
+    target_counsels,
+    acquirer_counsels,
     target_industries,
     acquirer_industries,
     isLoading: isLoadingFilterOptions,
@@ -384,6 +386,8 @@ export default function Search() {
               years={years}
               targets={targets}
               acquirers={acquirers}
+              target_counsels={target_counsels}
+              acquirer_counsels={acquirer_counsels}
               target_industries={target_industries}
               acquirer_industries={acquirer_industries}
               clauseTypesNested={clauseTypesNested}
@@ -441,6 +445,8 @@ export default function Search() {
                         years={years}
                         targets={targets}
                         acquirers={acquirers}
+                        target_counsels={target_counsels}
+                        acquirer_counsels={acquirer_counsels}
                         target_industries={target_industries}
                         acquirer_industries={acquirer_industries}
                         clauseTypesNested={clauseTypesNested}
