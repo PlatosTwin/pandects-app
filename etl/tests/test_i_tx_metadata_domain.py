@@ -6,9 +6,11 @@ from typing import cast
 
 from etl.domain.i_tx_metadata import (
     build_tx_metadata_request_body_web_search_only,
+    build_web_search_retry_context,
     build_tx_metadata_update_params_web_search_only,
     build_web_search_runtime_metadata,
     json_schema_transaction_metadata_web_search_only,
+    merge_retry_web_search_response,
     parse_tx_metadata_response_text_web_search,
 )
 
@@ -61,6 +63,58 @@ class TxMetadataDomainTests(unittest.TestCase):
 
     def _usage(self) -> dict[str, int]:
         return {"input_tokens": 111, "output_tokens": 22, "total_tokens": 133}
+
+    def _requeue_agreement_row(self, **overrides: object) -> dict[str, object]:
+        row: dict[str, object] = {
+            "agreement_uuid": "agreement-1",
+            "target": "Target A",
+            "acquirer": "Acquirer A",
+            "filing_date": "2024-01-01",
+            "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
+            "transaction_consideration": "cash",
+            "transaction_price_cash": 100.0,
+            "transaction_price_stock": None,
+            "transaction_price_assets": None,
+            "transaction_price_total": 100.0,
+            "target_type": "public",
+            "acquirer_type": "private",
+            "target_pe": None,
+            "acquirer_pe": True,
+            "target_industry": "311",
+            "acquirer_industry": "52",
+            "announce_date": "2024-01-01",
+            "close_date": None,
+            "deal_status": "complete",
+            "attitude": "friendly",
+            "purpose": "strategic",
+            "metadata_sources": json.dumps(
+                {
+                    "metadata_sources": {
+                        "citations": [
+                            self._citation("consideration_type"),
+                            self._citation("purchase_price.cash"),
+                            self._citation("target_public"),
+                            self._citation("acquirer_public"),
+                            self._citation("acquirer_pe"),
+                            self._citation("target_industry"),
+                            self._citation("acquirer_industry"),
+                            self._citation("announce_date"),
+                            self._citation("deal_status"),
+                            self._citation("attitude"),
+                            self._citation("purpose"),
+                        ],
+                        "notes": "Existing trusted metadata.",
+                    },
+                    "metadata_run_stats": {"token_usage": self._usage(), "search_count": 1},
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "metadata_uncited_fields": json.dumps(["close_date"], ensure_ascii=False, separators=(",", ":")),
+            "initial_metadata_pass": 0,
+        }
+        row.update(overrides)
+        return row
 
     def test_schema_web_search_only_excludes_deal_type(self) -> None:
         schema = json_schema_transaction_metadata_web_search_only()
@@ -218,6 +272,177 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertIn("acquirer: Acquirer A", input_text)
         self.assertIn("sec_filing_date: 2024-01-01", input_text)
         self.assertNotIn("target:", input_text)
+
+    def test_build_web_search_retry_context_targets_close_date_and_deal_status(self) -> None:
+        retry_context = build_web_search_retry_context(self._requeue_agreement_row())
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["focus_fields"], ["close_date", "deal_status"])
+        self.assertEqual(retry_context["known_values"]["consideration_type"], "all_cash")
+        self.assertEqual(retry_context["known_values"]["target_public"], True)
+
+    def test_build_web_search_retry_context_targets_cash_price_not_stock_for_cash_deal(self) -> None:
+        retry_context = build_web_search_retry_context(
+            self._requeue_agreement_row(
+                transaction_price_cash=None,
+                transaction_price_total=None,
+                metadata_uncited_fields="[]",
+            )
+        )
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["focus_fields"], ["purchase_price.cash", "close_date", "deal_status"])
+
+    def test_build_web_search_retry_context_accepts_date_objects_from_db(self) -> None:
+        retry_context = build_web_search_retry_context(
+            self._requeue_agreement_row(
+                announce_date=date(2024, 1, 1),
+                close_date=date(2024, 2, 1),
+                metadata_uncited_fields="[]",
+            )
+        )
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["known_values"]["announce_date"], "2024-01-01")
+        self.assertEqual(retry_context["known_values"]["close_date"], "2024-02-01")
+
+    def test_build_web_search_retry_context_accepts_legacy_flat_metadata_sources_shape(self) -> None:
+        retry_context = build_web_search_retry_context(
+            self._requeue_agreement_row(
+                metadata_sources=json.dumps(
+                    {
+                        "citations": [
+                            self._citation("consideration_type"),
+                            self._citation("purchase_price.cash"),
+                            self._citation("target_public"),
+                        ],
+                        "notes": "Legacy flat metadata_sources payload.",
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+            )
+        )
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["known_values"]["consideration_type"], "all_cash")
+
+    def test_build_web_search_retry_context_tolerates_invalid_metadata_sources_json(self) -> None:
+        retry_context = build_web_search_retry_context(
+            self._requeue_agreement_row(
+                metadata_sources="{not valid json",
+            )
+        )
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["known_values"]["consideration_type"], "all_cash")
+
+    def test_build_tx_metadata_request_body_web_search_only_includes_retry_focus_and_locked_fields(self) -> None:
+        retry_context = build_web_search_retry_context(self._requeue_agreement_row())
+        request_body = build_tx_metadata_request_body_web_search_only(
+            self._requeue_agreement_row(),
+            model="gpt-5.1",
+            retry_context=retry_context,
+        )
+
+        instructions = request_body.get("instructions")
+        self.assertIsInstance(instructions, str)
+        assert isinstance(instructions, str)
+        self.assertIn("Treat the listed known trusted metadata as locked context", instructions)
+        self.assertIn("stronger contradictory evidence", instructions)
+
+        input_text = request_body.get("input")
+        self.assertIsInstance(input_text, str)
+        assert isinstance(input_text, str)
+        self.assertIn("focus_fields: close_date, deal_status", input_text)
+        self.assertIn("known_trusted_metadata:", input_text)
+        self.assertIn("consideration_type: all_cash", input_text)
+        self.assertIn("target_public: true", input_text)
+
+    def test_merge_retry_web_search_response_preserves_locked_fields_on_null_retry(self) -> None:
+        agreement = self._requeue_agreement_row()
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["target_public"] = None
+        retry_payload["acquirer_public"] = None
+        retry_payload["purchase_price"] = {"cash": None, "stock": None, "assets": None}
+        retry_payload["metadata_sources"] = {
+            "citations": [
+                self._citation("close_date"),
+                self._citation("deal_status"),
+            ],
+            "notes": "Retry only found timeline evidence.",
+        }
+
+        merged = merge_retry_web_search_response(
+            agreement=agreement,
+            tx_metadata_obj=retry_payload,
+        )
+
+        self.assertEqual(merged["target_public"], True)
+        self.assertEqual(merged["acquirer_public"], False)
+        self.assertEqual(merged["purchase_price"]["cash"], 100.0)
+        merged_fields = {
+            citation["field"]
+            for citation in cast(list[dict[str, object]], cast(dict[str, object], merged["metadata_sources"])["citations"])
+            if isinstance(citation.get("field"), str)
+        }
+        self.assertIn("target_public", merged_fields)
+        self.assertIn("purchase_price.cash", merged_fields)
+
+    def test_merge_retry_web_search_response_accepts_cited_revision_for_locked_field(self) -> None:
+        agreement = self._requeue_agreement_row()
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["target_public"] = False
+        retry_payload["metadata_sources"] = {
+            "citations": [
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
+            ],
+            "notes": "Found stronger contradictory evidence on target listing status.",
+        }
+
+        merged = merge_retry_web_search_response(
+            agreement=agreement,
+            tx_metadata_obj=retry_payload,
+        )
+
+        self.assertEqual(merged["target_public"], False)
+
+    def test_merge_retry_web_search_response_dedupes_preserved_citations(self) -> None:
+        agreement = self._requeue_agreement_row()
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["target_public"] = None
+        retry_payload["metadata_sources"] = {
+            "citations": [
+                self._citation("target_public"),
+                self._citation("close_date"),
+                self._citation("deal_status"),
+            ],
+            "notes": "Retry only found timeline evidence.",
+        }
+
+        merged = merge_retry_web_search_response(
+            agreement=agreement,
+            tx_metadata_obj=retry_payload,
+        )
+
+        merged_citations = cast(list[dict[str, object]], cast(dict[str, object], merged["metadata_sources"])["citations"])
+        target_public_citations = [
+            citation
+            for citation in merged_citations
+            if citation.get("field") == "target_public"
+        ]
+        self.assertEqual(len(target_public_citations), 1)
 
     def test_build_update_params_web_search_only_requires_citation_coverage_for_non_null_fields(self) -> None:
         payload = self._valid_web_search_obj()

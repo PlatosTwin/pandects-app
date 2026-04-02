@@ -38,10 +38,12 @@ from etl.domain.i_tx_metadata import (
     build_offline_counsel_request_body,
     build_offline_counsel_update_params,
     build_offline_tx_metadata_request_body,
+    build_web_search_retry_context,
     build_offline_update_params,
     build_tx_metadata_request_body_web_search_only,
     parse_offline_counsel_response_text,
     build_tx_metadata_update_params_web_search_only,
+    merge_retry_web_search_response,
     parse_offline_tx_metadata_response_text,
     parse_tx_metadata_response_text_web_search,
 )
@@ -126,7 +128,7 @@ def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:
 
 
 def _web_search_model_for_agreement(agreement_row: Dict[str, Any]) -> str:
-    if int(agreement_row.get("initial_metadata_pass") or 0) == 1:
+    if int(agreement_row.get("initial_metadata_pass", 1) or 0) == 1:
         return "gpt-5-mini"
     return "gpt-5.1"
 
@@ -332,7 +334,7 @@ def _persist_web_search_successes(
     engine: Any,
     schema: str,
     update_web_q: Any,
-    successes: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]],
+    successes: list[tuple[Dict[str, Any], Dict[str, Any], Any, str, Dict[str, int], int]],
     failed_uuid_by_stage: Dict[str, List[str]],
     token_totals: Dict[str, int],
     refreshed_uuids: list[str],
@@ -340,11 +342,16 @@ def _persist_web_search_successes(
     updated = 0
     validation_failures = 0
     refreshed = 0
-    for uuid, obj, filing_date, raw_payload, response_usage, search_count in successes:
+    for agreement_row, obj, filing_date, raw_payload, response_usage, search_count in successes:
+        uuid = str(agreement_row["agreement_uuid"])
         try:
+            merged_obj = merge_retry_web_search_response(
+                agreement=agreement_row,
+                tx_metadata_obj=obj,
+            )
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid,
-                tx_metadata_obj=obj,
+                tx_metadata_obj=merged_obj,
                 response_usage=response_usage,
                 search_count=search_count,
                 filing_date=filing_date,
@@ -1394,6 +1401,24 @@ def _run_web_search_mode(
             a.acquirer,
             a.filing_date,
             a.url,
+            a.transaction_consideration,
+            a.transaction_price_cash,
+            a.transaction_price_stock,
+            a.transaction_price_assets,
+            a.transaction_price_total,
+            a.target_type,
+            a.acquirer_type,
+            a.target_pe,
+            a.acquirer_pe,
+            a.target_industry,
+            a.acquirer_industry,
+            a.announce_date,
+            a.close_date,
+            a.deal_status,
+            a.attitude,
+            a.purpose,
+            a.metadata_sources,
+            a.metadata_uncited_fields,
             COALESCE(wf.failure_count, 0) AS failure_count,
             CASE WHEN COALESCE(a.metadata, 0) = 0 THEN 1 ELSE 0 END AS initial_metadata_pass
         FROM {agreements_table} a
@@ -1451,7 +1476,17 @@ def _run_web_search_mode(
         max_attempts: int = 3,
     ) -> tuple[Dict[str, Any], str, Dict[str, int], int]:
         agr_uuid_local = str(agreement_row["agreement_uuid"])
-        body = build_tx_metadata_request_body_web_search_only(agreement_row, model=model_name)
+        try:
+            body = build_tx_metadata_request_body_web_search_only(
+                agreement_row,
+                model=model_name,
+                retry_context=build_web_search_retry_context(agreement_row),
+            )
+        except Exception as exc:
+            raise _WebSearchRequestError(
+                f"failed to build web-search request: {exc}",
+                raw_payload=None,
+            ) from exc
         last_error: Exception | None = None
         last_raw_payload: str | None = None
         for attempt in range(1, max_attempts + 1):
@@ -1569,7 +1604,7 @@ def _run_web_search_mode(
     for model_name, queued_agreements in agreement_groups:
         group_start_chunk = completed_chunk_count
         next_agreement_index = 0
-        completed_success_buffer: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]] = []
+        completed_success_buffer: list[tuple[Dict[str, Any], Dict[str, Any], Any, str, Dict[str, int], int]] = []
         active_futures: Dict[Future[tuple[Dict[str, Any], str, Dict[str, int], int]], Dict[str, Any]] = {}
 
         def _submit_available_work(executor: ThreadPoolExecutor) -> None:
@@ -1613,7 +1648,7 @@ def _run_web_search_mode(
                         obj, raw_payload, response_usage, search_count = future.result()
                         completed_success_buffer.append(
                             (
-                                agr_uuid,
+                                agreement,
                                 obj,
                                 agreement.get("filing_date"),
                                 raw_payload,

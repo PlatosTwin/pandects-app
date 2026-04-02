@@ -243,9 +243,11 @@ class _FakeResponsesClient:
         self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         self._search_count = search_count
         self.models: list[object] = []
+        self.inputs: list[object] = []
 
     def create(self, **_kwargs: object) -> object:
         self.models.append(_kwargs.get("model"))
+        self.inputs.append(_kwargs.get("input"))
         return SimpleNamespace(
             output_text=self._response_text,
             usage=self._usage,
@@ -265,10 +267,12 @@ class _RoutingResponsesClient:
         self._usage = usage or {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         self._search_count = search_count
         self.models: list[object] = []
+        self.inputs: list[object] = []
 
     def create(self, **kwargs: object) -> object:
         self.models.append(kwargs.get("model"))
         input_text = kwargs.get("input")
+        self.inputs.append(input_text)
         if not isinstance(input_text, str):
             raise TypeError("input must be a string in fake client.")
         for fragment, response in self._responses_by_input_fragment.items():
@@ -358,16 +362,58 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         failure_count: int = 0,
         initial_metadata_pass: int = 1,
         url: str | None = None,
+        **overrides: object,
     ) -> dict[str, object]:
-        return {
+        row: dict[str, object] = {
             "agreement_uuid": agreement_uuid,
             "target": f"Target {agreement_uuid}",
             "acquirer": f"Acquirer {agreement_uuid}",
             "filing_date": date.today().isoformat(),
             "url": url or f"https://www.sec.gov/Archives/edgar/data/{agreement_uuid}.htm",
+            "transaction_consideration": "cash" if initial_metadata_pass == 0 else None,
+            "transaction_price_cash": 100.0 if initial_metadata_pass == 0 else None,
+            "transaction_price_stock": None,
+            "transaction_price_assets": None,
+            "transaction_price_total": 100.0 if initial_metadata_pass == 0 else None,
+            "target_type": "public" if initial_metadata_pass == 0 else None,
+            "acquirer_type": "private" if initial_metadata_pass == 0 else None,
+            "target_pe": None,
+            "acquirer_pe": None,
+            "target_industry": "311" if initial_metadata_pass == 0 else None,
+            "acquirer_industry": "52" if initial_metadata_pass == 0 else None,
+            "announce_date": "2024-01-01" if initial_metadata_pass == 0 else None,
+            "close_date": None,
+            "deal_status": "complete" if initial_metadata_pass == 0 else None,
+            "attitude": "friendly" if initial_metadata_pass == 0 else None,
+            "purpose": "strategic" if initial_metadata_pass == 0 else None,
+            "metadata_sources": json.dumps(
+                {
+                    "metadata_sources": {
+                        "citations": [
+                            self._citation("consideration_type"),
+                            self._citation("purchase_price.cash"),
+                            self._citation("target_public"),
+                            self._citation("acquirer_public"),
+                            self._citation("target_industry"),
+                            self._citation("acquirer_industry"),
+                            self._citation("announce_date"),
+                            self._citation("deal_status"),
+                            self._citation("attitude"),
+                            self._citation("purpose"),
+                        ] if initial_metadata_pass == 0 else [],
+                        "notes": None,
+                    },
+                    "metadata_run_stats": {"token_usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}, "search_count": 1},
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ) if initial_metadata_pass == 0 else None,
+            "metadata_uncited_fields": json.dumps(["close_date"], ensure_ascii=False, separators=(",", ":")) if initial_metadata_pass == 0 else None,
             "failure_count": failure_count,
             "initial_metadata_pass": initial_metadata_pass,
         }
+        row.update(overrides)
+        return row
 
     def _valid_web_search_payload(self) -> str:
         return json.dumps(
@@ -939,6 +985,119 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         )
         self.assertTrue(
             any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5.1" for call in fake_log.info_calls)
+        )
+
+    def test_run_web_search_mode_targets_retry_prompt_to_unresolved_fields(self) -> None:
+        conn = _FakeWebConn(
+            select_rows=[
+                self._agreement_row("agreement-requeue", initial_metadata_pass=0),
+            ]
+        )
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        client = _FakeWebClient(response_text=self._valid_web_search_payload())
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=client),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=1,
+            )
+
+        self.assertEqual(client.responses.models, ["gpt-5.1"])
+        self.assertEqual(len(client.responses.inputs), 1)
+        retry_input = cast(str, client.responses.inputs[0])
+        self.assertIn("focus_fields: close_date, deal_status", retry_input)
+        self.assertIn("known_trusted_metadata:", retry_input)
+        self.assertIn("consideration_type: all_cash", retry_input)
+
+    def test_run_web_search_mode_preserves_locked_fields_when_retry_returns_nulls(self) -> None:
+        conn = _FakeWebConn(
+            select_rows=[
+                self._agreement_row("agreement-requeue", initial_metadata_pass=0),
+            ]
+        )
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        retry_payload = json.dumps(
+            {
+                "consideration_type": "all_cash",
+                "purchase_price": {"cash": None, "stock": None, "assets": None},
+                "target_public": None,
+                "acquirer_public": None,
+                "target_pe": None,
+                "acquirer_pe": None,
+                "target_industry": None,
+                "acquirer_industry": None,
+                "announce_date": "2024-01-01",
+                "close_date": "2024-02-01",
+                "deal_status": "complete",
+                "attitude": None,
+                "purpose": None,
+                "metadata_sources": {
+                    "citations": [
+                        self._citation("close_date"),
+                        self._citation("deal_status"),
+                    ],
+                    "notes": "Retry focused on completion date only.",
+                },
+            }
+        )
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset._oai_client", return_value=_FakeWebClient(response_text=retry_payload)),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=1,
+            )
+
+        assert conn.last_update_params is not None
+        self.assertEqual(conn.last_update_params["price_cash"], 100.0)
+        self.assertEqual(conn.last_update_params["target_type"], "public")
+        self.assertEqual(conn.last_update_params["acquirer_type"], "private")
+        self.assertEqual(conn.last_update_params["close_date"], "2024-02-01")
+
+    def test_run_web_search_mode_records_retry_context_build_failure_without_crashing_run(self) -> None:
+        conn = _FakeWebConn(
+            select_rows=[
+                self._agreement_row(
+                    "agreement-bad-requeue",
+                    initial_metadata_pass=0,
+                    metadata_uncited_fields={"bad": "shape"},
+                ),
+            ]
+        )
+        engine = _FakeWebEngine(conn)
+        fake_log = _FakeLog()
+        context = SimpleNamespace(log=fake_log)
+
+        with patch(
+            "etl.defs.i_tx_metadata_asset._oai_client",
+            return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+        ):
+            summary = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=1,
+            )
+
+        self.assertEqual(conn.update_calls, 0)
+        self.assertEqual(conn.failure_upserts, 1)
+        self.assertEqual(summary["total_searches"], 0)
+        self.assertTrue(
+            any("failed for agreement-bad-requeue" in str(call[0]) for call in fake_log.warning_calls)
         )
 
     def test_run_web_search_mode_raises_on_database_update_error(self) -> None:

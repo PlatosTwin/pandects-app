@@ -48,6 +48,23 @@ NON_CORE_CITATION_OPTIONAL_FIELDS = (
 )
 
 TOKEN_USAGE_REQUIRED_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
+RETRY_FOCUS_FIELD_ORDER = (
+    "consideration_type",
+    "purchase_price.cash",
+    "purchase_price.stock",
+    "purchase_price.assets",
+    "target_public",
+    "acquirer_public",
+    "announce_date",
+    "close_date",
+    "deal_status",
+    "target_pe",
+    "acquirer_pe",
+    "target_industry",
+    "acquirer_industry",
+    "attitude",
+    "purpose",
+)
 
 
 def json_schema_transaction_metadata() -> Dict[str, Any]:
@@ -229,6 +246,15 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "If you couldn't find a field, do not guess; say why briefly in `metadata_sources.notes`."
 )
 
+TX_METADATA_RETRY_INSTRUCTIONS_WEB_SEARCH = (
+    "This is a retry for partially-complete metadata. "
+    "Prioritize the explicitly listed focus fields first. "
+    "Treat the listed known trusted metadata as locked context and do not spend search budget re-finding it. "
+    "If you find stronger contradictory evidence for a locked field, you may revise it, but only if you cite that stronger evidence. "
+    "If you do not find stronger contradictory evidence, echo the locked value back unchanged in the JSON output. "
+    "Do not return null for a locked field unless you have stronger evidence that the prior value is wrong and you explain that in notes."
+)
+
 
 def _filing_date_to_str(filing_date: Any) -> str:
     if filing_date is None:
@@ -240,8 +266,234 @@ def _filing_date_to_str(filing_date: Any) -> str:
     raise TypeError(f"Unexpected filing_date type: {type(filing_date).__name__}")
 
 
+def _db_consideration_to_prompt(value: object | None) -> Optional[str]:
+    if value is None:
+        return None
+    if value == "cash":
+        return "all_cash"
+    if value == "stock":
+        return "all_stock"
+    if value == "mixed":
+        return "mixed"
+    raise TypeError(f"Unexpected stored consideration value: {value!r}")
+
+
+def _db_type_to_public_flag(value: object | None) -> Optional[bool]:
+    if value is None:
+        return None
+    if value == "public":
+        return True
+    if value == "private":
+        return False
+    raise TypeError(f"Unexpected stored entity type: {value!r}")
+
+
+def _string_or_none(value: object | None) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if not isinstance(value, str):
+        raise TypeError(f"Expected string or null, got {type(value).__name__}.")
+    stripped = value.strip()
+    return stripped or None
+
+
+def _parse_metadata_sources_blob(raw_value: object | None) -> Dict[str, Any]:
+    empty_payload = {"metadata_sources": {"citations": [], "notes": None}}
+    if raw_value is None:
+        return empty_payload
+    if isinstance(raw_value, str):
+        try:
+            parsed = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return empty_payload
+    elif isinstance(raw_value, dict):
+        parsed = copy.deepcopy(raw_value)
+    else:
+        return empty_payload
+    if not isinstance(parsed, dict):
+        return empty_payload
+    metadata_sources = parsed.get("metadata_sources")
+    if metadata_sources is None:
+        # Backward compatibility for legacy flat payloads shaped like
+        # {"citations": [...], "notes": "..."}.
+        if "citations" in parsed or "notes" in parsed:
+            metadata_sources = {
+                "citations": parsed.get("citations"),
+                "notes": parsed.get("notes"),
+            }
+        else:
+            metadata_sources = {"citations": [], "notes": None}
+    if not isinstance(metadata_sources, dict):
+        return empty_payload
+    citations = metadata_sources.get("citations")
+    if citations is None or not isinstance(citations, list):
+        metadata_sources["citations"] = []
+    if "notes" not in metadata_sources or (metadata_sources.get("notes") is not None and not isinstance(metadata_sources.get("notes"), str)):
+        metadata_sources["notes"] = None
+    return {
+        "metadata_sources": metadata_sources,
+        "metadata_run_stats": parsed.get("metadata_run_stats"),
+    }
+
+
+def _parse_metadata_uncited_fields(raw_value: object | None) -> set[str]:
+    if raw_value is None:
+        return set()
+    if isinstance(raw_value, str):
+        parsed = json.loads(raw_value)
+    elif isinstance(raw_value, list):
+        parsed = raw_value
+    else:
+        raise TypeError("metadata_uncited_fields must be a JSON string, list, or null.")
+    if not isinstance(parsed, list):
+        raise TypeError("metadata_uncited_fields must decode to a list.")
+    return {str(value) for value in parsed if isinstance(value, str)}
+
+
+def _existing_web_search_metadata_obj(agreement: Dict[str, Any]) -> Dict[str, Any]:
+    metadata_payload = _parse_metadata_sources_blob(agreement.get("metadata_sources"))
+    return {
+        "consideration_type": _db_consideration_to_prompt(agreement.get("transaction_consideration")),
+        "purchase_price": {
+            "cash": agreement.get("transaction_price_cash"),
+            "stock": agreement.get("transaction_price_stock"),
+            "assets": agreement.get("transaction_price_assets"),
+        },
+        "target_public": _db_type_to_public_flag(agreement.get("target_type")),
+        "acquirer_public": _db_type_to_public_flag(agreement.get("acquirer_type")),
+        "target_pe": agreement.get("target_pe"),
+        "acquirer_pe": agreement.get("acquirer_pe"),
+        "target_industry": _string_or_none(agreement.get("target_industry")),
+        "acquirer_industry": _string_or_none(agreement.get("acquirer_industry")),
+        "announce_date": _string_or_none(agreement.get("announce_date")),
+        "close_date": _string_or_none(agreement.get("close_date")),
+        "deal_status": _string_or_none(agreement.get("deal_status")),
+        "attitude": _string_or_none(agreement.get("attitude")),
+        "purpose": _string_or_none(agreement.get("purpose")),
+        "metadata_sources": metadata_payload["metadata_sources"],
+        "metadata_run_stats": metadata_payload.get("metadata_run_stats"),
+    }
+
+
+def _get_output_field_value(tx_metadata_obj: Dict[str, Any], field_name: str) -> Any:
+    if field_name.startswith("purchase_price."):
+        price = tx_metadata_obj.get("purchase_price")
+        if not isinstance(price, dict):
+            return None
+        return price.get(field_name.split(".", 1)[1])
+    return tx_metadata_obj.get(field_name)
+
+
+def _set_output_field_value(tx_metadata_obj: Dict[str, Any], field_name: str, value: Any) -> None:
+    if field_name.startswith("purchase_price."):
+        price = tx_metadata_obj.setdefault("purchase_price", {})
+        if not isinstance(price, dict):
+            raise TypeError("purchase_price must be an object.")
+        price[field_name.split(".", 1)[1]] = value
+        return
+    tx_metadata_obj[field_name] = value
+
+
+def _supported_retry_focus_fields(agreement: Dict[str, Any]) -> list[str]:
+    focus_fields: set[str] = set()
+    uncited_fields = _parse_metadata_uncited_fields(agreement.get("metadata_uncited_fields"))
+
+    consideration = _string_or_none(agreement.get("transaction_consideration"))
+    if consideration is None:
+        focus_fields.add("consideration_type")
+    if _string_or_none(agreement.get("target_type")) is None:
+        focus_fields.add("target_public")
+    if _string_or_none(agreement.get("acquirer_type")) is None:
+        focus_fields.add("acquirer_public")
+
+    cash = agreement.get("transaction_price_cash")
+    stock = agreement.get("transaction_price_stock")
+    assets = agreement.get("transaction_price_assets")
+    total = agreement.get("transaction_price_total")
+    present_components = sum(value is not None for value in (cash, stock, assets))
+    if consideration == "cash" and (cash is None or total is None):
+        focus_fields.add("purchase_price.cash")
+    elif consideration == "stock" and (stock is None or total is None):
+        focus_fields.add("purchase_price.stock")
+    elif consideration == "mixed" and (present_components < 2 or total is None):
+        if cash is None:
+            focus_fields.add("purchase_price.cash")
+        if stock is None:
+            focus_fields.add("purchase_price.stock")
+        if assets is None:
+            focus_fields.add("purchase_price.assets")
+
+    announce_date = _string_or_none(agreement.get("announce_date"))
+    close_date = _string_or_none(agreement.get("close_date"))
+    deal_status = _string_or_none(agreement.get("deal_status"))
+    if announce_date is None or "announce_date" in uncited_fields:
+        focus_fields.add("announce_date")
+    if close_date is None and deal_status == "complete":
+        focus_fields.update({"close_date", "deal_status"})
+    elif close_date is not None and deal_status is None:
+        focus_fields.add("deal_status")
+    for field_name in uncited_fields:
+        if field_name in RETRY_FOCUS_FIELD_ORDER:
+            focus_fields.add(field_name)
+
+    return [field for field in RETRY_FOCUS_FIELD_ORDER if field in focus_fields]
+
+
+def build_web_search_retry_context(agreement: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if int(agreement.get("initial_metadata_pass", 1) or 0) == 1:
+        return None
+    existing_obj = _existing_web_search_metadata_obj(agreement)
+    known_values = {
+        field_name: _get_output_field_value(existing_obj, field_name)
+        for field_name in RETRY_FOCUS_FIELD_ORDER
+        if _get_output_field_value(existing_obj, field_name) is not None
+    }
+    focus_fields = _supported_retry_focus_fields(agreement)
+    return {
+        "known_values": known_values,
+        "focus_fields": focus_fields,
+        "revisable_fields": list(known_values.keys()),
+        "retry_reason": "Agreement was previously enriched but still has unresolved web metadata fields.",
+    }
+
+
+def _format_retry_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return str(value)
+
+
+def _dedupe_citations(citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[object, object, object, object, object, object]] = set()
+    for citation in citations:
+        key = (
+            citation.get("field"),
+            citation.get("url"),
+            citation.get("source_type"),
+            citation.get("published_at"),
+            citation.get("locator"),
+            citation.get("excerpt"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(citation)
+    return deduped
+
+
 def build_tx_metadata_request_body_web_search_only(
-    agreement: Dict[str, Any], *, model: str
+    agreement: Dict[str, Any], *, model: str, retry_context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Build web-search request body for fields sourced online (deal_type handled offline)."""
     schema = json_schema_transaction_metadata_web_search_only()
@@ -267,12 +519,33 @@ def build_tx_metadata_request_body_web_search_only(
     context_lines.append(f"- sec_filing_date: {filing_date_str}")
     if has_url:
         context_lines.append(f"- sec_filing_url: {sec_url}")
+    instructions = TX_METADATA_INSTRUCTIONS_WEB_SEARCH
+    if retry_context is not None:
+        instructions = f"{TX_METADATA_INSTRUCTIONS_WEB_SEARCH} {TX_METADATA_RETRY_INSTRUCTIONS_WEB_SEARCH}"
+        focus_fields = retry_context.get("focus_fields") or []
+        known_values = retry_context.get("known_values") or {}
+        revisable_fields = retry_context.get("revisable_fields") or []
+        retry_reason = retry_context.get("retry_reason")
+        context_lines.append("")
+        context_lines.append("Retry context:")
+        if isinstance(retry_reason, str) and retry_reason:
+            context_lines.append(f"- retry_reason: {retry_reason}")
+        if focus_fields:
+            context_lines.append("- focus_fields: " + ", ".join(str(field) for field in focus_fields))
+        if revisable_fields:
+            context_lines.append("- revisable_fields_if_stronger_evidence: " + ", ".join(str(field) for field in revisable_fields))
+        if known_values:
+            context_lines.append("- known_trusted_metadata:")
+            for field_name in RETRY_FOCUS_FIELD_ORDER:
+                if field_name not in known_values:
+                    continue
+                context_lines.append(f"  - {field_name}: {_format_retry_value(known_values[field_name])}")
     input_text = "\n".join(context_lines)
 
     return {
         "model": model,
         "tools": [{"type": "web_search"}],
-        "instructions": TX_METADATA_INSTRUCTIONS_WEB_SEARCH,
+        "instructions": instructions,
         "input": input_text,
         "text": {
             "format": {
@@ -329,6 +602,71 @@ def build_web_search_runtime_metadata(
     if search_count < 0:
         raise ValueError("search_count must be >= 0.")
     return {"token_usage": token_usage, "search_count": search_count}
+
+
+def merge_retry_web_search_response(
+    *,
+    agreement: Dict[str, Any],
+    tx_metadata_obj: Dict[str, Any],
+) -> Dict[str, Any]:
+    retry_context = build_web_search_retry_context(agreement)
+    if retry_context is None:
+        return tx_metadata_obj
+
+    existing_obj = _existing_web_search_metadata_obj(agreement)
+    merged_obj = copy.deepcopy(tx_metadata_obj)
+    existing_sources = existing_obj.get("metadata_sources")
+    new_sources = merged_obj.get("metadata_sources")
+    if not isinstance(existing_sources, dict):
+        existing_sources = {"citations": [], "notes": None}
+    if not isinstance(new_sources, dict):
+        raise TypeError("metadata_sources must be an object.")
+    existing_citations = existing_sources.get("citations")
+    new_citations = new_sources.get("citations")
+    if not isinstance(existing_citations, list):
+        existing_citations = []
+    if not isinstance(new_citations, list):
+        raise TypeError("metadata_sources.citations must be an array.")
+
+    new_cited_fields = {
+        str(citation.get("field"))
+        for citation in new_citations
+        if isinstance(citation, dict) and isinstance(citation.get("field"), str)
+    }
+    focus_fields = set(retry_context.get("focus_fields") or [])
+    preserved_fields: set[str] = set()
+
+    for field_name in RETRY_FOCUS_FIELD_ORDER:
+        existing_value = _get_output_field_value(existing_obj, field_name)
+        incoming_value = _get_output_field_value(merged_obj, field_name)
+        if existing_value is None:
+            continue
+        if field_name in focus_fields:
+            if incoming_value is None or field_name not in new_cited_fields:
+                _set_output_field_value(merged_obj, field_name, existing_value)
+                preserved_fields.add(field_name)
+            continue
+        if incoming_value is None or incoming_value == existing_value or field_name not in new_cited_fields:
+            _set_output_field_value(merged_obj, field_name, existing_value)
+            preserved_fields.add(field_name)
+
+    merged_citations = list(new_citations)
+    for citation in existing_citations:
+        if not isinstance(citation, dict):
+            continue
+        field_name = citation.get("field")
+        if field_name not in preserved_fields:
+            continue
+        merged_citations.append(copy.deepcopy(citation))
+
+    merged_notes = new_sources.get("notes")
+    if (merged_notes is None or (isinstance(merged_notes, str) and not merged_notes.strip())) and isinstance(existing_sources.get("notes"), str):
+        merged_notes = existing_sources.get("notes")
+    merged_obj["metadata_sources"] = {
+        "citations": _dedupe_citations(merged_citations),
+        "notes": merged_notes,
+    }
+    return merged_obj
 
 
 def _parse_optional_date_like(value: object | None, *, field_name: str) -> Optional[date]:
