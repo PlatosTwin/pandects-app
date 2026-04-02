@@ -90,6 +90,42 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
             format_counsel_display_name("Greenberg Traurig P.A."),
             "Greenberg Traurig",
         )
+        self.assertEqual(
+            format_counsel_display_name("Herzog, Fox & Neeman"),
+            "Herzog, Fox & Ne'eman",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Hill, Ward & Henderson, P.A."),
+            "Hill Ward Henderson",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Hogan Lovells US"),
+            "Hogan Lovells",
+        )
+        self.assertEqual(
+            format_counsel_display_name("JunHe Law Offices"),
+            "Jun He Law Offices",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Ledgewood Law Firm"),
+            "Ledgewood",
+        )
+        self.assertEqual(
+            format_counsel_display_name("LEWIS, RICE & FINGERSH, L.C."),
+            "Lewis, Rice & Fingersh",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Manatt, Phelps & Philips"),
+            "Manatt, Phelps & Phillips",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Rimôn"),
+            "Rimon",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Watchell, Lipton, Rosen & Katz"),
+            "Wachtell, Lipton, Rosen & Katz",
+        )
 
     def test_split_counsel_names_handles_known_multi_firm_ampersand_entries(self) -> None:
         self.assertEqual(
@@ -126,6 +162,18 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
                 "Faegre Drinker Biddle & Reath LLP, Goodmans LLP, Kirkland & Ellis"
             ),
             ["Faegre Drinker Biddle & Reath", "Goodmans", "Kirkland & Ellis"],
+        )
+        self.assertEqual(
+            split_counsel_names("Hinkle Elkouri Law Firm L.L.C. & Thompson & Knight"),
+            ["Hinkle Elkouri Law Firm", "Thompson & Knight"],
+        )
+        self.assertEqual(
+            split_counsel_names("Ropes & Gray LLP, Hogan Lovells US"),
+            ["Ropes & Gray", "Hogan Lovells"],
+        )
+        self.assertEqual(
+            split_counsel_names("Vinson & Elkins L.L.P. & Clifford Chance"),
+            ["Vinson & Elkins", "Clifford Chance"],
         )
 
     def test_build_counsel_leaderboards_fully_attributes_multi_firm_entries(self) -> None:
