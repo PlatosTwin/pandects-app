@@ -62,6 +62,18 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
             format_counsel_display_name("Davis Polk & Wardwell London"),
             "Davis Polk & Wardwell",
         )
+        self.assertEqual(
+            format_counsel_display_name("Blake, Cassels & Graydon"),
+            "Blakes, Cassels & Graydon",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Clifford Chance US"),
+            "Clifford Chance",
+        )
+        self.assertEqual(
+            format_counsel_display_name("Dentons Canada"),
+            "Dentons",
+        )
 
     def test_split_counsel_names_handles_known_multi_firm_ampersand_entries(self) -> None:
         self.assertEqual(
@@ -75,6 +87,19 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
         self.assertEqual(
             split_counsel_names("Sidley & Austin, Orrick, Herrington & Sutcliffe"),
             ["Sidley Austin", "Orrick, Herrington & Sutcliffe"],
+        )
+        self.assertEqual(
+            split_counsel_names("Arthur Cox & Simpson Thacher & Bartlett"),
+            ["Arthur Cox", "Simpson Thacher & Bartlett"],
+        )
+        self.assertEqual(
+            split_counsel_names(
+                "Baker, Donelson, Bearman, Caldwell & Berkowitz, P.C. & Akin Gump Strauss Hauer & Feld"
+            ),
+            [
+                "Baker, Donelson, Bearman, Caldwell & Berkowitz",
+                "Akin Gump Strauss Hauer & Feld",
+            ],
         )
 
     def test_build_counsel_leaderboards_fully_attributes_multi_firm_entries(self) -> None:

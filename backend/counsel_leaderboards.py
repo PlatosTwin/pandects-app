@@ -50,8 +50,20 @@ _CANONICAL_STOPWORDS = {
     "sc",
 }
 _EXACT_DISPLAY_OVERRIDES = {
+    "Advokatfirma DLA Piper Norway DA": "DLA Piper",
     "Becker & Poliakoff, P.A.": "Becker & Poliakoff",
+    "Akerman Senterfitt, P.A.": "Akerman Senterfitt",
+    "Allen & Overy SCS": "Allen & Overy",
     "Baker, Donelson, Bearman, Caldwell & Berkowitz, a": "Baker, Donelson, Bearman, Caldwell & Berkowitz",
+    "Blake, Cassels & Graydon": "Blakes, Cassels & Graydon",
+    "Bryan Cave HRO": "Bryan Cave",
+    "Buchalter, a": "Buchalter",
+    "Clifford Chance Prague": "Clifford Chance",
+    "Clifford Chance US": "Clifford Chance",
+    "Cooley HK": "Cooley",
+    "Crowe & Dunlevy, A": "Crowe & Dunlevy",
+    "Dentons Canada": "Dentons",
+    "Dentons US": "Dentons",
     "JonesDay": "Jones Day",
     "Kirkland & Ellis International": "Kirkland & Ellis",
     "Latham & Watkins (London)": "Latham & Watkins",
@@ -104,6 +116,18 @@ _EXACT_DISPLAY_OVERRIDES = {
     "Davis Polk & Wardwell London": "Davis Polk & Wardwell",
 }
 _EXACT_MULTI_FIRM_SPLITS = {
+    "Akerman Senterfitt & Berger Singerman, P.A.": [
+        "Akerman Senterfitt",
+        "Berger Singerman",
+    ],
+    "Arthur Cox & Simpson Thacher & Bartlett": [
+        "Arthur Cox",
+        "Simpson Thacher & Bartlett",
+    ],
+    "Baker, Donelson, Bearman, Caldwell & Berkowitz, P.C. & Akin Gump Strauss Hauer & Feld": [
+        "Baker, Donelson, Bearman, Caldwell & Berkowitz",
+        "Akin Gump Strauss Hauer & Feld",
+    ],
     "Jones Day & Caraza y Morayta": ["Jones Day", "Caraza y Morayta"],
     "Kirkland & Ellis LLP, Wyrick Robbins Yates & Ponton": [
         "Kirkland & Ellis",
@@ -132,8 +156,20 @@ _EXACT_MULTI_FIRM_SPLITS = {
     ],
 }
 _PREFERRED_DISPLAY_BY_NORMALIZED = {
+    "advokatfirma dla piper norway da": "DLA Piper",
+    "akerman senterfitt": "Akerman Senterfitt",
     "becker poliakoff": "Becker & Poliakoff",
+    "allen overy scs": "Allen & Overy",
     "baker donelson bearman caldwell berkowitz a": "Baker, Donelson, Bearman, Caldwell & Berkowitz",
+    "blake cassels graydon": "Blakes, Cassels & Graydon",
+    "bryan cave hro": "Bryan Cave",
+    "buchalter a": "Buchalter",
+    "clifford chance prague": "Clifford Chance",
+    "clifford chance us": "Clifford Chance",
+    "cooley hk": "Cooley",
+    "crowe dunlevy a": "Crowe & Dunlevy",
+    "dentons canada": "Dentons",
+    "dentons us": "Dentons",
     "jonesday": "Jones Day",
     "kirkland ellis international": "Kirkland & Ellis",
     "latham watkins london": "Latham & Watkins",
@@ -179,6 +215,18 @@ _PREFERRED_DISPLAY_BY_NORMALIZED = {
     "davis polk wardwell london": "Davis Polk & Wardwell",
 }
 _MULTI_FIRM_SPLITS_BY_NORMALIZED = {
+    "akerman senterfitt berger singerman": [
+        "Akerman Senterfitt",
+        "Berger Singerman",
+    ],
+    "arthur cox simpson thacher bartlett": [
+        "Arthur Cox",
+        "Simpson Thacher & Bartlett",
+    ],
+    "baker donelson bearman caldwell berkowitz akin gump strauss hauer feld": [
+        "Baker, Donelson, Bearman, Caldwell & Berkowitz",
+        "Akin Gump Strauss Hauer & Feld",
+    ],
     "jones day caraza y morayta": ["Jones Day", "Caraza y Morayta"],
     "kirkland ellis wyrick robbins yates ponton": [
         "Kirkland & Ellis",
