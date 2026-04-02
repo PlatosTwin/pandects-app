@@ -25,6 +25,7 @@ from backend.schemas.public_api import (
     AgreementsIndexArgsSchema,
     AgreementsListResponseSchema,
     SectionResponseSchema,
+    TaxClauseListResponseSchema,
 )
 
 
@@ -60,6 +61,92 @@ def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str
     if not raw_text:
         return ""
     return label_by_code.get(raw_text, raw_text)
+
+
+def _tax_clause_rows(
+    deps: AgreementsDeps,
+    *,
+    agreement_uuid: str | None = None,
+    section_uuid: str | None = None,
+) -> list[dict[str, object]]:
+    clauses = deps.Clauses
+    assignments = deps.TaxClauseAssignment
+    sections = deps.Sections
+    xml = deps.XML
+    db = deps.db
+    clause_cols = clauses.__table__.c
+    section_cols = sections.__table__.c
+
+    query = (
+        db.session.query(
+            clause_cols["clause_uuid"].label("clause_uuid"),
+            clause_cols["agreement_uuid"].label("agreement_uuid"),
+            clause_cols["section_uuid"].label("section_uuid"),
+            section_cols["article_title"].label("article_title"),
+            section_cols["section_title"].label("section_title"),
+            clause_cols["anchor_label"].label("anchor_label"),
+            clause_cols["start_char"].label("start_char"),
+            clause_cols["end_char"].label("end_char"),
+            clause_cols["clause_text"].label("clause_text"),
+            clause_cols["context_type"].label("context_type"),
+            assignments.standard_id.label("standard_id"),
+        )
+        .join(
+            sections,
+            and_(
+                section_cols["section_uuid"] == clause_cols["section_uuid"],
+                section_cols["agreement_uuid"] == clause_cols["agreement_uuid"],
+                section_cols["xml_version"] == clause_cols["xml_version"],
+            ),
+        )
+        .join(
+            xml,
+            deps._section_latest_xml_join_condition(),
+        )
+        .outerjoin(
+            assignments,
+            assignments.clause_uuid == clause_cols["clause_uuid"],
+        )
+        .filter(clause_cols["module"] == "tax")
+    )
+    if agreement_uuid is not None:
+        query = query.filter(clause_cols["agreement_uuid"] == agreement_uuid)
+    if section_uuid is not None:
+        query = query.filter(clause_cols["section_uuid"] == section_uuid)
+
+    rows = query.order_by(
+        asc(clause_cols["agreement_uuid"]),
+        asc(clause_cols["section_uuid"]),
+        asc(clause_cols["clause_order"]),
+        asc(assignments.standard_id),
+    ).all()
+
+    grouped: dict[str, dict[str, object]] = {}
+    for row in rows:
+        row_map = deps._row_mapping_as_dict(cast(object, row))
+        clause_uuid = str(row_map["clause_uuid"])
+        grouped_row = grouped.get(clause_uuid)
+        if grouped_row is None:
+            grouped_row = {
+                "clause_uuid": clause_uuid,
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "section_uuid": row_map.get("section_uuid"),
+                "article_title": row_map.get("article_title"),
+                "section_title": row_map.get("section_title"),
+                "anchor_label": row_map.get("anchor_label"),
+                "start_char": row_map.get("start_char"),
+                "end_char": row_map.get("end_char"),
+                "clause_text": row_map.get("clause_text"),
+                "context_type": row_map.get("context_type"),
+                "standard_ids": [],
+            }
+            grouped[clause_uuid] = grouped_row
+        standard_id = row_map.get("standard_id")
+        if isinstance(standard_id, str) and standard_id:
+            standard_ids = cast(list[str], grouped_row["standard_ids"])
+            if standard_id not in standard_ids:
+                standard_ids.append(standard_id)
+    return list(grouped.values())
 
 
 _METADATA_FIELD_COVERAGE_CONFIG = (
@@ -714,6 +801,34 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "article_title": article_title,
                 "section_title": section_title,
             }
+
+    @agreements_blp.route("/<string:agreement_uuid>/tax-clauses")
+    class AgreementTaxClausesResource(MethodView):
+        @agreements_blp.doc(
+            operationId="getAgreementTaxClauses",
+            summary="Retrieve tax clauses for an agreement",
+            description="Returns extracted tax-module clauses for the latest verified XML of an agreement.",
+        )
+        @agreements_blp.response(200, TaxClauseListResponseSchema)
+        def get(self, agreement_uuid: str) -> dict[str, object]:
+            agreement_uuid = agreement_uuid.strip()
+            if agreement_uuid == "":
+                abort(400, description="Invalid agreement_uuid.")
+            return {"clauses": _tax_clause_rows(deps, agreement_uuid=agreement_uuid)}
+
+    @sections_blp.route("/<string:section_uuid>/tax-clauses")
+    class SectionTaxClausesResource(MethodView):
+        @sections_blp.doc(
+            operationId="getSectionTaxClauses",
+            summary="Retrieve tax clauses for a section",
+            description="Returns extracted tax-module clauses for a specific latest section.",
+        )
+        @sections_blp.response(200, TaxClauseListResponseSchema)
+        def get(self, section_uuid: str) -> dict[str, object]:
+            section_uuid = section_uuid.strip()
+            if not deps._SECTION_ID_RE.match(section_uuid):
+                abort(400, description="Invalid section_uuid.")
+            return {"clauses": _tax_clause_rows(deps, section_uuid=section_uuid)}
 
     def get_agreements_index() -> dict[str, object]:
         ctx = deps._current_access_context()

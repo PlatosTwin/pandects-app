@@ -43,6 +43,9 @@ class DBResourceTests(unittest.TestCase):
                 "taxonomy_section_title_regex": "^governing",
                 "taxonomy_llm_model": "gpt-5-mini",
                 "taxonomy_llm_sections_per_request": 7,
+                "tax_module_agreement_batch_size": 11,
+                "tax_module_llm_model": "gpt-5.4-mini",
+                "tax_module_llm_clauses_per_request": 3,
             },
         ):
             resources = get_resources()
@@ -58,6 +61,9 @@ class DBResourceTests(unittest.TestCase):
         self.assertEqual(pipeline_config.taxonomy_section_title_regex, "^governing")
         self.assertEqual(pipeline_config.taxonomy_llm_model, "gpt-5-mini")
         self.assertEqual(pipeline_config.taxonomy_llm_sections_per_request, 7)
+        self.assertEqual(pipeline_config.tax_module_agreement_batch_size, 11)
+        self.assertEqual(pipeline_config.tax_module_llm_model, "gpt-5.4-mini")
+        self.assertEqual(pipeline_config.tax_module_llm_clauses_per_request, 3)
 
     def test_pipeline_config_defaults_taxonomy_to_llm(self) -> None:
         config = PipelineConfig()
@@ -65,6 +71,9 @@ class DBResourceTests(unittest.TestCase):
         self.assertIsNone(config.taxonomy_section_title_regex)
         self.assertEqual(config.taxonomy_llm_model, "gpt-5-mini")
         self.assertEqual(config.taxonomy_llm_sections_per_request, 5)
+        self.assertEqual(config.tax_module_agreement_batch_size, 25)
+        self.assertEqual(config.tax_module_llm_model, "gpt-5-mini")
+        self.assertEqual(config.tax_module_llm_clauses_per_request, 5)
 
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:
         with patch(

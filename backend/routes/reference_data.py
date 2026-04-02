@@ -3,20 +3,20 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import cast
+from typing import Any, cast
 
 from flask import Response, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.routes.deps import ReferenceDataDeps
-from backend.schemas.public_api import (
-    CounselResponseSchema,
-    DumpEntrySchema,
-    NaicsResponseSchema,
-)
+from backend.schemas.public_api import CounselResponseSchema, DumpEntrySchema, NaicsResponseSchema
 
-def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint]:
+
+def register_reference_data_routes(
+    *,
+    deps: ReferenceDataDeps,
+) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint, Blueprint]:
     taxonomy_blp = Blueprint(
         "taxonomy",
         "taxonomy",
@@ -45,25 +45,38 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
         description="Access metadata about bulk data on Cloudflare",
     )
 
-    def _taxonomy_tree() -> dict[str, object]:
+    tax_clause_taxonomy_blp = Blueprint(
+        "tax-clause-taxonomy",
+        "tax-clause-taxonomy",
+        url_prefix="/v1/taxonomy/tax-clauses",
+        description="Access the Pandects tax-clause taxonomy",
+    )
+
+    def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object) -> dict[str, object]:
         db = deps.db
-        taxonomy_l1 = deps.TaxonomyL1
-        taxonomy_l2 = deps.TaxonomyL2
-        taxonomy_l3 = deps.TaxonomyL3
-        l1_rows = cast(list[tuple[object, object]], db.session.query(
-            taxonomy_l1.standard_id,
-            taxonomy_l1.label,
-        ).all())
-        l2_rows = cast(list[tuple[object, object, object]], db.session.query(
-            taxonomy_l2.standard_id,
-            taxonomy_l2.label,
-            taxonomy_l2.parent_id,
-        ).all())
-        l3_rows = cast(list[tuple[object, object, object]], db.session.query(
-            taxonomy_l3.standard_id,
-            taxonomy_l3.label,
-            taxonomy_l3.parent_id,
-        ).all())
+        l1_rows = cast(
+            list[tuple[object, object]],
+            db.session.query(
+                cast(Any, l1_model).standard_id,
+                cast(Any, l1_model).label,
+            ).all(),
+        )
+        l2_rows = cast(
+            list[tuple[object, object, object]],
+            db.session.query(
+                cast(Any, l2_model).standard_id,
+                cast(Any, l2_model).label,
+                cast(Any, l2_model).parent_id,
+            ).all(),
+        )
+        l3_rows = cast(
+            list[tuple[object, object, object]],
+            db.session.query(
+                cast(Any, l3_model).standard_id,
+                cast(Any, l3_model).label,
+                cast(Any, l3_model).parent_id,
+            ).all(),
+        )
 
         l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
         for standard_id, label, parent_id in l2_rows:
@@ -102,6 +115,20 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
             tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
 
         return tree
+
+    def _taxonomy_tree() -> dict[str, object]:
+        return _build_taxonomy_tree(
+            l1_model=deps.TaxonomyL1,
+            l2_model=deps.TaxonomyL2,
+            l3_model=deps.TaxonomyL3,
+        )
+
+    def _tax_clause_taxonomy_tree() -> dict[str, object]:
+        return _build_taxonomy_tree(
+            l1_model=deps.TaxClauseTaxonomyL1,
+            l2_model=deps.TaxClauseTaxonomyL2,
+            l3_model=deps.TaxClauseTaxonomyL3,
+        )
 
     def _naics_tree() -> dict[str, object]:
         db = deps.db
@@ -255,6 +282,24 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
 
         return payload, False
 
+    def _get_tax_clause_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
+        now = deps.time.time()
+        with deps._tax_clause_taxonomy_lock:
+            cached_payload = deps._tax_clause_taxonomy_cache["payload"]
+            cached_ts = deps._tax_clause_taxonomy_cache["ts"]
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._TAXONOMY_TTL_SECONDS
+            )
+        if cache_is_valid and cached_payload is not None:
+            return cached_payload, True
+
+        payload = _tax_clause_taxonomy_tree()
+        with deps._tax_clause_taxonomy_lock:
+            deps._tax_clause_taxonomy_cache["payload"] = payload
+            deps._tax_clause_taxonomy_cache["ts"] = now
+
+        return payload, False
+
     @taxonomy_blp.route("")
     class TaxonomyResource(MethodView):
         @taxonomy_blp.doc(
@@ -266,6 +311,19 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
         )
         def get(self) -> Response:
             payload, _ = _get_taxonomy_payload_cached()
+            resp = jsonify(payload)
+            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            return resp
+
+    @tax_clause_taxonomy_blp.route("")
+    class TaxClauseTaxonomyResource(MethodView):
+        @tax_clause_taxonomy_blp.doc(
+            operationId="getTaxClauseTaxonomy",
+            summary="Retrieve tax-clause taxonomy",
+            description="Returns the hierarchical Pandects tax-clause taxonomy tree.",
+        )
+        def get(self) -> Response:
+            payload, _ = _get_tax_clause_taxonomy_payload_cached()
             resp = jsonify(payload)
             resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
             return resp
@@ -438,4 +496,4 @@ def register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprin
 
             return dump_list
 
-    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp
+    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp

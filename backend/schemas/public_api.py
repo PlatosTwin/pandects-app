@@ -187,6 +187,30 @@ class SectionResponseSchema(Schema):
     section_title = fields.Str()
 
 
+class TaxClauseSchema(Schema):
+    clause_uuid = fields.Str()
+    agreement_uuid = fields.Str()
+    section_uuid = fields.Str()
+    article_title = fields.Str(allow_none=True)
+    section_title = fields.Str(allow_none=True)
+    anchor_label = fields.Str(allow_none=True)
+    start_char = fields.Int()
+    end_char = fields.Int()
+    clause_text = fields.Str()
+    context_type = fields.Str()
+    standard_ids = fields.List(fields.Str())
+
+
+class TaxClauseListResponseSchema(Schema):
+    clauses: object = cast(
+        object,
+        fields.List(
+            fields.Nested(TaxClauseSchema),
+            required=True,
+        ),
+    )
+
+
 class DumpEntrySchema(Schema):
     timestamp = fields.Str(required=True)
     sql = fields.Url(required=False, allow_none=True)
@@ -257,4 +281,6 @@ __all__ = [
     "NaicsSectorSchema",
     "NaicsSubSectorSchema",
     "SectionResponseSchema",
+    "TaxClauseListResponseSchema",
+    "TaxClauseSchema",
 ]

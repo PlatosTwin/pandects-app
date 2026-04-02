@@ -156,6 +156,46 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO tax_clause_taxonomy_l1 (standard_id, label) VALUES "
+                        "('tax_root', 'Tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l2 (standard_id, label, parent_id) VALUES "
+                        "('tax_operational', 'Operational Tax Matters', 'tax_root')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES "
+                        "('tax_transfer', 'Transfer Taxes', 'tax_operational'), "
+                        "('tax_treatment', 'Tax Treatment of the Transaction', 'tax_operational')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-a1-1', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 1, "
+                        "'(a)', 0, 55, 'Parent shall bear all transfer taxes.', 'enumerated_split', 'operative'"
+                        "), ("
+                        "'clause-a1-2', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 2, "
+                        "'(b)', 56, 120, 'Company and Parent intend the merger to qualify as tax-free.', 'enumerated_split', 'rep_warranty'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
+                        "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+                conn.execute(
+                    text(
                         "CREATE TABLE IF NOT EXISTS agreement_deal_type_summary ("
                         "year INTEGER NOT NULL, deal_type TEXT NOT NULL, count INTEGER NOT NULL)"
                     )
@@ -291,6 +331,37 @@ class MainRoutesTests(unittest.TestCase):
                         "('Crop Production', 111, 11), "
                         "('Animal Production', 112, 11), "
                         "('Oil and Gas Extraction', 211, 21)"
+                    )
+                )
+
+    def _ensure_counsel_seed_rows(self) -> None:
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT OR IGNORE INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "(1, 'Wilson Sonsini Goodrich & Rosati', 'wilson sonsini goodrich rosati'), "
+                        "(2, 'Goodwin Procter', 'goodwin procter'), "
+                        "(3, 'Wiggin & Dana', 'wiggin dana'), "
+                        "(4, 'Skadden, Arps, Slate, Meagher & Flom', 'skadden arps slate meagher flom'), "
+                        "(5, 'Wachtell, Lipton, Rosen & Katz', 'wachtell lipton rosen katz'), "
+                        "(6, 'Sullivan & Cromwell', 'sullivan cromwell'), "
+                        "(7, 'Simpson Thacher & Bartlett', 'simpson thacher bartlett')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT OR IGNORE INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "('a1', 'target', 1, 'Wilson Sonsini Goodrich & Rosati, P.C.', 1), "
+                        "('a1', 'target', 2, 'Goodwin Procter LLP', 2), "
+                        "('a1', 'acquirer', 1, 'Wiggin and Dana LLP', 3), "
+                        "('a2', 'target', 1, 'Wilson Sonsini Goodrich & Rosati Professional Corporation', 1), "
+                        "('a2', 'acquirer', 1, 'Wiggin & Dana, LLP', 3), "
+                        "('a3', 'target', 1, 'Wachtell, Lipton, Rosen & Katz', 5), "
+                        "('a3', 'acquirer', 1, 'Skadden, Arps, Slate, Meagher & Flom LLP', 4), "
+                        "('a4', 'target', 1, 'Sullivan & Cromwell LLP', 6), "
+                        "('a4', 'acquirer', 1, 'Simpson Thacher & Bartlett LLP', 7)"
                     )
                 )
 
@@ -810,6 +881,9 @@ class MainRoutesTests(unittest.TestCase):
                 self.app_module._filter_options_cache["ts"] = 0
 
     def test_filter_options_include_counsel_lists(self):
+        self._ensure_counsel_seed_rows()
+        self.app_module._filter_options_cache["payload"] = None
+        self.app_module._filter_options_cache["ts"] = 0
         client = self.app.test_client()
         res = client.get("/v1/filter-options")
         self.assertEqual(res.status_code, 200)
@@ -835,6 +909,7 @@ class MainRoutesTests(unittest.TestCase):
         )
 
     def test_counsel_leaderboards_aggregate_variants_and_multi_firm_entries(self):
+        self._ensure_counsel_seed_rows()
         client = self.app.test_client()
         res = client.get("/v1/counsel-leaderboards")
         self.assertEqual(res.status_code, 200)
@@ -1134,6 +1209,77 @@ class MainRoutesTests(unittest.TestCase):
                 ]
             },
         )
+
+    def test_tax_clause_taxonomy_hierarchy(self):
+        client = self.app.test_client()
+        res = client.get("/v1/taxonomy/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "Tax": {
+                    "id": "tax_root",
+                    "children": {
+                        "Operational Tax Matters": {
+                            "id": "tax_operational",
+                            "children": {
+                                "Tax Treatment of the Transaction": {"id": "tax_treatment"},
+                                "Transfer Taxes": {"id": "tax_transfer"},
+                            },
+                        }
+                    },
+                }
+            },
+        )
+
+    def test_agreement_tax_clauses_endpoint(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements/a1/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "clauses": [
+                    {
+                        "clause_uuid": "clause-a1-1",
+                        "agreement_uuid": "a1",
+                        "section_uuid": "00000000-0000-0000-0000-000000000001",
+                        "article_title": "ARTICLE I",
+                        "section_title": "Section 1",
+                        "anchor_label": "(a)",
+                        "start_char": 0,
+                        "end_char": 55,
+                        "clause_text": "Parent shall bear all transfer taxes.",
+                        "context_type": "operative",
+                        "standard_ids": ["tax_transfer"],
+                    },
+                    {
+                        "clause_uuid": "clause-a1-2",
+                        "agreement_uuid": "a1",
+                        "section_uuid": "00000000-0000-0000-0000-000000000001",
+                        "article_title": "ARTICLE I",
+                        "section_title": "Section 1",
+                        "anchor_label": "(b)",
+                        "start_char": 56,
+                        "end_char": 120,
+                        "clause_text": "Company and Parent intend the merger to qualify as tax-free.",
+                        "context_type": "rep_warranty",
+                        "standard_ids": ["tax_treatment"],
+                    },
+                ]
+            },
+        )
+
+    def test_section_tax_clauses_endpoint(self):
+        client = self.app.test_client()
+        res = client.get("/v1/sections/00000000-0000-0000-0000-000000000001/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(len(body.get("clauses", [])), 2)
+        self.assertEqual(body["clauses"][0]["clause_uuid"], "clause-a1-1")
+        self.assertEqual(body["clauses"][1]["standard_ids"], ["tax_treatment"])
 
     def test_counsel_reference_list(self):
         client = self.app.test_client()

@@ -53,11 +53,16 @@ from backend.schemas.auth import (
 from backend.models.main_db import (
     Agreements,
     AgreementCounsel,
+    Clauses,
     Counsel,
     LatestSectionsSearch,
     NaicsSector,
     NaicsSubSector,
     Sections,
+    TaxClauseAssignment,
+    TaxClauseTaxonomyL1,
+    TaxClauseTaxonomyL2,
+    TaxClauseTaxonomyL3,
     TaxonomyL1,
     TaxonomyL2,
     TaxonomyL3,
@@ -327,6 +332,8 @@ _filter_options_lock = Lock()
 _TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
 _taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _taxonomy_lock = Lock()
+_tax_clause_taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
+_tax_clause_taxonomy_lock = Lock()
 _COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
 _counsel_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _counsel_lock = Lock()
@@ -1093,13 +1100,14 @@ def _register_blueprints(target_app: Flask) -> None:
         target_app,
         deps=agreements_deps,
     )
-    taxonomy_blp, naics_blp, counsel_blp, dumps_blp = register_reference_data_routes(
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
     api_ext.register_blueprint(sections_list_blp)
     api_ext.register_blueprint(agreements_blp)
     api_ext.register_blueprint(sections_blp)
     api_ext.register_blueprint(taxonomy_blp)
+    api_ext.register_blueprint(tax_clause_taxonomy_blp)
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
@@ -1114,8 +1122,10 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     agreements_deps = AgreementsDeps(
         Agreements=Agreements,
         AgreementCounsel=AgreementCounsel,
+        Clauses=Clauses,
         Counsel=Counsel,
         Sections=Sections,
+        TaxClauseAssignment=TaxClauseAssignment,
         XML=XML,
         _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
         _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
@@ -1149,6 +1159,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         NaicsSubSector=NaicsSubSector,
         PUBLIC_DEV_BASE=PUBLIC_DEV_BASE,
         R2_BUCKET_NAME=R2_BUCKET_NAME,
+        TaxClauseTaxonomyL1=TaxClauseTaxonomyL1,
+        TaxClauseTaxonomyL2=TaxClauseTaxonomyL2,
+        TaxClauseTaxonomyL3=TaxClauseTaxonomyL3,
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
@@ -1165,6 +1178,10 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _dumps_manifest_cache_lock=_dumps_manifest_cache_lock,
         _naics_cache=cast(dict[str, object], cast(object, _naics_cache)),
         _naics_lock=_naics_lock,
+        _tax_clause_taxonomy_cache=cast(
+            dict[str, object], cast(object, _tax_clause_taxonomy_cache)
+        ),
+        _tax_clause_taxonomy_lock=_tax_clause_taxonomy_lock,
         _taxonomy_cache=cast(dict[str, object], cast(object, _taxonomy_cache)),
         _taxonomy_lock=_taxonomy_lock,
         client=client,

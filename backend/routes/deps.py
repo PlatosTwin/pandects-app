@@ -194,8 +194,10 @@ class SectionsDeps:
 class AgreementsDeps:
     Agreements: Any
     AgreementCounsel: Any
+    Clauses: Any
     Counsel: Any
     Sections: Any
+    TaxClauseAssignment: Any
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int
     _FILTER_OPTIONS_TTL_SECONDS: int
@@ -229,6 +231,9 @@ class ReferenceDataDeps:
     NaicsSubSector: Any
     PUBLIC_DEV_BASE: str
     R2_BUCKET_NAME: str
+    TaxClauseTaxonomyL1: Any
+    TaxClauseTaxonomyL2: Any
+    TaxClauseTaxonomyL3: Any
     TaxonomyL1: Any
     TaxonomyL2: Any
     TaxonomyL3: Any
@@ -245,6 +250,8 @@ class ReferenceDataDeps:
     _dumps_manifest_cache_lock: Any
     _naics_cache: dict[str, Any]
     _naics_lock: Any
+    _tax_clause_taxonomy_cache: dict[str, Any]
+    _tax_clause_taxonomy_lock: Any
     _taxonomy_cache: dict[str, Any]
     _taxonomy_lock: Any
     client: Any

@@ -18,6 +18,11 @@ from etl.defs.g_sections_asset import (
 from etl.defs.h_taxonomy_asset import taxonomy_asset
 from etl.defs.i_tx_metadata_asset import tx_metadata_asset
 from etl.defs.j_embed_sections_asset import embed_sections_asset
+from etl.defs.k_tax_module_asset import (
+    tax_module_asset,
+    tax_module_from_fresh_xml_asset,
+    tax_module_from_repair_xml_asset,
+)
 from etl.defs.z_gating_asset import gating_asset
 from etl.defs.resources import get_resources
 
@@ -29,6 +34,7 @@ xml_fresh_pipeline = dg.define_asset_job(
         xml_asset,
         xml_verify_asset,
         sections_from_fresh_xml_asset,
+        tax_module_from_fresh_xml_asset,
     ),
 )
 
@@ -41,6 +47,7 @@ xml_repair_cycle_pipeline = dg.define_asset_job(
         post_repair_build_xml_asset,
         post_repair_verify_xml_asset,
         sections_from_repair_xml_asset,
+        tax_module_from_repair_xml_asset,
     ),
 )
 
@@ -69,6 +76,9 @@ defs = dg.Definitions(
         taxonomy_asset,
         tx_metadata_asset,
         embed_sections_asset,
+        tax_module_asset,
+        tax_module_from_fresh_xml_asset,
+        tax_module_from_repair_xml_asset,
         gating_asset,
     ],
     jobs=[xml_fresh_pipeline, xml_repair_cycle_pipeline, cleanup_pipeline],
