@@ -2,6 +2,7 @@
 import json
 import unittest
 from datetime import date
+from decimal import Decimal
 from typing import cast
 
 from etl.domain.i_tx_metadata import (
@@ -336,6 +337,22 @@ class TxMetadataDomainTests(unittest.TestCase):
 
         assert retry_context is not None
         self.assertEqual(retry_context["known_values"]["consideration_type"], "all_cash")
+
+    def test_build_web_search_retry_context_normalizes_db_native_bool_and_decimal_types(self) -> None:
+        retry_context = build_web_search_retry_context(
+            self._requeue_agreement_row(
+                transaction_price_cash=Decimal("194000000.00"),
+                transaction_price_total=Decimal("194000000.00"),
+                target_pe=1,
+                acquirer_pe=0,
+                metadata_uncited_fields="[]",
+            )
+        )
+
+        assert retry_context is not None
+        self.assertEqual(retry_context["known_values"]["purchase_price.cash"], 194000000.0)
+        self.assertEqual(retry_context["known_values"]["target_pe"], True)
+        self.assertEqual(retry_context["known_values"]["acquirer_pe"], False)
 
     def test_build_tx_metadata_request_body_web_search_only_includes_retry_focus_and_locked_fields(self) -> None:
         retry_context = build_web_search_retry_context(self._requeue_agreement_row())

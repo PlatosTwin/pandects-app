@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+from decimal import Decimal
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
@@ -301,6 +302,27 @@ def _string_or_none(value: object | None) -> Optional[str]:
     return stripped or None
 
 
+def _boolish_or_none(value: object | None) -> Optional[bool]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in (0, 1):
+            return bool(value)
+    raise TypeError(f"Expected boolean-like value or null, got {type(value).__name__}.")
+
+
+def _numeric_or_none(value: object | None) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError("Expected numeric value or null, got bool.")
+    if isinstance(value, (int, float, Decimal)):
+        return float(value)
+    raise TypeError(f"Expected numeric value or null, got {type(value).__name__}.")
+
+
 def _parse_metadata_sources_blob(raw_value: object | None) -> Dict[str, Any]:
     empty_payload = {"metadata_sources": {"citations": [], "notes": None}}
     if raw_value is None:
@@ -359,14 +381,14 @@ def _existing_web_search_metadata_obj(agreement: Dict[str, Any]) -> Dict[str, An
     return {
         "consideration_type": _db_consideration_to_prompt(agreement.get("transaction_consideration")),
         "purchase_price": {
-            "cash": agreement.get("transaction_price_cash"),
-            "stock": agreement.get("transaction_price_stock"),
-            "assets": agreement.get("transaction_price_assets"),
+            "cash": _numeric_or_none(agreement.get("transaction_price_cash")),
+            "stock": _numeric_or_none(agreement.get("transaction_price_stock")),
+            "assets": _numeric_or_none(agreement.get("transaction_price_assets")),
         },
         "target_public": _db_type_to_public_flag(agreement.get("target_type")),
         "acquirer_public": _db_type_to_public_flag(agreement.get("acquirer_type")),
-        "target_pe": agreement.get("target_pe"),
-        "acquirer_pe": agreement.get("acquirer_pe"),
+        "target_pe": _boolish_or_none(agreement.get("target_pe")),
+        "acquirer_pe": _boolish_or_none(agreement.get("acquirer_pe")),
         "target_industry": _string_or_none(agreement.get("target_industry")),
         "acquirer_industry": _string_or_none(agreement.get("acquirer_industry")),
         "announce_date": _string_or_none(agreement.get("announce_date")),
