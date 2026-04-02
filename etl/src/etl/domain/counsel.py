@@ -50,6 +50,16 @@ _CANONICAL_STOPWORDS = {
 _EXACT_DISPLAY_OVERRIDES = {
     "Advokatfirma DLA Piper Norway DA": "DLA Piper",
     "Becker & Poliakoff, P.A.": "Becker & Poliakoff",
+    "Eaton & VanWinkle": "Eaton & Van Winkle",
+    "Fox Rothschild": "Fox Rothchild",
+    "Freshfields Bruckhaus Deringer US": "Freshfields Bruckhaus Deringer",
+    "Fried, Frank, Harris, Shiver & Jacobson": "Fried, Frank, Harris, Shriver & Jacobson",
+    "Fulbright & Jaworski L.L.P": "Fulbright & Jaworski",
+    "Goodwin Proctor": "Goodwin Procter",
+    "Greenberg Traurig, P.A.": "Greenberg Traurig",
+    "Greenberg Traurig P.A.": "Greenberg Traurig",
+    "Greenberg, Traurig, PA": "Greenberg Traurig",
+    "Gunderson Dettmer Stough Villeneuve Franklin & Hachigian": "Gunderson Dettmer Stough Villenueve Franklin & Hachigian",
     "Akerman Senterfitt, P.A.": "Akerman Senterfitt",
     "Allen & Overy SCS": "Allen & Overy",
     "Baker, Donelson, Bearman, Caldwell & Berkowitz, a": "Baker, Donelson, Bearman, Caldwell & Berkowitz",
@@ -114,6 +124,15 @@ _EXACT_DISPLAY_OVERRIDES = {
     "Davis Polk & Wardwell London": "Davis Polk & Wardwell",
 }
 _EXACT_MULTI_FIRM_SPLITS = {
+    "Eversheds Sutherland (US) LLP, Simpson Thacher & Bartlett": [
+        "Eversheds Sutherland",
+        "Simpson Thacher & Bartlett",
+    ],
+    "Faegre Drinker Biddle & Reath LLP, Goodmans LLP, Kirkland & Ellis": [
+        "Faegre Drinker Biddle & Reath",
+        "Goodmans",
+        "Kirkland & Ellis",
+    ],
     "Akerman Senterfitt & Berger Singerman, P.A.": [
         "Akerman Senterfitt",
         "Berger Singerman",
@@ -157,6 +176,15 @@ _PREFERRED_DISPLAY_BY_NORMALIZED = {
     "advokatfirma dla piper norway da": "DLA Piper",
     "akerman senterfitt": "Akerman Senterfitt",
     "becker poliakoff": "Becker & Poliakoff",
+    "eaton vanwinkle": "Eaton & Van Winkle",
+    "fox rothschild": "Fox Rothchild",
+    "freshfields bruckhaus deringer us": "Freshfields Bruckhaus Deringer",
+    "fried frank harris shiver jacobson": "Fried, Frank, Harris, Shriver & Jacobson",
+    "fulbright jaworski l l p": "Fulbright & Jaworski",
+    "goodwin proctor": "Goodwin Procter",
+    "greenberg traurig p a": "Greenberg Traurig",
+    "greenberg traurig pa": "Greenberg Traurig",
+    "gunderson dettmer stough villeneuve franklin hachigian": "Gunderson Dettmer Stough Villenueve Franklin & Hachigian",
     "allen overy scs": "Allen & Overy",
     "baker donelson bearman caldwell berkowitz a": "Baker, Donelson, Bearman, Caldwell & Berkowitz",
     "blake cassels graydon": "Blakes, Cassels & Graydon",
@@ -213,6 +241,15 @@ _PREFERRED_DISPLAY_BY_NORMALIZED = {
     "davis polk wardwell london": "Davis Polk & Wardwell",
 }
 _MULTI_FIRM_SPLITS_BY_NORMALIZED = {
+    "eversheds sutherland us simpson thacher bartlett": [
+        "Eversheds Sutherland",
+        "Simpson Thacher & Bartlett",
+    ],
+    "faegre drinker biddle reath goodmans kirkland ellis": [
+        "Faegre Drinker Biddle & Reath",
+        "Goodmans",
+        "Kirkland & Ellis",
+    ],
     "akerman senterfitt berger singerman": [
         "Akerman Senterfitt",
         "Berger Singerman",
