@@ -326,6 +326,56 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(remaining_standard_ids, (0,))
 
+    def test_refresh_fails_fast_when_projection_schema_is_missing_required_columns(self) -> None:
+        assert self.conn is not None
+        _ = self.conn.execute(text("DROP TABLE latest_sections_search"))
+        _ = self.conn.execute(
+            text(
+                """
+            CREATE TABLE latest_sections_search (
+                section_uuid TEXT PRIMARY KEY,
+                agreement_uuid TEXT NOT NULL,
+                filing_date TEXT,
+                prob_filing REAL,
+                filing_company_name TEXT,
+                filing_company_cik TEXT,
+                form_type TEXT,
+                exhibit_type TEXT,
+                target TEXT,
+                acquirer TEXT,
+                transaction_price_total REAL,
+                transaction_price_stock REAL,
+                transaction_price_cash REAL,
+                transaction_price_assets REAL,
+                transaction_consideration TEXT,
+                target_type TEXT,
+                acquirer_type TEXT,
+                target_industry TEXT,
+                acquirer_industry TEXT,
+                announce_date TEXT,
+                close_date TEXT,
+                deal_status TEXT,
+                attitude TEXT,
+                deal_type TEXT,
+                purpose TEXT,
+                target_pe INTEGER,
+                acquirer_pe INTEGER,
+                verified INTEGER,
+                url TEXT,
+                section_standard_ids TEXT,
+                article_title TEXT,
+                section_title TEXT
+            )
+            """
+            )
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "latest_sections_search is missing required columns: target_counsel, acquirer_counsel",
+        ):
+            _ = refresh_latest_sections_search(self.conn, "", ["a1"])
+
 
 if __name__ == "__main__":
     _ = unittest.main()
