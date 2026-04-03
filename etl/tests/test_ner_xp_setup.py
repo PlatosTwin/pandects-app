@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Callable, cast
+from unittest.mock import patch
 
 import yaml
 
@@ -18,6 +19,7 @@ from etl.models.ner.ner import (
     parse_boolish,
     parse_train_docs,
     recover_experiment_row_from_run_dir,
+    run_grid_row,
 )
 
 
@@ -180,6 +182,72 @@ class NerXpSetupTests(unittest.TestCase):
         self.assertEqual(config.train_subsample_window, 768)
         self.assertEqual(config.val_window, 768)
         self.assertEqual(config.val_stride, 384)
+
+    def test_run_grid_row_forwards_row_overrides_and_data_path(self) -> None:
+        row = {
+            "train_docs": "0",
+            "xp_name": "row_7_custom_windows",
+            "sampling_mode": "boundary_mix",
+            "decoder_mode": "independent",
+            "boundary_head": "1",
+            "boundary_loss_weight": "0.2",
+            "token_loss_mode": "focal",
+            "token_loss_weight": "1.0",
+            "crf_loss_weight": "0.0",
+            "label_smoothing": "0.01",
+            "preserve_case": "1",
+            "seed": "99",
+            "learning_rate": "3e-5",
+            "train_subsample_window": "768",
+            "val_window": "640",
+            "val_stride": "320",
+        }
+        frozen = {
+            "model_name": "answerdotai/ModernBERT-base",
+            "batch_size": 8,
+            "train_subsample_window": 512,
+            "val_window": 512,
+            "val_stride": 256,
+            "max_epochs": 12,
+            "learning_rate": 2e-5,
+            "weight_decay": 0.01,
+            "warmup_steps_pct": 0.1,
+        }
+        config_sentinel = object()
+        train_result = {"run_id": "run_123"}
+        with (
+            patch("etl.models.ner.ner.load_grid_row", return_value=row),
+            patch(
+                "etl.models.ner.ner.load_frozen_experiment_config",
+                return_value=frozen,
+            ),
+            patch(
+                "etl.models.ner.ner.build_config", return_value=config_sentinel
+            ) as build_config_mock,
+            patch(
+                "etl.models.ner.ner.run_training_and_eval", return_value=train_result
+            ) as run_training_mock,
+        ):
+            result = run_grid_row(
+                row_id=7,
+                split_version="split-v2",
+                seed=42,
+                git_commit="abc123",
+                data_path="/tmp/custom-ner.parquet",
+                eval_split="test",
+            )
+
+        self.assertEqual(result, train_result)
+        kwargs = build_config_mock.call_args.kwargs
+        self.assertEqual(kwargs["seed"], 99)
+        self.assertEqual(kwargs["learning_rate"], 3e-5)
+        self.assertEqual(kwargs["train_subsample_window"], 768)
+        self.assertEqual(kwargs["val_window"], 640)
+        self.assertEqual(kwargs["val_stride"], 320)
+        self.assertEqual(kwargs["data_path"], "/tmp/custom-ner.parquet")
+        run_training_mock.assert_called_once_with(
+            config_sentinel, eval_split="test", run_test=True
+        )
 
     def test_append_experiment_row_expands_header_for_new_columns(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
