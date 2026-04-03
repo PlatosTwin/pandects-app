@@ -9,6 +9,7 @@ using PyTorch Lightning with hyperparameter optimization via Optuna.
 # Standard library
 import argparse
 import csv
+import fcntl
 import hashlib
 import json
 import math
@@ -1432,36 +1433,43 @@ def _metrics_with_suffix(
 
 def _append_experiment_row(csv_path: str, row: dict[str, object]) -> None:
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    file_exists = os.path.exists(csv_path)
     fieldnames = list(row.keys())
-    if file_exists:
-        with open(csv_path, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            header = reader.fieldnames or []
-            existing_rows = list(reader)
-        if header:
-            extra_fields = [key for key in row.keys() if key not in header]
-            missing_fields = [key for key in header if key not in row]
-            if extra_fields or missing_fields:
-                fieldnames = list(header) + extra_fields
-                rewritten_rows: list[dict[str, object]] = []
-                for existing_row in existing_rows:
-                    normalized_row: dict[str, object] = {
-                        name: existing_row.get(name, "") for name in fieldnames
-                    }
-                    rewritten_rows.append(normalized_row)
-                with open(csv_path, "w", encoding="utf-8", newline="") as rewrite_f:
-                    writer = csv.DictWriter(rewrite_f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(rewritten_rows)
-            else:
-                fieldnames = header
-
-    with open(csv_path, "a", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(row)
+    with open(csv_path, "a+", encoding="utf-8", newline="") as f:
+        _ = fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            _ = f.seek(0)
+            content = f.read()
+            file_exists = bool(content)
+            if file_exists:
+                _ = f.seek(0)
+                reader = csv.DictReader(f)
+                header = reader.fieldnames or []
+                existing_rows = list(reader)
+                if header:
+                    extra_fields = [key for key in row.keys() if key not in header]
+                    missing_fields = [key for key in header if key not in row]
+                    if extra_fields or missing_fields:
+                        fieldnames = list(header) + extra_fields
+                        rewritten_rows: list[dict[str, object]] = []
+                        for existing_row in existing_rows:
+                            normalized_row: dict[str, object] = {
+                                name: existing_row.get(name, "") for name in fieldnames
+                            }
+                            rewritten_rows.append(normalized_row)
+                        _ = f.seek(0)
+                        _ = f.truncate()
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(rewritten_rows)
+                    else:
+                        fieldnames = header
+            _ = f.seek(0, os.SEEK_END)
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(row)
+        finally:
+            _ = fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def load_grid_row(row_id: int, grid_path: str | None = None) -> dict[str, str]:
@@ -1699,6 +1707,14 @@ def run_training_and_eval(
                 "split_version": config.split_version,
                 "seed": config.seed,
                 "model_name": config.model_name,
+                "batch_size": config.batch_size,
+                "train_subsample_window": config.train_subsample_window,
+                "val_window": config.val_window,
+                "val_stride": config.val_stride,
+                "max_epochs": config.max_epochs,
+                "learning_rate": config.learning_rate,
+                "weight_decay": config.weight_decay,
+                "warmup_steps_pct": config.warmup_steps_pct,
                 "git_commit": config.git_commit,
             }
             trainer.logger.log_hyperparams(hparams, summary_metrics)
@@ -1732,6 +1748,15 @@ def run_training_and_eval(
                 "label_smoothing": config.label_smoothing,
                 "preserve_case": config.preserve_case,
                 "seed": config.seed,
+                "model_name": config.model_name,
+                "batch_size": config.batch_size,
+                "train_subsample_window": config.train_subsample_window,
+                "val_window": config.val_window,
+                "val_stride": config.val_stride,
+                "max_epochs": config.max_epochs,
+                "learning_rate": config.learning_rate,
+                "weight_decay": config.weight_decay,
+                "warmup_steps_pct": config.warmup_steps_pct,
                 "run_dir": run_dir,
                 **flat_metrics,
             }
@@ -1821,6 +1846,7 @@ def run_grid_row(
     git_commit: str | None,
     grid_path: str | None = None,
     frozen_config_path: str | None = None,
+    data_path: str | None = None,
     eval_split: EvalSplit = "val",
 ) -> dict[str, object] | None:
     """
@@ -1830,6 +1856,11 @@ def run_grid_row(
     frozen = load_frozen_experiment_config(path=frozen_config_path)
     row_seed = int(row.get("seed", str(seed)))
     row_learning_rate = float(row.get("learning_rate", str(frozen["learning_rate"])))
+    row_train_subsample_window = int(
+        row.get("train_subsample_window", str(frozen["train_subsample_window"]))
+    )
+    row_val_window = int(row.get("val_window", str(frozen["val_window"])))
+    row_val_stride = int(row.get("val_stride", str(frozen["val_stride"])))
 
     config = build_config(
         train_docs=parse_train_docs(row["train_docs"]),
@@ -1848,13 +1879,14 @@ def run_grid_row(
         git_commit=git_commit,
         model_name=str(frozen["model_name"]),
         batch_size=int(frozen["batch_size"]),
-        train_subsample_window=int(frozen["train_subsample_window"]),
-        val_window=int(frozen["val_window"]),
-        val_stride=int(frozen["val_stride"]),
+        train_subsample_window=row_train_subsample_window,
+        val_window=row_val_window,
+        val_stride=row_val_stride,
         max_epochs=int(frozen["max_epochs"]),
         learning_rate=row_learning_rate,
         weight_decay=float(frozen["weight_decay"]),
         warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+        data_path=data_path or str(DATA_NER_DIR / "ner-data.parquet"),
     )
     return run_training_and_eval(config, eval_split=eval_split, run_test=True)
 
@@ -2110,6 +2142,9 @@ def _build_cli() -> argparse.ArgumentParser:
         default=str(FROZEN_EXPERIMENT_CONFIG_PATH),
     )
     _ = grid_parser.add_argument(
+        "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
+    )
+    _ = grid_parser.add_argument(
         "--eval-split", type=str, choices=["val", "test"], default="val"
     )
 
@@ -2145,6 +2180,12 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = final_parser.add_argument("--split-version", type=str, default="default")
     _ = final_parser.add_argument("--seed", type=int, default=42)
     _ = final_parser.add_argument("--git-commit", type=str, default=None)
+    _ = final_parser.add_argument("--train-subsample-window", type=int, default=None)
+    _ = final_parser.add_argument("--val-window", type=int, default=None)
+    _ = final_parser.add_argument("--val-stride", type=int, default=None)
+    _ = final_parser.add_argument(
+        "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
+    )
 
     recover_parser = subparsers.add_parser(
         "recover-run", help="Append a completed run back into experiments_xp.csv"
@@ -2237,12 +2278,28 @@ def main() -> None:
             git_commit=args.git_commit,
             grid_path=args.grid_path,
             frozen_config_path=args.frozen_config_path,
+            data_path=args.data_path,
             eval_split=cast(EvalSplit, args.eval_split),
         )
         return
 
     if args.command == "final-train":
         frozen = load_frozen_experiment_config(path=args.frozen_config_path)
+        final_train_subsample_window = (
+            args.train_subsample_window
+            if args.train_subsample_window is not None
+            else int(frozen["train_subsample_window"])
+        )
+        final_val_window = (
+            args.val_window
+            if args.val_window is not None
+            else int(frozen["val_window"])
+        )
+        final_val_stride = (
+            args.val_stride
+            if args.val_stride is not None
+            else int(frozen["val_stride"])
+        )
         config = build_config(
             train_docs=args.train_docs,
             xp_name=args.xp_name,
@@ -2260,13 +2317,14 @@ def main() -> None:
             git_commit=args.git_commit,
             model_name=str(frozen["model_name"]),
             batch_size=int(frozen["batch_size"]),
-            train_subsample_window=int(frozen["train_subsample_window"]),
-            val_window=int(frozen["val_window"]),
-            val_stride=int(frozen["val_stride"]),
+            train_subsample_window=final_train_subsample_window,
+            val_window=final_val_window,
+            val_stride=final_val_stride,
             max_epochs=int(frozen["max_epochs"]),
             learning_rate=float(frozen["learning_rate"]),
             weight_decay=float(frozen["weight_decay"]),
             warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+            data_path=args.data_path,
         )
         final_run_dir = str(EVAL_NER_DIR / "final")
         _ = run_training_and_eval(

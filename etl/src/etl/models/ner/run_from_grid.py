@@ -43,6 +43,7 @@ class _Args(NamedTuple):
     git_commit: str | None
     grid_path: str | None
     frozen_config_path: str | None
+    data_path: str | None
 
 
 def main() -> None:
@@ -56,6 +57,7 @@ def main() -> None:
     _ = parser.add_argument("--git-commit", type=str, default=None)
     _ = parser.add_argument("--grid-path", type=str, default=None)
     _ = parser.add_argument("--frozen-config-path", type=str, default=None)
+    _ = parser.add_argument("--data-path", type=str, default=None)
     parsed = parser.parse_args()
     args = _Args(
         row_id=cast(int | None, getattr(parsed, "row_id")),
@@ -64,6 +66,7 @@ def main() -> None:
         git_commit=cast(str | None, getattr(parsed, "git_commit")),
         grid_path=cast(str | None, getattr(parsed, "grid_path")),
         frozen_config_path=cast(str | None, getattr(parsed, "frozen_config_path")),
+        data_path=cast(str | None, getattr(parsed, "data_path")),
     )
 
     row_id: int | None = args.row_id
@@ -80,6 +83,7 @@ def main() -> None:
         git_commit=args.git_commit,
         grid_path=args.grid_path,
         frozen_config_path=args.frozen_config_path,
+        data_path=args.data_path,
         eval_split="val",
     )
 
