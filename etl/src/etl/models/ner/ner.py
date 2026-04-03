@@ -14,12 +14,18 @@ import hashlib
 import json
 import math
 import os
+from pathlib import Path
+import sys
 import time
 import yaml
 from typing import Callable, Literal, TYPE_CHECKING, TypeAlias, cast
 
 # Environment config
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 # Data manipulation
 import pandas as pd
