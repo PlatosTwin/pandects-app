@@ -11,7 +11,7 @@ import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
-from etl.defs.a_staging_asset import staging_asset
+from etl.defs.a_staging_asset import regular_ingest_staging_asset, staging_asset
 from etl.defs.resources import (
     ClassifierModel,
     DBResource,
@@ -31,6 +31,142 @@ from etl.utils.db_utils import upsert_pages
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.pipeline_state_sql import canonical_pre_processing_queue_sql
 from etl.utils.run_config import is_pre_processing_cleanup_mode, runs_single_batch
+
+
+def _run_pre_processing_from_scratch(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    classifier_model: ClassifierModel,
+    review_model: ReviewModel,
+    target_agreement_uuids: list[str] | None,
+    log_prefix: str,
+) -> list[str]:
+    last_uuid = ""
+    engine = db.get_engine()
+    raw_inference_model = classifier_model.model()
+    inference_model = cast(
+        ClassifierModelProtocol,
+        cast(object, raw_inference_model),
+    )
+    review_inference_model = cast(
+        ReviewModelProtocol,
+        cast(object, review_model.model(page_classifier=raw_inference_model)),
+    )
+    single_batch_run = runs_single_batch(context, pipeline_config)
+    batch_size = pipeline_config.pre_processing_agreement_batch_size
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    processed_agreement_uuids: set[str] = set()
+
+    while True:
+        with engine.begin() as conn:
+            if scoped_uuids:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_pre_processing_queue_sql(schema, scoped=True)).bindparams(
+                            bindparam("auuids", expanding=True)
+                        ),
+                        {
+                            "auuids": tuple(scoped_uuids),
+                            "batch_size": max(batch_size, len(scoped_uuids)),
+                        },
+                    )
+                    .scalars()
+                    .all()
+                )
+            else:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_pre_processing_queue_sql(schema)),
+                        {"last_uuid": last_uuid, "batch_size": batch_size},
+                    )
+                    .scalars()
+                    .all()
+                )
+            if not agreement_uuids:
+                break
+
+            rows = (
+                conn.execute(
+                    text(
+                        f"""
+                        SELECT agreement_uuid, url
+                        FROM {agreements_table}
+                        WHERE agreement_uuid IN :uuids
+                        ORDER BY agreement_uuid ASC
+                        """
+                    ).bindparams(bindparam("uuids", expanding=True)),
+                    {"uuids": agreement_uuids},
+                )
+                .fetchall()
+            )
+
+            if not rows:
+                break
+
+            agreements: list[AgreementRow] = [
+                {"agreement_uuid": r[0], "url": r[1]} for r in rows
+            ]
+            staged_pages, pagination_statuses = pre_process(
+                cast(PreProcessContext, cast(object, context)),
+                agreements,
+                inference_model,
+                review_inference_model,
+            )
+
+            if pagination_statuses:
+                _ = conn.execute(
+                    text(
+                        f"""
+                    UPDATE {agreements_table}
+                    SET paginated = :paginated
+                    WHERE agreement_uuid = :agreement_uuid
+                      AND NOT (paginated <=> :paginated)
+                    """
+                    ),
+                    [
+                        {
+                            "agreement_uuid": agreement_uuid,
+                            "paginated": paginated,
+                        }
+                        for agreement_uuid, paginated in pagination_statuses.items()
+                    ],
+                )
+                processed_agreement_uuids.update(str(agreement_uuid) for agreement_uuid in pagination_statuses)
+
+            if staged_pages:
+                try:
+                    upsert_pages(staged_pages, "insert", db.database, conn)
+                    agreement_count = len(
+                        {p.agreement_uuid for p in staged_pages if p.agreement_uuid}
+                    )
+                    processed_agreement_uuids.update(
+                        str(p.agreement_uuid)
+                        for p in staged_pages
+                        if p.agreement_uuid
+                    )
+                    context.log.info(
+                        "%s: successfully processed %s pages from %s agreements",
+                        log_prefix,
+                        len(staged_pages),
+                        agreement_count,
+                    )
+                except Exception as e:
+                    context.log.error(f"{log_prefix}: error upserting pages: {e}")
+                    raise RuntimeError(e)
+
+            if scoped_uuids:
+                break
+
+            last_uuid = rows[-1][0]
+
+        if single_batch_run:
+            break
+
+    return sorted(processed_agreement_uuids)
 
 
 @dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
@@ -69,7 +205,6 @@ def pre_processing_asset(
 
     batch_size = pipeline_config.pre_processing_agreement_batch_size
     schema = db.database
-    agreements_table = f"{schema}.agreements"
     pages_table = f"{schema}.pages"
 
     run_pre_asset_gating(context, db)
@@ -79,89 +214,15 @@ def pre_processing_asset(
     # If we're in CLEANUP mode, that means we've already split the agreement into pages
     if not is_cleanup:
         context.log.info("Running pre-processing in FROM_SCRATCH mode")
-
-        while True:
-            with engine.begin() as conn:
-                agreement_uuids = (
-                    conn.execute(
-                        text(canonical_pre_processing_queue_sql(schema)),
-                        {"last_uuid": last_uuid, "batch_size": batch_size},
-                    )
-                    .scalars()
-                    .all()
-                )
-                if not agreement_uuids:
-                    break
-
-                rows = (
-                    conn.execute(
-                        text(
-                            f"""
-                            SELECT agreement_uuid, url
-                            FROM {agreements_table}
-                            WHERE agreement_uuid IN :uuids
-                            ORDER BY agreement_uuid ASC
-                            """
-                        ).bindparams(bindparam("uuids", expanding=True)),
-                        {"uuids": agreement_uuids},
-                    )
-                    .fetchall()
-                )
-
-                if not rows:
-                    break
-
-                # Split agreements into pages
-                agreements: list[AgreementRow] = [
-                    {"agreement_uuid": r[0], "url": r[1]} for r in rows
-                ]
-
-                # Process (tag and format) agreements
-                staged_pages, pagination_statuses = pre_process(
-                    cast(PreProcessContext, cast(object, context)),
-                    agreements,
-                    inference_model,
-                    review_inference_model,
-                )
-
-                if pagination_statuses:
-                    _ = conn.execute(
-                        text(
-                            f"""
-                        UPDATE {agreements_table}
-                        SET paginated = :paginated
-                        WHERE agreement_uuid = :agreement_uuid
-                          AND NOT (paginated <=> :paginated)
-                        """
-                        ),
-                        [
-                            {
-                                "agreement_uuid": agreement_uuid,
-                                "paginated": paginated,
-                            }
-                            for agreement_uuid, paginated in pagination_statuses.items()
-                        ],
-                    )
-
-                if staged_pages:
-                    try:
-                        upsert_pages(
-                            staged_pages, "insert", db.database, conn
-                        )
-                        agreement_count = len(
-                            {p.agreement_uuid for p in staged_pages if p.agreement_uuid}
-                        )
-                        context.log.info(
-                            f"Successfully processed {len(staged_pages)} pages from {agreement_count} agreements"
-                        )
-                    except Exception as e:
-                        context.log.error(f"Error upserting pages: {e}")
-                        raise RuntimeError(e)
-
-                last_uuid = rows[-1][0]
-
-            if single_batch_run:
-                break
+        _ = _run_pre_processing_from_scratch(
+            context,
+            db=db,
+            pipeline_config=pipeline_config,
+            classifier_model=classifier_model,
+            review_model=review_model,
+            target_agreement_uuids=None,
+            log_prefix="pre_processing_asset",
+        )
 
     # CLEANUP mode
     # Just like FROM_SCRATCH mode, but we fetch pages that we've already split
@@ -303,3 +364,31 @@ def pre_processing_asset(
                 break
 
     run_post_asset_refresh(context, db, pipeline_config)
+
+
+@dg.asset(
+    name="2-1_regular_ingest_pre_processing_asset",
+    ins={"staged_agreement_uuids": dg.AssetIn(key=regular_ingest_staging_asset.key)},
+)
+def regular_ingest_pre_processing_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    classifier_model: ClassifierModel,
+    review_model: ReviewModel,
+    pipeline_config: PipelineConfig,
+    staged_agreement_uuids: list[str],
+) -> list[str]:
+    run_pre_asset_gating(context, db)
+    if is_pre_processing_cleanup_mode(context, pipeline_config):
+        raise ValueError("regular_ingest_pre_processing_asset requires FROM_SCRATCH pre_processing_mode.")
+    processed_agreement_uuids = _run_pre_processing_from_scratch(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        classifier_model=classifier_model,
+        review_model=review_model,
+        target_agreement_uuids=staged_agreement_uuids,
+        log_prefix="regular_ingest_pre_processing_asset",
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    return processed_agreement_uuids

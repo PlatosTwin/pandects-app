@@ -5,20 +5,21 @@ import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
-from etl.defs.d_ai_repair_asset import ai_repair_poll_asset
+from etl.defs.d_ai_repair_asset import (
+    ai_repair_poll_asset,
+    regular_ingest_ai_repair_poll_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 
 
-@dg.asset(
-    name="5-3_reconcile_tags",
-    ins={"polled_request_ids": dg.AssetIn(key=ai_repair_poll_asset.key)},
-)
-def reconcile_tags(
+def _reconcile_tags_for_requests(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
     polled_request_ids: List[str],
+    *,
+    log_prefix: str,
 ) -> List[str]:
     """
     Merge full-page AI outputs into corrected tagged text and update
@@ -36,7 +37,7 @@ def reconcile_tags(
 
     target_request_ids = sorted(set(polled_request_ids))
     if not target_request_ids:
-        context.log.info("reconcile_tags: no upstream successful full-page request IDs from poll.")
+        context.log.info("%s: no upstream successful full-page request IDs from poll.", log_prefix)
         run_post_asset_refresh(context, db, pipeline_config)
         return []
 
@@ -72,7 +73,8 @@ def reconcile_tags(
 
         if not full_rows:
             context.log.info(
-                "reconcile_tags: no completed full-page outputs for upstream agreements on latest XML version."
+                "%s: no completed full-page outputs for upstream agreements on latest XML version.",
+                log_prefix,
             )
             run_post_asset_refresh(context, db, pipeline_config)
             return []
@@ -107,3 +109,41 @@ def reconcile_tags(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(updated_agreements)
+
+
+@dg.asset(
+    name="5-3_reconcile_tags",
+    ins={"polled_request_ids": dg.AssetIn(key=ai_repair_poll_asset.key)},
+)
+def reconcile_tags(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    polled_request_ids: List[str],
+) -> List[str]:
+    return _reconcile_tags_for_requests(
+        context,
+        db,
+        pipeline_config,
+        polled_request_ids,
+        log_prefix="reconcile_tags",
+    )
+
+
+@dg.asset(
+    name="5-3-regular_ingest_reconcile_tags",
+    ins={"polled_request_ids": dg.AssetIn(key=regular_ingest_ai_repair_poll_asset.key)},
+)
+def regular_ingest_reconcile_tags(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    polled_request_ids: List[str],
+) -> List[str]:
+    return _reconcile_tags_for_requests(
+        context,
+        db,
+        pipeline_config,
+        polled_request_ids,
+        log_prefix="regular_ingest_reconcile_tags",
+    )

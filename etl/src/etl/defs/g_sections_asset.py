@@ -7,7 +7,9 @@ from sqlalchemy import bindparam, text
 
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.f_xml_asset import xml_verify_asset
+from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
 from etl.defs.f_xml_repair_cycle_asset import post_repair_verify_xml_asset
+from etl.defs.f_xml_repair_cycle_asset import regular_ingest_post_repair_verify_xml_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.utils.db_utils import upsert_sections
@@ -188,6 +190,25 @@ def sections_from_fresh_xml_asset(
 
 
 @dg.asset(
+    name="6-1-regular_ingest_sections_from_fresh_xml",
+    ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
+)
+def regular_ingest_sections_from_fresh_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_fresh_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_fresh_agreement_uuids,
+        log_prefix="regular_ingest_sections_from_fresh_xml_asset",
+    )
+
+
+@dg.asset(
     name="6-2_sections_from_repair_xml",
     ins={"verified_repair_agreement_uuids": dg.AssetIn(key=post_repair_verify_xml_asset.key)},
 )
@@ -203,4 +224,23 @@ def sections_from_repair_xml_asset(
         pipeline_config,
         target_agreement_uuids=verified_repair_agreement_uuids,
         log_prefix="sections_from_repair_xml_asset",
+    )
+
+
+@dg.asset(
+    name="6-2-regular_ingest_sections_from_repair_xml",
+    ins={"verified_repair_agreement_uuids": dg.AssetIn(key=regular_ingest_post_repair_verify_xml_asset.key)},
+)
+def regular_ingest_sections_from_repair_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_repair_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_repair_agreement_uuids,
+        log_prefix="regular_ingest_sections_from_repair_xml_asset",
     )

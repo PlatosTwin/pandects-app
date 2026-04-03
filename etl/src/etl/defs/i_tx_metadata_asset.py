@@ -34,6 +34,7 @@ from etl.domain.counsel import (
     split_counsel_names,
 )
 from etl.defs.resources import DBResource, PipelineConfig, TxMetadataMode
+from etl.defs.h_taxonomy_asset import regular_ingest_taxonomy_gold_backfill_asset
 from etl.domain.i_tx_metadata import (
     build_offline_counsel_request_body,
     build_offline_counsel_update_params,
@@ -52,6 +53,7 @@ from etl.utils.openai_batch import (
     poll_batch_until_terminal,
     read_openai_file_text,
 )
+from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import ensure_single_batch_run
@@ -138,7 +140,13 @@ def _fetch_unapplied_offline_batch(
     schema: str,
     *,
     batch_kind: str,
+    batch_key: str | None = None,
 ) -> Dict[str, Any] | None:
+    batch_key_clause = ""
+    params: dict[str, object] = {"batch_kind": batch_kind}
+    if batch_key is not None:
+        batch_key_clause = "AND batch_key = :batch_key"
+        params["batch_key"] = batch_key
     row = conn.execute(
         text(
             f"""
@@ -150,15 +158,17 @@ def _fetch_unapplied_offline_batch(
                 output_file_id,
                 error_file_id,
                 completion_window,
-                request_total
+                request_total,
+                batch_key
             FROM {schema}.tx_metadata_offline_batches
             WHERE applied = 0
               AND batch_kind = :batch_kind
+              {batch_key_clause}
             ORDER BY created_at ASC
             LIMIT 1
             """
         ),
-        {"batch_kind": batch_kind},
+        params,
     ).mappings().first()
     if row is None:
         return None
@@ -173,6 +183,7 @@ def _upsert_offline_batch_row(
     batch: Any,
     completion_window: str,
     request_total: int,
+    batch_key: str,
 ) -> None:
     _ = conn.execute(
         text(
@@ -187,6 +198,7 @@ def _upsert_offline_batch_row(
                 error_file_id,
                 completion_window,
                 request_total,
+                batch_key,
                 applied
             )
             VALUES (
@@ -199,6 +211,7 @@ def _upsert_offline_batch_row(
                 :error_file_id,
                 :completion_window,
                 :request_total,
+                :batch_key,
                 0
             )
             ON DUPLICATE KEY UPDATE
@@ -207,7 +220,8 @@ def _upsert_offline_batch_row(
                 output_file_id = VALUES(output_file_id),
                 error_file_id = VALUES(error_file_id),
                 completion_window = VALUES(completion_window),
-                request_total = VALUES(request_total)
+                request_total = VALUES(request_total),
+                batch_key = VALUES(batch_key)
             """
         ),
         {
@@ -219,6 +233,7 @@ def _upsert_offline_batch_row(
             "error_file_id": getattr(batch, "error_file_id", None),
             "completion_window": completion_window,
             "request_total": request_total,
+            "batch_key": batch_key,
         },
     )
 
@@ -723,7 +738,7 @@ def tx_metadata_asset(
     tagged_outputs_table = f"{schema}.tagged_outputs"
 
     if mode == TxMetadataMode.OFFLINE:
-        _run_offline_mode(
+        _ = _run_offline_mode(
             context, engine,
             schema,
             agreements_table, pages_table, tagged_outputs_table,
@@ -747,6 +762,75 @@ def tx_metadata_asset(
     run_post_asset_refresh(context, db, pipeline_config)
 
 
+@dg.asset(
+    name="9-1_regular_ingest_tx_metadata_offline_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_gold_backfill_asset.key)},
+)
+def regular_ingest_tx_metadata_offline_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    run_pre_asset_gating(context, db)
+    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_offline_asset")
+
+    engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    processed_agreement_uuids = _run_offline_mode(
+        context,
+        engine,
+        schema,
+        agreements_table,
+        pages_table,
+        tagged_outputs_table,
+        pipeline_config.tx_metadata_agreement_batch_size,
+        target_agreement_uuids=agreement_uuids,
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="9-2_regular_ingest_tx_metadata_web_search_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_tx_metadata_offline_asset.key)},
+)
+def regular_ingest_tx_metadata_web_search_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    run_pre_asset_gating(context, db)
+    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_web_search_asset")
+
+    engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    summary = _run_web_search_mode(
+        context,
+        engine,
+        schema,
+        agreements_table,
+        pipeline_config.tx_metadata_agreement_batch_size,
+        target_agreement_uuids=agreement_uuids,
+    )
+    context.add_output_metadata(
+        {
+            "total_web_searches": summary["total_searches"],
+            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
+        }
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    processed_uuids = summary["processed_uuids"]
+    if not isinstance(processed_uuids, list):
+        raise TypeError("regular_ingest_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
+    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
+
+
 def _run_offline_mode(
     context: AssetExecutionContext,
     engine: Any,
@@ -755,9 +839,12 @@ def _run_offline_mode(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
-) -> None:
+    target_agreement_uuids: list[str] | None = None,
+) -> list[str]:
     """Offline mode with resumable batch polling and idempotent updates."""
     client = _oai_client()
+    batch_key = agreement_batch_key(target_agreement_uuids) if target_agreement_uuids else "global"
+    processed_agreement_uuids: set[str] = set()
     with engine.begin() as conn:
         assert_tables_exist(
             conn,
@@ -773,6 +860,8 @@ def _run_offline_mode(
         pages_table=pages_table,
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
+        batch_key=batch_key,
     )
     initial_results: dict[str, dict[str, Any]] = {}
     if metadata_batch is None:
@@ -783,6 +872,8 @@ def _run_offline_mode(
             schema=schema,
             agreements_table=agreements_table,
             batch_size=batch_size,
+            target_agreement_uuids=target_agreement_uuids,
+            batch_key=batch_key,
         )
         initial_results = _process_offline_batches(
             context=context,
@@ -808,6 +899,8 @@ def _run_offline_mode(
                 schema=schema,
                 agreements_table=agreements_table,
                 batch_size=batch_size,
+                target_agreement_uuids=target_agreement_uuids,
+                batch_key=batch_key,
             )
             counsel_future = None
             if counsel_batch is not None:
@@ -822,6 +915,10 @@ def _run_offline_mode(
             initial_results.update(metadata_future.result())
             if counsel_future is not None:
                 initial_results.update(counsel_future.result())
+    for result in initial_results.values():
+        raw_processed_uuids = result.get("processed_uuids")
+        if isinstance(raw_processed_uuids, list):
+            processed_agreement_uuids.update(str(agreement_uuid) for agreement_uuid in raw_processed_uuids if agreement_uuid)
 
     _sync_counsel_mappings(
         context=context,
@@ -834,7 +931,7 @@ def _run_offline_mode(
     metadata_result = initial_results.get(OFFLINE_METADATA_BATCH_KIND)
     metadata_updated = int(metadata_result["updated"]) if metadata_result is not None else 0
     if metadata_updated <= 0:
-        return
+        return sorted(processed_agreement_uuids)
 
     context.log.info(
         "tx_metadata_asset (offline): metadata filled %s agreements; rechecking counsel candidates now that target/acquirer may be available.",
@@ -847,9 +944,11 @@ def _run_offline_mode(
         schema=schema,
         agreements_table=agreements_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
+        batch_key=batch_key,
     )
     if follow_up_counsel_batch is None:
-        return
+        return sorted(processed_agreement_uuids)
     follow_up_results = _process_offline_batches(
         context=context,
         engine=engine,
@@ -864,6 +963,11 @@ def _run_offline_mode(
         agreements_table=agreements_table,
         agreement_uuids=_collect_counsel_sync_uuids(follow_up_results),
     )
+    for result in follow_up_results.values():
+        raw_processed_uuids = result.get("processed_uuids")
+        if isinstance(raw_processed_uuids, list):
+            processed_agreement_uuids.update(str(agreement_uuid) for agreement_uuid in raw_processed_uuids if agreement_uuid)
+    return sorted(processed_agreement_uuids)
 
 
 def _collect_counsel_sync_uuids(results: dict[str, dict[str, Any]]) -> list[str]:
@@ -886,12 +990,15 @@ def _prepare_offline_metadata_batch(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None,
+    batch_key: str,
 ) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline metadata)"
     existing_batch = _load_existing_offline_batch(
         engine,
         schema=schema,
         batch_kind=OFFLINE_METADATA_BATCH_KIND,
+        batch_key=batch_key,
     )
     if existing_batch is not None:
         return {
@@ -910,6 +1017,7 @@ def _prepare_offline_metadata_batch(
         pages_table=pages_table,
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
     )
     if not lines:
         context.log.info("%s: no runnable agreements need target/acquirer/deal_type.", log_prefix)
@@ -923,6 +1031,7 @@ def _prepare_offline_metadata_batch(
         lines=lines,
         request_filename="tx_metadata_offline_metadata_requests.jsonl",
         log_prefix=log_prefix,
+        batch_key=batch_key,
     )
     return {
         "batch_kind": OFFLINE_METADATA_BATCH_KIND,
@@ -942,12 +1051,15 @@ def _prepare_offline_counsel_batch(
     schema: str,
     agreements_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None,
+    batch_key: str,
 ) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline counsel)"
     existing_batch = _load_existing_offline_batch(
         engine,
         schema=schema,
         batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
+        batch_key=batch_key,
     )
     if existing_batch is not None:
         return {
@@ -966,6 +1078,7 @@ def _prepare_offline_counsel_batch(
         schema=schema,
         agreements_table=agreements_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
     )
     context.log.info("%s: assembled %s counsel requests.", log_prefix, len(lines))
     if not lines:
@@ -980,6 +1093,7 @@ def _prepare_offline_counsel_batch(
         lines=lines,
         request_filename="tx_metadata_offline_counsel_requests.jsonl",
         log_prefix=log_prefix,
+        batch_key=batch_key,
     )
     return {
         "batch_kind": OFFLINE_COUNSEL_BATCH_KIND,
@@ -991,9 +1105,20 @@ def _prepare_offline_counsel_batch(
     }
 
 
-def _load_existing_offline_batch(engine: Any, *, schema: str, batch_kind: str) -> Dict[str, Any] | None:
+def _load_existing_offline_batch(
+    engine: Any,
+    *,
+    schema: str,
+    batch_kind: str,
+    batch_key: str,
+) -> Dict[str, Any] | None:
     with engine.begin() as conn:
-        return _fetch_unapplied_offline_batch(conn, schema, batch_kind=batch_kind)
+        return _fetch_unapplied_offline_batch(
+            conn,
+            schema,
+            batch_kind=batch_kind,
+            batch_key=batch_key,
+        )
 
 
 def _resume_and_apply_offline_batch(
@@ -1024,6 +1149,7 @@ def _resume_and_apply_offline_batch(
             batch=batch,
             completion_window=str(batch_row["completion_window"]),
             request_total=int(batch_row["request_total"]),
+            batch_key=str(batch_row["batch_key"]),
         )
     if batch.status != "completed":
         context.log.warning("%s: batch %s ended with status=%s; not applying updates.", log_prefix, batch.id, batch.status)
@@ -1081,6 +1207,7 @@ def _create_offline_batch(
     lines: List[Dict[str, Any]],
     request_filename: str,
     log_prefix: str,
+    batch_key: str,
 ) -> dict[str, Any]:
     jsonl_buf = io.StringIO()
     for line in lines:
@@ -1102,12 +1229,14 @@ def _create_offline_batch(
             batch=batch,
             completion_window=completion_window,
             request_total=len(lines),
+            batch_key=batch_key,
         )
     context.log.info("%s: created batch %s with %s requests.", log_prefix, batch.id, len(lines))
     return {
         "batch_id": batch.id,
         "completion_window": completion_window,
         "request_total": len(lines),
+        "batch_key": batch_key,
     }
 
 
@@ -1162,7 +1291,9 @@ def _build_offline_metadata_lines(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> List[Dict[str, Any]]:
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     pages_q = text(
         f"""
         WITH candidate_pages AS (
@@ -1191,6 +1322,7 @@ def _build_offline_metadata_lines(
                 (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
                 AND (a.paginated = True OR a.paginated IS NULL)
                 AND a.gated = 0
+                {scope_clause}
                 AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
         ),
         selected_pages AS (
@@ -1231,8 +1363,13 @@ def _build_offline_metadata_lines(
             sp.page_order ASC
         """
     )
+    if target_agreement_uuids:
+        pages_q = pages_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        page_rows = conn.execute(pages_q, {"lim": batch_size}).mappings().fetchall()
+        params: dict[str, object] = {"lim": batch_size}
+        if target_agreement_uuids:
+            params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
+        page_rows = conn.execute(pages_q, params).mappings().fetchall()
     by_agr: Dict[str, List[str]] = {}
     for row in page_rows:
         agreement_uuid = str(row["agreement_uuid"])
@@ -1255,12 +1392,14 @@ def _build_offline_counsel_lines(
     schema: str,
     agreements_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> List[Dict[str, Any]]:
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     standard_ids_table = f"{schema}.latest_sections_search_standard_ids"
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     candidate_q = text(
         f"""
         SELECT
@@ -1280,6 +1419,7 @@ def _build_offline_counsel_lines(
          AND x.latest = 1
          AND x.status = 'verified'
         WHERE (a.target_counsel IS NULL OR a.acquirer_counsel IS NULL)
+          {scope_clause}
           AND a.target IS NOT NULL
           AND TRIM(a.target) <> ''
           AND a.acquirer IS NOT NULL
@@ -1308,6 +1448,8 @@ def _build_offline_counsel_lines(
         LIMIT :lim
         """
     )
+    if target_agreement_uuids:
+        candidate_q = candidate_q.bindparams(bindparam("agreement_uuids", expanding=True))
     section_q = (
         text(
             f"""
@@ -1335,7 +1477,15 @@ def _build_offline_counsel_lines(
     with engine.begin() as conn:
         candidate_rows = conn.execute(
             candidate_q,
-            {"counsel_standard_id": COUNSEL_SECTION_STANDARD_ID, "lim": batch_size},
+            {
+                "counsel_standard_id": COUNSEL_SECTION_STANDARD_ID,
+                "lim": batch_size,
+                **(
+                    {"agreement_uuids": tuple(sorted(set(target_agreement_uuids)))}
+                    if target_agreement_uuids
+                    else {}
+                ),
+            },
         ).mappings().fetchall()
         agreement_order = [str(row["agreement_uuid"]) for row in candidate_rows]
         if not agreement_order:
@@ -1384,6 +1534,7 @@ def _run_web_search_mode(
     schema: str,
     agreements_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> Dict[str, Any]:
     """Web-search: select agreements needing metadata with names or URL context; sync API; update web columns."""
     with engine.begin() as conn:
@@ -1393,6 +1544,7 @@ def _run_web_search_mode(
             table_names=("tx_metadata_web_failures",),
         )
 
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     select_q = text(
         f"""
         SELECT
@@ -1440,6 +1592,7 @@ def _run_web_search_mode(
             )
             OR (a.url IS NOT NULL AND TRIM(a.url) <> '')
           )
+          {scope_clause}
         ORDER BY
             initial_metadata_pass DESC,
             COALESCE(wf.failure_count, 0) ASC,
@@ -1449,12 +1602,18 @@ def _run_web_search_mode(
         LIMIT :lim
         """
     )
+    if target_agreement_uuids:
+        select_q = select_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        rows = conn.execute(select_q, {"lim": batch_size}).mappings().fetchall()
+        params: dict[str, object] = {"lim": batch_size}
+        if target_agreement_uuids:
+            params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
+        rows = conn.execute(select_q, params).mappings().fetchall()
     agreements = [dict(r) for r in rows]
     if not agreements:
         context.log.info("tx_metadata_asset (web_search): no agreements need web metadata.")
-        return {"total_searches": 0, "searches_by_agreement": {}}
+        return {"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": []}
+    processed_uuids = sorted({str(agreement["agreement_uuid"]) for agreement in agreements if agreement.get("agreement_uuid")})
 
     context.log.info(
         "tx_metadata_asset (web_search): selected %s agreements for enrichment (max_workers=%s, commit_batch_size=%s)",
@@ -1754,4 +1913,5 @@ def _run_web_search_mode(
     return {
         "total_searches": total_searches,
         "searches_by_agreement": searches_by_agreement,
+        "processed_uuids": processed_uuids,
     }

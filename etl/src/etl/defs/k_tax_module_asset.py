@@ -16,6 +16,7 @@ from etl.defs.g_sections_asset import (
     sections_from_fresh_xml_asset,
     sections_from_repair_xml_asset,
 )
+from etl.defs.h_taxonomy_asset import regular_ingest_taxonomy_llm_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.tax_module import (
     TaxAssignmentRecord,
@@ -228,7 +229,7 @@ def _insert_clauses_for_agreements(
     clause_rows: list[TaxClauseRecord],
 ) -> None:
     replace_module_clauses(
-        cast(object, clause_rows),
+        cast(list[dict[str, object]], cast(object, clause_rows)),
         agreement_uuids=agreement_uuids,
         module="tax",
         schema=schema,
@@ -286,7 +287,14 @@ def _create_llm_lines(
 def _fetch_unapplied_tax_module_batch(
     conn: Connection,
     schema: str,
+    *,
+    batch_key: str | None = None,
 ) -> dict[str, Any] | None:
+    batch_key_clause = ""
+    params: dict[str, object] = {}
+    if batch_key is not None:
+        batch_key_clause = "AND batch_key = :batch_key"
+        params["batch_key"] = batch_key
     row = conn.execute(
         text(
             f"""
@@ -302,10 +310,12 @@ def _fetch_unapplied_tax_module_batch(
                 batch_key
             FROM {schema}.{TAX_MODULE_LLM_BATCHES_TABLE}
             WHERE applied = 0
+              {batch_key_clause}
             ORDER BY created_at ASC
             LIMIT 1
             """
-        )
+        ),
+        params,
     ).mappings().first()
     if row is None:
         return None
@@ -445,7 +455,7 @@ def _apply_tax_module_batch_output(
     with engine.begin() as conn:
         if assignments:
             upsert_tax_clause_assignments(
-                cast(object, assignments),
+                cast(list[dict[str, object]], cast(object, assignments)),
                 schema=db.database,
                 conn=conn,
             )
@@ -529,10 +539,15 @@ def _run_tax_module_for_agreements(
         )
 
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    scoped_batch_key = agreement_batch_key(scoped_uuids) if scoped_uuids else None
     while True:
         if pipeline_config.resume_openai_batches:
             with engine.begin() as conn:
-                existing_batch = _fetch_unapplied_tax_module_batch(conn, schema)
+                existing_batch = _fetch_unapplied_tax_module_batch(
+                    conn,
+                    schema,
+                    batch_key=scoped_batch_key,
+                )
             if existing_batch is not None:
                 context.log.info(
                     "%s: resuming unapplied batch %s.",
@@ -579,7 +594,7 @@ def _run_tax_module_for_agreements(
             if clause_rows:
                 section_rows_by_uuid = {row["section_uuid"]: row for row in section_rows}
                 taxonomy_json = _fetch_taxonomy_json(conn, schema)
-                batch_key = agreement_batch_key(agreement_uuids)
+                batch_key = scoped_batch_key or agreement_batch_key(agreement_uuids)
                 lines = _create_llm_lines(
                     clause_rows=clause_rows,
                     section_rows_by_uuid=section_rows_by_uuid,
@@ -700,4 +715,23 @@ def tax_module_from_repair_xml_asset(
         pipeline_config,
         target_agreement_uuids=section_agreement_uuids,
         log_prefix="tax_module_from_repair_xml_asset",
+    )
+
+
+@dg.asset(
+    name="8-3_regular_ingest_tax_module_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_llm_asset.key)},
+)
+def regular_ingest_tax_module_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_tax_module_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=section_agreement_uuids,
+        log_prefix="regular_ingest_tax_module_asset",
     )

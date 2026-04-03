@@ -13,6 +13,10 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
 from etl.defs.g_sections_asset import sections_asset
+from etl.defs.g_sections_asset import (
+    regular_ingest_sections_from_fresh_xml_asset,
+    regular_ingest_sections_from_repair_xml_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig, TaxonomyModel, TaxonomyMode
 from etl.domain.f_xml import XMLData
 from etl.domain.h_taxonomy import (
@@ -121,7 +125,14 @@ def _fetch_taxonomy_json(conn: Connection, schema: str) -> list[dict[str, Any]]:
 def _fetch_unapplied_taxonomy_llm_batch(
     conn: Connection,
     schema: str,
+    *,
+    batch_key: str | None = None,
 ) -> dict[str, Any] | None:
+    params: dict[str, object] = {}
+    batch_key_clause = ""
+    if batch_key is not None:
+        batch_key_clause = "AND batch_key = :batch_key"
+        params["batch_key"] = batch_key
     row = conn.execute(
         text(
             f"""
@@ -137,10 +148,12 @@ def _fetch_unapplied_taxonomy_llm_batch(
                 batch_key
             FROM {schema}.{TAXONOMY_LLM_BATCHES_TABLE}
             WHERE applied = 0
+              {batch_key_clause}
             ORDER BY created_at ASC
             LIMIT 1
             """
-        )
+        ),
+        params,
     ).mappings().first()
     if row is None:
         return None
@@ -238,29 +251,38 @@ def _select_agreement_batch(
     last_uuid: str,
     agreement_batch_size: int,
     section_title_regex: str | None,
+    scoped_uuids: list[str] | None = None,
 ) -> list[str]:
     params: dict[str, object] = {"last": last_uuid, "lim": agreement_batch_size}
     regex_clause = ""
+    scope_clause = ""
     if mode in {TaxonomyMode.LLM, TaxonomyMode.ML} and section_title_regex:
         regex_clause = _taxonomy_regex_clause(section_title_regex)
         params["section_title_regex"] = section_title_regex
+    if scoped_uuids:
+        scope_clause = "AND s.agreement_uuid IN :agreement_uuids"
+        params["agreement_uuids"] = tuple(scoped_uuids)
+    query = text(
+        f"""
+        SELECT DISTINCT s.agreement_uuid
+        FROM {sections_table} s
+        JOIN {xml_table} x
+          ON x.agreement_uuid = s.agreement_uuid
+         AND x.version = s.xml_version
+        WHERE s.agreement_uuid > :last
+          {scope_clause}
+          AND x.latest = 1
+          AND x.status = 'verified'
+          AND {_prediction_clause_for_mode(mode)}
+          {regex_clause}
+        ORDER BY s.agreement_uuid
+        LIMIT :lim
+        """
+    )
+    if scoped_uuids:
+        query = query.bindparams(bindparam("agreement_uuids", expanding=True))
     rows = conn.execute(
-        text(
-            f"""
-            SELECT DISTINCT s.agreement_uuid
-            FROM {sections_table} s
-            JOIN {xml_table} x
-              ON x.agreement_uuid = s.agreement_uuid
-             AND x.version = s.xml_version
-            WHERE s.agreement_uuid > :last
-              AND x.latest = 1
-              AND x.status = 'verified'
-              AND {_prediction_clause_for_mode(mode)}
-              {regex_clause}
-            ORDER BY s.agreement_uuid
-            LIMIT :lim
-            """
-        ),
+        query,
         params,
     ).mappings().fetchall()
     return [str(row["agreement_uuid"]) for row in rows]
@@ -728,9 +750,10 @@ def _create_and_apply_taxonomy_llm_batch(
     prediction_rows: list[dict[str, Any]],
     model_name: str,
     sections_per_request: int,
+    batch_key_override: str | None = None,
 ) -> None:
     agreement_uuids = sorted({str(row["agreement_uuid"]) for row in prediction_rows})
-    batch_key = agreement_batch_key(agreement_uuids)
+    batch_key = batch_key_override or agreement_batch_key(agreement_uuids)
     with engine.begin() as conn:
         taxonomy_json = _fetch_taxonomy_json(conn, db.database)
     lines = _create_taxonomy_llm_lines(
@@ -788,17 +811,19 @@ def _create_and_apply_taxonomy_llm_batch(
     )
 
 
-@dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
-def taxonomy_asset(
+def _run_taxonomy_mode(
     context: AssetExecutionContext,
+    *,
     db: DBResource,
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,
-) -> None:
+    mode: TaxonomyMode,
+    target_agreement_uuids: list[str] | None,
+    log_prefix: str,
+) -> list[str]:
     agreement_batch_size = pipeline_config.taxonomy_agreement_batch_size
     llm_sections_per_request = pipeline_config.taxonomy_llm_sections_per_request
     single_batch_run = runs_single_batch(context, pipeline_config)
-    mode = pipeline_config.taxonomy_mode
     section_title_regex = pipeline_config.taxonomy_section_title_regex
 
     if llm_sections_per_request <= 0:
@@ -809,6 +834,9 @@ def taxonomy_asset(
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
     last_uuid = ""
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    scoped_batch_key = agreement_batch_key(scoped_uuids) if scoped_uuids else None
+    processed_agreement_uuids: set[str] = set()
 
     if mode == TaxonomyMode.LLM:
         with engine.begin() as conn:
@@ -818,17 +846,15 @@ def taxonomy_asset(
     if mode == TaxonomyMode.ML:
         ml_model = cast(TaxonomyPredictor, cast(object, taxonomy_model.model()))
 
-    context.log.info("Running taxonomy in mode=%s", mode.value)
-
     while True:
         if mode == TaxonomyMode.LLM and pipeline_config.resume_openai_batches:
             with engine.begin() as conn:
-                existing_batch = _fetch_unapplied_taxonomy_llm_batch(conn, schema)
-            if existing_batch is not None:
-                context.log.info(
-                    "taxonomy_asset (llm): resuming unapplied batch %s.",
-                    existing_batch["batch_id"],
+                existing_batch = _fetch_unapplied_taxonomy_llm_batch(
+                    conn,
+                    schema,
+                    batch_key=scoped_batch_key if scoped_uuids else None,
                 )
+            if existing_batch is not None:
                 _resume_and_apply_taxonomy_llm_batch(
                     context,
                     engine=engine,
@@ -837,7 +863,7 @@ def taxonomy_asset(
                     sections_table=sections_table,
                     batch_row=existing_batch,
                 )
-                if single_batch_run:
+                if scoped_uuids or single_batch_run:
                     break
                 continue
 
@@ -848,8 +874,9 @@ def taxonomy_asset(
                 xml_table=xml_table,
                 mode=mode,
                 last_uuid=last_uuid,
-                agreement_batch_size=agreement_batch_size,
+                agreement_batch_size=max(agreement_batch_size, len(scoped_uuids)) if scoped_uuids else agreement_batch_size,
                 section_title_regex=section_title_regex,
+                scoped_uuids=scoped_uuids or None,
             )
             if not agreement_uuids:
                 break
@@ -874,6 +901,7 @@ def taxonomy_asset(
                         prediction_rows=prediction_rows,
                         model=ml_model,
                     )
+                    processed_agreement_uuids.update(agreement_uuids)
             elif mode == TaxonomyMode.GOLD_BACKFILL:
                 gold_rows = _fetch_gold_rows(
                     conn,
@@ -888,6 +916,7 @@ def taxonomy_asset(
                         db=db,
                         gold_rows=gold_rows,
                     )
+                    processed_agreement_uuids.update(agreement_uuids)
             else:
                 prediction_rows = _fetch_prediction_rows(
                     conn,
@@ -907,11 +936,81 @@ def taxonomy_asset(
                         prediction_rows=prediction_rows,
                         model_name=pipeline_config.taxonomy_llm_model,
                         sections_per_request=llm_sections_per_request,
+                        batch_key_override=scoped_batch_key,
                     )
+                    processed_agreement_uuids.update(agreement_uuids)
 
             last_uuid = agreement_uuids[-1]
 
-        if single_batch_run:
+        if scoped_uuids or single_batch_run:
             break
 
     run_post_asset_refresh(context, db, pipeline_config)
+    context.log.info("%s: processed %s agreements in mode=%s", log_prefix, len(processed_agreement_uuids), mode.value)
+    return sorted(processed_agreement_uuids)
+
+
+@dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
+def taxonomy_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+) -> None:
+    _ = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=pipeline_config.taxonomy_mode,
+        target_agreement_uuids=None,
+        log_prefix="taxonomy_asset",
+    )
+
+
+@dg.asset(
+    name="7-1_regular_ingest_taxonomy_llm_asset",
+    ins={
+        "fresh_section_agreement_uuids": dg.AssetIn(key=regular_ingest_sections_from_fresh_xml_asset.key),
+        "repair_section_agreement_uuids": dg.AssetIn(key=regular_ingest_sections_from_repair_xml_asset.key),
+    },
+)
+def regular_ingest_taxonomy_llm_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    fresh_section_agreement_uuids: list[str],
+    repair_section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.LLM,
+        target_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+        log_prefix="regular_ingest_taxonomy_llm_asset",
+    )
+
+
+@dg.asset(
+    name="7-2_regular_ingest_taxonomy_gold_backfill_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("8-3_regular_ingest_tax_module_asset"))},
+)
+def regular_ingest_taxonomy_gold_backfill_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        target_agreement_uuids=section_agreement_uuids,
+        log_prefix="regular_ingest_taxonomy_gold_backfill_asset",
+    )

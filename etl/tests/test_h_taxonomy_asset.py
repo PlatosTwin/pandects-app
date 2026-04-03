@@ -8,8 +8,9 @@ from unittest.mock import patch
 from dagster import AssetExecutionContext
 
 import etl.defs.h_taxonomy_asset as taxonomy_asset_module
-from etl.defs.h_taxonomy_asset import taxonomy_asset
+from etl.defs.h_taxonomy_asset import regular_ingest_taxonomy_llm_asset, taxonomy_asset
 from etl.defs.resources import QueueRunMode, TaxonomyMode
+from etl.utils.batch_keys import agreement_batch_key
 
 
 class _FakeResult:
@@ -418,6 +419,63 @@ class TaxonomyAssetTests(unittest.TestCase):
             )
 
         resume_batch.assert_called_once()
+
+    def test_regular_ingest_llm_mode_uses_full_scope_batch_key_for_create_and_resume(self) -> None:
+        conn = _FakeConn(
+            sec_rows=[
+                {
+                    "section_uuid": "section-1",
+                    "agreement_uuid": "agreement-1",
+                    "article_title": "ARTICLE I",
+                    "section_title": "Section 1",
+                    "article_title_normed": "general provisions",
+                    "section_title_normed": "governing law",
+                    "article_order": 1,
+                    "section_order": 1,
+                    "xml_content": "<section>Body</section>",
+                    "section_standard_id_gold_label": None,
+                }
+            ]
+        )
+        context = SimpleNamespace(log=_FakeLog())
+        db = SimpleNamespace(database="pdx", get_engine=lambda: _FakeEngine(conn))
+        taxonomy_model = SimpleNamespace(model=lambda: object())
+        pipeline_config = SimpleNamespace(
+            taxonomy_agreement_batch_size=10,
+            taxonomy_mode=TaxonomyMode.LLM,
+            taxonomy_section_title_regex=None,
+            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_sections_per_request=1,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
+            resume_openai_batches=True,
+        )
+        expected_scope_key = agreement_batch_key(["agreement-1", "agreement-2"])
+
+        with (
+            patch("etl.defs.h_taxonomy_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.h_taxonomy_asset._fetch_unapplied_taxonomy_llm_batch",
+                return_value=None,
+            ) as fetch_batch,
+            patch(
+                "etl.defs.h_taxonomy_asset._create_and_apply_taxonomy_llm_batch",
+                return_value=None,
+            ) as create_batch,
+            patch("etl.defs.h_taxonomy_asset._oai_client", return_value=object()),
+            patch("etl.defs.h_taxonomy_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_taxonomy_llm_asset.op.compute_fn), "decorated_fn")
+            _ = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, db),
+                taxonomy_model=cast(object, taxonomy_model),
+                pipeline_config=cast(object, pipeline_config),
+                fresh_section_agreement_uuids=["agreement-1"],
+                repair_section_agreement_uuids=["agreement-2"],
+            )
+
+        self.assertEqual(fetch_batch.call_args.kwargs["batch_key"], expected_scope_key)
+        self.assertEqual(create_batch.call_args.kwargs["batch_key_override"], expected_scope_key)
 
 
 if __name__ == "__main__":

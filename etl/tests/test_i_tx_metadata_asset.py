@@ -662,6 +662,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 "updated": 0,
                 "parse_errors": 0,
                 "refreshed_uuids": [],
+                "processed_uuids": [f"agreement-{batch_kind}"],
             }
 
         def fake_build_counsel_lines(**_kwargs: object) -> list[dict[str, object]]:
@@ -679,7 +680,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             patch("etl.defs.i_tx_metadata_asset._resume_and_apply_offline_batch", side_effect=fake_resume_and_apply),
             patch("etl.defs.i_tx_metadata_asset._sync_counsel_mappings") as sync_counsel,
         ):
-            _run_offline_mode(
+            processed_uuids = _run_offline_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -691,6 +692,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(creation_order, ["metadata", "counsel"])
         self.assertEqual(sync_counsel.call_count, 1)
+        self.assertEqual(processed_uuids, ["agreement-counsel", "agreement-metadata"])
 
     def test_run_offline_mode_rechecks_counsel_after_metadata_updates(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
@@ -714,6 +716,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 "updated": updated,
                 "parse_errors": 0,
                 "refreshed_uuids": [],
+                "processed_uuids": [f"agreement-{batch_kind}"],
             }
 
         with (
@@ -729,7 +732,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             patch("etl.defs.i_tx_metadata_asset._resume_and_apply_offline_batch", side_effect=fake_resume_and_apply),
             patch("etl.defs.i_tx_metadata_asset._sync_counsel_mappings") as sync_counsel,
         ):
-            _run_offline_mode(
+            processed_uuids = _run_offline_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -742,6 +745,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertEqual(created_batch_kinds, ["metadata", "counsel"])
         self.assertEqual(build_counsel_lines.call_count, 2)
         self.assertEqual(sync_counsel.call_count, 2)
+        self.assertEqual(processed_uuids, ["agreement-counsel", "agreement-metadata"])
 
     def test_build_offline_counsel_lines_uses_matching_sections(self) -> None:
         conn = _FakeCounselSelectionConn(
@@ -927,7 +931,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             ),
             patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search") as refresh,
         ):
-            _ = _run_web_search_mode(
+            summary = _run_web_search_mode(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 engine=engine,
                 schema="pdx",
@@ -945,6 +949,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         )
         self.assertEqual(metadata_payload["metadata_run_stats"]["search_count"], 1)
         self.assertEqual(conn.update_calls, 1)
+        self.assertEqual(summary["processed_uuids"], ["agreement-1"])
         select_sql = next(sql for sql in conn.executed_sql if "FROM pdx.agreements a" in sql)
         self.assertIn("COALESCE(a.metadata, 0) = 0", select_sql)
         self.assertIn("COALESCE(a.metadata, 0) = 1", select_sql)

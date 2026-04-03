@@ -33,6 +33,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+    regular_ingest_xml_verify_asset,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
@@ -102,6 +103,7 @@ def _fetch_candidates(
     conn: Connection,
     schema: str,
     agreement_limit: int | None,
+    target_agreement_uuids: list[str] | None = None,
     page_budget: int | None = None,
     attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
     exclude_in_flight: bool = True,
@@ -125,14 +127,17 @@ def _fetch_candidates(
     else:
         blocked_statuses = ("completed",)
 
-    invalid_rows = conn.execute(
-        text(
-            canonical_ai_repair_enqueue_queue_sql(schema)
-        ).bindparams(bindparam("reason_codes", expanding=True)),
-        {
-            "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
-        },
-    ).mappings().fetchall()
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    queue_sql = text(
+        canonical_ai_repair_enqueue_queue_sql(schema, scoped=bool(scoped_uuids))
+    ).bindparams(bindparam("reason_codes", expanding=True))
+    params: Dict[str, Any] = {
+        "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
+    }
+    if scoped_uuids:
+        queue_sql = queue_sql.bindparams(bindparam("agreement_uuids", expanding=True))
+        params["agreement_uuids"] = scoped_uuids
+    invalid_rows = conn.execute(queue_sql, params).mappings().fetchall()
     if not invalid_rows:
         return []
 
@@ -388,6 +393,23 @@ def _fetch_open_ai_repair_batch(
     return dict(row)
 
 
+def _fetch_open_ai_repair_batch_for_scope(
+    conn: Connection,
+    schema: str,
+    *,
+    scoped_agreement_uuids: list[str],
+) -> Dict[str, Any] | None:
+    matching_batch: Dict[str, Any] | None = None
+    for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL):
+        batch_key = agreement_batch_key([*scoped_agreement_uuids, f"model:{model}"])
+        batch_row = _fetch_open_ai_repair_batch(conn, schema, batch_key=batch_key)
+        if batch_row is None:
+            continue
+        if matching_batch is None or str(batch_row["batch_id"]) < str(matching_batch["batch_id"]):
+            matching_batch = batch_row
+    return matching_batch
+
+
 def _fetch_batch_agreement_uuids(
     conn: Connection,
     schema: str,
@@ -536,11 +558,13 @@ def _mark_xml_ai_repair_attempted(
     return int(result.rowcount or 0)
 
 
-@dg.asset(name="5-1_ai_repair_enqueue_asset")
-def ai_repair_enqueue_asset(
+def _enqueue_ai_repair_for_agreements(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
+    *,
+    target_agreement_uuids: list[str] | None,
+    log_prefix: str,
 ) -> List[str]:
     """
     Enqueue full-page AI retagging for XML-invalid target pages (by pageUUID).
@@ -550,8 +574,13 @@ def ai_repair_enqueue_asset(
     batch_completion_window = "24h"
     should_exit_after_tx = False
     resume_openai_batches = pipeline_config.resume_openai_batches
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
 
     enqueued_agreement_uuids: Set[str] = set()
+
+    if target_agreement_uuids is not None and not scoped_uuids:
+        context.log.info("%s: no upstream agreements to enqueue.", log_prefix)
+        return []
 
     with engine.begin() as conn:
         assert_tables_exist(
@@ -573,9 +602,17 @@ def ai_repair_enqueue_asset(
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         if resume_openai_batches:
-            matched_open_batch = _fetch_open_ai_repair_batch(
-                conn,
-                db.database,
+            matched_open_batch = (
+                _fetch_open_ai_repair_batch_for_scope(
+                    conn,
+                    db.database,
+                    scoped_agreement_uuids=scoped_uuids,
+                )
+                if scoped_uuids
+                else _fetch_open_ai_repair_batch(
+                    conn,
+                    db.database,
+                )
             )
             if matched_open_batch is not None:
                 resumed_batch_id = str(matched_open_batch["batch_id"])
@@ -587,7 +624,8 @@ def ai_repair_enqueue_asset(
                 if resumed_agreement_uuids:
                     enqueued_agreement_uuids.update(resumed_agreement_uuids)
                     context.log.info(
-                        "ai_repair_enqueue_asset: resuming stranded batch %s for %s agreements.",
+                        "%s: resuming stranded batch %s for %s agreements.",
+                        log_prefix,
                         resumed_batch_id,
                         len(resumed_agreement_uuids),
                     )
@@ -600,11 +638,12 @@ def ai_repair_enqueue_asset(
                 conn,
                 db.database,
                 agreement_limit=None if page_budget > 0 else batch_size,
+                target_agreement_uuids=scoped_uuids or None,
                 page_budget=page_budget if page_budget > 0 else None,
                 attempt_priority=pipeline_config.ai_repair_attempt_priority,
             )
             if not candidates:
-                context.log.info("ai_repair_enqueue_asset: no candidates.")
+                context.log.info("%s: no candidates.", log_prefix)
                 should_exit_after_tx = True
             else:
                 candidate_agreement_by_page_uuid = {
@@ -620,14 +659,16 @@ def ai_repair_enqueue_asset(
                     1 for attempted in candidate_attempted_by_agreement.values() if attempted == 1
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: selected agreements total=%s unattempted=%s already_attempted=%s target_pages=%s",
+                    "%s: selected agreements total=%s unattempted=%s already_attempted=%s target_pages=%s",
+                    log_prefix,
                     candidate_agreement_count,
                     candidate_agreement_count - candidate_already_attempted,
                     candidate_already_attempted,
                     len(candidates),
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: attempt priority=%s",
+                    "%s: attempt priority=%s",
+                    log_prefix,
                     pipeline_config.ai_repair_attempt_priority.value,
                 )
 
@@ -669,7 +710,7 @@ def ai_repair_enqueue_asset(
                 for meta in metas
             ]
             if not all_lines_meta:
-                context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+                context.log.info("%s: nothing to enqueue.", log_prefix)
                 should_exit_after_tx = True
             else:
                 client = _oai_client()
@@ -682,7 +723,8 @@ def ai_repair_enqueue_asset(
                 if not llm_agreement_uuids:
                     raise ValueError("ai_repair_enqueue_asset: failed to derive agreement UUIDs for enqueued lines.")
                 context.log.info(
-                    "ai_repair_enqueue_asset: prepared requests by model=%s",
+                    "%s: prepared requests by model=%s",
+                    log_prefix,
                     dict(sorted(request_count_by_model.items())),
                 )
 
@@ -732,7 +774,8 @@ def ai_repair_enqueue_asset(
                     conn, db.database, enqueued_agreement_uuids
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                    "%s: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                    log_prefix,
                     marked_rows,
                     len(enqueued_agreement_uuids),
                 )
@@ -743,6 +786,40 @@ def ai_repair_enqueue_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(enqueued_agreement_uuids)
+
+
+@dg.asset(name="5-1_ai_repair_enqueue_asset")
+def ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    return _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=None,
+        log_prefix="ai_repair_enqueue_asset",
+    )
+
+
+@dg.asset(
+    name="5-1-regular_ingest_ai_repair_enqueue_asset",
+    ins={"verified_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
+)
+def regular_ingest_ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_agreement_uuids: List[str],
+) -> List[str]:
+    return _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_agreement_uuids,
+        log_prefix="regular_ingest_ai_repair_enqueue_asset",
+    )
 
 
 def _request_counts(batch: Any) -> Tuple[int, int, int]:
@@ -1075,15 +1152,13 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     return rid, out
 
 
-@dg.asset(
-    name="5-2_ai_repair_poll_asset",
-    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
-)
-def ai_repair_poll_asset(
+def _poll_ai_repair_batches(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
+    *,
+    log_prefix: str,
 ) -> List[str]:
     """
     Poll terminal batches, read output/error JSONL, and persist parsed entities strictly.
@@ -1109,7 +1184,7 @@ def ai_repair_poll_asset(
     target_agreement_uuids = sorted(set(enqueued_agreement_uuids))
 
     if not target_agreement_uuids:
-        context.log.info("ai_repair_poll_asset: no upstream agreements from enqueue.")
+        context.log.info("%s: no upstream agreements from enqueue.", log_prefix)
         run_post_asset_refresh(context, db, pipeline_config)
         return []
 
@@ -1146,7 +1221,7 @@ def ai_repair_poll_asset(
                 .fetchall()
             )
             if not rows:
-                context.log.info("ai_repair_poll_asset: no batches to poll.")
+                context.log.info("%s: no batches to poll.", log_prefix)
                 break
 
             upd_batch = text(
@@ -1472,3 +1547,41 @@ def ai_repair_poll_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(successful_request_ids)
+
+
+@dg.asset(
+    name="5-2_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
+)
+def ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    return _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        enqueued_agreement_uuids,
+        log_prefix="ai_repair_poll_asset",
+    )
+
+
+@dg.asset(
+    name="5-2-regular_ingest_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=regular_ingest_ai_repair_enqueue_asset.key)},
+)
+def regular_ingest_ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    return _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        enqueued_agreement_uuids,
+        log_prefix="regular_ingest_ai_repair_poll_asset",
+    )
