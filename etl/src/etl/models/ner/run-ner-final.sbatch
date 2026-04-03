@@ -9,6 +9,7 @@
 #SBATCH --time=28:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=nmb9729@nyu.edu
+#SBATCH --partition=l40s_public
 #SBATCH --account=torch_pr_744_general
 
 export PYTHONUNBUFFERED=1
