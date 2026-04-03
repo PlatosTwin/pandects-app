@@ -19,8 +19,9 @@ export DATA_PATH="${DATA_PATH:-/scratch/nmb9729/mna/ner/data/ner-data-revamp.par
 export SPLIT_VERSION="${SPLIT_VERSION:-ner_data_revamp_v1}"
 export SEED="${SEED:-42}"
 export GIT_COMMIT="${GIT_COMMIT:-unknown}"
+export NUM_WORKERS="${NUM_WORKERS:-3}"
 
 singularity exec --nv \
 	    --overlay /scratch/nmb9729/overlays/mna.ext3:ro \
 	    /share/apps/images/cuda12.6.3-cudnn9.5.1-ubuntu22.04.5.sif\
-	    /bin/bash -c "source /ext3/env.sh; cd /scratch/nmb9729/mna/ner && python run_from_grid.py --row-id ${SLURM_ARRAY_TASK_ID} --split-version ${SPLIT_VERSION} --seed ${SEED} --git-commit ${GIT_COMMIT} --grid-path ${GRID_PATH} --frozen-config-path ${FROZEN_CONFIG_PATH} --data-path ${DATA_PATH}"
+	    /bin/bash -c "source /ext3/env.sh; cd /scratch/nmb9729/mna/ner && python run_from_grid.py --row-id ${SLURM_ARRAY_TASK_ID} --split-version ${SPLIT_VERSION} --seed ${SEED} --git-commit ${GIT_COMMIT} --grid-path ${GRID_PATH} --frozen-config-path ${FROZEN_CONFIG_PATH} --data-path ${DATA_PATH} --num-workers ${NUM_WORKERS}"

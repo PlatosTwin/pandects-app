@@ -393,6 +393,7 @@ class NERTrainer:
         preserve_case: bool = False,
         val_window: int = 510,
         val_stride: int = 256,
+        num_workers: int | None = None,
     ):
         """
         Initialize the NER trainer.
@@ -417,6 +418,7 @@ class NERTrainer:
             preserve_case: Whether to preserve original casing at tokenizer input
             val_window: Validation window size for evaluation
             val_stride: Validation stride size for evaluation
+            num_workers: Optional dataloader worker override
         """
         self.data_path = data_path
         self.model_name = model_name
@@ -437,6 +439,9 @@ class NERTrainer:
         self.preserve_case = preserve_case
         self.val_window = val_window
         self.val_stride = val_stride
+        self.num_workers = (
+            _recommended_num_workers() if num_workers is None else int(num_workers)
+        )
         self.split_path = _split_path_for_version(split_version)
 
         # Device selection
@@ -805,7 +810,8 @@ class NERTrainer:
             + f"batch_size={int(params['batch_size'])} "
             + f"train_subsample_window={int(params['train_subsample_window'])} "
             + f"val_window={int(params.get('val_window', self.val_window))} "
-            + f"val_stride={int(params.get('val_stride', self.val_stride))}"
+            + f"val_stride={int(params.get('val_stride', self.val_stride))} "
+            + f"num_workers={self.num_workers}"
         )
         data_module = NERDataModule(
             train_data=self.train_data,
@@ -815,7 +821,7 @@ class NERTrainer:
             label_list=self.label_list,
             batch_size=int(params["batch_size"]),
             train_subsample_window=int(params["train_subsample_window"]),
-            num_workers=_recommended_num_workers(),
+            num_workers=self.num_workers,
             sampling_mode=self.sampling_mode,
             seed=self.seed,
             val_window=int(params.get("val_window", self.val_window)),
@@ -1553,6 +1559,7 @@ def run_hparam_tuning(
     val_window: int = 510,
     val_stride: int = 256,
     git_commit: str | None = None,
+    num_workers: int | None = None,
 ) -> dict[str, float | int]:
     """
     Run Optuna tuning on train/val, write optuna_best_config.yaml, and retrain final model.
@@ -1568,6 +1575,7 @@ def run_hparam_tuning(
         seed=seed,
         val_window=val_window,
         val_stride=val_stride,
+        num_workers=num_workers,
     )
     ner_trainer.load_data()
 
@@ -1658,6 +1666,7 @@ def run_training_and_eval(
         preserve_case=config.preserve_case,
         val_window=config.val_window,
         val_stride=config.val_stride,
+        num_workers=getattr(config, "num_workers", None),
     )
     _log_progress("NERTrainer constructed")
     ner_trainer.load_data()
@@ -1910,6 +1919,7 @@ def run_grid_row(
     frozen_config_path: str | None = None,
     data_path: str | None = None,
     eval_split: EvalSplit = "val",
+    num_workers: int | None = None,
 ) -> dict[str, object] | None:
     """
     Run a single grid row experiment using frozen hyperparameters.
@@ -1948,6 +1958,11 @@ def run_grid_row(
         learning_rate=row_learning_rate,
         weight_decay=float(frozen["weight_decay"]),
         warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+        num_workers=(
+            int(row.get("num_workers", str(num_workers)))
+            if num_workers is not None or "num_workers" in row
+            else 0
+        ),
         data_path=data_path or str(DATA_NER_DIR / "ner-data.parquet"),
     )
     return run_training_and_eval(config, eval_split=eval_split, run_test=True)
@@ -2189,6 +2204,7 @@ def _build_cli() -> argparse.ArgumentParser:
         "--model-name", type=str, default="answerdotai/ModernBERT-base"
     )
     _ = tune_parser.add_argument("--git-commit", type=str, default=None)
+    _ = tune_parser.add_argument("--num-workers", type=int, default=0)
 
     grid_parser = subparsers.add_parser("grid-row", help="Run a single grid row")
     _ = grid_parser.add_argument("--row-id", type=int, required=True)
@@ -2197,6 +2213,7 @@ def _build_cli() -> argparse.ArgumentParser:
     )
     _ = grid_parser.add_argument("--seed", type=int, default=42)
     _ = grid_parser.add_argument("--git-commit", type=str, default=None)
+    _ = grid_parser.add_argument("--num-workers", type=int, default=0)
     _ = grid_parser.add_argument(
         "--grid-path", type=str, default=str(CONFIG_NER_DIR / "grid.csv")
     )
@@ -2247,6 +2264,7 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = final_parser.add_argument("--train-subsample-window", type=int, default=None)
     _ = final_parser.add_argument("--val-window", type=int, default=None)
     _ = final_parser.add_argument("--val-stride", type=int, default=None)
+    _ = final_parser.add_argument("--num-workers", type=int, default=0)
     _ = final_parser.add_argument(
         "--data-path", type=str, default=str(DATA_NER_DIR / "ner-data.parquet")
     )
@@ -2331,6 +2349,7 @@ def main() -> None:
             split_version=args.split_version,
             seed=args.seed,
             git_commit=args.git_commit,
+            num_workers=args.num_workers,
         )
         return
 
@@ -2344,6 +2363,7 @@ def main() -> None:
             frozen_config_path=args.frozen_config_path,
             data_path=args.data_path,
             eval_split=cast(EvalSplit, args.eval_split),
+            num_workers=args.num_workers,
         )
         return
 
@@ -2388,6 +2408,7 @@ def main() -> None:
             learning_rate=float(frozen["learning_rate"]),
             weight_decay=float(frozen["weight_decay"]),
             warmup_steps_pct=float(frozen["warmup_steps_pct"]),
+            num_workers=args.num_workers,
             data_path=args.data_path,
         )
         final_run_dir = str(EVAL_NER_DIR / "final")
