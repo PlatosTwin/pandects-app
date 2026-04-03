@@ -69,11 +69,13 @@ def _tax_clause_rows(
     agreement_uuid: str | None = None,
     section_uuid: str | None = None,
 ) -> list[dict[str, object]]:
+    agreements = deps.Agreements
     clauses = deps.Clauses
     assignments = deps.TaxClauseAssignment
     sections = deps.Sections
     xml = deps.XML
     db = deps.db
+    agreement_cols = agreements.__table__.c
     clause_cols = clauses.__table__.c
     section_cols = sections.__table__.c
 
@@ -92,6 +94,10 @@ def _tax_clause_rows(
             assignments.standard_id.label("standard_id"),
         )
         .join(
+            agreements,
+            agreement_cols["agreement_uuid"] == clause_cols["agreement_uuid"],
+        )
+        .join(
             sections,
             and_(
                 section_cols["section_uuid"] == clause_cols["section_uuid"],
@@ -107,7 +113,10 @@ def _tax_clause_rows(
             assignments,
             assignments.clause_uuid == clause_cols["clause_uuid"],
         )
-        .filter(clause_cols["module"] == "tax")
+        .filter(
+            clause_cols["module"] == "tax",
+            _agreement_is_public_eligible_expr(agreements),
+        )
     )
     if agreement_uuid is not None:
         query = query.filter(clause_cols["agreement_uuid"] == agreement_uuid)

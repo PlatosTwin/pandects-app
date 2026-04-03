@@ -981,6 +981,23 @@ class MainRoutesTests(unittest.TestCase):
                         "('a_gated_hidden', '00000000-0000-0000-0000-000000000071', 'ARTICLE I', 'Hidden Section', '<section>HIDDEN</section>', '[\"s-hidden\"]', 1)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-hidden-1', 'a_gated_hidden', '00000000-0000-0000-0000-000000000071', 1, 'tax', 1, "
+                        "'(a)', 0, 12, 'Hidden tax clause', 'enumerated_split', 'operative'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-hidden-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
 
         try:
             client = self.app.test_client()
@@ -991,6 +1008,16 @@ class MainRoutesTests(unittest.TestCase):
 
             detail_res = client.get("/v1/agreements/a_gated_hidden")
             self.assertEqual(detail_res.status_code, 404)
+
+            agreement_tax_res = client.get("/v1/agreements/a_gated_hidden/tax-clauses")
+            self.assertEqual(agreement_tax_res.status_code, 200)
+            self.assertEqual(agreement_tax_res.get_json(), {"clauses": []})
+
+            section_tax_res = client.get(
+                "/v1/sections/00000000-0000-0000-0000-000000000071/tax-clauses"
+            )
+            self.assertEqual(section_tax_res.status_code, 200)
+            self.assertEqual(section_tax_res.get_json(), {"clauses": []})
 
             index_res = client.get("/v1/agreements-index?query=Target Hidden&page=1&page_size=10")
             self.assertEqual(index_res.status_code, 200)
@@ -1007,6 +1034,8 @@ class MainRoutesTests(unittest.TestCase):
             with self.app.app_context():
                 engine = self.app_module.db.engine
                 with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM tax_clause_assignments WHERE clause_uuid = 'clause-hidden-1'"))
+                    conn.execute(text("DELETE FROM clauses WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
