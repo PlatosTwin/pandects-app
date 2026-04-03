@@ -575,6 +575,8 @@ export default function Search() {
             filters.transaction_consideration.length > 0 ||
             filters.target_type.length > 0 ||
             filters.acquirer_type.length > 0 ||
+            filters.target_counsel.length > 0 ||
+            filters.acquirer_counsel.length > 0 ||
             filters.target_industry.length > 0 ||
             filters.acquirer_industry.length > 0 ||
             filters.deal_status.length > 0 ||
@@ -604,6 +606,8 @@ export default function Search() {
                     ["transaction_consideration", "Transaction consideration", filters.transaction_consideration],
                     ["target_type", "Target type", filters.target_type],
                     ["acquirer_type", "Acquirer type", filters.acquirer_type],
+                    ["target_counsel", "Target counsel", filters.target_counsel],
+                    ["acquirer_counsel", "Acquirer counsel", filters.acquirer_counsel],
                     ["target_industry", "Target industry", filters.target_industry],
                     ["acquirer_industry", "Acquirer industry", filters.acquirer_industry],
                     ["deal_status", "Deal status", filters.deal_status],

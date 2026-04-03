@@ -369,7 +369,7 @@ export function AgreementIndexOverview() {
             <button
               type="button"
               aria-label="Metadata coverage details by field"
-              className="tooltip-help-trigger-compact"
+              className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
             >
               ?
             </button>
@@ -768,7 +768,7 @@ export function AgreementIndexOverview() {
           <button
             type="button"
             aria-label={`${row.label} stage details`}
-            className="tooltip-help-trigger-compact"
+            className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
           >
             ?
           </button>
