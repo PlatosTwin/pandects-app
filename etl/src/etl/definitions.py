@@ -2,7 +2,7 @@
 from pathlib import Path
 from dagster import Definitions, load_from_defs_folder
 from etl.defs.jobs import (
-    cleanup_pipeline,
+    regular_ingest,
     xml_fresh_pipeline,
     xml_repair_cycle_pipeline,
 )
@@ -11,7 +11,7 @@ from etl.defs.jobs import (
 defs = Definitions.merge(
     load_from_defs_folder(project_root=Path(__file__).parent.parent.parent),
     Definitions(
-        jobs=[xml_fresh_pipeline, xml_repair_cycle_pipeline, cleanup_pipeline],
+        jobs=[xml_fresh_pipeline, xml_repair_cycle_pipeline, regular_ingest],
         # resources=get_resources(),
     ),
 )
