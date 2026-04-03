@@ -164,6 +164,11 @@ SPECIAL_TOKENS: list[str] = [str(token) for token in SPECIAL_TOKENS_TO_ADD]
 YEAR_WINDOW = 5
 
 
+def _log_progress(message: str) -> None:
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[ner] {timestamp} {message}", flush=True)
+
+
 def _split_path_for_version(split_version: str) -> str:
     version = split_version.strip() or "default"
     return str(SPLITS_DIR / f"ner-agreement-splits-{version}.json")
@@ -505,10 +510,16 @@ class NERTrainer:
         """
         Load data and apply agreement-level train/val/test splits.
         """
+        _log_progress(f"loading data frame from {self.data_path}")
         df = self._read_data_frame()
+        _log_progress(f"data frame loaded with shape={df.shape}")
         df = self._validate_and_prepare_data_frame(df)
 
+        _log_progress(
+            f"loading or building split manifest for split_version={self.split_version}"
+        )
         split = self._load_or_build_split(df, self.split_path, self.seed)
+        _log_progress(f"split manifest ready at {self.split_path}")
         train_ids_list = [str(x) for x in cast(list[str], split["train"])]
         val_ids_list = [str(x) for x in cast(list[str], split["val"])]
         test_ids_list = [str(x) for x in cast(list[str], split["test"])]
@@ -560,11 +571,16 @@ class NERTrainer:
         self.train_data = train_df["tagged_text"].tolist()
         self.val_data = val_df["tagged_text"].tolist()
         self.test_data = test_df["tagged_text"].tolist()
+        _log_progress(
+            "prepared train/val/test text lists "
+            + f"train={len(self.train_data)} val={len(self.val_data)} test={len(self.test_data)}"
+        )
 
     def _load_or_build_split(
         self, df: pd.DataFrame, split_path: str, seed: int
     ) -> dict[str, object]:
         if os.path.exists(split_path):
+            _log_progress(f"found existing split manifest at {split_path}")
             with open(split_path, "r", encoding="utf-8") as f:
                 split = cast(dict[str, object], json.load(f))
             for key in ("train", "val", "test"):
@@ -578,6 +594,10 @@ class NERTrainer:
             if missing:
                 raise ValueError("Split manifest contains unknown agreement_uuid values.")
             return split
+
+        _log_progress(
+            f"building new split manifest at {split_path} for {df['agreement_uuid'].nunique()} agreements"
+        )
 
         val_split = 0.06
         test_split = 0.06
@@ -686,6 +706,7 @@ class NERTrainer:
         with open(split_path, "w", encoding="utf-8") as f:
             json.dump(split, f, indent=2, sort_keys=True)
         print(f"[split] wrote NER split manifest to {split_path}")
+        _log_progress(f"new split manifest written to {split_path}")
         return cast(dict[str, object], split)
 
     def _get_callbacks(
@@ -741,7 +762,9 @@ class NERTrainer:
 
     def load_data(self) -> None:
         """Public wrapper for data loading."""
+        _log_progress("entering NERTrainer.load_data()")
         self._load_data()
+        _log_progress("finished NERTrainer.load_data()")
 
     def build(
         self,
@@ -777,6 +800,13 @@ class NERTrainer:
         Returns:
             Tuple of (data_module, model)
         """
+        _log_progress(
+            "building data module "
+            + f"batch_size={int(params['batch_size'])} "
+            + f"train_subsample_window={int(params['train_subsample_window'])} "
+            + f"val_window={int(params.get('val_window', self.val_window))} "
+            + f"val_stride={int(params.get('val_stride', self.val_stride))}"
+        )
         data_module = NERDataModule(
             train_data=self.train_data,
             val_data=self.val_data,
@@ -792,6 +822,7 @@ class NERTrainer:
             val_stride=int(params.get("val_stride", self.val_stride)),
             preserve_case=self.preserve_case,
         )
+        _log_progress(f"building model {self.model_name}")
         model = NERTagger(
             model_name=self.model_name,
             num_labels=len(self.label_list),
@@ -810,6 +841,7 @@ class NERTrainer:
             metrics_output_dir=self.metrics_output_dir,
             metrics_output_name=metrics_output_name or "ner_test_metrics.yaml",
         )
+        _log_progress("data module and model construction complete")
         return data_module, model
 
     def _objective(self, trial: Trial) -> float:
@@ -1601,6 +1633,10 @@ def run_training_and_eval(
     slurm_job_id = get_job_id()
 
     _ = seed_everything(config.seed, workers=True, verbose=False)
+    _log_progress(
+        f"starting run_training_and_eval run_id={config.run_id} "
+        + f"xp_name={config.xp_name} split_version={config.split_version} eval_split={eval_split}"
+    )
 
     ner_trainer = NERTrainer(
         data_path=config.data_path,
@@ -1623,11 +1659,13 @@ def run_training_and_eval(
         val_window=config.val_window,
         val_stride=config.val_stride,
     )
+    _log_progress("NERTrainer constructed")
     ner_trainer.load_data()
 
     run_dir = run_dir or os.path.join(_eval_runs_dir(), config.run_id)
     os.makedirs(run_dir, exist_ok=True)
     ner_trainer.metrics_output_dir = run_dir
+    _log_progress(f"run directory ready at {run_dir}")
 
     ckpt_path = ckpt_path or os.path.join(run_dir, "best.ckpt")
     if ckpt_path:
@@ -1649,6 +1687,7 @@ def run_training_and_eval(
         "weight_decay": config.weight_decay,
         "warmup_steps_pct": config.warmup_steps_pct,
     }
+    _log_progress("building datamodule/model for training")
     data_module, model = ner_trainer.build(
         params, metrics_output_name=metrics_output_name
     )
@@ -1660,6 +1699,7 @@ def run_training_and_eval(
         _,
     ) = ner_trainer.get_callbacks(ckpt=ckpt_path)
 
+    _log_progress("constructing Lightning trainer")
     trainer = pl.Trainer(
         max_epochs=config.max_epochs,
         accelerator=ner_trainer.device,
@@ -1678,7 +1718,9 @@ def run_training_and_eval(
         log_every_n_steps=10,
         deterministic=True,
     )
+    _log_progress("starting trainer.fit()")
     trainer.fit(model, datamodule=data_module)
+    _log_progress("trainer.fit() complete")
 
     config_payload = config_to_dict(config)
     config_payload["eval_split"] = eval_split if run_test else None
@@ -1694,8 +1736,10 @@ def run_training_and_eval(
 
     metrics: dict[str, object] | None = None
     if run_test:
+        _log_progress(f"starting trainer.test() on eval_split={eval_split}")
         setattr(model, "eval_log_prefix", eval_split)
         _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
+        _log_progress("trainer.test() complete")
         metrics = cast(dict[str, object], getattr(model, "test_metrics", None))
         if not metrics:
             raise RuntimeError("Test metrics were not captured from the model.")
@@ -1778,8 +1822,10 @@ def run_training_and_eval(
             }
             experiments_csv = str(EVAL_NER_DIR / "experiments_xp.csv")
             _append_experiment_row(experiments_csv, row)
+            _log_progress(f"appended experiment row to {experiments_csv}")
 
     ner_trainer.test_data = original_test_data
+    _log_progress(f"finished run_training_and_eval run_id={config.run_id}")
     return metrics
 
 
