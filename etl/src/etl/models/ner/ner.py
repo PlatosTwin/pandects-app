@@ -57,12 +57,7 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 # Local modules
 if TYPE_CHECKING:
-    from .entity_audit import (
-        ArticleFailureRecord,
-        PageFailureRecord,
-        build_article_failure_records,
-        build_page_failure_records,
-    )
+    from .entity_audit import ArticleFailureRecord, PageFailureRecord
     from .config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -87,7 +82,6 @@ if TYPE_CHECKING:
     from .ner_classes import NERTagger, NERDataModule, ascii_lower
 else:
     try:
-        from .entity_audit import build_article_failure_records, build_page_failure_records
         from .config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -111,7 +105,6 @@ else:
         )
         from .ner_classes import NERTagger, NERDataModule, ascii_lower
     except ImportError:  # pragma: no cover - supports running as a script
-        from entity_audit import build_article_failure_records, build_page_failure_records
         from config import (
         NERExperimentConfig,
         FROZEN_EXPERIMENT_CONFIG_PATH,
@@ -138,6 +131,23 @@ else:
             NERDataModule,
             ascii_lower,
         )
+
+
+def _load_entity_audit_builders() -> tuple[
+    Callable[..., list["ArticleFailureRecord"]],
+    Callable[..., list["PageFailureRecord"]],
+]:
+    try:
+        from .entity_audit import (
+            build_article_failure_records,
+            build_page_failure_records,
+        )
+    except ImportError:  # pragma: no cover - supports running as a script
+        from entity_audit import (
+            build_article_failure_records,
+            build_page_failure_records,
+        )
+    return build_article_failure_records, build_page_failure_records
 
 PrecisionInput = Literal["bf16-mixed", "32-true"]
 EvalSplit = Literal["val", "test"]
@@ -1910,6 +1920,7 @@ def run_article_audit(
     context_chars: int,
     limit: int,
 ) -> dict[str, int]:
+    build_article_failure_records, _ = _load_entity_audit_builders()
     inference = NERInference(ckpt_path=ckpt_path, label_list=None)
     model: NERTagger = inference.model
     model_name = cast(str, getattr(model.hparams, "model_name"))
@@ -2008,6 +2019,7 @@ def run_page_audit(
     context_chars: int,
     limit: int,
 ) -> dict[str, int]:
+    _, build_page_failure_records = _load_entity_audit_builders()
     inference = NERInference(ckpt_path=ckpt_path, label_list=None)
     model: NERTagger = inference.model
     model_name = cast(str, getattr(model.hparams, "model_name"))
