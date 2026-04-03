@@ -152,7 +152,7 @@ def tagging_asset(
         pipeline_config: Pipeline configuration.
     """
     context.log.info("Running tagging")
-    _ = _run_tagging_for_agreements(
+    processed_agreement_uuids = _run_tagging_for_agreements(
         context,
         db=db,
         tagging_model=tagging_model,
@@ -160,6 +160,7 @@ def tagging_asset(
         target_agreement_uuids=None,
         log_prefix="tagging_asset",
     )
+    context.log.info("tagging_asset: processed %s agreements", len(processed_agreement_uuids))
     run_post_asset_refresh(context, db, pipeline_config)
 
 

@@ -738,12 +738,13 @@ def tx_metadata_asset(
     tagged_outputs_table = f"{schema}.tagged_outputs"
 
     if mode == TxMetadataMode.OFFLINE:
-        _ = _run_offline_mode(
+        processed_agreement_uuids = _run_offline_mode(
             context, engine,
             schema,
             agreements_table, pages_table, tagged_outputs_table,
             batch_size,
         )
+        context.log.info("tx_metadata_asset (offline): processed %s agreements", len(processed_agreement_uuids))
     else:
         summary = _run_web_search_mode(
             context, engine,

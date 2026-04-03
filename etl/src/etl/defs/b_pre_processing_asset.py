@@ -209,12 +209,9 @@ def pre_processing_asset(
 
     run_pre_asset_gating(context, db)
     
-    # FROM_SCRATCH mode
-    # Just like CLEANUP mode, but we split the agreement into pages first
-    # If we're in CLEANUP mode, that means we've already split the agreement into pages
     if not is_cleanup:
         context.log.info("Running pre-processing in FROM_SCRATCH mode")
-        _ = _run_pre_processing_from_scratch(
+        processed_agreement_uuids = _run_pre_processing_from_scratch(
             context,
             db=db,
             pipeline_config=pipeline_config,
@@ -223,9 +220,11 @@ def pre_processing_asset(
             target_agreement_uuids=None,
             log_prefix="pre_processing_asset",
         )
+        context.log.info(
+            "pre_processing_asset: processed %s agreements in FROM_SCRATCH mode",
+            len(processed_agreement_uuids),
+        )
 
-    # CLEANUP mode
-    # Just like FROM_SCRATCH mode, but we fetch pages that we've already split
     else:
         context.log.info("Running pre-processing in CLEANUP mode")
 

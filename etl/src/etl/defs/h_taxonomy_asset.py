@@ -957,7 +957,7 @@ def taxonomy_asset(
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,
 ) -> None:
-    _ = _run_taxonomy_mode(
+    processed_agreement_uuids = _run_taxonomy_mode(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
@@ -966,6 +966,7 @@ def taxonomy_asset(
         target_agreement_uuids=None,
         log_prefix="taxonomy_asset",
     )
+    context.log.info("taxonomy_asset: processed %s agreements", len(processed_agreement_uuids))
 
 
 @dg.asset(
