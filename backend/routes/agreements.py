@@ -1061,7 +1061,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         ).mappings().first()
 
         row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
-        payload = {
+        payload: dict[str, object] = {
             "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
             "sections": deps._to_int(cast(object, row_dict.get("sections"))),
             "pages": deps._to_int(cast(object, row_dict.get("pages"))),
@@ -1310,7 +1310,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     }
                 )
 
-        payload = {
+        payload: dict[str, object] = {
             "ownership": {
                 "mix_by_year": [
                     ownership_mix_by_year[year]
@@ -1359,7 +1359,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         with agreement_trends_lock:
             agreement_trends_cache["payload"] = payload
             agreement_trends_cache["ts"] = now
-        return payload
+        return cast(dict[str, object], payload)
 
     def get_filter_options() -> tuple[Response, int] | Response:
         now = deps.time.time()
