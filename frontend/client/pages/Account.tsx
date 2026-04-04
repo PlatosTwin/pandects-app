@@ -260,6 +260,28 @@ export default function Account() {
     usageKeyFilterRef.current = usageKeyFilter;
   }, [usageKeyFilter]);
 
+  const startWebsiteAuth = useCallback(
+    (
+      provider: "google" | "email",
+      prompt?: "login" | "create" | "select_account",
+      failureTitle = "Could not start sign-in",
+    ) => {
+      setAuthPending(true);
+      void startZitadelWebsiteAuth(requestedNextPath, provider, prompt)
+        .then(({ authorize_url }) => {
+          window.location.assign(authorize_url);
+        })
+        .catch((err) => {
+          setAuthPending(false);
+          toast({
+            title: failureTitle,
+            description: err instanceof Error ? err.message : String(err),
+          });
+        });
+    },
+    [requestedNextPath],
+  );
+
   useEffect(() => {
     if (!user) {
       setApiKeys([]);
@@ -481,20 +503,7 @@ export default function Account() {
               </div>
               <Button
                 disabled={authPending || authBackendStatus !== "ready"}
-                onClick={() => {
-                  setAuthPending(true);
-                  void startZitadelWebsiteAuth(requestedNextPath, "google")
-                    .then(({ authorize_url }) => {
-                      window.location.assign(authorize_url);
-                    })
-                    .catch((err) => {
-                      setAuthPending(false);
-                      toast({
-                        title: "Could not start sign-in",
-                        description: err instanceof Error ? err.message : String(err),
-                      });
-                    });
-                }}
+                onClick={() => startWebsiteAuth("google", "select_account")}
                 className="w-full sm:w-auto"
               >
                 {authPending ? "Redirecting…" : "Continue with Google"}
@@ -502,27 +511,22 @@ export default function Account() {
               <Button
                 variant="outline"
                 disabled={authPending || authBackendStatus !== "ready"}
-                onClick={() => {
-                  setAuthPending(true);
-                  void startZitadelWebsiteAuth(requestedNextPath, "email")
-                    .then(({ authorize_url }) => {
-                      window.location.assign(authorize_url);
-                    })
-                    .catch((err) => {
-                      setAuthPending(false);
-                      toast({
-                        title: "Could not start sign-in",
-                        description: err instanceof Error ? err.message : String(err),
-                      });
-                    });
-                }}
+                onClick={() => startWebsiteAuth("email", "login")}
                 className="w-full sm:w-auto"
               >
                 {authPending ? "Redirecting…" : "Continue with email"}
               </Button>
+              <Button
+                variant="secondary"
+                disabled={authPending || authBackendStatus !== "ready"}
+                onClick={() => startWebsiteAuth("email", "create", "Could not start account creation")}
+                className="w-full sm:w-auto"
+              >
+                {authPending ? "Redirecting…" : "Create account"}
+              </Button>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-              New signups, Google sign-in, and email sign-in are handled by the auth provider. After sign-in, Pandects still manages your API keys, legal acceptance, and app session.
+              Google sign-in, email sign-in, and new account creation are handled by the auth provider. After sign-in, Pandects still manages your API keys, legal acceptance, and app session.
             </div>
           </div>
         </Card>

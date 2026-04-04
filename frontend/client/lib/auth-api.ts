@@ -63,8 +63,10 @@ export async function deleteAccount(payload: { confirm: string }) {
 export async function startZitadelWebsiteAuth(
   nextPath = "/account",
   provider: "google" | "email" = "email",
+  prompt?: "login" | "create" | "select_account",
 ) {
   const query = new URLSearchParams({ next: nextPath, provider });
+  if (prompt) query.set("prompt", prompt);
   return authFetchJson<{ authorize_url: string }>(
     apiUrl(`v1/auth/zitadel/start?${query.toString()}`),
   );

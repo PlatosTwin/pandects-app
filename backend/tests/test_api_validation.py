@@ -51,6 +51,14 @@ class ApiValidationTests(unittest.TestCase):
         self.assertIsInstance(body, dict)
         self.assertEqual(body.get("error"), "Bad Request")
 
+    def test_zitadel_start_rejects_unsupported_prompt(self):
+        client = self.app.test_client()
+        res = client.get("/v1/auth/zitadel/start?provider=email&prompt=consent")
+        self.assertEqual(res.status_code, 400)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+        self.assertEqual(body.get("error"), "Bad Request")
+
     def test_legacy_register_route_is_not_registered(self):
         client = self.app.test_client()
         res = client.post("/v1/auth/register", json={})

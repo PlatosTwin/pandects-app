@@ -633,7 +633,9 @@ class AuthFlowTests(unittest.TestCase):
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
-            res = client.get("/v1/auth/zitadel/start?next=/search&provider=google")
+            res = client.get(
+                "/v1/auth/zitadel/start?next=/search&provider=google&prompt=select_account"
+            )
             self.assertEqual(res.status_code, 200)
             start_payload = res.get_json()
             self.assertIsInstance(start_payload, dict)
@@ -644,6 +646,7 @@ class AuthFlowTests(unittest.TestCase):
             query = parse_qs(parsed.query)
             state = query.get("state", [None])[0]
             self.assertIsInstance(state, str)
+            self.assertEqual(query.get("prompt"), ["select_account"])
 
             res = client.post(
                 "/v1/auth/zitadel/complete",
@@ -716,11 +719,12 @@ class AuthFlowTests(unittest.TestCase):
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
-            res = client.get("/v1/auth/zitadel/start?next=/account&provider=email")
+            res = client.get("/v1/auth/zitadel/start?next=/account&provider=email&prompt=create")
             self.assertEqual(res.status_code, 200)
             query = parse_qs(urlparse(res.get_json()["authorize_url"]).query)
             state = query.get("state", [None])[0]
             self.assertIsInstance(state, str)
+            self.assertEqual(query.get("prompt"), ["create"])
 
             res = client.post(
                 "/v1/auth/zitadel/complete",

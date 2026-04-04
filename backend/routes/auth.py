@@ -666,6 +666,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         provider_name = provider.strip().lower() if isinstance(provider, str) else "email"
         if provider_name not in {"email", "google"}:
             abort(400, description="Unsupported auth provider.")
+        prompt_raw = request.args.get("prompt")
+        prompt = prompt_raw.strip().lower() if isinstance(prompt_raw, str) and prompt_raw.strip() else None
+        allowed_prompts = {"login", "create", "select_account"}
+        if prompt is not None and prompt not in allowed_prompts:
+            abort(400, description="Unsupported auth prompt.")
 
         state = secrets.token_urlsafe(32)
         code_verifier = secrets.token_urlsafe(64)
@@ -691,6 +696,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             params["resource"] = resource
         if audience:
             params["audience"] = audience
+        if prompt is not None:
+            params["prompt"] = prompt
         if provider_name == "google":
             idp_hint = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_HINT", "").strip()
             if idp_hint:
