@@ -176,6 +176,12 @@ export async function completeZitadelLink(payload: { code: string; state: string
   });
 }
 
+export async function unlinkExternalSubject(id: number) {
+  return authFetchJson<{ status: "unlinked" }>(apiUrl(`v1/auth/external-subjects/${id}`), {
+    method: "DELETE",
+  });
+}
+
 export type FlagInaccurateSource = "search_result" | "agreement_view";
 
 export async function flagAsInaccurate(payload: {

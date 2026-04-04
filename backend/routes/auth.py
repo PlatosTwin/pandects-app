@@ -678,6 +678,29 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    @auth_blp.route("/external-subjects/<int:link_id>", methods=["DELETE"])
+    def auth_unlink_external_subject(link_id: int):
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="External identity linking is unavailable in mocked auth mode.")
+        try:
+            link = deps.AuthExternalSubject.query.filter_by(id=link_id, user_id=user.id).first()
+            if link is None:
+                abort(404)
+            deps.db.session.delete(link)
+            deps.db.session.commit()
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+        resp = deps._status_response("unlinked")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @auth_blp.route("/external-subjects/zitadel/start", methods=["GET"])
     def auth_zitadel_link_start():
         deps._require_auth_db()

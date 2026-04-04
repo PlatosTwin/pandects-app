@@ -35,7 +35,7 @@ export default function AuthZitadelCallback() {
     let cancelled = false;
     const handleCallback = async () => {
       if (status !== "authenticated") {
-        setError("Sign in to Pandects before linking ZITADEL.");
+        setError("Sign in to Pandects before linking your auth provider.");
         return;
       }
 
@@ -49,7 +49,7 @@ export default function AuthZitadelCallback() {
         const code = params.get("code");
         const state = params.get("state");
         if (!code || !state) {
-          throw new Error("Missing ZITADEL authorization response.");
+          throw new Error("Missing auth provider authorization response.");
         }
         const { return_to: returnTo } = await completeZitadelLink({ code, state });
         if (cancelled) return;
@@ -73,7 +73,7 @@ export default function AuthZitadelCallback() {
 
   return (
     <PageShell
-      title="Linking ZITADEL…"
+      title="Linking auth provider…"
       subtitle="Completing your MCP access link."
       size="md"
     >
@@ -81,7 +81,7 @@ export default function AuthZitadelCallback() {
         {error ? (
           <div className="grid gap-4" role="alert">
             <div>
-              <div className="text-sm font-medium">ZITADEL linking failed</div>
+              <div className="text-sm font-medium">Auth linking failed</div>
               <div className="mt-1 text-sm text-muted-foreground">{error}</div>
             </div>
             <Button onClick={() => navigate("/account", { replace: true })}>
@@ -90,8 +90,8 @@ export default function AuthZitadelCallback() {
           </div>
         ) : (
           <div className="flex items-center gap-3 text-sm text-muted-foreground" role="status" aria-live="polite">
-            <LoadingSpinner size="md" aria-label="Linking ZITADEL access" />
-            Finishing ZITADEL link…
+            <LoadingSpinner size="md" aria-label="Linking auth provider access" />
+            Finishing auth link…
           </div>
         )}
       </Card>

@@ -562,14 +562,22 @@ class AuthFlowTests(unittest.TestCase):
                 list_payload["links"][0]["issuer"],
                 "https://pandects-test-zitadel.example.com",
             )
+
+            link_id = list_payload["links"][0]["id"]
+            res = client.delete(f"/v1/auth/external-subjects/{link_id}", headers=headers)
+            self.assertEqual(res.status_code, 200)
+            unlink_payload = res.get_json()
+            self.assertEqual(unlink_payload["status"], "unlinked")
+
+            res = client.get("/v1/auth/external-subjects", headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()["links"], [])
         finally:
             backend_app._authenticate_external_identity = original_authenticate
 
         with self.app.app_context():
             rows = AuthExternalSubject.query.all()
-            self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0].issuer, "https://pandects-test-zitadel.example.com")
-            self.assertEqual(rows[0].subject, "zitadel-user-123")
+            self.assertEqual(rows, [])
 
     def test_external_subject_link_conflicts_when_identity_is_owned_by_another_user(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

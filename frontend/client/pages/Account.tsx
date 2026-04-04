@@ -34,6 +34,7 @@ import {
   resendVerificationEmail,
   revokeApiKey,
   startZitadelLink,
+  unlinkExternalSubject,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, ExternalSubjectLink, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 import { loadGoogleIdentityServices } from "@/lib/google-identity";
@@ -169,7 +170,7 @@ export default function Account() {
     if (linked === "1") {
       toast({
         title: "MCP access linked",
-        description: "Your ZITADEL identity can now authenticate to Pandects MCP.",
+        description: "Your auth connection can now authenticate to Pandects MCP.",
       });
       setMcpLinkPending(false);
     } else if (linkError) {
@@ -207,6 +208,7 @@ export default function Account() {
   const [accountDataLoaded, setAccountDataLoaded] = useState(false);
   const [accountDataError, setAccountDataError] = useState<string | null>(null);
   const [mcpLinkPending, setMcpLinkPending] = useState(false);
+  const [unlinkingExternalId, setUnlinkingExternalId] = useState<number | null>(null);
 
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -436,6 +438,7 @@ export default function Account() {
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const zitadelLinkConfigured = isZitadelLinkConfigured();
+  const hasLinkedAuthProvider = externalSubjects.length > 0;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
   const usageKeyOptions = useMemo(() => {
@@ -1301,15 +1304,22 @@ export default function Account() {
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold">MCP access</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Link a ZITADEL identity to use OAuth bearer tokens against Pandects MCP.
+                  Link an auth provider to use OAuth bearer tokens against Pandects MCP.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Linked identities can authenticate to <code>/mcp</code> with the scopes granted in ZITADEL.
+                  Linked auth providers can authenticate to <code>/mcp</code> with the scopes granted by your provider.
                 </p>
               </div>
               <Button
                 variant="outline"
-                disabled={!zitadelLinkConfigured || mcpLinkPending || accountDataLoading || accountDataBootstrapping}
+                disabled={
+                  !zitadelLinkConfigured ||
+                  hasLinkedAuthProvider ||
+                  mcpLinkPending ||
+                  accountDataLoading ||
+                  accountDataBootstrapping ||
+                  unlinkingExternalId !== null
+                }
                 className="w-full sm:w-auto"
                 onClick={() => {
                   setMcpLinkPending(true);
@@ -1320,55 +1330,90 @@ export default function Account() {
                     .catch((err) => {
                     setMcpLinkPending(false);
                     toast({
-                      title: "Could not start ZITADEL linking",
+                      title: "Could not start auth linking",
                       description: err instanceof Error ? err.message : String(err),
                     });
                     });
                 }}
               >
-                {mcpLinkPending ? "Redirecting to ZITADEL…" : "Connect ZITADEL"}
+                {mcpLinkPending
+                  ? "Redirecting to auth provider…"
+                  : hasLinkedAuthProvider
+                    ? "Auth provider connected"
+                    : "Connect auth provider"}
               </Button>
             </div>
 
             {!zitadelLinkConfigured ? (
               <Alert className="mt-4">
-                <AlertTitle>ZITADEL linking is not configured</AlertTitle>
+                <AlertTitle>Auth linking is not configured</AlertTitle>
                 <AlertDescription>
-                  Set the frontend ZITADEL OAuth environment variables before enabling MCP linking in the account UI.
+                  Set the frontend auth-provider OAuth environment variables before enabling MCP linking in the account UI.
                 </AlertDescription>
               </Alert>
             ) : null}
 
             <div className="mt-4 grid gap-3">
-              <h3 className="text-sm font-medium">Linked identities</h3>
+              <h3 className="text-sm font-medium">Linked auth providers</h3>
               {accountDataBootstrapping ? (
                 <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                  Loading linked identities…
+                  Loading linked auth providers…
                 </div>
               ) : externalSubjects.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                  No external identities linked yet.
+                  No auth provider linked yet.
                 </div>
               ) : (
                 externalSubjects.map((link) => (
                   <div key={link.id} className="rounded-md border border-border/60 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {link.provider ?? "External"}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Auth provider
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Linked {formatDate(link.created_at)}
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Issuer</div>
+                            <div className="font-mono text-xs break-all">{link.issuer}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Subject</div>
+                            <div className="font-mono text-xs break-all">{link.subject}</div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Linked {formatDate(link.created_at)}
-                      </div>
-                    </div>
-                    <div className="mt-3 grid gap-2 text-sm">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Issuer</div>
-                        <div className="font-mono text-xs break-all">{link.issuer}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Subject</div>
-                        <div className="font-mono text-xs break-all">{link.subject}</div>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={mcpLinkPending || unlinkingExternalId === link.id}
+                        onClick={() => {
+                          setUnlinkingExternalId(link.id);
+                          void unlinkExternalSubject(link.id)
+                            .then(async () => {
+                              await loadAccountData({ silent: true });
+                              toast({
+                                title: "MCP access unlinked",
+                                description: "Your auth connection is no longer linked to Pandects MCP.",
+                              });
+                            })
+                            .catch((err) => {
+                              toast({
+                                title: "Could not unlink MCP access",
+                                description: err instanceof Error ? err.message : String(err),
+                              });
+                            })
+                            .finally(() => {
+                              setUnlinkingExternalId(null);
+                            });
+                        }}
+                      >
+                        {unlinkingExternalId === link.id ? "Unlinking…" : "Unlink"}
+                      </Button>
                     </div>
                   </div>
                 ))
