@@ -69,11 +69,6 @@ export default function SourcesMethods() {
         indent: true,
       },
       { id: "tagging-model", label: "Tagging Model", indent: true },
-      {
-        id: "taxonomy-model",
-        label: "Taxonomy Model",
-        indent: true,
-      },
       { id: "gaps-and-callouts", label: "Gaps and Other Call Outs" },
       { id: "validations", label: "Validations" },
     ],
@@ -292,7 +287,6 @@ export default function SourcesMethods() {
           "exhibit-model",
           "page-classifier-model",
           "tagging-model",
-          "taxonomy-model",
         ].includes(activeSection)
       ) {
         scrollToSection(activeSection);
@@ -318,16 +312,6 @@ export default function SourcesMethods() {
       }
     };
   }, []);
-
-  const ComingSoon = ({ title }: { title: string }) => (
-    <Card className="border-border/60 bg-card/70 p-6">
-      <div className="text-sm font-medium text-foreground">{title}</div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        This section is being written. If you would like to help, open an issue
-        with suggestions.
-      </p>
-    </Card>
-  );
 
   const validationClassifierF1 = 0.9666670514543612;
   const finalClassifierF1 = 0.9507914467270675;
@@ -382,7 +366,7 @@ export default function SourcesMethods() {
               Pandects sources agreements from the SEC's EDGAR database, then
               runs each agreement through a purpose-built pipeline that turns
               text and messy HTML into clean, taxonomized XML. Conceptually, our
-              pipeline solves five distinct problems.
+              pipeline solves several distinct problems.
             </p>
             <div className="max-w-4xl rounded-2xl border border-border/60 bg-card/50 p-6 shadow-sm">
               <div className="grid gap-1 border-b border-border/60 px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
@@ -567,7 +551,9 @@ export default function SourcesMethods() {
             </h2>
             <p className="max-w-3xl text-muted-foreground">
               Our pipeline takes raw EDGAR filings and produces clean XML,
-              structured sections, and taxonomy labels. We use{" "}
+              structured sections, and taxonomy labels. We use three ML
+              models plus targeted LLM calls where they are the better tool. We
+              use{" "}
               <a
                 href="https://dagster.io/"
                 target="_blank"
@@ -867,8 +853,13 @@ export default function SourcesMethods() {
                     5
                   </div>
                   <div className="space-y-3">
-                    <div className="font-mono text-sm font-semibold text-foreground">
-                      XML Repair Loop
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-foreground">
+                        XML Repair Loop
+                      </span>
+                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                        LLM
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       When XML validation fails, we send the affected pages to
@@ -888,16 +879,14 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Taxonomy
                       </span>
-                      <a
-                        href="#taxonomy-model"
-                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
-                      >
-                        Taxonomy Model
-                      </a>
+                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                        LLM
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Classifies each section into the clause taxonomy for
-                      cross-agreement analysis.
+                      Sends section and nearby heading context to an LLM, then
+                      assigns section-level taxonomy labels for cross-agreement
+                      analysis.
                     </p>
                   </div>
                 </li>
@@ -909,8 +898,13 @@ export default function SourcesMethods() {
                     7
                   </div>
                   <div className="space-y-2">
-                    <div className="font-mono text-sm font-semibold text-foreground">
-                      Metadata
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-foreground">
+                        Metadata
+                      </span>
+                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                        LLM
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Adds transaction metadata, including total consideration,
@@ -968,7 +962,7 @@ export default function SourcesMethods() {
               to do the work we'd otherwise outsource to LLMs.
             </div>
             <p className="text-muted-foreground">
-              This section describes the four ML models at the heart of our data
+              This section describes the three ML models at the heart of our data
               processing pipeline. The full training code for each model is
               available on{" "}
               <a
@@ -989,7 +983,7 @@ export default function SourcesMethods() {
                 Exhibit Model
               </h3>
               <div className="text-muted-foreground">
-                The Exhibit Model takes as inputs filing from the SEC's EDGAR
+                The Exhibit Model takes as inputs filings from the SEC's EDGAR
                 database, and for each filing outputs the probability that that
                 filing represents a definitive merger agreement. To identify
                 filings, we scan the{" "}
@@ -1029,13 +1023,16 @@ export default function SourcesMethods() {
                 </li>
                 <li className="space-y-2">
                   <div>
-                    <strong>Training corpus:</strong> We train the Exhibit Model
-                    on <strong>8,889</strong> labeled exhibits:{" "}
+                    <strong>Training corpus:</strong> We begin with{" "}
+                    <strong>8,889</strong> labeled exhibits:{" "}
                     <strong>7,919</strong> positives and{" "}
-                    <strong>970</strong> negatives. These examples are drawn
-                    from SEC filings under Exhibits 2 and 10 and are split
-                    with a stable manifest into <strong>6,206</strong> training
-                    exhibits, <strong>886</strong> validation exhibits, and{" "}
+                    <strong>970</strong> negatives. After dropping{" "}
+                    <strong>23</strong> short positive exhibits to align the{" "}
+                    training set with the model&apos;s minimum-length{" "}
+                    hard-negative rule, we split the remaining{" "}
+                    <strong>8,866</strong> exhibits with a stable manifest into{" "}
+                    <strong>6,206</strong> training exhibits,{" "}
+                    <strong>886</strong> validation exhibits, and{" "}
                     <strong>1,774</strong> holdout test exhibits.
                   </div>
                 </li>
@@ -1337,15 +1334,6 @@ export default function SourcesMethods() {
                 </Card>
               )}
             </div>
-            <div
-              id="taxonomy-model"
-              className="scroll-mt-32 pt-2 space-y-4"
-            >
-              <h3 className="text-xl font-semibold text-foreground">
-                Taxonomy Model
-              </h3>
-              <ComingSoon title="Mapping to the Pandects taxonomy" />
-            </div>
           </section>
 
           <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4" aria-labelledby="gaps-and-callouts-heading">
@@ -1399,10 +1387,9 @@ export default function SourcesMethods() {
                 plan to create a clause-level taxonomy as well.
               </li>
               <li>
-                Our taxonomy model is under development. In the meantime, we
-                assign sections to taxonomic classes by sending the target
+                We currently assign sections to taxonomic classes by sending the target
                 section title and the title of its parent article, as well as
-                section and article titles from both preceeding and following
+                section and article titles from both preceding and following
                 sections, to{" "}
                 <span className="font-mono text-sm text-foreground">
                   gpt-5.1
@@ -1411,9 +1398,9 @@ export default function SourcesMethods() {
                 <span className="font-mono text-sm text-foreground">
                   gpt-5-mini
                 </span>{" "}
-                (as our free token allowance permits). This means that
-                taxonomic classes are currently assigned based on titles alone,
-                with no attention to section content.
+                (as our free token allowance permits). This means taxonomy is
+                currently assigned by LLM using titles and nearby structural
+                context alone, with no attention to section body text.
               </li>
             </ul>
           </section>
