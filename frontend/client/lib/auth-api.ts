@@ -43,14 +43,6 @@ export async function loginWithEmail(email: string, password: string) {
   );
 }
 
-export async function resendVerificationEmail(email: string) {
-  return authFetchJson<{ status: "sent" }>(apiUrl("v1/auth/email/resend"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-}
-
 export async function fetchMe() {
   return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
@@ -153,30 +145,6 @@ export async function finalizeZitadelWebsiteAuth(legal: LegalAcceptancePayload) 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ legal }),
-  });
-}
-
-export async function requestPasswordReset(email: string) {
-  return authFetchJson<{ status: "sent" }>(apiUrl("v1/auth/password/forgot"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-}
-
-export async function resetPassword(token: string, password: string) {
-  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/password/reset"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, password }),
-  });
-}
-
-export async function verifyEmail(token: string) {
-  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/email/verify"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
   });
 }
 

@@ -5,7 +5,6 @@ from datetime import date, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 from sqlalchemy import text
-from werkzeug.exceptions import ServiceUnavailable
 
 
 def _set_default_env() -> None:
@@ -853,87 +852,27 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(len(users), 1)
             self.assertEqual(len(rows), 1)
 
-    def test_password_reset_flow(self):
+    def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-        self._create_local_user(email="reset@example.com")
+        forgot = client.post("/v1/auth/password/forgot", json={"email": "reset@example.com"})
+        self.assertEqual(forgot.status_code, 404)
 
-        captured: dict[str, str] = {}
-        original_send = backend_app._send_password_reset_email
-        backend_app._send_password_reset_email = lambda *, to_email, token: captured.setdefault(
-            "token", token
+        reset = client.post(
+            "/v1/auth/password/reset",
+            json={"token": "unused", "password": "newpassword123"},
         )
-        try:
-            res = client.post("/v1/auth/password/forgot", json={"email": "reset@example.com"})
-            self.assertEqual(res.status_code, 200)
-            reset_token = captured.get("token")
-            self.assertIsInstance(reset_token, str)
+        self.assertEqual(reset.status_code, 404)
 
-            res = client.post(
-                "/v1/auth/password/reset",
-                json={"token": reset_token, "password": "newpassword123"},
-            )
-            self.assertEqual(res.status_code, 200)
-        finally:
-            backend_app._send_password_reset_email = original_send
-
-        with self.app.app_context():
-            user = self._require_user("reset@example.com")
-            self.assertTrue(
-                backend_app.check_password_hash(user.password_hash, "newpassword123")
-            )
-
-    def test_resend_verification_returns_sent_when_delivery_fails(self):
+    def test_legacy_email_verification_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-        with self.app.app_context():
-            user = AuthUser()
-            user.email = "resend-fail@example.com"
-            user.password_hash = backend_app.generate_password_hash("password123")
-            user.email_verified_at = None
-            db.session.add(user)
-            db.session.commit()
 
-        original_send = backend_app._send_email_verification_email
+        resend = client.post("/v1/auth/email/resend", json={"email": "resend-fail@example.com"})
+        self.assertEqual(resend.status_code, 404)
 
-        def _fail_send(*, to_email: str, token: str) -> None:
-            _ = (to_email, token)
-            raise ServiceUnavailable(description="Email delivery failed.")
-
-        backend_app._send_email_verification_email = _fail_send
-        try:
-            res = client.post("/v1/auth/email/resend", json={"email": "resend-fail@example.com"})
-        finally:
-            backend_app._send_email_verification_email = original_send
-
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json(), {"status": "sent"})
-
-    def test_password_forgot_returns_sent_when_delivery_fails(self):
-        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = self.app.test_client()
-        with self.app.app_context():
-            user = AuthUser()
-            user.email = "forgot-fail@example.com"
-            user.password_hash = backend_app.generate_password_hash("password123")
-            user.email_verified_at = None
-            db.session.add(user)
-            db.session.commit()
-
-        original_send = backend_app._send_password_reset_email
-
-        def _fail_send(*, to_email: str, token: str) -> None:
-            _ = (to_email, token)
-            raise ServiceUnavailable(description="Email delivery failed.")
-
-        backend_app._send_password_reset_email = _fail_send
-        try:
-            res = client.post("/v1/auth/password/forgot", json={"email": "forgot-fail@example.com"})
-        finally:
-            backend_app._send_password_reset_email = original_send
-
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json(), {"status": "sent"})
+        verify = client.post("/v1/auth/email/verify", json={"token": "unused"})
+        self.assertEqual(verify.status_code, 404)
 
     def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

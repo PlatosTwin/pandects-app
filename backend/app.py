@@ -43,14 +43,11 @@ from backend.models import (
 from backend.schemas.auth import (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
-    AuthEmailSchema,
     AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
     AuthGoogleCredentialSchema,
     AuthLoginSchema,
-    AuthPasswordResetSchema,
     AuthRegisterSchema,
-    AuthTokenSchema,
 )
 from backend.auth.mcp_runtime import (
     authenticate_external_identity as _authenticate_external_identity,
@@ -143,14 +140,10 @@ from backend.auth.runtime import (
     google_oauth_pkce_pair as _google_oauth_pkce_pair,
     google_oauth_flow_enabled as _google_oauth_flow_enabled,
     google_oauth_redirect_uri as _google_oauth_redirect_uri,
-    issue_email_verification_token as _issue_email_verification_token,
-    issue_password_reset_token as _issue_password_reset_token,
     issue_session_token as _issue_session_token,
     is_running_on_fly as _is_running_on_fly_auth_runtime,
     is_email_like as _is_email_like,
-    load_email_verification_token as _load_email_verification_token,
     load_google_oauth_cookie as _load_google_oauth_cookie,
-    load_password_reset_token as _load_password_reset_token,
     load_session_token as _load_session_token,
     normalize_email as _normalize_email,
     record_signon_event as _record_signon_event,
@@ -161,8 +154,6 @@ from backend.auth.runtime import (
     require_legal_acceptance as _require_legal_acceptance,
     revoke_session_token as _revoke_session_token,
     safe_next_path as _safe_next_path,
-    send_email_verification_email as _send_email_verification_email,
-    send_password_reset_email as _send_password_reset_email,
     send_resend_text_email as _send_resend_text_email,
     set_auth_cookies as _set_auth_cookies,
     set_csrf_cookie as _set_csrf_cookie,
@@ -189,14 +180,11 @@ metadata = _main_db_metadata
 _AUTH_SCHEMA_EXPORTS = (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
-    AuthEmailSchema,
     AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
     AuthGoogleCredentialSchema,
     AuthLoginSchema,
-    AuthPasswordResetSchema,
     AuthRegisterSchema,
-    AuthTokenSchema,
 )
 
 
@@ -879,9 +867,6 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/login"): 10,
     ("POST", "/v1/auth/register"): 5,
-    ("POST", "/v1/auth/email/resend"): 5,
-    ("POST", "/v1/auth/password/forgot"): 5,
-    ("POST", "/v1/auth/password/reset"): 10,
     ("POST", "/v1/auth/google/credential"): 10,
     ("POST", "/v1/auth/flag-inaccurate"): 10,
 }
@@ -1187,12 +1172,6 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     ) -> dict[str, object]:
         return _google_fetch_json(url, data=data)
 
-    def _send_email_verification_email_for_routes(*, to_email: str, token: str) -> None:
-        _send_email_verification_email(to_email=to_email, token=token)
-
-    def _send_password_reset_email_for_routes(*, to_email: str, token: str) -> None:
-        _send_password_reset_email(to_email=to_email, token=token)
-
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)
 
@@ -1208,16 +1187,13 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         ApiUsageDaily=ApiUsageDaily,
         AuthApiKeySchema=AuthApiKeySchema,
         AuthDeleteAccountSchema=AuthDeleteAccountSchema,
-        AuthEmailSchema=AuthEmailSchema,
         AuthExternalSubject=AuthExternalSubject,
         AuthExternalSubjectLinkSchema=AuthExternalSubjectLinkSchema,
         AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
         AuthGoogleCredentialSchema=AuthGoogleCredentialSchema,
         AuthLoginSchema=AuthLoginSchema,
-        AuthPasswordResetSchema=AuthPasswordResetSchema,
         AuthRegisterSchema=AuthRegisterSchema,
         AuthSession=AuthSession,
-        AuthTokenSchema=AuthTokenSchema,
         AuthUser=AuthUser,
         LegalAcceptance=LegalAcceptance,
         _LEGAL_DOCS=_LEGAL_DOCS,
@@ -1246,13 +1222,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _google_verify_id_token=_google_verify_id_token_for_routes,
         _is_agreement_section_eligible=_is_agreement_section_eligible,
         _is_email_like=_is_email_like,
-        _issue_email_verification_token=_issue_email_verification_token,
-        _issue_password_reset_token=_issue_password_reset_token,
         _issue_session_token=_issue_session_token,
-        _load_email_verification_token=_load_email_verification_token,
         _load_google_oauth_cookie=_load_google_oauth_cookie,
         _load_json=_load_json,
-        _load_password_reset_token=_load_password_reset_token,
         _mock_auth=_mock_auth,
         _normalize_email=_normalize_email,
         _record_signon_event=_record_signon_event,
@@ -1264,9 +1236,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _require_verified_user=_require_verified_user,
         _revoke_session_token=_revoke_session_token,
         _safe_next_path=_safe_next_path,
-        _send_email_verification_email=_send_email_verification_email_for_routes,
         _send_flag_notification_email=_send_flag_notification_email,
-        _send_password_reset_email=_send_password_reset_email_for_routes,
         _send_signup_notification_email=_send_signup_notification_email,
         _set_auth_cookies=_set_auth_cookies,
         _set_csrf_cookie=_set_csrf_cookie,

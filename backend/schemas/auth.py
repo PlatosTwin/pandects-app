@@ -15,19 +15,6 @@ class AuthLoginSchema(Schema):
     password = fields.Str(required=True)
 
 
-class AuthEmailSchema(Schema):
-    email = fields.Str(required=True)
-
-
-class AuthPasswordResetSchema(Schema):
-    token = fields.Str(required=True)
-    password = fields.Str(required=True)
-
-
-class AuthTokenSchema(Schema):
-    token = fields.Str(required=True)
-
-
 class AuthApiKeySchema(Schema):
     name = fields.Str(required=False, allow_none=True)
 

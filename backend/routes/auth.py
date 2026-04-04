@@ -9,7 +9,6 @@ from base64 import urlsafe_b64encode
 from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
-from typing import Callable
 from urllib.parse import urlencode
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
@@ -282,23 +281,6 @@ def _clear_zitadel_pending_cookie(resp) -> None:
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
 
-    def _run_email_side_effect(*, label: str, email: str, fn: Callable[[], None]) -> bool:
-        try:
-            fn()
-            return True
-        except HTTPException as exc:
-            current_app.logger.warning(
-                "%s failed for %s (HTTP %s): %s",
-                label,
-                email,
-                getattr(exc, "code", "unknown"),
-                getattr(exc, "description", ""),
-            )
-            return False
-        except Exception:
-            current_app.logger.exception("%s failed for %s.", label, email)
-            return False
-
     def _external_link_payload(*, link, provider_name: str) -> dict[str, object]:
         return {
             "id": link.id,
@@ -422,200 +404,19 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     @auth_blp.route("/email/resend", methods=["POST"])
     def auth_resend_email_verification():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthEmailSchema())
-        email_raw = data.get("email")
-        if not isinstance(email_raw, str) or not email_raw.strip():
-            abort(400, description="Email is required.")
-        email = deps._normalize_email(email_raw)
-        if not deps._is_email_like(email):
-            abort(400, description="Invalid email address.")
-
-        if deps._auth_is_mocked():
-            user = deps._mock_auth.get_user_by_email(email)
-            if user is not None and user.email_verified_at is None:
-                verify_token = deps._issue_email_verification_token(
-                    user_id=user.id, email=user.email
-                )
-                deps._send_email_verification_email(
-                    to_email=user.email, token=verify_token
-                )
-            deps._auth_enumeration_delay()
-            resp = deps._status_response("sent")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-
-        try:
-            user = deps.AuthUser.query.filter_by(email=email).first()
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-        if user is not None and user.email_verified_at is None:
-            verify_token = deps._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-            def _send_resend_email() -> None:
-                deps._send_email_verification_email(
-                    to_email=user.email, token=verify_token
-                )
-
-            _ = _run_email_side_effect(
-                label="Verification resend delivery",
-                email=user.email,
-                fn=_send_resend_email,
-            )
-
-        deps._auth_enumeration_delay()
-        resp = deps._status_response("sent")
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/password/forgot", methods=["POST"])
     def auth_password_forgot():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthEmailSchema())
-        email_raw = data.get("email")
-        if not isinstance(email_raw, str) or not email_raw.strip():
-            abort(400, description="Email is required.")
-        email = deps._normalize_email(email_raw)
-        if not deps._is_email_like(email):
-            abort(400, description="Invalid email address.")
-
-        if deps._auth_is_mocked():
-            user = deps._mock_auth.get_user_by_email(email)
-            if user is not None and not (
-                user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
-            ):
-                token = deps._issue_password_reset_token(user_id=user.id, email=user.email)
-                deps._send_password_reset_email(to_email=user.email, token=token)
-            deps._auth_enumeration_delay()
-            resp = deps._status_response("sent")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-
-        try:
-            user = deps.AuthUser.query.filter_by(email=email).first()
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-        if user is not None and not (
-            user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid")
-        ):
-            token = deps._issue_password_reset_token(user_id=user.id, email=user.email)
-            def _send_password_reset() -> None:
-                deps._send_password_reset_email(to_email=user.email, token=token)
-
-            _ = _run_email_side_effect(
-                label="Password reset email delivery",
-                email=user.email,
-                fn=_send_password_reset,
-            )
-
-        deps._auth_enumeration_delay()
-        resp = deps._status_response("sent")
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/password/reset", methods=["POST"])
     def auth_password_reset():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthPasswordResetSchema())
-        token = data.get("token")
-        password = data.get("password")
-        if not isinstance(token, str) or not token.strip():
-            abort(400, description="Missing reset token.")
-        if not isinstance(password, str):
-            abort(400, description="Password is required.")
-        if len(password) < 8:
-            abort(400, description="Password must be at least 8 characters.")
-
-        if deps._auth_is_mocked():
-            parsed = deps._load_password_reset_token(token.strip())
-            if parsed is None:
-                abort(400, description="Invalid or expired reset token.")
-            user_id, email, _row = parsed
-            user = deps._mock_auth.get_user(user_id)
-            if user is None or user.email != email:
-                abort(400, description="Invalid or expired reset token.")
-            if not deps._mock_auth.set_user_password(user_id=user_id, password=password):
-                abort(400, description="Invalid or expired reset token.")
-            resp = deps._status_response("ok")
-            resp.headers["Cache-Control"] = "no-store"
-            deps._clear_auth_cookies(resp)
-            return resp
-
-        try:
-            parsed = deps._load_password_reset_token(token.strip())
-            if parsed is None:
-                abort(400, description="Invalid or expired reset token.")
-            user_id, email, row = parsed
-            user = deps.db.session.get(deps.AuthUser, user_id)
-            if user is None or user.email != email:
-                abort(400, description="Invalid or expired reset token.")
-            if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-                abort(400, description="Invalid or expired reset token.")
-            user.password_hash = deps.generate_password_hash(password)
-            if user.email_verified_at is None:
-                user.email_verified_at = deps._utc_now()
-            now = deps._utc_now()
-            if row is not None:
-                row.used_at = now
-            deps.AuthSession.query.filter_by(user_id=user.id, revoked_at=None).update(
-                {"revoked_at": now}, synchronize_session=False
-            )
-            deps.db.session.commit()
-        except HTTPException:
-            deps.db.session.rollback()
-            raise
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-
-        resp = deps._status_response("ok")
-        resp.headers["Cache-Control"] = "no-store"
-        deps._clear_auth_cookies(resp)
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/email/verify", methods=["POST"])
     def auth_verify_email():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthTokenSchema())
-        token = data.get("token")
-        if not isinstance(token, str) or not token.strip():
-            abort(400, description="Missing verification token.")
-        parsed = deps._load_email_verification_token(token.strip())
-        if parsed is None:
-            abort(400, description="Invalid or expired verification token.")
-        user_id, email = parsed
-
-        if deps._auth_is_mocked():
-            user = deps._mock_auth.get_user(user_id)
-            if user is None or user.email != email:
-                abort(400, description="Invalid verification token.")
-            deps._mock_auth.mark_email_verified(user_id)
-            resp = deps._status_response("ok")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-
-        try:
-            user = deps.db.session.get(deps.AuthUser, user_id)
-            if user is None or user.email != email:
-                abort(400, description="Invalid verification token.")
-            if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-                abort(400, description="Invalid verification token.")
-            if user.email_verified_at is None:
-                user.email_verified_at = deps._utc_now()
-                deps.db.session.commit()
-        except HTTPException:
-            deps.db.session.rollback()
-            raise
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-
-        resp = deps._status_response("ok")
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/me", methods=["GET"])
     def auth_me():

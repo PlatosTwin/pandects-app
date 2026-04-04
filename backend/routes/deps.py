@@ -42,10 +42,6 @@ class ApiKeyLikeProtocol(Protocol):
     revoked_at: datetime | None
 
 
-class PasswordResetTokenRowProtocol(Protocol):
-    used_at: datetime | None
-
-
 class ToIntProtocol(Protocol):
     def __call__(self, value: object, *, default: int = 0) -> int: ...
 
@@ -106,14 +102,6 @@ class IsAgreementSectionEligibleProtocol(Protocol):
     def __call__(self, agreement_uuid: str, section_uuid: str | None) -> bool: ...
 
 
-class IssueEmailVerificationTokenProtocol(Protocol):
-    def __call__(self, *, user_id: str, email: str) -> str: ...
-
-
-class IssuePasswordResetTokenProtocol(Protocol):
-    def __call__(self, *, user_id: str, email: str) -> str: ...
-
-
 class RecordSignonEventProtocol(Protocol):
     def __call__(self, *, user_id: str, provider: str, action: str) -> None: ...
 
@@ -129,14 +117,6 @@ class AuthenticateExternalIdentityProtocol(Protocol):
 
 class RequireVerifiedUserProtocol(Protocol):
     def __call__(self) -> tuple[UserLikeProtocol, AccessContextProtocol]: ...
-
-
-class SendEmailVerificationEmailProtocol(Protocol):
-    def __call__(self, *, to_email: str, token: str) -> None: ...
-
-
-class SendPasswordResetEmailProtocol(Protocol):
-    def __call__(self, *, to_email: str, token: str) -> None: ...
 
 
 class SendSignupNotificationEmailProtocol(Protocol):
@@ -264,16 +244,13 @@ class AuthDeps:
     ApiUsageDaily: Any
     AuthApiKeySchema: type[Schema]
     AuthDeleteAccountSchema: type[Schema]
-    AuthEmailSchema: type[Schema]
     AuthExternalSubject: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
     AuthGoogleCredentialSchema: type[Schema]
     AuthLoginSchema: type[Schema]
-    AuthPasswordResetSchema: type[Schema]
     AuthRegisterSchema: type[Schema]
     AuthSession: Any
-    AuthTokenSchema: type[Schema]
     AuthUser: Any
     LegalAcceptance: Any
     _LEGAL_DOCS: dict[str, dict[str, str]]
@@ -302,13 +279,9 @@ class AuthDeps:
     _google_verify_id_token: GoogleVerifyIdTokenProtocol
     _is_agreement_section_eligible: IsAgreementSectionEligibleProtocol
     _is_email_like: Callable[[str], bool]
-    _issue_email_verification_token: IssueEmailVerificationTokenProtocol
-    _issue_password_reset_token: IssuePasswordResetTokenProtocol
     _issue_session_token: Callable[[str], str]
-    _load_email_verification_token: Callable[[str], tuple[str, str] | None]
     _load_google_oauth_cookie: Callable[[], dict[str, str] | None]
     _load_json: Callable[[Schema], dict[str, object]]
-    _load_password_reset_token: Callable[[str], tuple[str, str, PasswordResetTokenRowProtocol | None] | None]
     _mock_auth: Any
     _normalize_email: Callable[[str], str]
     _record_signon_event: RecordSignonEventProtocol
@@ -320,9 +293,7 @@ class AuthDeps:
     _require_verified_user: RequireVerifiedUserProtocol
     _revoke_session_token: Callable[[str], None]
     _safe_next_path: Callable[[str | None], str | None]
-    _send_email_verification_email: SendEmailVerificationEmailProtocol
     _send_flag_notification_email: SendFlagNotificationEmailProtocol
-    _send_password_reset_email: SendPasswordResetEmailProtocol
     _send_signup_notification_email: SendSignupNotificationEmailProtocol
     _set_auth_cookies: SetAuthCookiesProtocol
     _set_csrf_cookie: SetCsrfCookieProtocol
