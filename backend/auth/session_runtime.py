@@ -58,9 +58,6 @@ def is_running_on_fly() -> bool:
 
 _SESSION_COOKIE_NAME = "pdcts_session"
 _CSRF_COOKIE_NAME = "pdcts_csrf"
-_GOOGLE_OAUTH_COOKIE_NAME = "pdcts_google_oauth"
-_GOOGLE_OAUTH_NONCE_COOKIE_NAME = "pdcts_google_nonce"
-_GOOGLE_OAUTH_COOKIE_MAX_AGE = 60 * 10
 
 
 def auth_session_transport() -> str:

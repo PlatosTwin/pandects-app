@@ -127,7 +127,7 @@ from backend.auth.runtime import (
     ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
     ensure_current_legal_acceptances as _ensure_current_legal_acceptances,
     frontend_base_url as _frontend_base_url,
-    google_fetch_json as _google_fetch_json,
+    oauth_fetch_json as _oauth_fetch_json,
     issue_session_token as _issue_session_token,
     is_running_on_fly as _is_running_on_fly_auth_runtime,
     is_email_like as _is_email_like,
@@ -1067,12 +1067,12 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         time=time,
     )
 
-    def _google_fetch_json_for_routes(
+    def _oauth_fetch_json_for_routes(
         url: str,
         *,
         data: dict[str, str] | None = None,
     ) -> dict[str, object]:
-        return _google_fetch_json(url, data=data)
+        return _oauth_fetch_json(url, data=data)
 
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)
@@ -1108,7 +1108,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _csrf_cookie_value=_csrf_cookie_value,
         _ensure_current_legal_acceptances=_ensure_current_legal_acceptances,
         _frontend_base_url=_frontend_base_url,
-        _google_fetch_json=_google_fetch_json_for_routes,
+        _oidc_fetch_json=_oauth_fetch_json_for_routes,
         _is_agreement_section_eligible=_is_agreement_section_eligible,
         _is_email_like=_is_email_like,
         _issue_session_token=_issue_session_token,

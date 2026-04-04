@@ -609,7 +609,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             token_data["audience"] = audience
 
         try:
-            token_payload = deps._google_fetch_json(_zitadel_token_endpoint(), data=token_data)
+            token_payload = deps._oidc_fetch_json(_zitadel_token_endpoint(), data=token_data)
             access_token = token_payload.get("access_token")
             if not isinstance(access_token, str) or not access_token.strip():
                 abort(502, description="ZITADEL token response did not include an access token.")
@@ -756,7 +756,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             token_data["audience"] = audience
 
         try:
-            token_payload = deps._google_fetch_json(_zitadel_token_endpoint(), data=token_data)
+            token_payload = deps._oidc_fetch_json(_zitadel_token_endpoint(), data=token_data)
             access_token = token_payload.get("access_token")
             if not isinstance(access_token, str) or not access_token.strip():
                 abort(502, description="ZITADEL token response did not include an access token.")

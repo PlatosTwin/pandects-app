@@ -249,7 +249,7 @@ class AuthDeps:
     _csrf_cookie_value: Callable[[], str | None]
     _ensure_current_legal_acceptances: EnsureCurrentLegalAcceptancesProtocol
     _frontend_base_url: Callable[[], str]
-    _google_fetch_json: GoogleFetchJsonProtocol
+    _oidc_fetch_json: GoogleFetchJsonProtocol
     _is_agreement_section_eligible: IsAgreementSectionEligibleProtocol
     _is_email_like: Callable[[str], bool]
     _issue_session_token: Callable[[str], str]

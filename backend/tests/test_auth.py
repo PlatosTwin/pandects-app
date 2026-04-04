@@ -77,14 +77,6 @@ class AuthFlowTests(unittest.TestCase):
             self.fail("Expected pdcts_csrf cookie to be set")
         return cookie.value
 
-    def _set_google_nonce_cookie(self, client, nonce: str = "test-google-nonce") -> str:
-        client.set_cookie(
-            "pdcts_google_nonce",
-            nonce,
-            path="/v1/auth/google/credential",
-        )
-        return nonce
-
     def _require_user(self, email: str) -> AuthUser:
         user = AuthUser.query.filter_by(email=email).first()
         if user is None:
@@ -465,10 +457,10 @@ class AuthFlowTests(unittest.TestCase):
             "Authorization": f"Bearer {self._issue_bearer_session(email='zitadel-oauth@example.com')}"
         }
 
-        original_google_fetch_json = backend_app._google_fetch_json
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_authenticate = backend_app._authenticate_external_identity
 
-        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+        def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
             self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
             self.assertIsInstance(data, dict)
             assert data is not None
@@ -496,7 +488,7 @@ class AuthFlowTests(unittest.TestCase):
                 },
             )()
 
-        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
             res = client.get(
@@ -538,7 +530,7 @@ class AuthFlowTests(unittest.TestCase):
             )
             self.assertEqual(complete_payload["link"]["subject"], "zitadel-user-456")
         finally:
-            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._authenticate_external_identity = original_authenticate
 
         with self.app.app_context():
@@ -606,10 +598,10 @@ class AuthFlowTests(unittest.TestCase):
             db.session.commit()
             existing_user_id = existing.id
 
-        original_google_fetch_json = backend_app._google_fetch_json
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_authenticate = backend_app._authenticate_external_identity
 
-        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+        def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
             self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
             self.assertIsInstance(data, dict)
             assert data is not None
@@ -638,7 +630,7 @@ class AuthFlowTests(unittest.TestCase):
                 },
             )()
 
-        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
             res = client.get("/v1/auth/zitadel/start?next=/search&provider=google")
@@ -669,7 +661,7 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(me.status_code, 200)
             self.assertEqual(me.get_json()["user"]["email"], "existing-zitadel@example.com")
         finally:
-            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._authenticate_external_identity = original_authenticate
 
         with self.app.app_context():
@@ -696,10 +688,10 @@ class AuthFlowTests(unittest.TestCase):
         )
         client = self.app.test_client()
 
-        original_google_fetch_json = backend_app._google_fetch_json
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_authenticate = backend_app._authenticate_external_identity
 
-        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+        def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
             self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
             return {"access_token": "zitadel-website-access-token-2"}
 
@@ -721,7 +713,7 @@ class AuthFlowTests(unittest.TestCase):
                 },
             )()
 
-        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
             res = client.get("/v1/auth/zitadel/start?next=/account&provider=email")
@@ -754,7 +746,7 @@ class AuthFlowTests(unittest.TestCase):
             session_token = finalize_payload.get("session_token")
             self.assertIsInstance(session_token, str)
         finally:
-            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._authenticate_external_identity = original_authenticate
 
         with self.app.app_context():
@@ -788,11 +780,11 @@ class AuthFlowTests(unittest.TestCase):
         )
         client = self.app.test_client()
 
-        original_google_fetch_json = backend_app._google_fetch_json
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_authenticate = backend_app._authenticate_external_identity
         token_counter = {"value": 0}
 
-        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+        def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
             token_counter["value"] += 1
             return {"access_token": f"zitadel-repeat-token-{token_counter['value']}"}
 
@@ -813,7 +805,7 @@ class AuthFlowTests(unittest.TestCase):
                 },
             )()
 
-        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._authenticate_external_identity = _fake_authenticate_external_identity
         try:
             for _ in range(2):
@@ -839,7 +831,7 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertEqual(res.status_code, 200)
                 self.assertEqual(res.get_json()["status"], "authenticated")
         finally:
-            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._authenticate_external_identity = original_authenticate
 
         with self.app.app_context():
@@ -870,24 +862,9 @@ class AuthFlowTests(unittest.TestCase):
         verify = client.post("/v1/auth/email/verify", json={"token": "unused"})
         self.assertEqual(verify.status_code, 404)
 
-    def test_google_credential_requires_legal_for_new_users_and_logs_events(self):
+    def test_legacy_google_credential_route_is_not_registered(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-        self._set_google_nonce_cookie(client)
-        res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
-        self.assertEqual(res.status_code, 404)
-
-    def test_google_credential_requires_nonce_cookie(self):
-        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = self.app.test_client()
-
-        res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
-        self.assertEqual(res.status_code, 404)
-
-    def test_google_credential_passes_nonce_from_cookie(self):
-        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = self.app.test_client()
-        self._set_google_nonce_cookie(client)
         res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
         self.assertEqual(res.status_code, 404)
 
@@ -915,20 +892,6 @@ class AuthFlowTests(unittest.TestCase):
 
         res = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200)
-
-    def test_google_credential_invalid_token_is_401_without_network(self):
-        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = self.app.test_client()
-        self._set_google_nonce_cookie(client)
-        res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
-        self.assertEqual(res.status_code, 404)
-
-    def test_google_credential_jwks_outage_returns_503(self):
-        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        client = self.app.test_client()
-        self._set_google_nonce_cookie(client)
-        res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
-        self.assertEqual(res.status_code, 404)
 
     def test_cors_allows_credentials_for_localhost(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
