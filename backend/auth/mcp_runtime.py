@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from base64 import b64encode
 from functools import lru_cache
 from typing import Any, cast
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from flask import request
 from sqlalchemy.exc import SQLAlchemyError
@@ -169,6 +171,26 @@ def mcp_jwks_url() -> str:
     return discovered
 
 
+def mcp_introspection_endpoint() -> str:
+    raw = os.environ.get("MCP_OIDC_INTROSPECTION_ENDPOINT", "").strip()
+    if raw:
+        return raw
+    discovered = _oidc_discovery_document().get("introspection_endpoint")
+    if not isinstance(discovered, str) or not discovered.strip():
+        raise RuntimeError("OIDC discovery document missing introspection_endpoint.")
+    return discovered
+
+
+def mcp_introspection_client_id() -> str | None:
+    raw = os.environ.get("MCP_OIDC_INTROSPECTION_CLIENT_ID", "").strip()
+    return raw or None
+
+
+def mcp_introspection_client_secret() -> str | None:
+    raw = os.environ.get("MCP_OIDC_INTROSPECTION_CLIENT_SECRET", "").strip()
+    return raw or None
+
+
 def mcp_protected_resource_metadata() -> dict[str, object]:
     return {
         "resource": mcp_resource_url(),
@@ -272,6 +294,73 @@ def _decode_access_token(token: str) -> dict[str, object]:
     return cast(dict[str, object], payload_obj)
 
 
+def _introspect_access_token(token: str) -> dict[str, object]:
+    client_id = mcp_introspection_client_id()
+    client_secret = mcp_introspection_client_secret()
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "MCP token introspection is not configured (missing client credentials)."
+        )
+
+    credentials = f"{client_id}:{client_secret}".encode("utf-8")
+    auth_header = b64encode(credentials).decode("ascii")
+    body = urlencode(
+        {
+            "token": token,
+            "token_type_hint": "access_token",
+        }
+    ).encode("utf-8")
+    req = Request(
+        mcp_introspection_endpoint(),
+        data=body,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {auth_header}",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=15) as response:
+            payload_obj = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            err_payload_obj = json.loads(raw)
+        except ValueError:
+            err_payload_obj = None
+        if exc.code == 401:
+            raise RuntimeError("MCP token introspection credentials were rejected.") from exc
+        if isinstance(err_payload_obj, dict):
+            err_code = err_payload_obj.get("error")
+            err_description = err_payload_obj.get("error_description")
+            if isinstance(err_code, str) and err_code == "invalid_client":
+                raise RuntimeError(
+                    "MCP token introspection credentials were rejected."
+                ) from exc
+            if isinstance(err_description, str) and err_description.strip():
+                raise RuntimeError(
+                    f"MCP token introspection failed: {err_description.strip()}"
+                ) from exc
+        raise RuntimeError("MCP token introspection failed.") from exc
+    except (OSError, URLError, ValueError) as exc:
+        raise RuntimeError("MCP token introspection failed.") from exc
+
+    if not isinstance(payload_obj, dict):
+        raise RuntimeError("MCP token introspection returned invalid data.")
+    active = payload_obj.get("active")
+    if active is not True:
+        raise McpAuthError(
+            status_code=401,
+            message="Invalid bearer token.",
+            www_authenticate=_bearer_challenge(
+                error="invalid_token",
+                description="The bearer access token is invalid or expired.",
+            ),
+        )
+    return cast(dict[str, object], payload_obj)
+
+
 def _normalize_external_identity(payload: dict[str, object]) -> ExternalIdentity:
     issuer = payload.get("iss")
     subject = payload.get("sub")
@@ -314,7 +403,15 @@ class OidcMcpIdentityProvider(McpIdentityProvider):
 
 
 class ZitadelMcpIdentityProvider(OidcMcpIdentityProvider):
-    pass
+    def authenticate_access_token(self, token: str) -> ExternalIdentity:
+        try:
+            return super().authenticate_access_token(token)
+        except McpAuthError:
+            raise
+        except Exception:
+            pass
+        payload = _introspect_access_token(token)
+        return _normalize_external_identity(payload)
 
 
 class _ProviderRegistry(dict[str, type[McpIdentityProvider]]):

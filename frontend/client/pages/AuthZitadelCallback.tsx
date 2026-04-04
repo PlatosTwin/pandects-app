@@ -5,8 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAuth } from "@/hooks/use-auth";
-import { linkExternalSubject } from "@/lib/auth-api";
-import { clearZitadelLinkState, finishZitadelLinkFlow } from "@/lib/zitadel-link";
+import { completeZitadelLink } from "@/lib/auth-api";
 
 function safeReturnPath(value: string): string {
   const trimmed = value.trim();
@@ -36,17 +35,23 @@ export default function AuthZitadelCallback() {
     let cancelled = false;
     const handleCallback = async () => {
       if (status !== "authenticated") {
-        clearZitadelLinkState();
         setError("Sign in to Pandects before linking ZITADEL.");
         return;
       }
 
       try {
-        const { accessToken, returnTo } = await finishZitadelLinkFlow(search);
-        await linkExternalSubject({
-          provider: "zitadel",
-          access_token: accessToken,
-        });
+        const params = new URLSearchParams(search);
+        const oauthError = params.get("error");
+        const oauthDescription = params.get("error_description");
+        if (oauthError) {
+          throw new Error(oauthDescription ?? oauthError);
+        }
+        const code = params.get("code");
+        const state = params.get("state");
+        if (!code || !state) {
+          throw new Error("Missing ZITADEL authorization response.");
+        }
+        const { return_to: returnTo } = await completeZitadelLink({ code, state });
         if (cancelled) return;
         navigate(withQueryParam(safeReturnPath(returnTo), "mcpLinked", "1"), {
           replace: true,

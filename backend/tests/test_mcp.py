@@ -16,9 +16,9 @@ def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
     os.environ.setdefault("MARIADB_HOST", "127.0.0.1")
     os.environ.setdefault("MARIADB_DATABASE", "pdx")
     os.environ.setdefault("AUTH_SECRET_KEY", "test-auth-secret")
-    os.environ.setdefault("PUBLIC_API_BASE_URL", "http://localhost:5000")
-    os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
-    os.environ.setdefault("AUTH_SESSION_TRANSPORT", "bearer")
+    os.environ["PUBLIC_API_BASE_URL"] = "http://localhost:5000"
+    os.environ["PUBLIC_FRONTEND_BASE_URL"] = "http://localhost:8080"
+    os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
     os.environ["AUTH_DATABASE_URI"] = auth_db_uri
     os.environ["MCP_OIDC_ISSUER"] = "https://issuer.example.com"
     os.environ["MCP_OIDC_AUDIENCE"] = "pandects-mcp"
@@ -150,7 +150,7 @@ class McpTests(unittest.TestCase):
         res = client.get("/.well-known/oauth-protected-resource")
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
-        self.assertEqual(payload["resource"], "http://localhost:5000/mcp")
+        self.assertEqual(payload["resource"], self.mcp_runtime.mcp_resource_url())
         self.assertIn("https://issuer.example.com", payload["authorization_servers"])
 
     def test_mcp_requires_bearer_token(self):
@@ -257,6 +257,44 @@ class McpTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 403)
+
+    def test_zitadel_provider_falls_back_to_introspection_for_opaque_tokens(self):
+        original_provider = os.environ.get("MCP_IDENTITY_PROVIDER")
+        original_decode = self.mcp_runtime._decode_access_token
+        original_introspect = self.mcp_runtime._introspect_access_token
+        self.mcp_runtime._mcp_identity_provider = None
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        try:
+            def _fail_decode(_token: str):
+                raise RuntimeError("not a jwt")
+
+            def _fake_introspect(token: str):
+                self.assertEqual(token, "opaque-zitadel-token")
+                return {
+                    "active": True,
+                    "iss": "https://issuer.example.com",
+                    "sub": "sub-123",
+                    "aud": ["pandects-mcp"],
+                    "scope": "agreements:read",
+                }
+
+            self.mcp_runtime._decode_access_token = _fail_decode
+            self.mcp_runtime._introspect_access_token = _fake_introspect
+            identity = self.mcp_runtime.authenticate_external_identity(
+                access_token="opaque-zitadel-token",
+                provider_name="zitadel",
+            )
+            self.assertEqual(identity.issuer, "https://issuer.example.com")
+            self.assertEqual(identity.subject, "sub-123")
+            self.assertEqual(identity.scopes, frozenset({"agreements:read"}))
+        finally:
+            self.mcp_runtime._decode_access_token = original_decode
+            self.mcp_runtime._introspect_access_token = original_introspect
+            self.mcp_runtime._mcp_identity_provider = None
+            if original_provider is None:
+                os.environ.pop("MCP_IDENTITY_PROVIDER", None)
+            else:
+                os.environ["MCP_IDENTITY_PROVIDER"] = original_provider
 
     def test_unlinked_subject_is_401(self):
         client = self.app.test_client()

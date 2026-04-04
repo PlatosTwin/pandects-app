@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from datetime import date, timedelta
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 from sqlalchemy import text
 from werkzeug.exceptions import ServiceUnavailable
@@ -18,6 +19,9 @@ def _set_default_env() -> None:
     os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
     os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
+    os.environ.setdefault("MCP_ZITADEL_CLIENT_ID", "test-zitadel-client-id")
+    os.environ.setdefault("MCP_OIDC_ISSUER", "https://pandects-test-zitadel.example.com")
+    os.environ.setdefault("MCP_OIDC_AUDIENCE", "https://api.pandects.org/mcp")
     os.environ["TURNSTILE_ENABLED"] = "0"
     os.environ.pop("TURNSTILE_SITE_KEY", None)
     os.environ.pop("TURNSTILE_SECRET_KEY", None)
@@ -680,6 +684,137 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 400)
+
+    def test_zitadel_oauth_start_and_complete_links_identity(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        os.environ["MCP_OIDC_TOKEN_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/token"
+        )
+        os.environ["MCP_OIDC_AUDIENCE"] = "https://api.pandects.org/mcp"
+        os.environ["MCP_ZITADEL_RESOURCE"] = "https://api.pandects.org/mcp"
+        os.environ["MCP_ZITADEL_AUDIENCE"] = "https://api.pandects.org/mcp"
+        client = self.app.test_client()
+
+        res = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "zitadel-oauth@example.com",
+                "password": "password123",
+                "legal": {
+                    "checked_at_ms": 1700000000000,
+                    "docs": ["tos", "privacy", "license"],
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+
+        with self.app.app_context():
+            user = self._require_user("zitadel-oauth@example.com")
+            verify_token = backend_app._issue_email_verification_token(
+                user_id=user.id,
+                email=user.email,
+            )
+
+        res = client.post("/v1/auth/email/verify", json={"token": verify_token})
+        self.assertEqual(res.status_code, 200)
+        res = client.post(
+            "/v1/auth/login",
+            json={"email": "zitadel-oauth@example.com", "password": "password123"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIsInstance(payload, dict)
+        session_token = payload.get("session_token")
+        self.assertIsInstance(session_token, str)
+        headers = {"Authorization": f"Bearer {session_token}"}
+
+        original_google_fetch_json = backend_app._google_fetch_json
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+            self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
+            self.assertIsInstance(data, dict)
+            assert data is not None
+            self.assertEqual(data["grant_type"], "authorization_code")
+            self.assertEqual(data["client_id"], "test-zitadel-client-id")
+            self.assertEqual(data["code"], "auth-code-123")
+            self.assertEqual(
+                data["redirect_uri"],
+                "http://localhost:8080/auth/zitadel/callback",
+            )
+            self.assertTrue(data["code_verifier"])
+            return {"access_token": "zitadel-access-token"}
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "zitadel-access-token")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-user-456",
+                },
+            )()
+
+        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            res = client.get(
+                "/v1/auth/external-subjects/zitadel/start?next=/account",
+                headers=headers,
+            )
+            self.assertEqual(res.status_code, 200)
+            start_payload = res.get_json()
+            self.assertIsInstance(start_payload, dict)
+            authorize_url = start_payload.get("authorize_url")
+            self.assertIsInstance(authorize_url, str)
+
+            parsed = urlparse(authorize_url)
+            self.assertEqual(
+                f"{parsed.scheme}://{parsed.netloc}{parsed.path}",
+                "https://pandects-test-zitadel.example.com/oauth/v2/authorize",
+            )
+            query = parse_qs(parsed.query)
+            state = query.get("state", [None])[0]
+            self.assertIsInstance(state, str)
+            self.assertEqual(query.get("client_id"), ["test-zitadel-client-id"])
+            self.assertEqual(
+                query.get("redirect_uri"),
+                ["http://localhost:8080/auth/zitadel/callback"],
+            )
+
+            res = client.post(
+                "/v1/auth/external-subjects/zitadel/complete",
+                headers=headers,
+                json={"code": "auth-code-123", "state": state},
+            )
+            self.assertEqual(res.status_code, 201)
+            complete_payload = res.get_json()
+            self.assertEqual(complete_payload["status"], "linked")
+            self.assertEqual(complete_payload["return_to"], "/account")
+            self.assertEqual(
+                complete_payload["link"]["issuer"],
+                "https://pandects-test-zitadel.example.com",
+            )
+            self.assertEqual(complete_payload["link"]["subject"], "zitadel-user-456")
+        finally:
+            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._authenticate_external_identity = original_authenticate
+
+        with self.app.app_context():
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].issuer, "https://pandects-test-zitadel.example.com")
+            self.assertEqual(rows[0].subject, "zitadel-user-456")
 
         res = client.post(
             "/v1/auth/flag-inaccurate",

@@ -5,16 +5,129 @@ from __future__ import annotations
 import os
 import secrets
 import uuid
+from base64 import urlsafe_b64encode
+from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
 from typing import Callable
+from urllib.parse import urlencode
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
-from backend.auth.mcp_runtime import McpAuthError
+from backend.auth.runtime import cookie_settings
+from backend.auth.mcp_runtime import McpAuthError, mcp_oidc_audiences, mcp_oidc_issuer, mcp_supported_scopes
 from backend.routes.deps import AuthDeps
+
+_ZITADEL_LINK_COOKIE_NAME = "pdcts_zitadel_link"
+_ZITADEL_LINK_COOKIE_MAX_AGE = 60 * 10
+
+
+def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-link-cookie")
+
+
+def _zitadel_client_id() -> str:
+    client_id = os.environ.get("MCP_ZITADEL_CLIENT_ID", "").strip()
+    if not client_id:
+        abort(503, description="ZITADEL linking is not configured (missing MCP_ZITADEL_CLIENT_ID).")
+    return client_id
+
+
+def _zitadel_redirect_uri(deps: AuthDeps) -> str:
+    explicit = os.environ.get("MCP_ZITADEL_REDIRECT_URI", "").strip()
+    if explicit:
+        return explicit
+    return f"{deps._frontend_base_url()}/auth/zitadel/callback"
+
+
+def _zitadel_scopes() -> str:
+    raw = os.environ.get("MCP_ZITADEL_SCOPES", "").strip()
+    if raw:
+        return " ".join(part for part in raw.split() if part)
+    return " ".join(("openid", "profile", "email", *mcp_supported_scopes()))
+
+
+def _zitadel_audience() -> str | None:
+    raw = os.environ.get("MCP_ZITADEL_AUDIENCE", "").strip()
+    if raw:
+        return raw
+    audiences = mcp_oidc_audiences()
+    return audiences[0] if audiences else None
+
+
+def _zitadel_resource() -> str | None:
+    raw = os.environ.get("MCP_ZITADEL_RESOURCE", "").strip()
+    if raw:
+        return raw
+    return _zitadel_audience()
+
+
+def _zitadel_authorization_endpoint() -> str:
+    raw = os.environ.get("MCP_OIDC_AUTHORIZATION_ENDPOINT", "").strip()
+    if raw:
+        return raw
+    return f"{mcp_oidc_issuer()}/oauth/v2/authorize"
+
+
+def _zitadel_token_endpoint() -> str:
+    raw = os.environ.get("MCP_OIDC_TOKEN_ENDPOINT", "").strip()
+    if raw:
+        return raw
+    return f"{mcp_oidc_issuer()}/oauth/v2/token"
+
+
+def _build_pkce_challenge(code_verifier: str) -> str:
+    digest = sha256(code_verifier.encode("utf-8")).digest()
+    return urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _set_zitadel_link_cookie(resp, payload: dict[str, str]) -> None:
+    value = _zitadel_link_cookie_serializer().dumps(payload)
+    samesite, secure = cookie_settings()
+    resp.set_cookie(
+        _ZITADEL_LINK_COOKIE_NAME,
+        value,
+        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+        path="/v1/auth/external-subjects/zitadel/complete",
+    )
+
+
+def _load_zitadel_link_cookie() -> dict[str, str] | None:
+    raw = request.cookies.get(_ZITADEL_LINK_COOKIE_NAME)
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        payload_obj = _zitadel_link_cookie_serializer().loads(
+            raw,
+            max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(payload_obj, dict):
+        return None
+    payload = payload_obj
+    if not all(isinstance(value, str) for value in payload.values()):
+        return None
+    return payload
+
+
+def _clear_zitadel_link_cookie(resp) -> None:
+    samesite, secure = cookie_settings()
+    resp.delete_cookie(
+        _ZITADEL_LINK_COOKIE_NAME,
+        path="/v1/auth/external-subjects/zitadel/complete",
+        secure=secure,
+        samesite=samesite.capitalize() if samesite != "none" else "None",
+    )
 
 
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
@@ -36,6 +149,35 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         except Exception:
             current_app.logger.exception("%s failed for %s.", label, email)
             return False
+
+    def _external_link_payload(*, link, provider_name: str) -> dict[str, object]:
+        return {
+            "id": link.id,
+            "provider": provider_name,
+            "issuer": link.issuer,
+            "subject": link.subject,
+            "created_at": link.created_at.isoformat(),
+        }
+
+    def _link_external_identity_for_user(*, user, provider_name: str, external_identity):
+        existing = deps.AuthExternalSubject.query.filter_by(
+            issuer=external_identity.issuer,
+            subject=external_identity.subject,
+        ).first()
+        if existing is not None:
+            if existing.user_id != user.id:
+                abort(409, description="External identity is already linked to another account.")
+            return ("already_linked", existing, 200)
+
+        link = deps.AuthExternalSubject(
+            user_id=user.id,
+            issuer=external_identity.issuer,
+            subject=external_identity.subject,
+        )
+        deps.db.session.add(link)
+        deps._record_signon_event(user_id=user.id, provider=provider_name, action="link")
+        deps.db.session.commit()
+        return ("linked", link, 201)
 
     @auth_blp.route("/register", methods=["POST"])
     def auth_register():
@@ -512,40 +654,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(503, description="External identity provider is unavailable right now.")
 
         try:
-            existing = deps.AuthExternalSubject.query.filter_by(
-                issuer=external_identity.issuer,
-                subject=external_identity.subject,
-            ).first()
-            if existing is not None:
-                if existing.user_id != user.id:
-                    abort(409, description="External identity is already linked to another account.")
-                resp = make_response(
-                    jsonify(
-                        {
-                            "status": "already_linked",
-                            "link": {
-                                "id": existing.id,
-                                "provider": provider_name,
-                                "issuer": existing.issuer,
-                                "subject": existing.subject,
-                                "created_at": existing.created_at.isoformat(),
-                            },
-                        }
-                    )
-                )
-                resp.headers["Cache-Control"] = "no-store"
-                return resp
-
-            link = deps.AuthExternalSubject(
-                user_id=user.id,
-                issuer=external_identity.issuer,
-                subject=external_identity.subject,
+            status, link, code = _link_external_identity_for_user(
+                user=user,
+                provider_name=provider_name,
+                external_identity=external_identity,
             )
-            deps.db.session.add(link)
-            deps._record_signon_event(
-                user_id=user.id, provider=provider_name, action="link"
-            )
-            deps.db.session.commit()
         except HTTPException:
             deps.db.session.rollback()
             raise
@@ -556,19 +669,158 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp = make_response(
             jsonify(
                 {
-                    "status": "linked",
-                    "link": {
-                        "id": link.id,
-                        "provider": provider_name,
-                        "issuer": link.issuer,
-                        "subject": link.subject,
-                        "created_at": link.created_at.isoformat(),
-                    },
+                    "status": status,
+                    "link": _external_link_payload(link=link, provider_name=provider_name),
                 }
             ),
-            201,
+            code,
         )
         resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/external-subjects/zitadel/start", methods=["GET"])
+    def auth_zitadel_link_start():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="External identity linking is unavailable in mocked auth mode.")
+        _ = user
+
+        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
+        state = secrets.token_urlsafe(32)
+        code_verifier = secrets.token_urlsafe(64)
+        code_challenge = _build_pkce_challenge(code_verifier)
+        cookie_payload = {
+            "state": state,
+            "code_verifier": code_verifier,
+            "next": next_path,
+            "provider": "zitadel",
+        }
+        params = {
+            "client_id": _zitadel_client_id(),
+            "redirect_uri": _zitadel_redirect_uri(deps),
+            "response_type": "code",
+            "scope": _zitadel_scopes(),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        resource = _zitadel_resource()
+        audience = _zitadel_audience()
+        if resource:
+            params["resource"] = resource
+        if audience:
+            params["audience"] = audience
+
+        resp = make_response(
+            jsonify(
+                {
+                    "authorize_url": f"{_zitadel_authorization_endpoint()}?{urlencode(params)}",
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        _set_zitadel_link_cookie(resp, cookie_payload)
+        return resp
+
+    @auth_blp.route("/external-subjects/zitadel/complete", methods=["POST"])
+    def auth_zitadel_link_complete():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="External identity linking is unavailable in mocked auth mode.")
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid callback payload.")
+        code = data.get("code")
+        state = data.get("state")
+        if not isinstance(code, str) or not code.strip():
+            abort(400, description="Missing authorization code.")
+        if not isinstance(state, str) or not state.strip():
+            abort(400, description="Missing authorization state.")
+
+        cookie_payload = _load_zitadel_link_cookie()
+        if not cookie_payload:
+            abort(400, description="Invalid ZITADEL authorization state.")
+        expected_state = cookie_payload.get("state")
+        code_verifier = cookie_payload.get("code_verifier")
+        next_path = deps._safe_next_path(cookie_payload.get("next")) or "/account"
+        provider_name = deps._resolve_mcp_identity_provider_name(cookie_payload.get("provider"))
+        if (
+            not isinstance(expected_state, str)
+            or not expected_state.strip()
+            or not secrets.compare_digest(expected_state, state.strip())
+            or not isinstance(code_verifier, str)
+            or not code_verifier.strip()
+        ):
+            resp = make_response(
+                jsonify({"message": "Invalid ZITADEL authorization state."}),
+                400,
+            )
+            resp.headers["Cache-Control"] = "no-store"
+            _clear_zitadel_link_cookie(resp)
+            return resp
+
+        token_data = {
+            "grant_type": "authorization_code",
+            "client_id": _zitadel_client_id(),
+            "code": code.strip(),
+            "code_verifier": code_verifier,
+            "redirect_uri": _zitadel_redirect_uri(deps),
+        }
+        resource = _zitadel_resource()
+        audience = _zitadel_audience()
+        if resource:
+            token_data["resource"] = resource
+        if audience:
+            token_data["audience"] = audience
+
+        try:
+            token_payload = deps._google_fetch_json(_zitadel_token_endpoint(), data=token_data)
+            access_token = token_payload.get("access_token")
+            if not isinstance(access_token, str) or not access_token.strip():
+                abort(502, description="ZITADEL token response did not include an access token.")
+            external_identity = deps._authenticate_external_identity(
+                access_token=access_token.strip(),
+                provider_name=provider_name,
+            )
+            status, link, code = _link_external_identity_for_user(
+                user=user,
+                provider_name=provider_name,
+                external_identity=external_identity,
+            )
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            current_app.logger.exception("ZITADEL link completion failed due to auth DB error.")
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception as exc:
+            deps.db.session.rollback()
+            current_app.logger.exception("ZITADEL link completion failed.")
+            message = str(exc)
+            if "Unsupported MCP identity provider" in message:
+                abort(400, description="Unsupported external identity provider.")
+            if isinstance(exc, McpAuthError):
+                if exc.status_code >= 500:
+                    abort(503, description="External identity provider is unavailable right now.")
+                abort(400, description="External access token is invalid or expired.")
+            abort(503, description="External identity provider is unavailable right now.")
+
+        resp = make_response(
+            jsonify(
+                {
+                    "status": status,
+                    "link": _external_link_payload(link=link, provider_name=provider_name),
+                    "return_to": next_path,
+                }
+            ),
+            code,
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        _clear_zitadel_link_cookie(resp)
         return resp
 
     @auth_blp.route("/csrf", methods=["GET"])

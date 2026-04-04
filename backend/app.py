@@ -1180,6 +1180,13 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     ) -> str:
         return _google_verify_id_token(id_token, expected_nonce=expected_nonce)
 
+    def _google_fetch_json_for_routes(
+        url: str,
+        *,
+        data: dict[str, str] | None = None,
+    ) -> dict[str, object]:
+        return _google_fetch_json(url, data=data)
+
     def _send_email_verification_email_for_routes(*, to_email: str, token: str) -> None:
         _send_email_verification_email(to_email=to_email, token=token)
 
@@ -1229,7 +1236,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _ensure_current_legal_acceptances=_ensure_current_legal_acceptances,
         _frontend_base_url=_frontend_base_url,
         _frontend_google_callback_redirect=_frontend_google_callback_redirect,
-        _google_fetch_json=_google_fetch_json,
+        _google_fetch_json=_google_fetch_json_for_routes,
         _google_nonce_cookie_value=_google_nonce_cookie_value,
         _google_oauth_client_id=_google_oauth_client_id,
         _google_oauth_client_secret=_google_oauth_client_secret,

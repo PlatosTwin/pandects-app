@@ -33,6 +33,7 @@ import {
   loginWithGoogleCredential,
   resendVerificationEmail,
   revokeApiKey,
+  startZitadelLink,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, ExternalSubjectLink, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 import { loadGoogleIdentityServices } from "@/lib/google-identity";
@@ -48,7 +49,7 @@ import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
-import { isZitadelLinkConfigured, startZitadelLinkFlow } from "@/lib/zitadel-link";
+import { isZitadelLinkConfigured } from "@/lib/zitadel-link";
 import brandLinks from "@branding/links.json";
 
 type UsageChartPoint = {
@@ -1312,13 +1313,17 @@ export default function Account() {
                 className="w-full sm:w-auto"
                 onClick={() => {
                   setMcpLinkPending(true);
-                  void startZitadelLinkFlow({ returnTo: "/account" }).catch((err) => {
+                  void startZitadelLink("/account")
+                    .then(({ authorize_url }) => {
+                      window.location.assign(authorize_url);
+                    })
+                    .catch((err) => {
                     setMcpLinkPending(false);
                     toast({
                       title: "Could not start ZITADEL linking",
                       description: err instanceof Error ? err.message : String(err),
                     });
-                  });
+                    });
                 }}
               >
                 {mcpLinkPending ? "Redirecting to ZITADEL…" : "Connect ZITADEL"}

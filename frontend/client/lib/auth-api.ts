@@ -157,6 +157,25 @@ export async function linkExternalSubject(payload: {
   });
 }
 
+export async function startZitadelLink(nextPath = "/account") {
+  const query = new URLSearchParams({ next: nextPath });
+  return authFetchJson<{ authorize_url: string }>(
+    apiUrl(`v1/auth/external-subjects/zitadel/start?${query.toString()}`),
+  );
+}
+
+export async function completeZitadelLink(payload: { code: string; state: string }) {
+  return authFetchJson<{
+    status: "linked" | "already_linked";
+    link: ExternalSubjectLink;
+    return_to: string;
+  }>(apiUrl("v1/auth/external-subjects/zitadel/complete"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export type FlagInaccurateSource = "search_result" | "agreement_view";
 
 export async function flagAsInaccurate(payload: {
