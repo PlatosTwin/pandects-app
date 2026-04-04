@@ -26,7 +26,6 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
-const AuthGoogleCallback = lazy(() => import("./pages/AuthGoogleCallback"));
 const AuthZitadelCallback = lazy(() => import("./pages/AuthZitadelCallback"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -82,10 +81,6 @@ const App = () => {
                 <Route path="/license" element={<License />} />
                 <Route path="/license/software" element={<SoftwareLicense />} />
                 <Route path="/license/data" element={<DataLicense />} />
-                <Route
-                  path="/auth/google/callback"
-                  element={<AuthGoogleCallback />}
-                />
                 <Route
                   path="/auth/zitadel/callback"
                   element={<AuthZitadelCallback />}

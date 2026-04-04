@@ -113,6 +113,49 @@ export async function deleteAccount(payload: { confirm: string }) {
   });
 }
 
+export async function startZitadelWebsiteAuth(
+  nextPath = "/account",
+  provider: "google" | "email" = "email",
+) {
+  const query = new URLSearchParams({ next: nextPath, provider });
+  return authFetchJson<{ authorize_url: string }>(
+    apiUrl(`v1/auth/zitadel/start?${query.toString()}`),
+  );
+}
+
+export async function completeZitadelWebsiteAuth(payload: { code: string; state: string }) {
+  return authFetchJson<
+    | {
+        status: "authenticated";
+        next_path: string;
+        user: AuthUser;
+        session_token?: string;
+      }
+    | {
+        status: "legal_required";
+        next_path: string;
+        user: AuthUser;
+      }
+  >(apiUrl("v1/auth/zitadel/complete"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function finalizeZitadelWebsiteAuth(legal: LegalAcceptancePayload) {
+  return authFetchJson<{
+    status: "authenticated";
+    next_path: string;
+    user: AuthUser;
+    session_token?: string;
+  }>(apiUrl("v1/auth/zitadel/finalize"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ legal }),
+  });
+}
+
 export async function requestPasswordReset(email: string) {
   return authFetchJson<{ status: "sent" }>(apiUrl("v1/auth/password/forgot"), {
     method: "POST",

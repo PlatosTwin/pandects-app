@@ -35,36 +35,33 @@ Notes:
 - `MCP_OIDC_ISSUER` and `MCP_OIDC_AUTHORIZATION_SERVER_URL` are usually the same for ZITADEL.
 - If access tokens are not signed with the default algorithms already accepted by the backend, set `MCP_OIDC_SIGNING_ALGORITHMS`.
 
-## Link Flow
+## Website Auth Cutover
 
-Valid external OAuth tokens are not enough by themselves. The token subject must also be linked to a verified Pandects account in `auth_external_subjects`.
+Pandects website auth can now use the same ZITADEL identity that authenticates MCP. On first successful ZITADEL sign-in:
 
-Current linking API:
+1. Pandects validates the ZITADEL token server-side.
+2. If `issuer + subject` is already linked in `auth_external_subjects`, that local user is reused.
+3. Otherwise, Pandects auto-links an existing verified local user by verified email, or creates a new local user and links it immediately.
+4. If current Pandects legal acceptance is missing, the frontend is sent through a final legal-acceptance step before the local session is issued.
 
-- `GET /v1/auth/external-subjects`
-- `POST /v1/auth/external-subjects`
+Website auth endpoints:
 
-`POST /v1/auth/external-subjects` expects:
+- `GET /v1/auth/zitadel/start`
+- `POST /v1/auth/zitadel/complete`
+- `POST /v1/auth/zitadel/finalize`
 
-```json
-{
-  "provider": "zitadel",
-  "access_token": "<zitadel-access-token>"
-}
+Optional backend env for website auth:
+
+```env
+# Default callback target is {PUBLIC_FRONTEND_BASE_URL}/auth/zitadel/callback
+AUTH_ZITADEL_REDIRECT_URI=
+
+# Optional: if set, "Continue with Google" can jump straight to the upstream
+# Google IdP inside ZITADEL instead of showing the generic login chooser.
+AUTH_ZITADEL_GOOGLE_IDP_HINT=
 ```
 
-The caller must already be signed into Pandects with a verified account. The backend verifies the external access token server-side, normalizes `issuer` + `subject`, and then persists the link.
-
-## Admin Or Frontend Sequence
-
-Recommended flow:
-
-1. User signs into Pandects through the normal app auth flow.
-2. Frontend or admin tooling obtains a ZITADEL access token for the same user and the MCP audience/resource.
-3. Frontend or admin tooling calls `POST /v1/auth/external-subjects` with the Pandects session and the ZITADEL access token.
-4. After the link exists, the same external identity can call `/mcp` directly with `Authorization: Bearer <zitadel-access-token>`.
-
-For the frontend-driven ZITADEL link flow, set these frontend env vars:
+For the frontend website-auth flow, set these frontend env vars:
 
 ```env
 VITE_ZITADEL_AUTHORITY=https://<your-zitadel-domain>
@@ -81,9 +78,17 @@ VITE_ZITADEL_AUTHORIZATION_ENDPOINT=
 VITE_ZITADEL_TOKEN_ENDPOINT=
 ```
 
-The account page uses those vars to start an OAuth PKCE flow, exchange the authorization code for an access token in the browser, and then call `POST /v1/auth/external-subjects`.
+The account page now starts website sign-in through `GET /v1/auth/zitadel/start`, and the callback page completes/finalizes sign-in with the backend. There is no separate MCP-specific connect flow in the website UI after cutover.
 
-Example link call:
+## Legacy Manual Linking
+
+The low-level linking API still exists for migration or admin use:
+
+- `GET /v1/auth/external-subjects`
+- `POST /v1/auth/external-subjects`
+- `DELETE /v1/auth/external-subjects/<id>`
+
+Example manual link call:
 
 ```bash
 curl -X POST https://api.pandects.org/v1/auth/external-subjects \

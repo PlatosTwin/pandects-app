@@ -18,11 +18,22 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
 from backend.auth.runtime import cookie_settings
-from backend.auth.mcp_runtime import McpAuthError, mcp_oidc_audiences, mcp_oidc_issuer, mcp_supported_scopes
+from backend.auth.mcp_runtime import (
+    McpAuthError,
+    mcp_jwt_algorithms,
+    mcp_jwks_url,
+    mcp_oidc_audiences,
+    mcp_oidc_issuer,
+    mcp_supported_scopes,
+)
 from backend.routes.deps import AuthDeps
 
 _ZITADEL_LINK_COOKIE_NAME = "pdcts_zitadel_link"
 _ZITADEL_LINK_COOKIE_MAX_AGE = 60 * 10
+_ZITADEL_WEB_COOKIE_NAME = "pdcts_zitadel_web"
+_ZITADEL_WEB_COOKIE_MAX_AGE = 60 * 10
+_ZITADEL_PENDING_COOKIE_NAME = "pdcts_zitadel_pending"
+_ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
 
 
 def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
@@ -30,6 +41,20 @@ def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
     if not secret:
         abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-link-cookie")
+
+
+def _zitadel_web_cookie_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-web-cookie")
+
+
+def _zitadel_pending_cookie_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-pending-cookie")
 
 
 def _zitadel_client_id() -> str:
@@ -41,6 +66,13 @@ def _zitadel_client_id() -> str:
 
 def _zitadel_redirect_uri(deps: AuthDeps) -> str:
     explicit = os.environ.get("MCP_ZITADEL_REDIRECT_URI", "").strip()
+    if explicit:
+        return explicit
+    return f"{deps._frontend_base_url()}/auth/zitadel/callback"
+
+
+def _website_zitadel_redirect_uri(deps: AuthDeps) -> str:
+    explicit = os.environ.get("AUTH_ZITADEL_REDIRECT_URI", "").strip()
     if explicit:
         return explicit
     return f"{deps._frontend_base_url()}/auth/zitadel/callback"
@@ -82,34 +114,70 @@ def _zitadel_token_endpoint() -> str:
     return f"{mcp_oidc_issuer()}/oauth/v2/token"
 
 
+def _decode_zitadel_id_token(id_token: str) -> dict[str, object] | None:
+    try:
+        import jwt
+        from jwt import PyJWKClient
+        from jwt.exceptions import InvalidTokenError, PyJWKClientError
+    except ImportError:
+        return None
+
+    try:
+        jwk_client = PyJWKClient(mcp_jwks_url())
+        signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
+        payload_obj = jwt.decode(
+            id_token,
+            signing_key,
+            algorithms=list(mcp_jwt_algorithms()),
+            audience=_zitadel_client_id(),
+            issuer=mcp_oidc_issuer(),
+            leeway=60,
+        )
+    except (InvalidTokenError, PyJWKClientError, RuntimeError):
+        return None
+    if not isinstance(payload_obj, dict):
+        return None
+    return payload_obj
+
+
 def _build_pkce_challenge(code_verifier: str) -> str:
     digest = sha256(code_verifier.encode("utf-8")).digest()
     return urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
-def _set_zitadel_link_cookie(resp, payload: dict[str, str]) -> None:
-    value = _zitadel_link_cookie_serializer().dumps(payload)
+def _set_signed_cookie(
+    *,
+    name: str,
+    serializer: URLSafeTimedSerializer,
+    payload: dict[str, str],
+    max_age: int,
+    path: str,
+    resp,
+) -> None:
+    value = serializer.dumps(payload)
     samesite, secure = cookie_settings()
     resp.set_cookie(
-        _ZITADEL_LINK_COOKIE_NAME,
+        name,
         value,
-        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
+        max_age=max_age,
         httponly=True,
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
-        path="/v1/auth/external-subjects/zitadel/complete",
+        path=path,
     )
 
 
-def _load_zitadel_link_cookie() -> dict[str, str] | None:
-    raw = request.cookies.get(_ZITADEL_LINK_COOKIE_NAME)
+def _load_signed_cookie(
+    *,
+    name: str,
+    serializer: URLSafeTimedSerializer,
+    max_age: int,
+) -> dict[str, str] | None:
+    raw = request.cookies.get(name)
     if not isinstance(raw, str) or not raw.strip():
         return None
     try:
-        payload_obj = _zitadel_link_cookie_serializer().loads(
-            raw,
-            max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
-        )
+        payload_obj = serializer.loads(raw, max_age=max_age)
     except (BadSignature, SignatureExpired):
         return None
     if not isinstance(payload_obj, dict):
@@ -120,13 +188,94 @@ def _load_zitadel_link_cookie() -> dict[str, str] | None:
     return payload
 
 
-def _clear_zitadel_link_cookie(resp) -> None:
+def _clear_signed_cookie(*, name: str, path: str, resp) -> None:
     samesite, secure = cookie_settings()
     resp.delete_cookie(
-        _ZITADEL_LINK_COOKIE_NAME,
-        path="/v1/auth/external-subjects/zitadel/complete",
+        name,
+        path=path,
         secure=secure,
         samesite=samesite.capitalize() if samesite != "none" else "None",
+    )
+
+
+def _set_zitadel_link_cookie(resp, payload: dict[str, str]) -> None:
+    _set_signed_cookie(
+        name=_ZITADEL_LINK_COOKIE_NAME,
+        serializer=_zitadel_link_cookie_serializer(),
+        payload=payload,
+        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
+        path="/v1/auth/external-subjects/zitadel/complete",
+        resp=resp,
+    )
+
+
+def _load_zitadel_link_cookie() -> dict[str, str] | None:
+    return _load_signed_cookie(
+        name=_ZITADEL_LINK_COOKIE_NAME,
+        serializer=_zitadel_link_cookie_serializer(),
+        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
+    )
+
+
+def _clear_zitadel_link_cookie(resp) -> None:
+    _clear_signed_cookie(
+        name=_ZITADEL_LINK_COOKIE_NAME,
+        path="/v1/auth/external-subjects/zitadel/complete",
+        resp=resp,
+    )
+
+
+def _set_zitadel_web_cookie(resp, payload: dict[str, str]) -> None:
+    _set_signed_cookie(
+        name=_ZITADEL_WEB_COOKIE_NAME,
+        serializer=_zitadel_web_cookie_serializer(),
+        payload=payload,
+        max_age=_ZITADEL_WEB_COOKIE_MAX_AGE,
+        path="/v1/auth/zitadel/complete",
+        resp=resp,
+    )
+
+
+def _load_zitadel_web_cookie() -> dict[str, str] | None:
+    return _load_signed_cookie(
+        name=_ZITADEL_WEB_COOKIE_NAME,
+        serializer=_zitadel_web_cookie_serializer(),
+        max_age=_ZITADEL_WEB_COOKIE_MAX_AGE,
+    )
+
+
+def _clear_zitadel_web_cookie(resp) -> None:
+    _clear_signed_cookie(
+        name=_ZITADEL_WEB_COOKIE_NAME,
+        path="/v1/auth/zitadel/complete",
+        resp=resp,
+    )
+
+
+def _set_zitadel_pending_cookie(resp, payload: dict[str, str]) -> None:
+    _set_signed_cookie(
+        name=_ZITADEL_PENDING_COOKIE_NAME,
+        serializer=_zitadel_pending_cookie_serializer(),
+        payload=payload,
+        max_age=_ZITADEL_PENDING_COOKIE_MAX_AGE,
+        path="/v1/auth/zitadel/finalize",
+        resp=resp,
+    )
+
+
+def _load_zitadel_pending_cookie() -> dict[str, str] | None:
+    return _load_signed_cookie(
+        name=_ZITADEL_PENDING_COOKIE_NAME,
+        serializer=_zitadel_pending_cookie_serializer(),
+        max_age=_ZITADEL_PENDING_COOKIE_MAX_AGE,
+    )
+
+
+def _clear_zitadel_pending_cookie(resp) -> None:
+    _clear_signed_cookie(
+        name=_ZITADEL_PENDING_COOKIE_NAME,
+        path="/v1/auth/zitadel/finalize",
+        resp=resp,
     )
 
 
@@ -179,211 +328,97 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         deps.db.session.commit()
         return ("linked", link, 201)
 
-    @auth_blp.route("/register", methods=["POST"])
-    def auth_register():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthRegisterSchema())
-        checked_at = deps._require_legal_acceptance(data)
-        if deps._turnstile_enabled():
-            captcha_token = deps._require_captcha_token(data)
-            deps._verify_turnstile_token(token=captcha_token)
-        email_raw = data.get("email")
-        password = data.get("password")
-        if not isinstance(email_raw, str) or not isinstance(password, str):
-            abort(400, description="Email and password are required.")
-        email = deps._normalize_email(email_raw)
-        if not deps._is_email_like(email):
-            abort(400, description="Invalid email address.")
-        if len(password) < 8:
-            abort(400, description="Password must be at least 8 characters.")
+    def _website_auth_error_payload(message: str, *, code: int = 400):
+        resp = make_response(jsonify({"message": message, "error": "auth_failed"}), code)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
-        if deps._auth_is_mocked():
-            existing = deps._mock_auth.get_user_by_email(email)
-            user = existing or deps._mock_auth.create_user(email=email, password=password)
-            verify_token = None
+    def _external_identity_verified_email(external_identity) -> str | None:
+        claims = getattr(external_identity, "claims", None)
+        if not isinstance(claims, dict):
+            return None
+        email = claims.get("email")
+        email_verified = claims.get("email_verified")
+        if not isinstance(email, str) or not email.strip():
+            return None
+        if email_verified is not True:
+            return None
+        normalized = deps._normalize_email(email)
+        if not deps._is_email_like(normalized):
+            return None
+        return normalized
+
+    def _resolve_user_from_external_identity(*, external_identity):
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            issuer=external_identity.issuer,
+            subject=external_identity.subject,
+        ).first()
+        if existing_link is not None:
+            user = deps.db.session.get(deps.AuthUser, existing_link.user_id)
+            if user is None:
+                abort(401, description="Linked account no longer exists.")
             if user.email_verified_at is None:
-                verify_token = deps._issue_email_verification_token(
-                    user_id=user.id, email=user.email
-                )
-            payload: dict[str, object] = {
-                "status": "verification_required",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "created_at": user.created_at.isoformat(),
-                },
-            }
-            if (
-                verify_token
-                and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
-                and current_app.debug
-            ):
-                payload["debug_token"] = verify_token
-            resp = make_response(jsonify(payload), 201)
-            resp.headers["Cache-Control"] = "no-store"
-            deps._clear_auth_cookies(resp)
-            return resp
+                user.email_verified_at = deps._utc_now()
+            return ("login", user)
 
-        try:
-            existing = deps.AuthUser.query.filter_by(email=email).first()
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
+        email = _external_identity_verified_email(external_identity)
+        if email is None:
+            abort(400, description="Auth provider did not return a verified email address.")
 
-        if existing is not None:
-            verify_token = None
-            if existing.email_verified_at is None:
-                verify_token = deps._issue_email_verification_token(
-                    user_id=existing.id, email=existing.email
-                )
-                def _send_existing_verification_email() -> None:
-                    deps._send_email_verification_email(
-                        to_email=existing.email, token=verify_token
-                    )
-
-                _ = _run_email_side_effect(
-                    label="Verification email delivery",
-                    email=existing.email,
-                    fn=_send_existing_verification_email,
-                )
-            payload = {
-                "status": "verification_required",
-                "user": {
-                    "id": existing.id,
-                    "email": existing.email,
-                    "created_at": existing.created_at.isoformat(),
-                },
-            }
-            if (
-                verify_token
-                and os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1"
-                and current_app.debug
-            ):
-                payload["debug_token"] = verify_token
-            deps._auth_enumeration_delay()
-            resp = make_response(jsonify(payload), 201)
-            resp.headers["Cache-Control"] = "no-store"
-            deps._clear_auth_cookies(resp)
-            return resp
-
-        try:
-            now = deps._utc_now()
-            ip_address = deps._request_ip_address()
-            user_agent = deps._request_user_agent()
+        user = deps.AuthUser.query.filter_by(email=email).first()
+        action = "login"
+        if user is None:
             user = deps.AuthUser(
                 email=email,
-                password_hash=deps.generate_password_hash(password),
-                email_verified_at=None,
+                password_hash=None,
+                email_verified_at=deps._utc_now(),
             )
             deps.db.session.add(user)
             deps.db.session.flush()
-            for doc, meta in deps._LEGAL_DOCS.items():
-                deps.db.session.add(
-                    deps.LegalAcceptance(
-                        user_id=user.id,
-                        document=doc,
-                        version=meta["version"],
-                        document_hash=meta["sha256"],
-                        checked_at=checked_at,
-                        submitted_at=now,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                    )
+            action = "register"
+        elif user.email_verified_at is None:
+            user.email_verified_at = deps._utc_now()
+
+        existing_for_user = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=external_identity.issuer,
+            subject=external_identity.subject,
+        ).first()
+        if existing_for_user is None:
+            deps.db.session.add(
+                deps.AuthExternalSubject(
+                    user_id=user.id,
+                    issuer=external_identity.issuer,
+                    subject=external_identity.subject,
                 )
-            deps._record_signon_event(
-                user_id=user.id, provider="email", action="register"
             )
-            deps.db.session.commit()
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
+        return (action, user)
 
-        verify_token = deps._issue_email_verification_token(
-            user_id=user.id, email=user.email
-        )
-        def _send_new_user_verification_email() -> None:
-            deps._send_email_verification_email(to_email=user.email, token=verify_token)
-
-        _ = _run_email_side_effect(
-            label="Verification email delivery",
-            email=user.email,
-            fn=_send_new_user_verification_email,
-        )
-        def _send_signup_notification() -> None:
-            deps._send_signup_notification_email(new_user_email=user.email)
-
-        _ = _run_email_side_effect(
-            label="Signup notification delivery",
-            email=user.email,
-            fn=_send_signup_notification,
-        )
-
-        payload = {
-            "status": "verification_required",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "created_at": user.created_at.isoformat(),
-            },
+    def _auth_success_response(*, user, next_path: str, resp_code: int = 200):
+        token = deps._issue_session_token(user.id)
+        payload: dict[str, object] = {
+            "status": "authenticated",
+            "next_path": next_path,
+            "user": {"id": user.id, "email": user.email},
         }
-        if os.environ.get("EMAIL_VERIFICATION_DEBUG_TOKEN", "").strip() == "1" and current_app.debug:
-            payload["debug_token"] = verify_token
-        resp = make_response(jsonify(payload), 201)
+        if deps._auth_session_transport() == "bearer":
+            payload["session_token"] = token
+        resp = make_response(jsonify(payload), resp_code)
         resp.headers["Cache-Control"] = "no-store"
-        deps._clear_auth_cookies(resp)
+        if deps._auth_session_transport() == "cookie":
+            deps._set_auth_cookies(resp, session_token=token)
         return resp
+
+    def _legacy_auth_disabled() -> None:
+        abort(404, description="This auth flow has been replaced by the external auth provider.")
+
+    @auth_blp.route("/register", methods=["POST"])
+    def auth_register():
+        _legacy_auth_disabled()
 
     @auth_blp.route("/login", methods=["POST"])
     def auth_login():
-        deps._require_auth_db()
-        data = deps._load_json(deps.AuthLoginSchema())
-        email_raw = data.get("email")
-        password = data.get("password")
-        if not isinstance(email_raw, str) or not isinstance(password, str):
-            abort(400, description="Email and password are required.")
-        email = deps._normalize_email(email_raw)
-
-        if deps._auth_is_mocked():
-            user = deps._mock_auth.authenticate(email=email, password=password)
-            if user is None:
-                deps._auth_enumeration_delay()
-                abort(401, description="Invalid credentials.")
-            if user.email_verified_at is None:
-                abort(403, description="Email address not verified.")
-            token = deps._issue_session_token(user.id)
-            payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-            if deps._auth_session_transport() == "bearer":
-                payload["session_token"] = token
-            resp = make_response(jsonify(payload))
-            resp.headers["Cache-Control"] = "no-store"
-            if deps._auth_session_transport() == "cookie":
-                deps._set_auth_cookies(resp, session_token=token)
-            return resp
-
-        try:
-            user = deps.AuthUser.query.filter_by(email=email).first()
-            if user is None or not user.password_hash:
-                deps._auth_enumeration_delay()
-                abort(401, description="Invalid credentials.")
-            if not deps.check_password_hash(user.password_hash, password):
-                deps._auth_enumeration_delay()
-                abort(401, description="Invalid credentials.")
-            if user.email_verified_at is None:
-                abort(403, description="Email address not verified.")
-
-            deps._record_signon_event(user_id=user.id, provider="email", action="login")
-            deps.db.session.commit()
-            token = deps._issue_session_token(user.id)
-            payload = {"user": {"id": user.id, "email": user.email}}
-            if deps._auth_session_transport() == "bearer":
-                payload["session_token"] = token
-            resp = make_response(jsonify(payload))
-            resp.headers["Cache-Control"] = "no-store"
-            if deps._auth_session_transport() == "cookie":
-                deps._set_auth_cookies(resp, session_token=token)
-            return resp
-        except SQLAlchemyError:
-            abort(503, description="Auth backend is unavailable right now.")
+        _legacy_auth_disabled()
 
     @auth_blp.route("/email/resend", methods=["POST"])
     def auth_resend_email_verification():
@@ -846,6 +881,226 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         _clear_zitadel_link_cookie(resp)
         return resp
 
+    @auth_blp.route("/zitadel/start", methods=["GET"])
+    def auth_zitadel_start():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="ZITADEL auth is unavailable in mocked auth mode.")
+
+        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
+        provider = request.args.get("provider", "email")
+        provider_name = provider.strip().lower() if isinstance(provider, str) else "email"
+        if provider_name not in {"email", "google"}:
+            abort(400, description="Unsupported auth provider.")
+
+        state = secrets.token_urlsafe(32)
+        code_verifier = secrets.token_urlsafe(64)
+        code_challenge = _build_pkce_challenge(code_verifier)
+        cookie_payload = {
+            "state": state,
+            "code_verifier": code_verifier,
+            "next": next_path,
+            "provider": provider_name,
+        }
+        params = {
+            "client_id": _zitadel_client_id(),
+            "redirect_uri": _website_zitadel_redirect_uri(deps),
+            "response_type": "code",
+            "scope": _zitadel_scopes(),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        resource = _zitadel_resource()
+        audience = _zitadel_audience()
+        if resource:
+            params["resource"] = resource
+        if audience:
+            params["audience"] = audience
+        if provider_name == "google":
+            idp_hint = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_HINT", "").strip()
+            if idp_hint:
+                params["idp_hint"] = idp_hint
+
+        resp = make_response(
+            jsonify(
+                {
+                    "authorize_url": f"{_zitadel_authorization_endpoint()}?{urlencode(params)}",
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        _set_zitadel_web_cookie(resp, cookie_payload)
+        return resp
+
+    @auth_blp.route("/zitadel/complete", methods=["POST"])
+    def auth_zitadel_complete():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="ZITADEL auth is unavailable in mocked auth mode.")
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid callback payload.")
+        code = data.get("code")
+        state = data.get("state")
+        if not isinstance(code, str) or not code.strip():
+            abort(400, description="Missing authorization code.")
+        if not isinstance(state, str) or not state.strip():
+            abort(400, description="Missing authorization state.")
+
+        cookie_payload = _load_zitadel_web_cookie()
+        if not cookie_payload:
+            return _website_auth_error_payload("Invalid authorization state.")
+        expected_state = cookie_payload.get("state")
+        code_verifier = cookie_payload.get("code_verifier")
+        next_path = deps._safe_next_path(cookie_payload.get("next")) or "/account"
+        provider_name = "zitadel"
+        if (
+            not isinstance(expected_state, str)
+            or not expected_state.strip()
+            or not secrets.compare_digest(expected_state, state.strip())
+            or not isinstance(code_verifier, str)
+            or not code_verifier.strip()
+        ):
+            resp = _website_auth_error_payload("Invalid authorization state.")
+            _clear_zitadel_web_cookie(resp)
+            return resp
+
+        token_data = {
+            "grant_type": "authorization_code",
+            "client_id": _zitadel_client_id(),
+            "code": code.strip(),
+            "code_verifier": code_verifier,
+            "redirect_uri": _website_zitadel_redirect_uri(deps),
+        }
+        resource = _zitadel_resource()
+        audience = _zitadel_audience()
+        if resource:
+            token_data["resource"] = resource
+        if audience:
+            token_data["audience"] = audience
+
+        try:
+            token_payload = deps._google_fetch_json(_zitadel_token_endpoint(), data=token_data)
+            access_token = token_payload.get("access_token")
+            if not isinstance(access_token, str) or not access_token.strip():
+                abort(502, description="ZITADEL token response did not include an access token.")
+            external_identity = deps._authenticate_external_identity(
+                access_token=access_token.strip(),
+                provider_name=provider_name,
+            )
+            if _external_identity_verified_email(external_identity) is None:
+                id_token = token_payload.get("id_token")
+                if isinstance(id_token, str) and id_token.strip():
+                    id_claims = _decode_zitadel_id_token(id_token.strip())
+                    if id_claims is not None:
+                        merged_claims = dict(getattr(external_identity, "claims", {}))
+                        merged_claims.update(id_claims)
+                        external_identity = type(
+                            "ExternalIdentityWithClaims",
+                            (),
+                            {
+                                "issuer": external_identity.issuer,
+                                "subject": external_identity.subject,
+                                "claims": merged_claims,
+                            },
+                        )()
+            action, user = _resolve_user_from_external_identity(external_identity=external_identity)
+            if not deps._user_has_current_legal_acceptances(user_id=user.id):
+                deps.db.session.commit()
+                resp = make_response(
+                    jsonify(
+                        {
+                            "status": "legal_required",
+                            "next_path": next_path,
+                            "user": {"id": user.id, "email": user.email},
+                        }
+                    )
+                )
+                resp.headers["Cache-Control"] = "no-store"
+                _set_zitadel_pending_cookie(
+                    resp,
+                    {
+                        "user_id": user.id,
+                        "next": next_path,
+                        "action": action,
+                        "provider": provider_name,
+                    },
+                )
+                _clear_zitadel_web_cookie(resp)
+                return resp
+
+            deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
+            deps.db.session.commit()
+            resp = _auth_success_response(user=user, next_path=next_path)
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            current_app.logger.exception("ZITADEL website auth completion failed due to auth DB error.")
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception as exc:
+            deps.db.session.rollback()
+            current_app.logger.exception("ZITADEL website auth completion failed.")
+            message = str(exc)
+            if "Unsupported MCP identity provider" in message:
+                abort(400, description="Unsupported external identity provider.")
+            if isinstance(exc, McpAuthError):
+                if exc.status_code >= 500:
+                    abort(503, description="External identity provider is unavailable right now.")
+                abort(400, description="External access token is invalid or expired.")
+            abort(503, description="External identity provider is unavailable right now.")
+
+        _clear_zitadel_web_cookie(resp)
+        _clear_zitadel_pending_cookie(resp)
+        return resp
+
+    @auth_blp.route("/zitadel/finalize", methods=["POST"])
+    def auth_zitadel_finalize():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="ZITADEL auth is unavailable in mocked auth mode.")
+
+        pending = _load_zitadel_pending_cookie()
+        if not pending:
+            abort(400, description="No pending auth flow to complete.")
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid legal acceptance payload.")
+        checked_at = deps._require_legal_acceptance(data)
+
+        user_id = pending.get("user_id")
+        next_path = deps._safe_next_path(pending.get("next")) or "/account"
+        action = pending.get("action") or "login"
+        provider_name = pending.get("provider") or "zitadel"
+        if not isinstance(user_id, str) or not user_id.strip():
+            resp = _website_auth_error_payload("No pending auth flow to complete.")
+            _clear_zitadel_pending_cookie(resp)
+            return resp
+
+        try:
+            user = deps.db.session.get(deps.AuthUser, user_id)
+            if user is None:
+                abort(401, description="Pending account no longer exists.")
+            deps._ensure_current_legal_acceptances(user_id=user.id, checked_at=checked_at)
+            if user.email_verified_at is None:
+                user.email_verified_at = deps._utc_now()
+            deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
+            deps.db.session.commit()
+            resp = _auth_success_response(user=user, next_path=next_path)
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+        _clear_zitadel_pending_cookie(resp)
+        return resp
+
     @auth_blp.route("/csrf", methods=["GET"])
     def auth_csrf():
         deps._require_auth_db()
@@ -1115,53 +1370,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     @auth_blp.route("/google/start", methods=["GET"])
     def auth_google_start():
-        deps._require_auth_db()
-        if deps._auth_is_mocked():
-            abort(501, description="Google auth is unavailable in mock auth mode.")
-        if not deps._google_oauth_flow_enabled():
-            abort(404)
-
-        client_id = deps._google_oauth_client_id()
-        redirect_uri = deps._google_oauth_redirect_uri()
-
-        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
-        state = secrets.token_urlsafe(32)
-        code_verifier, code_challenge = deps._google_oauth_pkce_pair()
-        nonce = secrets.token_urlsafe(32)
-        cookie_payload = {
-            "state": state,
-            "code_verifier": code_verifier,
-            "nonce": nonce,
-            "next": next_path,
-        }
-
-        params = {
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "openid email profile",
-            "state": state,
-            "prompt": "select_account",
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-            "nonce": nonce,
-        }
-        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{deps.urlencode(params)}"
-        resp = redirect(auth_url)
-        resp.headers["Cache-Control"] = "no-store"
-        deps._set_google_oauth_cookie(resp, cookie_payload)
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/google/client-id", methods=["GET"])
     def auth_google_client_id():
-        deps._require_auth_db()
-        if deps._auth_is_mocked():
-            abort(501, description="Google auth is unavailable in mock auth mode.")
-        nonce = secrets.token_urlsafe(32)
-        resp = make_response(jsonify({"client_id": deps._google_oauth_client_id(), "nonce": nonce}))
-        resp.headers["Cache-Control"] = "no-store"
-        deps._set_google_nonce_cookie(resp, nonce)
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/captcha/site-key", methods=["GET"])
     def auth_captcha_site_key():
@@ -1193,183 +1406,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     @auth_blp.route("/google/callback", methods=["GET"])
     def auth_google_callback():
-        deps._require_auth_db()
-        if deps._auth_is_mocked():
-            abort(501, description="Google auth is unavailable in mock auth mode.")
-        if not deps._google_oauth_flow_enabled():
-            abort(404)
-
-        error = request.args.get("error")
-        if isinstance(error, str) and error.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error=error
-            )
-
-        state = request.args.get("state")
-        code = request.args.get("code")
-        if not isinstance(state, str) or not state.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error="missing_state"
-            )
-        if not isinstance(code, str) or not code.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error="missing_code"
-            )
-
-        cookie_payload = deps._load_google_oauth_cookie()
-        if not cookie_payload:
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error="invalid_state"
-            )
-
-        expected_state = cookie_payload.get("state")
-        if not isinstance(expected_state, str) or not expected_state.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error="invalid_state"
-            )
-        if not secrets.compare_digest(expected_state, state):
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path="/account", error="invalid_state"
-            )
-
-        code_verifier = cookie_payload.get("code_verifier")
-        nonce = cookie_payload.get("nonce")
-        next_path = deps._safe_next_path(cookie_payload.get("next")) if cookie_payload else None
-        if not isinstance(code_verifier, str) or not code_verifier.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path=next_path or "/account", error="invalid_state"
-            )
-        if not isinstance(nonce, str) or not nonce.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path=next_path or "/account", error="invalid_state"
-            )
-
-        token_payload = deps._google_fetch_json(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "code": code,
-                "client_id": deps._google_oauth_client_id(),
-                "client_secret": deps._google_oauth_client_secret(),
-                "redirect_uri": deps._google_oauth_redirect_uri(),
-                "grant_type": "authorization_code",
-                "code_verifier": code_verifier,
-            },
-        )
-
-        id_token = token_payload.get("id_token")
-        if not isinstance(id_token, str) or not id_token.strip():
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path=next_path or "/account", error="missing_id_token"
-            )
-
-        try:
-            normalized = deps._google_verify_id_token(id_token, expected_nonce=nonce)
-        except HTTPException as e:
-            return deps._frontend_google_callback_redirect(
-                token=None, next_path=next_path or "/account", error=f"google_{e.code}"
-            )
-
-        try:
-            user = deps.AuthUser.query.filter_by(email=normalized).first()
-            if user is None:
-                return deps._frontend_google_callback_redirect(
-                    token=None, next_path=next_path or "/account", error="legal_required"
-                )
-            if not deps._user_has_current_legal_acceptances(user_id=user.id):
-                return deps._frontend_google_callback_redirect(
-                    token=None, next_path=next_path or "/account", error="legal_required"
-                )
-            if user.email_verified_at is None:
-                user.email_verified_at = deps._utc_now()
-            deps._record_signon_event(user_id=user.id, provider="google", action="login")
-            deps.db.session.commit()
-        except SQLAlchemyError:
-            abort(503, description="Auth backend is unavailable right now.")
-
-        token = deps._issue_session_token(user.id)
-        if deps._auth_session_transport() == "cookie":
-            dest = f"{deps._frontend_base_url()}{(next_path or '/account')}"
-            resp = redirect(dest)
-            resp.headers["Cache-Control"] = "no-store"
-            deps._set_auth_cookies(resp, session_token=token)
-            deps._clear_google_oauth_cookie(resp)
-            return resp
-        return deps._frontend_google_callback_redirect(
-            token=token, next_path=next_path or "/account", error=None
-        )
+        _legacy_auth_disabled()
 
     @auth_blp.route("/google/credential", methods=["POST"])
     def auth_google_credential():
-        deps._require_auth_db()
-        if deps._auth_is_mocked():
-            abort(501, description="Google auth is unavailable in mock auth mode.")
-        data = deps._load_json(deps.AuthGoogleCredentialSchema())
-        credential = data.get("credential")
-        if not isinstance(credential, str) or not credential.strip():
-            abort(400, description="Missing Google credential.")
-
-        expected_nonce = deps._google_nonce_cookie_value()
-        if not expected_nonce:
-            abort(400, description="Missing Google nonce.")
-        normalized = deps._google_verify_id_token(credential, expected_nonce=expected_nonce)
-
-        try:
-            user = deps.AuthUser.query.filter_by(email=normalized).first()
-            if user is None:
-                checked_at = deps._require_legal_acceptance(data)
-                now = deps._utc_now()
-                ip_address = deps._request_ip_address()
-                user_agent = deps._request_user_agent()
-                user = deps.AuthUser(
-                    email=normalized, password_hash=None, email_verified_at=now
-                )
-                deps.db.session.add(user)
-                deps.db.session.flush()
-                for doc, meta in deps._LEGAL_DOCS.items():
-                    deps.db.session.add(
-                        deps.LegalAcceptance(
-                            user_id=user.id,
-                            document=doc,
-                            version=meta["version"],
-                            document_hash=meta["sha256"],
-                            checked_at=checked_at,
-                            submitted_at=now,
-                            ip_address=ip_address,
-                            user_agent=user_agent,
-                        )
-                    )
-                deps._record_signon_event(
-                    user_id=user.id, provider="google", action="register"
-                )
-                deps._send_signup_notification_email(new_user_email=user.email)
-                deps.db.session.commit()
-            elif not deps._user_has_current_legal_acceptances(user_id=user.id):
-                checked_at = deps._require_legal_acceptance(data)
-                deps._ensure_current_legal_acceptances(
-                    user_id=user.id, checked_at=checked_at
-                )
-                if user.email_verified_at is None:
-                    user.email_verified_at = deps._utc_now()
-                deps._record_signon_event(user_id=user.id, provider="google", action="login")
-                deps.db.session.commit()
-            else:
-                if user.email_verified_at is None:
-                    user.email_verified_at = deps._utc_now()
-                deps._record_signon_event(user_id=user.id, provider="google", action="login")
-                deps.db.session.commit()
-        except SQLAlchemyError:
-            abort(503, description="Auth backend is unavailable right now.")
-
-        token = deps._issue_session_token(user.id)
-        payload: dict[str, object] = {"user": {"id": user.id, "email": user.email}}
-        if deps._auth_session_transport() == "bearer":
-            payload["session_token"] = token
-        resp = make_response(jsonify(payload))
-        resp.headers["Cache-Control"] = "no-store"
-        if deps._auth_session_transport() == "cookie":
-            deps._set_auth_cookies(resp, session_token=token)
-        deps._clear_google_nonce_cookie(resp)
-        return resp
+        _legacy_auth_disabled()
 
     @auth_blp.route("/logout", methods=["POST"])
     def auth_logout():

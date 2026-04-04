@@ -92,6 +92,50 @@ class AuthFlowTests(unittest.TestCase):
             self.fail(f"Expected test user with email={email}")
         return user
 
+    def _create_local_user(
+        self,
+        *,
+        email: str,
+        password: str = "password123",
+        verified: bool = True,
+        legal: bool = True,
+    ) -> str:
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = email
+            user.password_hash = backend_app.generate_password_hash(password)
+            user.email_verified_at = backend_app._utc_now() if verified else None
+            db.session.add(user)
+            db.session.flush()
+            if legal:
+                checked_at = backend_app._utc_now()
+                for doc, meta in backend_app._LEGAL_DOCS.items():
+                    db.session.add(
+                        backend_app.LegalAcceptance(
+                            user_id=user.id,
+                            document=doc,
+                            version=meta["version"],
+                            document_hash=meta["sha256"],
+                            checked_at=checked_at,
+                            submitted_at=checked_at,
+                            ip_address=None,
+                            user_agent=None,
+                        )
+                    )
+            db.session.commit()
+            return user.id
+
+    def _issue_bearer_session(self, *, email: str) -> str:
+        with self.app.app_context():
+            user = self._require_user(email)
+            with self.app.test_request_context("/v1/auth/zitadel/complete", method="POST"):
+                return backend_app._issue_session_token(user.id)
+
+    def _set_cookie_session(self, client, *, email: str) -> str:
+        token = self._issue_bearer_session(email=email)
+        client.set_cookie("pdcts_session", token, path="/")
+        return token
+
     def test_cookie_transport_register_login_csrf_and_logout(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
@@ -99,65 +143,17 @@ class AuthFlowTests(unittest.TestCase):
         res = client.get("/v1/auth/csrf")
         self.assertEqual(res.status_code, 200)
         csrf = self._csrf_cookie_value(client)
-        checked_at_ms = 1700000000000
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "a@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": checked_at_ms,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
+        res = client.post("/v1/auth/register", json={})
         self.assertEqual(res.status_code, 403)
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "a@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": checked_at_ms,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-            headers={"X-CSRF-Token": csrf},
-        )
-        self.assertEqual(res.status_code, 201)
-        set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
-        if "pdcts_session=" in set_cookie:
-            self.assertIn("Expires=Thu, 01 Jan 1970", set_cookie)
-
-        with self.app.app_context():
-            user = self._require_user("a@example.com")
-            token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-
-        res = client.post("/v1/auth/email/verify", json={"token": token})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.get("/v1/auth/csrf")
-        csrf = self._csrf_cookie_value(client)
-
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "a@example.com", "password": "password123"},
-        )
+        res = client.post("/v1/auth/register", json={}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(res.status_code, 404)
+        res = client.post("/v1/auth/login", json={})
         self.assertEqual(res.status_code, 403)
+        res = client.post("/v1/auth/login", json={}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(res.status_code, 404)
 
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "a@example.com", "password": "password123"},
-            headers={"X-CSRF-Token": csrf},
-        )
-        self.assertEqual(res.status_code, 200)
-        set_cookie = "\n".join(res.headers.getlist("Set-Cookie"))
-        self.assertIn("pdcts_session=", set_cookie)
-        self.assertIn("HttpOnly", set_cookie)
+        self._create_local_user(email="a@example.com")
+        self._set_cookie_session(client, email="a@example.com")
 
         res = client.get("/v1/auth/me")
         self.assertEqual(res.status_code, 200)
@@ -186,185 +182,29 @@ class AuthFlowTests(unittest.TestCase):
     def test_register_and_login_record_signon_events(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "events@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("events@example.com")
-            token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-
-        res = client.post("/v1/auth/login", json={"email": "events@example.com", "password": "password123"})
-        self.assertEqual(res.status_code, 403)
-
-        res = client.post("/v1/auth/email/verify", json={"token": token})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "events@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-
-        with self.app.app_context():
-            engine = db.engines["auth"]
-            with engine.begin() as conn:
-                rows = conn.execute(
-                    text("SELECT provider, action FROM auth_signon_events")
-                ).fetchall()
-            self.assertEqual(len(rows), 2)
-            self.assertIn(("email", "register"), rows)
-            self.assertIn(("email", "login"), rows)
+        res = client.post("/v1/auth/register", json={})
+        self.assertEqual(res.status_code, 404)
+        res = client.post("/v1/auth/login", json={})
+        self.assertEqual(res.status_code, 404)
 
     def test_register_persists_account_when_verification_email_delivery_fails(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        original_send = backend_app._send_email_verification_email
-
-        def _fail_send(*, to_email: str, token: str) -> None:
-            _ = (to_email, token)
-            raise ServiceUnavailable(description="Email delivery failed.")
-
-        backend_app._send_email_verification_email = _fail_send
-        try:
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": "delivery-fail@example.com",
-                    "password": "password123",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-        finally:
-            backend_app._send_email_verification_email = original_send
-
-        self.assertEqual(res.status_code, 201)
-        body = res.get_json()
-        self.assertIsInstance(body, dict)
-        self.assertEqual(body.get("status"), "verification_required")
-
-        with self.app.app_context():
-            user = self._require_user("delivery-fail@example.com")
-            self.assertIsNone(user.email_verified_at)
-            engine = db.engines["auth"]
-            with engine.begin() as conn:
-                legal_count = conn.execute(
-                    text("SELECT COUNT(*) FROM legal_acceptances WHERE user_id = :user_id"),
-                    {"user_id": user.id},
-                ).scalar_one()
-                legal_docs = [
-                    row[0]
-                    for row in conn.execute(
-                        text(
-                            "SELECT document FROM legal_acceptances "
-                            "WHERE user_id = :user_id ORDER BY document"
-                        ),
-                        {"user_id": user.id},
-                    ).fetchall()
-                ]
-                signon_count = conn.execute(
-                    text(
-                        "SELECT COUNT(*) FROM auth_signon_events "
-                        "WHERE user_id = :user_id AND provider = 'email' AND action = 'register'"
-                    ),
-                    {"user_id": user.id},
-                ).scalar_one()
-            self.assertEqual(legal_count, len(backend_app._LEGAL_DOCS))
-            self.assertEqual(legal_docs, sorted(backend_app._LEGAL_DOCS))
-            self.assertEqual(signon_count, 1)
+        res = client.post("/v1/auth/register", json={})
+        self.assertEqual(res.status_code, 404)
 
     def test_register_existing_user_still_succeeds_when_verification_email_delivery_fails(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-        with self.app.app_context():
-            existing = AuthUser()
-            existing.email = "existing-unverified@example.com"
-            existing.password_hash = backend_app.generate_password_hash("password123")
-            existing.email_verified_at = None
-            db.session.add(existing)
-            db.session.commit()
-            existing_id = existing.id
-
-        original_send = backend_app._send_email_verification_email
-
-        def _fail_send(*, to_email: str, token: str) -> None:
-            _ = (to_email, token)
-            raise ServiceUnavailable(description="Email delivery failed.")
-
-        backend_app._send_email_verification_email = _fail_send
-        try:
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": "existing-unverified@example.com",
-                    "password": "password123",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-        finally:
-            backend_app._send_email_verification_email = original_send
-
-        self.assertEqual(res.status_code, 201)
-        body = res.get_json()
-        self.assertIsInstance(body, dict)
-        user_payload = body.get("user")
-        self.assertIsInstance(user_payload, dict)
-        self.assertEqual(user_payload.get("id"), existing_id)
+        self._create_local_user(email="existing-unverified@example.com", verified=False, legal=False)
+        res = client.post("/v1/auth/register", json={})
+        self.assertEqual(res.status_code, 404)
 
     def test_logout_revokes_bearer_session(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "bearer@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("bearer@example.com")
-            token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-
-        res = client.post("/v1/auth/email/verify", json={"token": token})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "bearer@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        payload = res.get_json()
-        self.assertIsInstance(payload, dict)
-        session_token = payload.get("session_token")
-        self.assertIsInstance(session_token, str)
+        self._create_local_user(email="bearer@example.com")
+        session_token = self._issue_bearer_session(email="bearer@example.com")
 
         res = client.get(
             "/v1/auth/me", headers={"Authorization": f"Bearer {session_token}"}
@@ -398,35 +238,8 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 401)
 
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "flag@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-        with self.app.app_context():
-            user = self._require_user("flag@example.com")
-            token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-        res = client.post("/v1/auth/email/verify", json={"token": token})
-        self.assertEqual(res.status_code, 200)
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "flag@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        payload = res.get_json()
-        self.assertIsInstance(payload, dict)
-        session_token = payload.get("session_token")
-        self.assertIsInstance(session_token, str)
-        headers = {"Authorization": f"Bearer {session_token}"}
+        self._create_local_user(email="flag@example.com")
+        headers = {"Authorization": f"Bearer {self._issue_bearer_session(email='flag@example.com')}"}
 
         res = client.post(
             "/v1/auth/flag-inaccurate",
@@ -473,38 +286,8 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "link@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("link@example.com")
-            verify_token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify_token})
-        self.assertEqual(res.status_code, 200)
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "link@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        payload = res.get_json()
-        self.assertIsInstance(payload, dict)
-        session_token = payload.get("session_token")
-        self.assertIsInstance(session_token, str)
-        headers = {"Authorization": f"Bearer {session_token}"}
+        self._create_local_user(email="link@example.com")
+        headers = {"Authorization": f"Bearer {self._issue_bearer_session(email='link@example.com')}"}
 
         original_authenticate = backend_app._authenticate_external_identity
 
@@ -583,27 +366,8 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
         client = self.app.test_client()
-
         for email in ("first-link@example.com", "second-link@example.com"):
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": email,
-                    "password": "password123",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-            self.assertEqual(res.status_code, 201)
-            with self.app.app_context():
-                user = self._require_user(email)
-                verify_token = backend_app._issue_email_verification_token(
-                    user_id=user.id, email=user.email
-                )
-            res = client.post("/v1/auth/email/verify", json={"token": verify_token})
-            self.assertEqual(res.status_code, 200)
+            self._create_local_user(email=email)
 
         with self.app.app_context():
             first = self._require_user("first-link@example.com")
@@ -617,16 +381,9 @@ class AuthFlowTests(unittest.TestCase):
             )
             db.session.commit()
 
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "second-link@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        payload = res.get_json()
-        self.assertIsInstance(payload, dict)
-        session_token = payload.get("session_token")
-        self.assertIsInstance(session_token, str)
-        headers = {"Authorization": f"Bearer {session_token}"}
+        headers = {
+            "Authorization": f"Bearer {self._issue_bearer_session(email='second-link@example.com')}"
+        }
 
         original_authenticate = backend_app._authenticate_external_identity
 
@@ -708,39 +465,10 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["MCP_ZITADEL_RESOURCE"] = "https://api.pandects.org/mcp"
         os.environ["MCP_ZITADEL_AUDIENCE"] = "https://api.pandects.org/mcp"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "zitadel-oauth@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("zitadel-oauth@example.com")
-            verify_token = backend_app._issue_email_verification_token(
-                user_id=user.id,
-                email=user.email,
-            )
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify_token})
-        self.assertEqual(res.status_code, 200)
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "zitadel-oauth@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        payload = res.get_json()
-        self.assertIsInstance(payload, dict)
-        session_token = payload.get("session_token")
-        self.assertIsInstance(session_token, str)
-        headers = {"Authorization": f"Bearer {session_token}"}
+        self._create_local_user(email="zitadel-oauth@example.com")
+        headers = {
+            "Authorization": f"Bearer {self._issue_bearer_session(email='zitadel-oauth@example.com')}"
+        }
 
         original_google_fetch_json = backend_app._google_fetch_json
         original_authenticate = backend_app._authenticate_external_identity
@@ -846,31 +574,289 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_zitadel_website_auth_auto_links_existing_verified_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        os.environ["MCP_OIDC_TOKEN_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/token"
+        )
+        client = self.app.test_client()
+
+        with self.app.app_context():
+            existing = AuthUser()
+            existing.email = "existing-zitadel@example.com"
+            existing.password_hash = backend_app.generate_password_hash("password123")
+            existing.email_verified_at = backend_app._utc_now()
+            db.session.add(existing)
+            db.session.flush()
+            checked_at = backend_app._utc_now()
+            for doc, meta in backend_app._LEGAL_DOCS.items():
+                db.session.add(
+                    backend_app.LegalAcceptance(
+                        user_id=existing.id,
+                        document=doc,
+                        version=meta["version"],
+                        document_hash=meta["sha256"],
+                        checked_at=checked_at,
+                        submitted_at=checked_at,
+                        ip_address=None,
+                        user_agent=None,
+                    )
+                )
+            db.session.commit()
+            existing_user_id = existing.id
+
+        original_google_fetch_json = backend_app._google_fetch_json
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+            self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
+            self.assertIsInstance(data, dict)
+            assert data is not None
+            self.assertEqual(data["grant_type"], "authorization_code")
+            self.assertEqual(
+                data["redirect_uri"],
+                "http://localhost:8080/auth/zitadel/callback",
+            )
+            return {"access_token": "zitadel-website-access-token"}
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "zitadel-website-access-token")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-website-user-123",
+                    "claims": {
+                        "email": "existing-zitadel@example.com",
+                        "email_verified": True,
+                    },
+                },
+            )()
+
+        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            res = client.get("/v1/auth/zitadel/start?next=/search&provider=google")
+            self.assertEqual(res.status_code, 200)
+            start_payload = res.get_json()
+            self.assertIsInstance(start_payload, dict)
+            authorize_url = start_payload.get("authorize_url")
+            self.assertIsInstance(authorize_url, str)
+
+            parsed = urlparse(authorize_url)
+            query = parse_qs(parsed.query)
+            state = query.get("state", [None])[0]
+            self.assertIsInstance(state, str)
+
+            res = client.post(
+                "/v1/auth/zitadel/complete",
+                json={"code": "auth-code-website-123", "state": state},
+            )
+            self.assertEqual(res.status_code, 200)
+            payload = res.get_json()
+            self.assertEqual(payload["status"], "authenticated")
+            self.assertEqual(payload["next_path"], "/search")
+            session_token = payload.get("session_token")
+            self.assertIsInstance(session_token, str)
+            me = client.get(
+                "/v1/auth/me", headers={"Authorization": f"Bearer {session_token}"}
+            )
+            self.assertEqual(me.status_code, 200)
+            self.assertEqual(me.get_json()["user"]["email"], "existing-zitadel@example.com")
+        finally:
+            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._authenticate_external_identity = original_authenticate
+
+        with self.app.app_context():
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].user_id, existing_user_id)
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                signons = conn.execute(
+                    text("SELECT provider, action FROM auth_signon_events")
+                ).fetchall()
+            self.assertEqual(signons, [("zitadel", "login")])
+
+    def test_zitadel_website_auth_new_user_requires_legal_then_finalizes(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        os.environ["MCP_OIDC_TOKEN_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/token"
+        )
+        client = self.app.test_client()
+
+        original_google_fetch_json = backend_app._google_fetch_json
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+            self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
+            return {"access_token": "zitadel-website-access-token-2"}
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "zitadel-website-access-token-2")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-website-user-456",
+                    "claims": {
+                        "email": "new-zitadel-user@example.com",
+                        "email_verified": True,
+                    },
+                },
+            )()
+
+        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            res = client.get("/v1/auth/zitadel/start?next=/account&provider=email")
+            self.assertEqual(res.status_code, 200)
+            query = parse_qs(urlparse(res.get_json()["authorize_url"]).query)
+            state = query.get("state", [None])[0]
+            self.assertIsInstance(state, str)
+
+            res = client.post(
+                "/v1/auth/zitadel/complete",
+                json={"code": "auth-code-website-456", "state": state},
+            )
+            self.assertEqual(res.status_code, 200)
+            payload = res.get_json()
+            self.assertEqual(payload["status"], "legal_required")
+            self.assertEqual(payload["user"]["email"], "new-zitadel-user@example.com")
+
+            finalize = client.post(
+                "/v1/auth/zitadel/finalize",
+                json={
+                    "legal": {
+                        "checked_at_ms": 1700000000000,
+                        "docs": ["tos", "privacy", "license"],
+                    }
+                },
+            )
+            self.assertEqual(finalize.status_code, 200)
+            finalize_payload = finalize.get_json()
+            self.assertEqual(finalize_payload["status"], "authenticated")
+            session_token = finalize_payload.get("session_token")
+            self.assertIsInstance(session_token, str)
+        finally:
+            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._authenticate_external_identity = original_authenticate
+
+        with self.app.app_context():
+            user = self._require_user("new-zitadel-user@example.com")
+            self.assertIsNotNone(user.email_verified_at)
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].user_id, user.id)
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                legal_count = conn.execute(
+                    text("SELECT COUNT(*) FROM legal_acceptances WHERE user_id = :user_id"),
+                    {"user_id": user.id},
+                ).scalar_one()
+                signons = conn.execute(
+                    text("SELECT provider, action FROM auth_signon_events")
+                ).fetchall()
+            self.assertEqual(legal_count, len(backend_app._LEGAL_DOCS))
+            self.assertEqual(signons, [("zitadel", "register")])
+
+    def test_zitadel_website_auth_repeat_login_reuses_linked_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        os.environ["MCP_OIDC_TOKEN_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/token"
+        )
+        client = self.app.test_client()
+
+        original_google_fetch_json = backend_app._google_fetch_json
+        original_authenticate = backend_app._authenticate_external_identity
+        token_counter = {"value": 0}
+
+        def _fake_google_fetch_json(url: str, *, data: dict[str, str] | None = None):
+            token_counter["value"] += 1
+            return {"access_token": f"zitadel-repeat-token-{token_counter['value']}"}
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-repeat-user",
+                    "claims": {
+                        "email": "repeat-zitadel@example.com",
+                        "email_verified": True,
+                    },
+                },
+            )()
+
+        backend_app._google_fetch_json = _fake_google_fetch_json
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            for _ in range(2):
+                res = client.get("/v1/auth/zitadel/start?next=/account&provider=email")
+                self.assertEqual(res.status_code, 200)
+                query = parse_qs(urlparse(res.get_json()["authorize_url"]).query)
+                state = query.get("state", [None])[0]
+                self.assertIsInstance(state, str)
+                res = client.post(
+                    "/v1/auth/zitadel/complete",
+                    json={"code": "repeat-code", "state": state},
+                )
+                if res.get_json()["status"] == "legal_required":
+                    res = client.post(
+                        "/v1/auth/zitadel/finalize",
+                        json={
+                            "legal": {
+                                "checked_at_ms": 1700000000000,
+                                "docs": ["tos", "privacy", "license"],
+                            }
+                        },
+                    )
+                self.assertEqual(res.status_code, 200)
+                self.assertEqual(res.get_json()["status"], "authenticated")
+        finally:
+            backend_app._google_fetch_json = original_google_fetch_json
+            backend_app._authenticate_external_identity = original_authenticate
+
+        with self.app.app_context():
+            users = AuthUser.query.filter_by(email="repeat-zitadel@example.com").all()
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(users), 1)
+            self.assertEqual(len(rows), 1)
+
     def test_password_reset_flow(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "reset@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("reset@example.com")
-            token = backend_app._issue_email_verification_token(
-                user_id=user.id, email=user.email
-            )
-
-        res = client.post("/v1/auth/email/verify", json={"token": token})
-        self.assertEqual(res.status_code, 200)
+        self._create_local_user(email="reset@example.com")
 
         captured: dict[str, str] = {}
         original_send = backend_app._send_password_reset_email
@@ -891,11 +877,11 @@ class AuthFlowTests(unittest.TestCase):
         finally:
             backend_app._send_password_reset_email = original_send
 
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "reset@example.com", "password": "newpassword123"},
-        )
-        self.assertEqual(res.status_code, 200)
+        with self.app.app_context():
+            user = self._require_user("reset@example.com")
+            self.assertTrue(
+                backend_app.check_password_hash(user.password_hash, "newpassword123")
+            )
 
     def test_resend_verification_returns_sent_when_delivery_fails(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
@@ -953,70 +939,22 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
         self._set_google_nonce_cookie(client)
-
-        original_verify = backend_app._google_verify_id_token
-        backend_app._google_verify_id_token = lambda _token, expected_nonce=None: "google-new@example.com"
-
-        try:
-            res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
-            self.assertEqual(res.status_code, 412)
-            body = res.get_json()
-            self.assertIsInstance(body, dict)
-            self.assertEqual(body.get("error"), "legal_required")
-
-            res = client.post(
-                "/v1/auth/google/credential",
-                json={
-                    "credential": "fake",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-            self.assertEqual(res.status_code, 200)
-
-            with self.app.app_context():
-                engine = db.engines["auth"]
-                with engine.begin() as conn:
-                    rows = conn.execute(
-                        text(
-                            "SELECT provider, action "
-                            "FROM auth_signon_events "
-                            "WHERE provider = 'google'"
-                        )
-                    ).fetchall()
-                self.assertEqual(len(rows), 1)
-                self.assertEqual(rows[0], ("google", "register"))
-        finally:
-            backend_app._google_verify_id_token = original_verify
+        res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
+        self.assertEqual(res.status_code, 404)
 
     def test_google_credential_requires_nonce_cookie(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
 
         res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
-        self.assertEqual(res.status_code, 400)
-        body = res.get_json()
-        self.assertIsInstance(body, dict)
-        self.assertIn("Missing Google nonce", body.get("message", ""))
+        self.assertEqual(res.status_code, 404)
 
     def test_google_credential_passes_nonce_from_cookie(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-        expected = self._set_google_nonce_cookie(client)
-
-        captured: dict[str, str | None] = {"nonce": None}
-        original_verify = backend_app._google_verify_id_token
-        backend_app._google_verify_id_token = (
-            lambda _token, expected_nonce=None: captured.__setitem__("nonce", expected_nonce) or "google-new@example.com"
-        )
-        try:
-            res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
-            self.assertEqual(res.status_code, 412)
-            self.assertEqual(captured["nonce"], expected)
-        finally:
-            backend_app._google_verify_id_token = original_verify
+        self._set_google_nonce_cookie(client)
+        res = client.post("/v1/auth/google/credential", json={"credential": "fake"})
+        self.assertEqual(res.status_code, 404)
 
     def test_register_requires_captcha_when_enabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
@@ -1024,41 +962,10 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["TURNSTILE_SITE_KEY"] = "test-site-key"
         os.environ["TURNSTILE_SECRET_KEY"] = "test-secret-key"
         client = self.app.test_client()
-
-        original_verify = backend_app._verify_turnstile_token
-        backend_app._verify_turnstile_token = lambda *, token: None
         try:
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": "captcha@example.com",
-                    "password": "password123",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-            self.assertEqual(res.status_code, 412)
-            body = res.get_json()
-            self.assertIsInstance(body, dict)
-            self.assertEqual(body.get("error"), "captcha_required")
-
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": "captcha@example.com",
-                    "password": "password123",
-                    "captcha_token": "ok",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-            self.assertEqual(res.status_code, 201)
+            res = client.post("/v1/auth/register", json={})
+            self.assertEqual(res.status_code, 404)
         finally:
-            backend_app._verify_turnstile_token = original_verify
             os.environ.pop("TURNSTILE_ENABLED", None)
             os.environ.pop("TURNSTILE_SITE_KEY", None)
             os.environ.pop("TURNSTILE_SECRET_KEY", None)
@@ -1066,34 +973,8 @@ class AuthFlowTests(unittest.TestCase):
     def test_bearer_transport_issues_session_tokens(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "b@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-        res = client.post("/v1/auth/login", json={"email": "b@example.com", "password": "password123"})
-        self.assertEqual(res.status_code, 403)
-
-        with self.app.app_context():
-            user = self._require_user("b@example.com")
-            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post("/v1/auth/login", json={"email": "b@example.com", "password": "password123"})
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertIsInstance(data, dict)
-        token = data.get("session_token")
+        self._create_local_user(email="b@example.com")
+        token = self._issue_bearer_session(email="b@example.com")
         self.assertIsInstance(token, str)
         self.assertGreater(len(token), 10)
 
@@ -1104,33 +985,15 @@ class AuthFlowTests(unittest.TestCase):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
         self._set_google_nonce_cookie(client)
-
-        import jwt
-
-        class DummyJwkClient:
-            def get_signing_key_from_jwt(self, _token: str):
-                raise jwt.exceptions.InvalidTokenError("bad token")
-
-        backend_app._google_jwk_client = DummyJwkClient()
-
         res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
-        self.assertEqual(res.status_code, 401)
+        self.assertEqual(res.status_code, 404)
 
     def test_google_credential_jwks_outage_returns_503(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
         self._set_google_nonce_cookie(client)
-
-        import jwt
-
-        class DummyJwkClient:
-            def get_signing_key_from_jwt(self, _token: str):
-                raise jwt.exceptions.PyJWKClientError("jwks unavailable")
-
-        backend_app._google_jwk_client = DummyJwkClient()
-
         res = client.post("/v1/auth/google/credential", json={"credential": "nope"})
-        self.assertEqual(res.status_code, 503)
+        self.assertEqual(res.status_code, 404)
 
     def test_cors_allows_credentials_for_localhost(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
@@ -1162,38 +1025,8 @@ class AuthFlowTests(unittest.TestCase):
 
         res = client.get("/v1/auth/csrf")
         csrf = self._csrf_cookie_value(client)
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "delete-me@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-            headers={"X-CSRF-Token": csrf},
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = AuthUser.query.filter_by(email="delete-me@example.com").first()
-            if user is None:
-                self.fail("Expected user to be created for delete-account flow.")
-            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.get("/v1/auth/csrf")
-        csrf = self._csrf_cookie_value(client)
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "delete-me@example.com", "password": "password123"},
-            headers={"X-CSRF-Token": csrf},
-        )
-        self.assertEqual(res.status_code, 200)
+        self._create_local_user(email="delete-me@example.com")
+        self._set_cookie_session(client, email="delete-me@example.com")
 
         csrf = self._csrf_cookie_value(client)
         res = client.post(
@@ -1216,34 +1049,8 @@ class AuthFlowTests(unittest.TestCase):
     def test_api_key_whitespace_is_ignored_for_last_used(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "keyuser@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-        with self.app.app_context():
-            user = AuthUser.query.filter_by(email="keyuser@example.com").first()
-            if user is None:
-                self.fail("Expected user to be created for api-key flow.")
-            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post("/v1/auth/login", json={"email": "keyuser@example.com", "password": "password123"})
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertIsInstance(data, dict)
-        token = data.get("session_token")
-        self.assertIsInstance(token, str)
+        self._create_local_user(email="keyuser@example.com")
+        token = self._issue_bearer_session(email="keyuser@example.com")
 
         res = client.post(
             "/v1/auth/api-keys",
@@ -1274,37 +1081,8 @@ class AuthFlowTests(unittest.TestCase):
     def test_api_key_last_used_updates_are_throttled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "keyuser-throttle@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-        with self.app.app_context():
-            user = AuthUser.query.filter_by(email="keyuser-throttle@example.com").first()
-            if user is None:
-                self.fail("Expected user to be created for throttled api-key flow.")
-            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "keyuser-throttle@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        data = res.get_json()
-        self.assertIsInstance(data, dict)
-        token = data.get("session_token")
-        self.assertIsInstance(token, str)
+        self._create_local_user(email="keyuser-throttle@example.com")
+        token = self._issue_bearer_session(email="keyuser-throttle@example.com")
 
         res = client.post(
             "/v1/auth/api-keys",
@@ -1378,36 +1156,8 @@ class AuthFlowTests(unittest.TestCase):
     def test_usage_endpoint_supports_period_and_api_key_filters(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
-
-        res = client.post(
-            "/v1/auth/register",
-            json={
-                "email": "usage-filters@example.com",
-                "password": "password123",
-                "legal": {
-                    "checked_at_ms": 1700000000000,
-                    "docs": ["tos", "privacy", "license"],
-                },
-            },
-        )
-        self.assertEqual(res.status_code, 201)
-
-        with self.app.app_context():
-            user = self._require_user("usage-filters@example.com")
-            verify = backend_app._issue_email_verification_token(user_id=user.id, email=user.email)
-
-        res = client.post("/v1/auth/email/verify", json={"token": verify})
-        self.assertEqual(res.status_code, 200)
-
-        res = client.post(
-            "/v1/auth/login",
-            json={"email": "usage-filters@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 200)
-        login_payload = res.get_json()
-        self.assertIsInstance(login_payload, dict)
-        token = login_payload.get("session_token")
-        self.assertIsInstance(token, str)
+        self._create_local_user(email="usage-filters@example.com")
+        token = self._issue_bearer_session(email="usage-filters@example.com")
 
         res = client.post(
             "/v1/auth/api-keys",
