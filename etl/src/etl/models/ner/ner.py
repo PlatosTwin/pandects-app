@@ -864,7 +864,7 @@ class NERTrainer:
             "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
             "batch_size": trial.suggest_categorical("batch_size", [8, 16, 32]),
             "train_subsample_window": trial.suggest_categorical(
-                "train_subsample_window", [128, 256, 512]
+                "train_subsample_window", [256, 512]
             ),
             "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-1, log=True),
             "warmup_steps_pct": trial.suggest_float("warmup_steps_pct", 0.0, 0.3),
