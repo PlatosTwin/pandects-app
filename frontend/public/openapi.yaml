@@ -133,6 +133,26 @@ paths:
         explode: true
         style: form
       - in: query
+        name: target_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
         name: target_industry
         schema:
           type: array
@@ -447,6 +467,26 @@ paths:
         explode: true
         style: form
       - in: query
+        name: target_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
         name: target_industry
         schema:
           type: array
@@ -591,6 +631,34 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - agreements
+      operationId: getAgreement
+      summary: Retrieve agreement text by UUID
+      description: Returns agreement metadata and XML content. For anonymous callers,
+        XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.
+    parameters:
+    - in: path
+      name: agreement_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/agreements/{agreement_uuid}/tax-clauses:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClauseListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: getAgreementTaxClauses
+      summary: Retrieve tax clauses for an agreement
+      description: Returns extracted tax-module clauses for the latest verified XML
+        of an agreement.
     parameters:
     - in: path
       name: agreement_uuid
@@ -611,6 +679,32 @@ paths:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
       - sections
+      operationId: getSection
+      summary: Retrieve section text by UUID
+      description: Returns one section payload including taxonomy IDs and XML content.
+    parameters:
+    - in: path
+      name: section_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/sections/{section_uuid}/tax-clauses:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClauseListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - sections
+      operationId: getSectionTaxClauses
+      summary: Retrieve tax clauses for a section
+      description: Returns extracted tax-module clauses for a specific latest section.
     parameters:
     - in: path
       name: section_uuid
@@ -621,6 +715,14 @@ paths:
   /v1/taxonomy:
     get:
       responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
@@ -629,6 +731,24 @@ paths:
       summary: Retrieve clause taxonomy
       description: Returns the hierarchical Pandects taxonomy tree keyed by standard
         ID.
+  /v1/taxonomy/tax-clauses:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - tax-clause-taxonomy
+      operationId: getTaxClauseTaxonomy
+      summary: Retrieve tax-clause taxonomy
+      description: Returns the hierarchical Pandects tax-clause taxonomy tree.
   /v1/naics:
     get:
       responses:
@@ -693,6 +813,8 @@ tags:
   description: Retrieve full text for a given section
 - name: taxonomy
   description: Access the Pandects agreement taxonomy
+- name: tax-clause-taxonomy
+  description: Access the Pandects tax-clause taxonomy
 - name: naics
   description: Access the NAICS sector and subsector taxonomy
 - name: counsel
@@ -1072,6 +1194,45 @@ components:
           type: string
         is_redacted:
           type: boolean
+    TaxClause:
+      type: object
+      properties:
+        clause_uuid:
+          type: string
+        agreement_uuid:
+          type: string
+        section_uuid:
+          type: string
+        article_title:
+          type: string
+          nullable: true
+        section_title:
+          type: string
+          nullable: true
+        anchor_label:
+          type: string
+          nullable: true
+        start_char:
+          type: integer
+        end_char:
+          type: integer
+        clause_text:
+          type: string
+        context_type:
+          type: string
+        standard_ids:
+          type: array
+          items:
+            type: string
+    TaxClauseListResponse:
+      type: object
+      properties:
+        clauses:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxClause'
+      required:
+      - clauses
     SectionResponse:
       type: object
       properties:

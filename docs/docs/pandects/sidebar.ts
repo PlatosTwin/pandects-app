@@ -26,6 +26,12 @@ const sidebar: SidebarsConfig = {
           label: "/v1/agreements/{agreement_uuid}",
           className: "api-method get",
         },
+        {
+          type: "doc",
+          id: "pandects/get-agreement-tax-clauses",
+          label: "/v1/agreements/{agreement_uuid}/tax-clauses",
+          className: "api-method get",
+        },
       ],
     },
     {
@@ -48,6 +54,12 @@ const sidebar: SidebarsConfig = {
           label: "/v1/sections/{section_uuid}",
           className: "api-method get",
         },
+        {
+          type: "doc",
+          id: "pandects/get-section-tax-clauses",
+          label: "/v1/sections/{section_uuid}/tax-clauses",
+          className: "api-method get",
+        },
       ],
     },
     {
@@ -62,6 +74,22 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "pandects/get-taxonomy",
           label: "/v1/taxonomy",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "tax-clause-taxonomy",
+      link: {
+        type: "doc",
+        id: "pandects/tax-clause-taxonomy",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-tax-clause-taxonomy",
+          label: "/v1/taxonomy/tax-clauses",
           className: "api-method get",
         },
       ],

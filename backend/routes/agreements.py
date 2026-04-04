@@ -651,6 +651,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
     @agreements_blp.route("/<string:agreement_uuid>")
     class AgreementResource(MethodView):
+        @agreements_blp.doc(
+            operationId="getAgreement",
+            summary="Retrieve agreement text by UUID",
+            description="Returns agreement metadata and XML content. For anonymous callers, XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.",
+        )
         @agreements_blp.arguments(AgreementArgsSchema, location="query")
         @agreements_blp.response(200, AgreementResponseSchema)
         def get(self, args: dict[str, object], agreement_uuid: str) -> dict[str, object]:
@@ -755,6 +760,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
     @sections_blp.route("/<string:section_uuid>")
     class SectionResource(MethodView):
+        @sections_blp.doc(
+            operationId="getSection",
+            summary="Retrieve section text by UUID",
+            description="Returns one section payload including taxonomy IDs and XML content.",
+        )
         @sections_blp.response(200, SectionResponseSchema)
         def get(self, section_uuid: str) -> dict[str, object]:
             section_uuid = section_uuid.strip()

@@ -309,6 +309,23 @@ def register_reference_data_routes(
                 "Returns the hierarchical Pandects taxonomy tree keyed by standard ID."
             ),
         )
+        @taxonomy_blp.response(
+            200,
+            {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "children": {
+                            "type": "object",
+                            "additionalProperties": {"type": "object"},
+                        },
+                    },
+                },
+            },
+        )
         def get(self) -> Response:
             payload, _ = _get_taxonomy_payload_cached()
             resp = jsonify(payload)
@@ -321,6 +338,23 @@ def register_reference_data_routes(
             operationId="getTaxClauseTaxonomy",
             summary="Retrieve tax-clause taxonomy",
             description="Returns the hierarchical Pandects tax-clause taxonomy tree.",
+        )
+        @tax_clause_taxonomy_blp.response(
+            200,
+            {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "children": {
+                            "type": "object",
+                            "additionalProperties": {"type": "object"},
+                        },
+                    },
+                },
+            },
         )
         def get(self) -> Response:
             payload, _ = _get_tax_clause_taxonomy_payload_cached()
