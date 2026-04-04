@@ -13,36 +13,6 @@ export type LegalAcceptancePayload = {
   docs: ["tos", "privacy", "license"];
 };
 
-export async function registerWithEmail(
-  email: string,
-  password: string,
-  legal: LegalAcceptancePayload,
-  captcha_token?: string,
-) {
-  return authFetchJson<{
-    status: "verification_required";
-    user: AuthUser;
-    debug_token?: string;
-  }>(apiUrl("v1/auth/register"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      captcha_token ? { email, password, legal, captcha_token } : { email, password, legal },
-    ),
-  });
-}
-
-export async function loginWithEmail(email: string, password: string) {
-  return authFetchJson<{ user: AuthUser; session_token?: string }>(
-    apiUrl("v1/auth/login"),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    },
-  );
-}
-
 export async function fetchMe() {
   return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
@@ -79,21 +49,6 @@ export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: str
   const suffix = query.toString();
   return authFetchJson<{ by_day: UsageByDay[]; total: number }>(
     apiUrl(`v1/auth/usage${suffix ? `?${suffix}` : ""}`),
-  );
-}
-
-export async function loginWithGoogleCredential(
-  credential: string,
-  legal?: LegalAcceptancePayload,
-) {
-  return authFetchJson<{ user: AuthUser; session_token?: string }>(
-    apiUrl("v1/auth/google/credential"),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(legal ? { credential, legal } : { credential }),
-    },
   );
 }
 

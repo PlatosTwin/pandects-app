@@ -391,33 +391,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             deps._set_auth_cookies(resp, session_token=token)
         return resp
 
-    def _legacy_auth_disabled() -> None:
-        abort(404, description="This auth flow has been replaced by the external auth provider.")
-
-    @auth_blp.route("/register", methods=["POST"])
-    def auth_register():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/login", methods=["POST"])
-    def auth_login():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/email/resend", methods=["POST"])
-    def auth_resend_email_verification():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/password/forgot", methods=["POST"])
-    def auth_password_forgot():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/password/reset", methods=["POST"])
-    def auth_password_reset():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/email/verify", methods=["POST"])
-    def auth_verify_email():
-        _legacy_auth_disabled()
-
     @auth_blp.route("/me", methods=["GET"])
     def auth_me():
         deps._require_auth_db()
@@ -1169,14 +1142,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         deps._clear_auth_cookies(resp)
         return resp
 
-    @auth_blp.route("/google/start", methods=["GET"])
-    def auth_google_start():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/google/client-id", methods=["GET"])
-    def auth_google_client_id():
-        _legacy_auth_disabled()
-
     @auth_blp.route("/captcha/site-key", methods=["GET"])
     def auth_captcha_site_key():
         deps._require_auth_db()
@@ -1204,14 +1169,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp = make_response(jsonify(enabled_payload))
         resp.headers["Cache-Control"] = "no-store"
         return resp
-
-    @auth_blp.route("/google/callback", methods=["GET"])
-    def auth_google_callback():
-        _legacy_auth_disabled()
-
-    @auth_blp.route("/google/credential", methods=["POST"])
-    def auth_google_credential():
-        _legacy_auth_disabled()
 
     @auth_blp.route("/logout", methods=["POST"])
     def auth_logout():

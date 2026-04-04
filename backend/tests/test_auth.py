@@ -143,12 +143,8 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         csrf = self._csrf_cookie_value(client)
         res = client.post("/v1/auth/register", json={})
-        self.assertEqual(res.status_code, 403)
-        res = client.post("/v1/auth/register", json={}, headers={"X-CSRF-Token": csrf})
         self.assertEqual(res.status_code, 404)
         res = client.post("/v1/auth/login", json={})
-        self.assertEqual(res.status_code, 403)
-        res = client.post("/v1/auth/login", json={}, headers={"X-CSRF-Token": csrf})
         self.assertEqual(res.status_code, 404)
 
         self._create_local_user(email="a@example.com")

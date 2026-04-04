@@ -117,21 +117,6 @@ export default function Account() {
   const accountForegroundRefreshInFlightRef = useRef(false);
   const accountForegroundRefreshAtMsRef = useRef(0);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get("emailVerified") !== "1") return;
-    toast({
-      title: "Email verified!",
-      description: "Sign in to create API keys and access full search results.",
-    });
-    params.delete("emailVerified");
-    const nextQuery = params.toString();
-    navigate(
-      { pathname: location.pathname, search: nextQuery ? `?${nextQuery}` : "" },
-      { replace: true },
-    );
-  }, [location.pathname, location.search, navigate]);
-
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [usageByDay, setUsageByDay] = useState<UsageByDay[]>([]);
   const [usageTotal, setUsageTotal] = useState(0);

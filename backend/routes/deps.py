@@ -80,22 +80,8 @@ class EnsureCurrentLegalAcceptancesProtocol(Protocol):
     def __call__(self, *, user_id: str, checked_at: datetime) -> None: ...
 
 
-class FrontendGoogleCallbackRedirectProtocol(Protocol):
-    def __call__(
-        self,
-        *,
-        token: str | None,
-        next_path: str | None,
-        error: str | None,
-    ) -> WerkzeugResponse: ...
-
-
 class GoogleFetchJsonProtocol(Protocol):
     def __call__(self, url: str, *, data: dict[str, str] | None = None) -> dict[str, object]: ...
-
-
-class GoogleVerifyIdTokenProtocol(Protocol):
-    def __call__(self, id_token: str, *, expected_nonce: str | None = None) -> str: ...
 
 
 class IsAgreementSectionEligibleProtocol(Protocol):
@@ -247,9 +233,6 @@ class AuthDeps:
     AuthExternalSubject: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
-    AuthGoogleCredentialSchema: type[Schema]
-    AuthLoginSchema: type[Schema]
-    AuthRegisterSchema: type[Schema]
     AuthSession: Any
     AuthUser: Any
     LegalAcceptance: Any
@@ -262,25 +245,14 @@ class AuthDeps:
     _auth_session_transport: Callable[[], str]
     _authenticate_external_identity: AuthenticateExternalIdentityProtocol
     _clear_auth_cookies: Callable[[WerkzeugResponse], None]
-    _clear_google_nonce_cookie: Callable[[WerkzeugResponse], None]
-    _clear_google_oauth_cookie: Callable[[WerkzeugResponse], None]
     _create_api_key: CreateApiKeyProtocol
     _csrf_cookie_value: Callable[[], str | None]
     _ensure_current_legal_acceptances: EnsureCurrentLegalAcceptancesProtocol
     _frontend_base_url: Callable[[], str]
-    _frontend_google_callback_redirect: FrontendGoogleCallbackRedirectProtocol
     _google_fetch_json: GoogleFetchJsonProtocol
-    _google_nonce_cookie_value: Callable[[], str | None]
-    _google_oauth_client_id: Callable[[], str]
-    _google_oauth_client_secret: Callable[[], str]
-    _google_oauth_flow_enabled: Callable[[], bool]
-    _google_oauth_pkce_pair: Callable[[], tuple[str, str]]
-    _google_oauth_redirect_uri: Callable[[], str]
-    _google_verify_id_token: GoogleVerifyIdTokenProtocol
     _is_agreement_section_eligible: IsAgreementSectionEligibleProtocol
     _is_email_like: Callable[[str], bool]
     _issue_session_token: Callable[[str], str]
-    _load_google_oauth_cookie: Callable[[], dict[str, str] | None]
     _load_json: Callable[[Schema], dict[str, object]]
     _mock_auth: Any
     _normalize_email: Callable[[str], str]
@@ -297,8 +269,6 @@ class AuthDeps:
     _send_signup_notification_email: SendSignupNotificationEmailProtocol
     _set_auth_cookies: SetAuthCookiesProtocol
     _set_csrf_cookie: SetCsrfCookieProtocol
-    _set_google_nonce_cookie: Callable[[WerkzeugResponse, str], None]
-    _set_google_oauth_cookie: Callable[[WerkzeugResponse, dict[str, str]], None]
     _status_response: StatusResponseProtocol
     _turnstile_enabled: Callable[[], bool]
     _turnstile_site_key: Callable[[], str]
@@ -307,8 +277,6 @@ class AuthDeps:
     _utc_today: Callable[[], date]
     _resolve_mcp_identity_provider_name: Callable[[str | None], str]
     _verify_turnstile_token: VerifyTurnstileTokenProtocol
-    check_password_hash: Callable[[str, str], bool]
     db: Any
-    generate_password_hash: Callable[[str], str]
     text: Callable[[str], object]
     urlencode: Callable[[dict[str, str]], str]

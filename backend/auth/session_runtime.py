@@ -163,9 +163,6 @@ def csrf_required(path: str) -> bool:
     if request.cookies.get(_SESSION_COOKIE_NAME):
         return True
     return path in (
-        "/v1/auth/login",
-        "/v1/auth/register",
-        "/v1/auth/google/credential",
         "/v1/auth/logout",
     )
 
