@@ -46,9 +46,14 @@ class RouteContractTests(unittest.TestCase):
             "/v1/sections",
             "/v1/agreements",
             "/v1/agreements/<string:agreement_uuid>",
+            "/v1/agreements/<string:agreement_uuid>/tax-clauses",
             "/v1/sections/<string:section_uuid>",
+            "/v1/sections/<string:section_uuid>/tax-clauses",
             "/v1/taxonomy",
+            "/v1/taxonomy/tax-clauses",
             "/v1/naics",
+            "/v1/counsel",
+            "/v1/agreement-trends",
             "/v1/dumps",
             "/v1/auth/login/password",
             "/v1/auth/signup/password",
@@ -72,7 +77,9 @@ class RouteContractTests(unittest.TestCase):
         self.assertEqual(paths["/v1/sections"]["get"]["operationId"], "listSections")
         self.assertEqual(paths["/v1/agreements"]["get"]["operationId"], "listAgreements")
         self.assertEqual(paths["/v1/taxonomy"]["get"]["operationId"], "getTaxonomy")
+        self.assertEqual(paths["/v1/taxonomy/tax-clauses"]["get"]["operationId"], "getTaxClauseTaxonomy")
         self.assertEqual(paths["/v1/naics"]["get"]["operationId"], "getNaics")
+        self.assertEqual(paths["/v1/counsel"]["get"]["operationId"], "getCounsel")
         self.assertEqual(paths["/v1/dumps"]["get"]["operationId"], "listDumps")
 
 

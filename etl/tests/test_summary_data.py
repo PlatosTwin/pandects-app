@@ -1,14 +1,19 @@
 # pyright: reportAny=false, reportPrivateUsage=false
 import unittest
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import Mock
 
 from etl.defs.resources import DBResource
-from etl.utils.summary_data import refresh_summary_data
+from etl.utils.summary_data import _coerce_float, _coerce_int, refresh_summary_data
 
 
 class SummaryDataTests(unittest.TestCase):
+    def test_summary_coercion_accepts_decimal_values(self) -> None:
+        self.assertEqual(_coerce_int(Decimal("2024")), 2024)
+        self.assertEqual(_coerce_float(Decimal("150000000.25")), 150000000.25)
+
     def test_refresh_summary_data_does_not_check_other_runs(self) -> None:
         class _ScalarResult:
             def __init__(self, value: object):
@@ -16,6 +21,12 @@ class SummaryDataTests(unittest.TestCase):
 
             def scalar(self) -> object:
                 return self._value
+
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
 
         class _FakeConn:
             def __init__(self) -> None:
@@ -65,6 +76,12 @@ class SummaryDataTests(unittest.TestCase):
             def scalar(self) -> object:
                 return self._value
 
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
+
         class _FakeConn:
             def __init__(self) -> None:
                 self.executed_sql: list[str] = []
@@ -104,6 +121,21 @@ class SummaryDataTests(unittest.TestCase):
         )
         self.assertTrue(
             any("TRUNCATE TABLE pdx.agreement_overview_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_ownership_mix_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_ownership_deal_size_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_buyer_type_matrix_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_target_industry_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_industry_pairing_summary" in sql for sql in conn.executed_sql)
         )
         summary_insert_sql = next(
             sql
@@ -177,6 +209,56 @@ class SummaryDataTests(unittest.TestCase):
                 for sql in conn.executed_sql
             )
         )
+        ownership_mix_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_ownership_mix_summary" in sql
+        )
+        self.assertIn("FROM tmp_agreement_trends_base", ownership_mix_insert_sql)
+        self.assertIn("GROUP BY filing_year, target_bucket", ownership_mix_insert_sql)
+        target_industry_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_target_industry_summary" in sql
+        )
+        self.assertIn("FROM tmp_agreement_trends_base", target_industry_insert_sql)
+        self.assertIn("GROUP BY filing_year, target_industry", target_industry_insert_sql)
+        pairing_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_industry_pairing_summary" in sql
+        )
+        self.assertIn("GROUP BY target_industry, acquirer_industry", pairing_insert_sql)
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_ownership_mix_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_ownership_deal_size_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_buyer_type_matrix_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_target_industry_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "CREATE TABLE IF NOT EXISTS pdx.agreement_industry_pairing_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
 
     def test_refresh_summary_data_uses_canonical_stage_sql(self) -> None:
         class _ScalarResult:
@@ -185,6 +267,12 @@ class SummaryDataTests(unittest.TestCase):
 
             def scalar(self) -> object:
                 return self._value
+
+            def mappings(self) -> "_ScalarResult":
+                return self
+
+            def all(self) -> list[object]:
+                return []
 
         class _FakeConn:
             def __init__(self) -> None:

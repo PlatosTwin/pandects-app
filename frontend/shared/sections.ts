@@ -6,15 +6,15 @@ export interface SearchFilters {
   acquirer?: string[];
   clauseType?: string[];
   standard_id?: string[];
-  // Transaction price filters (disabled for now)
   transaction_price_total?: string[];
   transaction_price_stock?: string[];
   transaction_price_cash?: string[];
   transaction_price_assets?: string[];
-  // New filters from DB definition
   transaction_consideration?: string[];
   target_type?: string[];
   acquirer_type?: string[];
+  target_counsel?: string[];
+  acquirer_counsel?: string[];
   target_industry?: string[];
   acquirer_industry?: string[];
   deal_status?: string[];
@@ -68,6 +68,8 @@ export interface SearchResponse {
 export interface FilterOptionsResponse {
   targets: string[];
   acquirers: string[];
+  target_counsels: string[];
+  acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
 }

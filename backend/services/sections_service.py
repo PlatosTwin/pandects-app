@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Protocol, cast
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, and_, or_, asc, desc
+from sqlalchemy.exc import SQLAlchemyError
 
+from backend.filtering import (
+    build_canonical_counsel_agreement_uuid_subquery,
+    build_transaction_price_bucket_filter,
+)
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.schemas.sections import SectionsArgsPayload
 
@@ -111,16 +115,17 @@ def sections_total_count_metadata(
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
 
     if has_filters:
-        if page == 1:
-            estimate = estimated_query_row_count_fn(query)
-            if estimate is not None:
-                adjusted_estimate = max(item_count, estimate)
-                return adjusted_estimate, True
-        if has_next:
-            minimum_total = ((page - 1) * page_size) + item_count + 1
-            return minimum_total, True
         exact_total = ((page - 1) * page_size) + item_count
-        return exact_total, False
+        if not has_next:
+            return exact_total, False
+
+        minimum_total = exact_total + 1
+        estimate = estimated_query_row_count_fn(query)
+        if estimate is not None:
+            adjusted_estimate = max(minimum_total, estimate)
+            return adjusted_estimate, True
+
+        return minimum_total, True
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:
@@ -136,6 +141,8 @@ def run_sections(
     parsed_args: SectionsArgsPayload,
 ) -> dict[str, object]:
     db = deps.db
+    agreement_counsel = deps.AgreementCounsel
+    counsel = deps.Counsel
     latest = deps.LatestSectionsSearch
     sections = deps.Sections
     row_mapping_as_dict = deps._row_mapping_as_dict
@@ -150,9 +157,15 @@ def run_sections(
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
+    transaction_price_totals = parsed_args["transaction_price_total"]
+    transaction_price_stocks = parsed_args["transaction_price_stock"]
+    transaction_price_cashes = parsed_args["transaction_price_cash"]
+    transaction_price_assets = parsed_args["transaction_price_assets"]
     transaction_considerations = parsed_args["transaction_consideration"]
     target_types = parsed_args["target_type"]
     acquirer_types = parsed_args["acquirer_type"]
+    target_counsels = parsed_args["target_counsel"]
+    acquirer_counsels = parsed_args["acquirer_counsel"]
     target_industries = parsed_args["target_industry"]
     acquirer_industries = parsed_args["acquirer_industry"]
     deal_statuses = parsed_args["deal_status"]
@@ -193,6 +206,30 @@ def run_sections(
         q = q.filter(latest.target.in_(targets))
     if acquirers:
         q = q.filter(latest.acquirer.in_(acquirers))
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_total,
+        transaction_price_totals,
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_stock,
+        transaction_price_stocks,
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_cash,
+        transaction_price_cashes,
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_assets,
+        transaction_price_assets,
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
 
     if standard_ids:
         standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
@@ -206,6 +243,22 @@ def run_sections(
         q = q.filter(latest.transaction_consideration.in_(transaction_considerations))
     if acquirer_types:
         q = q.filter(latest.acquirer_type.in_(acquirer_types))
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=target_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(target_counsel_subquery))
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=acquirer_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(acquirer_counsel_subquery))
     if target_industries:
         q = q.filter(latest.target_industry.in_(target_industries))
     if acquirer_industries:
@@ -268,6 +321,10 @@ def run_sections(
             targets,
             acquirers,
             standard_ids,
+            transaction_price_totals,
+            transaction_price_stocks,
+            transaction_price_cashes,
+            transaction_price_assets,
             transaction_considerations,
             target_types,
             acquirer_types,

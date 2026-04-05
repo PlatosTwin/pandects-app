@@ -95,8 +95,7 @@ function criticalCssPlugin(): Plugin {
       // Add DNS prefetch and preconnect for external resources
       const dnsPrefetch = `
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
-  <link rel="preconnect" href="https://api.pandects.org" crossorigin />`;
+  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />`;
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 

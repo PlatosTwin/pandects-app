@@ -167,6 +167,48 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+    clauses_table = Table(
+        "clauses",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    tax_clause_taxonomy_l1_table = Table(
+        "tax_clause_taxonomy_l1",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    tax_clause_taxonomy_l2_table = Table(
+        "tax_clause_taxonomy_l2",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    tax_clause_taxonomy_l3_table = Table(
+        "tax_clause_taxonomy_l3",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    tax_clause_assignments_table = Table(
+        "tax_clause_assignments",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    counsel_table = Table(
+        "counsel",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    agreement_counsel_table = Table(
+        "agreement_counsel",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -184,8 +226,6 @@ else:
         Column("acquirer", TEXT, nullable=True),
         Column("target_counsel", TEXT, nullable=True),
         Column("acquirer_counsel", TEXT, nullable=True),
-        Column("target_counsel_normalized", TEXT, nullable=True),
-        Column("acquirer_counsel_normalized", TEXT, nullable=True),
         Column("transaction_price_total", TEXT, nullable=True),
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
@@ -267,12 +307,17 @@ else:
         metadata,
         Column("agreement_uuid", CHAR(36), nullable=False),
         Column("section_uuid", CHAR(36), primary_key=True),
-        Column("article_title", TEXT, nullable=False),
-        Column("section_title", TEXT, nullable=False),
+        Column("article_title", TEXT, nullable=True),
+        Column("article_title_normed", TEXT, nullable=True),
+        Column("article_order", Integer, nullable=True),
+        Column("section_title", TEXT, nullable=True),
+        Column("section_title_normed", TEXT, nullable=True),
+        Column("section_order", Integer, nullable=True),
         Column("xml_content", TEXT, nullable=False),
-        Column("section_standard_id", TEXT, nullable=False),
+        Column("section_standard_id", TEXT, nullable=True),
         Column("section_standard_id_gold_label", TEXT, nullable=True),
         Column("xml_version", Integer, nullable=True),
+        Column("gold_label_model", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
     latest_sections_search_table = Table(
@@ -295,6 +340,8 @@ else:
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
+        Column("target_counsel", TEXT, nullable=True),
+        Column("acquirer_counsel", TEXT, nullable=True),
         Column("target_industry", TEXT, nullable=True),
         Column("acquirer_industry", TEXT, nullable=True),
         Column("announce_date", TEXT, nullable=True),
@@ -320,18 +367,91 @@ else:
         Column("agreement_uuid", CHAR(36), nullable=False),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    clauses_table = Table(
+        "clauses",
+        metadata,
+        Column("clause_uuid", CHAR(36), primary_key=True),
+        Column("agreement_uuid", CHAR(36), nullable=False),
+        Column("section_uuid", CHAR(36), nullable=False),
+        Column("xml_version", Integer, nullable=True),
+        Column("module", TEXT, nullable=False),
+        Column("clause_order", Integer, nullable=False),
+        Column("anchor_label", TEXT, nullable=True),
+        Column("start_char", Integer, nullable=False),
+        Column("end_char", Integer, nullable=False),
+        Column("clause_text", TEXT, nullable=False),
+        Column("source_method", TEXT, nullable=False),
+        Column("context_type", TEXT, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    tax_clause_taxonomy_l1_table = Table(
+        "tax_clause_taxonomy_l1",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    tax_clause_taxonomy_l2_table = Table(
+        "tax_clause_taxonomy_l2",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        Column("parent_id", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    tax_clause_taxonomy_l3_table = Table(
+        "tax_clause_taxonomy_l3",
+        metadata,
+        Column("standard_id", TEXT, primary_key=True),
+        Column("label", TEXT, nullable=True),
+        Column("parent_id", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    tax_clause_assignments_table = Table(
+        "tax_clause_assignments",
+        metadata,
+        Column("clause_uuid", CHAR(36), primary_key=True),
+        Column("standard_id", TEXT, primary_key=True),
+        Column("is_gold_label", Integer, nullable=False, default=0),
+        Column("model_name", TEXT, nullable=True),
+        Column("assigned_at", TEXT, nullable=True),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    counsel_table = Table(
+        "counsel",
+        metadata,
+        Column("counsel_id", Integer, primary_key=True, autoincrement=True),
+        Column("canonical_name", TEXT, nullable=False),
+        Column("canonical_name_normalized", TEXT, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
+    agreement_counsel_table = Table(
+        "agreement_counsel",
+        metadata,
+        Column("agreement_uuid", CHAR(36), primary_key=True),
+        Column("side", TEXT, primary_key=True),
+        Column("position", Integer, primary_key=True),
+        Column("raw_name", TEXT, nullable=False),
+        Column("counsel_id", Integer, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
 
 
 class Sections(db.Model):
     __table__ = sections_table
     agreement_uuid: ClassVar[Mapped[str]]
     section_uuid: ClassVar[Mapped[str]]
-    article_title: ClassVar[Mapped[str]]
-    section_title: ClassVar[Mapped[str]]
+    article_title: ClassVar[Mapped[str | None]]
+    article_title_normed: ClassVar[Mapped[str | None]]
+    article_order: ClassVar[Mapped[int | None]]
+    section_title: ClassVar[Mapped[str | None]]
+    section_title_normed: ClassVar[Mapped[str | None]]
+    section_order: ClassVar[Mapped[int | None]]
     xml_content: ClassVar[Mapped[str]]
-    section_standard_id: ClassVar[Mapped[str]]
+    section_standard_id: ClassVar[Mapped[str | None]]
     section_standard_id_gold_label: ClassVar[Mapped[str | None]]
     xml_version: ClassVar[Mapped[int | None]]
+    gold_label_model: ClassVar[Mapped[str | None]]
 
 
 class Agreements(db.Model):
@@ -347,8 +467,6 @@ class Agreements(db.Model):
     acquirer: ClassVar[Mapped[str | None]]
     target_counsel: ClassVar[Mapped[str | None]]
     acquirer_counsel: ClassVar[Mapped[str | None]]
-    target_counsel_normalized: ClassVar[Mapped[str | None]]
-    acquirer_counsel_normalized: ClassVar[Mapped[str | None]]
     transaction_price_total: ClassVar[Mapped[str | None]]
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
@@ -356,6 +474,8 @@ class Agreements(db.Model):
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]
+    target_counsel: ClassVar[Mapped[str | None]]
+    acquirer_counsel: ClassVar[Mapped[str | None]]
     target_industry: ClassVar[Mapped[str | None]]
     acquirer_industry: ClassVar[Mapped[str | None]]
     announce_date: ClassVar[Mapped[str | None]]
@@ -368,7 +488,6 @@ class Agreements(db.Model):
     acquirer_pe: ClassVar[Mapped[int | None]]
     verified: ClassVar[Mapped[int | None]]
     gated: ClassVar[Mapped[int | None]]
-    metadata: ClassVar[Mapped[int | None]]
     transaction_size: ClassVar[Mapped[int | None]]
     transaction_type: ClassVar[Mapped[str | None]]
     consideration_type: ClassVar[Mapped[str | None]]
@@ -418,6 +537,47 @@ class LatestSectionsSearchStandardId(db.Model):
     agreement_uuid: ClassVar[Mapped[str]]
 
 
+class Clauses(db.Model):
+    __table__ = clauses_table
+    clause_uuid: ClassVar[Mapped[str]]
+    agreement_uuid: ClassVar[Mapped[str]]
+    section_uuid: ClassVar[Mapped[str]]
+    xml_version: ClassVar[Mapped[int | None]]
+    module: ClassVar[Mapped[str]]
+    clause_order: ClassVar[Mapped[int]]
+    anchor_label: ClassVar[Mapped[str | None]]
+    start_char: ClassVar[Mapped[int]]
+    end_char: ClassVar[Mapped[int]]
+    clause_text: ClassVar[Mapped[str]]
+    source_method: ClassVar[Mapped[str]]
+    context_type: ClassVar[Mapped[str]]
+
+
+class TaxClauseAssignment(db.Model):
+    __table__ = tax_clause_assignments_table
+    clause_uuid: ClassVar[Mapped[str]]
+    standard_id: ClassVar[Mapped[str]]
+    is_gold_label: ClassVar[Mapped[int]]
+    model_name: ClassVar[Mapped[str | None]]
+    assigned_at: ClassVar[Mapped[str | None]]
+
+
+class Counsel(db.Model):
+    __table__ = counsel_table
+    counsel_id: ClassVar[Mapped[int]]
+    canonical_name: ClassVar[Mapped[str]]
+    canonical_name_normalized: ClassVar[Mapped[str]]
+
+
+class AgreementCounsel(db.Model):
+    __table__ = agreement_counsel_table
+    agreement_uuid: ClassVar[Mapped[str]]
+    side: ClassVar[Mapped[str]]
+    position: ClassVar[Mapped[int]]
+    raw_name: ClassVar[Mapped[str]]
+    counsel_id: ClassVar[Mapped[int]]
+
+
 class XML(db.Model):
     __table__ = xml_table
     agreement_uuid: ClassVar[Mapped[str]]
@@ -442,6 +602,26 @@ class TaxonomyL2(db.Model):
 
 class TaxonomyL3(db.Model):
     __table__ = taxonomy_l3_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
+    parent_id: ClassVar[Mapped[str | None]]
+
+
+class TaxClauseTaxonomyL1(db.Model):
+    __table__ = tax_clause_taxonomy_l1_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
+
+
+class TaxClauseTaxonomyL2(db.Model):
+    __table__ = tax_clause_taxonomy_l2_table
+    standard_id: ClassVar[Mapped[str]]
+    label: ClassVar[Mapped[str | None]]
+    parent_id: ClassVar[Mapped[str | None]]
+
+
+class TaxClauseTaxonomyL3(db.Model):
+    __table__ = tax_clause_taxonomy_l3_table
     standard_id: ClassVar[Mapped[str]]
     label: ClassVar[Mapped[str | None]]
     parent_id: ClassVar[Mapped[str | None]]
@@ -619,11 +799,16 @@ __all__ = [
     "_ENABLE_MAIN_DB_REFLECTION",
     "_SKIP_MAIN_DB_REFLECTION",
     "Agreements",
+    "Clauses",
     "LatestSectionsSearch",
     "LatestSectionsSearchStandardId",
     "NaicsSector",
     "NaicsSubSector",
     "Sections",
+    "TaxClauseAssignment",
+    "TaxClauseTaxonomyL1",
+    "TaxClauseTaxonomyL2",
+    "TaxClauseTaxonomyL3",
     "TaxonomyL1",
     "TaxonomyL2",
     "TaxonomyL3",

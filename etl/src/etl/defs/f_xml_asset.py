@@ -17,7 +17,7 @@ from openai import OpenAI
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
-from etl.defs.c_tagging_asset import tagging_asset
+from etl.defs.c_tagging_asset import regular_ingest_tagging_asset, tagging_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
@@ -224,6 +224,133 @@ def _mark_xml_verify_batch_pulled(conn: Connection, schema: str, batch_id: str) 
     )
 
 
+def _load_xml_verify_batch_agreement_uuids(
+    client: OpenAI,
+    batch_row: Dict[str, Any],
+) -> List[str]:
+    input_file_id = batch_row.get("input_file_id")
+    if not input_file_id:
+        raise ValueError("xml verify batch row has no input_file_id")
+
+    raw_text = read_openai_file_text(client.files.content(str(input_file_id))).strip()
+    if not raw_text:
+        raise ValueError(f"xml verify batch input file {input_file_id} is empty")
+
+    agreement_uuids: set[str] = set()
+    for line in raw_text.splitlines():
+        payload = json.loads(line)
+        custom_id = payload.get("custom_id")
+        if not isinstance(custom_id, str):
+            raise ValueError("xml verify batch input line is missing string custom_id")
+        agreement_uuid, _ = _parse_custom_id(custom_id)
+        agreement_uuids.add(agreement_uuid)
+
+    if not agreement_uuids:
+        raise ValueError("xml verify batch input file contained no agreement targets")
+    return sorted(agreement_uuids)
+
+
+def _resume_xml_verify_batch(
+    context: AssetExecutionContext,
+    engine: Any,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    client: OpenAI,
+    *,
+    schema: str,
+    xml_table: str,
+    batch_scope: str,
+    batch_row: Dict[str, Any],
+    agreement_uuids: List[str],
+    log_prefix: str,
+    hard_invalid_updated: int,
+) -> List[str]:
+    batch_id = str(batch_row["batch_id"])
+    batch_key = batch_row.get("batch_key")
+    context.log.info(
+        "%s: resuming unpulled batch %s for %s agreements.",
+        log_prefix,
+        batch_id,
+        len(agreement_uuids),
+    )
+    batch = poll_batch_until_terminal(
+        context,
+        client,
+        batch_id,
+        log_prefix=log_prefix,
+    )
+    request_total = int(batch_row["request_total"])
+    with engine.begin() as conn:
+        _upsert_xml_verify_batch_row(
+            conn,
+            schema,
+            batch=batch,
+            completion_window=str(batch_row["completion_window"]),
+            request_total=request_total,
+            batch_scope=batch_scope,
+            batch_key=str(batch_key) if batch_key is not None else None,
+        )
+
+    if batch.status != "completed":
+        context.log.warning(
+            "%s: resumed batch %s ended with status=%s; no status updates applied.",
+            log_prefix,
+            batch.id,
+            batch.status,
+        )
+        with engine.begin() as conn:
+            _mark_xml_verify_batch_pulled(conn, schema, str(batch.id))
+        run_post_asset_refresh(context, db, pipeline_config)
+        return agreement_uuids
+
+    updated, parse_errors = _apply_xml_verify_batch_output(
+        context=context,
+        engine=engine,
+        client=client,
+        xml_table=xml_table,
+        xml_status_reasons_table=f"{schema}.xml_status_reasons",
+        batch=batch,
+        log_prefix=log_prefix,
+    )
+    with engine.begin() as conn:
+        _mark_xml_verify_batch_pulled(conn, schema, str(batch.id))
+    context.log.info(
+        "%s: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
+        log_prefix,
+        batch.id,
+        updated,
+        parse_errors,
+        hard_invalid_updated,
+    )
+
+    run_post_asset_refresh(context, db, pipeline_config)
+    return agreement_uuids
+
+
+def _fetch_latest_verified_agreement_uuids(
+    conn: Connection,
+    *,
+    xml_table: str,
+    agreement_uuids: List[str],
+) -> List[str]:
+    if not agreement_uuids:
+        return []
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT agreement_uuid
+            FROM {xml_table}
+            WHERE agreement_uuid IN :auuids
+              AND latest = 1
+              AND status = 'verified'
+            ORDER BY agreement_uuid ASC
+            """
+        ).bindparams(bindparam("auuids", expanding=True)),
+        {"auuids": tuple(sorted(set(agreement_uuids)))},
+    ).scalars().all()
+    return [str(row) for row in rows]
+
+
 def _roman_to_int(value: str) -> int | None:
     roman = value.strip().upper()
     if not roman:
@@ -296,6 +423,109 @@ def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
         seen.add(text_val)
         page_uuids.append(text_val)
     return tuple(page_uuids)
+
+
+def _section_title_has_additional_numbering(title: str) -> bool:
+    match = SECTION_NUMBER_RE.match(title)
+    if match is None:
+        return False
+    suffix = title[match.end() :]
+    return re.search(r"\b(?:SECTION\s+)?\d+\s*\.\s*\d+\b", suffix, re.IGNORECASE) is not None
+
+
+def _merge_page_uuid_targets(*page_uuid_groups: Tuple[str, ...]) -> Tuple[str, ...]:
+    merged: List[str] = []
+    seen: set[str] = set()
+    for group in page_uuid_groups:
+        for page_uuid in group:
+            if page_uuid in seen:
+                continue
+            seen.add(page_uuid)
+            merged.append(page_uuid)
+    return tuple(merged)
+
+
+def _section_title_mentions_number(
+    title: str,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    match = SECTION_NUMBER_RE.match(title)
+    search_text = title[match.end():] if match is not None else title
+    return (
+        re.search(
+            rf"\b(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
+            search_text,
+            re.IGNORECASE,
+        )
+        is not None
+    )
+
+
+def _section_body_mentions_number(
+    section_elem: ET.Element,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    pattern = re.compile(
+        rf"(?:^|[\n\r.;:])\s*(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
+        re.IGNORECASE,
+    )
+    for node in section_elem.iter():
+        if node.tag in {"page", "pageUUID"}:
+            continue
+        text_value = (node.text or "").strip()
+        if text_value and pattern.search(text_value):
+            return True
+    return False
+
+
+def _target_section_non_sequential_page_uuids(
+    *,
+    previous_section_elem: ET.Element | None,
+    current_section_elem: ET.Element,
+    section_title: str,
+    section_article_num: int,
+    expected_section_num: int,
+    found_section_num: int,
+    current_page_uuids: Tuple[str, ...],
+    previous_page_uuids: Tuple[str, ...],
+) -> Tuple[str, ...]:
+    """
+    Target the page most likely to contain the root cause of a numbering gap.
+
+    When numbering jumps forward, the preceding section is often the malformed one
+    that absorbed the missing heading during tagging/OCR. For duplicates or
+    backward jumps, the current section is still the better target.
+    """
+    if _section_title_has_additional_numbering(section_title) or _section_title_mentions_number(
+        section_title,
+        article_num=section_article_num,
+        section_num=expected_section_num,
+    ):
+        return current_page_uuids
+    if found_section_num > expected_section_num and previous_page_uuids:
+        previous_mentions_expected = (
+            previous_section_elem is not None
+            and _section_body_mentions_number(
+                previous_section_elem,
+                article_num=section_article_num,
+                section_num=expected_section_num,
+            )
+        )
+        current_mentions_expected = _section_body_mentions_number(
+            current_section_elem,
+            article_num=section_article_num,
+            section_num=expected_section_num,
+        )
+        if previous_mentions_expected and not current_mentions_expected:
+            return previous_page_uuids
+        if current_mentions_expected:
+            return current_page_uuids
+        return _merge_page_uuid_targets(previous_page_uuids, current_page_uuids)
+    return current_page_uuids
 
 
 def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
@@ -381,6 +611,8 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             continue
 
         expected_section_num = 1
+        previous_section_elem: ET.Element | None = None
+        previous_section_page_uuids: Tuple[str, ...] = ()
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
             section_page_uuids = _collect_page_uuids(section_elem)
@@ -409,12 +641,23 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
                         reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
-                        page_uuids=section_page_uuids,
+                        page_uuids=_target_section_non_sequential_page_uuids(
+                            previous_section_elem=previous_section_elem,
+                            current_section_elem=section_elem,
+                            section_title=section_title,
+                            section_article_num=section_article_num,
+                            expected_section_num=expected_section_num,
+                            found_section_num=section_num,
+                            current_page_uuids=section_page_uuids,
+                            previous_page_uuids=previous_section_page_uuids,
+                        ),
                     )
                 )
                 expected_section_num = section_num + 1
             else:
                 expected_section_num += 1
+            previous_section_elem = section_elem
+            previous_section_page_uuids = section_page_uuids
 
     if empty_article_count > 1:
         violations.append(
@@ -532,6 +775,53 @@ def _dedupe_reason_rows(reason_rows: List[Dict[str, Any]]) -> List[Dict[str, Any
     return deduped
 
 
+def _normalized_reason_row_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
+    reason_code = str(row["reason_code"])
+    reason_detail = None if row.get("reason_detail") is None else str(row["reason_detail"])
+    page_uuid = None if row.get("page_uuid") is None else str(row["page_uuid"])
+    return (reason_code, reason_detail or "", page_uuid or "")
+
+
+def _normalized_reason_row_keys(reason_rows: List[Dict[str, Any]]) -> Tuple[Tuple[str, str, str], ...]:
+    deduped_rows = _dedupe_reason_rows(reason_rows)
+    return tuple(sorted(_normalized_reason_row_key(row) for row in deduped_rows))
+
+
+def _fetch_existing_reason_rows(
+    conn: Connection,
+    xml_status_reasons_table: str,
+    *,
+    agreement_uuid: str,
+    version: int,
+) -> List[Dict[str, Any]]:
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT reason_code, reason_detail, page_uuid
+            FROM {xml_status_reasons_table}
+            WHERE agreement_uuid = :agreement_uuid
+              AND xml_version = :version
+            """
+        ),
+        {"agreement_uuid": agreement_uuid, "version": version},
+    ).mappings().fetchall()
+    return [
+        {
+            "reason_code": str(row["reason_code"]),
+            "reason_detail": None if row.get("reason_detail") is None else str(row["reason_detail"]),
+            "page_uuid": None if row.get("page_uuid") is None else str(row["page_uuid"]),
+        }
+        for row in rows
+    ]
+
+
+def _reason_rows_changed(
+    existing_reason_rows: List[Dict[str, Any]],
+    new_reason_rows: List[Dict[str, Any]],
+) -> bool:
+    return _normalized_reason_row_keys(existing_reason_rows) != _normalized_reason_row_keys(new_reason_rows)
+
+
 def _replace_xml_status_reasons(
     conn: Connection,
     xml_status_reasons_table: str,
@@ -599,6 +889,12 @@ def _set_xml_status_with_reasons(
     reason_rows: List[Dict[str, Any]],
 ) -> int:
     deduped_rows = _dedupe_reason_rows(reason_rows)
+    existing_reason_rows = _fetch_existing_reason_rows(
+        conn,
+        xml_status_reasons_table,
+        agreement_uuid=agreement_uuid,
+        version=version,
+    )
     primary_reason_code = deduped_rows[0]["reason_code"] if status == "invalid" and deduped_rows else None
     primary_reason_detail = deduped_rows[0]["reason_detail"] if status == "invalid" and deduped_rows else None
     result = conn.execute(
@@ -634,6 +930,19 @@ def _set_xml_status_with_reasons(
         version=version,
         reason_rows=deduped_rows if status == "invalid" else [],
     )
+    if status == "invalid" and _reason_rows_changed(existing_reason_rows, deduped_rows):
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {xml_table}
+                SET ai_repair_attempted = 0
+                WHERE agreement_uuid = :agreement_uuid
+                  AND version = :version
+                  AND ai_repair_attempted = 1
+                """
+            ),
+            {"agreement_uuid": agreement_uuid, "version": version},
+        )
     return int(result.rowcount or 0)
 
 
@@ -715,24 +1024,14 @@ def _apply_xml_verify_batch_output(
     return updated, parse_errors
 
 
-@dg.asset(deps=[tagging_asset], name="4-1_build_xml")
-def xml_asset(
+def _run_xml_build_for_agreements(
     context: AssetExecutionContext,
+    *,
     db: DBResource,
     pipeline_config: PipelineConfig,
+    target_agreement_uuids: list[str] | None,
+    log_prefix: str,
 ) -> List[str]:
-    """
-    Assemble tagged sections into XML documents.
-
-    Re-creates XML for agreements where tagged_outputs have been updated since the last XML creation.
-    Maintains version numbers and tracks creation dates.
-    
-    Args:
-        context: Dagster execution context.
-        db: Database resource for connection.
-        pipeline_config: Pipeline configuration.
-    """
-    # batching controls
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     single_batch_run = runs_single_batch(context, pipeline_config)
 
@@ -742,26 +1041,51 @@ def xml_asset(
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     xml_table = f"{schema}.xml"
-    context.log.info("Running XML generation")
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
 
-    last_uuid = ''
+    if pipeline_config.resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_verify_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            )
+        if stranded_verify_batch is not None:
+            context.log.info(
+                "%s: deferring new XML generation because unpulled verify batch %s is waiting to resume.",
+                log_prefix,
+                stranded_verify_batch["batch_id"],
+            )
+            return []
+
+    last_uuid = ""
     built_agreement_uuids: List[str] = []
     while True:
         with engine.begin() as conn:
-            agreement_uuids = (
-                conn.execute(
-                    text(canonical_fresh_xml_build_queue_sql(schema)),
-                    {"limit": agreement_batch_size, "last_uuid": last_uuid},
+            if scoped_uuids:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_fresh_xml_build_queue_sql(schema, scoped=True)).bindparams(
+                            bindparam("auuids", expanding=True)
+                        ),
+                        {"limit": max(agreement_batch_size, len(scoped_uuids)), "auuids": tuple(scoped_uuids)},
+                    )
+                    .scalars()
+                    .all()
                 )
-                .scalars()
-                .all()
-            )
+            else:
+                agreement_uuids = (
+                    conn.execute(
+                        text(canonical_fresh_xml_build_queue_sql(schema)),
+                        {"limit": agreement_batch_size, "last_uuid": last_uuid},
+                    )
+                    .scalars()
+                    .all()
+                )
 
-            # If none left, we're done
             if not agreement_uuids:
                 break
 
-            # Fetch every page and its tagged output for those agreements
             rows = (
                 conn.execute(
                     text(
@@ -802,7 +1126,6 @@ def xml_asset(
             )
 
             df = pd.DataFrame(rows)
-            # Determine version: new agreements get v1, updated pages increment version
             existing_versions = conn.execute(
                 text(f"""
                     SELECT agreement_uuid, MAX(version) as max_version
@@ -812,23 +1135,20 @@ def xml_asset(
                 """),
                 {"uuids": tuple(agreement_uuids)},
             ).mappings().fetchall()
-            
+
             version_map = {row["agreement_uuid"]: row["max_version"] + 1 for row in existing_versions}
-            
-            # Generate XML from tagged pages
             xml, xml_generation_failures = generate_xml(df, version_map)
             for failure in xml_generation_failures:
                 context.log.warning(
-                    "Skipping XML generation due to parse error for agreement_uuid=%s: %s",
+                    "%s: skipping XML generation due to parse error for agreement_uuid=%s: %s",
+                    log_prefix,
                     failure.agreement_uuid,
                     failure.error,
                 )
 
             if not xml:
-                context.log.warning(
-                    "Skipping XML upsert for this batch because all %s agreements failed XML parsing",
-                    len(agreement_uuids),
-                )
+                if scoped_uuids:
+                    break
                 last_uuid = agreement_uuids[-1]
                 if single_batch_run:
                     break
@@ -837,47 +1157,97 @@ def xml_asset(
             generated_agreement_uuids = [str(item.agreement_uuid) for item in xml]
             built_agreement_uuids.extend(generated_agreement_uuids)
 
-            try:
-                upsert_xml(xml, db.database, conn)
-                _ = conn.execute(
-                    text(
-                        f"""
-                        UPDATE {xml_table} x
-                        JOIN (
-                            SELECT agreement_uuid, MAX(version) AS max_version
-                            FROM {xml_table}
-                            WHERE agreement_uuid IN :uuids
-                            GROUP BY agreement_uuid
-                        ) m ON x.agreement_uuid = m.agreement_uuid
-                        SET x.latest = CASE
-                            WHEN x.version = m.max_version THEN 1
-                            ELSE 0
-                        END
-                        WHERE x.agreement_uuid IN :uuids
-                        """
-                    ).bindparams(bindparam("uuids", expanding=True)),
-                    {"uuids": generated_agreement_uuids},
-                )
-                refreshed = refresh_latest_sections_search(
-                    conn,
-                    db.database,
-                    generated_agreement_uuids,
-                )
-                context.log.info(
-                    "Successfully generated XML for %s agreements; refreshed latest_sections_search rows=%s",
-                    len(generated_agreement_uuids),
-                    refreshed,
-                )
-            except Exception as e:
-                context.log.error(f"Error upserting XML: {e}")
-                raise RuntimeError(e)
-            
+            upsert_xml(xml, db.database, conn)
+            _ = conn.execute(
+                text(
+                    f"""
+                    UPDATE {xml_table} x
+                    JOIN (
+                        SELECT agreement_uuid, MAX(version) AS max_version
+                        FROM {xml_table}
+                        WHERE agreement_uuid IN :uuids
+                        GROUP BY agreement_uuid
+                    ) m ON x.agreement_uuid = m.agreement_uuid
+                    SET x.latest = CASE
+                        WHEN x.version = m.max_version THEN 1
+                        ELSE 0
+                    END
+                    WHERE x.agreement_uuid IN :uuids
+                    """
+                ).bindparams(bindparam("uuids", expanding=True)),
+                {"uuids": generated_agreement_uuids},
+            )
+            refreshed = refresh_latest_sections_search(
+                conn,
+                db.database,
+                generated_agreement_uuids,
+            )
+            context.log.info(
+                "%s: generated XML for %s agreements; refreshed latest_sections_search rows=%s",
+                log_prefix,
+                len(generated_agreement_uuids),
+                refreshed,
+            )
+
+            if scoped_uuids:
+                break
+
             last_uuid = agreement_uuids[-1]
+
         if single_batch_run:
             break
 
-    run_post_asset_refresh(context, db, pipeline_config)
     return sorted(set(built_agreement_uuids))
+
+
+@dg.asset(deps=[tagging_asset], name="4-1_build_xml")
+def xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    """
+    Assemble tagged sections into XML documents.
+
+    Re-creates XML for agreements where tagged_outputs have been updated since the last XML creation.
+    Maintains version numbers and tracks creation dates.
+    
+    Args:
+        context: Dagster execution context.
+        db: Database resource for connection.
+        pipeline_config: Pipeline configuration.
+    """
+    context.log.info("Running XML generation")
+    built_agreement_uuids = _run_xml_build_for_agreements(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        target_agreement_uuids=None,
+        log_prefix="xml_asset",
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    return built_agreement_uuids
+
+
+@dg.asset(
+    name="4-1-regular_ingest_build_xml",
+    ins={"tagged_agreement_uuids": dg.AssetIn(key=regular_ingest_tagging_asset.key)},
+)
+def regular_ingest_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    tagged_agreement_uuids: List[str],
+) -> List[str]:
+    built_agreement_uuids = _run_xml_build_for_agreements(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        target_agreement_uuids=tagged_agreement_uuids,
+        log_prefix="regular_ingest_xml_asset",
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    return built_agreement_uuids
 
 
 @dg.asset(
@@ -893,6 +1263,53 @@ def xml_verify_asset(
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
+
+    engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    client = _oai_client()
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
+
+    if resume_openai_batches:
+        with engine.begin() as conn:
+            stranded_batch = _fetch_unpulled_xml_verify_batch(
+                conn,
+                schema,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+            )
+        if stranded_batch is not None:
+            try:
+                stranded_agreement_uuids = _load_xml_verify_batch_agreement_uuids(
+                    client,
+                    stranded_batch,
+                )
+            except Exception as e:
+                context.log.warning(
+                    "xml_verify_asset: failed to load agreement scope for unpulled batch %s: %s",
+                    stranded_batch["batch_id"],
+                    e,
+                )
+            else:
+                target_scope = set(target_agreement_uuids)
+                stranded_scope = set(stranded_agreement_uuids)
+                if not target_scope or target_scope != stranded_scope:
+                    return _resume_xml_verify_batch(
+                        context,
+                        engine,
+                        db,
+                        pipeline_config,
+                        client,
+                        schema=schema,
+                        xml_table=xml_table,
+                        batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                        batch_row=stranded_batch,
+                        agreement_uuids=stranded_agreement_uuids,
+                        log_prefix="xml_verify_asset",
+                        hard_invalid_updated=0,
+                    )
+
     if not target_agreement_uuids:
         context.log.info("xml_verify_asset: no upstream agreements from xml_asset.")
         run_post_asset_refresh(context, db, pipeline_config)
@@ -902,14 +1319,6 @@ def xml_verify_asset(
             "xml_verify_asset received more upstream agreements than xml_agreement_batch_size; "
             + "run-scoped XML verification accepts at most one upstream XML batch."
         )
-
-    engine = db.get_engine()
-    schema = db.database
-    xml_table = f"{schema}.xml"
-    client = _oai_client()
-
-    with engine.begin() as conn:
-        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
         bindparam("auuids", expanding=True)
@@ -1089,60 +1498,25 @@ def xml_verify_asset(
                 batch_key=verify_batch_key,
             )
         if existing_batch is not None:
-            existing_batch_id = str(existing_batch["batch_id"])
             context.log.info(
                 "xml_verify_asset: resuming matching unpulled batch %s for batch_key=%s.",
-                existing_batch_id,
+                existing_batch["batch_id"],
                 verify_batch_key[:12],
             )
-            batch = poll_batch_until_terminal(
+            return _resume_xml_verify_batch(
                 context,
+                engine,
+                db,
+                pipeline_config,
                 client,
-                existing_batch_id,
+                schema=schema,
+                xml_table=xml_table,
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_row=existing_batch,
+                agreement_uuids=selected_for_verify,
                 log_prefix="xml_verify_asset",
+                hard_invalid_updated=hard_invalid_updated,
             )
-            request_total = int(existing_batch["request_total"])
-            with engine.begin() as conn:
-                _upsert_xml_verify_batch_row(
-                    conn,
-                    schema,
-                    batch=batch,
-                    completion_window=str(existing_batch["completion_window"]),
-                    request_total=request_total,
-                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
-                    batch_key=verify_batch_key,
-                )
-
-            if batch.status != "completed":
-                context.log.warning(
-                    "xml_verify_asset: resumed batch %s ended with status=%s; no status updates applied.",
-                    batch.id,
-                    batch.status,
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-            else:
-                updated, parse_errors = _apply_xml_verify_batch_output(
-                    context=context,
-                    engine=engine,
-                    client=client,
-                    xml_table=xml_table,
-                    xml_status_reasons_table=f"{schema}.xml_status_reasons",
-                    batch=batch,
-                    log_prefix="xml_verify_asset",
-                )
-                with engine.begin() as conn:
-                    _mark_xml_verify_batch_pulled(conn, schema, batch.id)
-                context.log.info(
-                    "xml_verify_asset: resumed batch %s completed; updated=%s, parse_errors=%s, hard_invalid_updated=%s",
-                    batch.id,
-                    updated,
-                    parse_errors,
-                    hard_invalid_updated,
-                )
-
-            run_post_asset_refresh(context, db, pipeline_config)
-            return selected_for_verify
 
     jsonl_buf = io.StringIO()
     for line in lines:
@@ -1214,3 +1588,285 @@ def xml_verify_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return selected_for_verify
+
+
+@dg.asset(
+    name="4-2-regular_ingest_verify_xml",
+    ins={"built_xml_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_asset.key)},
+)
+def regular_ingest_xml_verify_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    built_xml_agreement_uuids: List[str],
+) -> List[str]:
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    resume_openai_batches = pipeline_config.resume_openai_batches
+    target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
+
+    engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    client = _oai_client()
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
+
+    if not target_agreement_uuids:
+        context.log.info("regular_ingest_xml_verify_asset: no upstream agreements from regular_ingest_xml_asset.")
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
+
+    queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
+        bindparam("auuids", expanding=True)
+    )
+    with engine.begin() as conn:
+        eligible_uuids = [
+            str(row)
+            for row in conn.execute(
+                queue_q,
+                {"lim": max(agreement_batch_size, len(target_agreement_uuids)), "auuids": target_agreement_uuids},
+            ).scalars().all()
+        ]
+    if not eligible_uuids:
+        context.log.info(
+            "regular_ingest_xml_verify_asset: no upstream-selected XML rows with status IS NULL, latest=1, and ai_repair_attempted=0."
+        )
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
+
+    select_q = text(
+        f"""
+        SELECT agreement_uuid, version, xml
+        FROM {xml_table}
+        WHERE agreement_uuid IN :auuids
+          AND latest = 1
+        ORDER BY agreement_uuid ASC
+        """
+    ).bindparams(bindparam("auuids", expanding=True))
+
+    verified_agreement_uuids: set[str] = set()
+    for start in range(0, len(eligible_uuids), agreement_batch_size):
+        chunk_uuids = eligible_uuids[start : start + agreement_batch_size]
+        with engine.begin() as conn:
+            rows = conn.execute(
+                select_q,
+                {"auuids": tuple(chunk_uuids)},
+            ).mappings().fetchall()
+
+        selected_for_verify = [str(row["agreement_uuid"]) for row in rows]
+        lines: List[Dict[str, Any]] = []
+        hard_invalid_rows: List[Dict[str, Any]] = []
+        for row in rows:
+            agreement_uuid = str(row["agreement_uuid"])
+            version = int(row["version"])
+            xml_text = row["xml"]
+            try:
+                root = ET.fromstring(str(xml_text))
+            except Exception as e:
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": [
+                            {
+                                "reason_code": XML_REASON_XML_PARSE_FAILURE,
+                                "reason_detail": f"XML parse failure: {e}",
+                                "page_uuid": None,
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            hard_rule_violations = find_hard_rule_violations(root)
+            if hard_rule_violations:
+                reason_rows: List[Dict[str, Any]] = []
+                for violation in hard_rule_violations:
+                    if violation.page_uuids:
+                        for page_uuid in violation.page_uuids:
+                            reason_rows.append(
+                                {
+                                    "reason_code": violation.reason_code,
+                                    "reason_detail": violation.reason_detail,
+                                    "page_uuid": page_uuid,
+                                }
+                            )
+                    else:
+                        reason_rows.append(
+                            {
+                                "reason_code": violation.reason_code,
+                                "reason_detail": violation.reason_detail,
+                                "page_uuid": None,
+                            }
+                        )
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": reason_rows,
+                    }
+                )
+                continue
+
+            try:
+                tag_tree = _render_tag_tree_from_root(root)
+            except Exception as e:
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": [
+                            {
+                                "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
+                                "reason_detail": f"Tag tree render failure: {e}",
+                                "page_uuid": None,
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            custom_id = f"{agreement_uuid}|{version}"
+            lines.append(
+                _build_xml_verify_batch_request_body(
+                    custom_id=custom_id,
+                    tag_tree=tag_tree,
+                    model="gpt-5-mini",
+                )
+            )
+
+        hard_invalid_updated = 0
+        if hard_invalid_rows:
+            xml_status_reasons_table = f"{schema}.xml_status_reasons"
+            with engine.begin() as conn:
+                for row in hard_invalid_rows:
+                    hard_invalid_updated += _set_xml_status_with_reasons(
+                        conn,
+                        xml_table,
+                        xml_status_reasons_table,
+                        agreement_uuid=str(row["agreement_uuid"]),
+                        version=int(row["version"]),
+                        status="invalid",
+                        reason_rows=list(row["reason_rows"]),
+                    )
+
+        if not lines:
+            with engine.begin() as conn:
+                verified_agreement_uuids.update(
+                    _fetch_latest_verified_agreement_uuids(
+                        conn,
+                        xml_table=xml_table,
+                        agreement_uuids=selected_for_verify,
+                    )
+                )
+            continue
+
+        llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
+        if not llm_targets:
+            raise ValueError("regular_ingest_xml_verify_asset: no (agreement_uuid, version) targets derived from LLM lines.")
+        verify_batch_key = agreement_version_batch_key(llm_targets)
+
+        if resume_openai_batches:
+            with engine.begin() as conn:
+                existing_batch = _fetch_unpulled_xml_verify_batch(
+                    conn,
+                    schema,
+                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                    batch_key=verify_batch_key,
+                )
+            if existing_batch is not None:
+                _ = _resume_xml_verify_batch(
+                    context,
+                    engine,
+                    db,
+                    pipeline_config,
+                    client,
+                    schema=schema,
+                    xml_table=xml_table,
+                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                    batch_row=existing_batch,
+                    agreement_uuids=selected_for_verify,
+                    log_prefix="regular_ingest_xml_verify_asset",
+                    hard_invalid_updated=hard_invalid_updated,
+                )
+                with engine.begin() as conn:
+                    verified_agreement_uuids.update(
+                        _fetch_latest_verified_agreement_uuids(
+                            conn,
+                            xml_table=xml_table,
+                            agreement_uuids=selected_for_verify,
+                        )
+                    )
+                continue
+
+        jsonl_buf = io.StringIO()
+        for line in lines:
+            _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+        jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+        jsonl_bytes.name = f"regular_ingest_xml_verify_requests_{start}.jsonl"
+
+        input_file = client.files.create(purpose="batch", file=jsonl_bytes)
+        completion_window = "24h"
+        batch = client.batches.create(
+            input_file_id=input_file.id,
+            endpoint="/v1/responses",
+            completion_window=completion_window,
+        )
+        with engine.begin() as conn:
+            _upsert_xml_verify_batch_row(
+                conn,
+                schema,
+                batch=batch,
+                completion_window=completion_window,
+                request_total=len(lines),
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_key=verify_batch_key,
+            )
+
+        final_batch = poll_batch_until_terminal(
+            context,
+            client,
+            batch.id,
+            log_prefix="regular_ingest_xml_verify_asset",
+        )
+        with engine.begin() as conn:
+            _upsert_xml_verify_batch_row(
+                conn,
+                schema,
+                batch=final_batch,
+                completion_window=completion_window,
+                request_total=len(lines),
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_key=verify_batch_key,
+            )
+
+        if final_batch.status == "completed":
+            _ = _apply_xml_verify_batch_output(
+                context=context,
+                engine=engine,
+                client=client,
+                xml_table=xml_table,
+                xml_status_reasons_table=f"{schema}.xml_status_reasons",
+                batch=final_batch,
+                log_prefix="regular_ingest_xml_verify_asset",
+            )
+        else:
+            context.log.warning(
+                "regular_ingest_xml_verify_asset: batch %s ended with status=%s; no status updates applied.",
+                final_batch.id,
+                final_batch.status,
+            )
+        with engine.begin() as conn:
+            _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)
+        with engine.begin() as conn:
+            verified_agreement_uuids.update(
+                _fetch_latest_verified_agreement_uuids(
+                    conn,
+                    xml_table=xml_table,
+                    agreement_uuids=selected_for_verify,
+                )
+            )
+
+    run_post_asset_refresh(context, db, pipeline_config)
+    return sorted(verified_agreement_uuids)

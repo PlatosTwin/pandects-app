@@ -56,10 +56,17 @@ from backend.auth.mcp_runtime import (
 )
 from backend.models.main_db import (
     Agreements,
+    AgreementCounsel,
+    Clauses,
+    Counsel,
     LatestSectionsSearch,
     NaicsSector,
     NaicsSubSector,
     Sections,
+    TaxClauseAssignment,
+    TaxClauseTaxonomyL1,
+    TaxClauseTaxonomyL2,
+    TaxClauseTaxonomyL3,
     TaxonomyL1,
     TaxonomyL2,
     TaxonomyL3,
@@ -177,6 +184,8 @@ _AUTH_SCHEMA_EXPORTS = (
 class _FilterOptionsPayload(TypedDict):
     targets: list[str]
     acquirers: list[str]
+    target_counsels: list[str]
+    acquirer_counsels: list[str]
     target_industries: list[str]
     acquirer_industries: list[str]
 
@@ -296,6 +305,11 @@ _filter_options_lock = Lock()
 _TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
 _taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _taxonomy_lock = Lock()
+_tax_clause_taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
+_tax_clause_taxonomy_lock = Lock()
+_COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
+_counsel_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
+_counsel_lock = Lock()
 _NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
 _naics_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
 _naics_lock = Lock()
@@ -532,6 +546,8 @@ def _pagination_metadata(
 def _build_sections_service_deps() -> SectionsServiceDeps:
     return SectionsServiceDeps(
         db=db,
+        AgreementCounsel=AgreementCounsel,
+        Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
         Sections=Sections,
         _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
@@ -990,14 +1006,16 @@ def _register_blueprints(target_app: Flask) -> None:
         target_app,
         deps=agreements_deps,
     )
-    taxonomy_blp, naics_blp, dumps_blp = register_reference_data_routes(
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
     api_ext.register_blueprint(sections_list_blp)
     api_ext.register_blueprint(agreements_blp)
     api_ext.register_blueprint(sections_blp)
     api_ext.register_blueprint(taxonomy_blp)
+    api_ext.register_blueprint(tax_clause_taxonomy_blp)
     api_ext.register_blueprint(naics_blp)
+    api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
     target_app.register_blueprint(
         register_mcp_routes(
@@ -1018,7 +1036,11 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     )
     agreements_deps = AgreementsDeps(
         Agreements=Agreements,
+        AgreementCounsel=AgreementCounsel,
+        Clauses=Clauses,
+        Counsel=Counsel,
         Sections=Sections,
+        TaxClauseAssignment=TaxClauseAssignment,
         XML=XML,
         _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
         _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
@@ -1047,23 +1069,34 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         time=time,
     )
     reference_data_deps = ReferenceDataDeps(
+        Counsel=Counsel,
         NaicsSector=NaicsSector,
         NaicsSubSector=NaicsSubSector,
         PUBLIC_DEV_BASE=PUBLIC_DEV_BASE,
         R2_BUCKET_NAME=R2_BUCKET_NAME,
+        TaxClauseTaxonomyL1=TaxClauseTaxonomyL1,
+        TaxClauseTaxonomyL2=TaxClauseTaxonomyL2,
+        TaxClauseTaxonomyL3=TaxClauseTaxonomyL3,
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
         _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
         _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
+        _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
         _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
         _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
+        _counsel_cache=cast(dict[str, object], cast(object, _counsel_cache)),
+        _counsel_lock=_counsel_lock,
         _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),
         _dumps_cache_lock=_dumps_cache_lock,
         _dumps_manifest_cache=cast(dict[str, object], cast(object, _dumps_manifest_cache)),
         _dumps_manifest_cache_lock=_dumps_manifest_cache_lock,
         _naics_cache=cast(dict[str, object], cast(object, _naics_cache)),
         _naics_lock=_naics_lock,
+        _tax_clause_taxonomy_cache=cast(
+            dict[str, object], cast(object, _tax_clause_taxonomy_cache)
+        ),
+        _tax_clause_taxonomy_lock=_tax_clause_taxonomy_lock,
         _taxonomy_cache=cast(dict[str, object], cast(object, _taxonomy_cache)),
         _taxonomy_lock=_taxonomy_lock,
         client=client,

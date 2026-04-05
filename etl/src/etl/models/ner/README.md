@@ -80,6 +80,7 @@ python ner.py final-train --train-docs all --decoder-mode independent --split-ve
 ```
 
 Add the winning architectural flags from validation to that command. For example, `--boundary-head`, `--boundary-loss-weight`, `--token-loss-mode focal`, or a different `--decoder-mode`.
+If the winning experiment used non-default window settings, pass them explicitly with `--train-subsample-window`, `--val-window`, and `--val-stride` so final training matches the selected XP recipe exactly.
 
 HPC:
 

@@ -33,6 +33,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+    regular_ingest_xml_verify_asset,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
@@ -47,8 +48,6 @@ from etl.domain.d_ai_repair import (
     build_jsonl_lines_for_page,
 )
 
-
-# If you prefer, you can plumb this via resources; this is fine too:
 def _oai_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -103,15 +102,19 @@ def _repair_model_for_candidate(
 def _fetch_candidates(
     conn: Connection,
     schema: str,
-    agreement_limit: int,
+    agreement_limit: int | None,
+    target_agreement_uuids: list[str] | None = None,
+    page_budget: int | None = None,
     attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
     exclude_in_flight: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Pull page-level AI-repair targets derived from invalid latest XML reasons.
     Targets come from xml_status_reasons.page_uuid rows and are ordered by
-    configured attempted/not-attempted priority, then by fewest unresolved
-    target pages.
+    configured attempted/not-attempted priority, then by whether the
+    agreement has only section_non_sequential reasons, then by fewest
+    unresolved target pages. When page_budget is set, selected agreements are
+    capped by total unresolved target pages instead of agreement count.
     """
     pages_table = f"{schema}.pages"
     ai_repair_requests_table = f"{schema}.ai_repair_requests"
@@ -124,25 +127,30 @@ def _fetch_candidates(
     else:
         blocked_statuses = ("completed",)
 
-    invalid_rows = conn.execute(
-        text(
-            canonical_ai_repair_enqueue_queue_sql(schema)
-        ).bindparams(bindparam("reason_codes", expanding=True)),
-        {
-            "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
-        },
-    ).mappings().fetchall()
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    queue_sql = text(
+        canonical_ai_repair_enqueue_queue_sql(schema, scoped=bool(scoped_uuids))
+    ).bindparams(bindparam("reason_codes", expanding=True))
+    params: Dict[str, Any] = {
+        "reason_codes": list(AI_REPAIR_ELIGIBLE_XML_REASON_CODES),
+    }
+    if scoped_uuids:
+        queue_sql = queue_sql.bindparams(bindparam("agreement_uuids", expanding=True))
+        params["agreement_uuids"] = scoped_uuids
+    invalid_rows = conn.execute(queue_sql, params).mappings().fetchall()
     if not invalid_rows:
         return []
 
     xml_version_by_agreement: Dict[str, int] = {}
     ai_repair_attempted_by_agreement: Dict[str, int] = {}
     page_uuids_by_agreement: Dict[str, List[str]] = {}
+    reason_codes_by_agreement: Dict[str, set[str]] = {}
     request_ids: List[str] = []
 
     for row in invalid_rows:
         agreement_uuid = str(row["agreement_uuid"])
         xml_version = int(row["xml_version"])
+        reason_code = str(row["reason_code"])
         attempted_raw = row.get("ai_repair_attempted")
         attempted = int(attempted_raw or 0)
         if attempted not in (0, 1):
@@ -171,6 +179,7 @@ def _fetch_candidates(
             raise ValueError(
                 f"Inconsistent ai_repair_attempted values for agreement {agreement_uuid}: {payload_attempted} and {attempted}."
             )
+        reason_codes_by_agreement.setdefault(agreement_uuid, set()).add(reason_code)
 
         page_uuids = page_uuids_by_agreement.setdefault(agreement_uuid, [])
         if page_uuid in page_uuids:
@@ -214,10 +223,15 @@ def _fetch_candidates(
         ).scalars().all()
     )
 
-    unresolved_by_agreement: Dict[str, Tuple[int, int, int, List[str]]] = {}
+    unresolved_by_agreement: Dict[str, Tuple[int, int, int, int, List[str]]] = {}
     for agreement_uuid, page_uuids in page_uuids_by_agreement.items():
         attempted = int(ai_repair_attempted_by_agreement[agreement_uuid])
         xml_version = int(xml_version_by_agreement[agreement_uuid])
+        reason_codes = reason_codes_by_agreement.get(agreement_uuid, set())
+        section_non_sequential_only = int(
+            bool(reason_codes)
+            and reason_codes == {XML_REASON_SECTION_NON_SEQUENTIAL}
+        )
         has_completed_requests = any(
             _full_request_id(page_uuid, xml_version) in completed_request_ids
             for page_uuid in page_uuids
@@ -232,6 +246,7 @@ def _fetch_candidates(
             continue
         unresolved_by_agreement[agreement_uuid] = (
             attempted,
+            section_non_sequential_only,
             int(has_completed_requests),
             xml_version,
             unresolved_page_uuids,
@@ -247,12 +262,30 @@ def _fetch_candidates(
 
     ranked_agreements = sorted(
         unresolved_by_agreement.items(),
-        key=lambda item: (attempted_rank[item[1][0]], len(item[1][3]), item[0]),
-    )[:agreement_limit]
+        key=lambda item: (
+            attempted_rank[item[1][0]],
+            0 if item[1][1] == 1 else 1,
+            len(item[1][4]),
+            item[0],
+        ),
+    )
+    if page_budget is not None and page_budget > 0:
+        selected_ranked_agreements: List[Tuple[str, Tuple[int, int, int, int, List[str]]]] = []
+        selected_page_total = 0
+        for agreement_uuid, payload in ranked_agreements:
+            unresolved_page_count = len(payload[4])
+            if selected_page_total + unresolved_page_count > page_budget:
+                break
+            selected_ranked_agreements.append((agreement_uuid, payload))
+            selected_page_total += unresolved_page_count
+        ranked_agreements = selected_ranked_agreements
+    elif agreement_limit is not None:
+        ranked_agreements = ranked_agreements[:agreement_limit]
+
     selected_page_rows: List[Dict[str, Any]] = []
     page_uuid_to_target: Dict[str, Tuple[str, int, int, int]] = {}
     for agreement_uuid, payload in ranked_agreements:
-        attempted, has_completed_requests, xml_version, unresolved_page_uuids = payload
+        attempted, _section_non_sequential_only, has_completed_requests, xml_version, unresolved_page_uuids = payload
         for page_uuid in unresolved_page_uuids:
             page_uuid_to_target[page_uuid] = (
                 agreement_uuid,
@@ -360,58 +393,21 @@ def _fetch_open_ai_repair_batch(
     return dict(row)
 
 
-def _fetch_open_ai_repair_batch_by_agreement_overlap(
+def _fetch_open_ai_repair_batch_for_scope(
     conn: Connection,
     schema: str,
     *,
-    agreement_uuids: List[str],
+    scoped_agreement_uuids: list[str],
 ) -> Dict[str, Any] | None:
-    if not agreement_uuids:
-        return None
-    ai_repair_batches_table = f"{schema}.ai_repair_batches"
-    ai_repair_requests_table = f"{schema}.ai_repair_requests"
-    pages_table = f"{schema}.pages"
-    q = text(
-        f"""
-        SELECT
-            b.batch_id,
-            b.status,
-            b.completion_window,
-            b.request_total,
-            b.batch_key,
-            COUNT(DISTINCT p.agreement_uuid) AS matched_agreements
-        FROM {ai_repair_batches_table} b
-        JOIN {ai_repair_requests_table} r
-            ON r.batch_id = b.batch_id
-        JOIN {pages_table} p
-            ON p.page_uuid = r.page_uuid
-        WHERE b.status NOT IN :terminal_statuses
-          AND p.agreement_uuid IN :auuids
-        GROUP BY
-            b.batch_id,
-            b.status,
-            b.completion_window,
-            b.request_total,
-            b.batch_key
-        ORDER BY
-            matched_agreements DESC,
-            b.created_at ASC
-        LIMIT 1
-        """
-    ).bindparams(
-        bindparam("terminal_statuses", expanding=True),
-        bindparam("auuids", expanding=True),
-    )
-    row = conn.execute(
-        q,
-        {
-            "terminal_statuses": list(_AI_REPAIR_TERMINAL_BATCH_STATUSES),
-            "auuids": agreement_uuids,
-        },
-    ).mappings().first()
-    if row is None:
-        return None
-    return dict(row)
+    matching_batch: Dict[str, Any] | None = None
+    for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL):
+        batch_key = agreement_batch_key([*scoped_agreement_uuids, f"model:{model}"])
+        batch_row = _fetch_open_ai_repair_batch(conn, schema, batch_key=batch_key)
+        if batch_row is None:
+            continue
+        if matching_batch is None or str(batch_row["batch_id"]) < str(matching_batch["batch_id"]):
+            matching_batch = batch_row
+    return matching_batch
 
 
 def _fetch_batch_agreement_uuids(
@@ -562,23 +558,29 @@ def _mark_xml_ai_repair_attempted(
     return int(result.rowcount or 0)
 
 
-@dg.asset(name="5-1_ai_repair_enqueue_asset")
-def ai_repair_enqueue_asset(
+def _enqueue_ai_repair_for_agreements(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
+    *,
+    target_agreement_uuids: list[str] | None,
+    log_prefix: str,
 ) -> List[str]:
     """
     Enqueue full-page AI retagging for XML-invalid target pages (by pageUUID).
     Target pages are derived from hard-rule XML violations for the latest invalid XML.
     """
     engine = db.get_engine()
-    client = _oai_client()
     batch_completion_window = "24h"
     should_exit_after_tx = False
     resume_openai_batches = pipeline_config.resume_openai_batches
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
 
     enqueued_agreement_uuids: Set[str] = set()
+
+    if target_agreement_uuids is not None and not scoped_uuids:
+        context.log.info("%s: no upstream agreements to enqueue.", log_prefix)
+        return []
 
     with engine.begin() as conn:
         assert_tables_exist(
@@ -596,46 +598,22 @@ def ai_repair_enqueue_asset(
 
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.xml_agreement_batch_size
+        page_budget = int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0)
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         if resume_openai_batches:
-            resume_probe_candidates = _fetch_candidates(
-                conn,
-                db.database,
-                agreement_limit=batch_size,
-                attempt_priority=pipeline_config.ai_repair_attempt_priority,
-                exclude_in_flight=False,
-            )
-            resume_probe_agreement_uuids = sorted(
-                {str(r["agreement_uuid"]) for r in resume_probe_candidates}
-            )
-            matched_open_batch: Dict[str, Any] | None = None
-            match_strategy = ""
-            if resume_probe_agreement_uuids:
-                probe_key = agreement_batch_key(resume_probe_agreement_uuids)
-                matched_open_batch = _fetch_open_ai_repair_batch(
+            matched_open_batch = (
+                _fetch_open_ai_repair_batch_for_scope(
                     conn,
                     db.database,
-                    batch_key=probe_key,
+                    scoped_agreement_uuids=scoped_uuids,
                 )
-                if matched_open_batch is not None:
-                    match_strategy = "exact_batch_key"
-                else:
-                    matched_open_batch = _fetch_open_ai_repair_batch_by_agreement_overlap(
-                        conn,
-                        db.database,
-                        agreement_uuids=resume_probe_agreement_uuids,
-                    )
-                    if matched_open_batch is not None:
-                        match_strategy = "agreement_overlap"
-
-            if matched_open_batch is None and not resume_probe_agreement_uuids:
-                matched_open_batch = _fetch_open_ai_repair_batch(
+                if scoped_uuids
+                else _fetch_open_ai_repair_batch(
                     conn,
                     db.database,
                 )
-                if matched_open_batch is not None:
-                    match_strategy = "oldest_open_batch"
+            )
             if matched_open_batch is not None:
                 resumed_batch_id = str(matched_open_batch["batch_id"])
                 resumed_agreement_uuids = _fetch_batch_agreement_uuids(
@@ -646,10 +624,10 @@ def ai_repair_enqueue_asset(
                 if resumed_agreement_uuids:
                     enqueued_agreement_uuids.update(resumed_agreement_uuids)
                     context.log.info(
-                        "ai_repair_enqueue_asset: resuming open batch %s for %s agreements (strategy=%s).",
+                        "%s: resuming stranded batch %s for %s agreements.",
+                        log_prefix,
                         resumed_batch_id,
                         len(resumed_agreement_uuids),
-                        match_strategy or "unknown",
                     )
                     should_exit_after_tx = True
 
@@ -659,11 +637,13 @@ def ai_repair_enqueue_asset(
             candidates = _fetch_candidates(
                 conn,
                 db.database,
-                agreement_limit=batch_size,
+                agreement_limit=None if page_budget > 0 else batch_size,
+                target_agreement_uuids=scoped_uuids or None,
+                page_budget=page_budget if page_budget > 0 else None,
                 attempt_priority=pipeline_config.ai_repair_attempt_priority,
             )
             if not candidates:
-                context.log.info("ai_repair_enqueue_asset: no candidates.")
+                context.log.info("%s: no candidates.", log_prefix)
                 should_exit_after_tx = True
             else:
                 candidate_agreement_by_page_uuid = {
@@ -679,14 +659,16 @@ def ai_repair_enqueue_asset(
                     1 for attempted in candidate_attempted_by_agreement.values() if attempted == 1
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: selected agreements total=%s unattempted=%s already_attempted=%s target_pages=%s",
+                    "%s: selected agreements total=%s unattempted=%s already_attempted=%s target_pages=%s",
+                    log_prefix,
                     candidate_agreement_count,
                     candidate_agreement_count - candidate_already_attempted,
                     candidate_already_attempted,
                     len(candidates),
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: attempt priority=%s",
+                    "%s: attempt priority=%s",
+                    log_prefix,
                     pipeline_config.ai_repair_attempt_priority.value,
                 )
 
@@ -728,9 +710,10 @@ def ai_repair_enqueue_asset(
                 for meta in metas
             ]
             if not all_lines_meta:
-                context.log.info("ai_repair_enqueue_asset: nothing to enqueue.")
+                context.log.info("%s: nothing to enqueue.", log_prefix)
                 should_exit_after_tx = True
             else:
+                client = _oai_client()
                 llm_agreement_uuids = sorted(
                     {
                         str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
@@ -740,7 +723,8 @@ def ai_repair_enqueue_asset(
                 if not llm_agreement_uuids:
                     raise ValueError("ai_repair_enqueue_asset: failed to derive agreement UUIDs for enqueued lines.")
                 context.log.info(
-                    "ai_repair_enqueue_asset: prepared requests by model=%s",
+                    "%s: prepared requests by model=%s",
+                    log_prefix,
                     dict(sorted(request_count_by_model.items())),
                 )
 
@@ -790,7 +774,8 @@ def ai_repair_enqueue_asset(
                     conn, db.database, enqueued_agreement_uuids
                 )
                 context.log.info(
-                    "ai_repair_enqueue_asset: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                    "%s: marked ai_repair_attempted=1 on %s latest XML rows for %s agreements.",
+                    log_prefix,
                     marked_rows,
                     len(enqueued_agreement_uuids),
                 )
@@ -801,6 +786,40 @@ def ai_repair_enqueue_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(enqueued_agreement_uuids)
+
+
+@dg.asset(name="5-1_ai_repair_enqueue_asset")
+def ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    return _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=None,
+        log_prefix="ai_repair_enqueue_asset",
+    )
+
+
+@dg.asset(
+    name="5-1-regular_ingest_ai_repair_enqueue_asset",
+    ins={"verified_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
+)
+def regular_ingest_ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_agreement_uuids: List[str],
+) -> List[str]:
+    return _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_agreement_uuids,
+        log_prefix="regular_ingest_ai_repair_enqueue_asset",
+    )
 
 
 def _request_counts(batch: Any) -> Tuple[int, int, int]:
@@ -1133,15 +1152,13 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     return rid, out
 
 
-@dg.asset(
-    name="5-2_ai_repair_poll_asset",
-    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
-)
-def ai_repair_poll_asset(
+def _poll_ai_repair_batches(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
+    *,
+    log_prefix: str,
 ) -> List[str]:
     """
     Poll terminal batches, read output/error JSONL, and persist parsed entities strictly.
@@ -1167,7 +1184,7 @@ def ai_repair_poll_asset(
     target_agreement_uuids = sorted(set(enqueued_agreement_uuids))
 
     if not target_agreement_uuids:
-        context.log.info("ai_repair_poll_asset: no upstream agreements from enqueue.")
+        context.log.info("%s: no upstream agreements from enqueue.", log_prefix)
         run_post_asset_refresh(context, db, pipeline_config)
         return []
 
@@ -1204,7 +1221,7 @@ def ai_repair_poll_asset(
                 .fetchall()
             )
             if not rows:
-                context.log.info("ai_repair_poll_asset: no batches to poll.")
+                context.log.info("%s: no batches to poll.", log_prefix)
                 break
 
             upd_batch = text(
@@ -1289,16 +1306,9 @@ def ai_repair_poll_asset(
                         for row in page_rows
                     }
 
-                if b.status in _AI_REPAIR_FAILED_BATCH_STATUSES:
-                    _bulk_update_status(conn, db.database, req_ids_all, "failed")
+                batch_failed_terminal = b.status in _AI_REPAIR_FAILED_BATCH_STATUSES
+                if batch_failed_terminal:
                     terminal_failed_batches.append((str(bid), str(b.status), total, failed))
-                    context.log.error(
-                        "Batch %s ended with status=%s; marked %s requests as failed.",
-                        bid,
-                        b.status,
-                        len(req_ids_all),
-                    )
-                    continue
 
                 success_ids: Set[str] = set()
                 http_success_ids: Set[str] = set()
@@ -1439,13 +1449,24 @@ def ai_repair_poll_asset(
                 # Explicit failures
                 _bulk_update_status(conn, db.database, failed_ids, "failed")
 
-                # Leftovers: neither output nor error line → completed_no_output
+                # Leftovers on completed batches produced no output/error payloads.
+                # Leftovers on expired/failed/cancelled batches never returned and
+                # should be retried on a future enqueue.
                 leftover_ids = req_ids_all - http_success_ids - failed_ids - parse_error_ids
-                _bulk_update_status(conn, db.database, leftover_ids, "completed_no_output")
+                leftover_status = "failed" if batch_failed_terminal else "completed_no_output"
+                _bulk_update_status(conn, db.database, leftover_ids, leftover_status)
 
                 # Summary
                 context.log.info(
-                    f"Batch {bid}: success={len(success_ids)} failed={len(failed_ids)} parse_error={len(parse_error_ids)} no_output={len(no_output_ids)}"
+                    "Batch %s: success=%s failed=%s parse_error=%s no_output=%s leftover=%s"
+                    % (
+                        bid,
+                        len(success_ids),
+                        len(failed_ids),
+                        len(parse_error_ids),
+                        len(no_output_ids),
+                        len(leftover_ids),
+                    )
                 )
 
         # Emit progress summary for running batches outside of transaction
@@ -1526,3 +1547,41 @@ def ai_repair_poll_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(successful_request_ids)
+
+
+@dg.asset(
+    name="5-2_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
+)
+def ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    return _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        enqueued_agreement_uuids,
+        log_prefix="ai_repair_poll_asset",
+    )
+
+
+@dg.asset(
+    name="5-2-regular_ingest_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=regular_ingest_ai_repair_enqueue_asset.key)},
+)
+def regular_ingest_ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    return _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        enqueued_agreement_uuids,
+        log_prefix="regular_ingest_ai_repair_poll_asset",
+    )

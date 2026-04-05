@@ -1,9 +1,0 @@
----
-alwaysApply: false
----
-<design_and_scope_constraints>
-- Preserve the existing design system and interaction patterns unless the user explicitly asks for a redesign.
-- Keep scope tight: fix the requested problem and directly related quality gaps, but do not add side quests.
-- Do not invent new UI patterns, tokens, or visual treatments when existing ones already solve the problem.
-- If the request is ambiguous, choose the simplest interpretation that still satisfies the stated requirement.
-</design_and_scope_constraints>

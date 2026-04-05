@@ -56,6 +56,28 @@ class XmlRow(Protocol):
     version: int
 
 
+class ClauseRow(Protocol):
+    clause_uuid: str
+    agreement_uuid: str
+    section_uuid: str
+    xml_version: int | None
+    module: str
+    clause_order: int
+    anchor_label: str | None
+    start_char: int
+    end_char: int
+    clause_text: str
+    source_method: str
+    context_type: str
+
+
+class ClauseAssignmentRow(Protocol):
+    clause_uuid: str
+    standard_id: str
+    is_gold_label: int
+    model_name: str | None
+
+
 def upsert_agreements(
     staged_agreements: Sequence[AgreementRow],
     schema: str,
@@ -569,3 +591,111 @@ def upsert_sections(
     for i in range(0, len(rows), 250):
         batch = rows[i : i + 250]
         _ = conn.execute(upsert_sql, batch)
+
+
+def replace_module_clauses(
+    staged_clauses: Sequence[Mapping[str, object]],
+    *,
+    agreement_uuids: Sequence[str],
+    module: str,
+    schema: str,
+    conn: Connection,
+) -> None:
+    if not agreement_uuids:
+        return
+
+    clauses_table = f"{schema}.clauses"
+    assignments_table = f"{schema}.tax_clause_assignments"
+    delete_assignments_sql = text(
+        f"""
+        DELETE a
+        FROM {assignments_table} a
+        JOIN {clauses_table} c
+          ON c.clause_uuid = a.clause_uuid
+        WHERE c.agreement_uuid IN :agreement_uuids
+          AND c.module = :module
+        """
+    ).bindparams(bindparam("agreement_uuids", expanding=True))
+    delete_clauses_sql = text(
+        f"""
+        DELETE FROM {clauses_table}
+        WHERE agreement_uuid IN :agreement_uuids
+          AND module = :module
+        """
+    ).bindparams(bindparam("agreement_uuids", expanding=True))
+    insert_sql = text(
+        f"""
+        INSERT INTO {clauses_table} (
+            clause_uuid,
+            agreement_uuid,
+            section_uuid,
+            xml_version,
+            module,
+            clause_order,
+            anchor_label,
+            start_char,
+            end_char,
+            clause_text,
+            source_method,
+            context_type
+        ) VALUES (
+            :clause_uuid,
+            :agreement_uuid,
+            :section_uuid,
+            :xml_version,
+            :module,
+            :clause_order,
+            :anchor_label,
+            :start_char,
+            :end_char,
+            :clause_text,
+            :source_method,
+            :context_type
+        )
+        """
+    )
+
+    params = {"agreement_uuids": tuple(agreement_uuids), "module": module}
+    _ = conn.execute(delete_assignments_sql, params)
+    _ = conn.execute(delete_clauses_sql, params)
+
+    rows = [dict(row._asdict()) if hasattr(row, "_asdict") else dict(row) for row in staged_clauses]
+    for i in range(0, len(rows), 250):
+        batch = rows[i : i + 250]
+        if batch:
+            _ = conn.execute(insert_sql, batch)
+
+
+def upsert_tax_clause_assignments(
+    staged_assignments: Sequence[Mapping[str, object]],
+    *,
+    schema: str,
+    conn: Connection,
+) -> None:
+    assignments_table = f"{schema}.tax_clause_assignments"
+    upsert_sql = text(
+        f"""
+        INSERT INTO {assignments_table} (
+            clause_uuid,
+            standard_id,
+            is_gold_label,
+            model_name,
+            assigned_at
+        ) VALUES (
+            :clause_uuid,
+            :standard_id,
+            :is_gold_label,
+            :model_name,
+            UTC_TIMESTAMP()
+        )
+        ON DUPLICATE KEY UPDATE
+            is_gold_label = VALUES(is_gold_label),
+            model_name = VALUES(model_name),
+            assigned_at = UTC_TIMESTAMP()
+        """
+    )
+    rows = [dict(row._asdict()) if hasattr(row, "_asdict") else dict(row) for row in staged_assignments]
+    for i in range(0, len(rows), 250):
+        batch = rows[i : i + 250]
+        if batch:
+            _ = conn.execute(upsert_sql, batch)

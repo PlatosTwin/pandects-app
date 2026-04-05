@@ -155,6 +155,8 @@ class VerifyTurnstileTokenProtocol(Protocol):
 @dataclass(frozen=True)
 class SectionsServiceDeps:
     db: Any
+    AgreementCounsel: Any
+    Counsel: Any
     LatestSectionsSearch: Any
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
@@ -179,7 +181,11 @@ class SectionsDeps:
 @dataclass(frozen=True)
 class AgreementsDeps:
     Agreements: Any
+    AgreementCounsel: Any
+    Clauses: Any
+    Counsel: Any
     Sections: Any
+    TaxClauseAssignment: Any
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int
     _FILTER_OPTIONS_TTL_SECONDS: int
@@ -208,23 +214,32 @@ class AgreementsDeps:
 
 @dataclass(frozen=True)
 class ReferenceDataDeps:
+    Counsel: Any
     NaicsSector: Any
     NaicsSubSector: Any
     PUBLIC_DEV_BASE: str
     R2_BUCKET_NAME: str
+    TaxClauseTaxonomyL1: Any
+    TaxClauseTaxonomyL2: Any
+    TaxClauseTaxonomyL3: Any
     TaxonomyL1: Any
     TaxonomyL2: Any
     TaxonomyL3: Any
     _DUMPS_CACHE_TTL_SECONDS: int
     _DUMPS_MANIFEST_CACHE_TTL_SECONDS: int
+    _COUNSEL_TTL_SECONDS: int
     _NAICS_TTL_SECONDS: int
     _TAXONOMY_TTL_SECONDS: int
+    _counsel_cache: dict[str, Any]
+    _counsel_lock: Any
     _dumps_cache: dict[str, Any]
     _dumps_cache_lock: Any
     _dumps_manifest_cache: dict[str, Any]
     _dumps_manifest_cache_lock: Any
     _naics_cache: dict[str, Any]
     _naics_lock: Any
+    _tax_clause_taxonomy_cache: dict[str, Any]
+    _tax_clause_taxonomy_lock: Any
     _taxonomy_cache: dict[str, Any]
     _taxonomy_lock: Any
     client: Any

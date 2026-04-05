@@ -38,9 +38,15 @@ class SectionsArgsPayload(TypedDict):
     target: list[str]
     acquirer: list[str]
     standard_id: list[str]
+    transaction_price_total: list[str]
+    transaction_price_stock: list[str]
+    transaction_price_cash: list[str]
+    transaction_price_assets: list[str]
     transaction_consideration: list[str]
     target_type: list[str]
     acquirer_type: list[str]
+    target_counsel: list[str]
+    acquirer_counsel: list[str]
     target_industry: list[str]
     acquirer_industry: list[str]
     deal_status: list[str]
@@ -101,6 +107,8 @@ class SectionsArgsSchema(Schema):
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
+    target_counsel = fields.List(fields.Str(), load_default=[])
+    acquirer_counsel = fields.List(fields.Str(), load_default=[])
     target_industry = fields.List(fields.Str(), load_default=[])
     acquirer_industry = fields.List(fields.Str(), load_default=[])
     deal_status = fields.List(fields.Str(), load_default=[])

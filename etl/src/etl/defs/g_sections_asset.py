@@ -7,7 +7,9 @@ from sqlalchemy import bindparam, text
 
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.f_xml_asset import xml_verify_asset
+from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
 from etl.defs.f_xml_repair_cycle_asset import post_repair_verify_xml_asset
+from etl.defs.f_xml_repair_cycle_asset import regular_ingest_post_repair_verify_xml_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.utils.db_utils import upsert_sections
@@ -36,12 +38,15 @@ def _run_sections_for_agreements(
 
     scoped_uuids = sorted(set(target_agreement_uuids or []))
     use_scope = len(scoped_uuids) > 0
-    if use_scope:
-        if len(scoped_uuids) > agreement_batch_size:
-            raise ValueError(
-                f"{log_prefix}: received more upstream agreements than xml_agreement_batch_size; "
-                + "run-scoped sections extraction accepts at most one upstream XML batch."
-            )
+    scoped_limit = max(agreement_batch_size, len(scoped_uuids))
+    if use_scope and len(scoped_uuids) > agreement_batch_size:
+        context.log.info(
+            "%s: upstream scope has %s agreements, exceeding xml_agreement_batch_size=%s; "
+            + "processing the full run-scoped XML set.",
+            log_prefix,
+            len(scoped_uuids),
+            agreement_batch_size,
+        )
 
     while True:
         with engine.begin() as conn:
@@ -51,7 +56,7 @@ def _run_sections_for_agreements(
                         text(canonical_fresh_sections_queue_sql(schema, scoped=True)).bindparams(
                             bindparam("auuids", expanding=True)
                         ),
-                        {"auuids": tuple(scoped_uuids), "lim": agreement_batch_size},
+                        {"auuids": tuple(scoped_uuids), "lim": scoped_limit},
                     )
                     .scalars()
                     .all()
@@ -185,6 +190,25 @@ def sections_from_fresh_xml_asset(
 
 
 @dg.asset(
+    name="6-1-regular_ingest_sections_from_fresh_xml",
+    ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
+)
+def regular_ingest_sections_from_fresh_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_fresh_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_fresh_agreement_uuids,
+        log_prefix="regular_ingest_sections_from_fresh_xml_asset",
+    )
+
+
+@dg.asset(
     name="6-2_sections_from_repair_xml",
     ins={"verified_repair_agreement_uuids": dg.AssetIn(key=post_repair_verify_xml_asset.key)},
 )
@@ -200,4 +224,23 @@ def sections_from_repair_xml_asset(
         pipeline_config,
         target_agreement_uuids=verified_repair_agreement_uuids,
         log_prefix="sections_from_repair_xml_asset",
+    )
+
+
+@dg.asset(
+    name="6-2-regular_ingest_sections_from_repair_xml",
+    ins={"verified_repair_agreement_uuids": dg.AssetIn(key=regular_ingest_post_repair_verify_xml_asset.key)},
+)
+def regular_ingest_sections_from_repair_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_repair_agreement_uuids: List[str],
+) -> List[str]:
+    return _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=verified_repair_agreement_uuids,
+        log_prefix="regular_ingest_sections_from_repair_xml_asset",
     )

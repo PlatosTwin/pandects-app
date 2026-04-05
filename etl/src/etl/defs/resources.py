@@ -86,12 +86,16 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
+    ai_repair_page_budget: int = 0  # when > 0, ai_repair_enqueue selects by page budget instead of agreement count
     ai_repair_attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     taxonomy_mode: TaxonomyMode = TaxonomyMode.LLM  # llm | ml | gold_backfill
     taxonomy_section_title_regex: str | None = None  # optional REGEXP filter for taxonomy prediction modes
     taxonomy_llm_model: str = "gpt-5-mini"  # used in taxonomy_asset llm mode
     taxonomy_llm_sections_per_request: int = 5  # sections bundled into each LLM request within a batch
+    tax_module_agreement_batch_size: int = 25  # used in tax_module assets
+    tax_module_llm_model: str = "gpt-5-mini"  # used in tax_module_asset
+    tax_module_llm_clauses_per_request: int = 5  # clauses bundled into each LLM request within a batch
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
     embed_agreement_batch_size: int = 10  # used in 9_embed_sections when embed_target=agreement
@@ -289,12 +293,16 @@ def get_resources() -> dict[str, object]:
         "tagging_agreement_batch_size",
         "pre_processing_agreement_batch_size",
         "xml_agreement_batch_size",
+        "ai_repair_page_budget",
         "ai_repair_attempt_priority",
         "taxonomy_agreement_batch_size",
         "taxonomy_mode",
         "taxonomy_section_title_regex",
         "taxonomy_llm_model",
         "taxonomy_llm_sections_per_request",
+        "tax_module_agreement_batch_size",
+        "tax_module_llm_model",
+        "tax_module_llm_clauses_per_request",
         "tx_metadata_agreement_batch_size",
         "tx_metadata_mode",
         "embed_agreement_batch_size",
@@ -345,6 +353,9 @@ def get_resources() -> dict[str, object]:
     if "xml_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
 
+    if "ai_repair_page_budget" in yaml_config:
+        pipeline_config_kwargs["ai_repair_page_budget"] = int(yaml_config["ai_repair_page_budget"])
+
     if "ai_repair_attempt_priority" in yaml_config:
         priority_str = str(yaml_config["ai_repair_attempt_priority"]).lower()
         pipeline_config_kwargs["ai_repair_attempt_priority"] = AIRepairAttemptPriority(priority_str)
@@ -370,6 +381,21 @@ def get_resources() -> dict[str, object]:
     if "taxonomy_llm_sections_per_request" in yaml_config:
         pipeline_config_kwargs["taxonomy_llm_sections_per_request"] = int(
             yaml_config["taxonomy_llm_sections_per_request"]
+        )
+
+    if "tax_module_agreement_batch_size" in yaml_config:
+        pipeline_config_kwargs["tax_module_agreement_batch_size"] = int(
+            yaml_config["tax_module_agreement_batch_size"]
+        )
+
+    if "tax_module_llm_model" in yaml_config:
+        pipeline_config_kwargs["tax_module_llm_model"] = str(
+            yaml_config["tax_module_llm_model"]
+        ).strip()
+
+    if "tax_module_llm_clauses_per_request" in yaml_config:
+        pipeline_config_kwargs["tax_module_llm_clauses_per_request"] = int(
+            yaml_config["tax_module_llm_clauses_per_request"]
         )
     
     if "tx_metadata_agreement_batch_size" in yaml_config:

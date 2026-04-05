@@ -20,23 +20,31 @@ import json
 import os
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 from openai import OpenAI
 
+from etl.domain.counsel import (
+    canonicalize_counsel_name,
+    format_counsel_display_name,
+    split_counsel_names,
+)
 from etl.defs.resources import DBResource, PipelineConfig, TxMetadataMode
+from etl.defs.h_taxonomy_asset import regular_ingest_taxonomy_gold_backfill_asset
 from etl.domain.i_tx_metadata import (
     build_offline_counsel_request_body,
     build_offline_counsel_update_params,
     build_offline_tx_metadata_request_body,
+    build_web_search_retry_context,
     build_offline_update_params,
     build_tx_metadata_request_body_web_search_only,
     parse_offline_counsel_response_text,
     build_tx_metadata_update_params_web_search_only,
+    merge_retry_web_search_response,
     parse_offline_tx_metadata_response_text,
     parse_tx_metadata_response_text_web_search,
 )
@@ -45,8 +53,8 @@ from etl.utils.openai_batch import (
     poll_batch_until_terminal,
     read_openai_file_text,
 )
+from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.latest_sections_search import refresh_latest_sections_search
-from etl.utils.pipeline_state_sql import canonical_components_cte_sql
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
@@ -66,12 +74,79 @@ def _oai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
+def _has_text_sql(column_sql: str) -> str:
+    return f"{column_sql} IS NOT NULL AND TRIM({column_sql}) <> ''"
+
+
+def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:
+    consideration_sql = f"{alias}.transaction_consideration"
+    price_total_sql = f"{alias}.transaction_price_total"
+    price_cash_sql = f"{alias}.transaction_price_cash"
+    price_stock_sql = f"{alias}.transaction_price_stock"
+    price_assets_sql = f"{alias}.transaction_price_assets"
+    target_type_sql = f"{alias}.target_type"
+    acquirer_type_sql = f"{alias}.acquirer_type"
+
+    has_consideration = _has_text_sql(consideration_sql)
+    has_total = _has_text_sql(price_total_sql)
+    has_cash = _has_text_sql(price_cash_sql)
+    has_stock = _has_text_sql(price_stock_sql)
+    has_assets = _has_text_sql(price_assets_sql)
+    has_target_type = _has_text_sql(target_type_sql)
+    has_acquirer_type = _has_text_sql(acquirer_type_sql)
+
+    mixed_component_count = (
+        f"(CASE WHEN {has_cash} THEN 1 ELSE 0 END + "
+        f"CASE WHEN {has_stock} THEN 1 ELSE 0 END + "
+        f"CASE WHEN {has_assets} THEN 1 ELSE 0 END)"
+    )
+
+    return (
+        f"NOT ({has_consideration})\n"
+        f"            OR NOT ({has_target_type})\n"
+        f"            OR NOT ({has_acquirer_type})\n"
+        f"            OR (\n"
+        f"                COALESCE({consideration_sql}, '') = 'cash'\n"
+        f"                AND (\n"
+        f"                    NOT ({has_cash})\n"
+        f"                    OR NOT ({has_total})\n"
+        f"                )\n"
+        f"            )\n"
+        f"            OR (\n"
+        f"                COALESCE({consideration_sql}, '') = 'stock'\n"
+        f"                AND (\n"
+        f"                    NOT ({has_stock})\n"
+        f"                    OR NOT ({has_total})\n"
+        f"                )\n"
+        f"            )\n"
+        f"            OR (\n"
+        f"                COALESCE({consideration_sql}, '') = 'mixed'\n"
+        f"                AND (\n"
+        f"                    {mixed_component_count} < 2\n"
+        f"                    OR NOT ({has_total})\n"
+        f"                )\n"
+        f"            )"
+    )
+
+
+def _web_search_model_for_agreement(agreement_row: Dict[str, Any]) -> str:
+    if int(agreement_row.get("initial_metadata_pass", 1) or 0) == 1:
+        return "gpt-5-mini"
+    return "gpt-5.1"
+
+
 def _fetch_unapplied_offline_batch(
     conn: Connection,
     schema: str,
     *,
     batch_kind: str,
+    batch_key: str | None = None,
 ) -> Dict[str, Any] | None:
+    batch_key_clause = ""
+    params: dict[str, object] = {"batch_kind": batch_kind}
+    if batch_key is not None:
+        batch_key_clause = "AND batch_key = :batch_key"
+        params["batch_key"] = batch_key
     row = conn.execute(
         text(
             f"""
@@ -83,15 +158,17 @@ def _fetch_unapplied_offline_batch(
                 output_file_id,
                 error_file_id,
                 completion_window,
-                request_total
+                request_total,
+                batch_key
             FROM {schema}.tx_metadata_offline_batches
             WHERE applied = 0
               AND batch_kind = :batch_kind
+              {batch_key_clause}
             ORDER BY created_at ASC
             LIMIT 1
             """
         ),
-        {"batch_kind": batch_kind},
+        params,
     ).mappings().first()
     if row is None:
         return None
@@ -106,6 +183,7 @@ def _upsert_offline_batch_row(
     batch: Any,
     completion_window: str,
     request_total: int,
+    batch_key: str,
 ) -> None:
     _ = conn.execute(
         text(
@@ -120,6 +198,7 @@ def _upsert_offline_batch_row(
                 error_file_id,
                 completion_window,
                 request_total,
+                batch_key,
                 applied
             )
             VALUES (
@@ -132,6 +211,7 @@ def _upsert_offline_batch_row(
                 :error_file_id,
                 :completion_window,
                 :request_total,
+                :batch_key,
                 0
             )
             ON DUPLICATE KEY UPDATE
@@ -140,7 +220,8 @@ def _upsert_offline_batch_row(
                 output_file_id = VALUES(output_file_id),
                 error_file_id = VALUES(error_file_id),
                 completion_window = VALUES(completion_window),
-                request_total = VALUES(request_total)
+                request_total = VALUES(request_total),
+                batch_key = VALUES(batch_key)
             """
         ),
         {
@@ -152,6 +233,7 @@ def _upsert_offline_batch_row(
             "error_file_id": getattr(batch, "error_file_id", None),
             "completion_window": completion_window,
             "request_total": request_total,
+            "batch_key": batch_key,
         },
     )
 
@@ -267,7 +349,7 @@ def _persist_web_search_successes(
     engine: Any,
     schema: str,
     update_web_q: Any,
-    successes: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]],
+    successes: list[tuple[Dict[str, Any], Dict[str, Any], Any, str, Dict[str, int], int]],
     failed_uuid_by_stage: Dict[str, List[str]],
     token_totals: Dict[str, int],
     refreshed_uuids: list[str],
@@ -275,11 +357,16 @@ def _persist_web_search_successes(
     updated = 0
     validation_failures = 0
     refreshed = 0
-    for uuid, obj, filing_date, raw_payload, response_usage, search_count in successes:
+    for agreement_row, obj, filing_date, raw_payload, response_usage, search_count in successes:
+        uuid = str(agreement_row["agreement_uuid"])
         try:
+            merged_obj = merge_retry_web_search_response(
+                agreement=agreement_row,
+                tx_metadata_obj=obj,
+            )
             params = build_tx_metadata_update_params_web_search_only(
                 agreement_uuid=uuid,
-                tx_metadata_obj=obj,
+                tx_metadata_obj=merged_obj,
                 response_usage=response_usage,
                 search_count=search_count,
                 filing_date=filing_date,
@@ -364,11 +451,11 @@ def _apply_offline_batch_output(
     parse_response_text: Any | None = None,
     build_update_params: Any | None = None,
     log_prefix: str = "tx_metadata_asset (offline)",
-) -> Tuple[int, int, list[str]]:
+ ) -> Tuple[int, int, list[str], list[str]]:
     ofid = getattr(batch, "output_file_id", None)
     if not ofid:
         context.log.warning("%s: batch has no output_file_id.", log_prefix)
-        return 0, 0, []
+        return 0, 0, [], []
 
     out_content = client.files.content(ofid)
     out_text = read_openai_file_text(out_content)
@@ -390,6 +477,7 @@ def _apply_offline_batch_output(
     updated = 0
     parse_errors = 0
     refreshed_uuids: list[str] = []
+    processed_uuids: list[str] = []
     for line_str in out_text.strip().splitlines():
         if not line_str.strip():
             continue
@@ -415,14 +503,15 @@ def _apply_offline_batch_output(
             parse_errors += 1
             context.log.warning("%s: parse error for %s: %s", log_prefix, rid, e)
             continue
+        processed_uuids.append(str(rid))
 
         with engine.begin() as conn:
             result = conn.execute(resolved_update_sql, params)
             if int(result.rowcount or 0) > 0:
                 _ = refresh_latest_sections_search(conn, schema, [str(rid)])
                 refreshed_uuids.append(str(rid))
-        updated += 1
-    return updated, parse_errors, refreshed_uuids
+                updated += 1
+    return updated, parse_errors, refreshed_uuids, processed_uuids
 
 
 def _metadata_offline_update_sql(agreements_table: str) -> Any:
@@ -449,23 +538,184 @@ def _counsel_offline_update_sql(agreements_table: str) -> Any:
         UPDATE {agreements_table}
         SET
             target_counsel = COALESCE(target_counsel, :target_counsel),
-            acquirer_counsel = COALESCE(acquirer_counsel, :acquirer_counsel),
-            target_counsel_normalized = COALESCE(target_counsel_normalized, :target_counsel_normalized),
-            acquirer_counsel_normalized = COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
+            acquirer_counsel = COALESCE(acquirer_counsel, :acquirer_counsel)
         WHERE agreement_uuid = :uuid
           AND (
             NOT (target_counsel <=> COALESCE(target_counsel, :target_counsel))
             OR NOT (acquirer_counsel <=> COALESCE(acquirer_counsel, :acquirer_counsel))
-            OR NOT (
-                target_counsel_normalized
-                <=> COALESCE(target_counsel_normalized, :target_counsel_normalized)
-            )
-            OR NOT (
-                acquirer_counsel_normalized
-                <=> COALESCE(acquirer_counsel_normalized, :acquirer_counsel_normalized)
-            )
           )
         """
+    )
+
+
+def _sync_counsel_mappings(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    agreements_table: str,
+    agreement_uuids: Sequence[str] | None = None,
+) -> None:
+    counsel_table = f"{schema}.counsel"
+    agreement_counsel_table = f"{schema}.agreement_counsel"
+    target_uuids = tuple(sorted({agreement_uuid for agreement_uuid in (agreement_uuids or []) if agreement_uuid}))
+    if agreement_uuids is not None and not target_uuids:
+        context.log.info("tx_metadata_asset (offline counsel): no agreement counsel rows needed syncing.")
+        return
+    sync_sql = (
+        text(
+            f"""
+            SELECT
+                agreement_uuid,
+                target_counsel,
+                acquirer_counsel
+            FROM {agreements_table}
+            WHERE agreement_uuid IN :agreement_uuids
+              AND (
+                    (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
+                    OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
+              )
+            ORDER BY agreement_uuid ASC
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+        if agreement_uuids is not None
+        else text(
+            f"""
+            SELECT
+                agreement_uuid,
+                target_counsel,
+                acquirer_counsel
+            FROM {agreements_table}
+            WHERE (target_counsel IS NOT NULL AND TRIM(target_counsel) <> '')
+               OR (acquirer_counsel IS NOT NULL AND TRIM(acquirer_counsel) <> '')
+            ORDER BY agreement_uuid ASC
+            """
+        )
+    )
+    load_counsel_sql = text(
+        f"""
+        SELECT counsel_id, canonical_name, canonical_name_normalized
+        FROM {counsel_table}
+        """
+    )
+    insert_counsel_sql = text(
+        f"""
+        INSERT INTO {counsel_table} (
+            canonical_name,
+            canonical_name_normalized
+        ) VALUES (
+            :canonical_name,
+            :canonical_name_normalized
+        )
+        """
+    )
+    select_counsel_id_sql = text(
+        f"""
+        SELECT counsel_id
+        FROM {counsel_table}
+        WHERE canonical_name_normalized = :canonical_name_normalized
+        LIMIT 1
+        """
+    )
+    delete_mapping_sql = text(
+        f"DELETE FROM {agreement_counsel_table} WHERE agreement_uuid = :agreement_uuid"
+    )
+    insert_mapping_sql = text(
+        f"""
+        INSERT INTO {agreement_counsel_table} (
+            agreement_uuid,
+            side,
+            position,
+            raw_name,
+            counsel_id
+        ) VALUES (
+            :agreement_uuid,
+            :side,
+            :position,
+            :raw_name,
+            :counsel_id
+        )
+        """
+    )
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("counsel", "agreement_counsel"))
+        agreements = conn.execute(
+            sync_sql,
+            {"agreement_uuids": target_uuids} if agreement_uuids is not None else {},
+        ).mappings().fetchall()
+        counsel_rows = conn.execute(load_counsel_sql).mappings().fetchall()
+        counsel_by_key = {
+            str(row["canonical_name_normalized"]): int(row["counsel_id"])
+            for row in counsel_rows
+            if row.get("canonical_name_normalized") is not None and row.get("counsel_id") is not None
+        }
+
+        mapping_rows: list[dict[str, object]] = []
+        synced_agreements = 0
+        for agreement in agreements:
+            agreement_uuid = str(agreement["agreement_uuid"])
+            conn.execute(delete_mapping_sql, {"agreement_uuid": agreement_uuid})
+            synced_agreements += 1
+
+            for side, raw_value in (
+                ("target", agreement.get("target_counsel")),
+                ("acquirer", agreement.get("acquirer_counsel")),
+            ):
+                seen_keys: set[str] = set()
+                position = 0
+                for raw_name in split_counsel_names(raw_value):
+                    canonical_name_normalized = canonicalize_counsel_name(raw_name)
+                    canonical_name = format_counsel_display_name(raw_name)
+                    if canonical_name_normalized is None or canonical_name is None:
+                        continue
+                    if canonical_name_normalized in seen_keys:
+                        continue
+                    seen_keys.add(canonical_name_normalized)
+                    position += 1
+
+                    counsel_id = counsel_by_key.get(canonical_name_normalized)
+                    if counsel_id is None:
+                        result = conn.execute(
+                            insert_counsel_sql,
+                            {
+                                "canonical_name": canonical_name,
+                                "canonical_name_normalized": canonical_name_normalized,
+                            },
+                        )
+                        inserted_id = getattr(result, "lastrowid", None)
+                        if inserted_id is None:
+                            inserted_row = conn.execute(
+                                select_counsel_id_sql,
+                                {
+                                    "canonical_name_normalized": canonical_name_normalized,
+                                },
+                            ).mappings().first()
+                            if inserted_row is None or inserted_row.get("counsel_id") is None:
+                                raise RuntimeError(
+                                    f"Unable to resolve counsel_id for {canonical_name_normalized!r}."
+                                )
+                            counsel_id = int(inserted_row["counsel_id"])
+                        else:
+                            counsel_id = int(inserted_id)
+                        counsel_by_key[canonical_name_normalized] = counsel_id
+
+                    mapping_rows.append(
+                        {
+                            "agreement_uuid": agreement_uuid,
+                            "side": side,
+                            "position": position,
+                            "raw_name": raw_name,
+                            "counsel_id": counsel_id,
+                        }
+                    )
+
+        if mapping_rows:
+            conn.execute(insert_mapping_sql, mapping_rows)
+    context.log.info(
+        "tx_metadata_asset (offline counsel): synced %s agreement counsel rows across %s agreements.",
+        len(mapping_rows),
+        synced_agreements,
     )
 
 
@@ -488,12 +738,13 @@ def tx_metadata_asset(
     tagged_outputs_table = f"{schema}.tagged_outputs"
 
     if mode == TxMetadataMode.OFFLINE:
-        _run_offline_mode(
+        processed_agreement_uuids = _run_offline_mode(
             context, engine,
             schema,
             agreements_table, pages_table, tagged_outputs_table,
             batch_size,
         )
+        context.log.info("tx_metadata_asset (offline): processed %s agreements", len(processed_agreement_uuids))
     else:
         summary = _run_web_search_mode(
             context, engine,
@@ -512,6 +763,75 @@ def tx_metadata_asset(
     run_post_asset_refresh(context, db, pipeline_config)
 
 
+@dg.asset(
+    name="9-1_regular_ingest_tx_metadata_offline_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_gold_backfill_asset.key)},
+)
+def regular_ingest_tx_metadata_offline_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    run_pre_asset_gating(context, db)
+    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_offline_asset")
+
+    engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    processed_agreement_uuids = _run_offline_mode(
+        context,
+        engine,
+        schema,
+        agreements_table,
+        pages_table,
+        tagged_outputs_table,
+        pipeline_config.tx_metadata_agreement_batch_size,
+        target_agreement_uuids=agreement_uuids,
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="9-2_regular_ingest_tx_metadata_web_search_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_tx_metadata_offline_asset.key)},
+)
+def regular_ingest_tx_metadata_web_search_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    run_pre_asset_gating(context, db)
+    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_web_search_asset")
+
+    engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    summary = _run_web_search_mode(
+        context,
+        engine,
+        schema,
+        agreements_table,
+        pipeline_config.tx_metadata_agreement_batch_size,
+        target_agreement_uuids=agreement_uuids,
+    )
+    context.add_output_metadata(
+        {
+            "total_web_searches": summary["total_searches"],
+            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
+        }
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    processed_uuids = summary["processed_uuids"]
+    if not isinstance(processed_uuids, list):
+        raise TypeError("regular_ingest_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
+    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
+
+
 def _run_offline_mode(
     context: AssetExecutionContext,
     engine: Any,
@@ -520,16 +840,19 @@ def _run_offline_mode(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
-) -> None:
+    target_agreement_uuids: list[str] | None = None,
+) -> list[str]:
     """Offline mode with resumable batch polling and idempotent updates."""
     client = _oai_client()
+    batch_key = agreement_batch_key(target_agreement_uuids) if target_agreement_uuids else "global"
+    processed_agreement_uuids: set[str] = set()
     with engine.begin() as conn:
         assert_tables_exist(
             conn,
             schema=schema,
             table_names=("tx_metadata_offline_batches",),
         )
-    _run_offline_metadata_subflow(
+    metadata_batch = _prepare_offline_metadata_batch(
         context=context,
         engine=engine,
         client=client,
@@ -538,18 +861,127 @@ def _run_offline_mode(
         pages_table=pages_table,
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
+        batch_key=batch_key,
     )
-    _run_offline_counsel_subflow(
+    initial_results: dict[str, dict[str, Any]] = {}
+    if metadata_batch is None:
+        counsel_batch = _prepare_offline_counsel_batch(
+            context=context,
+            engine=engine,
+            client=client,
+            schema=schema,
+            agreements_table=agreements_table,
+            batch_size=batch_size,
+            target_agreement_uuids=target_agreement_uuids,
+            batch_key=batch_key,
+        )
+        initial_results = _process_offline_batches(
+            context=context,
+            engine=engine,
+            schema=schema,
+            agreements_table=agreements_table,
+            pending_batches=[counsel_batch] if counsel_batch is not None else [],
+        )
+    else:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            metadata_future = executor.submit(
+                _process_offline_batches,
+                context=context,
+                engine=engine,
+                schema=schema,
+                agreements_table=agreements_table,
+                pending_batches=[metadata_batch],
+            )
+            counsel_batch = _prepare_offline_counsel_batch(
+                context=context,
+                engine=engine,
+                client=client,
+                schema=schema,
+                agreements_table=agreements_table,
+                batch_size=batch_size,
+                target_agreement_uuids=target_agreement_uuids,
+                batch_key=batch_key,
+            )
+            counsel_future = None
+            if counsel_batch is not None:
+                counsel_future = executor.submit(
+                    _process_offline_batches,
+                    context=context,
+                    engine=engine,
+                    schema=schema,
+                    agreements_table=agreements_table,
+                    pending_batches=[counsel_batch],
+                )
+            initial_results.update(metadata_future.result())
+            if counsel_future is not None:
+                initial_results.update(counsel_future.result())
+    for result in initial_results.values():
+        raw_processed_uuids = result.get("processed_uuids")
+        if isinstance(raw_processed_uuids, list):
+            processed_agreement_uuids.update(str(agreement_uuid) for agreement_uuid in raw_processed_uuids if agreement_uuid)
+
+    _sync_counsel_mappings(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        agreement_uuids=_collect_counsel_sync_uuids(initial_results),
+    )
+
+    metadata_result = initial_results.get(OFFLINE_METADATA_BATCH_KIND)
+    metadata_updated = int(metadata_result["updated"]) if metadata_result is not None else 0
+    if metadata_updated <= 0:
+        return sorted(processed_agreement_uuids)
+
+    context.log.info(
+        "tx_metadata_asset (offline): metadata filled %s agreements; rechecking counsel candidates now that target/acquirer may be available.",
+        metadata_updated,
+    )
+    follow_up_counsel_batch = _prepare_offline_counsel_batch(
         context=context,
         engine=engine,
         client=client,
         schema=schema,
         agreements_table=agreements_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
+        batch_key=batch_key,
     )
+    if follow_up_counsel_batch is None:
+        return sorted(processed_agreement_uuids)
+    follow_up_results = _process_offline_batches(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        pending_batches=[follow_up_counsel_batch],
+    )
+    _sync_counsel_mappings(
+        context=context,
+        engine=engine,
+        schema=schema,
+        agreements_table=agreements_table,
+        agreement_uuids=_collect_counsel_sync_uuids(follow_up_results),
+    )
+    for result in follow_up_results.values():
+        raw_processed_uuids = result.get("processed_uuids")
+        if isinstance(raw_processed_uuids, list):
+            processed_agreement_uuids.update(str(agreement_uuid) for agreement_uuid in raw_processed_uuids if agreement_uuid)
+    return sorted(processed_agreement_uuids)
 
 
-def _run_offline_metadata_subflow(
+def _collect_counsel_sync_uuids(results: dict[str, dict[str, Any]]) -> list[str]:
+    counsel_result = results.get(OFFLINE_COUNSEL_BATCH_KIND)
+    if counsel_result is None:
+        return []
+    processed_uuids = counsel_result.get("processed_uuids")
+    if not isinstance(processed_uuids, list):
+        return []
+    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
+
+
+def _prepare_offline_metadata_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
@@ -559,28 +991,25 @@ def _run_offline_metadata_subflow(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
-) -> None:
+    target_agreement_uuids: list[str] | None,
+    batch_key: str,
+) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline metadata)"
     existing_batch = _load_existing_offline_batch(
         engine,
         schema=schema,
         batch_kind=OFFLINE_METADATA_BATCH_KIND,
+        batch_key=batch_key,
     )
     if existing_batch is not None:
-        _resume_and_apply_offline_batch(
-            context=context,
-            engine=engine,
-            client=client,
-            schema=schema,
-            agreements_table=agreements_table,
-            batch_kind=OFFLINE_METADATA_BATCH_KIND,
-            batch_row=existing_batch,
-            update_sql=_metadata_offline_update_sql(agreements_table),
-            parse_response_text=parse_offline_tx_metadata_response_text,
-            build_update_params=build_offline_update_params,
-            log_prefix=log_prefix,
-        )
-        return
+        return {
+            "batch_kind": OFFLINE_METADATA_BATCH_KIND,
+            "batch_row": existing_batch,
+            "update_sql": _metadata_offline_update_sql(agreements_table),
+            "parse_response_text": parse_offline_tx_metadata_response_text,
+            "build_update_params": build_offline_update_params,
+            "log_prefix": log_prefix,
+        }
 
     lines = _build_offline_metadata_lines(
         context=context,
@@ -589,27 +1018,33 @@ def _run_offline_metadata_subflow(
         pages_table=pages_table,
         tagged_outputs_table=tagged_outputs_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
     )
     if not lines:
         context.log.info("%s: no runnable agreements need target/acquirer/deal_type.", log_prefix)
-        return
-    _create_and_apply_offline_batch(
+        return None
+    batch_row = _create_offline_batch(
         context=context,
         engine=engine,
         client=client,
         schema=schema,
-        agreements_table=agreements_table,
         batch_kind=OFFLINE_METADATA_BATCH_KIND,
         lines=lines,
         request_filename="tx_metadata_offline_metadata_requests.jsonl",
-        update_sql=_metadata_offline_update_sql(agreements_table),
-        parse_response_text=parse_offline_tx_metadata_response_text,
-        build_update_params=build_offline_update_params,
         log_prefix=log_prefix,
+        batch_key=batch_key,
     )
+    return {
+        "batch_kind": OFFLINE_METADATA_BATCH_KIND,
+        "batch_row": batch_row,
+        "update_sql": _metadata_offline_update_sql(agreements_table),
+        "parse_response_text": parse_offline_tx_metadata_response_text,
+        "build_update_params": build_offline_update_params,
+        "log_prefix": log_prefix,
+    }
 
 
-def _run_offline_counsel_subflow(
+def _prepare_offline_counsel_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
@@ -617,58 +1052,74 @@ def _run_offline_counsel_subflow(
     schema: str,
     agreements_table: str,
     batch_size: int,
-) -> None:
+    target_agreement_uuids: list[str] | None,
+    batch_key: str,
+) -> dict[str, Any] | None:
     log_prefix = "tx_metadata_asset (offline counsel)"
     existing_batch = _load_existing_offline_batch(
         engine,
         schema=schema,
         batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
+        batch_key=batch_key,
     )
     if existing_batch is not None:
-        _resume_and_apply_offline_batch(
-            context=context,
-            engine=engine,
-            client=client,
-            schema=schema,
-            agreements_table=agreements_table,
-            batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
-            batch_row=existing_batch,
-            update_sql=_counsel_offline_update_sql(agreements_table),
-            parse_response_text=parse_offline_counsel_response_text,
-            build_update_params=build_offline_counsel_update_params,
-            log_prefix=log_prefix,
-        )
-        return
+        return {
+            "batch_kind": OFFLINE_COUNSEL_BATCH_KIND,
+            "batch_row": existing_batch,
+            "update_sql": _counsel_offline_update_sql(agreements_table),
+            "parse_response_text": parse_offline_counsel_response_text,
+            "build_update_params": build_offline_counsel_update_params,
+            "log_prefix": log_prefix,
+        }
 
+    context.log.info("%s: selecting agreements and assembling counsel section text.", log_prefix)
     lines = _build_offline_counsel_lines(
         context=context,
         engine=engine,
         schema=schema,
         agreements_table=agreements_table,
         batch_size=batch_size,
+        target_agreement_uuids=target_agreement_uuids,
     )
+    context.log.info("%s: assembled %s counsel requests.", log_prefix, len(lines))
     if not lines:
         context.log.info("%s: no runnable agreements need counsel extraction.", log_prefix)
-        return
-    _create_and_apply_offline_batch(
+        return None
+    batch_row = _create_offline_batch(
         context=context,
         engine=engine,
         client=client,
         schema=schema,
-        agreements_table=agreements_table,
         batch_kind=OFFLINE_COUNSEL_BATCH_KIND,
         lines=lines,
         request_filename="tx_metadata_offline_counsel_requests.jsonl",
-        update_sql=_counsel_offline_update_sql(agreements_table),
-        parse_response_text=parse_offline_counsel_response_text,
-        build_update_params=build_offline_counsel_update_params,
         log_prefix=log_prefix,
+        batch_key=batch_key,
     )
+    return {
+        "batch_kind": OFFLINE_COUNSEL_BATCH_KIND,
+        "batch_row": batch_row,
+        "update_sql": _counsel_offline_update_sql(agreements_table),
+        "parse_response_text": parse_offline_counsel_response_text,
+        "build_update_params": build_offline_counsel_update_params,
+        "log_prefix": log_prefix,
+    }
 
 
-def _load_existing_offline_batch(engine: Any, *, schema: str, batch_kind: str) -> Dict[str, Any] | None:
+def _load_existing_offline_batch(
+    engine: Any,
+    *,
+    schema: str,
+    batch_kind: str,
+    batch_key: str,
+) -> Dict[str, Any] | None:
     with engine.begin() as conn:
-        return _fetch_unapplied_offline_batch(conn, schema, batch_kind=batch_kind)
+        return _fetch_unapplied_offline_batch(
+            conn,
+            schema,
+            batch_kind=batch_kind,
+            batch_key=batch_key,
+        )
 
 
 def _resume_and_apply_offline_batch(
@@ -684,7 +1135,7 @@ def _resume_and_apply_offline_batch(
     parse_response_text: Any,
     build_update_params: Any,
     log_prefix: str,
-) -> None:
+) -> dict[str, Any]:
     batch = poll_batch_until_terminal(
         context,
         client,
@@ -699,13 +1150,22 @@ def _resume_and_apply_offline_batch(
             batch=batch,
             completion_window=str(batch_row["completion_window"]),
             request_total=int(batch_row["request_total"]),
+            batch_key=str(batch_row["batch_key"]),
         )
     if batch.status != "completed":
         context.log.warning("%s: batch %s ended with status=%s; not applying updates.", log_prefix, batch.id, batch.status)
         with engine.begin() as conn:
             _mark_offline_batch_applied(conn, schema, batch_kind=batch_kind, batch_id=str(batch.id))
-        return
-    updated, parse_errors, refreshed_uuids = _apply_offline_batch_output(
+        return {
+            "batch_id": str(batch.id),
+            "batch_kind": batch_kind,
+            "status": str(batch.status),
+            "updated": 0,
+            "parse_errors": 0,
+            "refreshed_uuids": [],
+            "processed_uuids": [],
+        }
+    updated, parse_errors, refreshed_uuids, processed_uuids = _apply_offline_batch_output(
         context=context,
         engine=engine,
         client=client,
@@ -727,23 +1187,29 @@ def _resume_and_apply_offline_batch(
         parse_errors,
         len(refreshed_uuids),
     )
+    return {
+        "batch_id": str(batch.id),
+        "batch_kind": batch_kind,
+        "status": str(batch.status),
+        "updated": updated,
+        "parse_errors": parse_errors,
+        "refreshed_uuids": refreshed_uuids,
+        "processed_uuids": processed_uuids,
+    }
 
 
-def _create_and_apply_offline_batch(
+def _create_offline_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
     client: OpenAI,
     schema: str,
-    agreements_table: str,
     batch_kind: str,
     lines: List[Dict[str, Any]],
     request_filename: str,
-    update_sql: Any,
-    parse_response_text: Any,
-    build_update_params: Any,
     log_prefix: str,
-) -> None:
+    batch_key: str,
+) -> dict[str, Any]:
     jsonl_buf = io.StringIO()
     for line in lines:
         _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -764,25 +1230,58 @@ def _create_and_apply_offline_batch(
             batch=batch,
             completion_window=completion_window,
             request_total=len(lines),
+            batch_key=batch_key,
         )
-    context.log.info("%s: created batch %s with %s requests; polling until complete.", log_prefix, batch.id, len(lines))
-    _resume_and_apply_offline_batch(
-        context=context,
-        engine=engine,
-        client=client,
-        schema=schema,
-        agreements_table=agreements_table,
-        batch_kind=batch_kind,
-        batch_row={
-            "batch_id": batch.id,
-            "completion_window": completion_window,
-            "request_total": len(lines),
-        },
-        update_sql=update_sql,
-        parse_response_text=parse_response_text,
-        build_update_params=build_update_params,
-        log_prefix=log_prefix,
-    )
+    context.log.info("%s: created batch %s with %s requests.", log_prefix, batch.id, len(lines))
+    return {
+        "batch_id": batch.id,
+        "completion_window": completion_window,
+        "request_total": len(lines),
+        "batch_key": batch_key,
+    }
+
+
+def _process_offline_batches(
+    *,
+    context: AssetExecutionContext,
+    engine: Any,
+    schema: str,
+    agreements_table: str,
+    pending_batches: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    if not pending_batches:
+        return {}
+
+    def _run_single_batch(batch_spec: dict[str, Any]) -> dict[str, Any]:
+        return _resume_and_apply_offline_batch(
+            context=context,
+            engine=engine,
+            client=_oai_client(),
+            schema=schema,
+            agreements_table=agreements_table,
+            batch_kind=str(batch_spec["batch_kind"]),
+            batch_row=batch_spec["batch_row"],
+            update_sql=batch_spec["update_sql"],
+            parse_response_text=batch_spec["parse_response_text"],
+            build_update_params=batch_spec["build_update_params"],
+            log_prefix=str(batch_spec["log_prefix"]),
+        )
+
+    if len(pending_batches) == 1:
+        batch_spec = pending_batches[0]
+        return {
+            str(batch_spec["batch_kind"]): _run_single_batch(batch_spec),
+        }
+
+    results: dict[str, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=min(len(pending_batches), 2)) as executor:
+        future_to_kind = {
+            executor.submit(_run_single_batch, batch_spec): str(batch_spec["batch_kind"])
+            for batch_spec in pending_batches
+        }
+        for future, batch_kind in future_to_kind.items():
+            results[batch_kind] = future.result()
+    return results
 
 
 def _build_offline_metadata_lines(
@@ -793,7 +1292,9 @@ def _build_offline_metadata_lines(
     pages_table: str,
     tagged_outputs_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> List[Dict[str, Any]]:
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     pages_q = text(
         f"""
         WITH candidate_pages AS (
@@ -822,6 +1323,7 @@ def _build_offline_metadata_lines(
                 (a.target IS NULL OR a.acquirer IS NULL OR a.deal_type IS NULL)
                 AND (a.paginated = True OR a.paginated IS NULL)
                 AND a.gated = 0
+                {scope_clause}
                 AND coalesce(p.gold_label, p.source_page_type) IN ('front_matter', 'body')
         ),
         selected_pages AS (
@@ -862,8 +1364,13 @@ def _build_offline_metadata_lines(
             sp.page_order ASC
         """
     )
+    if target_agreement_uuids:
+        pages_q = pages_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        page_rows = conn.execute(pages_q, {"lim": batch_size}).mappings().fetchall()
+        params: dict[str, object] = {"lim": batch_size}
+        if target_agreement_uuids:
+            params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
+        page_rows = conn.execute(pages_q, params).mappings().fetchall()
     by_agr: Dict[str, List[str]] = {}
     for row in page_rows:
         agreement_uuid = str(row["agreement_uuid"])
@@ -886,115 +1393,126 @@ def _build_offline_counsel_lines(
     schema: str,
     agreements_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> List[Dict[str, Any]]:
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    standard_ids_table = f"{schema}.latest_sections_search_standard_ids"
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
-    counsel_q = text(
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
+    candidate_q = text(
         f"""
-        {canonical_components_cte_sql(schema)}
-        ,
-        matching_sections AS (
-            SELECT
-                a.agreement_uuid,
-                a.filing_date,
-                CASE
-                    WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
-                     AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
-                     AND (
-                        a.target_counsel_normalized IS NULL
-                        OR TRIM(a.target_counsel_normalized) = ''
-                     )
-                     AND (
-                        a.acquirer_counsel_normalized IS NULL
-                        OR TRIM(a.acquirer_counsel_normalized) = ''
-                     )
-                    THEN 1
-                    ELSE 0
-                END AS missing_all_counsel_fields,
-                a.target,
-                a.acquirer,
-                s.section_uuid,
-                s.xml_content
-            FROM state_components sc
-            JOIN {agreements_table} a
-              ON a.agreement_uuid = sc.agreement_uuid
-            JOIN {xml_table} x
-              ON x.agreement_uuid = sc.agreement_uuid
-             AND x.latest = 1
-             AND x.status = 'verified'
-             AND x.version = sc.latest_xml_version
-            JOIN {sections_table} s
-              ON s.agreement_uuid = x.agreement_uuid
-             AND s.xml_version = x.version
-            WHERE sc.agreement_uuid IS NOT NULL
-              AND (
-                    a.target_counsel IS NULL
-                    OR a.acquirer_counsel IS NULL
-                    OR a.target_counsel_normalized IS NULL
-                    OR a.acquirer_counsel_normalized IS NULL
-              )
-              AND a.target IS NOT NULL
-              AND TRIM(a.target) <> ''
-              AND a.acquirer IS NOT NULL
-              AND TRIM(a.acquirer) <> ''
-              AND sc.has_latest_xml = 1
-              AND sc.latest_xml_status = 'verified'
-              AND sc.latest_section_count > 0
-              AND sc.has_stale_body_tags = 0
-              AND (
-                    COALESCE(s.section_standard_id_gold_label, s.section_standard_id) = :counsel_standard_id
-                    OR JSON_CONTAINS(
-                        COALESCE(s.section_standard_id_gold_label, s.section_standard_id),
-                        JSON_QUOTE(:counsel_standard_id)
-                    ) = 1
-              )
-        ),
-        selected_agreements AS (
-            SELECT
-                agreement_uuid,
-                MAX(missing_all_counsel_fields) AS missing_all_counsel_fields,
-                MAX(filing_date) AS filing_date
-            FROM matching_sections
-            GROUP BY agreement_uuid
-            ORDER BY
-                missing_all_counsel_fields DESC,
-                (filing_date IS NULL) ASC,
-                filing_date ASC,
-                agreement_uuid ASC
-            LIMIT :lim
-        )
         SELECT
-            ms.agreement_uuid,
-            ms.target,
-            ms.acquirer,
-            ms.section_uuid,
-            ms.xml_content
-        FROM matching_sections ms
-        JOIN selected_agreements sa
-          ON sa.agreement_uuid = ms.agreement_uuid
+            a.agreement_uuid,
+            a.target,
+            a.acquirer,
+            a.filing_date,
+            CASE
+                WHEN (a.target_counsel IS NULL OR TRIM(a.target_counsel) = '')
+                 AND (a.acquirer_counsel IS NULL OR TRIM(a.acquirer_counsel) = '')
+                THEN 1
+                ELSE 0
+            END AS missing_all_counsel_fields
+        FROM {agreements_table} a
+        JOIN {xml_table} x
+          ON x.agreement_uuid = a.agreement_uuid
+         AND x.latest = 1
+         AND x.status = 'verified'
+        WHERE (a.target_counsel IS NULL OR a.acquirer_counsel IS NULL)
+          {scope_clause}
+          AND a.target IS NOT NULL
+          AND TRIM(a.target) <> ''
+          AND a.acquirer IS NOT NULL
+          AND TRIM(a.acquirer) <> ''
+          AND EXISTS (
+                SELECT 1
+                FROM {standard_ids_table} lssi
+                WHERE lssi.agreement_uuid = a.agreement_uuid
+                  AND lssi.standard_id = :counsel_standard_id
+          )
+          AND NOT EXISTS (
+                SELECT 1
+                FROM {pages_table} p
+                JOIN {tagged_outputs_table} t
+                  ON t.page_uuid = p.page_uuid
+                WHERE p.agreement_uuid = a.agreement_uuid
+                  AND COALESCE(p.gold_label, p.source_page_type) = 'body'
+                  AND x.created_date IS NOT NULL
+                  AND t.updated_date > x.created_date
+          )
         ORDER BY
-            sa.missing_all_counsel_fields DESC,
-            (sa.filing_date IS NULL) ASC,
-            sa.filing_date ASC,
-            ms.agreement_uuid ASC,
-            ms.section_uuid ASC
+            missing_all_counsel_fields DESC,
+            (a.filing_date IS NULL) ASC,
+            a.filing_date ASC,
+            a.agreement_uuid ASC
+        LIMIT :lim
         """
     )
+    if target_agreement_uuids:
+        candidate_q = candidate_q.bindparams(bindparam("agreement_uuids", expanding=True))
+    section_q = (
+        text(
+            f"""
+            SELECT
+                lssi.agreement_uuid,
+                lssi.section_uuid,
+                s.xml_content
+            FROM {standard_ids_table} lssi
+            JOIN {sections_table} s
+              ON s.section_uuid = lssi.section_uuid
+             AND s.agreement_uuid = lssi.agreement_uuid
+            JOIN {xml_table} x
+              ON x.agreement_uuid = s.agreement_uuid
+             AND x.version = s.xml_version
+             AND x.latest = 1
+             AND x.status = 'verified'
+            WHERE lssi.standard_id = :counsel_standard_id
+              AND lssi.agreement_uuid IN :agreement_uuids
+            ORDER BY
+                lssi.agreement_uuid ASC,
+                lssi.section_uuid ASC
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+    )
     with engine.begin() as conn:
+        candidate_rows = conn.execute(
+            candidate_q,
+            {
+                "counsel_standard_id": COUNSEL_SECTION_STANDARD_ID,
+                "lim": batch_size,
+                **(
+                    {"agreement_uuids": tuple(sorted(set(target_agreement_uuids)))}
+                    if target_agreement_uuids
+                    else {}
+                ),
+            },
+        ).mappings().fetchall()
+        agreement_order = [str(row["agreement_uuid"]) for row in candidate_rows]
+        if not agreement_order:
+            return []
         rows = conn.execute(
-            counsel_q,
-            {"counsel_standard_id": COUNSEL_SECTION_STANDARD_ID, "lim": batch_size},
+            section_q,
+            {
+                "counsel_standard_id": COUNSEL_SECTION_STANDARD_ID,
+                "agreement_uuids": agreement_order,
+            },
         ).mappings().fetchall()
     grouped_texts: Dict[str, List[str]] = {}
-    target_by_agreement: Dict[str, str] = {}
-    acquirer_by_agreement: Dict[str, str] = {}
+    target_by_agreement = {
+        str(row["agreement_uuid"]): str(row["target"])
+        for row in candidate_rows
+    }
+    acquirer_by_agreement = {
+        str(row["agreement_uuid"]): str(row["acquirer"])
+        for row in candidate_rows
+    }
     for row in rows:
         agreement_uuid = str(row["agreement_uuid"])
         grouped_texts.setdefault(agreement_uuid, []).append(str(row["xml_content"] or ""))
-        _ = target_by_agreement.setdefault(agreement_uuid, str(row["target"]))
-        _ = acquirer_by_agreement.setdefault(agreement_uuid, str(row["acquirer"]))
     lines: List[Dict[str, Any]] = []
-    for agreement_uuid, section_texts in grouped_texts.items():
+    for agreement_uuid in agreement_order:
+        section_texts = grouped_texts.get(agreement_uuid, [])
         joined_text = "\n\n".join(section_texts).strip()
         if not joined_text:
             context.log.warning("tx_metadata_asset (offline counsel): no counsel section text for %s; skipping.", agreement_uuid)
@@ -1017,6 +1535,7 @@ def _run_web_search_mode(
     schema: str,
     agreements_table: str,
     batch_size: int,
+    target_agreement_uuids: list[str] | None = None,
 ) -> Dict[str, Any]:
     """Web-search: select agreements needing metadata with names or URL context; sync API; update web columns."""
     with engine.begin() as conn:
@@ -1026,6 +1545,7 @@ def _run_web_search_mode(
             table_names=("tx_metadata_web_failures",),
         )
 
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     select_q = text(
         f"""
         SELECT
@@ -1034,11 +1554,38 @@ def _run_web_search_mode(
             a.acquirer,
             a.filing_date,
             a.url,
-            COALESCE(wf.failure_count, 0) AS failure_count
+            a.transaction_consideration,
+            a.transaction_price_cash,
+            a.transaction_price_stock,
+            a.transaction_price_assets,
+            a.transaction_price_total,
+            a.target_type,
+            a.acquirer_type,
+            a.target_pe,
+            a.acquirer_pe,
+            a.target_industry,
+            a.acquirer_industry,
+            a.announce_date,
+            a.close_date,
+            a.deal_status,
+            a.attitude,
+            a.purpose,
+            a.metadata_sources,
+            a.metadata_uncited_fields,
+            COALESCE(wf.failure_count, 0) AS failure_count,
+            CASE WHEN COALESCE(a.metadata, 0) = 0 THEN 1 ELSE 0 END AS initial_metadata_pass
         FROM {agreements_table} a
         LEFT JOIN {schema}.tx_metadata_web_failures wf
           ON wf.agreement_uuid = a.agreement_uuid
-        WHERE COALESCE(a.metadata, 0) = 0
+        WHERE (
+            COALESCE(a.metadata, 0) = 0
+            OR (
+                COALESCE(a.metadata, 0) = 1
+                AND (
+                    {_web_search_missing_core_metadata_sql(alias='a')}
+                )
+            )
+        )
           AND (
             (
               a.target IS NOT NULL AND TRIM(a.target) <> ''
@@ -1046,7 +1593,9 @@ def _run_web_search_mode(
             )
             OR (a.url IS NOT NULL AND TRIM(a.url) <> '')
           )
+          {scope_clause}
         ORDER BY
+            initial_metadata_pass DESC,
             COALESCE(wf.failure_count, 0) ASC,
             (filing_date IS NULL) ASC,
             filing_date ASC,
@@ -1054,12 +1603,18 @@ def _run_web_search_mode(
         LIMIT :lim
         """
     )
+    if target_agreement_uuids:
+        select_q = select_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        rows = conn.execute(select_q, {"lim": batch_size}).mappings().fetchall()
+        params: dict[str, object] = {"lim": batch_size}
+        if target_agreement_uuids:
+            params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
+        rows = conn.execute(select_q, params).mappings().fetchall()
     agreements = [dict(r) for r in rows]
     if not agreements:
         context.log.info("tx_metadata_asset (web_search): no agreements need web metadata.")
-        return {"total_searches": 0, "searches_by_agreement": {}}
+        return {"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": []}
+    processed_uuids = sorted({str(agreement["agreement_uuid"]) for agreement in agreements if agreement.get("agreement_uuid")})
 
     context.log.info(
         "tx_metadata_asset (web_search): selected %s agreements for enrichment (max_workers=%s, commit_batch_size=%s)",
@@ -1067,7 +1622,6 @@ def _run_web_search_mode(
         WEB_SEARCH_MAX_WORKERS,
         WEB_SEARCH_COMMIT_BATCH_SIZE,
     )
-    model_name = "gpt-5-mini"
     client = _oai_client()
 
     class _WebSearchRequestError(RuntimeError):
@@ -1078,10 +1632,21 @@ def _run_web_search_mode(
     def _request_web_search_payload(
         agreement_row: Dict[str, Any],
         *,
+        model_name: str,
         max_attempts: int = 3,
     ) -> tuple[Dict[str, Any], str, Dict[str, int], int]:
         agr_uuid_local = str(agreement_row["agreement_uuid"])
-        body = build_tx_metadata_request_body_web_search_only(agreement_row, model=model_name)
+        try:
+            body = build_tx_metadata_request_body_web_search_only(
+                agreement_row,
+                model=model_name,
+                retry_context=build_web_search_retry_context(agreement_row),
+            )
+        except Exception as exc:
+            raise _WebSearchRequestError(
+                f"failed to build web-search request: {exc}",
+                raw_payload=None,
+            ) from exc
         last_error: Exception | None = None
         last_raw_payload: str | None = None
         for attempt in range(1, max_attempts + 1):
@@ -1177,133 +1742,154 @@ def _run_web_search_mode(
     updated = 0
     skipped_due_to_error = 0
     refreshed_uuids: list[str] = []
-    agreement_chunks = _chunk_agreements(
-        agreements,
-        chunk_size=WEB_SEARCH_COMMIT_BATCH_SIZE,
+    agreement_groups = [
+        (
+            model_name,
+            [agreement for agreement in agreements if _web_search_model_for_agreement(agreement) == model_name],
+        )
+        for model_name in ("gpt-5-mini", "gpt-5.1")
+    ]
+    agreement_groups = [(model_name, group) for model_name, group in agreement_groups if group]
+    total_chunks = sum(
+        len(_chunk_agreements(group, chunk_size=WEB_SEARCH_COMMIT_BATCH_SIZE))
+        for _, group in agreement_groups
     )
-    total_chunks = len(agreement_chunks)
-    next_chunk_to_log = 1
-    queued_agreements = list(agreements)
-    next_agreement_index = 0
-    completed_success_buffer: list[tuple[str, Dict[str, Any], Any, str, Dict[str, int], int]] = []
-    persisted_success_count = 0
-    active_futures: Dict[Future[tuple[Dict[str, Any], str, Dict[str, int], int]], Dict[str, Any]] = {}
+    completed_chunk_count = 0
+    context.log.info(
+        "tx_metadata_asset (web_search): selected by model gpt-5-mini=%s gpt-5.1=%s",
+        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5-mini"),
+        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5.1"),
+    )
 
-    def _submit_available_work(executor: ThreadPoolExecutor) -> None:
-        nonlocal next_agreement_index, next_chunk_to_log
-        while (
-            next_agreement_index < len(queued_agreements)
-            and len(active_futures) < WEB_SEARCH_MAX_WORKERS
-        ):
-            agreement = queued_agreements[next_agreement_index]
-            next_agreement_index += 1
-            if (next_agreement_index - 1) % WEB_SEARCH_COMMIT_BATCH_SIZE == 0:
-                chunk_number = ((next_agreement_index - 1) // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
-                chunk_size = min(
-                    WEB_SEARCH_COMMIT_BATCH_SIZE,
-                    len(queued_agreements) - (next_agreement_index - 1),
-                )
-                context.log.info(
-                    "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements",
-                    chunk_number,
-                    total_chunks,
-                    chunk_size,
-                )
-                next_chunk_to_log = chunk_number + 1
-            future = executor.submit(_request_web_search_payload, agreement)
-            active_futures[future] = agreement
+    for model_name, queued_agreements in agreement_groups:
+        group_start_chunk = completed_chunk_count
+        next_agreement_index = 0
+        completed_success_buffer: list[tuple[Dict[str, Any], Dict[str, Any], Any, str, Dict[str, int], int]] = []
+        active_futures: Dict[Future[tuple[Dict[str, Any], str, Dict[str, int], int]], Dict[str, Any]] = {}
 
-    with ThreadPoolExecutor(max_workers=WEB_SEARCH_MAX_WORKERS) as executor:
-        _submit_available_work(executor)
-        while active_futures:
-            done, _ = wait(active_futures.keys(), return_when=FIRST_COMPLETED)
-            for future in done:
-                agreement = active_futures.pop(future)
-                attempted += 1
-                agr_uuid = str(agreement["agreement_uuid"])
-                try:
-                    obj, raw_payload, response_usage, search_count = future.result()
-                    completed_success_buffer.append(
-                        (
-                            agr_uuid,
-                            obj,
-                            agreement.get("filing_date"),
-                            raw_payload,
-                            response_usage,
-                            search_count,
-                        )
+        def _submit_available_work(executor: ThreadPoolExecutor) -> None:
+            nonlocal next_agreement_index
+            while (
+                next_agreement_index < len(queued_agreements)
+                and len(active_futures) < WEB_SEARCH_MAX_WORKERS
+            ):
+                agreement = queued_agreements[next_agreement_index]
+                next_agreement_index += 1
+                if (next_agreement_index - 1) % WEB_SEARCH_COMMIT_BATCH_SIZE == 0:
+                    chunk_offset = (next_agreement_index - 1) // WEB_SEARCH_COMMIT_BATCH_SIZE
+                    chunk_number = group_start_chunk + chunk_offset + 1
+                    chunk_size = min(
+                        WEB_SEARCH_COMMIT_BATCH_SIZE,
+                        len(queued_agreements) - (next_agreement_index - 1),
                     )
-                    parsed += 1
-                    searches_by_agreement[agr_uuid] = search_count
-                    total_searches += search_count
-                except _WebSearchRequestError as e:
-                    parse_errors += 1
-                    failed_uuid_by_stage["request_or_parse"].append(agr_uuid)
-                    context.log.warning(f"tx_metadata_asset (web_search): failed for {agr_uuid}: {e}")
-                    with engine.begin() as conn:
-                        _record_web_failure(
-                            conn,
-                            schema,
-                            agreement_uuid=agr_uuid,
-                            error_stage="request_or_parse",
-                            failure_reason=str(e),
-                            raw_payload=e.raw_payload,
-                        )
-
-            while len(completed_success_buffer) >= WEB_SEARCH_COMMIT_BATCH_SIZE:
-                batch_successes = completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
-                del completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
-                chunk_number = (persisted_success_count // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
-                batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
-                    context=context,
-                    engine=engine,
-                    schema=schema,
-                    update_web_q=update_web_q,
-                    successes=batch_successes,
-                    failed_uuid_by_stage=failed_uuid_by_stage,
-                    token_totals=token_totals,
-                    refreshed_uuids=refreshed_uuids,
+                    context.log.info(
+                        "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s",
+                        chunk_number,
+                        total_chunks,
+                        chunk_size,
+                        model_name,
+                    )
+                future = executor.submit(
+                    _request_web_search_payload,
+                    agreement,
+                    model_name=model_name,
                 )
-                updated += batch_updated
-                skipped_due_to_error += batch_validation_failures
-                persisted_success_count += len(batch_successes)
-                context.log.info(
-                    "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
-                    chunk_number,
-                    total_chunks,
-                    len(batch_successes),
-                    0,
-                    batch_validation_failures,
-                    batch_updated,
-                    batch_refreshed,
-                )
+                active_futures[future] = agreement
 
+        with ThreadPoolExecutor(max_workers=WEB_SEARCH_MAX_WORKERS) as executor:
             _submit_available_work(executor)
+            while active_futures:
+                done, _ = wait(active_futures.keys(), return_when=FIRST_COMPLETED)
+                for future in done:
+                    agreement = active_futures.pop(future)
+                    attempted += 1
+                    agr_uuid = str(agreement["agreement_uuid"])
+                    try:
+                        obj, raw_payload, response_usage, search_count = future.result()
+                        completed_success_buffer.append(
+                            (
+                                agreement,
+                                obj,
+                                agreement.get("filing_date"),
+                                raw_payload,
+                                response_usage,
+                                search_count,
+                            )
+                        )
+                        parsed += 1
+                        searches_by_agreement[agr_uuid] = search_count
+                        total_searches += search_count
+                    except _WebSearchRequestError as e:
+                        parse_errors += 1
+                        failed_uuid_by_stage["request_or_parse"].append(agr_uuid)
+                        context.log.warning(f"tx_metadata_asset (web_search): failed for {agr_uuid}: {e}")
+                        with engine.begin() as conn:
+                            _record_web_failure(
+                                conn,
+                                schema,
+                                agreement_uuid=agr_uuid,
+                                error_stage="request_or_parse",
+                                failure_reason=str(e),
+                                raw_payload=e.raw_payload,
+                            )
 
-    if completed_success_buffer:
-        chunk_number = (persisted_success_count // WEB_SEARCH_COMMIT_BATCH_SIZE) + 1
-        batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
-            context=context,
-            engine=engine,
-            schema=schema,
-            update_web_q=update_web_q,
-            successes=completed_success_buffer,
-            failed_uuid_by_stage=failed_uuid_by_stage,
-            token_totals=token_totals,
-            refreshed_uuids=refreshed_uuids,
-        )
-        updated += batch_updated
-        skipped_due_to_error += batch_validation_failures
-        context.log.info(
-            "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s",
-            chunk_number,
-            total_chunks,
-            len(completed_success_buffer),
-            0,
-            batch_validation_failures,
-            batch_updated,
-            batch_refreshed,
-        )
+                while len(completed_success_buffer) >= WEB_SEARCH_COMMIT_BATCH_SIZE:
+                    batch_successes = completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
+                    del completed_success_buffer[:WEB_SEARCH_COMMIT_BATCH_SIZE]
+                    chunk_number = completed_chunk_count + 1
+                    batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
+                        context=context,
+                        engine=engine,
+                        schema=schema,
+                        update_web_q=update_web_q,
+                        successes=batch_successes,
+                        failed_uuid_by_stage=failed_uuid_by_stage,
+                        token_totals=token_totals,
+                        refreshed_uuids=refreshed_uuids,
+                    )
+                    updated += batch_updated
+                    skipped_due_to_error += batch_validation_failures
+                    completed_chunk_count += 1
+                    context.log.info(
+                        "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s model=%s",
+                        chunk_number,
+                        total_chunks,
+                        len(batch_successes),
+                        0,
+                        batch_validation_failures,
+                        batch_updated,
+                        batch_refreshed,
+                        model_name,
+                    )
+
+                _submit_available_work(executor)
+
+        if completed_success_buffer:
+            chunk_number = completed_chunk_count + 1
+            batch_updated, batch_validation_failures, batch_refreshed = _persist_web_search_successes(
+                context=context,
+                engine=engine,
+                schema=schema,
+                update_web_q=update_web_q,
+                successes=completed_success_buffer,
+                failed_uuid_by_stage=failed_uuid_by_stage,
+                token_totals=token_totals,
+                refreshed_uuids=refreshed_uuids,
+            )
+            updated += batch_updated
+            skipped_due_to_error += batch_validation_failures
+            completed_chunk_count += 1
+            context.log.info(
+                "tx_metadata_asset (web_search): finished chunk %s/%s attempted=%s request_failures=%s validation_failures=%s updated=%s refreshed_latest_sections_search=%s model=%s",
+                chunk_number,
+                total_chunks,
+                len(completed_success_buffer),
+                0,
+                batch_validation_failures,
+                batch_updated,
+                batch_refreshed,
+                model_name,
+            )
 
     if failed_uuid_by_stage["request_or_parse"] or failed_uuid_by_stage["validation"]:
         context.log.warning(
@@ -1328,4 +1914,5 @@ def _run_web_search_mode(
     return {
         "total_searches": total_searches,
         "searches_by_agreement": searches_by_agreement,
+        "processed_uuids": processed_uuids,
     }

@@ -91,6 +91,7 @@ class NERExperimentConfig:
     learning_rate: float
     weight_decay: float
     warmup_steps_pct: float
+    num_workers: int
     data_path: str
     git_commit: str
 
@@ -252,6 +253,7 @@ def build_config(
     learning_rate: float = DEFAULT_LEARNING_RATE,
     weight_decay: float = DEFAULT_WEIGHT_DECAY,
     warmup_steps_pct: float = DEFAULT_WARMUP_STEPS_PCT,
+    num_workers: int = 0,
     data_path: str = DEFAULT_DATA_PATH,
 ) -> NERExperimentConfig:
     """
@@ -280,6 +282,7 @@ def build_config(
         learning_rate: float
         weight_decay: float
         warmup_steps_pct: float
+        num_workers: int
         data_path: str
         git_commit: str
 
@@ -319,6 +322,7 @@ def build_config(
         "learning_rate": learning_rate,
         "weight_decay": weight_decay,
         "warmup_steps_pct": warmup_steps_pct,
+        "num_workers": num_workers,
         "data_path": data_path,
         "git_commit": resolve_git_commit(git_commit),
     }
@@ -397,6 +401,7 @@ def load_config_from_cli() -> NERExperimentConfig:
     _ = parser.add_argument(
         "--warmup-steps-pct", type=float, default=DEFAULT_WARMUP_STEPS_PCT
     )
+    _ = parser.add_argument("--num-workers", type=int, default=0)
     _ = parser.add_argument("--data-path", type=str, default=DEFAULT_DATA_PATH)
     _ = parser.add_argument(
         "--data-csv",
@@ -431,6 +436,7 @@ def load_config_from_cli() -> NERExperimentConfig:
         learning_rate=cast(float, args.learning_rate),
         weight_decay=cast(float, args.weight_decay),
         warmup_steps_pct=cast(float, args.warmup_steps_pct),
+        num_workers=cast(int, args.num_workers),
         data_path=cast(str, args.data_path),
     )
 

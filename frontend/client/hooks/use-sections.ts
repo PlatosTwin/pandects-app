@@ -27,6 +27,8 @@ export function useSections() {
     transaction_consideration: [],
     target_type: [],
     acquirer_type: [],
+    target_counsel: [],
+    acquirer_counsel: [],
     target_industry: [],
     acquirer_industry: [],
     deal_status: [],
@@ -306,6 +308,9 @@ export function useSections() {
         searchFilters.transaction_consideration.length > 0) ||
       (searchFilters.target_type && searchFilters.target_type.length > 0) ||
       (searchFilters.acquirer_type && searchFilters.acquirer_type.length > 0) ||
+      (searchFilters.target_counsel && searchFilters.target_counsel.length > 0) ||
+      (searchFilters.acquirer_counsel &&
+        searchFilters.acquirer_counsel.length > 0) ||
       (searchFilters.target_industry && searchFilters.target_industry.length > 0) ||
       (searchFilters.acquirer_industry &&
         searchFilters.acquirer_industry.length > 0) ||
@@ -444,6 +449,8 @@ export function useSections() {
       transaction_consideration: [],
       target_type: [],
       acquirer_type: [],
+      target_counsel: [],
+      acquirer_counsel: [],
       target_industry: [],
       acquirer_industry: [],
       deal_status: [],

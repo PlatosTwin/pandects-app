@@ -4,6 +4,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Callable, cast
+from unittest.mock import patch
 
 import yaml
 
@@ -17,6 +19,7 @@ from etl.models.ner.ner import (
     parse_boolish,
     parse_train_docs,
     recover_experiment_row_from_run_dir,
+    run_grid_row,
 )
 
 
@@ -102,7 +105,7 @@ class NerXpSetupTests(unittest.TestCase):
         with grid_path.open("r", encoding="utf-8", newline="") as f:
             rows = list(csv.DictReader(f))
 
-        self.assertEqual(len(rows), 6)
+        self.assertEqual(len(rows), 8)
         for row in rows:
             config = build_config(
                 xp_name=row["xp_name"],
@@ -120,15 +123,131 @@ class NerXpSetupTests(unittest.TestCase):
                 seed=int(row.get("seed", "42")),
                 model_name=frozen["model_name"],
                 batch_size=frozen["batch_size"],
-                train_subsample_window=frozen["train_subsample_window"],
-                val_window=frozen["val_window"],
-                val_stride=frozen["val_stride"],
+                train_subsample_window=int(
+                    row.get(
+                        "train_subsample_window",
+                        str(frozen["train_subsample_window"]),
+                    )
+                ),
+                val_window=int(row.get("val_window", str(frozen["val_window"]))),
+                val_stride=int(row.get("val_stride", str(frozen["val_stride"]))),
                 max_epochs=frozen["max_epochs"],
                 learning_rate=float(row.get("learning_rate", frozen["learning_rate"])),
                 weight_decay=frozen["weight_decay"],
                 warmup_steps_pct=frozen["warmup_steps_pct"],
             )
             self.assertEqual(config.xp_name, row["xp_name"])
+
+    def test_grid_window_overrides_are_respected(self) -> None:
+        frozen = load_frozen_experiment_config()
+        grid_path = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "etl"
+            / "models"
+            / "ner"
+            / "configs"
+            / "grid.csv"
+        )
+        with grid_path.open("r", encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+
+        long_window_row = next(row for row in rows if row["row_id"] == "5")
+        config = build_config(
+            xp_name=long_window_row["xp_name"],
+            train_docs=parse_train_docs(long_window_row["train_docs"]),
+            sampling_mode=long_window_row["sampling_mode"],
+            decoder_mode=long_window_row["decoder_mode"],
+            boundary_head=parse_boolish(long_window_row["boundary_head"]),
+            boundary_loss_weight=float(long_window_row["boundary_loss_weight"]),
+            token_loss_mode=long_window_row["token_loss_mode"],
+            token_loss_weight=float(long_window_row["token_loss_weight"]),
+            crf_loss_weight=float(long_window_row["crf_loss_weight"]),
+            label_smoothing=float(long_window_row["label_smoothing"]),
+            preserve_case=parse_boolish(long_window_row["preserve_case"]),
+            split_version="default",
+            seed=int(long_window_row.get("seed", "42")),
+            model_name=frozen["model_name"],
+            batch_size=frozen["batch_size"],
+            train_subsample_window=int(long_window_row["train_subsample_window"]),
+            val_window=int(long_window_row["val_window"]),
+            val_stride=int(long_window_row["val_stride"]),
+            max_epochs=frozen["max_epochs"],
+            learning_rate=float(
+                long_window_row.get("learning_rate", frozen["learning_rate"])
+            ),
+            weight_decay=frozen["weight_decay"],
+            warmup_steps_pct=frozen["warmup_steps_pct"],
+        )
+        self.assertEqual(config.train_subsample_window, 768)
+        self.assertEqual(config.val_window, 768)
+        self.assertEqual(config.val_stride, 384)
+
+    def test_run_grid_row_forwards_row_overrides_and_data_path(self) -> None:
+        row = {
+            "train_docs": "0",
+            "xp_name": "row_7_custom_windows",
+            "sampling_mode": "boundary_mix",
+            "decoder_mode": "independent",
+            "boundary_head": "1",
+            "boundary_loss_weight": "0.2",
+            "token_loss_mode": "focal",
+            "token_loss_weight": "1.0",
+            "crf_loss_weight": "0.0",
+            "label_smoothing": "0.01",
+            "preserve_case": "1",
+            "seed": "99",
+            "learning_rate": "3e-5",
+            "train_subsample_window": "768",
+            "val_window": "640",
+            "val_stride": "320",
+        }
+        frozen = {
+            "model_name": "answerdotai/ModernBERT-base",
+            "batch_size": 8,
+            "train_subsample_window": 512,
+            "val_window": 512,
+            "val_stride": 256,
+            "max_epochs": 12,
+            "learning_rate": 2e-5,
+            "weight_decay": 0.01,
+            "warmup_steps_pct": 0.1,
+        }
+        config_sentinel = object()
+        train_result = {"run_id": "run_123"}
+        with (
+            patch("etl.models.ner.ner.load_grid_row", return_value=row),
+            patch(
+                "etl.models.ner.ner.load_frozen_experiment_config",
+                return_value=frozen,
+            ),
+            patch(
+                "etl.models.ner.ner.build_config", return_value=config_sentinel
+            ) as build_config_mock,
+            patch(
+                "etl.models.ner.ner.run_training_and_eval", return_value=train_result
+            ) as run_training_mock,
+        ):
+            result = run_grid_row(
+                row_id=7,
+                split_version="split-v2",
+                seed=42,
+                git_commit="abc123",
+                data_path="/tmp/custom-ner.parquet",
+                eval_split="test",
+            )
+
+        self.assertEqual(result, train_result)
+        kwargs = build_config_mock.call_args.kwargs
+        self.assertEqual(kwargs["seed"], 99)
+        self.assertEqual(kwargs["learning_rate"], 3e-5)
+        self.assertEqual(kwargs["train_subsample_window"], 768)
+        self.assertEqual(kwargs["val_window"], 640)
+        self.assertEqual(kwargs["val_stride"], 320)
+        self.assertEqual(kwargs["data_path"], "/tmp/custom-ner.parquet")
+        run_training_mock.assert_called_once_with(
+            config_sentinel, eval_split="test", run_test=True
+        )
 
     def test_append_experiment_row_expands_header_for_new_columns(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -200,7 +319,8 @@ class NerXpSetupTests(unittest.TestCase):
                 }
             }
             with (run_dir / "config.yaml").open("w", encoding="utf-8") as f:
-                yaml.safe_dump(config_payload, f, sort_keys=False)
+                safe_dump = cast(Callable[..., object], yaml.safe_dump)
+                _ = safe_dump(config_payload, f, sort_keys=False)
             with (run_dir / "metrics.json").open("w", encoding="utf-8") as f:
                 json.dump(metrics_payload, f)
 

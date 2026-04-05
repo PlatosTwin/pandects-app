@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import date, datetime
+from threading import Lock
 from typing import Any, Protocol, cast
 
 from flask import Flask, Response, abort, jsonify, request
@@ -8,6 +10,11 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, func, or_, text
 
+from backend.counsel_leaderboards import build_counsel_leaderboards_from_assignments
+from backend.filtering import (
+    build_canonical_counsel_agreement_uuid_subquery,
+    build_transaction_price_bucket_filter,
+)
 from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -18,15 +25,16 @@ from backend.schemas.public_api import (
     AgreementsIndexArgsSchema,
     AgreementsListResponseSchema,
     SectionResponseSchema,
+    TaxClauseListResponseSchema,
 )
 
 
-class _SummaryEligibleAgreementModel(Protocol):
+class _PublicEligibleAgreementModel(Protocol):
     __table__: Any
     verified: Any
 
 
-def _agreement_is_summary_eligible_expr(agreements: _SummaryEligibleAgreementModel) -> object:
+def _agreement_is_public_eligible_expr(agreements: _PublicEligibleAgreementModel) -> object:
     agreement_table = agreements.__table__
     gated_col = agreement_table.c.get("gated")
     if gated_col is None:
@@ -40,13 +48,245 @@ def _agreement_is_summary_eligible_expr(agreements: _SummaryEligibleAgreementMod
 def _to_float_or_none(value: object) -> float | None:
     if value is None:
         return None
+    if not isinstance(value, (int, float, Decimal, str)):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
         return None
 
 
+def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str]) -> str:
+    raw_text = str(raw_value or "").strip()
+    if not raw_text:
+        return ""
+    return label_by_code.get(raw_text, raw_text)
+
+
+def _tax_clause_rows(
+    deps: AgreementsDeps,
+    *,
+    agreement_uuid: str | None = None,
+    section_uuid: str | None = None,
+) -> list[dict[str, object]]:
+    agreements = deps.Agreements
+    clauses = deps.Clauses
+    assignments = deps.TaxClauseAssignment
+    sections = deps.Sections
+    xml = deps.XML
+    db = deps.db
+    agreement_cols = agreements.__table__.c
+    clause_cols = clauses.__table__.c
+    section_cols = sections.__table__.c
+
+    query = (
+        db.session.query(
+            clause_cols["clause_uuid"].label("clause_uuid"),
+            clause_cols["agreement_uuid"].label("agreement_uuid"),
+            clause_cols["section_uuid"].label("section_uuid"),
+            section_cols["article_title"].label("article_title"),
+            section_cols["section_title"].label("section_title"),
+            clause_cols["anchor_label"].label("anchor_label"),
+            clause_cols["start_char"].label("start_char"),
+            clause_cols["end_char"].label("end_char"),
+            clause_cols["clause_text"].label("clause_text"),
+            clause_cols["context_type"].label("context_type"),
+            assignments.standard_id.label("standard_id"),
+        )
+        .join(
+            agreements,
+            agreement_cols["agreement_uuid"] == clause_cols["agreement_uuid"],
+        )
+        .join(
+            sections,
+            and_(
+                section_cols["section_uuid"] == clause_cols["section_uuid"],
+                section_cols["agreement_uuid"] == clause_cols["agreement_uuid"],
+                section_cols["xml_version"] == clause_cols["xml_version"],
+            ),
+        )
+        .join(
+            xml,
+            deps._section_latest_xml_join_condition(),
+        )
+        .outerjoin(
+            assignments,
+            assignments.clause_uuid == clause_cols["clause_uuid"],
+        )
+        .filter(
+            clause_cols["module"] == "tax",
+            _agreement_is_public_eligible_expr(agreements),
+        )
+    )
+    if agreement_uuid is not None:
+        query = query.filter(clause_cols["agreement_uuid"] == agreement_uuid)
+    if section_uuid is not None:
+        query = query.filter(clause_cols["section_uuid"] == section_uuid)
+
+    rows = query.order_by(
+        asc(clause_cols["agreement_uuid"]),
+        asc(clause_cols["section_uuid"]),
+        asc(clause_cols["clause_order"]),
+        asc(assignments.standard_id),
+    ).all()
+
+    grouped: dict[str, dict[str, object]] = {}
+    for row in rows:
+        row_map = deps._row_mapping_as_dict(cast(object, row))
+        clause_uuid = str(row_map["clause_uuid"])
+        grouped_row = grouped.get(clause_uuid)
+        if grouped_row is None:
+            grouped_row = {
+                "clause_uuid": clause_uuid,
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "section_uuid": row_map.get("section_uuid"),
+                "article_title": row_map.get("article_title"),
+                "section_title": row_map.get("section_title"),
+                "anchor_label": row_map.get("anchor_label"),
+                "start_char": row_map.get("start_char"),
+                "end_char": row_map.get("end_char"),
+                "clause_text": row_map.get("clause_text"),
+                "context_type": row_map.get("context_type"),
+                "standard_ids": [],
+            }
+            grouped[clause_uuid] = grouped_row
+        standard_id = row_map.get("standard_id")
+        if isinstance(standard_id, str) and standard_id:
+            standard_ids = cast(list[str], grouped_row["standard_ids"])
+            if standard_id not in standard_ids:
+                standard_ids.append(standard_id)
+    return list(grouped.values())
+
+
+_METADATA_FIELD_COVERAGE_CONFIG = (
+    {
+        "field": "transaction_consideration",
+        "label": "Consideration",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "transaction_price_total",
+        "label": "Total price",
+        "eligible_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "covered_sql": "a.transaction_price_total IS NOT NULL AND TRIM(a.transaction_price_total) <> ''",
+        "note": "Derived from consideration and populated price components; some mixed deals legitimately have no total.",
+    },
+    {
+        "field": "transaction_price_cash",
+        "label": "Cash price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('cash', 'mixed')",
+        "covered_sql": "a.transaction_price_cash IS NOT NULL AND TRIM(a.transaction_price_cash) <> ''",
+        "note": "Only applies to cash or mixed deals.",
+    },
+    {
+        "field": "transaction_price_stock",
+        "label": "Stock price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('stock', 'mixed')",
+        "covered_sql": "a.transaction_price_stock IS NOT NULL AND TRIM(a.transaction_price_stock) <> ''",
+        "note": "Only applies to stock or mixed deals.",
+    },
+    {
+        "field": "transaction_price_assets",
+        "label": "Asset price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') = 'mixed'",
+        "covered_sql": "a.transaction_price_assets IS NOT NULL AND TRIM(a.transaction_price_assets) <> ''",
+        "note": "Shown only against mixed deals; null can still be valid when no asset component exists.",
+    },
+    {
+        "field": "target_type",
+        "label": "Target type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_type IS NOT NULL AND TRIM(a.target_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "acquirer_type",
+        "label": "Acquirer type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_type IS NOT NULL AND TRIM(a.acquirer_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "target_pe",
+        "label": "Target PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_pe",
+        "label": "Acquirer PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "target_industry",
+        "label": "Target industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_industry IS NOT NULL AND TRIM(a.target_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_industry",
+        "label": "Acquirer industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_industry IS NOT NULL AND TRIM(a.acquirer_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "announce_date",
+        "label": "Announce date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.announce_date IS NOT NULL AND TRIM(a.announce_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "close_date",
+        "label": "Close date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.close_date IS NOT NULL AND TRIM(a.close_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_status",
+        "label": "Deal status",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_status IS NOT NULL AND TRIM(a.deal_status) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "attitude",
+        "label": "Attitude",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.attitude IS NOT NULL AND TRIM(a.attitude) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_type",
+        "label": "Deal type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_type IS NOT NULL AND TRIM(a.deal_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "purpose",
+        "label": "Purpose",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.purpose IS NOT NULL AND TRIM(a.purpose) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+)
+
+
 def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
+    agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
+    agreement_trends_lock = Lock()
+    counsel_leaderboards_cache: dict[str, object] = {"ts": 0.0, "payload": None}
+    counsel_leaderboards_lock = Lock()
+
     agreements_blp = Blueprint(
         "agreements",
         "agreements",
@@ -59,6 +299,78 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         url_prefix="/v1/sections",
         description="Retrieve full text for a given section",
     )
+
+    def get_metadata_field_coverage() -> list[dict[str, object]]:
+        coverage_rows: list[dict[str, object]] = []
+        agreement_where_parts = ["1 = 1"]
+        agreement_columns = deps.Agreements.__table__.c
+        if agreement_columns.get("status") is not None:
+            agreement_where_parts.append("COALESCE(LOWER(a.status), '') <> 'invalid'")
+        if agreement_columns.get("gated") is not None and agreement_columns.get("verified") is not None:
+            agreement_where_parts.append(
+                "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
+            )
+        agreement_where = "\n                      AND ".join(agreement_where_parts)
+        agreements_table = f"{deps._schema_prefix()}agreements"
+        aggregate_select_lines: list[str] = []
+        for config in _METADATA_FIELD_COVERAGE_CONFIG:
+            field = cast(str, config["field"])
+            eligible_sql = cast(str, config["eligible_sql"])
+            covered_sql = cast(str, config["covered_sql"])
+            aggregate_select_lines.extend(
+                [
+                    (
+                        f"SUM(CASE WHEN {eligible_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_eligible_agreements"
+                    ),
+                    (
+                        f"SUM(CASE WHEN {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_covered_agreements"
+                    ),
+                ]
+            )
+        aggregate_select = ",\n                            ".join(aggregate_select_lines)
+        row = (
+            deps.db.session.execute(
+                text(
+                    f"""
+                    SELECT
+                        {aggregate_select}
+                    FROM {agreements_table} a
+                    WHERE {agreement_where}
+                    """
+                )
+            )
+            .mappings()
+            .first()
+        )
+        row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
+
+        for config in _METADATA_FIELD_COVERAGE_CONFIG:
+            field = cast(str, config["field"])
+            eligible_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_eligible_agreements"))
+            ) or 0
+            covered_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_covered_agreements"))
+            ) or 0
+            coverage_pct = (
+                round((covered_agreements / eligible_agreements) * 100, 1)
+                if eligible_agreements > 0
+                else None
+            )
+            coverage_rows.append(
+                {
+                    "field": config["field"],
+                    "label": config["label"],
+                    "eligible_agreements": eligible_agreements,
+                    "covered_agreements": covered_agreements,
+                    "coverage_pct": coverage_pct,
+                    "note": config["note"],
+                }
+            )
+
+        return coverage_rows
 
     @agreements_blp.route("")
     class AgreementsListResource(MethodView):
@@ -99,6 +411,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             transaction_considerations = parsed_args["transaction_consideration"]
             target_types = parsed_args["target_type"]
             acquirer_types = parsed_args["acquirer_type"]
+            target_counsels = parsed_args["target_counsel"]
+            acquirer_counsels = parsed_args["acquirer_counsel"]
             target_industries = parsed_args["target_industry"]
             acquirer_industries = parsed_args["acquirer_industry"]
             deal_statuses = parsed_args["deal_status"]
@@ -111,6 +425,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             section_uuid = parsed_args["section_uuid"]
 
             agreements = deps.Agreements
+            agreement_counsel = deps.AgreementCounsel
+            counsel = deps.Counsel
             xml = deps.XML
             sections = deps.Sections
             db = deps.db
@@ -148,6 +464,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             q = (
                 db.session.query(*item_columns)
                 .join(xml, deps._agreement_latest_xml_join_condition())
+                .filter(_agreement_is_public_eligible_expr(agreements))
             )
 
             if include_xml:
@@ -167,20 +484,52 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 q = q.filter(agreements.target.in_(targets))
             if acquirers:
                 q = q.filter(agreements.acquirer.in_(acquirers))
-            if transaction_price_totals:
-                q = q.filter(agreements.transaction_price_total.in_(transaction_price_totals))
-            if transaction_price_stocks:
-                q = q.filter(agreements.transaction_price_stock.in_(transaction_price_stocks))
-            if transaction_price_cashes:
-                q = q.filter(agreements.transaction_price_cash.in_(transaction_price_cashes))
-            if transaction_price_assets:
-                q = q.filter(agreements.transaction_price_assets.in_(transaction_price_assets))
+            transaction_price_total_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_total,
+                transaction_price_totals,
+            )
+            if transaction_price_total_filter is not None:
+                q = q.filter(transaction_price_total_filter)
+            transaction_price_stock_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_stock,
+                transaction_price_stocks,
+            )
+            if transaction_price_stock_filter is not None:
+                q = q.filter(transaction_price_stock_filter)
+            transaction_price_cash_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_cash,
+                transaction_price_cashes,
+            )
+            if transaction_price_cash_filter is not None:
+                q = q.filter(transaction_price_cash_filter)
+            transaction_price_assets_filter = build_transaction_price_bucket_filter(
+                agreements.transaction_price_assets,
+                transaction_price_assets,
+            )
+            if transaction_price_assets_filter is not None:
+                q = q.filter(transaction_price_assets_filter)
             if transaction_considerations:
                 q = q.filter(agreements.transaction_consideration.in_(transaction_considerations))
             if target_types:
                 q = q.filter(agreements.target_type.in_(target_types))
             if acquirer_types:
                 q = q.filter(agreements.acquirer_type.in_(acquirer_types))
+            target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+                side="target",
+                canonical_names=target_counsels,
+                agreement_counsel=agreement_counsel,
+                counsel=counsel,
+            )
+            if target_counsel_subquery is not None:
+                q = q.filter(agreements.agreement_uuid.in_(target_counsel_subquery))
+            acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+                side="acquirer",
+                canonical_names=acquirer_counsels,
+                agreement_counsel=agreement_counsel,
+                counsel=counsel,
+            )
+            if acquirer_counsel_subquery is not None:
+                q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subquery))
             if target_industries:
                 q = q.filter(agreements.target_industry.in_(target_industries))
             if acquirer_industries:
@@ -302,6 +651,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
     @agreements_blp.route("/<string:agreement_uuid>")
     class AgreementResource(MethodView):
+        @agreements_blp.doc(
+            operationId="getAgreement",
+            summary="Retrieve agreement text by UUID",
+            description="Returns agreement metadata and XML content. For anonymous callers, XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.",
+        )
         @agreements_blp.arguments(AgreementArgsSchema, location="query")
         @agreements_blp.response(200, AgreementResponseSchema)
         def get(self, args: dict[str, object], agreement_uuid: str) -> dict[str, object]:
@@ -350,7 +704,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     xml.xml,
                 )
                 .join(xml, deps._agreement_latest_xml_join_condition())
-                .filter(agreements.agreement_uuid == agreement_uuid)
+                .filter(
+                    agreements.agreement_uuid == agreement_uuid,
+                    _agreement_is_public_eligible_expr(agreements),
+                )
                 .first()
             )
 
@@ -403,6 +760,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
     @sections_blp.route("/<string:section_uuid>")
     class SectionResource(MethodView):
+        @sections_blp.doc(
+            operationId="getSection",
+            summary="Retrieve section text by UUID",
+            description="Returns one section payload including taxonomy IDs and XML content.",
+        )
         @sections_blp.response(200, SectionResponseSchema)
         def get(self, section_uuid: str) -> dict[str, object]:
             section_uuid = section_uuid.strip()
@@ -459,6 +821,34 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "section_title": section_title,
             }
 
+    @agreements_blp.route("/<string:agreement_uuid>/tax-clauses")
+    class AgreementTaxClausesResource(MethodView):
+        @agreements_blp.doc(
+            operationId="getAgreementTaxClauses",
+            summary="Retrieve tax clauses for an agreement",
+            description="Returns extracted tax-module clauses for the latest verified XML of an agreement.",
+        )
+        @agreements_blp.response(200, TaxClauseListResponseSchema)
+        def get(self, agreement_uuid: str) -> dict[str, object]:
+            agreement_uuid = agreement_uuid.strip()
+            if agreement_uuid == "":
+                abort(400, description="Invalid agreement_uuid.")
+            return {"clauses": _tax_clause_rows(deps, agreement_uuid=agreement_uuid)}
+
+    @sections_blp.route("/<string:section_uuid>/tax-clauses")
+    class SectionTaxClausesResource(MethodView):
+        @sections_blp.doc(
+            operationId="getSectionTaxClauses",
+            summary="Retrieve tax clauses for a section",
+            description="Returns extracted tax-module clauses for a specific latest section.",
+        )
+        @sections_blp.response(200, TaxClauseListResponseSchema)
+        def get(self, section_uuid: str) -> dict[str, object]:
+            section_uuid = section_uuid.strip()
+            if not deps._SECTION_ID_RE.match(section_uuid):
+                abort(400, description="Invalid section_uuid.")
+            return {"clauses": _tax_clause_rows(deps, section_uuid=section_uuid)}
+
     def get_agreements_index() -> dict[str, object]:
         ctx = deps._current_access_context()
         args = deps._load_query(AgreementsIndexArgsSchema())
@@ -496,11 +886,13 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 agreements.verified,
             )
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(_agreement_is_public_eligible_expr(agreements))
         )
         count_q = (
             db.session.query(func.count(agreements.agreement_uuid))
             .select_from(agreements)
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(_agreement_is_public_eligible_expr(agreements))
         )
 
         if query:
@@ -619,6 +1011,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             "taxonomy_coverage_pct": _to_float_or_none(
                 overview_row_dict.get("taxonomy_coverage_pct")
             ),
+            "metadata_field_coverage": get_metadata_field_coverage(),
         }
 
     def get_agreements_deal_types_summary() -> dict[str, object]:
@@ -678,7 +1071,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         ).mappings().first()
 
         row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
-        payload = {
+        payload: dict[str, object] = {
             "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
             "sections": deps._to_int(cast(object, row_dict.get("sections"))),
             "pages": deps._to_int(cast(object, row_dict.get("pages"))),
@@ -688,6 +1081,295 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             deps._agreements_summary_cache["ts"] = now
 
         return payload
+
+    def get_counsel_leaderboards() -> dict[str, object]:
+        now = deps.time.time()
+        with counsel_leaderboards_lock:
+            cached_payload = counsel_leaderboards_cache["payload"]
+            cached_ts = cast(float, counsel_leaderboards_cache["ts"])
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
+            )
+        if cache_is_valid and isinstance(cached_payload, dict):
+            return cached_payload
+
+        db = deps.db
+        rows = (
+            db.session.execute(
+                text(
+                    f"""
+                    SELECT
+                        CASE ac.side
+                            WHEN 'acquirer' THEN 'buy_side'
+                            WHEN 'target' THEN 'sell_side'
+                            ELSE ac.side
+                        END AS side,
+                        c.canonical_name_normalized AS counsel_key,
+                        c.canonical_name AS counsel,
+                        a.filing_date AS filing_date,
+                        a.transaction_price_total AS transaction_price_total
+                    FROM {deps._schema_prefix()}agreement_counsel ac
+                    JOIN {deps._schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {deps._schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    JOIN {deps._schema_prefix()}xml x
+                      ON x.agreement_uuid = a.agreement_uuid
+                     AND x.latest = 1
+                     AND (x.status IS NULL OR x.status = 'verified')
+                    WHERE NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)
+                    ORDER BY a.filing_date ASC, ac.agreement_uuid ASC, ac.side ASC, ac.position ASC
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+        payload = build_counsel_leaderboards_from_assignments(
+            [
+                deps._row_mapping_as_dict(cast(object, row))
+                for row in rows
+            ]
+        )
+        with counsel_leaderboards_lock:
+            counsel_leaderboards_cache["payload"] = payload
+            counsel_leaderboards_cache["ts"] = now
+        return payload
+
+    def get_agreement_trends() -> dict[str, object]:
+        now = deps.time.time()
+        with agreement_trends_lock:
+            cached_payload = agreement_trends_cache["payload"]
+            cached_ts = cast(float, agreement_trends_cache["ts"])
+            cache_is_valid = cached_payload is not None and (
+                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
+            )
+        if cache_is_valid and isinstance(cached_payload, dict):
+            return cached_payload
+
+        db = deps.db
+        schema_prefix = deps._schema_prefix()
+        ownership_mix_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, target_bucket, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_ownership_mix_summary
+                ORDER BY year ASC, target_bucket ASC
+                """
+            )
+        ).mappings().all()
+        ownership_deal_size_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value
+                FROM {schema_prefix}agreement_ownership_deal_size_summary
+                ORDER BY year ASC, target_bucket ASC
+                """
+            )
+        ).mappings().all()
+        buyer_matrix_rows = db.session.execute(
+            text(
+                f"""
+                SELECT target_bucket, buyer_bucket, deal_count, median_transaction_value
+                FROM {schema_prefix}agreement_buyer_type_matrix_summary
+                ORDER BY target_bucket ASC, buyer_bucket ASC
+                """
+            )
+        ).mappings().all()
+        target_industry_rows = db.session.execute(
+            text(
+                f"""
+                SELECT year, industry, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_target_industry_summary
+                ORDER BY year ASC, industry ASC
+                """
+            )
+        ).mappings().all()
+        industry_pairing_rows = db.session.execute(
+            text(
+                f"""
+                SELECT target_industry, acquirer_industry, deal_count, total_transaction_value
+                FROM {schema_prefix}agreement_industry_pairing_summary
+                ORDER BY deal_count DESC, total_transaction_value DESC, target_industry ASC, acquirer_industry ASC
+                """
+            )
+        ).mappings().all()
+        naics_sector_rows = db.session.execute(
+            text(
+                f"""
+                SELECT sector_code, sector_desc
+                FROM {schema_prefix}naics_sectors
+                """
+            )
+        ).mappings().all()
+        naics_sub_sector_rows = db.session.execute(
+            text(
+                f"""
+                SELECT sub_sector_code, sub_sector_desc
+                FROM {schema_prefix}naics_sub_sectors
+                """
+            )
+        ).mappings().all()
+        naics_label_by_code: dict[str, str] = {}
+        for row in naics_sector_rows:
+            sector_code = row.get("sector_code")
+            sector_desc = row.get("sector_desc")
+            if sector_code is None or not isinstance(sector_desc, str):
+                continue
+            naics_label_by_code[str(sector_code)] = sector_desc
+        for row in naics_sub_sector_rows:
+            sub_sector_code = row.get("sub_sector_code")
+            sub_sector_desc = row.get("sub_sector_desc")
+            if sub_sector_code is None or not isinstance(sub_sector_desc, str):
+                continue
+            naics_label_by_code[str(sub_sector_code)] = sub_sector_desc
+
+        ownership_mix_by_year: dict[int, dict[str, object]] = {}
+        for row in ownership_mix_rows:
+            year = deps._to_int(row.get("year"))
+            year_row = ownership_mix_by_year.setdefault(
+                year,
+                {
+                    "year": year,
+                    "public_deal_count": 0,
+                    "private_deal_count": 0,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 0.0,
+                },
+            )
+            target_bucket = str(row.get("target_bucket") or "")
+            if target_bucket == "public":
+                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["public_total_transaction_value"] = _to_float_or_none(
+                    row.get("total_transaction_value")
+                ) or 0.0
+            elif target_bucket == "private":
+                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["private_total_transaction_value"] = _to_float_or_none(
+                    row.get("total_transaction_value")
+                ) or 0.0
+
+        ownership_deal_size_by_year: dict[int, dict[str, object]] = {}
+        for row in ownership_deal_size_rows:
+            year = deps._to_int(row.get("year"))
+            year_row = ownership_deal_size_by_year.setdefault(
+                year,
+                {
+                    "year": year,
+                    "public_deal_count": 0,
+                    "private_deal_count": 0,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": None,
+                    "private_median_transaction_value": None,
+                    "private_p75_transaction_value": None,
+                },
+            )
+            target_bucket = str(row.get("target_bucket") or "")
+            if target_bucket == "public":
+                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["public_p25_transaction_value"] = _to_float_or_none(
+                    row.get("p25_transaction_value")
+                )
+                year_row["public_median_transaction_value"] = _to_float_or_none(
+                    row.get("median_transaction_value")
+                )
+                year_row["public_p75_transaction_value"] = _to_float_or_none(
+                    row.get("p75_transaction_value")
+                )
+            elif target_bucket == "private":
+                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
+                year_row["private_p25_transaction_value"] = _to_float_or_none(
+                    row.get("p25_transaction_value")
+                )
+                year_row["private_median_transaction_value"] = _to_float_or_none(
+                    row.get("median_transaction_value")
+                )
+                year_row["private_p75_transaction_value"] = _to_float_or_none(
+                    row.get("p75_transaction_value")
+                )
+
+        buyer_matrix_lookup = {
+            (
+                str(row.get("target_bucket") or ""),
+                str(row.get("buyer_bucket") or ""),
+            ): row
+            for row in buyer_matrix_rows
+        }
+        buyer_matrix = []
+        for target_bucket in ("public", "private"):
+            for buyer_bucket in (
+                "public_buyer",
+                "private_strategic",
+                "private_equity",
+                "other",
+            ):
+                row = buyer_matrix_lookup.get((target_bucket, buyer_bucket))
+                buyer_matrix.append(
+                    {
+                        "target_bucket": target_bucket,
+                        "buyer_bucket": buyer_bucket,
+                        "deal_count": deps._to_int(row.get("deal_count")) if row else 0,
+                        "median_transaction_value": (
+                            _to_float_or_none(row.get("median_transaction_value"))
+                            if row
+                            else None
+                        ),
+                    }
+                )
+
+        payload: dict[str, object] = {
+            "ownership": {
+                "mix_by_year": [
+                    ownership_mix_by_year[year]
+                    for year in sorted(ownership_mix_by_year.keys())
+                ],
+                "deal_size_by_year": [
+                    ownership_deal_size_by_year[year]
+                    for year in sorted(ownership_deal_size_by_year.keys())
+                ],
+                "buyer_type_matrix": buyer_matrix,
+            },
+            "industries": {
+                "target_industries_by_year": [
+                    {
+                        "year": deps._to_int(row.get("year")),
+                        "industry": _normalize_industry_label(
+                            row.get("industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
+                        "deal_count": deps._to_int(row.get("deal_count")),
+                        "total_transaction_value": _to_float_or_none(
+                            row.get("total_transaction_value")
+                        ) or 0.0,
+                    }
+                    for row in target_industry_rows
+                ],
+                "pairings": [
+                    {
+                        "target_industry": _normalize_industry_label(
+                            row.get("target_industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
+                        "acquirer_industry": _normalize_industry_label(
+                            row.get("acquirer_industry"),
+                            label_by_code=naics_label_by_code,
+                        ),
+                        "deal_count": deps._to_int(row.get("deal_count")),
+                        "total_transaction_value": _to_float_or_none(
+                            row.get("total_transaction_value")
+                        ) or 0.0,
+                    }
+                    for row in industry_pairing_rows
+                ],
+            },
+        }
+        with agreement_trends_lock:
+            agreement_trends_cache["payload"] = payload
+            agreement_trends_cache["ts"] = now
+        return cast(dict[str, object], payload)
 
     def get_filter_options() -> tuple[Response, int] | Response:
         now = deps.time.time()
@@ -705,6 +1387,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             return resp, 200
 
         db = deps.db
+        agreements = deps.Agreements
         schema_prefix = deps._schema_prefix
         _xml_eligible = (
             "EXISTS ("
@@ -719,6 +1402,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             "  WHERE s.agreement_uuid = a.agreement_uuid"
             ")"
         ).format(t=schema_prefix())
+        _is_public_eligible = (
+            "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
+            if "gated" in agreements.__table__.c
+            else "1 = 1"
+        )
 
         targets = [
             cast(str, row[0])
@@ -729,6 +1417,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.target IS NOT NULL
                       AND a.target <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.target
@@ -745,9 +1434,54 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.acquirer IS NOT NULL
                       AND a.acquirer <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.acquirer
+                    """
+                )
+            ).fetchall()
+        ]
+        target_counsels = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT c.canonical_name
+                    FROM {schema_prefix()}agreement_counsel ac
+                    JOIN {schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    WHERE ac.side = 'target'
+                      AND c.canonical_name IS NOT NULL
+                      AND c.canonical_name <> ''
+                      AND {_is_public_eligible}
+                      AND {_has_sections}
+                      AND {_xml_eligible}
+                    ORDER BY c.canonical_name
+                    """
+                )
+            ).fetchall()
+        ]
+        acquirer_counsels = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT c.canonical_name
+                    FROM {schema_prefix()}agreement_counsel ac
+                    JOIN {schema_prefix()}counsel c
+                      ON c.counsel_id = ac.counsel_id
+                    JOIN {schema_prefix()}agreements a
+                      ON a.agreement_uuid = ac.agreement_uuid
+                    WHERE ac.side = 'acquirer'
+                      AND c.canonical_name IS NOT NULL
+                      AND c.canonical_name <> ''
+                      AND {_is_public_eligible}
+                      AND {_has_sections}
+                      AND {_xml_eligible}
+                    ORDER BY c.canonical_name
                     """
                 )
             ).fetchall()
@@ -761,6 +1495,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.target_industry IS NOT NULL
                       AND a.target_industry <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.target_industry
@@ -777,6 +1512,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     FROM {schema_prefix()}agreements a
                     WHERE a.acquirer_industry IS NOT NULL
                       AND a.acquirer_industry <> ''
+                      AND {_is_public_eligible}
                       AND {_has_sections}
                       AND {_xml_eligible}
                     ORDER BY a.acquirer_industry
@@ -788,6 +1524,8 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         payload = {
             "targets": targets,
             "acquirers": acquirers,
+            "target_counsels": target_counsels,
+            "acquirer_counsels": acquirer_counsels,
             "target_industries": target_industries,
             "acquirer_industries": acquirer_industries,
         }
@@ -804,6 +1542,16 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
     )
     target_app.add_url_rule(
         "/v1/agreements-summary", view_func=get_agreements_summary, methods=["GET"]
+    )
+    target_app.add_url_rule(
+        "/v1/counsel-leaderboards",
+        view_func=get_counsel_leaderboards,
+        methods=["GET"],
+    )
+    target_app.add_url_rule(
+        "/v1/agreement-trends",
+        view_func=get_agreement_trends,
+        methods=["GET"],
     )
     target_app.add_url_rule(
         "/v1/agreements-status-summary",

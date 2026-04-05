@@ -110,6 +110,25 @@ def _select_agreements_by_urls(
     ]
 
 
+def _select_existing_agreement_uuids(
+    conn: Connection,
+    agreements_table: str,
+    agreement_uuids: Iterable[str],
+) -> set[str]:
+    target_uuids = tuple(sorted({agreement_uuid for agreement_uuid in agreement_uuids if agreement_uuid}))
+    if not target_uuids:
+        return set()
+    sql = text(
+        f"""
+        SELECT agreement_uuid
+        FROM {agreements_table}
+        WHERE agreement_uuid IN :agreement_uuids
+        """
+    ).bindparams(bindparam("agreement_uuids", expanding=True))
+    rows = conn.execute(sql, {"agreement_uuids": target_uuids}).scalars().all()
+    return {str(row) for row in rows}
+
+
 def _select_reconciliation_candidates(
     conn: Connection,
     agreements_table: str,
@@ -300,12 +319,12 @@ def _reconcile_cross_day_duplicates(
     conn: Connection,
     schema: str,
     ingested_urls: Sequence[str],
-) -> int:
+) -> tuple[int, set[str]]:
     agreements_table = f"{schema}.agreements"
     ingested_agreements = _select_agreements_by_urls(conn, agreements_table, ingested_urls)
     if not ingested_agreements:
         context.log.info("Cross-day de-dupe stage: no ingested agreements to scan.")
-        return 0
+        return 0, set()
 
     filing_dates = [agreement.filing_date for agreement in ingested_agreements]
     window_start = min(filing_dates) - timedelta(days=_CROSS_DAY_DEDUPE_LOOKBACK_DAYS)
@@ -332,20 +351,25 @@ def _reconcile_cross_day_duplicates(
     )
     if not resolutions:
         context.log.info("Cross-day de-dupe stage: found 0 duplicate agreements.")
-        return 0
+        return 0, set()
 
     _merge_secondary_filing_urls(conn, agreements_table, resolutions)
+    deleted_uuids = {
+        resolution.loser.agreement_uuid
+        for resolution in resolutions
+        if resolution.loser.agreement_uuid
+    }
     _delete_duplicate_agreements(
         conn,
         schema,
-        [resolution.loser.agreement_uuid for resolution in resolutions],
+        sorted(deleted_uuids),
     )
     context.log.info(
         "Cross-day de-dupe stage: removed "
         + f"{len(resolutions)} duplicate agreements across "
         + f"{len({resolution.survivor.agreement_uuid for resolution in resolutions})} clusters."
     )
-    return len(resolutions)
+    return len(resolutions), deleted_uuids
 
 
 def _get_exhibit_classifier_path() -> Path:
@@ -401,28 +425,14 @@ def _latest_sec_index_date_available(today: date | None = None) -> date:
     return reference_date - timedelta(days=1)
 
 
-@dg.asset(name="1_staging_asset")
-def staging_asset(
+def _run_staging(
     context: AssetExecutionContext,
     db: DBResource,
-    pipeline_config: PipelineConfig
-) -> int:
-    """Stage new filings day-by-day with incremental commits.
-
-    Processes one day at a time, committing after each day. If the run crashes
-    mid-way (e.g., on day 89 of 90), the next run resumes from where it left off
-    rather than re-processing all days.
-
-    Args:
-        context: Dagster execution context.
-        db: Database resource for connection.
-        pipeline_config: Pipeline configuration.
-
-    Returns:
-        Total number of new filings processed across all days.
-    """
+    pipeline_config: PipelineConfig,
+) -> tuple[int, list[str]]:
     engine = db.get_engine()
     schema = db.database
+    agreements_table = f"{schema}.agreements"
     pipeline_runs_table = f"{schema}.pipeline_runs"
     context.log.info("Running staging")
 
@@ -471,6 +481,7 @@ def staging_asset(
     processed_days = 0
     latest_expected_index_date = _latest_sec_index_date_available()
     ingested_urls: list[str] = []
+    inserted_agreement_uuids: set[str] = set()
 
     try:
         for day_offset in range(days_to_fetch):
@@ -522,6 +533,16 @@ def staging_asset(
             with engine.begin() as conn:
                 if filings:
                     try:
+                        existing_uuids = _select_existing_agreement_uuids(
+                            conn,
+                            agreements_table,
+                            [filing.agreement_uuid for filing in filings],
+                        )
+                        inserted_agreement_uuids.update(
+                            filing.agreement_uuid
+                            for filing in filings
+                            if filing.agreement_uuid not in existing_uuids
+                        )
                         upsert_agreements(filings, db.database, conn)
                         context.log.info(f"  Upserted {day_count} agreements for {index_date}")
                     except Exception as e:
@@ -541,7 +562,8 @@ def staging_asset(
             f"Staging complete: {total_count} total filings across {processed_days} processed days"
         )
         with engine.begin() as conn:
-            _ = _reconcile_cross_day_duplicates(context, conn, schema, ingested_urls)
+            _, deleted_uuids = _reconcile_cross_day_duplicates(context, conn, schema, ingested_urls)
+        scoped_agreement_uuids = sorted(inserted_agreement_uuids - deleted_uuids)
         run_post_asset_refresh(context, db, pipeline_config)
 
         # Only mark the run successful after downstream refresh work completes.
@@ -558,7 +580,7 @@ def staging_asset(
                 ),
                 {"run_id": run_id, "pulled_to": latest_pulled_to, "count": total_count},
             )
-        return total_count
+        return total_count, scoped_agreement_uuids
     except Exception:
         with engine.begin() as conn:
             _ = conn.execute(
@@ -572,3 +594,29 @@ def staging_asset(
                 {"run_id": run_id},
             )
         raise
+
+
+@dg.asset(name="1_staging_asset")
+def staging_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig
+) -> int:
+    """Stage new filings day-by-day with incremental commits."""
+    total_count, _ = _run_staging(context, db, pipeline_config)
+    return total_count
+
+
+@dg.asset(name="1-1_regular_ingest_staging_asset")
+def regular_ingest_staging_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> list[str]:
+    """Stage filings and return only newly inserted, non-deduped agreement UUIDs."""
+    _, scoped_agreement_uuids = _run_staging(context, db, pipeline_config)
+    context.log.info(
+        "regular_ingest_staging_asset: scoped %s newly inserted non-deduped agreements.",
+        len(scoped_agreement_uuids),
+    )
+    return scoped_agreement_uuids

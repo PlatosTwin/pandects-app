@@ -3,7 +3,8 @@ import path from "path";
 import fs from "fs";
 import compression from "compression";
 import { handleDemo } from "./routes/demo";
-import { getPublicOrigin, getSeoForPath, injectSeoBlock, isKnownRoute } from "./seo";
+import { getPublicOrigin, getSeoForRequest, injectSeoDocument } from "./seo";
+import { PRERENDER_ROUTES } from "../shared/route-manifest.mjs";
 
 const DOCS_SITE_URL = (process.env.PUBLIC_DOCS_URL || "https://docs.pandects.org")
   .trim()
@@ -69,7 +70,7 @@ export function createServer() {
   app.get("/api/demo", handleDemo);
 
   if (process.env.NODE_ENV === "production") {
-    const staticPath = path.join(__dirname, "../spa");
+    const staticPath = path.resolve(import.meta.dirname, "../spa");
     const indexHtmlPath = path.join(staticPath, "index.html");
     const indexHtmlTemplate = fs.readFileSync(indexHtmlPath, "utf-8");
     const prerenderedTemplates = loadPrerenderedTemplates(staticPath);
@@ -105,9 +106,9 @@ export function createServer() {
       }
 
       const origin = getPublicOrigin(req);
-      const seo = getSeoForPath(req.path, origin);
+      const seo = getSeoForRequest(req, origin);
       const template = prerenderedTemplates.get(req.path) ?? indexHtmlTemplate;
-      const html = injectSeoBlock(template, seo);
+      const html = injectSeoDocument(template, seo);
 
       if (seo.xRobotsTag) res.setHeader("X-Robots-Tag", seo.xRobotsTag);
       res.status(seo.status);
@@ -122,22 +123,11 @@ export function createServer() {
 
 function loadPrerenderedTemplates(staticPath: string): Map<string, string> {
   const templates = new Map<string, string>();
-  const entries = [
-    { route: "/", file: "index.html" },
-    { route: "/about", file: "about.html" },
-    { route: "/bulk-data", file: "bulk-data.html" },
-    { route: "/contribute", file: "contribute.html" },
-    { route: "/feedback", file: "feedback.html" },
-    { route: "/sources-methods", file: "sources-methods.html" },
-    { route: "/xml-schema", file: "xml-schema.html" },
-    { route: "/taxonomy", file: "taxonomy.html" },
-  ];
-
   const dir = path.join(staticPath, "prerender");
-  for (const entry of entries) {
-    const filePath = path.join(dir, entry.file);
+  for (const route of PRERENDER_ROUTES) {
+    const filePath = path.join(dir, route.prerenderFilename);
     if (!fs.existsSync(filePath)) continue;
-    templates.set(entry.route, fs.readFileSync(filePath, "utf-8"));
+    templates.set(route.pathname, fs.readFileSync(filePath, "utf-8"));
   }
 
   return templates;

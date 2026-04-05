@@ -26,6 +26,12 @@ const sidebar: SidebarsConfig = {
           label: "/v1/agreements/{agreement_uuid}",
           className: "api-method get",
         },
+        {
+          type: "doc",
+          id: "pandects/get-agreement-tax-clauses",
+          label: "/v1/agreements/{agreement_uuid}/tax-clauses",
+          className: "api-method get",
+        },
       ],
     },
     {
@@ -48,6 +54,12 @@ const sidebar: SidebarsConfig = {
           label: "/v1/sections/{section_uuid}",
           className: "api-method get",
         },
+        {
+          type: "doc",
+          id: "pandects/get-section-tax-clauses",
+          label: "/v1/sections/{section_uuid}/tax-clauses",
+          className: "api-method get",
+        },
       ],
     },
     {
@@ -68,6 +80,22 @@ const sidebar: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "tax-clause-taxonomy",
+      link: {
+        type: "doc",
+        id: "pandects/tax-clause-taxonomy",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-tax-clause-taxonomy",
+          label: "/v1/taxonomy/tax-clauses",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "naics",
       link: {
         type: "doc",
@@ -78,6 +106,22 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "pandects/get-naics",
           label: "/v1/naics",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "counsel",
+      link: {
+        type: "doc",
+        id: "pandects/counsel",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-counsel",
+          label: "/v1/counsel",
           className: "api-method get",
         },
       ],

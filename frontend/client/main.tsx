@@ -22,6 +22,8 @@ const About = lazy(() => import("./pages/About"));
 const SourcesMethods = lazy(() => import("./pages/SourcesMethods"));
 const XmlSchema = lazy(() => import("./pages/XmlSchema"));
 const Taxonomy = lazy(() => import("./pages/Taxonomy"));
+const Leaderboards = lazy(() => import("./pages/Leaderboards"));
+const TrendsAnalyses = lazy(() => import("./pages/TrendsAnalyses"));
 const Feedback = lazy(() => import("./pages/Feedback"));
 const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -71,6 +73,8 @@ const App = () => {
               <Route path="/sources-methods" element={<SourcesMethods />} />
               <Route path="/xml-schema" element={<XmlSchema />} />
               <Route path="/taxonomy" element={<Taxonomy />} />
+              <Route path="/leaderboards" element={<Leaderboards />} />
+              <Route path="/trends-analyses" element={<TrendsAnalyses />} />
               <Route path="/about" element={<About />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/contribute" element={<Contribute />} />

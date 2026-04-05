@@ -1,0 +1,173 @@
+"""Scoped regular_ingest resume guards."""
+# pyright: reportAny=false
+
+import unittest
+from types import SimpleNamespace
+from typing import cast
+from unittest.mock import patch
+
+from dagster import AssetExecutionContext
+
+from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
+from etl.defs.f_xml_repair_cycle_asset import (
+    regular_ingest_post_repair_build_xml_asset,
+    regular_ingest_post_repair_verify_xml_asset,
+)
+from etl.defs.resources import DBResource, PipelineConfig
+
+
+class _FakeLog:
+    def info(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+    def warning(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
+class _FakeResult:
+    def __init__(self, *, rows: list[dict[str, object]] | None = None) -> None:
+        self._rows = rows or []
+
+    class _Scalars:
+        def __init__(self, values: list[object]) -> None:
+            self._values = values
+
+        def all(self) -> list[object]:
+            return self._values
+
+    def mappings(self) -> "_FakeResult":
+        return self
+
+    def fetchall(self) -> list[dict[str, object]]:
+        return self._rows
+
+    def scalars(self) -> "_FakeResult._Scalars":
+        values = [next(iter(row.values()), None) for row in self._rows]
+        return _FakeResult._Scalars(values)
+
+
+class _FakeConn:
+    def execute(self, statement: object, _params: dict[str, object] | None = None) -> _FakeResult:
+        sql = str(statement)
+        if "AND status = 'verified'" in sql:
+            return _FakeResult(rows=[])
+        if "latest ai_repair_attempted XML rows" in sql:
+            return _FakeResult(rows=[])
+        if "latest=1, and ai_repair_attempted=0" in sql:
+            return _FakeResult(rows=[])
+        if "canonical_post_repair_build_queue_sql" in sql:
+            return _FakeResult(rows=[])
+        return _FakeResult(rows=[])
+
+
+class _FakeBeginContext:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    def __enter__(self) -> _FakeConn:
+        return self._conn
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+
+class _FakeEngine:
+    def __init__(self) -> None:
+        self._conn = _FakeConn()
+
+    def begin(self) -> _FakeBeginContext:
+        return _FakeBeginContext(self._conn)
+
+
+class _FakeDB:
+    def __init__(self) -> None:
+        self.database = "pdx"
+        self._engine = _FakeEngine()
+
+    def get_engine(self) -> _FakeEngine:
+        return self._engine
+
+
+class RegularIngestScopeResumeTests(unittest.TestCase):
+    def test_regular_ingest_xml_verify_does_not_resume_unrelated_stranded_batch(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(object, SimpleNamespace(xml_agreement_batch_size=10, resume_openai_batches=True)),
+        )
+
+        with (
+            patch("etl.defs.f_xml_asset._oai_client", return_value=SimpleNamespace()),
+            patch("etl.defs.f_xml_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.f_xml_asset._fetch_unpulled_xml_verify_batch",
+                side_effect=AssertionError("regular_ingest_xml_verify_asset should not inspect unrelated stranded batches"),
+            ),
+            patch("etl.defs.f_xml_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_xml_verify_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
+
+    def test_regular_ingest_post_repair_build_does_not_defer_for_unrelated_verify_batch(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(object, SimpleNamespace(xml_agreement_batch_size=10, resume_openai_batches=True)),
+        )
+
+        with (
+            patch(
+                "etl.defs.f_xml_repair_cycle_asset._fetch_unpulled_xml_verify_batch",
+                side_effect=AssertionError("regular_ingest_post_repair_build_xml_asset should not be blocked by unrelated verify batches"),
+            ),
+            patch("etl.defs.f_xml_repair_cycle_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_post_repair_build_xml_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
+
+    def test_regular_ingest_post_repair_verify_does_not_resume_unrelated_stranded_batch(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(object, SimpleNamespace(xml_agreement_batch_size=10, resume_openai_batches=True)),
+        )
+
+        with (
+            patch("etl.defs.f_xml_repair_cycle_asset._oai_client", return_value=SimpleNamespace()),
+            patch("etl.defs.f_xml_repair_cycle_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.f_xml_repair_cycle_asset._fetch_unpulled_xml_verify_batch",
+                side_effect=AssertionError("regular_ingest_post_repair_verify_xml_asset should not inspect unrelated stranded batches"),
+            ),
+            patch("etl.defs.f_xml_repair_cycle_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_post_repair_verify_xml_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
+
+
+if __name__ == "__main__":
+    _ = unittest.main()

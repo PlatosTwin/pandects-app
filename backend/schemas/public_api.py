@@ -45,6 +45,8 @@ class AgreementsBulkArgsSchema(Schema):
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
+    target_counsel = fields.List(fields.Str(), load_default=[])
+    acquirer_counsel = fields.List(fields.Str(), load_default=[])
     target_industry = fields.List(fields.Str(), load_default=[])
     acquirer_industry = fields.List(fields.Str(), load_default=[])
     deal_status = fields.List(fields.Str(), load_default=[])
@@ -84,6 +86,8 @@ class AgreementsBulkArgsPayload(TypedDict):
     transaction_consideration: list[str]
     target_type: list[str]
     acquirer_type: list[str]
+    target_counsel: list[str]
+    acquirer_counsel: list[str]
     target_industry: list[str]
     acquirer_industry: list[str]
     deal_status: list[str]
@@ -183,6 +187,30 @@ class SectionResponseSchema(Schema):
     section_title = fields.Str()
 
 
+class TaxClauseSchema(Schema):
+    clause_uuid = fields.Str()
+    agreement_uuid = fields.Str()
+    section_uuid = fields.Str()
+    article_title = fields.Str(allow_none=True)
+    section_title = fields.Str(allow_none=True)
+    anchor_label = fields.Str(allow_none=True)
+    start_char = fields.Int()
+    end_char = fields.Int()
+    clause_text = fields.Str()
+    context_type = fields.Str()
+    standard_ids = fields.List(fields.Str())
+
+
+class TaxClauseListResponseSchema(Schema):
+    clauses: object = cast(
+        object,
+        fields.List(
+            fields.Nested(TaxClauseSchema),
+            required=True,
+        ),
+    )
+
+
 class DumpEntrySchema(Schema):
     timestamp = fields.Str(required=True)
     sql = fields.Url(required=False, allow_none=True)
@@ -222,6 +250,21 @@ class NaicsResponseSchema(Schema):
     )
 
 
+class CounselEntrySchema(Schema):
+    counsel_id = fields.Int(required=True)
+    canonical_name = fields.Str(required=True)
+
+
+class CounselResponseSchema(Schema):
+    counsel: object = cast(
+        object,
+        fields.List(
+            fields.Nested(CounselEntrySchema),
+            required=True,
+        ),
+    )
+
+
 __all__ = [
     "AgreementArgsPayload",
     "AgreementArgsSchema",
@@ -231,9 +274,13 @@ __all__ = [
     "AgreementsBulkArgsSchema",
     "AgreementsIndexArgsSchema",
     "AgreementsListResponseSchema",
+    "CounselEntrySchema",
+    "CounselResponseSchema",
     "DumpEntrySchema",
     "NaicsResponseSchema",
     "NaicsSectorSchema",
     "NaicsSubSectorSchema",
     "SectionResponseSchema",
+    "TaxClauseListResponseSchema",
+    "TaxClauseSchema",
 ]

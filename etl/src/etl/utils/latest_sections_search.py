@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
+from sqlalchemy import inspect
 
 
 def _qualified_table(schema: str, table_name: str) -> str:
@@ -44,6 +45,59 @@ def _parse_serialized_standard_ids(raw: object) -> list[str]:
     return deduped_ids
 
 
+def _assert_latest_sections_search_columns(conn: Connection, schema: str) -> None:
+    required_columns = [
+        "section_uuid",
+        "agreement_uuid",
+        "filing_date",
+        "prob_filing",
+        "filing_company_name",
+        "filing_company_cik",
+        "form_type",
+        "exhibit_type",
+        "target",
+        "acquirer",
+        "transaction_price_total",
+        "transaction_price_stock",
+        "transaction_price_cash",
+        "transaction_price_assets",
+        "transaction_consideration",
+        "target_type",
+        "acquirer_type",
+        "target_counsel",
+        "acquirer_counsel",
+        "target_industry",
+        "acquirer_industry",
+        "announce_date",
+        "close_date",
+        "deal_status",
+        "attitude",
+        "deal_type",
+        "purpose",
+        "target_pe",
+        "acquirer_pe",
+        "verified",
+        "url",
+        "section_standard_ids",
+        "article_title",
+        "section_title",
+    ]
+    inspector = inspect(conn)
+    table_schema = schema or None
+    existing_columns = {
+        str(column["name"])
+        for column in inspector.get_columns("latest_sections_search", schema=table_schema)
+    }
+    missing = [column for column in required_columns if column not in existing_columns]
+    if missing:
+        missing_csv = ", ".join(missing)
+        qualified_table = _qualified_table(schema, "latest_sections_search")
+        raise RuntimeError(
+            f"{qualified_table} is missing required columns: {missing_csv}. "
+            + "Apply the latest schema migration before refreshing latest_sections_search."
+        )
+
+
 def refresh_latest_sections_search(
     conn: Connection,
     schema: str,
@@ -53,6 +107,8 @@ def refresh_latest_sections_search(
     if not target_uuids:
         return 0
 
+    _assert_latest_sections_search_columns(conn, schema)
+
     latest_sections_search_table = _qualified_table(schema, "latest_sections_search")
     latest_sections_search_standard_ids_table = _qualified_table(
         schema,
@@ -61,7 +117,6 @@ def refresh_latest_sections_search(
     agreements_table = _qualified_table(schema, "agreements")
     sections_table = _qualified_table(schema, "sections")
     xml_table = _qualified_table(schema, "xml")
-
     delete_sql = text(
         f"""
         DELETE FROM {latest_sections_search_table}
@@ -98,6 +153,8 @@ def refresh_latest_sections_search(
             transaction_consideration,
             target_type,
             acquirer_type,
+            target_counsel,
+            acquirer_counsel,
             target_industry,
             acquirer_industry,
             announce_date,
@@ -132,6 +189,8 @@ def refresh_latest_sections_search(
             a.transaction_consideration,
             a.target_type,
             a.acquirer_type,
+            a.target_counsel,
+            a.acquirer_counsel,
             a.target_industry,
             a.acquirer_industry,
             a.announce_date,

@@ -62,6 +62,34 @@ export function formatCurrencyValue(value?: number | null): string {
   }).format(value);
 }
 
+export function formatCompactCurrencyValue(value?: number | null): string {
+  if (value === null || value === undefined) return "—";
+  const absoluteValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const compact = (scaledValue: number, suffix: string): string => {
+    const maximumFractionDigits =
+      scaledValue >= 100 ? 0 : scaledValue >= 10 ? 1 : 2;
+    const rounded = new Intl.NumberFormat("en-US", {
+      maximumFractionDigits,
+      minimumFractionDigits: 0,
+    }).format(scaledValue);
+    return `${sign}$${rounded}${suffix}`;
+  };
+
+  if (absoluteValue >= 1_000_000_000) {
+    return compact(absoluteValue / 1_000_000_000, "B");
+  }
+  if (absoluteValue >= 1_000_000) {
+    return compact(absoluteValue / 1_000_000, "M");
+  }
+  if (absoluteValue >= 1_000) {
+    return compact(absoluteValue / 1_000, "K");
+  }
+  return `${sign}$${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(absoluteValue)}`;
+}
+
 /**
  * Formats a number with locale-specific formatting (simple version)
  * @param value - Number

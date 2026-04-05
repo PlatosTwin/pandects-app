@@ -222,7 +222,8 @@ def canonical_stage_state_sql(schema: str, *, include_year: bool = False) -> str
     """
 
 
-def canonical_pre_processing_queue_sql(schema: str) -> str:
+def canonical_pre_processing_queue_sql(schema: str, *, scoped: bool = False) -> str:
+    scoped_clause = "AND agreement_uuid IN :auuids" if scoped else "AND agreement_uuid > :last_uuid"
     return f"""
     {canonical_components_cte_sql(schema)}
     SELECT agreement_uuid
@@ -230,13 +231,14 @@ def canonical_pre_processing_queue_sql(schema: str) -> str:
     WHERE is_not_paginated = 0
       AND page_count = 0
       AND agreement_is_gated = 0
-      AND agreement_uuid > :last_uuid
+      {scoped_clause}
     ORDER BY agreement_uuid ASC
     LIMIT :batch_size
     """
 
 
-def canonical_tagging_queue_sql(schema: str) -> str:
+def canonical_tagging_queue_sql(schema: str, *, scoped: bool = False) -> str:
+    scoped_clause = "AND agreement_uuid IN :auuids" if scoped else "AND agreement_uuid > :last_uuid"
     return f"""
     {canonical_components_cte_sql(schema)}
     SELECT agreement_uuid
@@ -246,20 +248,21 @@ def canonical_tagging_queue_sql(schema: str) -> str:
       AND body_page_count > 0
       AND tagged_body_page_count < body_page_count
       AND page_is_gated = 0
-      AND agreement_uuid > :last_uuid
+      {scoped_clause}
     ORDER BY agreement_uuid ASC
     LIMIT :batch_size
     """
 
 
-def canonical_fresh_xml_build_queue_sql(schema: str) -> str:
+def canonical_fresh_xml_build_queue_sql(schema: str, *, scoped: bool = False) -> str:
+    scoped_clause = "AND agreement_uuid IN :auuids" if scoped else "AND agreement_uuid > :last_uuid"
     return f"""
     {canonical_components_cte_sql(schema)}
     SELECT agreement_uuid
     FROM state_components
-    WHERE agreement_uuid > :last_uuid
-      AND body_page_count > 0
+    WHERE body_page_count > 0
       AND tagged_body_page_count = body_page_count
+      {scoped_clause}
       AND (
             has_latest_xml = 0
             OR (
@@ -336,10 +339,11 @@ def canonical_post_repair_verify_queue_sql(schema: str, *, scoped: bool = False)
     """
 
 
-def canonical_ai_repair_enqueue_queue_sql(schema: str) -> str:
+def canonical_ai_repair_enqueue_queue_sql(schema: str, *, scoped: bool = False) -> str:
     tables = _table_names(schema)
     xml_table = tables["xml"]
     xml_status_reasons_table = tables["xml_status_reasons"]
+    scoped_clause = "AND x.agreement_uuid IN :agreement_uuids" if scoped else ""
 
     return f"""
     {canonical_components_cte_sql(schema)}
@@ -358,6 +362,7 @@ def canonical_ai_repair_enqueue_queue_sql(schema: str) -> str:
     WHERE
         x.latest = 1
         AND x.status = 'invalid'
+        {scoped_clause}
         AND latest_xml_status = 'invalid'
         AND s.has_stale_body_tags = 0
         AND (

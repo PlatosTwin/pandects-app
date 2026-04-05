@@ -5,9 +5,14 @@ import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
 
+const FILTER_OPTIONS_CACHE_KEY = "filterOptions:v2";
+const LEGACY_FILTER_OPTIONS_CACHE_KEY = "filterOptions";
+
 interface UseFilterOptionsReturn {
   targets: string[];
   acquirers: string[];
+  target_counsels: string[];
+  acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
   isLoading: boolean;
@@ -25,6 +30,8 @@ export function useFilterOptions(
   const { enabled = true, deferMs = 0 } = options;
   const [targets, setTargets] = useState<string[]>([]);
   const [acquirers, setAcquirers] = useState<string[]>([]);
+  const [target_counsels, setTargetCounsels] = useState<string[]>([]);
+  const [acquirer_counsels, setAcquirerCounsels] = useState<string[]>([]);
   const [target_industries, setTargetIndustries] = useState<string[]>([]);
   const [acquirer_industries, setAcquirerIndustries] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
@@ -37,21 +44,24 @@ export function useFilterOptions(
     }
 
     // Check if we already have cached data in sessionStorage
-    const cachedData = sessionStorage.getItem("filterOptions");
+    const cachedData = sessionStorage.getItem(FILTER_OPTIONS_CACHE_KEY);
     if (cachedData) {
       try {
         const parsed: FilterOptionsResponse = JSON.parse(cachedData);
         setTargets(parsed.targets || []);
         setAcquirers(parsed.acquirers || []);
+        setTargetCounsels(parsed.target_counsels || []);
+        setAcquirerCounsels(parsed.acquirer_counsels || []);
         setTargetIndustries(parsed.target_industries || []);
         setAcquirerIndustries(parsed.acquirer_industries || []);
         setIsLoading(false);
         return;
       } catch (e) {
         // If parsing fails, continue to fetch from API
-        sessionStorage.removeItem("filterOptions");
+        sessionStorage.removeItem(FILTER_OPTIONS_CACHE_KEY);
       }
     }
+    sessionStorage.removeItem(LEGACY_FILTER_OPTIONS_CACHE_KEY);
 
     // Fetch from API
     const fetchFilterOptions = async () => {
@@ -72,11 +82,13 @@ export function useFilterOptions(
         // Update state
         setTargets(data.targets || []);
         setAcquirers(data.acquirers || []);
+        setTargetCounsels(data.target_counsels || []);
+        setAcquirerCounsels(data.acquirer_counsels || []);
         setTargetIndustries(data.target_industries || []);
         setAcquirerIndustries(data.acquirer_industries || []);
 
         // Cache in sessionStorage for future use
-        sessionStorage.setItem("filterOptions", JSON.stringify(data));
+        sessionStorage.setItem(FILTER_OPTIONS_CACHE_KEY, JSON.stringify(data));
 
         setError(null);
       } catch (err) {
@@ -95,6 +107,8 @@ export function useFilterOptions(
         // Fallback to empty arrays
         setTargets([]);
         setAcquirers([]);
+        setTargetCounsels([]);
+        setAcquirerCounsels([]);
         setTargetIndustries([]);
         setAcquirerIndustries([]);
       } finally {
@@ -113,6 +127,8 @@ export function useFilterOptions(
   return {
     targets,
     acquirers,
+    target_counsels,
+    acquirer_counsels,
     target_industries,
     acquirer_industries,
     isLoading,

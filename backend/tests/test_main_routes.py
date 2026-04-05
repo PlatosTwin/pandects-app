@@ -57,17 +57,23 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(
                     text(
                         "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "target_counsel, acquirer_counsel, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, transaction_price_assets, "
                         "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
                         "deal_status, attitude, purpose, target_pe, acquirer_pe) "
                         "VALUES "
                         "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
-                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
+                        "'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', "
+                        "'50000000', NULL, '50000000', NULL, 'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
                         "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
-                        "'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
+                        "'Wilson Sonsini Goodrich & Rosati Professional Corporation', 'Wiggin & Dana, LLP', "
+                        "'150000000', '150000000', NULL, NULL, 'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
                         "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
-                        "'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
+                        "'Wachtell, Lipton, Rosen & Katz', 'Skadden, Arps, Slate, Meagher & Flom LLP', "
+                        "'300000000', NULL, NULL, '300000000', 'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
                         "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
-                        "'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
+                        "'Sullivan & Cromwell LLP', 'Simpson Thacher & Bartlett LLP', "
+                        "'12000000000', NULL, '12000000000', NULL, 'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
                     )
                 )
                 conn.execute(
@@ -84,6 +90,32 @@ class MainRoutesTests(unittest.TestCase):
                         "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000042\"><text>LATEST INVALID</text></section></article></document>', 2, 'invalid', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "(1, 'Wilson Sonsini Goodrich & Rosati', 'wilson sonsini goodrich rosati'), "
+                        "(2, 'Goodwin Procter', 'goodwin procter'), "
+                        "(3, 'Wiggin & Dana', 'wiggin dana'), "
+                        "(4, 'Skadden, Arps, Slate, Meagher & Flom', 'skadden arps slate meagher flom'), "
+                        "(5, 'Wachtell, Lipton, Rosen & Katz', 'wachtell lipton rosen katz'), "
+                        "(6, 'Sullivan & Cromwell', 'sullivan cromwell'), "
+                        "(7, 'Simpson Thacher & Bartlett', 'simpson thacher bartlett')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "('a1', 'target', 1, 'Wilson Sonsini Goodrich & Rosati, P.C.', 1), "
+                        "('a1', 'target', 2, 'Goodwin Procter LLP', 2), "
+                        "('a1', 'acquirer', 1, 'Wiggin and Dana LLP', 3), "
+                        "('a2', 'target', 1, 'Wilson Sonsini Goodrich & Rosati Professional Corporation', 1), "
+                        "('a2', 'acquirer', 1, 'Wiggin & Dana, LLP', 3), "
+                        "('a3', 'target', 1, 'Wachtell, Lipton, Rosen & Katz', 5), "
+                        "('a3', 'acquirer', 1, 'Skadden, Arps, Slate, Meagher & Flom LLP', 4), "
+                        "('a4', 'target', 1, 'Sullivan & Cromwell LLP', 6), "
+                        "('a4', 'acquirer', 1, 'Simpson Thacher & Bartlett LLP', 7)"
                     )
                 )
                 conn.execute(
@@ -105,13 +137,13 @@ class MainRoutesTests(unittest.TestCase):
                         "filing_company_cik, form_type, exhibit_type, target, acquirer, "
                         "transaction_price_total, transaction_price_stock, transaction_price_cash, "
                         "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
-                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "target_counsel, acquirer_counsel, target_industry, acquirer_industry, announce_date, close_date, deal_status, "
                         "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
                         "section_standard_ids, article_title, section_title"
                         ") VALUES ("
                         "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
-                        "NULL, NULL, 'Target A', 'Acquirer A', NULL, NULL, NULL, NULL, 'cash', 'public', "
-                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "NULL, NULL, 'Target A', 'Acquirer A', '50000000', NULL, '50000000', NULL, 'cash', 'public', "
+                        "'public', 'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
                         "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
                         ")"
                     )
@@ -120,6 +152,46 @@ class MainRoutesTests(unittest.TestCase):
                     text(
                         "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
                         "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l1 (standard_id, label) VALUES "
+                        "('tax_root', 'Tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l2 (standard_id, label, parent_id) VALUES "
+                        "('tax_operational', 'Operational Tax Matters', 'tax_root')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES "
+                        "('tax_transfer', 'Transfer Taxes', 'tax_operational'), "
+                        "('tax_treatment', 'Tax Treatment of the Transaction', 'tax_operational')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-a1-1', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 1, "
+                        "'(a)', 0, 55, 'Parent shall bear all transfer taxes.', 'enumerated_split', 'operative'"
+                        "), ("
+                        "'clause-a1-2', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 2, "
+                        "'(b)', 56, 120, 'Company and Parent intend the merger to qualify as tax-free.', 'enumerated_split', 'rep_warranty'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
+                        "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
                     )
                 )
                 conn.execute(
@@ -141,6 +213,53 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_mix_summary ("
+                        "year INTEGER NOT NULL, "
+                        "target_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_deal_size_summary ("
+                        "year INTEGER NOT NULL, "
+                        "target_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "p25_transaction_value REAL NULL, "
+                        "median_transaction_value REAL NULL, "
+                        "p75_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_buyer_type_matrix_summary ("
+                        "target_bucket TEXT NOT NULL, "
+                        "buyer_bucket TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "median_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_target_industry_summary ("
+                        "year INTEGER NOT NULL, "
+                        "industry TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_industry_pairing_summary ("
+                        "target_industry TEXT NOT NULL, "
+                        "acquirer_industry TEXT NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
                         "(2020, 'merger', 1), "
                         "(2021, 'stock_acquisition', 2)"
@@ -151,6 +270,50 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO agreement_overview_summary "
                         "(singleton_key, metadata_covered_agreements, metadata_coverage_pct, taxonomy_covered_sections, taxonomy_coverage_pct, latest_filing_date) VALUES "
                         "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_mix_summary (year, target_bucket, deal_count, total_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000), "
+                        "(2021, 'private', 1, 150000000), "
+                        "(2022, 'private', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_deal_size_summary "
+                        "(year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000, 50000000, 50000000), "
+                        "(2021, 'private', 1, 150000000, 150000000, 150000000), "
+                        "(2022, 'private', 1, 300000000, 300000000, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_buyer_type_matrix_summary "
+                        "(target_bucket, buyer_bucket, deal_count, median_transaction_value) VALUES "
+                        "('public', 'public_buyer', 1, 50000000), "
+                        "('private', 'public_buyer', 1, 150000000), "
+                        "('private', 'private_equity', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_target_industry_summary "
+                        "(year, industry, deal_count, total_transaction_value) VALUES "
+                        "(2020, '111', 1, 50000000), "
+                        "(2021, '21', 1, 150000000), "
+                        "(2022, '211', 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_industry_pairing_summary "
+                        "(target_industry, acquirer_industry, deal_count, total_transaction_value) VALUES "
+                        "('211', '21', 1, 300000000), "
+                        "('21', '111', 1, 150000000), "
+                        "('111', '111', 1, 50000000)"
                     )
                 )
                 conn.execute(
@@ -170,6 +333,170 @@ class MainRoutesTests(unittest.TestCase):
                         "('Oil and Gas Extraction', 211, 21)"
                     )
                 )
+
+    def setUp(self) -> None:
+        self._restore_base_dataset()
+
+    def _restore_base_dataset(self) -> None:
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM tax_clause_assignments"))
+                conn.execute(text("DELETE FROM clauses"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l3"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l2"))
+                conn.execute(text("DELETE FROM tax_clause_taxonomy_l1"))
+                conn.execute(text("DELETE FROM latest_sections_search_standard_ids"))
+                conn.execute(text("DELETE FROM latest_sections_search"))
+                conn.execute(text("DELETE FROM sections"))
+                conn.execute(text("DELETE FROM agreement_counsel"))
+                conn.execute(text("DELETE FROM counsel"))
+                conn.execute(text("DELETE FROM xml"))
+                conn.execute(text("DELETE FROM agreements"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
+                        "target_counsel, acquirer_counsel, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, transaction_price_assets, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, purpose, target_pe, acquirer_pe) "
+                        "VALUES "
+                        "('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', 'merger', "
+                        "'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', "
+                        "'50000000', NULL, '50000000', NULL, 'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'strategic', 0, 0), "
+                        "('a2', '2021-02-01', 'Target B', 'Acquirer B', 0, 'http://example.com/a2', 'stock_acquisition', "
+                        "'Wilson Sonsini Goodrich & Rosati Professional Corporation', 'Wiggin & Dana, LLP', "
+                        "'150000000', '150000000', NULL, NULL, 'stock', 'private', 'public', 'healthcare', 'tech', 'pending', 'hostile', 'financial', 1, 0), "
+                        "('a3', '2022-03-01', 'Target C', 'Acquirer C', 1, 'http://example.com/a3', 'asset_purchase', "
+                        "'Wachtell, Lipton, Rosen & Katz', 'Skadden, Arps, Slate, Meagher & Flom LLP', "
+                        "'300000000', NULL, NULL, '300000000', 'assets', 'private', 'private', 'energy', 'industrial', 'cancelled', 'friendly', 'strategic', 0, 1), "
+                        "('a4', '2023-04-01', 'Target D', 'Acquirer D', 1, 'http://example.com/a4', 'merger', "
+                        "'Sullivan & Cromwell LLP', 'Simpson Thacher & Bartlett LLP', "
+                        "'12000000000', NULL, '12000000000', NULL, 'cash', 'public', 'public', 'finance', 'finance', 'pending', 'friendly', 'strategic', 0, 0)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a1', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>STALE</text></section>"
+                        "</article></document>', 1, NULL, 0), "
+                        "('a1', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>HIDE</text></section>"
+                        "</article></document>', 2, NULL, 1), "
+                        "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified', 1), "
+                        "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
+                        "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000042\"><text>LATEST INVALID</text></section></article></document>', 2, 'invalid', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "(1, 'Wilson Sonsini Goodrich & Rosati', 'wilson sonsini goodrich rosati'), "
+                        "(2, 'Goodwin Procter', 'goodwin procter'), "
+                        "(3, 'Wiggin & Dana', 'wiggin dana'), "
+                        "(4, 'Skadden, Arps, Slate, Meagher & Flom', 'skadden arps slate meagher flom'), "
+                        "(5, 'Wachtell, Lipton, Rosen & Katz', 'wachtell lipton rosen katz'), "
+                        "(6, 'Sullivan & Cromwell', 'sullivan cromwell'), "
+                        "(7, 'Simpson Thacher & Bartlett', 'simpson thacher bartlett')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "('a1', 'target', 1, 'Wilson Sonsini Goodrich & Rosati, P.C.', 1), "
+                        "('a1', 'target', 2, 'Goodwin Procter LLP', 2), "
+                        "('a1', 'acquirer', 1, 'Wiggin and Dana LLP', 3), "
+                        "('a2', 'target', 1, 'Wilson Sonsini Goodrich & Rosati Professional Corporation', 1), "
+                        "('a2', 'acquirer', 1, 'Wiggin & Dana, LLP', 3), "
+                        "('a3', 'target', 1, 'Wachtell, Lipton, Rosen & Katz', 5), "
+                        "('a3', 'acquirer', 1, 'Skadden, Arps, Slate, Meagher & Flom LLP', 4), "
+                        "('a4', 'target', 1, 'Sullivan & Cromwell LLP', 6), "
+                        "('a4', 'acquirer', 1, 'Simpson Thacher & Bartlett LLP', 7)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a1', '00000000-0000-0000-0000-000000000001', "
+                        "'ARTICLE I', 'Section 1', '<section>TEXT</section>', '[\"s1\"]', 2), "
+                        "('a1', '00000000-0000-0000-0000-000000000002', "
+                        "'ARTICLE I', 'Old Section', '<section>STALE</section>', '[\"s-old\"]', 1), "
+                        "('a4', '00000000-0000-0000-0000-000000000041', "
+                        "'ARTICLE I', 'Old Verified Section', '<section>OLD VERIFIED</section>', '[\"s4-old\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_counsel, acquirer_counsel, target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000001', 'a1', '2020-01-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target A', 'Acquirer A', '50000000', NULL, '50000000', NULL, 'cash', 'public', "
+                        "'public', 'Wilson Sonsini Goodrich & Rosati, P.C.; Goodwin Procter LLP', 'Wiggin and Dana LLP', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s1\"]', 'ARTICLE I', 'Section 1'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
+                    )
+                )
+                conn.execute(text("DROP TABLE IF EXISTS agreement_status_summary"))
+                conn.execute(text("DROP TABLE IF EXISTS agreement_overview_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l1 (standard_id, label) VALUES "
+                        "('tax_root', 'Tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l2 (standard_id, label, parent_id) VALUES "
+                        "('tax_operational', 'Operational Tax Matters', 'tax_root')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES "
+                        "('tax_transfer', 'Transfer Taxes', 'tax_operational'), "
+                        "('tax_treatment', 'Tax Treatment of the Transaction', 'tax_operational')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-a1-1', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 1, "
+                        "'(a)', 0, 55, 'Parent shall bear all transfer taxes.', 'enumerated_split', 'operative'"
+                        "), ("
+                        "'clause-a1-2', 'a1', '00000000-0000-0000-0000-000000000001', 2, 'tax', 2, "
+                        "'(b)', 56, 120, 'Company and Parent intend the merger to qualify as tax-free.', 'enumerated_split', 'rep_warranty'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
+                        "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+            self.app_module._filter_options_cache["payload"] = None
+            self.app_module._filter_options_cache["ts"] = 0
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
@@ -236,11 +563,15 @@ class MainRoutesTests(unittest.TestCase):
             "/v1/agreements"
             "?year=2021"
             "&deal_type=stock_acquisition"
+            "&transaction_price_total=100M%20-%20250M"
+            "&transaction_price_stock=100M%20-%20250M"
             "&target_pe=true"
             "&acquirer_pe=false"
             "&transaction_consideration=stock"
             "&target_type=private"
             "&acquirer_type=public"
+            "&target_counsel=Wilson%20Sonsini%20Goodrich%20%26%20Rosati"
+            "&acquirer_counsel=Wiggin%20%26%20Dana"
             "&target_industry=healthcare"
             "&acquirer_industry=tech"
             "&deal_status=pending"
@@ -253,6 +584,33 @@ class MainRoutesTests(unittest.TestCase):
         results = body.get("results", [])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("agreement_uuid"), "a2")
+
+    def test_search_filters_include_enabled_metadata_fields(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/sections"
+            "?transaction_price_total=0%20-%20100M"
+            "&transaction_price_cash=0%20-%20100M"
+            "&transaction_consideration=cash"
+            "&target_type=public"
+            "&acquirer_type=public"
+            "&target_counsel=Wilson%20Sonsini%20Goodrich%20%26%20Rosati"
+            "&acquirer_counsel=Wiggin%20%26%20Dana"
+            "&target_industry=tech"
+            "&acquirer_industry=tech"
+            "&deal_status=complete"
+            "&attitude=friendly"
+            "&purpose=strategic"
+            "&target_pe=false"
+            "&acquirer_pe=false"
+            "&page=1&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000001")
 
     def test_agreements_bulk_year_field_uses_filing_date_prefix(self):
         try:
@@ -471,6 +829,34 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total_count, 488296)
         self.assertTrue(is_approximate)
 
+    def test_search_total_count_metadata_uses_query_estimate_for_filtered_search_beyond_page_one(self):
+        with patch.object(self.app_module, "_estimated_query_row_count", return_value=240):
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=6,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=True,
+            )
+
+        self.assertEqual(total_count, 240)
+        self.assertTrue(is_approximate)
+
+    def test_search_total_count_metadata_preserves_filtered_lower_bound_when_estimate_is_too_small(self):
+        with patch.object(self.app_module, "_estimated_query_row_count", return_value=120):
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=6,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=True,
+            )
+
+        self.assertEqual(total_count, 151)
+        self.assertTrue(is_approximate)
+
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()
         res = client.get("/v1/sections?standard_id=s-old&page=1&page_size=10")
@@ -572,6 +958,104 @@ class MainRoutesTests(unittest.TestCase):
         xml = body.get("xml", "")
         self.assertIn("[REDACTED]", xml)
 
+    def test_public_agreement_endpoints_exclude_gated_unverified_agreements(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url, target_counsel, acquirer_counsel) "
+                        "VALUES ('a_gated_hidden', '2025-06-01', 'Target Hidden', 'Acquirer Hidden', 0, 1, 'http://example.com/a_gated_hidden', 'Target Hidden Counsel LLP', 'Acquirer Hidden Counsel LLP')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a_gated_hidden', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000071\"><text>HIDDEN</text></section></article></document>', 1, 'verified', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a_gated_hidden', '00000000-0000-0000-0000-000000000071', 'ARTICLE I', 'Hidden Section', '<section>HIDDEN</section>', '[\"s-hidden\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-hidden-1', 'a_gated_hidden', '00000000-0000-0000-0000-000000000071', 1, 'tax', 1, "
+                        "'(a)', 0, 12, 'Hidden tax clause', 'enumerated_split', 'operative'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-hidden-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+
+        try:
+            client = self.app.test_client()
+
+            list_res = client.get("/v1/agreements?agreement_uuid=a_gated_hidden&page_size=10")
+            self.assertEqual(list_res.status_code, 200)
+            self.assertEqual(list_res.get_json().get("results", []), [])
+
+            detail_res = client.get("/v1/agreements/a_gated_hidden")
+            self.assertEqual(detail_res.status_code, 404)
+
+            agreement_tax_res = client.get("/v1/agreements/a_gated_hidden/tax-clauses")
+            self.assertEqual(agreement_tax_res.status_code, 200)
+            self.assertEqual(agreement_tax_res.get_json(), {"clauses": []})
+
+            section_tax_res = client.get(
+                "/v1/sections/00000000-0000-0000-0000-000000000071/tax-clauses"
+            )
+            self.assertEqual(section_tax_res.status_code, 200)
+            self.assertEqual(section_tax_res.get_json(), {"clauses": []})
+
+            index_res = client.get("/v1/agreements-index?query=Target Hidden&page=1&page_size=10")
+            self.assertEqual(index_res.status_code, 200)
+            self.assertEqual(index_res.get_json().get("results", []), [])
+
+            filters_res = client.get("/v1/filter-options")
+            self.assertEqual(filters_res.status_code, 200)
+            body = filters_res.get_json()
+            self.assertNotIn("Target Hidden", body.get("targets", []))
+            self.assertNotIn("Acquirer Hidden", body.get("acquirers", []))
+            self.assertNotIn("Target Hidden Counsel LLP", body.get("target_counsels", []))
+            self.assertNotIn("Acquirer Hidden Counsel LLP", body.get("acquirer_counsels", []))
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM tax_clause_assignments WHERE clause_uuid = 'clause-hidden-1'"))
+                    conn.execute(text("DELETE FROM clauses WHERE agreement_uuid = 'a_gated_hidden'"))
+                    conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_gated_hidden'"))
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_gated_hidden'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
+                self.app_module._filter_options_cache["payload"] = None
+                self.app_module._filter_options_cache["ts"] = 0
+
+    def test_filter_options_include_counsel_lists(self):
+        self.app_module._filter_options_cache["payload"] = None
+        self.app_module._filter_options_cache["ts"] = 0
+        client = self.app.test_client()
+        res = client.get("/v1/filter-options")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIn(
+            "Wilson Sonsini Goodrich & Rosati",
+            body.get("target_counsels", []),
+        )
+        self.assertIn("Goodwin Procter", body.get("target_counsels", []))
+        self.assertIn("Wiggin & Dana", body.get("acquirer_counsels", []))
+
     def test_agreements_deal_types_summary(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements-deal-types-summary")
@@ -585,10 +1069,110 @@ class MainRoutesTests(unittest.TestCase):
             ],
         )
 
+    def test_counsel_leaderboards_aggregate_variants_and_multi_firm_entries(self):
+        client = self.app.test_client()
+        res = client.get("/v1/counsel-leaderboards")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+
+        buy_side = body.get("buy_side", {})
+        sell_side = body.get("sell_side", {})
+
+        buy_top_by_count = buy_side.get("top_by_count", [])
+        self.assertEqual(buy_top_by_count[0]["counsel"], "Wiggin & Dana")
+        self.assertEqual(buy_top_by_count[0]["deal_count"], 2)
+        self.assertEqual(buy_top_by_count[0]["total_transaction_value"], 200000000.0)
+
+        buy_top_by_value = buy_side.get("top_by_value", [])
+        self.assertEqual(
+            buy_top_by_value[0],
+            {
+                "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                "deal_count": 1,
+                "total_transaction_value": 300000000.0,
+                "years": [
+                    {
+                        "year": 2022,
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                    }
+                ],
+            },
+        )
+
+        sell_top_by_count = sell_side.get("top_by_count", [])
+        self.assertEqual(sell_top_by_count[0]["counsel"], "Wilson Sonsini Goodrich & Rosati")
+        self.assertEqual(sell_top_by_count[0]["deal_count"], 2)
+        self.assertEqual(sell_top_by_count[0]["total_transaction_value"], 200000000.0)
+        self.assertEqual(
+            sell_top_by_count[0]["years"],
+            [
+                {
+                    "year": 2020,
+                    "deal_count": 1,
+                    "total_transaction_value": 50000000.0,
+                },
+                {
+                    "year": 2021,
+                    "deal_count": 1,
+                    "total_transaction_value": 150000000.0,
+                },
+            ],
+        )
+
+        self.assertTrue(
+            any(
+                row["counsel"] == "Goodwin Procter"
+                and row["deal_count"] == 1
+                and row["total_transaction_value"] == 50000000.0
+                for row in sell_top_by_count
+            )
+        )
+        self.assertEqual(
+            buy_side.get("annual", [])[0],
+            {
+                "year": 2022,
+                "top_by_count": [
+                    {
+                        "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                        "years": [
+                            {
+                                "year": 2022,
+                                "deal_count": 1,
+                                "total_transaction_value": 300000000.0,
+                            }
+                        ],
+                    }
+                ],
+                "top_by_value": [
+                    {
+                        "counsel": "Skadden, Arps, Slate, Meagher & Flom",
+                        "deal_count": 1,
+                        "total_transaction_value": 300000000.0,
+                        "years": [
+                            {
+                                "year": 2022,
+                                "deal_count": 1,
+                                "total_transaction_value": 300000000.0,
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
     def test_agreements_status_summary_includes_overview_metrics(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
             with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_status_summary ("
+                        "year INTEGER NOT NULL, color TEXT NOT NULL, current_stage TEXT NOT NULL, count INTEGER NOT NULL)"
+                    )
+                )
                 conn.execute(text("DROP TABLE IF EXISTS agreement_overview_summary"))
                 conn.execute(
                     text(
@@ -601,12 +1185,37 @@ class MainRoutesTests(unittest.TestCase):
                         "latest_filing_date TEXT NULL)"
                     )
                 )
+                conn.execute(text("DELETE FROM agreement_status_summary"))
                 conn.execute(text("DELETE FROM agreement_overview_summary"))
+                conn.execute(text("DELETE FROM agreements"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_status_summary (year, color, current_stage, count) VALUES "
+                        "(2023, 'green', 'processed', 1)"
+                    )
+                )
                 conn.execute(
                     text(
                         "INSERT INTO agreement_overview_summary "
                         "(singleton_key, metadata_covered_agreements, metadata_coverage_pct, taxonomy_covered_sections, taxonomy_coverage_pct, latest_filing_date) VALUES "
                         "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, gated, url, "
+                        "transaction_consideration, transaction_price_total, transaction_price_cash, "
+                        "transaction_price_stock, transaction_price_assets, target_type, acquirer_type, "
+                        "target_pe, acquirer_pe, target_industry, acquirer_industry, announce_date, "
+                        "close_date, deal_status, attitude, deal_type, purpose"
+                        ") VALUES "
+                        "('cash_complete', '2023-04-01', 'Target Cash', 'Acquirer Cash', 1, 0, 'http://example.com/cash_complete', "
+                        "'cash', '100', '100', NULL, NULL, 'public', 'private', 1, 0, '52', '51', "
+                        "'2023-01-01', '2023-03-01', 'complete', 'friendly', 'merger', 'strategic'), "
+                        "('stock_missing_optional', '2023-04-02', 'Target Stock', 'Acquirer Stock', 1, 0, 'http://example.com/stock_missing_optional', "
+                        "'stock', '250', NULL, '250', NULL, 'private', 'public', NULL, NULL, NULL, '54', "
+                        "'2023-02-01', NULL, 'pending', NULL, 'stock_acquisition', NULL)"
                     )
                 )
 
@@ -619,6 +1228,20 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("metadata_coverage_pct"), 61.5)
         self.assertEqual(body.get("taxonomy_covered_sections"), 4567)
         self.assertEqual(body.get("taxonomy_coverage_pct"), 87.2)
+        metadata_field_coverage = {
+            row["field"]: row for row in body.get("metadata_field_coverage", [])
+        }
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["eligible_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["eligible_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["eligible_agreements"], 0)
+        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["covered_agreements"], 0)
+        self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["coverage_pct"])
+        self.assertEqual(metadata_field_coverage["target_pe"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["purpose"]["covered_agreements"], 1)
 
     def test_agreements_status_summary_excludes_gated_unverified_from_latest_filing_date(self):
         with self.app.app_context():
@@ -745,6 +1368,221 @@ class MainRoutesTests(unittest.TestCase):
                     },
                 ]
             },
+        )
+
+    def test_tax_clause_taxonomy_hierarchy(self):
+        client = self.app.test_client()
+        res = client.get("/v1/taxonomy/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "Tax": {
+                    "id": "tax_root",
+                    "children": {
+                        "Operational Tax Matters": {
+                            "id": "tax_operational",
+                            "children": {
+                                "Tax Treatment of the Transaction": {"id": "tax_treatment"},
+                                "Transfer Taxes": {"id": "tax_transfer"},
+                            },
+                        }
+                    },
+                }
+            },
+        )
+
+    def test_agreement_tax_clauses_endpoint(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements/a1/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "clauses": [
+                    {
+                        "clause_uuid": "clause-a1-1",
+                        "agreement_uuid": "a1",
+                        "section_uuid": "00000000-0000-0000-0000-000000000001",
+                        "article_title": "ARTICLE I",
+                        "section_title": "Section 1",
+                        "anchor_label": "(a)",
+                        "start_char": 0,
+                        "end_char": 55,
+                        "clause_text": "Parent shall bear all transfer taxes.",
+                        "context_type": "operative",
+                        "standard_ids": ["tax_transfer"],
+                    },
+                    {
+                        "clause_uuid": "clause-a1-2",
+                        "agreement_uuid": "a1",
+                        "section_uuid": "00000000-0000-0000-0000-000000000001",
+                        "article_title": "ARTICLE I",
+                        "section_title": "Section 1",
+                        "anchor_label": "(b)",
+                        "start_char": 56,
+                        "end_char": 120,
+                        "clause_text": "Company and Parent intend the merger to qualify as tax-free.",
+                        "context_type": "rep_warranty",
+                        "standard_ids": ["tax_treatment"],
+                    },
+                ]
+            },
+        )
+
+    def test_section_tax_clauses_endpoint(self):
+        client = self.app.test_client()
+        res = client.get("/v1/sections/00000000-0000-0000-0000-000000000001/tax-clauses")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(len(body.get("clauses", [])), 2)
+        self.assertEqual(body["clauses"][0]["clause_uuid"], "clause-a1-1")
+        self.assertEqual(body["clauses"][1]["standard_ids"], ["tax_treatment"])
+
+    def test_counsel_reference_list(self):
+        client = self.app.test_client()
+        res = client.get("/v1/counsel")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            body,
+            {
+                "counsel": [
+                    {
+                        "counsel_id": 2,
+                        "canonical_name": "Goodwin Procter",
+                    },
+                    {
+                        "counsel_id": 7,
+                        "canonical_name": "Simpson Thacher & Bartlett",
+                    },
+                    {
+                        "counsel_id": 4,
+                        "canonical_name": "Skadden, Arps, Slate, Meagher & Flom",
+                    },
+                    {
+                        "counsel_id": 6,
+                        "canonical_name": "Sullivan & Cromwell",
+                    },
+                    {
+                        "counsel_id": 5,
+                        "canonical_name": "Wachtell, Lipton, Rosen & Katz",
+                    },
+                    {
+                        "counsel_id": 3,
+                        "canonical_name": "Wiggin & Dana",
+                    },
+                    {
+                        "counsel_id": 1,
+                        "canonical_name": "Wilson Sonsini Goodrich & Rosati",
+                    },
+                ]
+            },
+        )
+
+    def test_agreement_trends_summary(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreement-trends")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+
+        ownership = body.get("ownership", {})
+        mix_by_year = ownership.get("mix_by_year", [])
+        self.assertEqual(
+            mix_by_year,
+            [
+                {
+                    "year": 2020,
+                    "public_deal_count": 1,
+                    "private_deal_count": 0,
+                    "public_total_transaction_value": 50000000.0,
+                    "private_total_transaction_value": 0.0,
+                },
+                {
+                    "year": 2021,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 150000000.0,
+                },
+                {
+                    "year": 2022,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_total_transaction_value": 0.0,
+                    "private_total_transaction_value": 300000000.0,
+                },
+            ],
+        )
+
+        buyer_matrix = ownership.get("buyer_type_matrix", [])
+        matrix_by_key = {
+            (row["target_bucket"], row["buyer_bucket"]): row for row in buyer_matrix
+        }
+        self.assertEqual(matrix_by_key[("public", "public_buyer")]["deal_count"], 1)
+        self.assertEqual(matrix_by_key[("private", "public_buyer")]["deal_count"], 1)
+        self.assertEqual(matrix_by_key[("private", "private_equity")]["deal_count"], 1)
+        self.assertEqual(
+            ownership.get("deal_size_by_year", []),
+            [
+                {
+                    "year": 2020,
+                    "public_deal_count": 1,
+                    "private_deal_count": 0,
+                    "public_p25_transaction_value": 50000000.0,
+                    "public_median_transaction_value": 50000000.0,
+                    "public_p75_transaction_value": 50000000.0,
+                    "private_p25_transaction_value": None,
+                    "private_median_transaction_value": None,
+                    "private_p75_transaction_value": None,
+                },
+                {
+                    "year": 2021,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": 150000000.0,
+                    "private_median_transaction_value": 150000000.0,
+                    "private_p75_transaction_value": 150000000.0,
+                },
+                {
+                    "year": 2022,
+                    "public_deal_count": 0,
+                    "private_deal_count": 1,
+                    "public_p25_transaction_value": None,
+                    "public_median_transaction_value": None,
+                    "public_p75_transaction_value": None,
+                    "private_p25_transaction_value": 300000000.0,
+                    "private_median_transaction_value": 300000000.0,
+                    "private_p75_transaction_value": 300000000.0,
+                },
+            ],
+        )
+
+        industries = body.get("industries", {})
+        by_year = industries.get("target_industries_by_year", [])
+        self.assertIn(
+            {
+                "year": 2020,
+                "industry": "Crop Production",
+                "deal_count": 1,
+                "total_transaction_value": 50000000.0,
+            },
+            by_year,
+        )
+        self.assertIn(
+            {
+                "target_industry": "Mining, Quarrying, and Oil and Gas Extraction",
+                "acquirer_industry": "Crop Production",
+                "deal_count": 1,
+                "total_transaction_value": 150000000.0,
+            },
+            industries.get("pairings", []),
         )
 
 

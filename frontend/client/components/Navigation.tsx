@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -46,6 +47,7 @@ function NavigationComponent() {
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
     "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  const dataSeparatorClass = "bg-border";
 
   const primaryLinks = useMemo(
     () => [
@@ -69,15 +71,19 @@ function NavigationComponent() {
   );
   const dataLinks = useMemo(
     () => [
-      { to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
-      { to: "/agreement-index", label: "Agreement Index" },
-      { to: "/sources-methods", label: "Sources & Methods" },
-      { to: "/xml-schema", label: "XML Schema" },
-      { to: "/taxonomy", label: "Taxonomy" },
-    ],
+      { type: "link", to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
+      { type: "link", to: "/agreement-index", label: "Agreement Index" },
+      { type: "link", to: "/sources-methods", label: "Sources & Methods" },
+      { type: "link", to: "/xml-schema", label: "XML Schema" },
+      { type: "link", to: "/taxonomy", label: "Taxonomy" },
+      { type: "separator", key: "data-divider" },
+      { type: "link", to: "/leaderboards", label: "Leaderboards" },
+      { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
+    ] as const,
     [],
   );
-  const isDataActive = dataLinks.some((link) => isActive(link.to));
+  const dataNavLinks = dataLinks.filter((item) => item.type === "link");
+  const isDataActive = dataNavLinks.some((link) => isActive(link.to));
   const isAboutActive = aboutLinks.some((link) => isActive(link.to));
 
   return (
@@ -214,24 +220,28 @@ function NavigationComponent() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                {dataLinks.map((link) => (
-                  <DropdownMenuItem key={link.to} asChild>
-                    <Link
-                      to={link.to}
-                      onClick={() =>
-                        trackEvent("nav_data_click", {
-                          nav_item: link.label,
-                          from_path: location.pathname,
-                          to_path: link.to,
-                        })
-                      }
-                      aria-current={isActive(link.to) ? "page" : undefined}
-                      className="text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
+                {dataLinks.map((item) =>
+                  item.type === "separator" ? (
+                    <DropdownMenuSeparator key={item.key} className={dataSeparatorClass} />
+                  ) : (
+                    <DropdownMenuItem key={item.to} asChild>
+                      <Link
+                        to={item.to}
+                        onClick={() =>
+                          trackEvent("nav_data_click", {
+                            nav_item: item.label,
+                            from_path: location.pathname,
+                            to_path: item.to,
+                          })
+                        }
+                        aria-current={isActive(item.to) ? "page" : undefined}
+                        className="text-foreground"
+                      >
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ),
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -382,30 +392,38 @@ function NavigationComponent() {
                       Data
                     </div>
                     <div className="grid gap-1">
-                      {dataLinks.map((link) => (
-                        <SheetClose asChild key={link.to}>
-                          <Link
-                            to={link.to}
-                            onClick={() =>
-                              trackEvent("nav_data_click", {
-                                nav_item: link.label,
-                                from_path: location.pathname,
-                                to_path: link.to,
-                              })
-                            }
-                            aria-current={isActive(link.to) ? "page" : undefined}
-                            className={cn(
-                              navLinkBase,
-                              "pl-4",
-                              isActive(link.to)
-                                ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                            )}
-                          >
-                            {link.label}
-                          </Link>
-                        </SheetClose>
-                      ))}
+                      {dataLinks.map((item) =>
+                        item.type === "separator" ? (
+                          <div
+                            key={item.key}
+                            aria-hidden="true"
+                            className={cn("mx-2 my-1 h-px", dataSeparatorClass)}
+                          />
+                        ) : (
+                          <SheetClose asChild key={item.to}>
+                            <Link
+                              to={item.to}
+                              onClick={() =>
+                                trackEvent("nav_data_click", {
+                                  nav_item: item.label,
+                                  from_path: location.pathname,
+                                  to_path: item.to,
+                                })
+                              }
+                              aria-current={isActive(item.to) ? "page" : undefined}
+                              className={cn(
+                                navLinkBase,
+                                "pl-4",
+                                isActive(item.to)
+                                  ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
+                                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                              )}
+                            >
+                              {item.label}
+                            </Link>
+                          </SheetClose>
+                        ),
+                      )}
                     </div>
                   </div>
 
