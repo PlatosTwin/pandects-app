@@ -77,6 +77,34 @@ AUTH_ZITADEL_API_PRIVATE_KEY=
 AUTH_ZITADEL_GOOGLE_IDP_ID=
 ```
 
+### Pandects-Rendered Auth Emails
+
+Pandects can send verification and password-reset emails itself while still letting ZITADEL own the underlying auth events and codes.
+
+Configure a ZITADEL **Email HTTP provider** that points to:
+
+- `POST {PUBLIC_API_BASE_URL}/v1/auth/zitadel/notifications/email`
+
+Set these backend env vars:
+
+```env
+AUTH_ZITADEL_NOTIFICATION_SIGNING_KEY=
+AUTH_ZITADEL_NOTIFICATION_MAX_AGE_SECONDS=300
+
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+RESEND_FROM_NAME=Pandects
+```
+
+Implementation notes:
+
+- The backend verifies the `Zitadel-Signature` header using the provider signing key.
+- Supported notification URLs currently map to:
+  - `/verify-email`
+  - `/reset-password/confirm`
+- The backend renders Pandects HTML emails from the React Email templates in `emails/emails/` and sends them through Resend.
+- The `emails/` workspace dependencies must be installed on the server because backend email rendering uses `emails/scripts/render-template.ts`.
+
 For the frontend website-auth flow, set these frontend env vars:
 
 ```env

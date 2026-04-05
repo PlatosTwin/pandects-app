@@ -20,6 +20,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
 from backend.auth.runtime import cookie_settings
+from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.mcp_runtime import (
     McpAuthError,
     mcp_jwt_algorithms,
@@ -318,6 +319,47 @@ def _clear_zitadel_pending_cookie(resp) -> None:
 
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
+
+    def _notification_dict(obj: object, *keys: str) -> dict[str, object] | None:
+        if not isinstance(obj, dict):
+            return None
+        for key in keys:
+            value = obj.get(key)
+            if isinstance(value, dict):
+                return value
+        return None
+
+    def _notification_string(obj: object, *keys: str) -> str | None:
+        if not isinstance(obj, dict):
+            return None
+        for key in keys:
+            value = obj.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    def _parse_auth_notification(payload: dict[str, object]) -> tuple[str, str, str, str | None] | None:
+        template_data = _notification_dict(payload, "templateData", "template_data")
+        context_info = _notification_dict(payload, "contextInfo", "context_info")
+        args = _notification_dict(payload, "args")
+
+        action_url = _notification_string(template_data, "url", "link")
+        recipient = _notification_string(
+            payload,
+            "recipientEmail",
+            "recipient_email",
+            "recipient",
+        ) or _notification_string(context_info, "recipientEmailAddress", "recipient_email_address")
+        code = _notification_string(args, "code", "Code")
+
+        if not isinstance(action_url, str) or not isinstance(recipient, str):
+            return None
+
+        if "/verify-email" in action_url:
+            return ("verify-email", recipient, action_url, code)
+        if "/reset-password/confirm" in action_url:
+            return ("reset-password", recipient, action_url, code)
+        return None
 
     def _external_link_payload(*, link, provider_name: str) -> dict[str, object]:
         return {
@@ -1945,6 +1987,41 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp = make_response(
             jsonify({"status": "verification_required", "user": {"id": user.id, "email": user.email}})
         )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/zitadel/notifications/email", methods=["POST"])
+    def auth_zitadel_email_notification():
+        raw_body = request.get_data(cache=True)
+        signature_header = request.headers.get("Zitadel-Signature")
+        if not verify_zitadel_signature(raw_body=raw_body, signature_header=signature_header):
+            abort(401, description="Invalid ZITADEL notification signature.")
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            abort(400, description="Invalid ZITADEL notification payload.")
+
+        parsed = _parse_auth_notification(payload)
+        if parsed is None:
+            resp = make_response(jsonify({"status": "ignored"}), 202)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
+        notification_type, recipient, action_url, code = parsed
+        try:
+            send_pandects_auth_email(
+                notification_type=notification_type,
+                to_email=recipient,
+                action_url=action_url,
+                code=code,
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            current_app.logger.exception("ZITADEL email notification handling failed.")
+            abort(503, description="Email delivery is unavailable right now.")
+
+        resp = make_response(jsonify({"status": "sent"}))
         resp.headers["Cache-Control"] = "no-store"
         return resp
 

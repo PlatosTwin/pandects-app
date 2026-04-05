@@ -1,6 +1,10 @@
 import os
 import tempfile
 import unittest
+import hashlib
+import hmac
+import json
+import time
 from datetime import date, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
@@ -129,6 +133,20 @@ class AuthFlowTests(unittest.TestCase):
         token = self._issue_bearer_session(email=email)
         client.set_cookie("pdcts_session", token, path="/")
         return token
+
+    def _zitadel_signature_headers(self, payload: dict[str, object]) -> dict[str, str]:
+        os.environ["AUTH_ZITADEL_NOTIFICATION_SIGNING_KEY"] = "test-zitadel-notification-signing-key"
+        raw = json.dumps(payload).encode("utf-8")
+        timestamp = str(int(time.time()))
+        digest = hmac.new(
+            b"test-zitadel-notification-signing-key",
+            timestamp.encode("utf-8") + b"." + raw,
+            hashlib.sha256,
+        ).hexdigest()
+        return {
+            "Content-Type": "application/json",
+            "Zitadel-Signature": f"t={timestamp},v1={digest}",
+        }
 
     def test_cookie_transport_register_login_csrf_and_logout(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
@@ -1866,6 +1884,68 @@ class AuthFlowTests(unittest.TestCase):
         payload = res.get_json()
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "resend-verify@example.com")
+
+    def test_zitadel_email_notification_verification_uses_pandects_email_sender(self):
+        client = self.app.test_client()
+        payload = {
+            "contextInfo": {"recipientEmailAddress": "verify-target@example.com"},
+            "templateData": {"url": "http://localhost:8080/verify-email?user_id=u&code=c"},
+            "args": {"code": "17UA42"},
+        }
+
+        with patch.object(auth_routes, "send_pandects_auth_email") as send_email:
+            res = client.post(
+                "/v1/auth/zitadel/notifications/email",
+                data=json.dumps(payload),
+                headers=self._zitadel_signature_headers(payload),
+            )
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
+        send_email.assert_called_once_with(
+            notification_type="verify-email",
+            to_email="verify-target@example.com",
+            action_url="http://localhost:8080/verify-email?user_id=u&code=c",
+            code="17UA42",
+        )
+
+    def test_zitadel_email_notification_reset_uses_pandects_email_sender(self):
+        client = self.app.test_client()
+        payload = {
+            "contextInfo": {"recipientEmailAddress": "reset-target@example.com"},
+            "templateData": {"url": "http://localhost:8080/reset-password/confirm?user_id=u&code=c"},
+        }
+
+        with patch.object(auth_routes, "send_pandects_auth_email") as send_email:
+            res = client.post(
+                "/v1/auth/zitadel/notifications/email",
+                data=json.dumps(payload),
+                headers=self._zitadel_signature_headers(payload),
+            )
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
+        send_email.assert_called_once_with(
+            notification_type="reset-password",
+            to_email="reset-target@example.com",
+            action_url="http://localhost:8080/reset-password/confirm?user_id=u&code=c",
+            code=None,
+        )
+
+    def test_zitadel_email_notification_rejects_invalid_signature(self):
+        client = self.app.test_client()
+        payload = {
+            "contextInfo": {"recipientEmailAddress": "verify-target@example.com"},
+            "templateData": {"url": "http://localhost:8080/verify-email?user_id=u&code=c"},
+        }
+
+        res = client.post(
+            "/v1/auth/zitadel/notifications/email",
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json", "Zitadel-Signature": "t=1,v1=bad"},
+        )
+
+        self.assertEqual(res.status_code, 401)
 
     def test_password_login_requires_terms_and_email_verification_for_pending_signup(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
