@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 
 type LeaderboardMetric = "deal_count" | "total_transaction_value";
@@ -323,7 +322,7 @@ export default function Leaderboards() {
       try {
         setLoading(true);
         setError(null);
-        const response = await authFetch(apiUrl("v1/counsel-leaderboards"), {
+        const response = await fetch(apiUrl("v1/counsel-leaderboards"), {
           signal: controller.signal,
         });
         if (!response.ok) {

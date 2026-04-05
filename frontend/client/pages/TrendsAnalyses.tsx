@@ -13,7 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
@@ -771,7 +770,7 @@ export default function TrendsAnalyses() {
       try {
         setLoading(true);
         setError(null);
-        const response = await authFetch(apiUrl("v1/agreement-trends"), {
+        const response = await fetch(apiUrl("v1/agreement-trends"), {
           signal: controller.signal,
         });
         if (!response.ok) {
