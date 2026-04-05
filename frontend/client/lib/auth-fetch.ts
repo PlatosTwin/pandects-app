@@ -26,6 +26,12 @@ export class AuthApiError extends Error {
   }
 }
 
+function ensureTerminalPunctuation(message: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) return trimmed;
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const parts = document.cookie.split(";").map((p) => p.trim());
@@ -113,7 +119,7 @@ export async function authFetchJson<T>(
         if (body && typeof body === "object") {
           const message = (body as { message?: unknown }).message;
           if (typeof message === "string" && message.trim()) {
-            serverMessage = message.trim();
+            serverMessage = ensureTerminalPunctuation(message);
           }
           const errorCode = (body as { error?: unknown }).error;
           if (typeof errorCode === "string" && errorCode.trim()) {
@@ -128,7 +134,9 @@ export async function authFetchJson<T>(
     throw new AuthApiError({
       message:
         serverMessage ??
-        `HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`,
+        ensureTerminalPunctuation(
+          `HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`,
+        ),
       status: res.status,
       statusText: res.statusText,
       code: serverCode,
