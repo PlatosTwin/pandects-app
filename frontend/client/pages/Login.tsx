@@ -268,8 +268,8 @@ export default function Login() {
           </Card>
         ) : (
           <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
-            <div className="grid gap-7">
-              <div className="grid gap-4">
+            <div className="grid gap-5">
+              <div className="grid gap-6">
                 <div className="flex justify-center">
                   <Button
                     onClick={() => void startGoogle()}
@@ -281,10 +281,10 @@ export default function Login() {
                     {submitting ? "Redirecting…" : "Continue with Google"}
                   </Button>
                 </div>
-                <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-                  <div className="h-px flex-1 bg-border/80" />
-                  <span>or sign in with email</span>
-                  <div className="h-px flex-1 bg-border/80" />
+                <div className="flex items-center gap-4 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                  <div className="flex-1 border-t border-border" aria-hidden="true" />
+                  <span className="text-muted-foreground/95">or sign in with email</span>
+                  <div className="flex-1 border-t border-border" aria-hidden="true" />
                 </div>
               </div>
               <form className="grid gap-5" onSubmit={submit}>
