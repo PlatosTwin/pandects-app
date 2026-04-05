@@ -2,7 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import { applySeoForPath } from "@/lib/seo";
+import { applySeoForLocation } from "@/lib/seo";
 import {
   installOutboundLinkTracking,
   trackPageview,
@@ -34,7 +34,7 @@ export function AppLayout() {
   const routeTimerRef = useRef<{ path: string; start: number } | null>(null);
 
   useEffect(() => {
-    applySeoForPath(location.pathname);
+    applySeoForLocation(location.pathname, location.search);
     trackPageview(
       `${location.pathname}${location.search}${location.hash}`,
     );

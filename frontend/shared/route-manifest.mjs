@@ -1,261 +1,263 @@
 const INDEX_FOLLOW = "index,follow,max-image-preview:large";
 const NOINDEX = "noindex,nofollow";
+const NOINDEX_FOLLOW = "noindex,follow";
+
+function defineRoute(route) {
+  const renderStrategy = route.renderStrategy ?? "runtime";
+  const robots = route.robots ?? INDEX_FOLLOW;
+
+  return {
+    ...route,
+    renderStrategy,
+    robots,
+    indexable: !robots.startsWith("noindex"),
+    queryRobots: route.queryRobots ?? robots,
+    sitemap: route.sitemap ?? false,
+  };
+}
 
 const ROUTE_MANIFEST = [
-  {
+  defineRoute({
     pathname: "/",
     title: "Pandects - Open-Source M&A Agreement Search & Data",
     description:
       "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
-    robots: INDEX_FOLLOW,
     pageType: "WebSite",
     pageName: "Pandects",
     pageDescription:
       "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "index.html",
     changefreq: "daily",
     priority: "1.0",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/search",
     title: "Search Merger Agreements | Pandects",
     description:
       "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Search Merger Agreements",
     pageDescription:
       "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "runtime",
+    queryRobots: NOINDEX_FOLLOW,
     changefreq: "weekly",
     priority: "0.9",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/bulk-data",
     title: "Bulk Data | Pandects",
-    description:
-      "Download bulk datasets and exports from Pandects for research and analysis.",
-    robots: INDEX_FOLLOW,
+    description: "Download bulk datasets and exports from Pandects for research and analysis.",
     pageType: "WebPage",
     pageName: "Bulk Data",
-    pageDescription:
-      "Download bulk datasets and exports from Pandects for research and analysis.",
+    pageDescription: "Download bulk datasets and exports from Pandects for research and analysis.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "bulk-data.html",
     changefreq: "weekly",
     priority: "0.8",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/agreement-index",
     title: "Agreement Index | Pandects",
     description:
       "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
-    robots: INDEX_FOLLOW,
-    pageType: "WebPage",
+    pageType: "CollectionPage",
     pageName: "Agreement Index",
     pageDescription:
       "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "agreement-index.html",
     changefreq: "weekly",
     priority: "0.8",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/sources-methods",
     title: "Sources & Methods | Pandects",
     description:
       "Learn where Pandects data comes from and how it is processed into structured datasets.",
-    robots: INDEX_FOLLOW,
-    pageType: "Article",
+    pageType: "TechArticle",
     pageName: "Sources & Methods",
     pageDescription:
       "Learn where Pandects data comes from and how it is processed into structured datasets.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "sources-methods.html",
     changefreq: "monthly",
     priority: "0.8",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/xml-schema",
     title: "XML Schema | Pandects",
     description:
       "Reference the Pandects XML schema for agreement exports, including structure and element definitions.",
-    robots: INDEX_FOLLOW,
-    pageType: "WebPage",
+    pageType: "TechArticle",
     pageName: "XML Schema",
     pageDescription:
       "Reference the Pandects XML schema for agreement exports, including structure and element definitions.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "xml-schema.html",
     changefreq: "monthly",
     priority: "0.7",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/taxonomy",
     title: "Taxonomy | Pandects",
-    description:
-      "Explore the Pandects clause taxonomy with standard IDs across three levels.",
-    robots: INDEX_FOLLOW,
-    pageType: "WebPage",
+    description: "Explore the Pandects clause taxonomy with standard IDs across three levels.",
+    pageType: "CollectionPage",
     pageName: "Taxonomy",
-    pageDescription:
-      "Explore the Pandects clause taxonomy with standard IDs across three levels.",
+    pageDescription: "Explore the Pandects clause taxonomy with standard IDs across three levels.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "taxonomy.html",
     changefreq: "monthly",
     priority: "0.7",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/leaderboards",
     title: "Leaderboards | Pandects",
     description:
       "Compare top buy-side and sell-side counsel by deal count or transaction value across the Pandects agreement dataset.",
-    robots: INDEX_FOLLOW,
-    pageType: "WebPage",
+    pageType: "CollectionPage",
     pageName: "Leaderboards",
     pageDescription:
       "Compare top buy-side and sell-side counsel by deal count or transaction value across the Pandects agreement dataset.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "leaderboards.html",
     changefreq: "weekly",
     priority: "0.7",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/trends-analyses",
     title: "Trends & Analyses | Pandects",
     description:
       "Explore ownership structure and industry trend visualizations across the Pandects M&A agreement dataset.",
-    robots: INDEX_FOLLOW,
-    pageType: "WebPage",
+    pageType: "CollectionPage",
     pageName: "Trends & Analyses",
     pageDescription:
       "Explore ownership structure and industry trend visualizations across the Pandects M&A agreement dataset.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "trends-analyses.html",
     changefreq: "weekly",
     priority: "0.7",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/about",
     title: "About | Pandects",
     description:
       "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
-    robots: INDEX_FOLLOW,
     pageType: "AboutPage",
     pageName: "About",
     pageDescription:
       "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "about.html",
     changefreq: "monthly",
     priority: "0.7",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/feedback",
     title: "Feedback | Pandects",
-    description:
-      "Share feedback, report issues, or suggest improvements for the Pandects platform.",
-    robots: INDEX_FOLLOW,
+    description: "Share feedback, report issues, or suggest improvements for the Pandects platform.",
     pageType: "WebPage",
     pageName: "Feedback",
     pageDescription:
       "Share feedback, report issues, or suggest improvements for the Pandects platform.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "feedback.html",
     changefreq: "monthly",
     priority: "0.6",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/contribute",
     title: "Contribute | Pandects",
     description:
       "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Contribute",
     pageDescription:
       "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
     sitemap: true,
-    prerender: true,
+    renderStrategy: "prerender",
     prerenderFilename: "contribute.html",
     changefreq: "monthly",
     priority: "0.6",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/privacy-policy",
     title: "Privacy Policy | Pandects",
     description: "Read Pandects' Privacy Policy.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Privacy Policy",
     pageDescription: "Read Pandects' Privacy Policy.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "privacy-policy.html",
     changefreq: "yearly",
     priority: "0.5",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/terms",
     title: "Terms of Service | Pandects",
     description: "Read the Pandects Terms of Service.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Terms of Service",
     pageDescription: "Read the Pandects Terms of Service.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "terms.html",
     changefreq: "yearly",
     priority: "0.5",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/license",
     title: "License | Pandects",
     description: "Pandects licensing overview for software and data.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "License",
     pageDescription: "Pandects licensing overview for software and data.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "license.html",
     changefreq: "yearly",
     priority: "0.5",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/license/software",
     title: "GPLv3 Software License | Pandects",
     description: "Read the full GNU GPLv3 text that applies to Pandects software.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "GPLv3 Software License",
     pageDescription: "Read the full GNU GPLv3 text that applies to Pandects software.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "license-software.html",
     changefreq: "yearly",
     priority: "0.4",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/license/data",
     title: "ODbL Data License | Pandects",
     description: "Read the full ODbL 1.0 text that applies to Pandects-owned database materials.",
-    robots: INDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "ODbL Data License",
     pageDescription: "Read the full ODbL 1.0 text that applies to Pandects-owned database materials.",
     sitemap: true,
-    prerender: false,
+    renderStrategy: "prerender",
+    prerenderFilename: "license-data.html",
     changefreq: "yearly",
     priority: "0.4",
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/account",
     title: "Account | Pandects",
     description: "Manage your Pandects account, access, and saved settings.",
@@ -263,10 +265,8 @@ const ROUTE_MANIFEST = [
     pageType: "WebPage",
     pageName: "Account",
     pageDescription: "Manage your Pandects account, access, and saved settings.",
-    sitemap: false,
-    prerender: false,
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/auth/forgot-password",
     title: "Reset Password | Pandects",
     description: "Reset your Pandects account password.",
@@ -274,10 +274,8 @@ const ROUTE_MANIFEST = [
     pageType: "WebPage",
     pageName: "Reset Password",
     pageDescription: "Reset your Pandects account password.",
-    sitemap: false,
-    prerender: false,
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/auth/reset-password",
     title: "Reset Password | Pandects",
     description: "Reset your Pandects account password.",
@@ -285,10 +283,8 @@ const ROUTE_MANIFEST = [
     pageType: "WebPage",
     pageName: "Reset Password",
     pageDescription: "Reset your Pandects account password.",
-    sitemap: false,
-    prerender: false,
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/auth/google/callback",
     title: "Signing In | Pandects",
     description: "Completing your Pandects sign-in flow.",
@@ -296,10 +292,8 @@ const ROUTE_MANIFEST = [
     pageType: "WebPage",
     pageName: "Signing In",
     pageDescription: "Completing your Pandects sign-in flow.",
-    sitemap: false,
-    prerender: false,
-  },
-  {
+  }),
+  defineRoute({
     pathname: "/auth/verify-email",
     title: "Verify Email | Pandects",
     description: "Verify your Pandects account email address.",
@@ -307,9 +301,7 @@ const ROUTE_MANIFEST = [
     pageType: "WebPage",
     pageName: "Verify Email",
     pageDescription: "Verify your Pandects account email address.",
-    sitemap: false,
-    prerender: false,
-  },
+  }),
 ];
 
 const ROUTE_DEFINITION_BY_PATH = new Map(
@@ -317,9 +309,12 @@ const ROUTE_DEFINITION_BY_PATH = new Map(
 );
 
 const SITEMAP_ROUTES = ROUTE_MANIFEST.filter((route) => route.sitemap);
-const PRERENDER_ROUTES = ROUTE_MANIFEST.filter((route) => route.prerender);
+const PRERENDER_ROUTES = ROUTE_MANIFEST.filter((route) => route.renderStrategy === "prerender");
 
 export {
+  INDEX_FOLLOW,
+  NOINDEX,
+  NOINDEX_FOLLOW,
   PRERENDER_ROUTES,
   ROUTE_DEFINITION_BY_PATH,
   ROUTE_MANIFEST,

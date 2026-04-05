@@ -5,7 +5,7 @@ import {
   OG_IMAGE_TYPE,
   OG_IMAGE_WIDTH,
   buildJsonLd,
-  getSeoConfigForPath,
+  getSeoConfigForLocation,
 } from "@shared/seo-helpers.mjs";
 
 type SeoPage = {
@@ -17,14 +17,14 @@ type SeoPage = {
   jsonLd: string;
 };
 
-export function applySeoForPath(pathname: string): void {
+export function applySeoForLocation(pathname: string, search = ""): void {
   const origin = window.location.origin;
-  const seo = getSeoForPath(pathname, origin);
+  const seo = getSeoForPath(pathname, search, origin);
   applySeo(seo);
 }
 
-export function getSeoForPath(pathname: string, origin: string): SeoPage {
-  const seo = getSeoConfigForPath(pathname, origin);
+export function getSeoForPath(pathname: string, search: string, origin: string): SeoPage {
+  const seo = getSeoConfigForLocation(pathname, search, origin);
 
   return {
     title: seo.title,
@@ -51,9 +51,6 @@ export function applySeo(seo: SeoPage): void {
   setMetaByName("robots", seo.robots);
   setMetaByName("googlebot", seo.robots);
   setMetaByName("bingbot", seo.robots);
-  setMetaByName("language", "English");
-  setMetaByName("geo.region", "US");
-  setMetaByName("geo.placename", "United States");
   setMetaByName("twitter:card", "summary_large_image");
   setMetaByName("twitter:title", seo.title);
   setMetaByName("twitter:description", seo.description);

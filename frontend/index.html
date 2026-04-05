@@ -34,12 +34,9 @@
     content="Search and download structured M&amp;A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs."
   />
   <link rel="canonical" href="https://pandects.org/" />
-  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
-  <meta name="googlebot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
-  <meta name="bingbot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
-  <meta name="language" content="English" />
-  <meta name="geo.region" content="US" />
-  <meta name="geo.placename" content="United States" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <meta name="googlebot" content="index,follow,max-image-preview:large" />
+  <meta name="bingbot" content="index,follow,max-image-preview:large" />
 
 	  <meta property="og:type" content="website" />
 	  <meta property="og:locale" content="en_US" />
@@ -93,7 +90,15 @@
           "@id": "https://pandects.org/#website",
           "name": "Pandects",
           "url": "https://pandects.org/",
-          "publisher": { "@id": "https://pandects.org/#organization" }
+          "publisher": { "@id": "https://pandects.org/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://pandects.org/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
         }
       ]
     }
