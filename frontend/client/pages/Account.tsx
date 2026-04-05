@@ -75,6 +75,9 @@ const usageDayTooltipFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 const USAGE_DAY_MS = 24 * 60 * 60 * 1000;
+const PANDECTS_MCP_URL = "https://api.pandects.org/mcp";
+const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
+const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
 
 function parseIsoDayToUtcMs(isoDay: string): number {
   const [year, month, day] = isoDay.split("-").map((part) => Number(part));
@@ -128,6 +131,7 @@ export default function Account() {
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedNewKey, setCopiedNewKey] = useState(false);
+  const [copiedMcpSnippet, setCopiedMcpSnippet] = useState<string | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -252,6 +256,23 @@ export default function Account() {
   useEffect(() => {
     setCopiedNewKey(false);
   }, [revealedKey]);
+
+  const handleCopyMcpSnippet = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMcpSnippet(id);
+      toast({ title: "Copied to clipboard" });
+      window.setTimeout(() => {
+        setCopiedMcpSnippet((current) => (current === id ? null : current));
+      }, 1800);
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    }
+  }, []);
 
   const redactedReminder = useMemo(() => {
     if (status !== "authenticated") return null;
@@ -633,6 +654,100 @@ export default function Account() {
                     </table>
                   </section>
                 ) : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+            <div className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">MCP</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Use your normal Pandects login for MCP. API keys are only for the
+                  REST API.
+                </p>
+              </div>
+
+              <Alert>
+                <AlertTitle>MCP uses account login, not API keys</AlertTitle>
+                <AlertDescription>
+                  Add the Pandects MCP server in your client, then sign in with the same
+                  Pandects account you use on this site when the browser auth flow opens.
+                  You should not need to manually fetch a bearer token from this page.
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">Codex</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add the server, then finish the Pandects sign-in flow when
+                        Codex prompts you.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => void handleCopyMcpSnippet("codex", CODEX_MCP_COMMAND)}
+                    >
+                      {copiedMcpSnippet === "codex" ? (
+                        <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+                      ) : (
+                        <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
+                      )}
+                      Copy
+                    </Button>
+                  </div>
+                  <div className="mt-3 rounded-md border bg-background px-3 py-2 font-mono text-sm break-all">
+                    {CODEX_MCP_COMMAND}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">Claude Code</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add the remote HTTP server, then run `/mcp` and finish the
+                        Pandects sign-in flow in Claude Code.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
+                    >
+                      {copiedMcpSnippet === "claude" ? (
+                        <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+                      ) : (
+                        <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
+                      )}
+                      Copy
+                    </Button>
+                  </div>
+                  <div className="mt-3 rounded-md border bg-background px-3 py-2 font-mono text-sm break-all">
+                    {CLAUDE_MCP_COMMAND}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                Full walkthrough:{" "}
+                <a
+                  href={`${docsUrl}/docs/mcp/setup`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  MCP setup guide
+                </a>
+                .
               </div>
             </div>
           </Card>

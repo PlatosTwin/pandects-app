@@ -176,6 +176,12 @@ const config: Config = {
             label: "API Reference",
           },
           {
+            type: "doc",
+            docId: "mcp/setup",
+            position: "left",
+            label: "MCP",
+          },
+          {
             label: "App",
             position: "right",
             href: `${brandLinks.mainSiteUrl}/search`,

@@ -123,6 +123,7 @@ body {
 }
 
 .navbar__item.navbar__link[href="/docs/guides/getting-started"]::before,
+.navbar__item.navbar__link[href="/docs/mcp/setup"]::before,
 .navbar__item.navbar__link[href="/docs/pandects/list-sections"]::before {
   width: 15px;
   height: 15px;
@@ -136,6 +137,15 @@ body {
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 18.5V5.5Z' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/><path d='M12 5v16' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/></svg>")
     no-repeat center / contain;
   mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 18.5V5.5Z' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/><path d='M12 5v16' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/></svg>")
+    no-repeat center / contain;
+}
+
+.navbar__item.navbar__link[href="/docs/mcp/setup"]::before {
+  content: "";
+  background: currentColor;
+  -webkit-mask: url("/img/mcp-logo.svg")
+    no-repeat center / contain;
+  mask: url("/img/mcp-logo.svg")
     no-repeat center / contain;
 }
 
