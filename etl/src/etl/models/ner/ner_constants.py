@@ -17,7 +17,7 @@ else:
 
 
 MODEL_FILES_DIR = Path(MODEL_DIR)
-NER_CKPT_PATH = str(MODEL_FILES_DIR / "ner-model-latest.ckpt")
+NER_CKPT_PATH = str(MODEL_FILES_DIR / "ner-model-latest-revamp.ckpt")
 NER_LABEL_LIST = [
     "O",
     "B-SECTION",
