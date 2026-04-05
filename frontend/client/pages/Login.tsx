@@ -24,6 +24,29 @@ type LoginState =
   | { kind: "legal"; email: string; nextPath: string }
   | { kind: "verify"; email: string };
 
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+      <path
+        d="M21.805 12.23c0-.68-.061-1.334-.174-1.963H12v3.713h5.498a4.703 4.703 0 0 1-2.04 3.086v2.564h3.3c1.93-1.777 3.047-4.4 3.047-7.4Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 22c2.76 0 5.076-.915 6.768-2.47l-3.3-2.563c-.916.614-2.09.977-3.468.977-2.656 0-4.906-1.793-5.711-4.205H2.877v2.646A10.22 10.22 0 0 0 12 22Z"
+        fill="#34A853"
+      />
+      <path
+        d="M6.289 13.739A6.145 6.145 0 0 1 5.97 11.8c0-.674.116-1.328.319-1.939V7.215H2.877A10.197 10.197 0 0 0 1.8 11.8c0 1.627.389 3.168 1.077 4.585l3.412-2.646Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.656c1.5 0 2.847.517 3.908 1.534l2.93-2.93C17.07 2.614 14.754 1.6 12 1.6a10.22 10.22 0 0 0-9.123 5.615L6.29 9.86c.805-2.411 3.055-4.204 5.711-4.204Z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
 export default function Login() {
   const { status, refresh } = useAuth();
   const navigate = useNavigate();
@@ -153,6 +176,7 @@ export default function Login() {
       title="Sign in"
       subtitle="Sign in to Pandects to manage API keys, review usage, and unlock full access."
       size="md"
+      className="max-w-2xl"
     >
       <div className="grid gap-6">
         {error ? (
@@ -203,7 +227,7 @@ export default function Login() {
             submitLabel={submitting ? "Finishing sign-in…" : "Continue"}
           />
         ) : state.kind === "verify" ? (
-          <Card className="p-6">
+          <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
                 <h2 className="text-base font-medium">Check your email</h2>
@@ -243,19 +267,31 @@ export default function Login() {
             </div>
           </Card>
         ) : (
-          <Card className="p-6">
-            <div className="grid gap-6">
-              <div className="grid gap-3">
-                <Button onClick={() => void startGoogle()} disabled={submitting} className="w-full">
-                  {submitting ? "Redirecting…" : "Continue with Google"}
-                </Button>
-                <div className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  or sign in with email
+          <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
+            <div className="grid gap-7">
+              <div className="grid gap-4">
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => void startGoogle()}
+                    disabled={submitting}
+                    variant="outline"
+                    className="h-11 min-w-[17rem] rounded-full border-border/80 bg-white px-5 text-foreground shadow-sm hover:bg-muted/40"
+                  >
+                    <GoogleMark />
+                    {submitting ? "Redirecting…" : "Continue with Google"}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                  <div className="h-px flex-1 bg-border/80" />
+                  <span>or sign in with email</span>
+                  <div className="h-px flex-1 bg-border/80" />
                 </div>
               </div>
-              <form className="grid gap-4" onSubmit={submit}>
+              <form className="grid gap-5" onSubmit={submit}>
                 <div className="grid gap-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="login-email" className="text-sm font-medium text-foreground/90">
+                    Email
+                  </Label>
                   <Input
                     id="login-email"
                     type="email"
@@ -263,14 +299,20 @@ export default function Login() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
+                    className="h-11 border-border/80 bg-background"
                   />
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="login-password">Password</Label>
+                    <Label
+                      htmlFor="login-password"
+                      className="text-sm font-medium text-foreground/90"
+                    >
+                      Password
+                    </Label>
                     <Link
                       to={`/reset-password?next=${encodeURIComponent(nextPath)}`}
-                      className="text-sm text-primary hover:underline"
+                      className="text-sm font-medium text-primary/90 hover:text-primary hover:underline"
                     >
                       Forgot password?
                     </Link>
@@ -282,25 +324,28 @@ export default function Login() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
+                    className="h-11 border-border/80 bg-background"
                   />
                 </div>
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? (
-                    <span className="inline-flex items-center gap-2">
-                      <LoadingSpinner size="sm" aria-label="Signing in" />
-                      Signing in…
-                    </span>
-                  ) : (
-                    "Sign in"
-                  )}
-                </Button>
+                <div className="flex justify-center pt-1">
+                  <Button type="submit" disabled={submitting} className="min-w-[10rem] rounded-full px-6">
+                    {submitting ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoadingSpinner size="sm" aria-label="Signing in" />
+                        Signing in…
+                      </span>
+                    ) : (
+                      "Sign in"
+                    )}
+                  </Button>
+                </div>
               </form>
 
-              <div className="text-sm text-muted-foreground">
+              <div className="text-center text-sm text-muted-foreground">
                 Need an account?{" "}
                 <Link
                   to={`/signup?next=${encodeURIComponent(nextPath)}`}
-                  className="text-primary hover:underline"
+                  className="font-medium text-primary hover:underline"
                 >
                   Create one
                 </Link>
