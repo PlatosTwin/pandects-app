@@ -975,7 +975,7 @@ class NERTrainer:
             log_every_n_steps=10,
         )
         trainer.fit(model, datamodule=data_module)
-        _ = trainer.test(model, datamodule=data_module, ckpt_path=NER_CKPT)
+        _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
 
     def _trainer_precision(self) -> PrecisionInput:
         if self.device in ("cuda", "mps"):
@@ -1619,7 +1619,7 @@ def run_hparam_tuning(
         log_every_n_steps=10,
     )
     trainer.fit(model, datamodule=data_module)
-    _ = trainer.test(model, datamodule=data_module, ckpt_path=NER_CKPT)
+    _ = trainer.test(model, datamodule=data_module, ckpt_path="best")
 
     return best_params
 
