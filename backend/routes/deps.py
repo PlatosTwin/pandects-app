@@ -80,8 +80,16 @@ class EnsureCurrentLegalAcceptancesProtocol(Protocol):
     def __call__(self, *, user_id: str, checked_at: datetime) -> None: ...
 
 
-class GoogleFetchJsonProtocol(Protocol):
-    def __call__(self, url: str, *, data: dict[str, str] | None = None) -> dict[str, object]: ...
+class OidcFetchJsonProtocol(Protocol):
+    def __call__(
+        self,
+        url: str,
+        *,
+        data: dict[str, str] | None = None,
+        json_body: dict[str, object] | None = None,
+        headers: dict[str, str] | None = None,
+        method: str | None = None,
+    ) -> dict[str, object]: ...
 
 
 class IsAgreementSectionEligibleProtocol(Protocol):
@@ -233,6 +241,10 @@ class AuthDeps:
     AuthExternalSubject: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
+    AuthPasswordLoginSchema: type[Schema]
+    AuthPasswordResetConfirmSchema: type[Schema]
+    AuthPasswordResetRequestSchema: type[Schema]
+    AuthPasswordSignupSchema: type[Schema]
     AuthSession: Any
     AuthUser: Any
     LegalAcceptance: Any
@@ -249,7 +261,7 @@ class AuthDeps:
     _csrf_cookie_value: Callable[[], str | None]
     _ensure_current_legal_acceptances: EnsureCurrentLegalAcceptancesProtocol
     _frontend_base_url: Callable[[], str]
-    _oidc_fetch_json: GoogleFetchJsonProtocol
+    _oidc_fetch_json: OidcFetchJsonProtocol
     _is_agreement_section_eligible: IsAgreementSectionEligibleProtocol
     _is_email_like: Callable[[str], bool]
     _issue_session_token: Callable[[str], str]

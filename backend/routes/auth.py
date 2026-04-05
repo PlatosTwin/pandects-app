@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
 import uuid
 from base64 import urlsafe_b64encode
 from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
+from typing import cast
 from urllib.parse import urlencode
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
+from werkzeug.security import check_password_hash
 
 from backend.auth.runtime import cookie_settings
 from backend.auth.mcp_runtime import (
@@ -33,6 +36,7 @@ _ZITADEL_WEB_COOKIE_NAME = "pdcts_zitadel_web"
 _ZITADEL_WEB_COOKIE_MAX_AGE = 60 * 10
 _ZITADEL_PENDING_COOKIE_NAME = "pdcts_zitadel_pending"
 _ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
+_ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 
 
 def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
@@ -111,6 +115,40 @@ def _zitadel_token_endpoint() -> str:
     if raw:
         return raw
     return f"{mcp_oidc_issuer()}/oauth/v2/token"
+
+
+def _zitadel_api_token() -> str:
+    raw = os.environ.get("AUTH_ZITADEL_API_TOKEN", "").strip()
+    if not raw:
+        abort(503, description="ZITADEL API access is not configured.")
+    return raw
+
+
+def _zitadel_api_client_id() -> str | None:
+    raw = os.environ.get("AUTH_ZITADEL_API_CLIENT_ID", "").strip()
+    return raw or None
+
+
+def _zitadel_api_key_id() -> str | None:
+    raw = os.environ.get("AUTH_ZITADEL_API_KEY_ID", "").strip()
+    return raw or None
+
+
+def _zitadel_api_private_key() -> str | None:
+    raw = os.environ.get("AUTH_ZITADEL_API_PRIVATE_KEY", "").strip()
+    if not raw:
+        return None
+    return raw.replace("\\n", "\n")
+
+
+def _zitadel_google_idp_id() -> str:
+    raw = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_ID", "").strip()
+    if raw:
+        return raw
+    raw = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_HINT", "").strip()
+    if raw:
+        return raw
+    abort(503, description="ZITADEL Google auth is not configured (missing AUTH_ZITADEL_GOOGLE_IDP_ID).")
 
 
 def _decode_zitadel_id_token(id_token: str) -> dict[str, object] | None:
@@ -315,6 +353,334 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    def _zitadel_api_access_token() -> str:
+        explicit = _zitadel_api_token().strip() if os.environ.get("AUTH_ZITADEL_API_TOKEN", "").strip() else ""
+        if explicit:
+            return explicit
+
+        client_id = _zitadel_api_client_id()
+        key_id = _zitadel_api_key_id()
+        private_key = _zitadel_api_private_key()
+        if not client_id or not key_id or not private_key:
+            abort(
+                503,
+                description=(
+                    "ZITADEL API access is not configured. Set AUTH_ZITADEL_API_TOKEN or "
+                    "AUTH_ZITADEL_API_CLIENT_ID, AUTH_ZITADEL_API_KEY_ID, and AUTH_ZITADEL_API_PRIVATE_KEY."
+                ),
+            )
+
+        cached_token = _ZITADEL_API_TOKEN_CACHE.get("token")
+        cached_expires_at = _ZITADEL_API_TOKEN_CACHE.get("expires_at")
+        now = int(time.time())
+        if isinstance(cached_token, str) and isinstance(cached_expires_at, int) and cached_expires_at - 30 > now:
+            return cached_token
+
+        try:
+            import jwt
+        except ImportError:
+            abort(503, description="JWT support is unavailable for ZITADEL API authentication.")
+
+        assertion = jwt.encode(
+            {
+                "iss": client_id,
+                "sub": client_id,
+                "aud": _zitadel_token_endpoint(),
+                "iat": now,
+                "exp": now + 300,
+                "jti": secrets.token_urlsafe(24),
+            },
+            private_key,
+            algorithm="RS256",
+            headers={"kid": key_id},
+        )
+        token_payload = deps._oidc_fetch_json(
+            _zitadel_token_endpoint(),
+            data={
+                "grant_type": "client_credentials",
+                "scope": "urn:zitadel:iam:org:project:id:zitadel:aud",
+                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                "client_assertion": assertion,
+            },
+        )
+        access_token = token_payload.get("access_token")
+        expires_in = token_payload.get("expires_in")
+        if not isinstance(access_token, str) or not access_token.strip():
+            abort(502, description="ZITADEL did not return an API access token.")
+        expires_at = now + (int(expires_in) if isinstance(expires_in, int) else 300)
+        _ZITADEL_API_TOKEN_CACHE["token"] = access_token.strip()
+        _ZITADEL_API_TOKEN_CACHE["expires_at"] = expires_at
+        return access_token.strip()
+
+    def _zitadel_api_json(
+        *,
+        path: str,
+        json_body: dict[str, object],
+    ) -> dict[str, object]:
+        return _zitadel_api_request(path=path, method="POST", json_body=json_body)
+
+    def _zitadel_api_request(
+        *,
+        path: str,
+        method: str,
+        json_body: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        return deps._oidc_fetch_json(
+            f"{mcp_oidc_issuer()}{path}",
+            json_body=json_body,
+            headers={"Authorization": f"Bearer {_zitadel_api_access_token()}"},
+            method=method,
+        )
+
+    def _build_external_identity(
+        *,
+        subject: str,
+        email: str,
+        email_verified: bool = True,
+        display_name: str | None = None,
+        given_name: str | None = None,
+        family_name: str | None = None,
+        picture: str | None = None,
+    ):
+        claims: dict[str, object] = {
+            "email": email,
+            "email_verified": email_verified,
+        }
+        if isinstance(display_name, str) and display_name.strip():
+            claims["name"] = display_name.strip()
+        if isinstance(given_name, str) and given_name.strip():
+            claims["given_name"] = given_name.strip()
+        if isinstance(family_name, str) and family_name.strip():
+            claims["family_name"] = family_name.strip()
+        if isinstance(picture, str) and picture.strip():
+            claims["picture"] = picture.strip()
+        return type(
+            "ExternalIdentityWithClaims",
+            (),
+            {
+                "issuer": mcp_oidc_issuer(),
+                "subject": subject,
+                "claims": claims,
+            },
+        )()
+
+    def _zitadel_human_payload(
+        *,
+        email: str,
+        password: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        verify_url_template: str | None = None,
+    ) -> dict[str, object]:
+        display_name = " ".join(
+            part.strip() for part in (first_name, last_name) if isinstance(part, str) and part.strip()
+        )
+        if not display_name:
+            display_name = email
+        profile: dict[str, object] = {"displayName": display_name}
+        if isinstance(first_name, str) and first_name.strip():
+            profile["givenName"] = first_name.strip()
+        if isinstance(last_name, str) and last_name.strip():
+            profile["familyName"] = last_name.strip()
+        email_payload: dict[str, object] = {
+            "email": email,
+        }
+        if isinstance(verify_url_template, str) and verify_url_template.strip():
+            email_payload["sendCode"] = {"urlTemplate": verify_url_template.strip()}
+        else:
+            email_payload["isVerified"] = True
+        return {
+            "userId": str(uuid.uuid4()),
+            "username": email,
+            "profile": profile,
+            "email": email_payload,
+            "password": {
+                "password": password,
+                "changeRequired": False,
+            },
+        }
+
+    def _create_zitadel_human_user(
+        *,
+        email: str,
+        password: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        verify_url_template: str | None = None,
+    ):
+        created = _zitadel_api_json(
+            path="/v2/users/human",
+            json_body=_zitadel_human_payload(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                verify_url_template=verify_url_template,
+            ),
+        )
+        user_id = created.get("userId") or created.get("user_id")
+        if not isinstance(user_id, str) or not user_id.strip():
+            abort(502, description="ZITADEL did not return a user identifier.")
+        return _build_external_identity(
+            subject=user_id.strip(),
+            email=email,
+            email_verified=not (isinstance(verify_url_template, str) and verify_url_template.strip()),
+            display_name=" ".join(
+                part.strip()
+                for part in (first_name, last_name)
+                if isinstance(part, str) and part.strip()
+            )
+            or email,
+            given_name=first_name,
+            family_name=last_name,
+        )
+
+    def _local_user_by_email(*, email: str):
+        return deps.AuthUser.query.filter_by(email=email).first()
+
+    def _zitadel_session_identity(*, email: str, password: str):
+        created = _zitadel_api_json(
+            path="/v2/sessions",
+            json_body={"checks": {"user": {"loginName": email}}},
+        )
+        session_id = created.get("sessionId") or created.get("session_id")
+        if not isinstance(session_id, str) or not session_id.strip():
+            abort(502, description="ZITADEL did not return a session identifier.")
+        _zitadel_api_request(
+            path=f"/v2/sessions/{session_id.strip()}",
+            method="PATCH",
+            json_body={"checks": {"password": {"password": password}}},
+        )
+        session_payload = _zitadel_api_request(
+            path=f"/v2/sessions/{session_id.strip()}",
+            method="GET",
+        )
+        session = session_payload.get("session")
+        if not isinstance(session, dict):
+            abort(502, description="ZITADEL did not return session details.")
+        factors = session.get("factors")
+        if not isinstance(factors, dict):
+            abort(502, description="ZITADEL did not return verified session factors.")
+        user_factor = factors.get("user")
+        if not isinstance(user_factor, dict):
+            abort(401, description="Invalid email or password.")
+        password_factor = factors.get("password")
+        if not isinstance(password_factor, dict):
+            abort(401, description="Invalid email or password.")
+        user_id = user_factor.get("id")
+        if not isinstance(user_id, str) or not user_id.strip():
+            abort(502, description="ZITADEL did not return a user identifier.")
+        try:
+            return _zitadel_user_identity(user_id=user_id.strip())
+        except HTTPException as exc:
+            if exc.code == 400 and exc.description == "Auth provider did not return a verified email address.":
+                abort(400, description="Verify your email before signing in.")
+            raise
+
+    def _zitadel_user_identity(*, user_id: str):
+        payload = _zitadel_api_request(
+            path=f"/v2/users/{user_id}",
+            method="GET",
+        )
+        user_payload = payload.get("user")
+        if not isinstance(user_payload, dict):
+            abort(502, description="ZITADEL did not return the user record.")
+        human = user_payload.get("human")
+        if not isinstance(human, dict):
+            abort(502, description="ZITADEL did not return a human user record.")
+        email_payload = human.get("email")
+        if not isinstance(email_payload, dict):
+            abort(502, description="ZITADEL did not return the user email.")
+        email = email_payload.get("email")
+        is_verified = email_payload.get("isVerified")
+        if not isinstance(email, str) or not email.strip() or is_verified is not True:
+            abort(400, description="Auth provider did not return a verified email address.")
+        profile = human.get("profile")
+        profile_dict = profile if isinstance(profile, dict) else {}
+        display_name = profile_dict.get("displayName")
+        given_name = profile_dict.get("givenName")
+        family_name = profile_dict.get("familyName")
+        avatar_url = profile_dict.get("avatarUrl")
+        return _build_external_identity(
+            subject=user_id.strip(),
+            email=email.strip(),
+            display_name=display_name if isinstance(display_name, str) else email.strip(),
+            given_name=given_name if isinstance(given_name, str) else None,
+            family_name=family_name if isinstance(family_name, str) else None,
+            picture=avatar_url if isinstance(avatar_url, str) else None,
+        )
+
+    def _zitadel_user_email_matches(*, user_id: str, email: str) -> bool:
+        payload = _zitadel_api_request(
+            path=f"/v2/users/{user_id}",
+            method="GET",
+        )
+        user_payload = payload.get("user")
+        if not isinstance(user_payload, dict):
+            return False
+        human = user_payload.get("human")
+        if not isinstance(human, dict):
+            return False
+        email_payload = human.get("email")
+        if not isinstance(email_payload, dict):
+            return False
+        remote_email = email_payload.get("email")
+        if not isinstance(remote_email, str) or not remote_email.strip():
+            return False
+        return deps._normalize_email(remote_email) == email
+
+    def _ensure_zitadel_user_for_local_password_user(*, user, password: str):
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=mcp_oidc_issuer(),
+        ).first()
+        if existing_link is not None:
+            return _build_external_identity(subject=existing_link.subject, email=user.email)
+        return _create_zitadel_human_user(email=user.email, password=password)
+
+    def _maybe_migrate_local_password_user(*, email: str, password: str):
+        user = _local_user_by_email(email=email)
+        if user is None or user.email_verified_at is None:
+            return None
+        if not isinstance(user.password_hash, str) or not user.password_hash.strip():
+            return None
+        if not check_password_hash(user.password_hash, password):
+            return None
+        return _ensure_zitadel_user_for_local_password_user(user=user, password=password)
+
+    def _linked_zitadel_subject_for_email(*, email: str):
+        user = _local_user_by_email(email=email)
+        if user is None or user.email_verified_at is None:
+            return None
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=mcp_oidc_issuer(),
+        ).first()
+        if existing_link is not None:
+            return existing_link.subject
+        if isinstance(user.password_hash, str) and user.password_hash.strip():
+            try:
+                migrated = _create_zitadel_human_user(
+                    email=user.email,
+                    password=secrets.token_urlsafe(24),
+                )
+            except HTTPException as exc:
+                description = exc.description if isinstance(exc.description, str) else ""
+                if exc.code == 409 and "already exists" in description.lower():
+                    existing_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                    if not isinstance(existing_user_id, str) or not existing_user_id.strip():
+                        raise
+                    migrated = _build_external_identity(
+                        subject=existing_user_id.strip(),
+                        email=user.email,
+                    )
+                else:
+                    raise
+            _resolve_user_from_external_identity(external_identity=migrated)
+            deps.db.session.commit()
+            return migrated.subject
+        return None
+
     def _external_identity_verified_email(external_identity) -> str | None:
         claims = getattr(external_identity, "claims", None)
         if not isinstance(claims, dict):
@@ -375,6 +741,398 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 )
             )
         return (action, user)
+
+    def _linked_user_for_subject(*, issuer: str, subject: str):
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            issuer=issuer,
+            subject=subject,
+        ).first()
+        if existing_link is None:
+            return None
+        return deps.db.session.get(deps.AuthUser, existing_link.user_id)
+
+    def _complete_website_auth_for_identity(*, external_identity, next_path: str, provider_name: str):
+        action, user = _resolve_user_from_external_identity(external_identity=external_identity)
+        if not deps._user_has_current_legal_acceptances(user_id=user.id):
+            deps.db.session.commit()
+            return _pending_website_auth_response(
+                user=user,
+                next_path=next_path,
+                action=action,
+                provider_name=provider_name,
+            )
+
+        deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
+        deps.db.session.commit()
+        return _auth_success_response(user=user, next_path=next_path)
+
+    def _pending_website_auth_response(*, user, next_path: str, action: str, provider_name: str):
+        resp = make_response(
+            jsonify(
+                {
+                    "status": "legal_required",
+                    "next_path": next_path,
+                    "user": {"id": user.id, "email": user.email},
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        _set_zitadel_pending_cookie(
+            resp,
+            {
+                "user_id": user.id,
+                "next": next_path,
+                "action": action,
+                "provider": provider_name,
+            },
+        )
+        return resp
+
+    def _resume_incomplete_signup_if_eligible(*, user, next_path: str, provider_name: str):
+        subject = _ensure_linked_zitadel_subject_for_user(user=user)
+        if subject is None:
+            return None
+        if not deps._user_has_current_legal_acceptances(user_id=user.id):
+            deps.db.session.commit()
+            return _pending_website_auth_response(
+                user=user,
+                next_path=next_path,
+                action="register",
+                provider_name=provider_name,
+            )
+        if user.email_verified_at is None:
+            _send_zitadel_email_verification_for_user(user=user)
+            deps.db.session.commit()
+            return _verification_required_response(user=user, next_path=next_path)
+        return _auth_success_response(user=user, next_path=next_path)
+
+    def _zitadel_email_verify_url_template(*, deps: AuthDeps) -> str:
+        return (
+            f"{deps._frontend_base_url()}/verify-email"
+            "?user_id={{.UserID}}&code={{.Code}}&org_id={{.OrgID}}"
+        )
+
+    def _send_zitadel_email_verification(*, user_id: str, url_template: str) -> None:
+        _zitadel_api_json(
+            path=f"/v2/users/{user_id}/email/send",
+            json_body={"sendCode": {"urlTemplate": url_template}},
+        )
+
+    def _ensure_linked_zitadel_subject_for_user(*, user) -> str | None:
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=mcp_oidc_issuer(),
+        ).first()
+        if existing_link is not None and isinstance(existing_link.subject, str) and existing_link.subject.strip():
+            return existing_link.subject.strip()
+        searched_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+        if isinstance(searched_user_id, str) and searched_user_id.strip():
+            resolved_user_id = searched_user_id.strip()
+            deps.db.session.add(
+                deps.AuthExternalSubject(
+                    user_id=user.id,
+                    issuer=mcp_oidc_issuer(),
+                    subject=resolved_user_id,
+                )
+            )
+            deps.db.session.flush()
+            return resolved_user_id
+        return None
+
+    def _send_zitadel_email_verification_for_user(*, user) -> bool:
+        subject = _ensure_linked_zitadel_subject_for_user(user=user)
+        if not isinstance(subject, str) or not subject.strip():
+            return False
+        url_template = _zitadel_email_verify_url_template(deps=deps)
+        try:
+            _send_zitadel_email_verification(user_id=subject, url_template=url_template)
+            return True
+        except HTTPException as exc:
+            description = exc.description if isinstance(exc.description, str) else ""
+            if exc.code in {400, 404} and "email not found" in description.lower():
+                refreshed_subject = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                if (
+                    isinstance(refreshed_subject, str)
+                    and refreshed_subject.strip()
+                    and refreshed_subject.strip() != subject
+                ):
+                    existing_link = deps.AuthExternalSubject.query.filter_by(
+                        user_id=user.id,
+                        issuer=mcp_oidc_issuer(),
+                    ).first()
+                    if existing_link is None:
+                        deps.db.session.add(
+                            deps.AuthExternalSubject(
+                                user_id=user.id,
+                                issuer=mcp_oidc_issuer(),
+                                subject=refreshed_subject.strip(),
+                            )
+                        )
+                    else:
+                        existing_link.subject = refreshed_subject.strip()
+                    deps.db.session.flush()
+                    _send_zitadel_email_verification(
+                        user_id=refreshed_subject.strip(),
+                        url_template=url_template,
+                    )
+                    return True
+                existing_link = deps.AuthExternalSubject.query.filter_by(
+                    user_id=user.id,
+                    issuer=mcp_oidc_issuer(),
+                ).first()
+                if existing_link is not None:
+                    deps.db.session.delete(existing_link)
+                    deps.db.session.flush()
+                return False
+            raise
+
+    def _ensure_pending_signup_remote_user(
+        *,
+        user,
+        password: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> str | None:
+        subject = _ensure_linked_zitadel_subject_for_user(user=user)
+        if isinstance(subject, str) and subject.strip():
+            try:
+                if _zitadel_user_email_matches(user_id=subject.strip(), email=user.email):
+                    return subject.strip()
+            except HTTPException as exc:
+                if exc.code == 404:
+                    existing_link = deps.AuthExternalSubject.query.filter_by(
+                        user_id=user.id,
+                        issuer=mcp_oidc_issuer(),
+                    ).first()
+                    if existing_link is not None:
+                        deps.db.session.delete(existing_link)
+                        deps.db.session.flush()
+                else:
+                    raise
+        verify_url_template = _zitadel_email_verify_url_template(deps=deps)
+        try:
+            external_identity = _create_zitadel_human_user(
+                email=user.email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                verify_url_template=verify_url_template,
+            )
+        except HTTPException as exc:
+            description = exc.description if isinstance(exc.description, str) else ""
+            if exc.code == 409 and "already exists" in description.lower():
+                existing_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                if not isinstance(existing_user_id, str) or not existing_user_id.strip():
+                    return None
+                external_identity = _build_external_identity(
+                    subject=existing_user_id.strip(),
+                    email=user.email,
+                    email_verified=False,
+                )
+            else:
+                raise
+        existing_link = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=mcp_oidc_issuer(),
+        ).first()
+        if existing_link is None:
+            deps.db.session.add(
+                deps.AuthExternalSubject(
+                    user_id=user.id,
+                    issuer=mcp_oidc_issuer(),
+                    subject=external_identity.subject,
+                )
+            )
+        else:
+            existing_link.subject = external_identity.subject
+        deps.db.session.flush()
+        return external_identity.subject if isinstance(external_identity.subject, str) else None
+
+    def _verification_required_response(*, user, next_path: str):
+        resp = make_response(
+            jsonify(
+                {
+                    "status": "verification_required",
+                    "next_path": next_path,
+                    "user": {"id": user.id, "email": user.email},
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _pending_login_block_response(*, user, next_path: str):
+        has_legal = deps._user_has_current_legal_acceptances(user_id=user.id)
+        if user.email_verified_at is None and not has_legal:
+            abort(400, description="You need to accept the terms and verify your email before signing in.")
+        if user.email_verified_at is None:
+            abort(400, description="Verify your email before signing in.")
+        if not has_legal:
+            abort(400, description="You need to accept the terms before signing in.")
+        return None
+
+    def _ensure_pending_signup_user(
+        *,
+        external_identity,
+    ):
+        email_claim = external_identity.claims.get("email")
+        if not isinstance(email_claim, str) or not email_claim.strip():
+            abort(400, description="Auth provider did not return an email address.")
+        email = deps._normalize_email(email_claim)
+        user = deps.AuthUser.query.filter_by(email=email).first()
+        if user is None:
+            user = deps.AuthUser(
+                email=email,
+                password_hash=None,
+                email_verified_at=None,
+            )
+            deps.db.session.add(user)
+            deps.db.session.flush()
+        existing_for_user = deps.AuthExternalSubject.query.filter_by(
+            user_id=user.id,
+            issuer=external_identity.issuer,
+            subject=external_identity.subject,
+        ).first()
+        if existing_for_user is None:
+            deps.db.session.add(
+                deps.AuthExternalSubject(
+                    user_id=user.id,
+                    issuer=external_identity.issuer,
+                    subject=external_identity.subject,
+                )
+            )
+        return user
+
+    def _delete_zitadel_user_if_linked(*, user) -> None:
+        links = (
+            deps.AuthExternalSubject.query.filter_by(user_id=user.id, issuer=mcp_oidc_issuer())
+            .order_by(deps.AuthExternalSubject.id.asc())
+            .all()
+        )
+        for link in links:
+            try:
+                _zitadel_api_request(
+                    path=f"/v2/users/{link.subject}",
+                    method="DELETE",
+                )
+            except HTTPException as exc:
+                if exc.code == 404:
+                    continue
+                raise
+
+    def _search_zitadel_user_id_by_login_name(*, login_name: str) -> str | None:
+        payload = _zitadel_api_request(
+            path="/v2/users",
+            method="POST",
+            json_body={
+                "pagination": {"limit": 1},
+                "queries": [
+                    {
+                        "loginNameQuery": {
+                            "loginName": login_name,
+                            "method": "TEXT_QUERY_METHOD_EQUALS",
+                        }
+                    }
+                ],
+            },
+        )
+        result = payload.get("result")
+        if not isinstance(result, list) or not result:
+            return None
+        first = result[0]
+        if not isinstance(first, dict):
+            return None
+        user_id = first.get("userId")
+        if not isinstance(user_id, str) or not user_id.strip():
+            return None
+        return user_id.strip()
+
+    def _zitadel_google_identity_from_intent(*, payload: dict[str, object], user_id: str | None):
+        idp_information = payload.get("idpInformation")
+        if not isinstance(idp_information, dict):
+            abort(502, description="ZITADEL did not return identity provider information.")
+        raw_information = idp_information.get("rawInformation")
+        raw_user = raw_information.get("User") if isinstance(raw_information, dict) else None
+        if not isinstance(raw_user, dict):
+            abort(502, description="ZITADEL did not return Google profile information.")
+        external_subject = raw_user.get("sub")
+        if not isinstance(external_subject, str) or not external_subject.strip():
+            abort(502, description="Google did not return a stable user identifier.")
+        idp_id = idp_information.get("idpId")
+        if not isinstance(idp_id, str) or not idp_id.strip():
+            abort(502, description="ZITADEL did not return the Google provider identifier.")
+
+        resolved_user_id = user_id.strip() if isinstance(user_id, str) and user_id.strip() else None
+        if resolved_user_id is None:
+            email = raw_user.get("email")
+            email_verified = raw_user.get("email_verified")
+            if not isinstance(email, str) or not email.strip() or email_verified is not True:
+                abort(400, description="Google did not return a verified email address.")
+            existing_subject = _linked_zitadel_subject_for_email(email=deps._normalize_email(email))
+            if isinstance(existing_subject, str) and existing_subject.strip():
+                resolved_user_id = existing_subject.strip()
+        if resolved_user_id is None:
+            email = cast(str, raw_user.get("email"))
+            display_name = raw_user.get("name")
+            if not isinstance(display_name, str) or not display_name.strip():
+                display_name = email.strip()
+            given_name = raw_user.get("given_name")
+            family_name = raw_user.get("family_name")
+            create_payload: dict[str, object] = {
+                "username": email.strip(),
+                "profile": {
+                    "displayName": display_name,
+                },
+                "email": {
+                    "email": email.strip(),
+                    "isVerified": True,
+                },
+                "idpLinks": [
+                    {
+                        "idpId": idp_id,
+                        "userId": external_subject.strip(),
+                        "userName": display_name,
+                    }
+                ],
+            }
+            if isinstance(given_name, str) and given_name.strip():
+                cast(dict[str, object], create_payload["profile"])["givenName"] = given_name.strip()
+            if isinstance(family_name, str) and family_name.strip():
+                cast(dict[str, object], create_payload["profile"])["familyName"] = family_name.strip()
+            try:
+                created = _zitadel_api_json(path="/v2/users/human", json_body=create_payload)
+                user_id_candidate = created.get("userId") or created.get("user_id")
+                if not isinstance(user_id_candidate, str) or not user_id_candidate.strip():
+                    abort(502, description="ZITADEL did not return a user identifier for the Google login.")
+                resolved_user_id = user_id_candidate.strip()
+            except HTTPException as exc:
+                description = exc.description if isinstance(exc.description, str) else ""
+                if exc.code == 409 and "already exists" in description.lower():
+                    existing_user_id = _search_zitadel_user_id_by_login_name(login_name=email.strip())
+                    if isinstance(existing_user_id, str) and existing_user_id.strip():
+                        resolved_user_id = existing_user_id.strip()
+                    else:
+                        raise
+                else:
+                    raise
+
+        claims = {
+            "email": raw_user.get("email"),
+            "email_verified": raw_user.get("email_verified"),
+            "name": raw_user.get("name"),
+            "given_name": raw_user.get("given_name"),
+            "family_name": raw_user.get("family_name"),
+            "picture": raw_user.get("picture"),
+        }
+        return type(
+            "ExternalIdentityWithClaims",
+            (),
+            {
+                "issuer": mcp_oidc_issuer(),
+                "subject": resolved_user_id,
+                "claims": claims,
+            },
+        )()
 
     def _auth_success_response(*, user, next_path: str, resp_code: int = 200):
         token = deps._issue_session_token(user.id)
@@ -714,6 +1472,44 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         _set_zitadel_web_cookie(resp, cookie_payload)
         return resp
 
+    @auth_blp.route("/zitadel/google/start", methods=["GET"])
+    def auth_zitadel_google_start():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="ZITADEL auth is unavailable in mocked auth mode.")
+
+        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
+        cookie_payload = {
+            "next": next_path,
+            "provider": "zitadel",
+            "flow": "google_intent",
+        }
+        callback_url = _website_zitadel_redirect_uri(deps)
+        try:
+            start_payload = _zitadel_api_json(
+                path="/v2/idp_intents",
+                json_body={
+                    "idpId": _zitadel_google_idp_id(),
+                    "urls": {
+                        "successUrl": callback_url,
+                        "failureUrl": callback_url,
+                    },
+                },
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            current_app.logger.exception("ZITADEL Google intent start failed.")
+            abort(503, description="External identity provider is unavailable right now.")
+        authorize_url = start_payload.get("authUrl")
+        if not isinstance(authorize_url, str) or not authorize_url.strip():
+            abort(502, description="ZITADEL did not return a Google authorization URL.")
+
+        resp = make_response(jsonify({"authorize_url": authorize_url.strip()}))
+        resp.headers["Cache-Control"] = "no-store"
+        _set_zitadel_web_cookie(resp, cookie_payload)
+        return resp
+
     @auth_blp.route("/zitadel/complete", methods=["POST"])
     def auth_zitadel_complete():
         deps._require_auth_db()
@@ -725,98 +1521,119 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(400, description="Invalid callback payload.")
         code = data.get("code")
         state = data.get("state")
-        if not isinstance(code, str) or not code.strip():
-            abort(400, description="Missing authorization code.")
-        if not isinstance(state, str) or not state.strip():
+        intent_id = data.get("intent_id")
+        intent_token = data.get("intent_token")
+        user_id = data.get("user_id")
+        has_oauth_code = isinstance(code, str) and bool(code.strip())
+        has_intent = isinstance(intent_id, str) and bool(intent_id.strip()) and isinstance(intent_token, str) and bool(intent_token.strip())
+        if not has_oauth_code and not has_intent:
+            abort(400, description="Missing auth provider callback payload.")
+        if has_oauth_code and (not isinstance(state, str) or not state.strip()):
             abort(400, description="Missing authorization state.")
 
         cookie_payload = _load_zitadel_web_cookie()
         if not cookie_payload:
             return _website_auth_error_payload("Invalid authorization state.")
-        expected_state = cookie_payload.get("state")
-        code_verifier = cookie_payload.get("code_verifier")
         next_path = deps._safe_next_path(cookie_payload.get("next")) or "/account"
         provider_name = "zitadel"
-        if (
-            not isinstance(expected_state, str)
-            or not expected_state.strip()
-            or not secrets.compare_digest(expected_state, state.strip())
-            or not isinstance(code_verifier, str)
-            or not code_verifier.strip()
-        ):
-            resp = _website_auth_error_payload("Invalid authorization state.")
-            _clear_zitadel_web_cookie(resp)
-            return resp
-
-        token_data = {
-            "grant_type": "authorization_code",
-            "client_id": _zitadel_client_id(),
-            "code": code.strip(),
-            "code_verifier": code_verifier,
-            "redirect_uri": _website_zitadel_redirect_uri(deps),
-        }
-        resource = _zitadel_resource()
-        audience = _zitadel_audience()
-        if resource:
-            token_data["resource"] = resource
-        if audience:
-            token_data["audience"] = audience
 
         try:
-            token_payload = deps._oidc_fetch_json(_zitadel_token_endpoint(), data=token_data)
-            access_token = token_payload.get("access_token")
-            if not isinstance(access_token, str) or not access_token.strip():
-                abort(502, description="ZITADEL token response did not include an access token.")
-            external_identity = deps._authenticate_external_identity(
-                access_token=access_token.strip(),
+            if has_intent:
+                linked_user = None
+                if isinstance(user_id, str) and user_id.strip():
+                    linked_user = _linked_user_for_subject(
+                        issuer=mcp_oidc_issuer(),
+                        subject=user_id.strip(),
+                    )
+                if linked_user is not None:
+                    external_identity = type(
+                        "ExternalIdentityLinkedSubject",
+                        (),
+                        {
+                            "issuer": mcp_oidc_issuer(),
+                            "subject": cast(str, user_id).strip(),
+                            "claims": {},
+                        },
+                    )()
+                elif isinstance(user_id, str) and user_id.strip():
+                    external_identity = _zitadel_user_identity(user_id=user_id.strip())
+                else:
+                    retrieved = _zitadel_api_json(
+                        path=f"/v2/idp_intents/{cast(str, intent_id).strip()}",
+                        json_body={"idpIntentToken": cast(str, intent_token).strip()},
+                    )
+                    external_identity = _zitadel_google_identity_from_intent(
+                        payload=retrieved,
+                        user_id=user_id if isinstance(user_id, str) else None,
+                    )
+            else:
+                expected_state = cookie_payload.get("state")
+                code_verifier = cookie_payload.get("code_verifier")
+                if (
+                    not isinstance(expected_state, str)
+                    or not expected_state.strip()
+                    or not secrets.compare_digest(expected_state, cast(str, state).strip())
+                    or not isinstance(code_verifier, str)
+                    or not code_verifier.strip()
+                ):
+                    resp = _website_auth_error_payload("Invalid authorization state.")
+                    _clear_zitadel_web_cookie(resp)
+                    return resp
+
+                token_data = {
+                    "grant_type": "authorization_code",
+                    "client_id": _zitadel_client_id(),
+                    "code": cast(str, code).strip(),
+                    "code_verifier": code_verifier,
+                    "redirect_uri": _website_zitadel_redirect_uri(deps),
+                }
+                resource = _zitadel_resource()
+                audience = _zitadel_audience()
+                if resource:
+                    token_data["resource"] = resource
+                if audience:
+                    token_data["audience"] = audience
+
+                token_payload = deps._oidc_fetch_json(_zitadel_token_endpoint(), data=token_data)
+                access_token = token_payload.get("access_token")
+                if not isinstance(access_token, str) or not access_token.strip():
+                    abort(502, description="ZITADEL token response did not include an access token.")
+                external_identity = deps._authenticate_external_identity(
+                    access_token=access_token.strip(),
+                    provider_name=provider_name,
+                )
+                if _external_identity_verified_email(external_identity) is None:
+                    id_token = token_payload.get("id_token")
+                    if isinstance(id_token, str) and id_token.strip():
+                        id_claims = _decode_zitadel_id_token(id_token.strip())
+                        if id_claims is not None:
+                            merged_claims = dict(getattr(external_identity, "claims", {}))
+                            merged_claims.update(id_claims)
+                            external_identity = type(
+                                "ExternalIdentityWithClaims",
+                                (),
+                                {
+                                    "issuer": external_identity.issuer,
+                                    "subject": external_identity.subject,
+                                    "claims": merged_claims,
+                                },
+                            )()
+            resp = _complete_website_auth_for_identity(
+                external_identity=external_identity,
+                next_path=next_path,
                 provider_name=provider_name,
             )
-            if _external_identity_verified_email(external_identity) is None:
-                id_token = token_payload.get("id_token")
-                if isinstance(id_token, str) and id_token.strip():
-                    id_claims = _decode_zitadel_id_token(id_token.strip())
-                    if id_claims is not None:
-                        merged_claims = dict(getattr(external_identity, "claims", {}))
-                        merged_claims.update(id_claims)
-                        external_identity = type(
-                            "ExternalIdentityWithClaims",
-                            (),
-                            {
-                                "issuer": external_identity.issuer,
-                                "subject": external_identity.subject,
-                                "claims": merged_claims,
-                            },
-                        )()
-            action, user = _resolve_user_from_external_identity(external_identity=external_identity)
-            if not deps._user_has_current_legal_acceptances(user_id=user.id):
-                deps.db.session.commit()
-                resp = make_response(
-                    jsonify(
-                        {
-                            "status": "legal_required",
-                            "next_path": next_path,
-                            "user": {"id": user.id, "email": user.email},
-                        }
-                    )
-                )
-                resp.headers["Cache-Control"] = "no-store"
-                _set_zitadel_pending_cookie(
-                    resp,
-                    {
-                        "user_id": user.id,
-                        "next": next_path,
-                        "action": action,
-                        "provider": provider_name,
-                    },
-                )
-                _clear_zitadel_web_cookie(resp)
-                return resp
-
-            deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
-            deps.db.session.commit()
-            resp = _auth_success_response(user=user, next_path=next_path)
-        except HTTPException:
+        except HTTPException as exc:
             deps.db.session.rollback()
+            current_app.logger.warning(
+                "ZITADEL website auth HTTP error: code=%s description=%s has_intent=%s data_keys=%s user_id=%s intent_id=%s",
+                exc.code,
+                exc.description,
+                has_intent,
+                sorted(data.keys()),
+                user_id if isinstance(user_id, str) else None,
+                intent_id if isinstance(intent_id, str) else None,
+            )
             raise
         except SQLAlchemyError:
             deps.db.session.rollback()
@@ -834,8 +1651,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 abort(400, description="External access token is invalid or expired.")
             abort(503, description="External identity provider is unavailable right now.")
 
+        response_payload = resp.get_json(silent=True)
         _clear_zitadel_web_cookie(resp)
-        _clear_zitadel_pending_cookie(resp)
+        if not (
+            isinstance(response_payload, dict)
+            and response_payload.get("status") == "legal_required"
+        ):
+            _clear_zitadel_pending_cookie(resp)
         return resp
 
     @auth_blp.route("/zitadel/finalize", methods=["POST"])
@@ -868,10 +1690,17 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 abort(401, description="Pending account no longer exists.")
             deps._ensure_current_legal_acceptances(user_id=user.id, checked_at=checked_at)
             if user.email_verified_at is None:
-                user.email_verified_at = deps._utc_now()
-            deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
-            deps.db.session.commit()
-            resp = _auth_success_response(user=user, next_path=next_path)
+                if not _send_zitadel_email_verification_for_user(user=user):
+                    abort(
+                        400,
+                        description="Resume account setup from signup so we can send your verification email.",
+                    )
+                deps.db.session.commit()
+                resp = _verification_required_response(user=user, next_path=next_path)
+            else:
+                deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
+                deps.db.session.commit()
+                resp = _auth_success_response(user=user, next_path=next_path)
         except HTTPException:
             deps.db.session.rollback()
             raise
@@ -880,6 +1709,324 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(503, description="Auth backend is unavailable right now.")
 
         _clear_zitadel_pending_cookie(resp)
+        return resp
+
+    @auth_blp.route("/login/password", methods=["POST"])
+    def auth_password_login():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Password auth is unavailable in mocked auth mode.")
+
+        data = deps._load_json(deps.AuthPasswordLoginSchema())
+        email_raw = data.get("email")
+        password = data.get("password")
+        next_path = deps._safe_next_path(data.get("next") if isinstance(data.get("next"), str) else None) or "/account"
+        if not isinstance(email_raw, str) or not email_raw.strip():
+            abort(400, description="Email is required.")
+        if not isinstance(password, str) or not password:
+            abort(400, description="Password is required.")
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
+            abort(400, description="Enter a valid email address.")
+
+        existing_user = _local_user_by_email(email=email)
+        if existing_user is not None:
+            existing_link = deps.AuthExternalSubject.query.filter_by(
+                user_id=existing_user.id,
+                issuer=mcp_oidc_issuer(),
+            ).first()
+            if existing_link is not None:
+                _pending_login_block_response(user=existing_user, next_path=next_path)
+
+        try:
+            try:
+                external_identity = _zitadel_session_identity(email=email, password=password)
+            except HTTPException as exc:
+                if exc.code == 400 and exc.description == "Verify your email before signing in.":
+                    raise
+                if exc.code in {400, 401, 403, 404, 409}:
+                    migrated = _maybe_migrate_local_password_user(email=email, password=password)
+                    if migrated is None:
+                        abort(401, description="Invalid email or password.")
+                    external_identity = migrated
+                else:
+                    raise
+            resp = _complete_website_auth_for_identity(
+                external_identity=external_identity,
+                next_path=next_path,
+                provider_name="zitadel",
+            )
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception:
+            deps.db.session.rollback()
+            current_app.logger.exception("Custom password login failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+        return resp
+
+    @auth_blp.route("/signup/password", methods=["POST"])
+    def auth_password_signup():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Signup is unavailable in mocked auth mode.")
+
+        data = deps._load_json(deps.AuthPasswordSignupSchema())
+        email_raw = data.get("email")
+        password = data.get("password")
+        first_name = data.get("first_name")
+        last_name = data.get("last_name")
+        next_path = deps._safe_next_path(data.get("next") if isinstance(data.get("next"), str) else None) or "/account"
+        if not isinstance(email_raw, str) or not email_raw.strip():
+            abort(400, description="Email is required.")
+        if not isinstance(password, str) or not password:
+            abort(400, description="Password is required.")
+        if first_name is not None and not isinstance(first_name, str):
+            abort(400, description="First name must be a string.")
+        if last_name is not None and not isinstance(last_name, str):
+            abort(400, description="Last name must be a string.")
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
+            abort(400, description="Enter a valid email address.")
+
+        existing_user = _local_user_by_email(email=email)
+        if existing_user is not None:
+            if existing_user.email_verified_at is None:
+                remote_subject = _ensure_pending_signup_remote_user(
+                    user=existing_user,
+                    password=password,
+                    first_name=first_name if isinstance(first_name, str) else None,
+                    last_name=last_name if isinstance(last_name, str) else None,
+                )
+                if isinstance(remote_subject, str) and remote_subject.strip():
+                    if not deps._user_has_current_legal_acceptances(user_id=existing_user.id):
+                        deps.db.session.commit()
+                        return _pending_website_auth_response(
+                            user=existing_user,
+                            next_path=next_path,
+                            action="register",
+                            provider_name="zitadel",
+                        )
+                    if _send_zitadel_email_verification_for_user(user=existing_user):
+                        deps.db.session.commit()
+                        return _verification_required_response(user=existing_user, next_path=next_path)
+            resumed = _resume_incomplete_signup_if_eligible(
+                user=existing_user,
+                next_path=next_path,
+                provider_name="zitadel",
+            )
+            if resumed is not None:
+                return resumed
+            abort(409, description="An account with that email already exists. Sign in or reset your password.")
+
+        try:
+            verify_url_template = _zitadel_email_verify_url_template(deps=deps)
+            external_identity = _create_zitadel_human_user(
+                email=email,
+                password=password,
+                first_name=first_name if isinstance(first_name, str) else None,
+                last_name=last_name if isinstance(last_name, str) else None,
+                verify_url_template=verify_url_template,
+            )
+            user = _ensure_pending_signup_user(external_identity=external_identity)
+            _send_zitadel_email_verification(
+                user_id=external_identity.subject,
+                url_template=verify_url_template,
+            )
+            if deps._user_has_current_legal_acceptances(user_id=user.id):
+                deps.db.session.commit()
+                resp = _verification_required_response(user=user, next_path=next_path)
+            else:
+                deps.db.session.commit()
+                resp = _pending_website_auth_response(
+                    user=user,
+                    next_path=next_path,
+                    action="register",
+                    provider_name="zitadel",
+                )
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception:
+            deps.db.session.rollback()
+            current_app.logger.exception("Custom signup failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+        return resp
+
+    @auth_blp.route("/email/verify/confirm", methods=["POST"])
+    def auth_email_verify_confirm():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Email verification is unavailable in mocked auth mode.")
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid email verification payload.")
+        user_id = data.get("user_id")
+        code = data.get("code")
+        next_path = (
+            deps._safe_next_path(data.get("next") if isinstance(data.get("next"), str) else None)
+            or "/account"
+        )
+        if not isinstance(user_id, str) or not user_id.strip():
+            abort(400, description="User ID is required.")
+        if not isinstance(code, str) or not code.strip():
+            abort(400, description="Verification code is required.")
+
+        try:
+            _zitadel_api_json(
+                path=f"/v2/users/{user_id.strip()}/email/verify",
+                json_body={"verificationCode": code.strip()},
+            )
+            external_identity = _zitadel_user_identity(user_id=user_id.strip())
+            resp = _complete_website_auth_for_identity(
+                external_identity=external_identity,
+                next_path=next_path,
+                provider_name="zitadel",
+            )
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception:
+            deps.db.session.rollback()
+            current_app.logger.exception("Email verification completion failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+        return resp
+
+    @auth_blp.route("/email/verify/resend", methods=["POST"])
+    def auth_email_verify_resend():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Email verification is unavailable in mocked auth mode.")
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid email verification payload.")
+        email_raw = data.get("email")
+        if not isinstance(email_raw, str) or not email_raw.strip():
+            abort(400, description="Email is required.")
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
+            abort(400, description="Enter a valid email address.")
+
+        user = _local_user_by_email(email=email)
+        if user is None:
+            abort(404, description="Account not found.")
+        if user.email_verified_at is not None:
+            abort(400, description="Email is already verified.")
+
+        try:
+            if not _send_zitadel_email_verification_for_user(user=user):
+                abort(
+                    400,
+                    description="Resume account setup from signup so we can send your verification email.",
+                )
+            deps.db.session.commit()
+        except HTTPException:
+            deps.db.session.rollback()
+            raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception:
+            deps.db.session.rollback()
+            current_app.logger.exception("Email verification resend failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+
+        resp = make_response(
+            jsonify({"status": "verification_required", "user": {"id": user.id, "email": user.email}})
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/password-reset/request", methods=["POST"])
+    def auth_password_reset_request():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Password reset is unavailable in mocked auth mode.")
+
+        data = deps._load_json(deps.AuthPasswordResetRequestSchema())
+        email_raw = data.get("email")
+        if not isinstance(email_raw, str) or not email_raw.strip():
+            abort(400, description="Email is required.")
+        email = deps._normalize_email(email_raw)
+        if not deps._is_email_like(email):
+            abort(400, description="Enter a valid email address.")
+
+        try:
+            subject = _linked_zitadel_subject_for_email(email=email)
+            if isinstance(subject, str) and subject.strip():
+                _zitadel_api_json(
+                    path=f"/v2/users/{subject}/password_reset",
+                    json_body={
+                        "sendLink": {
+                            "urlTemplate": (
+                                f"{deps._frontend_base_url()}/reset-password/confirm"
+                                "?user_id={{.UserID}}&code={{.Code}}&org_id={{.OrgID}}"
+                            )
+                        }
+                    },
+                )
+        except HTTPException as exc:
+            if exc.code not in {400, 401, 403, 404, 409}:
+                raise
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+        except Exception:
+            deps.db.session.rollback()
+            current_app.logger.exception("Password reset request failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+
+        resp = deps._status_response("requested")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.route("/password-reset/confirm", methods=["POST"])
+    def auth_password_reset_confirm():
+        deps._require_auth_db()
+        if deps._auth_is_mocked():
+            abort(501, description="Password reset is unavailable in mocked auth mode.")
+
+        data = deps._load_json(deps.AuthPasswordResetConfirmSchema())
+        user_id = data.get("user_id")
+        code = data.get("code")
+        password = data.get("password")
+        if not isinstance(user_id, str) or not user_id.strip():
+            abort(400, description="User ID is required.")
+        if not isinstance(code, str) or not code.strip():
+            abort(400, description="Reset code is required.")
+        if not isinstance(password, str) or not password:
+            abort(400, description="New password is required.")
+
+        try:
+            _zitadel_api_json(
+                path=f"/v2/users/{user_id.strip()}/password",
+                json_body={
+                    "verificationCode": {"code": code.strip()},
+                    "newPassword": {
+                        "password": password,
+                        "changeRequired": False,
+                    },
+                },
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            current_app.logger.exception("Password reset confirmation failed.")
+            abort(503, description="Remote auth provider is unavailable right now.")
+
+        resp = deps._status_response("updated")
+        resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @auth_blp.route("/csrf", methods=["GET"])
@@ -1131,6 +2278,10 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
         try:
             now = deps._utc_now()
+            _delete_zitadel_user_if_linked(user=user)
+            deps.AuthExternalSubject.query.filter_by(user_id=user.id).delete(
+                synchronize_session=False
+            )
             tombstone = f"deleted+{uuid.uuid4().hex}@deleted.invalid"
             user.email = tombstone
             user.password_hash = None

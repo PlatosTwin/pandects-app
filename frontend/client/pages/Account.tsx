@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -26,15 +26,11 @@ import {
   fetchUsage,
   listApiKeys,
   revokeApiKey,
-  startZitadelWebsiteAuth,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
-import { apiUrl } from "@/lib/api-config";
-import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
 import brandLinks from "@branding/links.json";
@@ -111,7 +107,6 @@ export default function Account() {
     () => safeNextPath(new URLSearchParams(location.search).get("next")),
     [location.search],
   );
-  const [authPending, setAuthPending] = useState(false);
   const [apiKeysPending, setApiKeysPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const accountForegroundRefreshInFlightRef = useRef(false);
@@ -134,66 +129,12 @@ export default function Account() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedNewKey, setCopiedNewKey] = useState(false);
 
-  const [authBackendStatus, setAuthBackendStatus] = useState<
-    "checking" | "ready" | "waking" | "failed"
-  >("checking");
-  const [authBackendError, setAuthBackendError] = useState<string | null>(null);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [revokeTargetKey, setRevokeTargetKey] = useState<ApiKeySummary | null>(null);
 
   const hasAnyKey = apiKeys.some((k) => !k.revoked_at);
-
-  const fetchWithTimeout = useCallback(
-    async (input: RequestInfo | URL, init: RequestInit, timeoutMs: number) => {
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        return await fetch(input, { ...init, signal: controller.signal });
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-    },
-    [],
-  );
-
-  const pingAuthBackend = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetchWithTimeout(
-        apiUrl("v1/auth/health"),
-        { cache: "no-store" },
-        5000,
-      );
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }, [fetchWithTimeout]);
-
-  const waitForAuthBackendReady = useCallback(async () => {
-    setAuthBackendError(null);
-    if (await pingAuthBackend()) {
-      setAuthBackendStatus("ready");
-      return;
-    }
-    setAuthBackendStatus("waking");
-    const deadline = Date.now() + 60_000;
-    const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-    const poll = async (): Promise<void> => {
-      if (Date.now() >= deadline) {
-        throw new Error("Authentication service is still initializing. Please retry in a moment.");
-      }
-      await delay(1000);
-      if (await pingAuthBackend()) {
-        setAuthBackendStatus("ready");
-        return;
-      }
-      return poll();
-    };
-    await poll();
-  }, [pingAuthBackend]);
 
   const fetchUsageForSelection = useCallback(
     (period: UsagePeriod, keyId: string) =>
@@ -260,28 +201,6 @@ export default function Account() {
     usageKeyFilterRef.current = usageKeyFilter;
   }, [usageKeyFilter]);
 
-  const startWebsiteAuth = useCallback(
-    (
-      provider: "google" | "email",
-      prompt?: "login" | "create" | "select_account",
-      failureTitle = "Could not start sign-in",
-    ) => {
-      setAuthPending(true);
-      void startZitadelWebsiteAuth(requestedNextPath, provider, prompt)
-        .then(({ authorize_url }) => {
-          window.location.assign(authorize_url);
-        })
-        .catch((err) => {
-          setAuthPending(false);
-          toast({
-            title: failureTitle,
-            description: err instanceof Error ? err.message : String(err),
-          });
-        });
-    },
-    [requestedNextPath],
-  );
-
   useEffect(() => {
     if (!user) {
       setApiKeys([]);
@@ -333,19 +252,6 @@ export default function Account() {
   useEffect(() => {
     setCopiedNewKey(false);
   }, [revealedKey]);
-
-  useEffect(() => {
-    if (user) {
-      setAuthBackendStatus("ready");
-      setAuthBackendError(null);
-      return;
-    }
-    setAuthBackendStatus("checking");
-    void waitForAuthBackendReady().catch((err) => {
-      setAuthBackendError(String(err));
-      setAuthBackendStatus("failed");
-    });
-  }, [user, waitForAuthBackendReady]);
 
   const redactedReminder = useMemo(() => {
     if (status !== "authenticated") return null;
@@ -449,87 +355,8 @@ export default function Account() {
         <Card className="p-6" role="status" aria-live="polite">
           Loading…
         </Card>
-      ) : !user ? (
-        <Card className="relative p-6">
-          {authBackendStatus !== "ready" ? (
-            <div
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70 px-6 text-center"
-              role={authBackendStatus === "failed" ? "alert" : "status"}
-              aria-live={authBackendStatus === "failed" ? "assertive" : "polite"}
-            >
-              {authBackendStatus === "failed" ? (
-                <>
-                  <div className="text-sm font-medium">
-                    Auth is unavailable right now
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {authBackendError ||
-                      "The auth database may still be starting. Please retry."}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void waitForAuthBackendReady()}
-                  >
-                    Retry
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <LoadingSpinner size="md" aria-label="Initializing authentication service" />
-                  <div className="text-sm font-medium">
-                    Initializing authentication service…
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Sign-in and account creation will be available shortly.
-                  </div>
-                </>
-              )}
-            </div>
-          ) : null}
-          <div
-            className={cn(
-              "grid gap-6",
-              authBackendStatus !== "ready" && "opacity-50",
-            )}
-            aria-busy={authBackendStatus !== "ready"}
-          >
-            <div className="grid gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Sign in with Pandects Auth</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Website sign-in and MCP access now use the same external auth identity.
-                </p>
-              </div>
-              <Button
-                disabled={authPending || authBackendStatus !== "ready"}
-                onClick={() => startWebsiteAuth("google", "select_account")}
-                className="w-full sm:w-auto"
-              >
-                {authPending ? "Redirecting…" : "Continue with Google"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={authPending || authBackendStatus !== "ready"}
-                onClick={() => startWebsiteAuth("email", "login")}
-                className="w-full sm:w-auto"
-              >
-                {authPending ? "Redirecting…" : "Continue with email"}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={authPending || authBackendStatus !== "ready"}
-                onClick={() => startWebsiteAuth("email", "create", "Could not start account creation")}
-                className="w-full sm:w-auto"
-              >
-                {authPending ? "Redirecting…" : "Create account"}
-              </Button>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-              Google sign-in, email sign-in, and new account creation are handled by the auth provider. After sign-in, Pandects still manages your API keys, legal acceptance, and app session.
-            </div>
-          </div>
-        </Card>
+      ) : status === "anonymous" ? (
+        <Navigate to={`/login?next=${encodeURIComponent(requestedNextPath)}`} replace />
       ) : (
         <div className="grid gap-6">
           {redactedReminder ? (

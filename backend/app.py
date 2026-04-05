@@ -45,6 +45,10 @@ from backend.schemas.auth import (
     AuthDeleteAccountSchema,
     AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
+    AuthPasswordLoginSchema,
+    AuthPasswordResetConfirmSchema,
+    AuthPasswordResetRequestSchema,
+    AuthPasswordSignupSchema,
 )
 from backend.auth.mcp_runtime import (
     authenticate_external_identity as _authenticate_external_identity,
@@ -1071,8 +1075,20 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         url: str,
         *,
         data: dict[str, str] | None = None,
+        json_body: dict[str, object] | None = None,
+        headers: dict[str, str] | None = None,
+        method: str | None = None,
     ) -> dict[str, object]:
-        return _oauth_fetch_json(url, data=data)
+        kwargs: dict[str, object] = {}
+        if data is not None:
+            kwargs["data"] = data
+        if json_body is not None:
+            kwargs["json_body"] = json_body
+        if headers is not None:
+            kwargs["headers"] = headers
+        if method is not None:
+            kwargs["method"] = method
+        return _oauth_fetch_json(url, **kwargs)
 
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)
@@ -1092,6 +1108,10 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         AuthExternalSubject=AuthExternalSubject,
         AuthExternalSubjectLinkSchema=AuthExternalSubjectLinkSchema,
         AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
+        AuthPasswordLoginSchema=AuthPasswordLoginSchema,
+        AuthPasswordResetConfirmSchema=AuthPasswordResetConfirmSchema,
+        AuthPasswordResetRequestSchema=AuthPasswordResetRequestSchema,
+        AuthPasswordSignupSchema=AuthPasswordSignupSchema,
         AuthSession=AuthSession,
         AuthUser=AuthUser,
         LegalAcceptance=LegalAcceptance,

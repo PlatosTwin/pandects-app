@@ -13,6 +13,24 @@ export type LegalAcceptancePayload = {
   docs: ["tos", "privacy", "license"];
 };
 
+export type WebsiteAuthResult =
+  | {
+      status: "authenticated";
+      next_path: string;
+      user: AuthUser;
+      session_token?: string;
+    }
+  | {
+      status: "legal_required";
+      next_path: string;
+      user: AuthUser;
+    }
+  | {
+      status: "verification_required";
+      next_path: string;
+      user: AuthUser;
+    };
+
 export async function fetchMe() {
   return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
@@ -72,20 +90,65 @@ export async function startZitadelWebsiteAuth(
   );
 }
 
-export async function completeZitadelWebsiteAuth(payload: { code: string; state: string }) {
-  return authFetchJson<
-    | {
-        status: "authenticated";
-        next_path: string;
-        user: AuthUser;
-        session_token?: string;
-      }
-    | {
-        status: "legal_required";
-        next_path: string;
-        user: AuthUser;
-      }
-  >(apiUrl("v1/auth/zitadel/complete"), {
+export async function startZitadelGoogleWebsiteAuth(nextPath = "/account") {
+  const query = new URLSearchParams({ next: nextPath });
+  return authFetchJson<{ authorize_url: string }>(
+    apiUrl(`v1/auth/zitadel/google/start?${query.toString()}`),
+  );
+}
+
+export async function loginWithPassword(payload: {
+  email: string;
+  password: string;
+  next?: string;
+}) {
+  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/login/password"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function signupWithPassword(payload: {
+  email: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  next?: string;
+}) {
+  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/signup/password"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function requestPasswordReset(payload: { email: string }) {
+  return authFetchJson<{ status: "requested" }>(apiUrl("v1/auth/password-reset/request"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmPasswordReset(payload: {
+  user_id: string;
+  code: string;
+  password: string;
+}) {
+  return authFetchJson<{ status: "updated" }>(apiUrl("v1/auth/password-reset/confirm"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function completeZitadelWebsiteAuth(
+  payload:
+    | { code: string; state: string }
+    | { intent_id: string; intent_token: string; user_id?: string },
+) {
+  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/zitadel/complete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -93,15 +156,33 @@ export async function completeZitadelWebsiteAuth(payload: { code: string; state:
 }
 
 export async function finalizeZitadelWebsiteAuth(legal: LegalAcceptancePayload) {
-  return authFetchJson<{
-    status: "authenticated";
-    next_path: string;
-    user: AuthUser;
-    session_token?: string;
-  }>(apiUrl("v1/auth/zitadel/finalize"), {
+  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/zitadel/finalize"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ legal }),
+  });
+}
+
+export async function completeEmailVerification(payload: {
+  user_id: string;
+  code: string;
+  next?: string;
+}) {
+  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/email/verify/confirm"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function resendEmailVerification(payload: { email: string }) {
+  return authFetchJson<{
+    status: "verification_required";
+    user: AuthUser;
+  }>(apiUrl("v1/auth/email/verify/resend"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 }
 

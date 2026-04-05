@@ -37,7 +37,7 @@ Notes:
 
 ## Website Auth Cutover
 
-Pandects website auth can now use the same ZITADEL identity that authenticates MCP. On first successful ZITADEL sign-in:
+Pandects website auth now uses Pandects-owned browser pages backed by the same ZITADEL identity that authenticates MCP. On first successful sign-in:
 
 1. Pandects validates the ZITADEL token server-side.
 2. If `issuer + subject` is already linked in `auth_external_subjects`, that local user is reused.
@@ -46,7 +46,11 @@ Pandects website auth can now use the same ZITADEL identity that authenticates M
 
 Website auth endpoints:
 
-- `GET /v1/auth/zitadel/start`
+- `GET /v1/auth/zitadel/google/start`
+- `POST /v1/auth/login/password`
+- `POST /v1/auth/signup/password`
+- `POST /v1/auth/password-reset/request`
+- `POST /v1/auth/password-reset/confirm`
 - `POST /v1/auth/zitadel/complete`
 - `POST /v1/auth/zitadel/finalize`
 
@@ -57,8 +61,20 @@ Optional backend env for website auth:
 AUTH_ZITADEL_REDIRECT_URI=
 
 # Optional: if set, "Continue with Google" can jump straight to the upstream
-# Google IdP inside ZITADEL instead of showing the generic login chooser.
+# Google IdP inside ZITADEL.
 AUTH_ZITADEL_GOOGLE_IDP_HINT=
+
+# Optional static bearer token for Google start + email/password signup/reset APIs.
+AUTH_ZITADEL_API_TOKEN=
+
+# Preferred long-term option: mint the ZITADEL API token from a service-app key.
+AUTH_ZITADEL_API_CLIENT_ID=
+AUTH_ZITADEL_API_KEY_ID=
+AUTH_ZITADEL_API_PRIVATE_KEY=
+
+# Optional explicit Google IdP ID. If omitted, the backend falls back to
+# AUTH_ZITADEL_GOOGLE_IDP_HINT for the same value.
+AUTH_ZITADEL_GOOGLE_IDP_ID=
 ```
 
 For the frontend website-auth flow, set these frontend env vars:
@@ -78,7 +94,14 @@ VITE_ZITADEL_AUTHORIZATION_ENDPOINT=
 VITE_ZITADEL_TOKEN_ENDPOINT=
 ```
 
-The account page now starts website sign-in through `GET /v1/auth/zitadel/start`, and the callback page completes/finalizes sign-in with the backend. There is no separate MCP-specific connect flow in the website UI after cutover.
+Pandects now owns the user-facing auth pages:
+
+- `/login`
+- `/signup`
+- `/reset-password`
+- `/reset-password/confirm`
+
+`Continue with Google` uses the custom Google-start route, while email sign-in, account creation, and password reset use Pandects backend endpoints directly. The callback page still completes/finalizes Google sign-in with the backend. There is no separate MCP-specific connect flow in the website UI after cutover.
 
 ## Legacy Manual Linking
 

@@ -26,6 +26,11 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ResetPasswordConfirm = lazy(() => import("./pages/ResetPasswordConfirm"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const AuthZitadelCallback = lazy(() => import("./pages/AuthZitadelCallback"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -69,6 +74,14 @@ const App = () => {
               <Route path="/about" element={<About />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/contribute" element={<Contribute />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/reset-password/confirm"
+                element={<ResetPasswordConfirm />}
+              />
+              <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/account" element={<Account />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Terms />} />

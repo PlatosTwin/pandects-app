@@ -11,6 +11,30 @@ class AuthDeleteAccountSchema(Schema):
     confirm = fields.Str(required=True)
 
 
+class AuthPasswordLoginSchema(Schema):
+    email = fields.Email(required=True)
+    password = fields.Str(required=True)
+    next = fields.Str(required=False, allow_none=True)
+
+
+class AuthPasswordSignupSchema(Schema):
+    email = fields.Email(required=True)
+    password = fields.Str(required=True)
+    first_name = fields.Str(required=False, allow_none=True)
+    last_name = fields.Str(required=False, allow_none=True)
+    next = fields.Str(required=False, allow_none=True)
+
+
+class AuthPasswordResetRequestSchema(Schema):
+    email = fields.Email(required=True)
+
+
+class AuthPasswordResetConfirmSchema(Schema):
+    user_id = fields.Str(required=True)
+    code = fields.Str(required=True)
+    password = fields.Str(required=True)
+
+
 class AuthExternalSubjectLinkSchema(Schema):
     access_token = fields.Str(required=True)
     provider = fields.Str(required=False, allow_none=True)
