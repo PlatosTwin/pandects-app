@@ -1,116 +1,98 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { FormEvent, useMemo, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
-import { resetPassword } from "@/lib/auth-api";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/use-auth";
+import { requestPasswordReset } from "@/lib/auth-api";
+import { safeNextPath } from "@/lib/auth-next";
 
 export default function ResetPassword() {
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const token = useMemo(() => {
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const fromHash = hashParams.get("token");
-    if (fromHash && fromHash.trim()) return fromHash.trim();
-    return params.get("token")?.trim() ?? "";
-  }, [params]);
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { status } = useAuth();
+  const location = useLocation();
+  const nextPath = useMemo(
+    () => safeNextPath(new URLSearchParams(location.search).get("next")),
+    [location.search],
+  );
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!window.location.hash) return;
-    window.history.replaceState(
-      null,
-      document.title,
-      window.location.pathname + window.location.search,
-    );
-  }, []);
+  if (status === "authenticated") {
+    return <Navigate to={nextPath} replace />;
+  }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (password.length < 8) {
-      toast({ title: "Password must be at least 8 characters." });
-      return;
-    }
-    if (password !== confirm) {
-      toast({ title: "Passwords do not match." });
-      return;
-    }
-    setBusy(true);
+    setSubmitting(true);
+    setError(null);
     try {
-      await resetPassword(token, password);
-      toast({
-        title: "Password updated",
-        description: "You can now sign in with your new password.",
-      });
-      navigate("/account", { replace: true });
+      await requestPasswordReset({ email });
+      setSubmitted(true);
     } catch (err) {
-      toast({
-        title: "Could not reset password",
-        description: err instanceof Error ? err.message : String(err),
-      });
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <PageShell size="md">
-      <div className="mx-auto w-full max-w-md text-center">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Set a new password</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Choose a new password below.
-          </p>
-        </div>
-        <Card className="p-6 sm:p-8">
-          {!token ? (
-            <div className="grid gap-4 text-sm text-muted-foreground" role="alert">
-              <p>That reset link is missing or invalid.</p>
-              <Link
-                to="/auth/forgot-password"
-                className="text-center text-sm text-foreground underline"
-              >
-                Request a new reset link
-              </Link>
+    <PageShell
+      title="Reset password"
+      subtitle="Request a Pandects password reset link for your email address."
+      size="md"
+    >
+      <Card className="p-6">
+        <div className="grid gap-6">
+          {submitted ? (
+            <Alert>
+              <AlertTitle>Check your email</AlertTitle>
+              <AlertDescription>
+                If an account exists for <span className="font-medium">{email}</span>, we sent a password reset link.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Could not request reset</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <form className="grid gap-4" onSubmit={submit}>
+            <div className="grid gap-2">
+              <Label htmlFor="reset-email">Email</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
             </div>
-          ) : (
-            <form className="grid gap-4 text-left" onSubmit={handleSubmit}>
-              <div className="grid gap-2">
-                <Label htmlFor="new-password">New password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={busy}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="confirm-password">Confirm password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  disabled={busy}
-                />
-              </div>
-              <Button type="submit" disabled={busy} className="w-full">
-                Save new password
-              </Button>
-            </form>
-          )}
-        </Card>
-      </div>
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Sending reset link…" : "Send reset link"}
+            </Button>
+          </form>
+
+          <div className="text-sm text-muted-foreground">
+            Remembered it?{" "}
+            <Link
+              to={`/login?next=${encodeURIComponent(nextPath)}`}
+              className="text-primary hover:underline"
+            >
+              Back to sign in
+            </Link>
+            .
+          </div>
+        </div>
+      </Card>
     </PageShell>
   );
 }

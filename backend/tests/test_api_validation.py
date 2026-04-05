@@ -43,51 +43,26 @@ class ApiValidationTests(unittest.TestCase):
         with cls.app.app_context():
             db.create_all(bind_key="auth")
 
-    def test_register_missing_body_returns_validation_error(self):
+    def test_zitadel_start_rejects_unsupported_provider(self):
         client = self.app.test_client()
-        res = client.post("/v1/auth/register", json={})
+        res = client.get("/v1/auth/zitadel/start?provider=github")
         self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
-        self.assertEqual(body.get("error"), "validation_error")
+        self.assertEqual(body.get("error"), "Bad Request")
 
-    def test_register_requires_legal(self):
+    def test_zitadel_start_rejects_unsupported_prompt(self):
         client = self.app.test_client()
-        res = client.post(
-            "/v1/auth/register",
-            json={"email": "x@example.com", "password": "password123"},
-        )
-        self.assertEqual(res.status_code, 412)
+        res = client.get("/v1/auth/zitadel/start?provider=email&prompt=consent")
+        self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
-        self.assertEqual(body.get("error"), "legal_required")
+        self.assertEqual(body.get("error"), "Bad Request")
 
-    def test_register_requires_captcha_when_enabled(self):
-        os.environ["TURNSTILE_ENABLED"] = "1"
-        os.environ["TURNSTILE_SITE_KEY"] = "test-site-key"
-        os.environ["TURNSTILE_SECRET_KEY"] = "test-secret-key"
+    def test_legacy_register_route_is_not_registered(self):
         client = self.app.test_client()
-
-        try:
-            res = client.post(
-                "/v1/auth/register",
-                json={
-                    "email": "captcha@example.com",
-                    "password": "password123",
-                    "legal": {
-                        "checked_at_ms": 1700000000000,
-                        "docs": ["tos", "privacy", "license"],
-                    },
-                },
-            )
-            self.assertEqual(res.status_code, 412)
-            body = res.get_json()
-            self.assertIsInstance(body, dict)
-            self.assertEqual(body.get("error"), "captcha_required")
-        finally:
-            os.environ["TURNSTILE_ENABLED"] = "0"
-            os.environ.pop("TURNSTILE_SITE_KEY", None)
-            os.environ.pop("TURNSTILE_SECRET_KEY", None)
+        res = client.post("/v1/auth/register", json={})
+        self.assertEqual(res.status_code, 404)
 
     def test_dumps_cache_returns_cached_payload(self):
         payload: list[dict[str, object]] = [{"timestamp": "2025-01-01"}]

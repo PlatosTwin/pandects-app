@@ -35,6 +35,7 @@ from backend.models import (
     ApiUsageDaily,
     ApiUsageDailyIp,
     ApiUsageHourly,
+    AuthExternalSubject,
     AuthSession,
     AuthUser,
     LegalAcceptance,
@@ -42,13 +43,16 @@ from backend.models import (
 from backend.schemas.auth import (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
-    AuthEmailSchema,
+    AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
-    AuthGoogleCredentialSchema,
-    AuthLoginSchema,
-    AuthPasswordResetSchema,
-    AuthRegisterSchema,
-    AuthTokenSchema,
+    AuthPasswordLoginSchema,
+    AuthPasswordResetConfirmSchema,
+    AuthPasswordResetRequestSchema,
+    AuthPasswordSignupSchema,
+)
+from backend.auth.mcp_runtime import (
+    authenticate_external_identity as _authenticate_external_identity,
+    resolve_mcp_identity_provider_name as _resolve_mcp_identity_provider_name,
 )
 from backend.models.main_db import (
     Agreements,
@@ -89,6 +93,7 @@ from backend.routes.sections import register_sections_routes
 from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
 from backend.routes.auth import register_auth_routes
+from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.core.config import (
     app_config_map as _app_config_map,
     configure_app as _configure_app_core,
@@ -128,29 +133,15 @@ from backend.auth.runtime import (
     auth_is_mocked as _auth_is_mocked,
     auth_session_transport as _auth_session_transport,
     clear_auth_cookies as _clear_auth_cookies,
-    clear_google_nonce_cookie as _clear_google_nonce_cookie,
-    clear_google_oauth_cookie as _clear_google_oauth_cookie,
     csrf_cookie_value as _csrf_cookie_value,
     csrf_required as _csrf_required,
     ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
     ensure_current_legal_acceptances as _ensure_current_legal_acceptances,
     frontend_base_url as _frontend_base_url,
-    frontend_google_callback_redirect as _frontend_google_callback_redirect,
-    google_fetch_json as _google_fetch_json,
-    google_nonce_cookie_value as _google_nonce_cookie_value,
-    google_oauth_client_id as _google_oauth_client_id,
-    google_oauth_client_secret as _google_oauth_client_secret,
-    google_oauth_pkce_pair as _google_oauth_pkce_pair,
-    google_oauth_flow_enabled as _google_oauth_flow_enabled,
-    google_oauth_redirect_uri as _google_oauth_redirect_uri,
-    issue_email_verification_token as _issue_email_verification_token,
-    issue_password_reset_token as _issue_password_reset_token,
+    oauth_fetch_json as _oauth_fetch_json,
     issue_session_token as _issue_session_token,
     is_running_on_fly as _is_running_on_fly_auth_runtime,
     is_email_like as _is_email_like,
-    load_email_verification_token as _load_email_verification_token,
-    load_google_oauth_cookie as _load_google_oauth_cookie,
-    load_password_reset_token as _load_password_reset_token,
     load_session_token as _load_session_token,
     normalize_email as _normalize_email,
     record_signon_event as _record_signon_event,
@@ -161,13 +152,9 @@ from backend.auth.runtime import (
     require_legal_acceptance as _require_legal_acceptance,
     revoke_session_token as _revoke_session_token,
     safe_next_path as _safe_next_path,
-    send_email_verification_email as _send_email_verification_email,
-    send_password_reset_email as _send_password_reset_email,
     send_resend_text_email as _send_resend_text_email,
     set_auth_cookies as _set_auth_cookies,
     set_csrf_cookie as _set_csrf_cookie,
-    set_google_nonce_cookie as _set_google_nonce_cookie,
-    set_google_oauth_cookie as _set_google_oauth_cookie,
     turnstile_enabled as _turnstile_enabled,
     turnstile_site_key as _turnstile_site_key,
     user_has_current_legal_acceptances as _user_has_current_legal_acceptances,
@@ -189,13 +176,8 @@ metadata = _main_db_metadata
 _AUTH_SCHEMA_EXPORTS = (
     AuthApiKeySchema,
     AuthDeleteAccountSchema,
-    AuthEmailSchema,
+    AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
-    AuthGoogleCredentialSchema,
-    AuthLoginSchema,
-    AuthPasswordResetSchema,
-    AuthRegisterSchema,
-    AuthTokenSchema,
 )
 
 
@@ -295,15 +277,6 @@ class _Boto3SessionLike(Protocol):
         aws_secret_access_key: str,
         endpoint_url: str,
     ) -> object:
-        ...
-
-
-class _JwkSigningKeyLike(Protocol):
-    key: str | bytes
-
-
-class _JwkClientLike(Protocol):
-    def get_signing_key_from_jwt(self, token: str) -> _JwkSigningKeyLike:
         ...
 
 
@@ -426,8 +399,6 @@ def _async_task_runner() -> AsyncTaskRunner | None:
 # Legacy names retained for tests and app-module indirection.
 _is_running_on_fly = _is_running_on_fly_auth_runtime
 _ensure_auth_tables_exist = _ensure_auth_tables_exist_auth_runtime
-# Cache the JWK client so repeated Google token verifications do not refetch keys.
-_google_jwk_client: object | None = None
 
 def _schema_prefix() -> str:
     """Return the configured schema prefix for raw SQL assembly."""
@@ -527,65 +498,6 @@ _SECTION_ID_RE = re.compile(
     r"^(?:[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
 )
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-
-
-def _google_verify_id_token(id_token: str, *, expected_nonce: str | None = None) -> str:
-    try:
-        import jwt
-        from jwt import PyJWKClient
-        from jwt.exceptions import InvalidTokenError
-        from jwt.exceptions import PyJWKClientError
-    except ImportError:
-        abort(503, description="Google auth is unavailable (missing PyJWT dependency).")
-
-    global _google_jwk_client
-    client = _google_jwk_client
-    if client is None:
-        client = PyJWKClient("https://www.googleapis.com/oauth2/v3/certs")
-        _google_jwk_client = client
-
-    client_obj = cast(_JwkClientLike, client)
-    try:
-        signing_key = client_obj.get_signing_key_from_jwt(id_token).key
-        payload_obj = cast(
-            object,
-            jwt.decode(
-            id_token,
-            signing_key,
-            algorithms=["RS256"],
-            audience=_google_oauth_client_id(),
-            issuer=["accounts.google.com", "https://accounts.google.com"],
-            leeway=60,
-            ),
-        )
-    except PyJWKClientError:
-        abort(503, description="Google auth is temporarily unavailable.")
-    except InvalidTokenError:
-        abort(401, description="Invalid Google credential.")
-
-    if not isinstance(payload_obj, dict):
-        abort(401, description="Invalid Google credential.")
-    payload = cast(dict[str, object], payload_obj)
-
-    email = payload.get("email")
-    if not isinstance(email, str) or not email.strip():
-        abort(401, description="Google token missing email.")
-
-    email_verified = payload.get("email_verified")
-    if email_verified is not True:
-        abort(401, description="Google email is not verified.")
-
-    if expected_nonce:
-        nonce = payload.get("nonce")
-        if not isinstance(nonce, str) or not nonce.strip():
-            abort(401, description="Google token missing nonce.")
-        if not secrets.compare_digest(nonce, expected_nonce):
-            abort(401, description="Google token nonce mismatch.")
-
-    normalized = _normalize_email(email)
-    if not _is_email_like(normalized):
-        abort(401, description="Invalid email address.")
-    return normalized
 
 
 def _redact_agreement_xml(
@@ -885,12 +797,6 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
 
 
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
-    ("POST", "/v1/auth/login"): 10,
-    ("POST", "/v1/auth/register"): 5,
-    ("POST", "/v1/auth/email/resend"): 5,
-    ("POST", "/v1/auth/password/forgot"): 5,
-    ("POST", "/v1/auth/password/reset"): 10,
-    ("POST", "/v1/auth/google/credential"): 10,
     ("POST", "/v1/auth/flag-inaccurate"): 10,
 }
 
@@ -1111,6 +1017,15 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
+    target_app.register_blueprint(
+        register_mcp_routes(
+            target_app,
+            deps=McpDeps(
+                sections_service_deps=sections_deps.sections_service_deps,
+                agreements_deps=agreements_deps,
+            ),
+        )
+    )
 
 
 def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:
@@ -1189,35 +1104,48 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         time=time,
     )
 
-    def _google_verify_id_token_for_routes(
-        id_token: str,
+    def _oauth_fetch_json_for_routes(
+        url: str,
         *,
-        expected_nonce: str | None = None,
-    ) -> str:
-        return _google_verify_id_token(id_token, expected_nonce=expected_nonce)
-
-    def _send_email_verification_email_for_routes(*, to_email: str, token: str) -> None:
-        _send_email_verification_email(to_email=to_email, token=token)
-
-    def _send_password_reset_email_for_routes(*, to_email: str, token: str) -> None:
-        _send_password_reset_email(to_email=to_email, token=token)
+        data: dict[str, str] | None = None,
+        json_body: dict[str, object] | None = None,
+        headers: dict[str, str] | None = None,
+        method: str | None = None,
+    ) -> dict[str, object]:
+        kwargs: dict[str, object] = {}
+        if data is not None:
+            kwargs["data"] = data
+        if json_body is not None:
+            kwargs["json_body"] = json_body
+        if headers is not None:
+            kwargs["headers"] = headers
+        if method is not None:
+            kwargs["method"] = method
+        return _oauth_fetch_json(url, **kwargs)
 
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)
+
+    def _authenticate_external_identity_for_routes(
+        *, access_token: str, provider_name: str | None = None
+    ):
+        return _authenticate_external_identity(
+            access_token=access_token, provider_name=provider_name
+        )
 
     auth_deps = AuthDeps(
         ApiKey=ApiKey,
         ApiUsageDaily=ApiUsageDaily,
         AuthApiKeySchema=AuthApiKeySchema,
         AuthDeleteAccountSchema=AuthDeleteAccountSchema,
-        AuthEmailSchema=AuthEmailSchema,
+        AuthExternalSubject=AuthExternalSubject,
+        AuthExternalSubjectLinkSchema=AuthExternalSubjectLinkSchema,
         AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
-        AuthGoogleCredentialSchema=AuthGoogleCredentialSchema,
-        AuthLoginSchema=AuthLoginSchema,
-        AuthPasswordResetSchema=AuthPasswordResetSchema,
-        AuthRegisterSchema=AuthRegisterSchema,
+        AuthPasswordLoginSchema=AuthPasswordLoginSchema,
+        AuthPasswordResetConfirmSchema=AuthPasswordResetConfirmSchema,
+        AuthPasswordResetRequestSchema=AuthPasswordResetRequestSchema,
+        AuthPasswordSignupSchema=AuthPasswordSignupSchema,
         AuthSession=AuthSession,
-        AuthTokenSchema=AuthTokenSchema,
         AuthUser=AuthUser,
         LegalAcceptance=LegalAcceptance,
         _LEGAL_DOCS=_LEGAL_DOCS,
@@ -1227,31 +1155,17 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _auth_enumeration_delay=_auth_enumeration_delay,
         _auth_is_mocked=_auth_is_mocked,
         _auth_session_transport=_auth_session_transport,
+        _authenticate_external_identity=_authenticate_external_identity_for_routes,
         _clear_auth_cookies=_clear_auth_cookies,
-        _clear_google_nonce_cookie=_clear_google_nonce_cookie,
-        _clear_google_oauth_cookie=_clear_google_oauth_cookie,
         _create_api_key=_create_api_key,
         _csrf_cookie_value=_csrf_cookie_value,
         _ensure_current_legal_acceptances=_ensure_current_legal_acceptances,
         _frontend_base_url=_frontend_base_url,
-        _frontend_google_callback_redirect=_frontend_google_callback_redirect,
-        _google_fetch_json=_google_fetch_json,
-        _google_nonce_cookie_value=_google_nonce_cookie_value,
-        _google_oauth_client_id=_google_oauth_client_id,
-        _google_oauth_client_secret=_google_oauth_client_secret,
-        _google_oauth_flow_enabled=_google_oauth_flow_enabled,
-        _google_oauth_pkce_pair=_google_oauth_pkce_pair,
-        _google_oauth_redirect_uri=_google_oauth_redirect_uri,
-        _google_verify_id_token=_google_verify_id_token_for_routes,
+        _oidc_fetch_json=_oauth_fetch_json_for_routes,
         _is_agreement_section_eligible=_is_agreement_section_eligible,
         _is_email_like=_is_email_like,
-        _issue_email_verification_token=_issue_email_verification_token,
-        _issue_password_reset_token=_issue_password_reset_token,
         _issue_session_token=_issue_session_token,
-        _load_email_verification_token=_load_email_verification_token,
-        _load_google_oauth_cookie=_load_google_oauth_cookie,
         _load_json=_load_json,
-        _load_password_reset_token=_load_password_reset_token,
         _mock_auth=_mock_auth,
         _normalize_email=_normalize_email,
         _record_signon_event=_record_signon_event,
@@ -1263,24 +1177,19 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _require_verified_user=_require_verified_user,
         _revoke_session_token=_revoke_session_token,
         _safe_next_path=_safe_next_path,
-        _send_email_verification_email=_send_email_verification_email_for_routes,
         _send_flag_notification_email=_send_flag_notification_email,
-        _send_password_reset_email=_send_password_reset_email_for_routes,
         _send_signup_notification_email=_send_signup_notification_email,
         _set_auth_cookies=_set_auth_cookies,
         _set_csrf_cookie=_set_csrf_cookie,
-        _set_google_nonce_cookie=_set_google_nonce_cookie,
-        _set_google_oauth_cookie=_set_google_oauth_cookie,
         _status_response=_status_response,
         _turnstile_enabled=_turnstile_enabled,
         _turnstile_site_key=_turnstile_site_key,
         _user_has_current_legal_acceptances=_user_has_current_legal_acceptances,
         _utc_now=_utc_now,
         _utc_today=_utc_today,
+        _resolve_mcp_identity_provider_name=_resolve_mcp_identity_provider_name,
         _verify_turnstile_token=_verify_turnstile_token_for_routes,
-        check_password_hash=check_password_hash,
         db=db,
-        generate_password_hash=generate_password_hash,
         text=text,
         urlencode=urlencode,
     )

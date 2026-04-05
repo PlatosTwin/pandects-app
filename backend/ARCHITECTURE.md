@@ -13,8 +13,9 @@
 - `backend/auth/runtime.py` is a compatibility facade only.
 - Auth runtime logic is split by domain:
   - `backend/auth/session_runtime.py` for session transport, cookies, auth DB/mock store, session tokens, request identity helpers
-  - `backend/auth/email_runtime.py` for email normalization, verification/reset token lifecycle, and Resend delivery helpers
-  - `backend/auth/google_runtime.py` for Google OAuth + Turnstile helpers and callback redirect shaping
+  - `backend/auth/email_runtime.py` for email normalization and Resend delivery helpers
+  - `backend/auth/oauth_runtime.py` for provider token exchange / JSON fetch helpers
+  - `backend/auth/captcha_runtime.py` for Turnstile verification helpers
   - `backend/auth/legal_runtime.py` for legal acceptance validation/persistence and sign-on event logging
 
 ## Runtime Flow
@@ -32,7 +33,8 @@ flowchart LR
     R["backend/routes/auth.py"] --> F["backend/auth/runtime.py (facade)"]
     F --> S["session_runtime"]
     F --> E["email_runtime"]
-    F --> G["google_runtime"]
+    F --> O["oauth_runtime"]
+    F --> C["captcha_runtime"]
     F --> L["legal_runtime"]
 ```
 

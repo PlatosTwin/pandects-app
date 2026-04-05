@@ -59,13 +59,13 @@ class PaginationAndAccessTests(unittest.TestCase):
 
     def test_csrf_required_cookie_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
-        with self.app.test_request_context("/v1/auth/login", method="POST"):
-            self.assertTrue(backend_app._csrf_required("/v1/auth/login"))
+        with self.app.test_request_context("/v1/auth/logout", method="POST"):
+            self.assertTrue(backend_app._csrf_required("/v1/auth/logout"))
 
     def test_csrf_not_required_bearer_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
-        with self.app.test_request_context("/v1/auth/login", method="POST"):
-            self.assertFalse(backend_app._csrf_required("/v1/auth/login"))
+        with self.app.test_request_context("/v1/auth/logout", method="POST"):
+            self.assertFalse(backend_app._csrf_required("/v1/auth/logout"))
 
     def test_safe_next_path_rejects_malformed_values(self):
         self.assertEqual(backend_app._safe_next_path("/account"), "/account")
@@ -117,7 +117,7 @@ class PaginationAndAccessTests(unittest.TestCase):
             for idx in range(60):
                 with patch("backend.app.time.time", return_value=1000.0 + idx):
                     with patch("backend.app._request_ip_address", return_value=f"10.0.0.{idx}"):
-                        with self.app.test_request_context("/v1/auth/login", method="POST"):
+                        with self.app.test_request_context("/v1/auth/flag-inaccurate", method="POST"):
                             backend_app._check_endpoint_rate_limit()
 
             # Pruning runs before insertion, so transient max+1 is expected.
@@ -150,10 +150,10 @@ class PaginationAndAccessTests(unittest.TestCase):
             os.environ,
             {
                 "SKIP_MAIN_DB_REFLECTION": "1",
+                "ENABLE_MAIN_DB_REFLECTION": "1",
             },
             clear=False,
         ):
-            os.environ.pop("ENABLE_MAIN_DB_REFLECTION", None)
             mod = _reload_backend_app_safely()
             self.assertTrue(mod._ENABLE_MAIN_DB_REFLECTION)
 
@@ -168,9 +168,16 @@ class PaginationAndAccessTests(unittest.TestCase):
             mod = _reload_backend_app_safely()
             self.assertFalse(mod._ENABLE_MAIN_DB_REFLECTION)
 
-        _set_default_env()
-        mod = _reload_backend_app_safely()
-        self.assertTrue(mod._ENABLE_MAIN_DB_REFLECTION)
+        with patch.dict(
+            os.environ,
+            {
+                "SKIP_MAIN_DB_REFLECTION": "1",
+                "ENABLE_MAIN_DB_REFLECTION": "1",
+            },
+            clear=False,
+        ):
+            mod = _reload_backend_app_safely()
+            self.assertTrue(mod._ENABLE_MAIN_DB_REFLECTION)
 
 
 if __name__ == "__main__":

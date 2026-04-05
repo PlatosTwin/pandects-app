@@ -19,6 +19,7 @@ def main() -> None:
         inspector = inspect(engine)
         expected = {
             "auth_users",
+            "auth_external_subjects",
             "api_keys",
             "api_usage_daily",
             "api_usage_hourly",

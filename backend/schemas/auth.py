@@ -3,31 +3,6 @@
 from marshmallow import Schema, fields
 
 
-class AuthRegisterSchema(Schema):
-    email = fields.Str(required=True)
-    password = fields.Str(required=True)
-    legal = fields.Dict(required=False, allow_none=True)
-    captcha_token = fields.Str(required=False, allow_none=True)
-
-
-class AuthLoginSchema(Schema):
-    email = fields.Str(required=True)
-    password = fields.Str(required=True)
-
-
-class AuthEmailSchema(Schema):
-    email = fields.Str(required=True)
-
-
-class AuthPasswordResetSchema(Schema):
-    token = fields.Str(required=True)
-    password = fields.Str(required=True)
-
-
-class AuthTokenSchema(Schema):
-    token = fields.Str(required=True)
-
-
 class AuthApiKeySchema(Schema):
     name = fields.Str(required=False, allow_none=True)
 
@@ -36,9 +11,33 @@ class AuthDeleteAccountSchema(Schema):
     confirm = fields.Str(required=True)
 
 
-class AuthGoogleCredentialSchema(Schema):
-    credential = fields.Str(required=True)
-    legal = fields.Dict(required=False, allow_none=True)
+class AuthPasswordLoginSchema(Schema):
+    email = fields.Email(required=True)
+    password = fields.Str(required=True)
+    next = fields.Str(required=False, allow_none=True)
+
+
+class AuthPasswordSignupSchema(Schema):
+    email = fields.Email(required=True)
+    password = fields.Str(required=True)
+    first_name = fields.Str(required=False, allow_none=True)
+    last_name = fields.Str(required=False, allow_none=True)
+    next = fields.Str(required=False, allow_none=True)
+
+
+class AuthPasswordResetRequestSchema(Schema):
+    email = fields.Email(required=True)
+
+
+class AuthPasswordResetConfirmSchema(Schema):
+    user_id = fields.Str(required=True)
+    code = fields.Str(required=True)
+    password = fields.Str(required=True)
+
+
+class AuthExternalSubjectLinkSchema(Schema):
+    access_token = fields.Str(required=True)
+    provider = fields.Str(required=False, allow_none=True)
 
 
 class AuthFlagInaccurateSchema(Schema):

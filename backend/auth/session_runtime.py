@@ -58,9 +58,6 @@ def is_running_on_fly() -> bool:
 
 _SESSION_COOKIE_NAME = "pdcts_session"
 _CSRF_COOKIE_NAME = "pdcts_csrf"
-_GOOGLE_OAUTH_COOKIE_NAME = "pdcts_google_oauth"
-_GOOGLE_OAUTH_NONCE_COOKIE_NAME = "pdcts_google_nonce"
-_GOOGLE_OAUTH_COOKIE_MAX_AGE = 60 * 10
 
 
 def auth_session_transport() -> str:
@@ -163,11 +160,6 @@ def csrf_required(path: str) -> bool:
     if request.cookies.get(_SESSION_COOKIE_NAME):
         return True
     return path in (
-        "/v1/auth/login",
-        "/v1/auth/register",
-        "/v1/auth/google/credential",
-        "/v1/auth/password/forgot",
-        "/v1/auth/password/reset",
         "/v1/auth/logout",
     )
 
@@ -256,26 +248,12 @@ _API_KEY_MIN_HASH_CHECKS = 5
 _DUMMY_API_KEY_HASH = generate_password_hash("pdcts_dummy_api_key")
 
 
-def _password_reset_max_age_seconds_from_env() -> int:
-    raw = os.environ.get("PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS", "").strip()
-    if raw:
-        try:
-            value = int(raw)
-        except ValueError:
-            abort(503, description="Invalid PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS.")
-        if value <= 0:
-            abort(503, description="Invalid PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS.")
-        return value
-    return 60 * 60
-
-
 class _MockAuthStore:
     def __init__(self) -> None:
         self._lock = Lock()
         self._users_by_id: dict[str, _MockAuthUser] = {}
         self._users_by_email: dict[str, str] = {}
         self._tokens: dict[str, str] = {}
-        self._reset_tokens: dict[str, tuple[str, str, datetime, bool]] = {}
         self._api_keys_by_id: dict[str, _MockApiKey] = {}
         self._api_keys_by_prefix: dict[str, list[str]] = defaultdict(list)
         self._usage_daily: dict[tuple[str, date], int] = defaultdict(int)
@@ -342,39 +320,6 @@ class _MockAuthStore:
     def revoke_session_token(self, token: str) -> None:
         with self._lock:
             _ = self._tokens.pop(token, None)
-
-    def issue_password_reset_token(self, *, user_id: str, email: str) -> str:
-        token = secrets.token_urlsafe(48)
-        expires_at = _utc_now() + timedelta(seconds=_password_reset_max_age_seconds_from_env())
-        with self._lock:
-            self._reset_tokens[token] = (user_id, email, expires_at, False)
-        return token
-
-    def consume_password_reset_token(self, token: str) -> tuple[str, str] | None:
-        now = _utc_now()
-        with self._lock:
-            entry = self._reset_tokens.get(token)
-            if entry is None:
-                return None
-            user_id, email, expires_at, used = entry
-            if used or expires_at <= now:
-                return None
-            self._reset_tokens[token] = (user_id, email, expires_at, True)
-        return user_id, email
-
-    def set_user_password(self, *, user_id: str, password: str) -> bool:
-        with self._lock:
-            user = self._users_by_id.get(user_id)
-            if user is None:
-                return False
-            self._users_by_id[user_id] = _MockAuthUser(
-                id=user.id,
-                email=user.email,
-                password_hash=generate_password_hash(password),
-                email_verified_at=user.email_verified_at or _utc_now(),
-                created_at=user.created_at,
-            )
-        return True
 
     def create_api_key(
         self,
