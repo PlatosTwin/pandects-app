@@ -167,6 +167,7 @@ const ROUTE_MANIFEST = [
     pathname: "/feedback",
     title: "Feedback | Pandects",
     description: "Share feedback, report issues, or suggest improvements for the Pandects platform.",
+    robots: NOINDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Feedback",
     pageDescription:
@@ -182,6 +183,7 @@ const ROUTE_MANIFEST = [
     title: "Contribute | Pandects",
     description:
       "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
+    robots: NOINDEX_FOLLOW,
     pageType: "WebPage",
     pageName: "Contribute",
     pageDescription:
