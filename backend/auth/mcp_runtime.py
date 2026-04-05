@@ -50,6 +50,12 @@ _DEFAULT_MCP_SCOPES = (
     "agreements:read",
     "agreements:read_fulltext",
 )
+_DEFAULT_ZITADEL_ROLE_SCOPE_MAP = {
+    "sections_search": "sections:search",
+    "agreements_search": "agreements:search",
+    "agreements_read": "agreements:read",
+    "agreements_read_fulltext": "agreements:read_fulltext",
+}
 _DEFAULT_JWT_ALGORITHMS = (
     "RS256",
     "RS384",
@@ -214,13 +220,56 @@ def _bearer_challenge(*, error: str | None = None, description: str | None = Non
 
 
 def _scope_set(payload: dict[str, object]) -> frozenset[str]:
+    scopes: set[str] = set()
+
     from_scope = payload.get("scope")
     if isinstance(from_scope, str) and from_scope.strip():
-        return frozenset(part for part in from_scope.split() if part)
+        scopes.update(part for part in from_scope.split() if part)
     from_scp = payload.get("scp")
     if isinstance(from_scp, list):
-        return frozenset(str(part).strip() for part in from_scp if str(part).strip())
-    return frozenset()
+        scopes.update(str(part).strip() for part in from_scp if str(part).strip())
+
+    role_scope_map = dict(_DEFAULT_ZITADEL_ROLE_SCOPE_MAP)
+    raw_mapping = os.environ.get("MCP_ZITADEL_ROLE_SCOPE_MAP", "").strip()
+    if raw_mapping:
+        for item in raw_mapping.split(","):
+            role_key, sep, scope_name = item.partition("=")
+            if not sep:
+                continue
+            normalized_role = role_key.strip()
+            normalized_scope = scope_name.strip()
+            if normalized_role and normalized_scope:
+                role_scope_map[normalized_role] = normalized_scope
+
+    def _add_role_claim_scopes(role_claim: object) -> None:
+        if not isinstance(role_claim, dict):
+            return
+        for role_key in role_claim.keys():
+            if not isinstance(role_key, str):
+                continue
+            normalized_role = role_key.strip()
+            if not normalized_role:
+                continue
+            mapped_scope = role_scope_map.get(normalized_role)
+            if mapped_scope:
+                scopes.add(mapped_scope)
+            elif normalized_role in _DEFAULT_MCP_SCOPES:
+                scopes.add(normalized_role)
+
+    for claim_key, claim_value in payload.items():
+        if not isinstance(claim_key, str):
+            continue
+        normalized_key = claim_key.strip()
+        if normalized_key in (
+            "urn:zitadel:iam:org:project:roles",
+            "urn:iam:org:project:roles",
+        ) or (
+            normalized_key.startswith("urn:zitadel:iam:org:project:")
+            and normalized_key.endswith(":roles")
+        ):
+            _add_role_claim_scopes(claim_value)
+
+    return frozenset(scopes)
 
 
 def _audience_set(payload: dict[str, object]) -> frozenset[str]:

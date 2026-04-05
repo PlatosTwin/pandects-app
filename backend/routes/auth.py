@@ -86,7 +86,18 @@ def _zitadel_scopes() -> str:
     raw = os.environ.get("MCP_ZITADEL_SCOPES", "").strip()
     if raw:
         return " ".join(part for part in raw.split() if part)
-    return " ".join(("openid", "profile", "email", *mcp_supported_scopes()))
+    scopes: list[str] = [
+        "openid",
+        "profile",
+        "email",
+        *mcp_supported_scopes(),
+        "urn:iam:org:project:roles",
+        "urn:zitadel:iam:org:project:roles",
+    ]
+    project_id = _zitadel_project_id(optional=True)
+    if project_id:
+        scopes.append(f"urn:zitadel:iam:org:project:{project_id}:roles")
+    return " ".join(scopes)
 
 
 def _zitadel_audience() -> str | None:
@@ -150,6 +161,33 @@ def _zitadel_google_idp_id() -> str:
     if raw:
         return raw
     abort(503, description="ZITADEL Google auth is not configured (missing AUTH_ZITADEL_GOOGLE_IDP_ID).")
+
+
+def _zitadel_default_role_keys() -> tuple[str, ...]:
+    raw = os.environ.get("AUTH_ZITADEL_DEFAULT_ROLE_KEYS", "").strip()
+    if raw:
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    return (
+        "sections_search",
+        "agreements_search",
+        "agreements_read",
+        "agreements_read_fulltext",
+    )
+
+
+def _zitadel_project_id(*, optional: bool = False) -> str | None:
+    explicit = os.environ.get("AUTH_ZITADEL_PROJECT_ID", "").strip()
+    if explicit:
+        return explicit
+    if optional:
+        return None
+    abort(
+        503,
+        description=(
+            "ZITADEL project configuration is incomplete. "
+            "Set AUTH_ZITADEL_PROJECT_ID."
+        ),
+    )
 
 
 def _decode_zitadel_id_token(id_token: str) -> dict[str, object] | None:
@@ -474,6 +512,64 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             method=method,
         )
 
+    def _ensure_zitadel_default_user_grant(*, user_id: str) -> None:
+        role_keys = list(_zitadel_default_role_keys())
+        if not role_keys:
+            return
+        project_id = _zitadel_project_id(optional=True)
+        if not project_id:
+            return
+        payload = _zitadel_api_request(
+            path="/management/v1/users/grants/_search",
+            method="POST",
+            json_body={
+                "queries": [
+                    {"user_id_query": {"user_id": user_id}},
+                    {"project_id_query": {"project_id": project_id}},
+                ]
+            },
+        )
+        result = payload.get("result")
+        existing_grant = result[0] if isinstance(result, list) and result else None
+        existing_role_keys: set[str] = set()
+        grant_id: str | None = None
+        if isinstance(existing_grant, dict):
+            raw_roles = existing_grant.get("roleKeys")
+            if isinstance(raw_roles, list):
+                existing_role_keys = {
+                    str(role_key).strip()
+                    for role_key in raw_roles
+                    if str(role_key).strip()
+                }
+            raw_grant_id = existing_grant.get("id") or existing_grant.get("grantId")
+            if isinstance(raw_grant_id, str) and raw_grant_id.strip():
+                grant_id = raw_grant_id.strip()
+
+        merged_role_keys = sorted(existing_role_keys.union(role_keys))
+        if merged_role_keys == sorted(existing_role_keys):
+            return
+
+        if grant_id:
+            _zitadel_api_request(
+                path=f"/management/v1/users/grants/{grant_id}",
+                method="PUT",
+                json_body={
+                    "projectId": project_id,
+                    "roleKeys": merged_role_keys,
+                },
+            )
+            return
+
+        _zitadel_api_request(
+            path="/management/v1/users/grants",
+            method="POST",
+            json_body={
+                "userId": user_id,
+                "projectId": project_id,
+                "roleKeys": merged_role_keys,
+            },
+        )
+
     def _build_external_identity(
         *,
         subject: str,
@@ -563,6 +659,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         user_id = created.get("userId") or created.get("user_id")
         if not isinstance(user_id, str) or not user_id.strip():
             abort(502, description="ZITADEL did not return a user identifier.")
+        _ensure_zitadel_default_user_grant(user_id=user_id.strip())
         return _build_external_identity(
             subject=user_id.strip(),
             email=email,
@@ -1146,6 +1243,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 user_id_candidate = created.get("userId") or created.get("user_id")
                 if not isinstance(user_id_candidate, str) or not user_id_candidate.strip():
                     abort(502, description="ZITADEL did not return a user identifier for the Google login.")
+                _ensure_zitadel_default_user_grant(user_id=user_id_candidate.strip())
                 resolved_user_id = user_id_candidate.strip()
             except HTTPException as exc:
                 description = exc.description if isinstance(exc.description, str) else ""

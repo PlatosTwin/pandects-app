@@ -339,6 +339,23 @@ class McpTests(unittest.TestCase):
             frozenset({"pandects-mcp", "other-audience"}),
         )
 
+    def test_normalized_external_identity_maps_zitadel_role_claims_to_mcp_scopes(self):
+        normalized_from_roles = self.mcp_runtime._normalize_external_identity(
+            {
+                "iss": "https://issuer.example.com",
+                "sub": "sub-123",
+                "aud": "pandects-mcp",
+                "urn:zitadel:iam:org:project:365876335077286382:roles": {
+                    "sections_search": {"365876094760509934": "pandects"},
+                    "agreements_read": {"365876094760509934": "pandects"},
+                },
+            }
+        )
+        self.assertEqual(
+            normalized_from_roles.scopes,
+            frozenset({"sections:search", "agreements:read"}),
+        )
+
     def test_identity_provider_name_defaults_to_oidc(self):
         previous = os.environ.pop("MCP_IDENTITY_PROVIDER", None)
         try:

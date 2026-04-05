@@ -25,6 +25,8 @@ def _set_default_env() -> None:
     os.environ.setdefault("MCP_ZITADEL_CLIENT_ID", "test-zitadel-client-id")
     os.environ.setdefault("MCP_OIDC_ISSUER", "https://pandects-test-zitadel.example.com")
     os.environ.setdefault("MCP_OIDC_AUDIENCE", "https://api.pandects.org/mcp")
+    os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
+    os.environ.pop("AUTH_ZITADEL_PROJECT_NAME", None)
     os.environ["TURNSTILE_ENABLED"] = "0"
     os.environ.pop("TURNSTILE_SITE_KEY", None)
     os.environ.pop("TURNSTILE_SECRET_KEY", None)
@@ -1243,6 +1245,7 @@ class AuthFlowTests(unittest.TestCase):
     def test_password_login_migrates_existing_local_password_user_when_zitadel_user_missing(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        os.environ["AUTH_ZITADEL_PROJECT_ID"] = "pandects-project-123"
         client = self.app.test_client()
         existing_user_id = self._create_local_user(
             email="legacy-password@example.com",
@@ -1271,6 +1274,12 @@ class AuthFlowTests(unittest.TestCase):
                 assert json_body is not None
                 self.assertEqual(json_body["username"], "legacy-password@example.com")
                 return {"userId": "zitadel-user-migrated"}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
+                self.assertEqual(method, "POST")
+                return {"result": []}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+                self.assertEqual(method, "POST")
+                return {"id": "grant-123"}
             self.fail(f"Unexpected URL: {url}")
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
@@ -1284,6 +1293,7 @@ class AuthFlowTests(unittest.TestCase):
             )
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
+            os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
 
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
@@ -1371,9 +1381,16 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(finalize_payload["status"], "verification_required")
         self.assertTrue(sent_verification["called"])
 
-        original_oauth_fetch_json = backend_app._oauth_fetch_json
+    def test_password_signup_assigns_default_zitadel_project_roles_when_project_is_configured(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        os.environ["AUTH_ZITADEL_PROJECT_ID"] = "pandects-project-123"
+        client = self.app.test_client()
 
-        def _fake_verify_fetch_json(
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        grant_calls: list[tuple[str, str | None, dict[str, object] | None]] = []
+
+        def _fake_oauth_fetch_json(
             url: str,
             *,
             data: dict[str, str] | None = None,
@@ -1383,56 +1400,62 @@ class AuthFlowTests(unittest.TestCase):
         ):
             self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
             self.assertIsNone(data)
-            if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-new-user/email/verify":
-                self.assertEqual(method, "POST")
-                self.assertEqual(json_body, {"verificationCode": "verify-code-123"})
+            if url == "https://pandects-test-zitadel.example.com/v2/users/human":
+                return {"userId": "zitadel-role-grant-user"}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
+                grant_calls.append((url, method, json_body))
+                return {"result": []}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+                grant_calls.append((url, method, json_body))
+                return {"id": "grant-123"}
+            if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-role-grant-user/email/send":
                 return {"details": {}}
-            if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-new-user":
-                self.assertEqual(method, "GET")
-                return {
-                    "user": {
-                        "human": {
-                            "email": {
-                                "email": "new-password-user@example.com",
-                                "isVerified": True,
-                            },
-                            "profile": {
-                                "displayName": "New User",
-                                "givenName": "New",
-                                "familyName": "User",
-                            },
-                        }
-                    }
-                }
             self.fail(f"Unexpected URL: {url}")
 
-        backend_app._oauth_fetch_json = _fake_verify_fetch_json
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         try:
-            verify = client.post(
-                "/v1/auth/email/verify/confirm",
+            res = client.post(
+                "/v1/auth/signup/password",
                 json={
-                    "user_id": "zitadel-new-user",
-                    "code": "verify-code-123",
+                    "email": "role-grant@example.com",
+                    "password": "Secr3tP4ss!",
                     "next": "/account",
                 },
             )
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
+            os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
 
-        self.assertEqual(verify.status_code, 200)
-        verify_payload = verify.get_json()
-        self.assertEqual(verify_payload["status"], "authenticated")
-        self.assertIsInstance(verify_payload.get("session_token"), str)
-
-        with self.app.app_context():
-            user = self._require_user("new-password-user@example.com")
-            link = AuthExternalSubject.query.filter_by(
-                user_id=user.id,
-                issuer="https://pandects-test-zitadel.example.com",
-                subject="zitadel-new-user",
-            ).first()
-            self.assertIsNotNone(link)
-            self.assertIsNotNone(user.email_verified_at)
+        self.assertEqual(res.status_code, 200)
+        signup_payload = res.get_json()
+        self.assertEqual(signup_payload["status"], "legal_required")
+        self.assertEqual(len(grant_calls), 2)
+        self.assertEqual(grant_calls[0][0], "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search")
+        self.assertEqual(grant_calls[0][1], "POST")
+        self.assertEqual(
+            grant_calls[0][2],
+            {
+                "queries": [
+                    {"user_id_query": {"user_id": "zitadel-role-grant-user"}},
+                    {"project_id_query": {"project_id": "pandects-project-123"}},
+                ]
+            },
+        )
+        self.assertEqual(grant_calls[1][0], "https://pandects-test-zitadel.example.com/management/v1/users/grants")
+        self.assertEqual(grant_calls[1][1], "POST")
+        self.assertEqual(
+            grant_calls[1][2],
+            {
+                "userId": "zitadel-role-grant-user",
+                "projectId": "pandects-project-123",
+                "roleKeys": [
+                    "agreements_read",
+                    "agreements_read_fulltext",
+                    "agreements_search",
+                    "sections_search",
+                ],
+            },
+        )
 
     def test_password_signup_resumes_incomplete_account_instead_of_conflicting(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
@@ -1697,6 +1720,7 @@ class AuthFlowTests(unittest.TestCase):
     def test_password_reset_request_migrates_local_user_and_requests_reset_link(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        os.environ["AUTH_ZITADEL_PROJECT_ID"] = "pandects-project-123"
         client = self.app.test_client()
         self._create_local_user(
             email="reset-me@example.com",
@@ -1720,6 +1744,12 @@ class AuthFlowTests(unittest.TestCase):
             self.assertIsNone(data)
             if url == "https://pandects-test-zitadel.example.com/v2/users/human":
                 return {"userId": "zitadel-reset-user"}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
+                self.assertEqual(method, "POST")
+                return {"result": []}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+                self.assertEqual(method, "POST")
+                return {"id": "grant-123"}
             if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-reset-user/password_reset":
                 self.assertEqual(method, "POST")
                 self.assertIsInstance(json_body, dict)
@@ -1737,6 +1767,7 @@ class AuthFlowTests(unittest.TestCase):
             )
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
+            os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json(), {"status": "requested"})
