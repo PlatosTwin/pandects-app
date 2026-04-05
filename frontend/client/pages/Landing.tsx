@@ -24,7 +24,7 @@ export default function Landing() {
         <div className="flex w-full max-w-[860px] flex-col items-center">
           <Card className="w-full animate-fade-in-up border-border/60 bg-background/75 px-6 py-12 text-center backdrop-blur shadow-lg supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
             <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
-              Sourced from EDGAR • Updated{"\u00A0"}weekly
+              Sourced from EDGAR • Updated{"\u00A0"}monthly
             </div>
 
             <AdaptiveTooltip

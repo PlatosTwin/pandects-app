@@ -465,7 +465,7 @@ def run_sections(
             "tier": ctx.tier,
             "message": None
             if ctx.is_authenticated
-            else "Limited mode: sign in to view clause text and unlock full pagination.",
+            else "Limited mode: sign in to view clause text, unlock full pagination, and use the MCP server.",
         },
         **meta,
     }

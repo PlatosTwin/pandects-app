@@ -528,10 +528,10 @@ export default function SourcesMethods() {
                     <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
                       <span className="sr-only">Pandects standard:</span>
                       <div className="text-sm font-semibold text-foreground">
-                        Weekly Updates
+                        Monthly Updates
                       </div>
                       <p className="text-sm text-foreground">
-                        Our pipeline runs weekly, ensuring the Pandects dataset
+                        Our pipeline runs every month, ensuring the Pandects dataset
                         remains in sync with the latest market activity.
                       </p>
                     </div>

@@ -473,8 +473,8 @@ export default function Search() {
                   <AlertDescription>
                     <div className="grid gap-2">
                       <p>
-                        Sign in to view clause text, open full agreements, and unlock
-                        higher page sizes.
+                        Sign in to view clause text, open full agreements, unlock
+                        higher page sizes, and use the MCP server.
                       </p>
                       <div>
                         <Button asChild size="sm" variant="outline">
