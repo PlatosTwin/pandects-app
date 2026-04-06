@@ -680,7 +680,7 @@ export default function Account() {
               </Alert>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="rounded-lg border border-border/60 bg-background p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold">Codex</h3>
@@ -704,12 +704,12 @@ export default function Account() {
                       Copy
                     </Button>
                   </div>
-                  <div className="mt-3 rounded-md border bg-background px-3 py-2 font-mono text-sm break-all">
+                  <div className="mt-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 font-mono text-sm break-all">
                     {CODEX_MCP_COMMAND}
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="rounded-lg border border-border/60 bg-background p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold">Claude Code</h3>
@@ -733,7 +733,7 @@ export default function Account() {
                       Copy
                     </Button>
                   </div>
-                  <div className="mt-3 rounded-md border bg-background px-3 py-2 font-mono text-sm break-all">
+                  <div className="mt-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 font-mono text-sm break-all">
                     {CLAUDE_MCP_COMMAND}
                   </div>
                 </div>
