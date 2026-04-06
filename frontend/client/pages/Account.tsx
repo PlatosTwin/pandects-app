@@ -19,6 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import {
   createApiKey,
@@ -137,6 +145,7 @@ export default function Account() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [revokeTargetKey, setRevokeTargetKey] = useState<ApiKeySummary | null>(null);
+  const [createKeyDialogOpen, setCreateKeyDialogOpen] = useState(false);
 
   const hasAnyKey = apiKeys.some((k) => !k.revoked_at);
 
@@ -355,6 +364,26 @@ export default function Account() {
     }
   }, [loadAccountData, revokeTargetKey]);
 
+  const submitNewApiKey = useCallback(async () => {
+    trackEvent("api_key_new_click", { from_path: "/account" });
+    setApiKeysPending(true);
+    try {
+      const label = newKeyName.trim() || undefined;
+      const created = await createApiKey(label);
+      setCreateKeyDialogOpen(false);
+      setNewKeyName("");
+      setRevealedKey(created.api_key_plaintext);
+      await loadAccountData();
+    } catch (err) {
+      toast({
+        title: "Failed to create API key",
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setApiKeysPending(false);
+    }
+  }, [loadAccountData, newKeyName]);
+
   return (
     <PageShell
       title="Account"
@@ -423,34 +452,10 @@ export default function Account() {
                 >
                   Refresh
                 </Button>
-                <Label htmlFor="api-key-name" className="sr-only">
-                  Key name (optional)
-                </Label>
-                <Input
-                  id="api-key-name"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="Key name (optional)"
-                  className="w-full sm:w-48"
-                  disabled={apiKeysPending || accountDataLoading || accountDataBootstrapping}
-                />
                 <Button
-                  onClick={async () => {
-                    trackEvent("api_key_new_click", { from_path: "/account" });
-                    setApiKeysPending(true);
-                    try {
-                      const created = await createApiKey(newKeyName || undefined);
-                      setRevealedKey(created.api_key_plaintext);
-                      setNewKeyName("");
-                      await loadAccountData();
-                    } catch (err) {
-                      toast({
-                        title: "Failed to create API key",
-                        description: String(err),
-                      });
-                    } finally {
-                      setApiKeysPending(false);
-                    }
+                  onClick={() => {
+                    setNewKeyName("");
+                    setCreateKeyDialogOpen(true);
                   }}
                   disabled={apiKeysPending || accountDataLoading || accountDataBootstrapping}
                   className="w-full sm:w-auto"
@@ -946,6 +951,57 @@ export default function Account() {
           </Card>
         </div>
       )}
+
+      <Dialog
+        open={createKeyDialogOpen}
+        onOpenChange={(open) => {
+          setCreateKeyDialogOpen(open);
+          if (!open) setNewKeyName("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form
+            className="grid gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitNewApiKey();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>New API key</DialogTitle>
+              <DialogDescription>
+                Add an optional name so you can tell keys apart in the list. You can leave it
+                blank.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Label htmlFor="api-key-new-dialog-name">Key name</Label>
+              <Input
+                id="api-key-new-dialog-name"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="e.g. laptop, CI, research"
+                autoComplete="off"
+                autoFocus
+                disabled={apiKeysPending}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateKeyDialogOpen(false)}
+                disabled={apiKeysPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={apiKeysPending}>
+                {apiKeysPending ? "Creating…" : "Create key"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!revealedKey}
