@@ -195,7 +195,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Pull metadata for all dumps via API
           </h2>
-          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
@@ -233,7 +233,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Download latest version with wget
           </h2>
-          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
@@ -269,7 +269,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Verify the checksum
           </h2>
-          <div className="bg-muted/40 rounded p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
