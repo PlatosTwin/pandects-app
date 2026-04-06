@@ -174,7 +174,11 @@ export default function Login() {
   return (
     <PageShell
       title="Sign in"
-      subtitle="Sign in to Pandects to manage API keys, review usage, and unlock full access."
+      subtitle={
+        status === "anonymous"
+          ? "Sign in to Pandects to manage API keys, review usage, and unlock full access."
+          : undefined
+      }
       size="md"
       className="max-w-2xl"
     >

@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const transport = authSessionTransport();
   const initialToken = transport === "bearer" ? getSessionToken() : null;
   const [status, setStatus] = useState<AuthStatus>(
-    initialToken ? "loading" : "anonymous",
+    transport === "cookie" || initialToken ? "loading" : "anonymous",
   );
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session_token, setSessionTokenState] = useState<string | null>(initialToken);

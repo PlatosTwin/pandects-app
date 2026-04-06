@@ -359,9 +359,11 @@ export default function Account() {
     <PageShell
       title="Account"
       subtitle={
-        <span className="text-sm text-muted-foreground">
-          Sign in to unlock full access, manage API keys, and view API usage.
-        </span>
+        status === "anonymous" ? (
+          <span className="text-sm text-muted-foreground">
+            Sign in to unlock full access, manage API keys, and view API usage.
+          </span>
+        ) : undefined
       }
       size="md"
       actions={
