@@ -354,42 +354,140 @@ export function AgreementIndexOverview() {
     </div>
   );
 
+  const renderAwaitingValidationTooltip = () => (
+    <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        The vast majority of agreements awaiting validation are awaiting{" "}
+        <em>XML validation</em>, which happens when they fail either our hard
+        validation rules or are rejected by the LLM validator.
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Not all agreements that fail validation are invalid, however. We&apos;ve
+        found that a non-negligible number of agreements awaiting XML
+        validation accurately represent the original agreement, and it is the
+        original agreement that fails validation.
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        For instance,{" "}
+        <a
+          href="https://www.sec.gov/Archives/edgar/data/862861/000095017023013095/jan-ex10_95.htm"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-2"
+        >
+          this agreement
+        </a>{" "}
+        progresses straight from 4.10 to 4.12.{" "}
+        <a
+          href="https://www.sec.gov/Archives/edgar/data/1863181/000114036123012443/ny20008306x2_ex2-1.htm"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-2"
+        >
+          This one
+        </a>{" "}
+        has two sections labeled 12.1.{" "}
+        <a
+          href="https://www.sec.gov/Archives/edgar/data/1078799/000107997321000583/ex2x1.htm"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-2"
+        >
+          This one
+        </a>{" "}
+        skips straight from 4.12 to 4.14. And{" "}
+        <a
+          href="https://www.sec.gov/Archives/edgar/data/1820143/000119312521053301/d102219dex21.htm"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-2"
+        >
+          this one
+        </a>{" "}
+        skips straight from 8.07 to 8.09.
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        We have not yet upgraded our validation pipelines to validate based on
+        the table of contents rather than using hard validation rules only, but
+        hope to do so soon.
+      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        In the meantime, only{" "}
+        <span className="font-mono tabular-nums text-foreground">
+          {xmlAwaitingValidationPct === null ? "—" : `${xmlAwaitingValidationPct.toFixed(1)}%`}
+        </span>{" "}
+        of ingested agreements are awaiting XML validation.
+      </p>
+    </div>
+  );
+
   const renderMetricLabel = (
     label: string,
     metricKey: string,
   ): React.ReactNode => {
-    if (metricKey !== "metadata-coverage") {
-      return label;
+    if (metricKey === "metadata-coverage") {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <AdaptiveTooltip
+            trigger={
+              <button
+                type="button"
+                aria-label="Metadata coverage details by field"
+                className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
+              >
+                ?
+              </button>
+            }
+            content={renderMetadataFieldCoverageTooltip()}
+            tooltipProps={{
+              side: "top",
+              align: "start",
+              className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[340px] overflow-y-auto text-xs",
+            }}
+            popoverProps={{
+              side: "top",
+              align: "start",
+              className:
+                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] overflow-y-auto p-3 text-xs",
+            }}
+            delayDuration={0}
+          />
+        </span>
+      );
     }
-    return (
-      <span className="inline-flex items-center gap-1">
-        <span>{label}</span>
-        <AdaptiveTooltip
-          trigger={
-            <button
-              type="button"
-              aria-label="Metadata coverage details by field"
-              className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
-            >
-              ?
-            </button>
-          }
-          content={renderMetadataFieldCoverageTooltip()}
-          tooltipProps={{
-            side: "top",
-            align: "start",
-            className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[340px] overflow-y-auto text-xs",
-          }}
-          popoverProps={{
-            side: "top",
-            align: "start",
-            className:
-              "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] overflow-y-auto p-3 text-xs",
-          }}
-          delayDuration={0}
-        />
-      </span>
-    );
+    if (metricKey === "awaiting") {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <AdaptiveTooltip
+            trigger={
+              <button
+                type="button"
+                aria-label="Awaiting validation details"
+                className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
+              >
+                ?
+              </button>
+            }
+            content={renderAwaitingValidationTooltip()}
+            tooltipProps={{
+              side: "top",
+              align: "start",
+              className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[360px] overflow-y-auto text-xs",
+            }}
+            popoverProps={{
+              side: "top",
+              align: "start",
+              className:
+                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(24rem,calc(100vw-2rem))] max-w-[24rem] overflow-y-auto p-3 text-xs",
+            }}
+            delayDuration={0}
+          />
+        </span>
+      );
+    }
+    return label;
   };
 
   useEffect(() => {
@@ -759,6 +857,13 @@ export function AgreementIndexOverview() {
     });
     return stageOrder.map((stage) => stageMap.get(stage.key)!);
   }, [statusSummary]);
+  const xmlAwaitingValidationPct = useMemo(() => {
+    const xmlAwaitingCount =
+      stageSummaryRows.find((row) => row.key === "3_xml")?.awaiting ?? 0;
+    return stagedTotals.total > 0
+      ? (xmlAwaitingCount / stagedTotals.total) * 100
+      : null;
+  }, [stageSummaryRows, stagedTotals.total]);
 
   const renderStageLabel = (row: (typeof stageSummaryRows)[number]) => (
     <span className="inline-flex items-center gap-1">
@@ -821,7 +926,7 @@ export function AgreementIndexOverview() {
             key={metric.key}
             className="rounded-md border border-border/60 bg-background/70 p-3"
           >
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <dt className="text-xs font-semibold text-muted-foreground">
               {renderMetricLabel(metric.label, metric.key)}
             </dt>
             <dd className="mt-1 text-base font-semibold text-foreground">
@@ -843,7 +948,7 @@ export function AgreementIndexOverview() {
                 index > 0 && "border-l border-border/60",
               )}
             >
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {renderMetricLabel(metric.label, metric.key)}
               </div>
               <div className="mt-2 text-base font-semibold text-foreground">
@@ -864,7 +969,7 @@ export function AgreementIndexOverview() {
                 index > 0 && "border-l border-border/60",
               )}
             >
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {renderMetricLabel(metric.label, metric.key)}
               </div>
               <div className="mt-2 text-base font-semibold text-foreground">
