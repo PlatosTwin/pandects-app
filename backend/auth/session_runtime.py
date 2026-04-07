@@ -13,6 +13,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from flask import Flask, abort, current_app, request
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers.response import Response as WerkzeugResponse
@@ -173,9 +174,27 @@ AUTH_DATABASE_URI = _effective_auth_database_uri()
 
 def ensure_auth_tables_exist(target_app: Flask) -> None:
     with target_app.app_context():
-        if AUTH_DATABASE_URI is not None or auth_is_mocked():
+        if auth_is_mocked():
             return
-        db.create_all(bind_key="auth")
+        if AUTH_DATABASE_URI is None:
+            db.create_all(bind_key="auth")
+        ensure_auth_schema_upgrades(target_app)
+
+
+def ensure_auth_schema_upgrades(target_app: Flask) -> None:
+    with target_app.app_context():
+        engine = db.engines.get("auth")
+        if engine is None:
+            return
+        inspector = inspect(engine)
+        if "api_keys" not in inspector.get_table_names():
+            return
+        api_key_columns = {column["name"] for column in inspector.get_columns("api_keys")}
+        if "deleted_at" in api_key_columns:
+            return
+        column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL"))
 
 
 def auth_db_is_configured() -> bool:
@@ -242,6 +261,7 @@ class _MockApiKey:
     created_at: datetime
     last_used_at: datetime | None = None
     revoked_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 _API_KEY_MIN_HASH_CHECKS = 5
@@ -344,7 +364,11 @@ class _MockAuthStore:
 
     def list_api_keys(self, *, user_id: str) -> list[_MockApiKey]:
         with self._lock:
-            keys = [k for k in self._api_keys_by_id.values() if k.user_id == user_id]
+            keys = [
+                k
+                for k in self._api_keys_by_id.values()
+                if k.user_id == user_id and k.deleted_at is None
+            ]
         return sorted(keys, key=lambda k: k.created_at, reverse=True)
 
     def revoke_api_key(self, *, user_id: str, key_id: str) -> bool:
@@ -355,6 +379,29 @@ class _MockAuthStore:
             if key.revoked_at is None:
                 key.revoked_at = _utc_now()
             return True
+
+    def permanently_delete_api_key(self, *, user_id: str, key_id: str) -> bool:
+        with self._lock:
+            key = self._api_keys_by_id.get(key_id)
+            if key is None or key.user_id != user_id:
+                return False
+            if key.deleted_at is not None:
+                return True
+            prefix = key.prefix
+            ids = self._api_keys_by_prefix.get(prefix, [])
+            if key_id in ids:
+                remaining = [kid for kid in ids if kid != key_id]
+                if remaining:
+                    self._api_keys_by_prefix[prefix] = remaining
+                else:
+                    del self._api_keys_by_prefix[prefix]
+            now = _utc_now()
+            key.deleted_at = now
+            if key.revoked_at is None:
+                key.revoked_at = now
+            key.key_hash = _DUMMY_API_KEY_HASH
+            key.name = None
+        return True
 
     def lookup_api_key(self, raw_key: str) -> _MockApiKey | None:
         if not raw_key.startswith("pdcts_"):
@@ -367,7 +414,7 @@ class _MockAuthStore:
             ]
         checks = 0
         for candidate in candidates:
-            if candidate.revoked_at is not None:
+            if candidate.revoked_at is not None or candidate.deleted_at is not None:
                 continue
             checks += 1
             if check_password_hash(candidate.key_hash, raw_key):
@@ -403,7 +450,12 @@ class _MockAuthStore:
             if not key_ids:
                 return [], 0
             if api_key_id is not None:
-                if api_key_id not in key_ids:
+                visible_key_ids = {
+                    k.id
+                    for k in self._api_keys_by_id.values()
+                    if k.user_id == user_id and k.deleted_at is None
+                }
+                if api_key_id not in visible_key_ids:
                     return [], 0
                 scoped_key_ids = {api_key_id}
             else:

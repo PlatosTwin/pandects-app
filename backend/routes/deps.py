@@ -76,6 +76,10 @@ class CreateApiKeyProtocol(Protocol):
     def __call__(self, *, user_id: str, name: str | None) -> tuple[ApiKeyLikeProtocol, str]: ...
 
 
+class PermanentlyDeleteApiKeyProtocol(Protocol):
+    def __call__(self, *, user_id: str, key_id: str) -> bool: ...
+
+
 class EnsureCurrentLegalAcceptancesProtocol(Protocol):
     def __call__(self, *, user_id: str, checked_at: datetime) -> None: ...
 
@@ -273,6 +277,7 @@ class AuthDeps:
     _authenticate_external_identity: AuthenticateExternalIdentityProtocol
     _clear_auth_cookies: Callable[[WerkzeugResponse], None]
     _create_api_key: CreateApiKeyProtocol
+    _permanently_delete_api_key: PermanentlyDeleteApiKeyProtocol
     _csrf_cookie_value: Callable[[], str | None]
     _ensure_current_legal_acceptances: EnsureCurrentLegalAcceptancesProtocol
     _frontend_base_url: Callable[[], str]

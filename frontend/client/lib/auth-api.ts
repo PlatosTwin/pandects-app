@@ -60,6 +60,12 @@ export async function revokeApiKey(id: string) {
   });
 }
 
+export async function permanentlyDeleteApiKey(id: string) {
+  return authFetchJson<{ status: "deleted" }>(apiUrl(`v1/auth/api-keys/${id}/permanent`), {
+    method: "DELETE",
+  });
+}
+
 export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: string }) {
   const query = new URLSearchParams();
   if (params?.period) query.set("period", params.period);

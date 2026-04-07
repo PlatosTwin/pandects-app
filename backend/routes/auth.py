@@ -2272,7 +2272,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return resp
         try:
             keys = (
-                deps.ApiKey.query.filter_by(user_id=user.id)
+                deps.ApiKey.query.filter_by(user_id=user.id, deleted_at=None)
                 .order_by(deps.ApiKey.created_at.desc())
                 .all()
             )
@@ -2372,6 +2372,27 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
 
+    @auth_blp.route("/api-keys/<string:key_id>/permanent", methods=["DELETE"])
+    def auth_permanently_delete_api_key(key_id: str):
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if not deps._UUID_RE.match(key_id):
+            abort(404)
+        if deps._auth_is_mocked():
+            if not deps._mock_auth.permanently_delete_api_key(user_id=user.id, key_id=key_id):
+                abort(404)
+            resp = deps._status_response("deleted")
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        try:
+            if not deps._permanently_delete_api_key(user_id=user.id, key_id=key_id):
+                abort(404)
+            resp = deps._status_response("deleted")
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        except SQLAlchemyError:
+            abort(503, description="Auth backend is unavailable right now.")
+
     @auth_blp.route("/usage", methods=["GET"])
     def auth_usage():
         deps._require_auth_db()
@@ -2405,13 +2426,18 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             resp.headers["Cache-Control"] = "no-store"
             return resp
         try:
-            keys_query = deps.ApiKey.query.filter_by(user_id=user.id)
             if api_key_id is not None:
-                keys_query = keys_query.filter_by(id=api_key_id)
-            keys = keys_query.all()
-            if api_key_id is not None and not keys:
-                abort(404)
-            key_ids = [k.id for k in keys]
+                key = deps.ApiKey.query.filter_by(
+                    user_id=user.id,
+                    id=api_key_id,
+                    deleted_at=None,
+                ).first()
+                if key is None:
+                    abort(404)
+                key_ids = [key.id]
+            else:
+                keys = deps.ApiKey.query.filter_by(user_id=user.id).all()
+                key_ids = [k.id for k in keys]
             if not key_ids:
                 return jsonify({"by_day": [], "total": 0})
 

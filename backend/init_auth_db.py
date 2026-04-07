@@ -6,12 +6,14 @@ from sqlalchemy.engine.url import make_url
 _ = os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
 
 from backend.app import app  # noqa: E402
+from backend.auth.session_runtime import ensure_auth_schema_upgrades  # noqa: E402
 from backend.extensions import db  # noqa: E402
 
 
 def main() -> None:
     with app.app_context():
         db.create_all(bind_key="auth")
+        ensure_auth_schema_upgrades(app)
         engine = db.engines.get("auth")
         if engine is None:
             raise RuntimeError("Auth DB bind is missing.")

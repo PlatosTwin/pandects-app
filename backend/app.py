@@ -135,6 +135,7 @@ from backend.auth.runtime import (
     clear_auth_cookies as _clear_auth_cookies,
     csrf_cookie_value as _csrf_cookie_value,
     csrf_required as _csrf_required,
+    ensure_auth_schema_upgrades as _ensure_auth_schema_upgrades_auth_runtime,
     ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
     ensure_current_legal_acceptances as _ensure_current_legal_acceptances,
     frontend_base_url as _frontend_base_url,
@@ -621,7 +622,7 @@ def _lookup_api_key(raw_key: str) -> ApiKey | None:
     prefix = raw_key[: 6 + 12]  # "pdcts_" + 12 chars
     candidates = cast(
         list[ApiKey],
-        ApiKey.query.filter_by(prefix=prefix, revoked_at=None).limit(25).all(),
+        ApiKey.query.filter_by(prefix=prefix, revoked_at=None, deleted_at=None).limit(25).all(),
     )
     checks = 0
     for candidate in candidates:
@@ -728,6 +729,27 @@ def _create_api_key(*, user_id: str, name: str | None) -> tuple[ApiKey, str]:
     db.session.add(key)
     db.session.commit()
     return key, token
+
+
+def _permanently_delete_api_key(*, user_id: str, key_id: str) -> bool:
+    """Tombstone an API key while retaining usage rows that reference it."""
+    try:
+        key = ApiKey.query.filter_by(id=key_id, user_id=user_id).first()
+        if key is None:
+            return False
+        if key.deleted_at is not None:
+            return True
+        now = _utc_now()
+        key.deleted_at = now
+        if key.revoked_at is None:
+            key.revoked_at = now
+        key.key_hash = _DUMMY_API_KEY_HASH
+        key.name = None
+        db.session.commit()
+        return True
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise
 
 
 def _require_user() -> tuple[AuthUser, AccessContext]:
@@ -1158,6 +1180,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _authenticate_external_identity=_authenticate_external_identity_for_routes,
         _clear_auth_cookies=_clear_auth_cookies,
         _create_api_key=_create_api_key,
+        _permanently_delete_api_key=_permanently_delete_api_key,
         _csrf_cookie_value=_csrf_cookie_value,
         _ensure_current_legal_acceptances=_ensure_current_legal_acceptances,
         _frontend_base_url=_frontend_base_url,
@@ -1234,6 +1257,7 @@ def init_auth_db():
 
     with app.app_context():
         db.create_all(bind_key="auth")
+        _ensure_auth_schema_upgrades_auth_runtime(app)
         engine = db.engines.get("auth")
         if engine is None:
             raise click.ClickException("Auth DB bind is missing.")

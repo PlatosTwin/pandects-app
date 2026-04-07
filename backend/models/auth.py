@@ -85,6 +85,7 @@ class ApiKey(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     last_used_at = db.Column(db.DateTime, nullable=True)
     revoked_at = db.Column(db.DateTime, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
 
 class ApiUsageDaily(db.Model):

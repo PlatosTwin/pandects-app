@@ -33,10 +33,11 @@ import {
   deleteAccount,
   fetchUsage,
   listApiKeys,
+  permanentlyDeleteApiKey,
   revokeApiKey,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Trash2 } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
@@ -54,6 +55,9 @@ const USAGE_RANGE_WINDOW_DAYS: Record<Exclude<UsagePeriod, "all">, number> = {
   "1m": 30,
   "1y": 365,
 };
+
+const API_KEY_DELETE_ICON_BUTTON_CLASS =
+  "h-9 w-9 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive";
 
 const USAGE_RANGE_LABELS: Record<UsagePeriod, string> = {
   "1w": "1 week",
@@ -145,6 +149,9 @@ export default function Account() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [revokeTargetKey, setRevokeTargetKey] = useState<ApiKeySummary | null>(null);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
+  const [permanentDeleteTargetKey, setPermanentDeleteTargetKey] =
+    useState<ApiKeySummary | null>(null);
   const [createKeyDialogOpen, setCreateKeyDialogOpen] = useState(false);
 
   const hasAnyKey = apiKeys.some((k) => !k.revoked_at);
@@ -364,6 +371,34 @@ export default function Account() {
     }
   }, [loadAccountData, revokeTargetKey]);
 
+  const openPermanentDeleteDialog = useCallback((key: ApiKeySummary) => {
+    setPermanentDeleteTargetKey(key);
+    setPermanentDeleteDialogOpen(true);
+  }, []);
+
+  const confirmPermanentDeleteKey = useCallback(async () => {
+    if (!permanentDeleteTargetKey) return;
+    trackEvent("api_key_permanent_delete_click", {
+      from_path: "/account",
+      was_revoked: Boolean(permanentDeleteTargetKey.revoked_at),
+    });
+    setApiKeysPending(true);
+    try {
+      await permanentlyDeleteApiKey(permanentDeleteTargetKey.id);
+      await loadAccountData();
+      setPermanentDeleteDialogOpen(false);
+      setPermanentDeleteTargetKey(null);
+      toast({ title: "API key deleted" });
+    } catch (err) {
+      toast({
+        title: "Failed to delete API key",
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setApiKeysPending(false);
+    }
+  }, [loadAccountData, permanentDeleteTargetKey]);
+
   const submitNewApiKey = useCallback(async () => {
     trackEvent("api_key_new_click", { from_path: "/account" });
     setApiKeysPending(true);
@@ -504,15 +539,28 @@ export default function Account() {
                                   {k.prefix}
                                 </div>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openRevokeDialog(k)}
-                                disabled={apiKeysPending}
-                                className="shrink-0"
-                              >
-                                Revoke
-                              </Button>
+                              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openRevokeDialog(k)}
+                                  disabled={apiKeysPending}
+                                >
+                                  Revoke
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                  onClick={() => openPermanentDeleteDialog(k)}
+                                  disabled={apiKeysPending}
+                                  title="Delete API key permanently"
+                                  aria-label="Delete API key permanently"
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                              </div>
                             </div>
                             <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
                               <div className="flex items-center justify-between gap-3">
@@ -552,8 +600,22 @@ export default function Account() {
                                   {k.prefix}
                                 </div>
                               </div>
-                              <div className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
-                                Revoked
+                              <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                                <div className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
+                                  Revoked
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                  onClick={() => openPermanentDeleteDialog(k)}
+                                  disabled={apiKeysPending}
+                                  title="Delete API key permanently"
+                                  aria-label="Delete API key permanently"
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </Button>
                               </div>
                             </div>
                             <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
@@ -618,14 +680,28 @@ export default function Account() {
                             <td className="py-3">{formatDate(k.created_at)}</td>
                             <td className="py-3">{formatDate(k.last_used_at)}</td>
                             <td className="py-3 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openRevokeDialog(k)}
-                                disabled={apiKeysPending}
-                              >
-                                Revoke
-                              </Button>
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openRevokeDialog(k)}
+                                  disabled={apiKeysPending}
+                                >
+                                  Revoke
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                  onClick={() => openPermanentDeleteDialog(k)}
+                                  disabled={apiKeysPending}
+                                  title="Delete API key permanently"
+                                  aria-label="Delete API key permanently"
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -645,6 +721,7 @@ export default function Account() {
                           <th scope="col" className="py-2 text-left font-medium">Created</th>
                           <th scope="col" className="py-2 text-left font-medium">Last used</th>
                           <th scope="col" className="py-2 text-left font-medium">Revoked</th>
+                          <th scope="col" className="py-2 text-right font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -655,6 +732,20 @@ export default function Account() {
                             <td className="py-3">{formatDate(k.created_at)}</td>
                             <td className="py-3">{formatDate(k.last_used_at)}</td>
                             <td className="py-3">{formatDate(k.revoked_at)}</td>
+                            <td className="py-3 text-right">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                onClick={() => openPermanentDeleteDialog(k)}
+                                disabled={apiKeysPending}
+                                title="Delete API key permanently"
+                                aria-label="Delete API key permanently"
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1079,6 +1170,45 @@ export default function Account() {
               onClick={() => void confirmRevokeKey()}
             >
               Revoke key
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={permanentDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setPermanentDeleteDialogOpen(open);
+          if (!open) setPermanentDeleteTargetKey(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete API key permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {permanentDeleteTargetKey ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {permanentDeleteTargetKey.name ?? `Key ${permanentDeleteTargetKey.prefix}`}
+                  </span>{" "}
+                  will be removed from your account. Any API requests using this key will fail.
+                  Past usage stays in your account totals, but this key will no longer appear in
+                  the key list or per-key usage filter. This cannot be undone.
+                </>
+              ) : (
+                "This cannot be undone."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apiKeysPending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={apiKeysPending || !permanentDeleteTargetKey}
+              onClick={() => void confirmPermanentDeleteKey()}
+            >
+              Delete key
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

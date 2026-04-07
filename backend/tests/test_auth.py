@@ -2337,6 +2337,64 @@ class AuthFlowTests(unittest.TestCase):
                 self.fail("Expected api key row to exist after usage update.")
             self.assertIsNotNone(key_row.last_used_at)
 
+    def test_permanent_api_key_delete_tombstones_key_and_retains_usage_rows(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        self._create_local_user(email="perm-del-key@example.com")
+        token = self._issue_bearer_session(email="perm-del-key@example.com")
+
+        res = client.post(
+            "/v1/auth/api-keys",
+            json={"name": "purge-me"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIsInstance(body, dict)
+        key_id = body.get("api_key", {}).get("id")
+        self.assertIsInstance(key_id, str)
+        plaintext = body.get("api_key_plaintext")
+        self.assertIsInstance(plaintext, str)
+
+        with self.app.app_context():
+            db.session.add(_make_api_usage_daily(api_key_id=key_id, day=date.today(), count=3))
+            db.session.commit()
+
+        res = client.delete(
+            f"/v1/auth/api-keys/{key_id}/permanent",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "deleted"})
+
+        with self.app.app_context():
+            key_row = db.session.get(ApiKey, key_id)
+            self.assertIsNotNone(key_row)
+            if key_row is None:
+                self.fail("Expected tombstoned api key row to remain for retained usage.")
+            self.assertIsNotNone(key_row.deleted_at)
+            self.assertIsNotNone(key_row.revoked_at)
+            self.assertIsNone(key_row.name)
+            self.assertEqual(ApiUsageDaily.query.filter_by(api_key_id=key_id).count(), 1)
+            self.assertIsNone(backend_app._lookup_api_key(plaintext))
+
+        res = client.get("/v1/auth/api-keys", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        listed_ids = {item["id"] for item in res.get_json()["keys"]}
+        self.assertNotIn(key_id, listed_ids)
+
+        res = client.get("/v1/auth/usage?period=1w", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+        usage_body = res.get_json()
+        self.assertEqual(usage_body["total"], 3)
+        self.assertEqual(usage_body["by_day"], [{"day": date.today().isoformat(), "count": 3}])
+
+        res = client.get(
+            f"/v1/auth/usage?period=1w&api_key_id={key_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 404)
+
     def test_api_key_last_used_updates_are_throttled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
