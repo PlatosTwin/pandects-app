@@ -779,9 +779,9 @@ export default function Account() {
                 </AlertDescription>
               </Alert>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4">
                 <div className="rounded-lg border border-border/60 bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold">Codex</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -793,7 +793,8 @@ export default function Account() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0"
+                      className="w-full sm:w-auto sm:shrink-0"
+                      aria-label="Copy Codex MCP command"
                       onClick={() => void handleCopyMcpSnippet("codex", CODEX_MCP_COMMAND)}
                     >
                       {copiedMcpSnippet === "codex" ? (
@@ -804,13 +805,13 @@ export default function Account() {
                       Copy
                     </Button>
                   </div>
-                  <div className="mt-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 font-mono text-sm break-all">
-                    {CODEX_MCP_COMMAND}
-                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
+                    <code className="font-mono whitespace-pre">{CODEX_MCP_COMMAND}</code>
+                  </pre>
                 </div>
 
                 <div className="rounded-lg border border-border/60 bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold">Claude Code</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -822,7 +823,8 @@ export default function Account() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0"
+                      className="w-full sm:w-auto sm:shrink-0"
+                      aria-label="Copy Claude Code MCP command"
                       onClick={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
                     >
                       {copiedMcpSnippet === "claude" ? (
@@ -833,9 +835,9 @@ export default function Account() {
                       Copy
                     </Button>
                   </div>
-                  <div className="mt-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 font-mono text-sm break-all">
-                    {CLAUDE_MCP_COMMAND}
-                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
+                    <code className="font-mono whitespace-pre">{CLAUDE_MCP_COMMAND}</code>
+                  </pre>
                 </div>
               </div>
 
@@ -846,9 +848,11 @@ export default function Account() {
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary hover:underline"
+                  aria-label="Open the MCP guide in a new tab"
                 >
                   MCP guide
                 </a>
+                <span className="sr-only"> opens in a new tab</span>
                 .
               </div>
             </div>
