@@ -177,7 +177,7 @@ const config: Config = {
           },
           {
             type: "doc",
-            docId: "mcp/setup",
+            docId: "mcp/using",
             position: "left",
             label: "MCP",
           },

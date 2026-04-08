@@ -1,29 +1,13 @@
 ---
 id: setup
-title: MCP Setup
-description: Connect Pandects to Codex or Claude Code and query agreements directly from your client.
-sidebar_position: 1
+title: Setup
+description: Connect Pandects MCP to Codex or Claude Code.
+sidebar_position: 2
 ---
 
-# MCP Setup
+# Setup
 
 Pandects exposes a read-only MCP server at `https://api.pandects.org/mcp`.
-
-Use it to search sections, list agreements, and fetch agreement text directly inside an MCP client such as Codex or Claude Code.
-
-## What You Can Do With Pandects MCP
-
-Pandects MCP currently supports three core actions:
-
-- `search_sections`: search merger agreement sections with structured filters
-- `list_agreements`: list agreements with filters and pagination
-- `get_agreement`: fetch a specific agreement by UUID
-
-In practice, that means you can ask your client to do things like:
-
-- Find change-of-recommendation sections from 2023 public deals
-- List recent agreements for a target or acquirer
-- Open a specific agreement and inspect the underlying text
 
 ## Before You Start
 
@@ -48,8 +32,6 @@ The normal flow is:
 2. Start the MCP connection or auth flow.
 3. When your browser opens, sign in with your Pandects account.
 4. Return to the client and start using Pandects tools.
-
-You should not need to manually copy tokens or pull API keys or anything else from the account page. The MCP server does not use API keys.
 
 ## Codex
 

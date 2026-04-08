@@ -124,6 +124,7 @@ body {
 
 .navbar__item.navbar__link[href="/docs/guides/getting-started"]::before,
 .navbar__item.navbar__link[href="/docs/mcp/setup"]::before,
+.navbar__item.navbar__link[href="/docs/mcp/using"]::before,
 .navbar__item.navbar__link[href="/docs/pandects/list-sections"]::before {
   width: 15px;
   height: 15px;
@@ -140,7 +141,8 @@ body {
     no-repeat center / contain;
 }
 
-.navbar__item.navbar__link[href="/docs/mcp/setup"]::before {
+.navbar__item.navbar__link[href="/docs/mcp/setup"]::before,
+.navbar__item.navbar__link[href="/docs/mcp/using"]::before {
   content: "";
   background: currentColor;
   -webkit-mask: url("/img/mcp-logo.svg")
