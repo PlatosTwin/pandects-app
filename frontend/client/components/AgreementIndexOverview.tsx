@@ -1206,11 +1206,8 @@ export function AgreementIndexOverview() {
           that are awaiting validation have made it through at least one step of
           the pipeline but tripped one of our validations and are awaiting
           manual review. Agreements that are staged or awaiting validation do
-          not show up in the <span className="font-mono text-sm text-foreground">/v1/sections</span>,{" "}
-          <span className="font-mono text-sm text-foreground">/v1/agreements</span>, or{" "}
-          <span className="font-mono text-sm text-foreground">
-            /v1/sections/{"{section_uuid}"}
-          </span>{" "}
+          not show up in the <span className="font-mono text-sm text-foreground">/v1/sections/*</span>{" "}or
+          <span className="font-mono text-sm text-foreground">/v1/agreements/*</span>{" "}
           routes. The dashed vertical divider marks the 2020/2021 boundary:
           from 2000 through 2020, we use data from the DMA Corpus; beginning
           2021, we source data ourselves from EDGAR.
