@@ -55,6 +55,18 @@ class _FakeDB:
         return self._engine
 
 
+def _fallback_scope(
+    _context: object,
+    *,
+    db: object,
+    job_name: str,
+    fallback_agreement_uuids: list[str],
+) -> list[str]:
+    _ = db
+    _ = job_name
+    return list(fallback_agreement_uuids)
+
+
 class AIRepairEnqueueAssetTests(unittest.TestCase):
     def test_enqueue_attaches_toc_only_for_pure_section_non_sequential_candidates(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
@@ -305,6 +317,12 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
                 side_effect=AssertionError("resume path should not create an OpenAI client"),
             ),
             patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
+            patch(
+                "etl.defs.d_ai_repair_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.d_ai_repair_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.d_ai_repair_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.d_ai_repair_asset._fetch_open_ai_repair_batch_for_scope",
                 return_value={"batch_id": "batch-scope"},

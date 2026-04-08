@@ -19,6 +19,11 @@ from etl.domain.c_tagging import (
     tag,
 )
 from etl.utils.db_utils import upsert_tags
+from etl.utils.logical_job_runs import (
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+    start_or_resume_logical_run,
+)
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_tagging_queue_sql
 from etl.utils.run_config import runs_single_batch
@@ -136,6 +141,39 @@ def _run_tagging_for_agreements(
     return sorted(processed_agreement_uuids)
 
 
+def _select_tagging_scope(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> list[str]:
+    agreement_batch_size = pipeline_config.tagging_agreement_batch_size
+    single_batch_run = runs_single_batch(context, pipeline_config)
+    engine = db.get_engine()
+    schema = db.database
+    last_uuid = ""
+    selected_agreement_uuids: list[str] = []
+
+    while True:
+        with engine.begin() as conn:
+            agreement_uuids = [
+                str(row)
+                for row in conn.execute(
+                    text(canonical_tagging_queue_sql(schema)),
+                    {"last_uuid": last_uuid, "batch_size": agreement_batch_size},
+                ).scalars().all()
+            ]
+            if not agreement_uuids:
+                break
+            selected_agreement_uuids.extend(agreement_uuids)
+            last_uuid = agreement_uuids[-1]
+
+        if single_batch_run:
+            break
+
+    return sorted(set(selected_agreement_uuids))
+
+
 @dg.asset(deps=[pre_processing_asset], name="03_tagging_asset")
 def tagging_asset(
     context: AssetExecutionContext,
@@ -175,13 +213,62 @@ def regular_ingest_tagging_asset(
     pipeline_config: PipelineConfig,
     pre_processed_agreement_uuids: list[str],
 ) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=pre_processed_agreement_uuids,
+    )
     processed_agreement_uuids = _run_tagging_for_agreements(
         context,
         db=db,
         tagging_model=tagging_model,
         pipeline_config=pipeline_config,
-        target_agreement_uuids=pre_processed_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
         log_prefix="regular_ingest_tagging_asset",
     )
     run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_tagging",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(name="03-02_ingestion_cleanup_a_tagging_asset")
+def ingestion_cleanup_a_tagging_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    tagging_model: TaggingModel,
+    pipeline_config: PipelineConfig,
+) -> list[str]:
+    selected_scope = _select_tagging_scope(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+    )
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_a",
+        initial_stage="ingestion_cleanup_a_tagging",
+        selected_agreement_uuids=selected_scope,
+    )
+    scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
+    processed_agreement_uuids = _run_tagging_for_agreements(
+        context,
+        db=db,
+        tagging_model=tagging_model,
+        pipeline_config=pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_a_tagging_asset",
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_tagging",
+    )
     return processed_agreement_uuids

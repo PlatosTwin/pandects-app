@@ -14,6 +14,9 @@ from sqlalchemy.engine import Connection
 
 from etl.defs.g_sections_asset import sections_asset
 from etl.defs.g_sections_asset import (
+    ingestion_cleanup_a_sections_from_fresh_xml_asset,
+    ingestion_cleanup_a_sections_from_repair_xml_asset,
+    ingestion_cleanup_b_sections_from_repair_xml_asset,
     regular_ingest_sections_from_fresh_xml_asset,
     regular_ingest_sections_from_repair_xml_asset,
 )
@@ -34,6 +37,12 @@ from etl.domain.h_taxonomy import (
 from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.db_utils import upsert_xml
 from etl.utils.latest_sections_search import refresh_latest_sections_search
+from etl.utils.logical_job_runs import (
+    build_logical_batch_key,
+    load_active_logical_run,
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+)
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
     poll_batch_until_terminal,
@@ -819,6 +828,7 @@ def _run_taxonomy_mode(
     pipeline_config: PipelineConfig,
     mode: TaxonomyMode,
     target_agreement_uuids: list[str] | None,
+    batch_key_override: str | None = None,
     log_prefix: str,
 ) -> list[str]:
     agreement_batch_size = pipeline_config.taxonomy_agreement_batch_size
@@ -835,7 +845,7 @@ def _run_taxonomy_mode(
     xml_table = f"{schema}.xml"
     last_uuid = ""
     scoped_uuids = sorted(set(target_agreement_uuids or []))
-    scoped_batch_key = agreement_batch_key(scoped_uuids) if scoped_uuids else None
+    scoped_batch_key = batch_key_override or (agreement_batch_key(scoped_uuids) if scoped_uuids else None)
     processed_agreement_uuids: set[str] = set()
 
     if mode == TaxonomyMode.LLM:
@@ -985,15 +995,33 @@ def regular_ingest_taxonomy_llm_asset(
     fresh_section_agreement_uuids: list[str],
     repair_section_agreement_uuids: list[str],
 ) -> list[str]:
-    return _run_taxonomy_mode(
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+    )
+    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+    processed_agreement_uuids = _run_taxonomy_mode(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
         mode=TaxonomyMode.LLM,
-        target_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="regular_ingest_taxonomy_llm",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
         log_prefix="regular_ingest_taxonomy_llm_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_taxonomy_llm",
+    )
+    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1007,12 +1035,178 @@ def regular_ingest_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    return _run_taxonomy_mode(
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    processed_agreement_uuids = _run_taxonomy_mode(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
         mode=TaxonomyMode.GOLD_BACKFILL,
-        target_agreement_uuids=section_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
         log_prefix="regular_ingest_taxonomy_gold_backfill_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_taxonomy_gold_backfill",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="07-02_ingestion_cleanup_a_taxonomy_llm_asset",
+    ins={
+        "fresh_section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_sections_from_fresh_xml_asset.key),
+        "repair_section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_sections_from_repair_xml_asset.key),
+    },
+)
+def ingestion_cleanup_a_taxonomy_llm_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    fresh_section_agreement_uuids: list[str],
+    repair_section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+    )
+    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+    processed_agreement_uuids = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.LLM,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="ingestion_cleanup_a_taxonomy_llm",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
+        log_prefix="ingestion_cleanup_a_taxonomy_llm_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_taxonomy_llm",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="07-03_ingestion_cleanup_b_taxonomy_llm_asset",
+    ins={
+        "repair_section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_b_sections_from_repair_xml_asset.key),
+    },
+)
+def ingestion_cleanup_b_taxonomy_llm_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    repair_section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_b",
+        fallback_agreement_uuids=sorted(set(repair_section_agreement_uuids)),
+    )
+    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
+    processed_agreement_uuids = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.LLM,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="ingestion_cleanup_b_taxonomy_llm",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
+        log_prefix="ingestion_cleanup_b_taxonomy_llm_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_taxonomy_llm",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="09-01_ingestion_cleanup_a_taxonomy_gold_backfill_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("08-04_ingestion_cleanup_a_tax_module_asset"))},
+)
+def ingestion_cleanup_a_taxonomy_gold_backfill_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    processed_agreement_uuids = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_a_taxonomy_gold_backfill_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_taxonomy_gold_backfill",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="09-02_ingestion_cleanup_b_taxonomy_gold_backfill_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("08-05_ingestion_cleanup_b_tax_module_asset"))},
+)
+def ingestion_cleanup_b_taxonomy_gold_backfill_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_b",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    processed_agreement_uuids = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_b_taxonomy_gold_backfill_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_taxonomy_gold_backfill",
+    )
+    return processed_agreement_uuids

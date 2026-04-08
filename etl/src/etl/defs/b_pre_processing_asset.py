@@ -30,6 +30,10 @@ from etl.domain.b_pre_processing import (
 from etl.utils.db_utils import upsert_pages
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.pipeline_state_sql import canonical_pre_processing_queue_sql
+from etl.utils.logical_job_runs import (
+    mark_logical_run_stage_completed,
+    start_or_resume_logical_run,
+)
 from etl.utils.run_config import is_pre_processing_cleanup_mode, runs_single_batch
 
 
@@ -380,14 +384,32 @@ def regular_ingest_pre_processing_asset(
     run_pre_asset_gating(context, db)
     if is_pre_processing_cleanup_mode(context, pipeline_config):
         raise ValueError("regular_ingest_pre_processing_asset requires FROM_SCRATCH pre_processing_mode.")
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="regular_ingest",
+        initial_stage="regular_ingest_pre_processing",
+        selected_agreement_uuids=staged_agreement_uuids,
+    )
+    scope_uuids = (
+        logical_run.agreement_uuids
+        if logical_run is not None
+        else sorted({str(agreement_uuid) for agreement_uuid in staged_agreement_uuids if agreement_uuid})
+    )
     processed_agreement_uuids = _run_pre_processing_from_scratch(
         context,
         db=db,
         pipeline_config=pipeline_config,
         classifier_model=classifier_model,
         review_model=review_model,
-        target_agreement_uuids=staged_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
         log_prefix="regular_ingest_pre_processing_asset",
     )
     run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_pre_processing",
+    )
     return processed_agreement_uuids

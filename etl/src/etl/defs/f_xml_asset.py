@@ -17,11 +17,21 @@ from openai import OpenAI
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
-from etl.defs.c_tagging_asset import regular_ingest_tagging_asset, tagging_asset
+from etl.defs.c_tagging_asset import (
+    ingestion_cleanup_a_tagging_asset,
+    regular_ingest_tagging_asset,
+    tagging_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
 from etl.utils.db_utils import upsert_xml
 from etl.utils.batch_keys import agreement_version_batch_key
+from etl.utils.logical_job_runs import (
+    build_logical_batch_key,
+    load_active_logical_run,
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+)
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
     poll_batch_until_terminal,
@@ -1353,14 +1363,57 @@ def regular_ingest_xml_asset(
     pipeline_config: PipelineConfig,
     tagged_agreement_uuids: List[str],
 ) -> List[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=tagged_agreement_uuids,
+    )
     built_agreement_uuids = _run_xml_build_for_agreements(
         context,
         db=db,
         pipeline_config=pipeline_config,
-        target_agreement_uuids=tagged_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
         log_prefix="regular_ingest_xml_asset",
     )
     run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_build_xml",
+    )
+    return built_agreement_uuids
+
+
+@dg.asset(
+    name="04-03_ingestion_cleanup_a_build_xml",
+    ins={"tagged_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_tagging_asset.key)},
+)
+def ingestion_cleanup_a_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    tagged_agreement_uuids: List[str],
+) -> List[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=tagged_agreement_uuids,
+    )
+    built_agreement_uuids = _run_xml_build_for_agreements(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_a_xml_asset",
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_build_xml",
+    )
     return built_agreement_uuids
 
 
@@ -1715,9 +1768,15 @@ def regular_ingest_xml_verify_asset(
     pipeline_config: PipelineConfig,
     built_xml_agreement_uuids: List[str],
 ) -> List[str]:
+    target_scope = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=built_xml_agreement_uuids,
+    )
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
-    target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
+    target_agreement_uuids = sorted(set(target_scope))
 
     engine = db.get_engine()
     schema = db.database
@@ -1881,7 +1940,12 @@ def regular_ingest_xml_verify_asset(
         llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
         if not llm_targets:
             raise ValueError("regular_ingest_xml_verify_asset: no (agreement_uuid, version) targets derived from LLM lines.")
-        verify_batch_key = agreement_version_batch_key(llm_targets)
+        active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+        verify_batch_key = build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="regular_ingest_verify_xml",
+            default_key=agreement_version_batch_key(llm_targets),
+        )
 
         if resume_openai_batches:
             with engine.begin() as conn:
@@ -1985,4 +2049,308 @@ def regular_ingest_xml_verify_asset(
             )
 
     run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_verify_xml",
+    )
+    return sorted(verified_agreement_uuids)
+
+
+@dg.asset(
+    name="04-04_ingestion_cleanup_a_verify_xml",
+    ins={"built_xml_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_xml_asset.key)},
+)
+def ingestion_cleanup_a_xml_verify_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    built_xml_agreement_uuids: List[str],
+) -> List[str]:
+    target_scope = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=built_xml_agreement_uuids,
+    )
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    resume_openai_batches = pipeline_config.resume_openai_batches
+    target_agreement_uuids = sorted(set(target_scope))
+
+    engine = db.get_engine()
+    schema = db.database
+    xml_table = f"{schema}.xml"
+    client = _oai_client()
+
+    with engine.begin() as conn:
+        assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
+
+    if not target_agreement_uuids:
+        context.log.info("ingestion_cleanup_a_xml_verify_asset: no upstream agreements from ingestion_cleanup_a_xml_asset.")
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
+
+    queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
+        bindparam("auuids", expanding=True)
+    )
+    with engine.begin() as conn:
+        eligible_uuids = [
+            str(row)
+            for row in conn.execute(
+                queue_q,
+                {"lim": max(agreement_batch_size, len(target_agreement_uuids)), "auuids": target_agreement_uuids},
+            ).scalars().all()
+        ]
+    if not eligible_uuids:
+        context.log.info(
+            "ingestion_cleanup_a_xml_verify_asset: no upstream-selected XML rows with status IS NULL, latest=1, and ai_repair_attempted=0."
+        )
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
+
+    select_q = text(
+        f"""
+        SELECT agreement_uuid, version, xml
+        FROM {xml_table}
+        WHERE agreement_uuid IN :auuids
+          AND latest = 1
+        ORDER BY agreement_uuid ASC
+        """
+    ).bindparams(bindparam("auuids", expanding=True))
+
+    verified_agreement_uuids: set[str] = set()
+    for start in range(0, len(eligible_uuids), agreement_batch_size):
+        chunk_uuids = eligible_uuids[start : start + agreement_batch_size]
+        with engine.begin() as conn:
+            rows = conn.execute(
+                select_q,
+                {"auuids": tuple(chunk_uuids)},
+            ).mappings().fetchall()
+
+        selected_for_verify = [str(row["agreement_uuid"]) for row in rows]
+        lines: List[Dict[str, Any]] = []
+        hard_invalid_rows: List[Dict[str, Any]] = []
+        for row in rows:
+            agreement_uuid = str(row["agreement_uuid"])
+            version = int(row["version"])
+            xml_text = row["xml"]
+            try:
+                root = ET.fromstring(str(xml_text))
+            except Exception as e:
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": [
+                            {
+                                "reason_code": XML_REASON_XML_PARSE_FAILURE,
+                                "reason_detail": f"XML parse failure: {e}",
+                                "page_uuid": None,
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            hard_rule_violations = find_hard_rule_violations(root)
+            if hard_rule_violations:
+                reason_rows: List[Dict[str, Any]] = []
+                for violation in hard_rule_violations:
+                    if violation.page_uuids:
+                        for page_uuid in violation.page_uuids:
+                            reason_rows.append(
+                                {
+                                    "reason_code": violation.reason_code,
+                                    "reason_detail": violation.reason_detail,
+                                    "page_uuid": page_uuid,
+                                }
+                            )
+                    else:
+                        reason_rows.append(
+                            {
+                                "reason_code": violation.reason_code,
+                                "reason_detail": violation.reason_detail,
+                                "page_uuid": None,
+                            }
+                        )
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": reason_rows,
+                    }
+                )
+                continue
+
+            try:
+                tag_tree = _render_tag_tree_from_root(root)
+            except Exception as e:
+                hard_invalid_rows.append(
+                    {
+                        "agreement_uuid": agreement_uuid,
+                        "version": version,
+                        "reason_rows": [
+                            {
+                                "reason_code": XML_REASON_TAG_TREE_RENDER_FAILURE,
+                                "reason_detail": f"Tag tree render failure: {e}",
+                                "page_uuid": None,
+                            }
+                        ],
+                    }
+                )
+                continue
+
+            custom_id = f"{agreement_uuid}|{version}"
+            lines.append(
+                _build_xml_verify_batch_request_body(
+                    custom_id=custom_id,
+                    tag_tree=tag_tree,
+                    model="gpt-5-mini",
+                    toc_context=_build_xml_verify_toc_context(root),
+                )
+            )
+
+        hard_invalid_updated = 0
+        if hard_invalid_rows:
+            xml_status_reasons_table = f"{schema}.xml_status_reasons"
+            with engine.begin() as conn:
+                for row in hard_invalid_rows:
+                    hard_invalid_updated += _set_xml_status_with_reasons(
+                        conn,
+                        xml_table,
+                        xml_status_reasons_table,
+                        agreement_uuid=str(row["agreement_uuid"]),
+                        version=int(row["version"]),
+                        status="invalid",
+                        reason_rows=list(row["reason_rows"]),
+                    )
+
+        if not lines:
+            with engine.begin() as conn:
+                verified_agreement_uuids.update(
+                    _fetch_latest_verified_agreement_uuids(
+                        conn,
+                        xml_table=xml_table,
+                        agreement_uuids=selected_for_verify,
+                    )
+                )
+            continue
+
+        llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
+        if not llm_targets:
+            raise ValueError("ingestion_cleanup_a_xml_verify_asset: no (agreement_uuid, version) targets derived from LLM lines.")
+        active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+        verify_batch_key = build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="ingestion_cleanup_a_verify_xml",
+            default_key=agreement_version_batch_key(llm_targets),
+        )
+
+        if resume_openai_batches:
+            with engine.begin() as conn:
+                existing_batch = _fetch_unpulled_xml_verify_batch(
+                    conn,
+                    schema,
+                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                    batch_key=verify_batch_key,
+                )
+            if existing_batch is not None:
+                _ = _resume_xml_verify_batch(
+                    context,
+                    engine,
+                    db,
+                    pipeline_config,
+                    client,
+                    schema=schema,
+                    xml_table=xml_table,
+                    batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                    batch_row=existing_batch,
+                    agreement_uuids=selected_for_verify,
+                    log_prefix="ingestion_cleanup_a_xml_verify_asset",
+                    hard_invalid_updated=hard_invalid_updated,
+                )
+                with engine.begin() as conn:
+                    verified_agreement_uuids.update(
+                        _fetch_latest_verified_agreement_uuids(
+                            conn,
+                            xml_table=xml_table,
+                            agreement_uuids=selected_for_verify,
+                        )
+                    )
+                continue
+
+        jsonl_buf = io.StringIO()
+        for line in lines:
+            _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+        jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+        jsonl_bytes.name = f"ingestion_cleanup_a_xml_verify_requests_{start}.jsonl"
+
+        input_file = client.files.create(purpose="batch", file=jsonl_bytes)
+        completion_window = "24h"
+        batch = client.batches.create(
+            input_file_id=input_file.id,
+            endpoint="/v1/responses",
+            completion_window=completion_window,
+        )
+        with engine.begin() as conn:
+            _upsert_xml_verify_batch_row(
+                conn,
+                schema,
+                batch=batch,
+                completion_window=completion_window,
+                request_total=len(lines),
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_key=verify_batch_key,
+            )
+
+        final_batch = poll_batch_until_terminal(
+            context,
+            client,
+            batch.id,
+            log_prefix="ingestion_cleanup_a_xml_verify_asset",
+        )
+        with engine.begin() as conn:
+            _upsert_xml_verify_batch_row(
+                conn,
+                schema,
+                batch=final_batch,
+                completion_window=completion_window,
+                request_total=len(lines),
+                batch_scope=XML_VERIFY_BATCH_SCOPE_DEFAULT,
+                batch_key=verify_batch_key,
+            )
+
+        if final_batch.status == "completed":
+            _ = _apply_xml_verify_batch_output(
+                context=context,
+                engine=engine,
+                client=client,
+                xml_table=xml_table,
+                xml_status_reasons_table=f"{schema}.xml_status_reasons",
+                batch=final_batch,
+                log_prefix="ingestion_cleanup_a_xml_verify_asset",
+            )
+        else:
+            context.log.warning(
+                "ingestion_cleanup_a_xml_verify_asset: batch %s ended with status=%s; no status updates applied.",
+                final_batch.id,
+                final_batch.status,
+            )
+        with engine.begin() as conn:
+            _mark_xml_verify_batch_pulled(conn, schema, final_batch.id)
+        with engine.begin() as conn:
+            verified_agreement_uuids.update(
+                _fetch_latest_verified_agreement_uuids(
+                    conn,
+                    xml_table=xml_table,
+                    agreement_uuids=selected_for_verify,
+                )
+            )
+
+    run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_verify_xml",
+    )
     return sorted(verified_agreement_uuids)

@@ -88,6 +88,18 @@ class _FakeDB:
         return self._engine
 
 
+def _fallback_scope(
+    _context: object,
+    *,
+    db: object,
+    job_name: str,
+    fallback_agreement_uuids: list[str],
+) -> list[str]:
+    _ = db
+    _ = job_name
+    return list(fallback_agreement_uuids)
+
+
 class RegularIngestScopeResumeTests(unittest.TestCase):
     def test_regular_ingest_xml_verify_does_not_resume_unrelated_stranded_batch(self) -> None:
         db = _FakeDB()
@@ -100,6 +112,12 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
         with (
             patch("etl.defs.f_xml_asset._oai_client", return_value=SimpleNamespace()),
             patch("etl.defs.f_xml_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.f_xml_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.f_xml_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.f_xml_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.f_xml_asset._fetch_unpulled_xml_verify_batch",
                 side_effect=AssertionError("regular_ingest_xml_verify_asset should not inspect unrelated stranded batches"),
@@ -125,6 +143,11 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
         )
 
         with (
+            patch(
+                "etl.defs.f_xml_repair_cycle_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.f_xml_repair_cycle_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.f_xml_repair_cycle_asset._fetch_unpulled_xml_verify_batch",
                 side_effect=AssertionError("regular_ingest_post_repair_build_xml_asset should not be blocked by unrelated verify batches"),
@@ -152,6 +175,12 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
         with (
             patch("etl.defs.f_xml_repair_cycle_asset._oai_client", return_value=SimpleNamespace()),
             patch("etl.defs.f_xml_repair_cycle_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.f_xml_repair_cycle_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.f_xml_repair_cycle_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.f_xml_repair_cycle_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.f_xml_repair_cycle_asset._fetch_unpulled_xml_verify_batch",
                 side_effect=AssertionError("regular_ingest_post_repair_verify_xml_asset should not inspect unrelated stranded batches"),

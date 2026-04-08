@@ -6,13 +6,24 @@ from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
 from etl.defs.e_reconcile_tags import reconcile_tags
-from etl.defs.f_xml_asset import xml_verify_asset
-from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
-from etl.defs.f_xml_repair_cycle_asset import post_repair_verify_xml_asset
-from etl.defs.f_xml_repair_cycle_asset import regular_ingest_post_repair_verify_xml_asset
+from etl.defs.f_xml_asset import (
+    ingestion_cleanup_a_xml_verify_asset,
+    regular_ingest_xml_verify_asset,
+    xml_verify_asset,
+)
+from etl.defs.f_xml_repair_cycle_asset import (
+    ingestion_cleanup_a_post_repair_verify_xml_asset,
+    ingestion_cleanup_b_post_repair_verify_xml_asset,
+    post_repair_verify_xml_asset,
+    regular_ingest_post_repair_verify_xml_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
 from etl.utils.db_utils import upsert_sections
+from etl.utils.logical_job_runs import (
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+)
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
@@ -199,13 +210,24 @@ def regular_ingest_sections_from_fresh_xml_asset(
     pipeline_config: PipelineConfig,
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
-    return _run_sections_for_agreements(
+    processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,
         pipeline_config,
-        target_agreement_uuids=verified_fresh_agreement_uuids,
+        target_agreement_uuids=load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="regular_ingest",
+            fallback_agreement_uuids=verified_fresh_agreement_uuids,
+        ),
         log_prefix="regular_ingest_sections_from_fresh_xml_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_sections_from_fresh_xml",
+    )
+    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -237,10 +259,111 @@ def regular_ingest_sections_from_repair_xml_asset(
     pipeline_config: PipelineConfig,
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
-    return _run_sections_for_agreements(
+    processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,
         pipeline_config,
-        target_agreement_uuids=verified_repair_agreement_uuids,
+        target_agreement_uuids=load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="regular_ingest",
+            fallback_agreement_uuids=verified_repair_agreement_uuids,
+        ),
         log_prefix="regular_ingest_sections_from_repair_xml_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_sections_from_repair_xml",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="06-03_ingestion_cleanup_a_sections_from_fresh_xml",
+    ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_xml_verify_asset.key)},
+)
+def ingestion_cleanup_a_sections_from_fresh_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_fresh_agreement_uuids: List[str],
+) -> List[str]:
+    processed_agreement_uuids = _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="ingestion_cleanup_a",
+            fallback_agreement_uuids=verified_fresh_agreement_uuids,
+        ),
+        log_prefix="ingestion_cleanup_a_sections_from_fresh_xml_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="06-04_ingestion_cleanup_a_sections_from_repair_xml",
+    ins={"verified_repair_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_post_repair_verify_xml_asset.key)},
+)
+def ingestion_cleanup_a_sections_from_repair_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_repair_agreement_uuids: List[str],
+) -> List[str]:
+    processed_agreement_uuids = _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="ingestion_cleanup_a",
+            fallback_agreement_uuids=verified_repair_agreement_uuids,
+        ),
+        log_prefix="ingestion_cleanup_a_sections_from_repair_xml_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_sections_from_repair_xml",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="06-05_ingestion_cleanup_b_sections_from_repair_xml",
+    ins={"verified_repair_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_b_post_repair_verify_xml_asset.key)},
+)
+def ingestion_cleanup_b_sections_from_repair_xml_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_repair_agreement_uuids: List[str],
+) -> List[str]:
+    processed_agreement_uuids = _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="ingestion_cleanup_b",
+            fallback_agreement_uuids=verified_repair_agreement_uuids,
+        ),
+        log_prefix="ingestion_cleanup_b_sections_from_repair_xml_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_sections_from_repair_xml",
+    )
+    return processed_agreement_uuids

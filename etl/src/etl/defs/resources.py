@@ -83,6 +83,8 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     queue_run_mode: QueueRunMode = QueueRunMode.SINGLE_BATCH
     refresh: bool = False  # run end-of-asset gating + summary refresh
     resume_openai_batches: bool = True  # resume matching in-flight OpenAI batches when possible
+    resume_logical_runs: bool = True  # resume unfinished logical runs for managed ingest jobs
+    force_new_logical_run: bool = False  # bypass unfinished logical run and start a fresh managed ingest run
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
     pre_processing_agreement_batch_size: int = 5  # used in pre_processing_asset
     xml_agreement_batch_size: int = 10  # used across XML + AI-repair cycle assets
@@ -290,6 +292,8 @@ def get_resources() -> dict[str, object]:
         "queue_run_mode",
         "refresh",
         "resume_openai_batches",
+        "resume_logical_runs",
+        "force_new_logical_run",
         "tagging_agreement_batch_size",
         "pre_processing_agreement_batch_size",
         "xml_agreement_batch_size",
@@ -342,6 +346,18 @@ def get_resources() -> dict[str, object]:
         pipeline_config_kwargs["resume_openai_batches"] = _parse_bool(
             yaml_config["resume_openai_batches"],
             field_name="resume_openai_batches",
+        )
+
+    if "resume_logical_runs" in yaml_config:
+        pipeline_config_kwargs["resume_logical_runs"] = _parse_bool(
+            yaml_config["resume_logical_runs"],
+            field_name="resume_logical_runs",
+        )
+
+    if "force_new_logical_run" in yaml_config:
+        pipeline_config_kwargs["force_new_logical_run"] = _parse_bool(
+            yaml_config["force_new_logical_run"],
+            field_name="force_new_logical_run",
         )
     
     if "tagging_agreement_batch_size" in yaml_config:

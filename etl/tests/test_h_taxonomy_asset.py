@@ -147,6 +147,18 @@ class _FakeBatchClient:
         self.batches = SimpleNamespace(create=_create_batch)
 
 
+def _fallback_scope(
+    _context: object,
+    *,
+    db: object,
+    job_name: str,
+    fallback_agreement_uuids: list[str],
+) -> list[str]:
+    _ = db
+    _ = job_name
+    return list(fallback_agreement_uuids)
+
+
 class TaxonomyAssetTests(unittest.TestCase):
     def test_ml_mode_serializes_label_array_and_applies_regex_filter(self) -> None:
         conn = _FakeConn(
@@ -453,6 +465,12 @@ class TaxonomyAssetTests(unittest.TestCase):
 
         with (
             patch("etl.defs.h_taxonomy_asset.assert_tables_exist", return_value=None),
+            patch(
+                "etl.defs.h_taxonomy_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.h_taxonomy_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.h_taxonomy_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.h_taxonomy_asset._fetch_unapplied_taxonomy_llm_batch",
                 return_value=None,

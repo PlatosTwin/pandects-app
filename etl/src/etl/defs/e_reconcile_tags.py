@@ -7,9 +7,12 @@ from sqlalchemy import bindparam, text
 
 from etl.defs.d_ai_repair_asset import (
     ai_repair_poll_asset,
+    ingestion_cleanup_a_ai_repair_poll_asset,
+    ingestion_cleanup_b_ai_repair_poll_asset,
     regular_ingest_ai_repair_poll_asset,
 )
 from etl.defs.resources import DBResource, PipelineConfig
+from etl.utils.logical_job_runs import mark_logical_run_stage_completed
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 
 
@@ -140,10 +143,66 @@ def regular_ingest_reconcile_tags(
     pipeline_config: PipelineConfig,
     polled_request_ids: List[str],
 ) -> List[str]:
-    return _reconcile_tags_for_requests(
+    updated_agreements = _reconcile_tags_for_requests(
         context,
         db,
         pipeline_config,
         polled_request_ids,
         log_prefix="regular_ingest_reconcile_tags",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_reconcile_tags",
+    )
+    return updated_agreements
+
+
+@dg.asset(
+    name="05-08_ingestion_cleanup_a_reconcile_tags",
+    ins={"polled_request_ids": dg.AssetIn(key=ingestion_cleanup_a_ai_repair_poll_asset.key)},
+)
+def ingestion_cleanup_a_reconcile_tags(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    polled_request_ids: List[str],
+) -> List[str]:
+    updated_agreements = _reconcile_tags_for_requests(
+        context,
+        db,
+        pipeline_config,
+        polled_request_ids,
+        log_prefix="ingestion_cleanup_a_reconcile_tags",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_reconcile_tags",
+    )
+    return updated_agreements
+
+
+@dg.asset(
+    name="05-12_ingestion_cleanup_b_reconcile_tags",
+    ins={"polled_request_ids": dg.AssetIn(key=ingestion_cleanup_b_ai_repair_poll_asset.key)},
+)
+def ingestion_cleanup_b_reconcile_tags(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    polled_request_ids: List[str],
+) -> List[str]:
+    updated_agreements = _reconcile_tags_for_requests(
+        context,
+        db,
+        pipeline_config,
+        polled_request_ids,
+        log_prefix="ingestion_cleanup_b_reconcile_tags",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_reconcile_tags",
+    )
+    return updated_agreements

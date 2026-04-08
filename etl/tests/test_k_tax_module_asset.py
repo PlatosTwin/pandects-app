@@ -115,6 +115,18 @@ class _FakeDB:
         return self._engine
 
 
+def _fallback_scope(
+    _context: object,
+    *,
+    db: object,
+    job_name: str,
+    fallback_agreement_uuids: list[str],
+) -> list[str]:
+    _ = db
+    _ = job_name
+    return list(fallback_agreement_uuids)
+
+
 class TaxModuleAssetTests(unittest.TestCase):
     def test_regular_ingest_tax_module_uses_scope_batch_key_for_resume_and_create(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
@@ -137,6 +149,12 @@ class TaxModuleAssetTests(unittest.TestCase):
         with (
             patch("etl.defs.k_tax_module_asset.assert_tables_exist", return_value=None),
             patch("etl.defs.k_tax_module_asset.runs_single_batch", return_value=True),
+            patch(
+                "etl.defs.k_tax_module_asset.load_active_scope_for_job",
+                side_effect=_fallback_scope,
+            ),
+            patch("etl.defs.k_tax_module_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.k_tax_module_asset.mark_logical_run_stage_completed", return_value=None),
             patch("etl.defs.k_tax_module_asset._fetch_unapplied_tax_module_batch", return_value=None) as fetch_batch,
             patch("etl.defs.k_tax_module_asset._fetch_tax_section_standard_ids", return_value={"tax"}),
             patch(

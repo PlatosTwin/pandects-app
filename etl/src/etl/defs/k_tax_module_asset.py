@@ -16,7 +16,11 @@ from etl.defs.g_sections_asset import (
     sections_from_fresh_xml_asset,
     sections_from_repair_xml_asset,
 )
-from etl.defs.h_taxonomy_asset import regular_ingest_taxonomy_llm_asset
+from etl.defs.h_taxonomy_asset import (
+    ingestion_cleanup_a_taxonomy_llm_asset,
+    ingestion_cleanup_b_taxonomy_llm_asset,
+    regular_ingest_taxonomy_llm_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.tax_module import (
     TaxAssignmentRecord,
@@ -31,6 +35,12 @@ from etl.domain.tax_module import (
 )
 from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.db_utils import replace_module_clauses, upsert_tax_clause_assignments
+from etl.utils.logical_job_runs import (
+    build_logical_batch_key,
+    load_active_logical_run,
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+)
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
     poll_batch_until_terminal,
@@ -511,6 +521,7 @@ def _run_tax_module_for_agreements(
     pipeline_config: PipelineConfig,
     *,
     target_agreement_uuids: list[str] | None,
+    batch_key_override: str | None = None,
     log_prefix: str,
 ) -> list[str]:
     agreement_batch_size = pipeline_config.tax_module_agreement_batch_size
@@ -539,7 +550,7 @@ def _run_tax_module_for_agreements(
         )
 
     scoped_uuids = sorted(set(target_agreement_uuids or []))
-    scoped_batch_key = agreement_batch_key(scoped_uuids) if scoped_uuids else None
+    scoped_batch_key = batch_key_override or (agreement_batch_key(scoped_uuids) if scoped_uuids else None)
     while True:
         if pipeline_config.resume_openai_batches:
             with engine.begin() as conn:
@@ -729,10 +740,102 @@ def regular_ingest_tax_module_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    return _run_tax_module_for_agreements(
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+    processed_agreement_uuids = _run_tax_module_for_agreements(
         context,
         db,
         pipeline_config,
-        target_agreement_uuids=section_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="regular_ingest_tax_module",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
         log_prefix="regular_ingest_tax_module_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_tax_module",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="08-04_ingestion_cleanup_a_tax_module_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_taxonomy_llm_asset.key)},
+)
+def ingestion_cleanup_a_tax_module_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+    processed_agreement_uuids = _run_tax_module_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="ingestion_cleanup_a_tax_module",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
+        log_prefix="ingestion_cleanup_a_tax_module_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_tax_module",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="08-05_ingestion_cleanup_b_tax_module_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_b_taxonomy_llm_asset.key)},
+)
+def ingestion_cleanup_b_tax_module_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_b",
+        fallback_agreement_uuids=section_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
+    processed_agreement_uuids = _run_tax_module_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name="ingestion_cleanup_b_tax_module",
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
+        log_prefix="ingestion_cleanup_b_tax_module_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_tax_module",
+    )
+    return processed_agreement_uuids

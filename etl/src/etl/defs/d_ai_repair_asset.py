@@ -35,6 +35,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
     extract_body_page_uuid_article_map,
+    ingestion_cleanup_a_xml_verify_asset,
     extract_toc_section_sequences,
     regular_ingest_xml_verify_asset,
 )
@@ -44,6 +45,13 @@ from etl.utils.batch_keys import agreement_batch_key
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
     read_openai_file_text,
+)
+from etl.utils.logical_job_runs import (
+    build_logical_batch_scope_tag,
+    load_active_logical_run,
+    load_active_scope_for_job,
+    mark_logical_run_stage_completed,
+    start_or_resume_logical_run,
 )
 from etl.utils.schema_guards import assert_tables_exist
 from etl.domain.d_ai_repair import (
@@ -480,13 +488,29 @@ def _fetch_open_ai_repair_batch_for_scope(
 ) -> Dict[str, Any] | None:
     matching_batch: Dict[str, Any] | None = None
     for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL):
-        batch_key = agreement_batch_key([*scoped_agreement_uuids, f"model:{model}"])
+        batch_key = _ai_repair_batch_key(
+            agreement_uuids=scoped_agreement_uuids,
+            model=model,
+        )
         batch_row = _fetch_open_ai_repair_batch(conn, schema, batch_key=batch_key)
         if batch_row is None:
             continue
         if matching_batch is None or str(batch_row["batch_id"]) < str(matching_batch["batch_id"]):
             matching_batch = batch_row
     return matching_batch
+
+
+def _ai_repair_batch_key(
+    *,
+    agreement_uuids: list[str],
+    model: str,
+    scope_tag: str | None = None,
+) -> str:
+    key_parts = [*agreement_uuids]
+    if scope_tag:
+        key_parts.append(f"scope:{scope_tag}")
+    key_parts.append(f"model:{model}")
+    return agreement_batch_key(key_parts)
 
 
 def _fetch_batch_agreement_uuids(
@@ -643,6 +667,7 @@ def _enqueue_ai_repair_for_agreements(
     pipeline_config: PipelineConfig,
     *,
     target_agreement_uuids: list[str] | None,
+    batch_scope_tag: str | None = None,
     log_prefix: str,
 ) -> List[str]:
     """
@@ -680,19 +705,59 @@ def _enqueue_ai_repair_for_agreements(
         page_budget = int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0)
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
+        preselected_candidates: List[Dict[str, Any]] | None = None
         if resume_openai_batches:
-            matched_open_batch = (
-                _fetch_open_ai_repair_batch_for_scope(
+            matched_open_batch: Dict[str, Any] | None
+            if scoped_uuids:
+                matched_open_batch = _fetch_open_ai_repair_batch_for_scope(
                     conn,
                     db.database,
                     scoped_agreement_uuids=scoped_uuids,
                 )
-                if scoped_uuids
-                else _fetch_open_ai_repair_batch(
+            elif batch_scope_tag is None:
+                matched_open_batch = _fetch_open_ai_repair_batch(
                     conn,
                     db.database,
                 )
-            )
+            else:
+                preselected_candidates = _fetch_candidates(
+                    conn,
+                    db.database,
+                    agreement_limit=None if page_budget > 0 else batch_size,
+                    target_agreement_uuids=None,
+                    page_budget=page_budget if page_budget > 0 else None,
+                    attempt_priority=pipeline_config.ai_repair_attempt_priority,
+                    exclude_in_flight=False,
+                )
+                matched_open_batch = None
+                candidate_agreement_uuids_by_model: Dict[str, list[str]] = {}
+                for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL):
+                    model_agreement_uuids = sorted(
+                        {
+                            str(row["agreement_uuid"])
+                            for row in preselected_candidates
+                            if _repair_model_for_candidate(
+                                int(row["ai_repair_attempted"]),
+                                has_completed_requests=bool(int(row["has_completed_requests"])),
+                            )
+                            == model
+                        }
+                    )
+                    if model_agreement_uuids:
+                        candidate_agreement_uuids_by_model[model] = model_agreement_uuids
+
+                for model, model_agreement_uuids in candidate_agreement_uuids_by_model.items():
+                    batch_key = _ai_repair_batch_key(
+                        agreement_uuids=model_agreement_uuids,
+                        model=model,
+                        scope_tag=batch_scope_tag,
+                    )
+                    batch_row = _fetch_open_ai_repair_batch(conn, db.database, batch_key=batch_key)
+                    if batch_row is None:
+                        continue
+                    if matched_open_batch is None or str(batch_row["batch_id"]) < str(matched_open_batch["batch_id"]):
+                        matched_open_batch = batch_row
+
             if matched_open_batch is not None:
                 resumed_batch_id = str(matched_open_batch["batch_id"])
                 resumed_agreement_uuids = _fetch_batch_agreement_uuids(
@@ -713,14 +778,20 @@ def _enqueue_ai_repair_for_agreements(
         if should_exit_after_tx:
             pass
         else:
-            candidates = _fetch_candidates(
-                conn,
-                db.database,
-                agreement_limit=None if page_budget > 0 else batch_size,
-                target_agreement_uuids=scoped_uuids or None,
-                page_budget=page_budget if page_budget > 0 else None,
-                attempt_priority=pipeline_config.ai_repair_attempt_priority,
+            candidates = (
+                preselected_candidates
+                if preselected_candidates is not None and batch_scope_tag is None
+                else None
             )
+            if candidates is None:
+                candidates = _fetch_candidates(
+                    conn,
+                    db.database,
+                    agreement_limit=None if page_budget > 0 else batch_size,
+                    target_agreement_uuids=scoped_uuids or None,
+                    page_budget=page_budget if page_budget > 0 else None,
+                    attempt_priority=pipeline_config.ai_repair_attempt_priority,
+                )
             if not candidates:
                 context.log.info("%s: no candidates.", log_prefix)
                 should_exit_after_tx = True
@@ -831,8 +902,10 @@ def _enqueue_ai_repair_for_agreements(
 
                 for model, model_lines in sorted(request_lines_by_model.items()):
                     model_metas = lines_meta_by_model[model]
-                    model_batch_key = agreement_batch_key(
-                        [*llm_agreement_uuids, f"model:{model}"]
+                    model_batch_key = _ai_repair_batch_key(
+                        agreement_uuids=llm_agreement_uuids,
+                        model=model,
+                        scope_tag=batch_scope_tag,
                     )
                     jsonl_full_buf = io.StringIO()
                     for line in model_lines:
@@ -889,6 +962,37 @@ def _enqueue_ai_repair_for_agreements(
     return sorted(enqueued_agreement_uuids)
 
 
+def _select_ai_repair_scope(
+    _context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> list[str]:
+    engine = db.get_engine()
+    schema = db.database
+    with engine.begin() as conn:
+        assert_tables_exist(
+            conn,
+            schema=schema,
+            table_names=(
+                "ai_repair_batches",
+                "ai_repair_requests",
+                "ai_repair_rulings",
+                "ai_repair_full_pages",
+                "ai_repair_processed_spans",
+                "xml_status_reasons",
+            ),
+        )
+        candidates = _fetch_candidates(
+            conn,
+            schema,
+            agreement_limit=None if int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0) > 0 else pipeline_config.xml_agreement_batch_size,
+            target_agreement_uuids=None,
+            page_budget=int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0) or None,
+            attempt_priority=pipeline_config.ai_repair_attempt_priority,
+        )
+    return sorted({str(row["agreement_uuid"]) for row in candidates if row.get("agreement_uuid")})
+
+
 @dg.asset(name="05-01_ai_repair_enqueue_asset")
 def ai_repair_enqueue_asset(
     context: AssetExecutionContext,
@@ -914,13 +1018,104 @@ def regular_ingest_ai_repair_enqueue_asset(
     pipeline_config: PipelineConfig,
     verified_agreement_uuids: List[str],
 ) -> List[str]:
-    return _enqueue_ai_repair_for_agreements(
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="regular_ingest",
+        fallback_agreement_uuids=verified_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+    enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
         context,
         db,
         pipeline_config,
-        target_agreement_uuids=verified_agreement_uuids,
+        target_agreement_uuids=scope_uuids,
+        batch_scope_tag=build_logical_batch_scope_tag(
+            "regular_ingest",
+            "regular_ingest_ai_repair_enqueue",
+            None if active_run is None else str(active_run["logical_run_id"]),
+        ),
         log_prefix="regular_ingest_ai_repair_enqueue_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_ai_repair_enqueue",
+    )
+    return enqueued_agreement_uuids
+
+
+@dg.asset(
+    name="05-06_ingestion_cleanup_a_ai_repair_enqueue_asset",
+    ins={"verified_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_xml_verify_asset.key)},
+)
+def ingestion_cleanup_a_ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_agreement_uuids: List[str],
+) -> List[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_a",
+        fallback_agreement_uuids=verified_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+    enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        batch_scope_tag=build_logical_batch_scope_tag(
+            "ingestion_cleanup_a",
+            "ingestion_cleanup_a_ai_repair_enqueue",
+            None if active_run is None else str(active_run["logical_run_id"]),
+        ),
+        log_prefix="ingestion_cleanup_a_ai_repair_enqueue_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_ai_repair_enqueue",
+    )
+    return enqueued_agreement_uuids
+
+
+@dg.asset(name="05-10_ingestion_cleanup_b_ai_repair_enqueue_asset")
+def ingestion_cleanup_b_ai_repair_enqueue_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    selected_scope = _select_ai_repair_scope(context, db, pipeline_config)
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_b",
+        initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+        selected_agreement_uuids=selected_scope,
+    )
+    scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
+    enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        batch_scope_tag=build_logical_batch_scope_tag(
+            "ingestion_cleanup_b",
+            "ingestion_cleanup_b_ai_repair_enqueue",
+            None if logical_run is None else logical_run.logical_run_id,
+        ),
+        log_prefix="ingestion_cleanup_b_ai_repair_enqueue_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_ai_repair_enqueue",
+    )
+    return enqueued_agreement_uuids
 
 
 def _request_counts(batch: Any) -> Tuple[int, int, int]:
@@ -1679,10 +1874,81 @@ def regular_ingest_ai_repair_poll_asset(
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
-    return _poll_ai_repair_batches(
+    successful_request_ids = _poll_ai_repair_batches(
         context,
         db,
         pipeline_config,
-        enqueued_agreement_uuids,
+        load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="regular_ingest",
+            fallback_agreement_uuids=enqueued_agreement_uuids,
+        ),
         log_prefix="regular_ingest_ai_repair_poll_asset",
     )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_ai_repair_poll",
+    )
+    return successful_request_ids
+
+
+@dg.asset(
+    name="05-07_ingestion_cleanup_a_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_a_ai_repair_enqueue_asset.key)},
+)
+def ingestion_cleanup_a_ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    successful_request_ids = _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="ingestion_cleanup_a",
+            fallback_agreement_uuids=enqueued_agreement_uuids,
+        ),
+        log_prefix="ingestion_cleanup_a_ai_repair_poll_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_ai_repair_poll",
+    )
+    return successful_request_ids
+
+
+@dg.asset(
+    name="05-11_ingestion_cleanup_b_ai_repair_poll_asset",
+    ins={"enqueued_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_b_ai_repair_enqueue_asset.key)},
+)
+def ingestion_cleanup_b_ai_repair_poll_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    enqueued_agreement_uuids: List[str],
+) -> List[str]:
+    successful_request_ids = _poll_ai_repair_batches(
+        context,
+        db,
+        pipeline_config,
+        load_active_scope_for_job(
+            context,
+            db=db,
+            job_name="ingestion_cleanup_b",
+            fallback_agreement_uuids=enqueued_agreement_uuids,
+        ),
+        log_prefix="ingestion_cleanup_b_ai_repair_poll_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_ai_repair_poll",
+    )
+    return successful_request_ids
