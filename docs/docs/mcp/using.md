@@ -1,79 +1,65 @@
 ---
 id: using
 title: Using MCP
-description: Understand what Pandects MCP can do and how to work with it effectively in your client.
+description: Understand what The Pandects MCP can do and how to work with it effectively in your client.
 sidebar_position: 1
 ---
 
 # Using MCP
 
-Pandects exposes a read-only MCP server at `https://api.pandects.org/mcp`.
+The Pandects MCP is available at `https://api.pandects.org/mcp`.
 
-Use it inside MCP clients such as Codex or Claude Code to discover agreements, search clauses, inspect sections, fetch agreement text, and pull supporting taxonomy or reference data without leaving your workspace.
+Use it inside MCP clients such as Codex or Claude Code to work with merger agreements in plain language.
 
-## What You Can Do With Pandects MCP
+You can ask your client to find agreements, compare clause language, inspect specific sections, pull tax-related provisions, and use Pandects reference data while you work.
 
-Pandects MCP currently supports:
+## What MCP Is Good For
 
-- Agreement discovery: `search_agreements`, `list_agreements`, `get_agreement`
-- Section research: `search_sections`, `list_agreement_sections`, `get_section`
-- Tax clause research: `get_agreement_tax_clauses`, `get_section_tax_clauses`
-- Research bootstrap: `list_filter_options`, `get_clause_taxonomy`, `get_tax_clause_taxonomy`
-- Reference and context: `get_counsel_catalog`, `get_naics_catalog`, `get_agreements_summary`, `get_agreement_trends`
+The Pandects MCP is most useful when you want your client to:
 
-## Typical Workflows
+- Find the right agreement when you know a company name but not the document you need
+- Compare clause language across many agreements
+- Open one section or one agreement for closer reading
+- Pull tax-related language from an agreement
+- Use Pandects taxonomy, counsel, industry, and summary data while researching
 
-In practice, that means you can ask your client to do things like:
+## Example Prompts
 
-- Find change-of-recommendation sections from 2023 public deals
-- Search for sections by clause family, filing year, target, or acquirer
-- Find the right agreement from a company name search, then list its sections
-- Pull a specific agreement by UUID and inspect the text
-- Inspect one section directly from a section UUID
-- Fetch extracted tax clauses for an agreement or section
-- Load taxonomy and filter catalogs before running a more precise search
+The Pandects MCP server allows you to interact with Pandects APIs using natural language.
 
-## How To Think About The Tools
+Examples:
 
-`search_agreements` is the best starting point when you know a company name, partial name, or year and need to find the right agreement first.
+- “Find the merger agreement for Target A and show me the termination and fiduciary-out sections.”
+- “Compare change-of-recommendation language across 2023 public-target deals.”
+- “Find agreements where Skadden represented the acquirer.”
+- “Pull the tax clauses from this agreement and summarize who bears transfer taxes.”
+- “Show me the section text for this section UUID and explain how it fits into the agreement.”
+- “What clause taxonomy categories should I use for fiduciary-out and no-shop searches?”
+- “Give me the valid Pandects filter values for target counsel and target industry.”
 
-`search_sections` is the best starting point when you are looking for language patterns or a category of clauses across many agreements.
+## What Your Client Can Reach Through MCP
 
-`list_agreements` is useful when you already know the deal-level filters you care about and want a clean list of matching agreements.
+Behind those prompts, The Pandects MCP gives your client access to:
 
-`list_agreement_sections` is the follow-up tool when you have one agreement and want to navigate inside it before opening a specific section.
+- Agreement search and retrieval
+- Section search and section-level inspection
+- Tax clause extraction results
+- Filter catalogs for companies, counsel, and industries
+- Clause taxonomy and tax-clause taxonomy
+- Counsel and NAICS reference data
+- High-level corpus summaries and trend data
 
-`get_section` is the direct drilldown tool for section-level inspection.
+You generally should not need to think about exact tool names or tool order unless you are debugging or building a more structured workflow on top of MCP.
 
-`get_agreement` is the document-level retrieval tool when you want the full agreement.
+## How to Think About MCP
 
-`list_filter_options` and the taxonomy tools are the bootstrap layer for agents that need valid values before issuing precise searches.
+The Pandects MCP is designed for humans using LLM clients. That means:
 
-## Recommended Research Loop
-
-For most workflows, use MCP in this order:
-
-1. `search_agreements` or `search_sections`
-2. `list_agreement_sections` if you need to navigate within one agreement
-3. `get_section` for section-level inspection
-4. `get_agreement` if you need full agreement context
-5. `get_agreement_tax_clauses` or `get_section_tax_clauses` for tax-focused work
-
-## What MCP Is Best For
-
-Pandects MCP is strongest when you want your coding or research client to:
-
-- Explore a set of agreements interactively
-- Gather examples before writing or refining analysis
-- Move from high-level search to specific source documents
-- Keep research and drafting in the same tool session
-
-## Access Model
-
-Use your normal Pandects account when the client opens the browser sign-in flow.
-
-You should not need to manually copy tokens or pull API keys or anything else from the account page. The MCP server does not use API keys.
+- You ask for the research task in normal language
+- The client decides which Pandects tools to call
+- You review the result, refine the request, and keep going
+- You should not need to manually fetch tokens, API keys, or document IDs from the website just to make MCP work
 
 ## Next Step
 
-To connect Pandects in a supported client, continue to [Setup](./setup).
+To connect Pandects in a supported client, continue to [Setup](./setup). If you want the technical tool surface, see [Technical Details](./technical-details).

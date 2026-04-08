@@ -761,17 +761,21 @@ export default function Account() {
               <div>
                 <h2 className="text-xl font-semibold">MCP</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Use your normal Pandects login for MCP. API keys are only for the
-                  REST API.
+                  Connect Pandects in Codex or Claude Code to discover agreements,
+                  inspect sections, review tax clauses, and use taxonomy or filter
+                  catalogs directly in your client.
                 </p>
               </div>
 
-              <Alert>
-                <AlertTitle>MCP uses account login, not API keys</AlertTitle>
-                <AlertDescription>
+              <Alert className="border-border/60 bg-muted/20 text-muted-foreground">
+                <AlertTitle className="text-sm font-semibold text-foreground/80">
+                  MCP uses account login, not API keys
+                </AlertTitle>
+                <AlertDescription className="text-muted-foreground">
                   Add the Pandects MCP server in your client, then sign in with the same
                   Pandects account you use on this site when the browser auth flow opens.
-                  You should not need to manually fetch a bearer token from this page.
+                  You should not need to manually fetch a bearer token, copy an API key,
+                  or pull anything else from this page.
                 </AlertDescription>
               </Alert>
 
@@ -838,12 +842,12 @@ export default function Account() {
               <div className="rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
                 Full walkthrough:{" "}
                 <a
-                  href={`${docsUrl}/docs/mcp/setup`}
+                  href={`${docsUrl}/docs/mcp/using`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary hover:underline"
                 >
-                  MCP setup guide
+                  MCP guide
                 </a>
                 .
               </div>

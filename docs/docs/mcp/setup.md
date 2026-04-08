@@ -1,17 +1,17 @@
 ---
 id: setup
 title: Setup
-description: Connect Pandects MCP to Codex or Claude Code.
+description: Connect The Pandects MCP to Codex or Claude Code.
 sidebar_position: 2
 ---
 
 # Setup
 
-Pandects exposes a read-only MCP server at `https://api.pandects.org/mcp`.
+The Pandects MCP is available at `https://api.pandects.org/mcp`.
 
 ## Before You Start
 
-You only need two things:
+You need only two things:
 
 1. A Pandects account
 2. An MCP client that supports a remote HTTP server and browser sign-in
@@ -28,10 +28,10 @@ https://api.pandects.org/mcp
 
 The normal flow is:
 
-1. Add the Pandects MCP server in your client.
-2. Start the MCP connection or auth flow.
-3. When your browser opens, sign in with your Pandects account.
-4. Return to the client and start using Pandects tools.
+1. Add the Pandects MCP server in your client
+2. Start the MCP connection or auth flow
+3. When your browser opens, sign in with your Pandects account
+4. Return to the client and start using Pandects tools
 
 ## Codex
 
