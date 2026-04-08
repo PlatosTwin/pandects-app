@@ -900,12 +900,14 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 agreements.verified,
             )
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(deps.XML.status == "verified")
             .filter(_agreement_is_public_eligible_expr(agreements))
         )
         count_q = (
             db.session.query(func.count(agreements.agreement_uuid))
             .select_from(agreements)
             .join(deps.XML, deps._agreement_latest_xml_join_condition())
+            .filter(deps.XML.status == "verified")
             .filter(_agreement_is_public_eligible_expr(agreements))
         )
 

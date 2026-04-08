@@ -503,8 +503,8 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/agreements-index?page=1&page_size=2")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
-        self.assertEqual(body.get("total_count"), 3)
-        self.assertEqual(body.get("total_pages"), 2)
+        self.assertEqual(body.get("total_count"), 2)
+        self.assertEqual(body.get("total_pages"), 1)
         self.assertEqual(len(body.get("results", [])), 2)
 
     def test_agreements_bulk_cursor_pagination(self):
@@ -920,6 +920,37 @@ class MainRoutesTests(unittest.TestCase):
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_index_time'"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_index_time'"))
+
+    def test_agreements_index_excludes_latest_xml_pending_verification(self):
+        try:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
+                            "VALUES ('a_index_pending_xml', '2024-07-01', 'Target Pending XML', 'Acquirer Pending XML', 1, 'http://example.com/a_index_pending_xml')"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                            "('a_index_pending_xml', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000062\"><text>PENDING</text></section></article></document>', 1, NULL, 1)"
+                        )
+                    )
+
+            client = self.app.test_client()
+            res = client.get("/v1/agreements-index?query=Target Pending XML&page=1&page_size=10")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            self.assertEqual(body.get("results", []), [])
+            self.assertEqual(body.get("total_count"), 0)
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_index_pending_xml'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_index_pending_xml'"))
 
     def test_get_section_by_uuid(self):
         client = self.app.test_client()
