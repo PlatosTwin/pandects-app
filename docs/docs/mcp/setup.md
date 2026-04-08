@@ -1,7 +1,7 @@
 ---
 id: setup
 title: MCP Setup
-description: Connect Pandects to an MCP client using your normal Pandects account.
+description: Connect Pandects to Codex or Claude Code and query agreements directly from your client.
 sidebar_position: 1
 ---
 
@@ -9,73 +9,47 @@ sidebar_position: 1
 
 Pandects exposes a read-only MCP server at `https://api.pandects.org/mcp`.
 
-The important user-facing point is simple:
+Use it to search sections, list agreements, and fetch agreement text directly inside an MCP client such as Codex or Claude Code.
 
-- use your normal Pandects account
-- sign in when your MCP client opens the browser auth flow
-- you do **not** manually copy a bearer token out of the Pandects website
+## What You Can Do With Pandects MCP
 
-Pandects uses the same ZITADEL-backed identity for both website sign-in and MCP.
+Pandects MCP currently supports three core actions:
 
-## What You Actually Need To Do
+- `search_sections`: search merger agreement sections with structured filters
+- `list_agreements`: list agreements with filters and pagination
+- `get_agreement`: fetch a specific agreement by UUID
 
-1. Make sure you have a normal Pandects account.
-2. Add the Pandects MCP server to your MCP client.
-3. When the client prompts for authentication, sign into Pandects in the browser.
-4. Return to the client and start using the tools.
+In practice, that means you can ask your client to do things like:
 
-That is the intended setup flow.
+- Find change-of-recommendation sections from 2023 public deals
+- List recent agreements for a target or acquirer
+- Open a specific agreement and inspect the underlying text
 
-## Do I Need Anything From The Account Page?
+## Before You Start
 
-Not to manually fetch a raw bearer token.
+You only need two things:
 
-Today, the account page is mainly for:
-
-- managing `X-API-Key` credentials for the REST API
-- viewing usage
-
-Those API keys are **not** used for MCP.
-
-For MCP, the client should handle OAuth and obtain the bearer token for you after you sign in with your Pandects account.
-
-## How MCP Auth Maps To Pandects Auth
-
-Under the hood:
-
-- Pandects website sign-in and MCP both use the same ZITADEL identity
-- when you first sign in successfully, Pandects links that external identity to your local Pandects account
-- MCP accepts bearer tokens for that linked, verified Pandects user
-
-So from the user perspective, the rule is:
-
-use the same Pandects login you already use on the website.
+1. A Pandects account
+2. An MCP client that supports a remote HTTP server and browser sign-in
 
 ## Server URL
 
-Use this MCP server URL in your client:
+Add this server in your MCP client:
 
 ```text
 https://api.pandects.org/mcp
 ```
 
-The protected-resource metadata lives at:
+## Quick Setup
 
-```text
-https://api.pandects.org/.well-known/oauth-protected-resource
-```
+The normal flow is:
 
-OAuth-aware MCP clients should discover what they need from that metadata automatically.
+1. Add the Pandects MCP server in your client.
+2. Start the MCP connection or auth flow.
+3. When your browser opens, sign in with your Pandects account.
+4. Return to the client and start using Pandects tools.
 
-## Current Tools
-
-The current MCP tool surface is:
-
-- `search_sections`
-- `list_agreements`
-- `get_agreement`
-
-Required scopes are handled by the OAuth login flow. If your client signs in successfully but a tool still fails, the most likely issue is that the token was minted without the right MCP scopes.
+You should not need to manually copy tokens or pull API keys or anything else from the account page. The MCP server does not use API keys.
 
 ## Codex
 
@@ -83,10 +57,15 @@ Add the server:
 
 ```bash
 codex mcp add pandects --url https://api.pandects.org/mcp
-codex mcp list
 ```
 
-Then use the MCP auth flow in Codex and sign in with your Pandects account when the browser opens.
+Then authenticate when Codex prompts you in the browser.
+
+Optional check:
+
+```bash
+codex mcp list
+```
 
 ## Claude Code
 
@@ -96,48 +75,37 @@ Add the server:
 claude mcp add --transport http pandects https://api.pandects.org/mcp
 ```
 
-Then run:
+Then open MCP inside Claude Code:
 
 ```text
 /mcp
 ```
 
-Claude Code should prompt you to authenticate the remote MCP server. Sign in with your Pandects account in the browser flow it opens.
+When Claude Code prompts you to authenticate the server, finish the Pandects sign-in flow in the browser.
 
-## ChatGPT
+## Supported Clients Right Now
 
-ChatGPT is the awkward case right now.
+Pandects currently documents setup for:
 
-OpenAI currently documents ChatGPT custom connector compatibility around a `search` + `fetch` tool shape. The current Pandects MCP server does not expose that compatibility surface yet, so it should not be documented as a polished ChatGPT connector today.
+- Codex
+- Claude Code
 
-Right now, Pandects MCP is best treated as:
-
-- ready for clients like Codex and Claude Code
-- not yet packaged for first-class ChatGPT connector UX
+Other MCP clients may work if they support remote HTTP MCP servers with browser-based authentication, but Codex and Claude Code are the clients we currently document and test against.
 
 ## Troubleshooting
 
-If MCP login succeeds but requests still fail:
+If setup does not complete cleanly:
 
-- confirm you signed in with the same Pandects account you expect to use
-- confirm that account is verified
-- do not use a Pandects API key on `/mcp`
-- do not expect an existing website session cookie to act as the MCP token
+- Make sure you are signing in with the Pandects account you intend to use
+- Make sure you are connecting to `https://api.pandects.org/mcp`
+- Use browser sign-in when the client asks for authentication
+- Do not use a Pandects API key for MCP
+- If the client already has a stale failed connection saved, remove the server and add it again
 
-## Product Gap
+If authentication succeeds but tool calls still fail, reconnect the server and retry the browser sign-in flow once before investigating anything more exotic.
 
-The product should eventually make this easier from the account page with something like:
-
-- `Connect to Codex`
-- `Connect to Claude Code`
-- copy-paste setup snippets
-- a short explanation that MCP uses your normal Pandects login, not API keys
-
-That UX is not exposed in the account page yet, even though the underlying auth model already supports the same account identity for both website use and MCP.
-
-## References
+## Related Links
 
 - [OpenAI: Docs MCP quickstart for Codex](https://developers.openai.com/learn/docs-mcp)
 - [OpenAI: MCP docs](https://platform.openai.com/docs/mcp)
-- [OpenAI Help: Connectors in ChatGPT](https://help.openai.com/en/articles/11487775-connectors-in-chatgpt)
 - [Anthropic: Connect Claude Code to tools via MCP](https://docs.anthropic.com/en/docs/claude-code/mcp)
