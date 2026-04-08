@@ -10,7 +10,7 @@ We welcome contributions to the frontend via pull requests. To contribute to dat
 
 ### Prerequisites
 
-* Python 3.10+
+* Python 3.11+
 * Node.js 18+
 
 ### Installation
