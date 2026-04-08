@@ -79,6 +79,14 @@ class McpTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a1', '00000000-0000-0000-0000-000000000002', "
+                        "'ARTICLE II', 'Section 2', '<section>MORE</section>', '[\"s2\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO latest_sections_search ("
                         "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
                         "filing_company_cik, form_type, exhibit_type, target, acquirer, "
@@ -97,8 +105,182 @@ class McpTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000002', 'a1', '2020-01-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target A', 'Acquirer A', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"s2\"]', 'ARTICLE II', 'Section 2'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
                         "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('s2', '00000000-0000-0000-0000-000000000002', 'a1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses (clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type) VALUES "
+                        "('clause-a1-1', 'a1', '00000000-0000-0000-0000-000000000001', 1, 'tax', 1, "
+                        "'(a)', 0, 20, 'Parent shall bear all transfer taxes.', 'enumerated_split', 'operative'), "
+                        "('clause-a1-2', 'a1', '00000000-0000-0000-0000-000000000001', 1, 'tax', 2, "
+                        "'(b)', 21, 60, 'The merger is intended to qualify as tax-free.', 'enumerated_split', 'rep_warranty')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
+                        "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO counsel (counsel_id, canonical_name, canonical_name_normalized) VALUES "
+                        "(1, 'Wachtell, Lipton, Rosen & Katz', 'wachtell lipton rosen and katz'), "
+                        "(2, 'Skadden, Arps, Slate, Meagher & Flom LLP', 'skadden arps slate meagher flom llp')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
+                        "('a1', 'target', 1, 'Wachtell', 1), "
+                        "('a1', 'acquirer', 1, 'Skadden', 2)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO taxonomy_l1 (standard_id, label) VALUES ('1', 'Deal Protection')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO taxonomy_l2 (standard_id, label, parent_id) VALUES ('1.1', 'Fiduciary Out', '1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO taxonomy_l3 (standard_id, label, parent_id) VALUES ('1.1.1', 'Change Of Recommendation', '1.1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l1 (standard_id, label) VALUES ('tax', 'Tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l2 (standard_id, label, parent_id) VALUES ('tax.1', 'Treatment', 'tax')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES ('tax.1.1', 'Tax-Free Reorg', 'tax.1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO naics_sectors (super_sector, sector_group, sector_desc, sector_code) VALUES "
+                        "('Goods-Producing Industries', 'Natural Resources and Mining', "
+                        "'Agriculture, Forestry, Fishing and Hunting', 11)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO naics_sub_sectors (sub_sector_desc, sub_sector_code, sector_code) VALUES "
+                        "('Crop Production', 111, 11)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS summary_data ("
+                        "count_agreements INTEGER NOT NULL, count_sections INTEGER NOT NULL, count_pages INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO summary_data (count_agreements, count_sections, count_pages) VALUES (1, 2, 5)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_mix_summary ("
+                        "year INTEGER NOT NULL, target_bucket TEXT NOT NULL, deal_count INTEGER NOT NULL, total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_ownership_deal_size_summary ("
+                        "year INTEGER NOT NULL, target_bucket TEXT NOT NULL, deal_count INTEGER NOT NULL, "
+                        "p25_transaction_value REAL NULL, median_transaction_value REAL NULL, p75_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_buyer_type_matrix_summary ("
+                        "target_bucket TEXT NOT NULL, buyer_bucket TEXT NOT NULL, deal_count INTEGER NOT NULL, median_transaction_value REAL NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_target_industry_summary ("
+                        "year INTEGER NOT NULL, industry TEXT NOT NULL, deal_count INTEGER NOT NULL, total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_industry_pairing_summary ("
+                        "target_industry TEXT NOT NULL, acquirer_industry TEXT NOT NULL, deal_count INTEGER NOT NULL, total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_mix_summary (year, target_bucket, deal_count, total_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_ownership_deal_size_summary "
+                        "(year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value) VALUES "
+                        "(2020, 'public', 1, 50000000, 50000000, 50000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_buyer_type_matrix_summary "
+                        "(target_bucket, buyer_bucket, deal_count, median_transaction_value) VALUES "
+                        "('public', 'public_buyer', 1, 50000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_target_industry_summary "
+                        "(year, industry, deal_count, total_transaction_value) VALUES "
+                        "(2020, '111', 1, 50000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_industry_pairing_summary "
+                        "(target_industry, acquirer_industry, deal_count, total_transaction_value) VALUES "
+                        "('111', '111', 1, 50000000)"
                     )
                 )
 
@@ -145,6 +327,19 @@ class McpTests(unittest.TestCase):
         )
         return f"Bearer {token}"
 
+    def _call_tool(self, name: str, arguments: dict[str, object], *, scope: str | None = None):
+        client = self.app.test_client()
+        return client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer(scope=scope or "sections:search agreements:search agreements:read")},
+            json={
+                "jsonrpc": "2.0",
+                "id": 999,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            },
+        )
+
     def test_protected_resource_metadata(self):
         client = self.app.test_client()
         res = client.get("/.well-known/oauth-protected-resource")
@@ -177,7 +372,148 @@ class McpTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
         tools = res.get_json()["result"]["tools"]
-        self.assertEqual([tool["name"] for tool in tools], ["search_sections", "list_agreements", "get_agreement"])
+        self.assertEqual(
+            [tool["name"] for tool in tools],
+            [
+                "search_agreements",
+                "search_sections",
+                "list_agreements",
+                "list_agreement_sections",
+                "get_agreement",
+                "get_section",
+                "get_agreement_tax_clauses",
+                "get_section_tax_clauses",
+                "list_filter_options",
+                "get_clause_taxonomy",
+                "get_tax_clause_taxonomy",
+                "get_counsel_catalog",
+                "get_naics_catalog",
+                "get_agreements_summary",
+                "get_agreement_trends",
+            ],
+        )
+
+    def test_search_agreements_tool(self):
+        res = self._call_tool("search_agreements", {"query": "Target"})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["page"], 1)
+        self.assertEqual(payload["returned_count"], 1)
+        self.assertEqual(payload["results"][0]["agreement_uuid"], "a1")
+
+    def test_get_section_tool(self):
+        res = self._call_tool(
+            "get_section",
+            {"section_uuid": "00000000-0000-0000-0000-000000000001"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["agreement_uuid"], "a1")
+        self.assertEqual(payload["standard_id"], ["s1"])
+
+    def test_list_agreement_sections_tool(self):
+        res = self._call_tool("list_agreement_sections", {"agreement_uuid": "a1"})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["agreement_uuid"], "a1")
+        self.assertEqual(payload["returned_count"], 2)
+        self.assertEqual(payload["results"][0]["section_uuid"], "00000000-0000-0000-0000-000000000001")
+
+    def test_tax_clause_tools(self):
+        agreement_res = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1"},
+            scope="agreements:read",
+        )
+        self.assertEqual(agreement_res.status_code, 200)
+        agreement_payload = agreement_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(agreement_payload["returned_count"], 2)
+        self.assertEqual(agreement_payload["clauses"][0]["standard_ids"], ["tax_transfer"])
+
+        section_res = self._call_tool(
+            "get_section_tax_clauses",
+            {"section_uuid": "00000000-0000-0000-0000-000000000001"},
+            scope="agreements:read",
+        )
+        self.assertEqual(section_res.status_code, 200)
+        section_payload = section_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(section_payload["returned_count"], 2)
+
+    def test_filter_and_catalog_tools(self):
+        filter_res = self._call_tool("list_filter_options", {"fields": ["targets", "target_counsels"]})
+        self.assertEqual(filter_res.status_code, 200)
+        filter_payload = filter_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(filter_payload["targets"], ["Target A"])
+        self.assertEqual(filter_payload["target_counsels"], ["Wachtell, Lipton, Rosen & Katz"])
+
+        taxonomy_res = self._call_tool("get_clause_taxonomy", {})
+        self.assertEqual(taxonomy_res.status_code, 200)
+        taxonomy_payload = taxonomy_res.get_json()["result"]["structuredContent"]
+        self.assertIn("Deal Protection", taxonomy_payload)
+
+        tax_taxonomy_res = self._call_tool("get_tax_clause_taxonomy", {})
+        self.assertEqual(tax_taxonomy_res.status_code, 200)
+        tax_taxonomy_payload = tax_taxonomy_res.get_json()["result"]["structuredContent"]
+        self.assertIn("Tax", tax_taxonomy_payload)
+
+        counsel_res = self._call_tool("get_counsel_catalog", {})
+        self.assertEqual(counsel_res.status_code, 200)
+        counsel_payload = counsel_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(counsel_payload["counsel"][0]["canonical_name"], "Skadden, Arps, Slate, Meagher & Flom LLP")
+
+        naics_res = self._call_tool("get_naics_catalog", {})
+        self.assertEqual(naics_res.status_code, 200)
+        naics_payload = naics_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(naics_payload["sectors"][0]["sector_code"], "11")
+
+    def test_summary_and_trends_tools(self):
+        summary_res = self._call_tool("get_agreements_summary", {})
+        self.assertEqual(summary_res.status_code, 200)
+        summary_payload = summary_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(summary_payload["agreements"], 1)
+        self.assertEqual(summary_payload["sections"], 2)
+
+        trends_res = self._call_tool("get_agreement_trends", {})
+        self.assertEqual(trends_res.status_code, 200)
+        trends_payload = trends_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(trends_payload["ownership"]["mix_by_year"][0]["public_deal_count"], 1)
+        self.assertEqual(trends_payload["industries"]["target_industries_by_year"][0]["industry"], "Crop Production")
+
+    def test_list_filter_options_rejects_unknown_fields(self):
+        res = self._call_tool("list_filter_options", {"fields": ["nope"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertEqual(payload["error"]["code"], -32602)
+
+    def test_chain_workflow_from_agreement_search_to_section(self):
+        search_res = self._call_tool("search_agreements", {"query": "Target"})
+        search_payload = search_res.get_json()["result"]["structuredContent"]
+        agreement_uuid = search_payload["results"][0]["agreement_uuid"]
+
+        list_res = self._call_tool("list_agreement_sections", {"agreement_uuid": agreement_uuid})
+        list_payload = list_res.get_json()["result"]["structuredContent"]
+        section_uuid = list_payload["results"][0]["section_uuid"]
+
+        section_res = self._call_tool("get_section", {"section_uuid": section_uuid})
+        self.assertEqual(section_res.status_code, 200)
+        section_payload = section_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(section_payload["agreement_uuid"], agreement_uuid)
+
+    def test_chain_workflow_from_section_search_to_agreement(self):
+        search_res = self._call_tool("search_sections", {"page_size": 10})
+        search_payload = search_res.get_json()["result"]["structuredContent"]
+        section_uuid = search_payload["results"][0]["section_uuid"]
+        agreement_uuid = search_payload["results"][0]["agreement_uuid"]
+
+        section_res = self._call_tool("get_section", {"section_uuid": section_uuid})
+        self.assertEqual(section_res.status_code, 200)
+
+        agreement_res = self._call_tool(
+            "get_agreement",
+            {"agreement_uuid": agreement_uuid},
+            scope="agreements:read",
+        )
+        self.assertEqual(agreement_res.status_code, 200)
 
     def test_search_sections_tool(self):
         client = self.app.test_client()
@@ -194,7 +530,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         structured = body["result"]["structuredContent"]
-        self.assertEqual(len(structured["results"]), 1)
+        self.assertEqual(len(structured["results"]), 2)
         self.assertEqual(structured["access"]["tier"], "mcp")
 
     def test_get_agreement_redacts_without_fulltext_scope(self):

@@ -16,13 +16,14 @@ from backend.auth.mcp_runtime import (
     mcp_server_version,
 )
 from backend.mcp.tools import call_tool, tool_definitions
-from backend.routes.deps import AgreementsDeps, SectionsServiceDeps
+from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
 
 
 @dataclass(frozen=True)
 class McpDeps:
     sections_service_deps: SectionsServiceDeps
     agreements_deps: AgreementsDeps
+    reference_data_deps: ReferenceDataDeps
 
 
 def _json_rpc_error(
@@ -134,6 +135,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     principal=principal,
                     sections_service_deps=deps.sections_service_deps,
                     agreements_deps=deps.agreements_deps,
+                    reference_data_deps=deps.reference_data_deps,
                 )
             except KeyError:
                 return _json_rpc_error(

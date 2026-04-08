@@ -1045,6 +1045,7 @@ def _register_blueprints(target_app: Flask) -> None:
             deps=McpDeps(
                 sections_service_deps=sections_deps.sections_service_deps,
                 agreements_deps=agreements_deps,
+                reference_data_deps=reference_data_deps,
             ),
         )
     )
