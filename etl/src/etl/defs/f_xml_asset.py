@@ -58,7 +58,8 @@ XML_VERIFY_INSTRUCTIONS = (
     "Validate an agreement XML tag tree and return JSON with key `status` only. "
     "Apply these hard rules exactly: "
     "1) Empty articles are allowed, but at most one article may have zero sections. "
-    "2) Within each article, sections must start at 1 and be strictly sequential with no gaps. "
+    "2) Within each article, sections must start at 1 and be strictly sequential with no gaps, "
+    "unless the body's numbering for that article exactly matches the XML's own tableOfContents. "
     "3) Every section title must begin with a valid section number prefix in one of these forms: "
     "`Section A.B ...`, `SECTION A.B ...`, or `A.B ...` where A and B are integers; "
     "titles that do not match this are invalid. "
@@ -70,6 +71,10 @@ XML_VERIFY_INSTRUCTIONS = (
 ARTICLE_NUMBER_RE = re.compile(r"^\s*ARTICLE\s+([IVXLCDM]+|\d+)\b", re.IGNORECASE)
 SECTION_NUMBER_RE = re.compile(
     r"^\s*(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)",
+    re.IGNORECASE,
+)
+TOC_SECTION_NUMBER_RE = re.compile(
+    r"(?<!\d)(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
     re.IGNORECASE,
 )
 ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
@@ -402,6 +407,93 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     return article_num, section_num
 
 
+def _iter_nonempty_text_nodes(root: ET.Element) -> List[str]:
+    values: List[str] = []
+    for node in root.iter():
+        if node.tag == "pageUUID":
+            continue
+        text_value = (node.text or "").strip()
+        if text_value:
+            values.append(text_value)
+        tail_value = (node.tail or "").strip()
+        if tail_value:
+            values.append(tail_value)
+    return values
+
+
+def extract_toc_section_sequences(root: ET.Element) -> Dict[int, List[int]]:
+    toc = root.find("tableOfContents")
+    if toc is None:
+        return {}
+    sequences: Dict[int, List[int]] = {}
+    toc_text = "\n".join(_iter_nonempty_text_nodes(toc))
+    for match in TOC_SECTION_NUMBER_RE.finditer(toc_text):
+        article_num = int(match.group("article"))
+        section_num = int(match.group("section"))
+        sequences.setdefault(article_num, []).append(section_num)
+    return sequences
+
+
+def extract_body_section_sequences(root: ET.Element) -> Dict[int, List[int]]:
+    body = root.find("body")
+    if body is None:
+        return {}
+    sequences: Dict[int, List[int]] = {}
+    for article_elem in [child for child in list(body) if child.tag == "article"]:
+        article_num = _extract_article_number_from_elem(article_elem)
+        if article_num is None:
+            continue
+        article_sequence: List[int] = []
+        for section_elem in [child for child in list(article_elem) if child.tag == "section"]:
+            section_title = section_elem.attrib.get("title", "")
+            parsed_numbers = _extract_section_numbers(section_title)
+            if parsed_numbers is None:
+                continue
+            section_article_num, section_num = parsed_numbers
+            if section_article_num != article_num:
+                continue
+            article_sequence.append(section_num)
+        if article_sequence:
+            sequences[article_num] = article_sequence
+    return sequences
+
+
+def extract_body_page_uuid_article_map(root: ET.Element) -> Dict[str, Tuple[int, ...]]:
+    body = root.find("body")
+    if body is None:
+        return {}
+    page_articles: Dict[str, List[int]] = {}
+    for article_elem in [child for child in list(body) if child.tag == "article"]:
+        article_num = _extract_article_number_from_elem(article_elem)
+        if article_num is None:
+            continue
+        article_page_uuids = _merge_page_uuid_targets(
+            _collect_page_uuids(article_elem),
+            *[_collect_page_uuids(section_elem) for section_elem in list(article_elem) if section_elem.tag == "section"],
+        )
+        for page_uuid in article_page_uuids:
+            article_nums = page_articles.setdefault(page_uuid, [])
+            if article_num not in article_nums:
+                article_nums.append(article_num)
+    return {
+        page_uuid: tuple(article_nums)
+        for page_uuid, article_nums in page_articles.items()
+    }
+
+
+def toc_consistent_article_numbers(root: ET.Element) -> set[int]:
+    toc_sequences = extract_toc_section_sequences(root)
+    body_sequences = extract_body_section_sequences(root)
+    consistent_articles: set[int] = set()
+    for article_num, body_sequence in body_sequences.items():
+        toc_sequence = toc_sequences.get(article_num)
+        if toc_sequence is None:
+            continue
+        if toc_sequence == body_sequence:
+            consistent_articles.add(article_num)
+    return consistent_articles
+
+
 def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
     attr_uuid = (
         root.attrib.get("pageUUID")
@@ -530,6 +622,7 @@ def _target_section_non_sequential_page_uuids(
 
 def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
     violations: List[XMLHardRuleViolation] = []
+    toc_consistent_articles = toc_consistent_article_numbers(root)
     body = root.find("body")
     if body is None:
         return [
@@ -637,22 +730,23 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                     )
                 )
             if section_num != expected_section_num:
-                violations.append(
-                    XMLHardRuleViolation(
-                        reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
-                        reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
-                        page_uuids=_target_section_non_sequential_page_uuids(
-                            previous_section_elem=previous_section_elem,
-                            current_section_elem=section_elem,
-                            section_title=section_title,
-                            section_article_num=section_article_num,
-                            expected_section_num=expected_section_num,
-                            found_section_num=section_num,
-                            current_page_uuids=section_page_uuids,
-                            previous_page_uuids=previous_section_page_uuids,
-                        ),
+                if article_num not in toc_consistent_articles:
+                    violations.append(
+                        XMLHardRuleViolation(
+                            reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
+                            reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
+                            page_uuids=_target_section_non_sequential_page_uuids(
+                                previous_section_elem=previous_section_elem,
+                                current_section_elem=section_elem,
+                                section_title=section_title,
+                                section_article_num=section_article_num,
+                                expected_section_num=expected_section_num,
+                                found_section_num=section_num,
+                                current_page_uuids=section_page_uuids,
+                                previous_page_uuids=previous_section_page_uuids,
+                            ),
+                        )
                     )
-                )
                 expected_section_num = section_num + 1
             else:
                 expected_section_num += 1
@@ -688,11 +782,28 @@ def _render_tag_tree_from_root(root: ET.Element) -> str:
     return "\n".join(lines)
 
 
+def _build_xml_verify_toc_context(root: ET.Element) -> str | None:
+    toc_sequences = extract_toc_section_sequences(root)
+    if not toc_sequences:
+        return None
+    lines: List[str] = []
+    for article_num in sorted(toc_sequences):
+        sequence = toc_sequences[article_num]
+        if not sequence:
+            continue
+        numbering = ", ".join(f"{article_num}.{section_num}" for section_num in sequence)
+        lines.append(f"Article {article_num}: {numbering}")
+    if not lines:
+        return None
+    return "XML tableOfContents numbering:\n" + "\n".join(lines)
+
+
 def _build_xml_verify_batch_request_body(
     *,
     custom_id: str,
     tag_tree: str,
     model: str,
+    toc_context: str | None = None,
 ) -> Dict[str, Any]:
     schema: Dict[str, Any] = {
         "type": "object",
@@ -707,10 +818,13 @@ def _build_xml_verify_batch_request_body(
         },
         "required": ["status"],
     }
+    input_text = f"XML tag tree:\n{tag_tree}"
+    if toc_context is not None and toc_context.strip():
+        input_text += f"\n\n{toc_context.strip()}"
     body: Dict[str, Any] = {
         "model": model,
         "instructions": XML_VERIFY_INSTRUCTIONS,
-        "input": f"XML tag tree:\n{tag_tree}",
+        "input": input_text,
         "text": {
             "format": {
                 "type": "json_schema",
@@ -1430,6 +1544,7 @@ def xml_verify_asset(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
                 model="gpt-5-mini",
+                toc_context=_build_xml_verify_toc_context(root),
             )
         )
 
@@ -1733,6 +1848,7 @@ def regular_ingest_xml_verify_asset(
                     custom_id=custom_id,
                     tag_tree=tag_tree,
                     model="gpt-5-mini",
+                    toc_context=_build_xml_verify_toc_context(root),
                 )
             )
 

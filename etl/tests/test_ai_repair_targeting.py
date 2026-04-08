@@ -9,6 +9,7 @@ from etl.defs.d_ai_repair_asset import (
     _repair_model_for_attempted,
     _repair_model_for_candidate,
     _apply_full_page_tag_spans,
+    _build_toc_context_for_page,
     _validate_full_page_tag_spans,
 )
 from etl.defs.resources import AIRepairAttemptPriority
@@ -258,6 +259,49 @@ class AiRepairTargetingTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 2)
         self.assertTrue(all(int(c["has_completed_requests"]) == 1 for c in candidates))
+
+    def test_build_toc_context_for_page_returns_article_specific_numbering(self) -> None:
+        xml_text = """
+        <document>
+          <tableOfContents>
+            <text>5.20 Intellectual Property</text>
+            <text>5.21 [Reserved]</text>
+            <text>5.22 Customers and Suppliers</text>
+            <text>5.23 Accounts Receivable and Payable; Loans</text>
+            <text>6.1 Corporate Existence and Power</text>
+          </tableOfContents>
+          <body>
+            <article title="ARTICLE V">
+              <section title="Section 5.20 Intellectual Property" pageUUID="page-28" />
+              <section title="Section 5.22 Customers and Suppliers" pageUUID="page-29" />
+              <section title="Section 5.23 Accounts Receivable and Payable; Loans" pageUUID="page-30" />
+            </article>
+          </body>
+        </document>
+        """
+
+        toc_context = _build_toc_context_for_page("page-29", xml_text)
+
+        self.assertEqual(
+            toc_context,
+            "Article 5 TOC section numbering: 5.20, 5.21, 5.22, 5.23",
+        )
+
+    def test_build_toc_context_for_page_omits_context_when_page_has_multiple_articles(self) -> None:
+        xml_text = """
+        <document>
+          <tableOfContents>
+            <text>5.20 Intellectual Property</text>
+            <text>6.1 Corporate Existence and Power</text>
+          </tableOfContents>
+          <body>
+            <article title="ARTICLE V"><section title="Section 5.20 Intellectual Property" pageUUID="page-29" /></article>
+            <article title="ARTICLE VI"><section title="Section 6.1 Corporate Existence and Power" pageUUID="page-29" /></article>
+          </body>
+        </document>
+        """
+
+        self.assertIsNone(_build_toc_context_for_page("page-29", xml_text))
 
     def test_fetch_candidates_prioritizes_pure_section_non_sequential_over_mixed_reason_agreements(self) -> None:
         invalid_rows = [

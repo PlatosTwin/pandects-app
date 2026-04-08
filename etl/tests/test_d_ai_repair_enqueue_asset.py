@@ -6,7 +6,11 @@ from unittest.mock import ANY, patch
 
 from dagster import AssetExecutionContext
 
-from etl.defs.d_ai_repair_asset import ai_repair_enqueue_asset, regular_ingest_ai_repair_enqueue_asset
+from etl.defs.d_ai_repair_asset import (
+    _enqueue_ai_repair_for_agreements,
+    ai_repair_enqueue_asset,
+    regular_ingest_ai_repair_enqueue_asset,
+)
 from etl.defs.resources import (
     AIRepairAttemptPriority,
     DBResource,
@@ -52,6 +56,190 @@ class _FakeDB:
 
 
 class AIRepairEnqueueAssetTests(unittest.TestCase):
+    def test_enqueue_attaches_toc_only_for_pure_section_non_sequential_candidates(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=25,
+                    resume_openai_batches=False,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+
+        build_calls: list[dict[str, object]] = []
+
+        class _FakeFiles:
+            def create(self, *, purpose: str, file: object) -> object:
+                _ = purpose
+                _ = file
+                return SimpleNamespace(id="file-1")
+
+        class _FakeBatches:
+            def create(self, *, input_file_id: str, endpoint: str, completion_window: str) -> object:
+                _ = input_file_id
+                _ = endpoint
+                _ = completion_window
+                return SimpleNamespace(id="batch-1", status="queued")
+
+        fake_client = SimpleNamespace(files=_FakeFiles(), batches=_FakeBatches())
+
+        def _fake_build_jsonl_lines_for_page(**kwargs: object) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+            build_calls.append(dict(kwargs))
+            page_uuid = cast(str, kwargs["page_uuid"])
+            xml_version = cast(int, kwargs["xml_version"])
+            return (
+                [{"custom_id": f"{page_uuid}::full::{xml_version}", "body": {"input": []}}],
+                [{"request_id": f"{page_uuid}::full::{xml_version}", "page_uuid": page_uuid, "mode": "full", "excerpt_start": 0, "excerpt_end": 1}],
+            )
+
+        candidates = [
+            {
+                "page_uuid": "page-gap",
+                "agreement_uuid": "agreement-1",
+                "text": "5.22 Customers and Suppliers.",
+                "ai_repair_attempted": 0,
+                "has_completed_requests": 0,
+                "xml_version": 4,
+                "page_order": 1,
+            },
+            {
+                "page_uuid": "page-mixed",
+                "agreement_uuid": "agreement-1",
+                "text": "5.23 Accounts Receivable and Payable; Loans.",
+                "ai_repair_attempted": 0,
+                "has_completed_requests": 0,
+                "xml_version": 4,
+                "page_order": 2,
+            },
+        ]
+
+        with (
+            patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
+            patch("etl.defs.d_ai_repair_asset._fetch_candidates", return_value=candidates),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_candidate_page_reason_codes",
+                return_value={
+                    "page-gap": {"section_non_sequential"},
+                    "page-mixed": {"section_non_sequential", "section_article_mismatch"},
+                },
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_latest_xml_text_by_agreement",
+                return_value={"agreement-1": "<document />"},
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._build_toc_context_for_page",
+                return_value="Article 5 TOC section numbering: 5.20, 5.21, 5.22, 5.23",
+            ) as build_toc_context,
+            patch("etl.defs.d_ai_repair_asset.build_jsonl_lines_for_page", side_effect=_fake_build_jsonl_lines_for_page),
+            patch("etl.defs.d_ai_repair_asset._oai_client", return_value=fake_client),
+            patch("etl.defs.d_ai_repair_asset._insert_batch_row"),
+            patch("etl.defs.d_ai_repair_asset._insert_requests"),
+            patch("etl.defs.d_ai_repair_asset._mark_xml_ai_repair_attempted", return_value=1),
+            patch("etl.defs.d_ai_repair_asset.run_post_asset_refresh"),
+        ):
+            result = _enqueue_ai_repair_for_agreements(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                target_agreement_uuids=None,
+                log_prefix="ai_repair_enqueue_asset",
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+        self.assertEqual(len(build_calls), 2)
+        self.assertEqual(build_calls[0]["toc_context"], "Article 5 TOC section numbering: 5.20, 5.21, 5.22, 5.23")
+        self.assertIsNone(build_calls[1]["toc_context"])
+        self.assertEqual(build_toc_context.call_count, 1)
+
+    def test_enqueue_omits_toc_when_numbering_candidate_has_no_parseable_toc(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=25,
+                    resume_openai_batches=False,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+
+        build_calls: list[dict[str, object]] = []
+
+        class _FakeFiles:
+            def create(self, *, purpose: str, file: object) -> object:
+                _ = purpose
+                _ = file
+                return SimpleNamespace(id="file-1")
+
+        class _FakeBatches:
+            def create(self, *, input_file_id: str, endpoint: str, completion_window: str) -> object:
+                _ = input_file_id
+                _ = endpoint
+                _ = completion_window
+                return SimpleNamespace(id="batch-1", status="queued")
+
+        fake_client = SimpleNamespace(files=_FakeFiles(), batches=_FakeBatches())
+
+        def _fake_build_jsonl_lines_for_page(**kwargs: object) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+            build_calls.append(dict(kwargs))
+            page_uuid = cast(str, kwargs["page_uuid"])
+            xml_version = cast(int, kwargs["xml_version"])
+            return (
+                [{"custom_id": f"{page_uuid}::full::{xml_version}", "body": {"input": []}}],
+                [{"request_id": f"{page_uuid}::full::{xml_version}", "page_uuid": page_uuid, "mode": "full", "excerpt_start": 0, "excerpt_end": 1}],
+            )
+
+        candidates = [
+            {
+                "page_uuid": "page-gap",
+                "agreement_uuid": "agreement-1",
+                "text": "5.22 Customers and Suppliers.",
+                "ai_repair_attempted": 0,
+                "has_completed_requests": 0,
+                "xml_version": 4,
+                "page_order": 1,
+            },
+        ]
+
+        with (
+            patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
+            patch("etl.defs.d_ai_repair_asset._fetch_candidates", return_value=candidates),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_candidate_page_reason_codes",
+                return_value={"page-gap": {"section_non_sequential"}},
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_latest_xml_text_by_agreement",
+                return_value={"agreement-1": "<document />"},
+            ),
+            patch("etl.defs.d_ai_repair_asset._build_toc_context_for_page", return_value=None),
+            patch("etl.defs.d_ai_repair_asset.build_jsonl_lines_for_page", side_effect=_fake_build_jsonl_lines_for_page),
+            patch("etl.defs.d_ai_repair_asset._oai_client", return_value=fake_client),
+            patch("etl.defs.d_ai_repair_asset._insert_batch_row"),
+            patch("etl.defs.d_ai_repair_asset._insert_requests"),
+            patch("etl.defs.d_ai_repair_asset._mark_xml_ai_repair_attempted", return_value=1),
+            patch("etl.defs.d_ai_repair_asset.run_post_asset_refresh"),
+        ):
+            _ = _enqueue_ai_repair_for_agreements(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                target_agreement_uuids=None,
+                log_prefix="ai_repair_enqueue_asset",
+            )
+
+        self.assertEqual(len(build_calls), 1)
+        self.assertIsNone(build_calls[0]["toc_context"])
+
     def test_resume_prefers_oldest_stranded_batch_before_new_candidates(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
         db = _FakeDB()

@@ -14,6 +14,7 @@ Required tables (managed via migrations):
 
 import io
 import json
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Tuple, Set, Optional
 
 import dagster as dg
@@ -33,6 +34,8 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+    extract_body_page_uuid_article_map,
+    extract_toc_section_sequences,
     regular_ingest_xml_verify_asset,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
@@ -97,6 +100,82 @@ def _repair_model_for_candidate(
     if has_completed_requests:
         return AI_REPAIR_RETRY_MODEL
     return _repair_model_for_attempted(ai_repair_attempted)
+
+
+def _fetch_candidate_page_reason_codes(
+    conn: Connection,
+    schema: str,
+    *,
+    page_uuids: List[str],
+) -> Dict[str, Set[str]]:
+    if not page_uuids:
+        return {}
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT
+                r.page_uuid,
+                r.reason_code
+            FROM {schema}.xml_status_reasons r
+            JOIN {schema}.xml x
+                ON x.agreement_uuid = r.agreement_uuid
+               AND x.version = r.xml_version
+            WHERE x.latest = 1
+              AND x.status = 'invalid'
+              AND r.page_uuid IN :page_uuids
+            """
+        ).bindparams(bindparam("page_uuids", expanding=True)),
+        {"page_uuids": page_uuids},
+    ).mappings().fetchall()
+    reason_codes_by_page_uuid: Dict[str, Set[str]] = {}
+    for row in rows:
+        page_uuid = str(row["page_uuid"])
+        reason_code = str(row["reason_code"])
+        reason_codes_by_page_uuid.setdefault(page_uuid, set()).add(reason_code)
+    return reason_codes_by_page_uuid
+
+
+def _fetch_latest_xml_text_by_agreement(
+    conn: Connection,
+    schema: str,
+    *,
+    agreement_uuids: List[str],
+) -> Dict[str, str]:
+    if not agreement_uuids:
+        return {}
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT agreement_uuid, xml
+            FROM {schema}.xml
+            WHERE latest = 1
+              AND agreement_uuid IN :agreement_uuids
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True)),
+        {"agreement_uuids": agreement_uuids},
+    ).mappings().fetchall()
+    return {
+        str(row["agreement_uuid"]): str(row.get("xml") or "")
+        for row in rows
+    }
+
+
+def _build_toc_context_for_page(page_uuid: str, xml_text: str) -> str | None:
+    if not xml_text.strip():
+        return None
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+    article_nums = extract_body_page_uuid_article_map(root).get(page_uuid)
+    if article_nums is None or len(article_nums) != 1:
+        return None
+    article_num = article_nums[0]
+    toc_sections = extract_toc_section_sequences(root).get(article_num)
+    if not toc_sections:
+        return None
+    toc_numbers = ", ".join(f"{article_num}.{section_num}" for section_num in toc_sections)
+    return f"Article {article_num} TOC section numbering: {toc_numbers}"
 
 
 def _fetch_candidates(
@@ -676,13 +755,34 @@ def _enqueue_ai_repair_for_agreements(
             request_lines_by_model: Dict[str, List[Dict[str, Any]]] = {}
             lines_meta_by_model: Dict[str, List[Dict[str, Any]]] = {}
             request_count_by_model: Dict[str, int] = {}
+            candidate_page_uuids = [str(row["page_uuid"]) for row in candidates]
+            candidate_reason_codes = _fetch_candidate_page_reason_codes(
+                conn,
+                db.database,
+                page_uuids=candidate_page_uuids,
+            )
+            candidate_xml_text_by_agreement = _fetch_latest_xml_text_by_agreement(
+                conn,
+                db.database,
+                agreement_uuids=sorted(
+                    {str(row["agreement_uuid"]) for row in candidates}
+                ),
+            )
 
             for row in candidates:
                 page_uuid = str(row["page_uuid"])
+                agreement_uuid = str(row["agreement_uuid"])
                 text = str(row["text"])
                 attempted = int(row["ai_repair_attempted"])
                 has_completed_requests = bool(int(row["has_completed_requests"]))
                 xml_version = int(row["xml_version"])
+                page_reason_codes = candidate_reason_codes.get(page_uuid, set())
+                toc_context: str | None = None
+                if page_reason_codes == {XML_REASON_SECTION_NON_SEQUENTIAL}:
+                    toc_context = _build_toc_context_for_page(
+                        page_uuid,
+                        candidate_xml_text_by_agreement.get(agreement_uuid, ""),
+                    )
                 model = _repair_model_for_candidate(
                     attempted,
                     has_completed_requests=has_completed_requests,
@@ -700,6 +800,7 @@ def _enqueue_ai_repair_for_agreements(
                     model=model,
                     uncertain_spans=[],
                     xml_version=xml_version,
+                    toc_context=toc_context,
                 )
                 request_lines_by_model.setdefault(model, []).extend(batch_lines)
                 lines_meta_by_model.setdefault(model, []).extend(metas)

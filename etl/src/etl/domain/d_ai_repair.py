@@ -258,8 +258,8 @@ def _json_schema_excerpt_rulings() -> Dict[str, Any]:
     }
 
 
-def _system_prompt_full() -> str:
-    return ('''
+def _system_prompt_full(toc_context: str | None = None) -> str:
+    prompt = '''
     # Identity
 
     You are a professional data tagger. You will be reviewing and tagging individual pages from Merger & Acquisition agreements.
@@ -344,7 +344,21 @@ def _system_prompt_full() -> str:
     <assistant_response>
     {"spans":[{"start_char":4,"end_char":8,"label":"section","selected_text":"10.1"}],"warnings":[]}
     </assistant_response>
-       ''')
+    '''
+    if toc_context is not None and toc_context.strip():
+        prompt += (
+            "\n\n# TOC context\n"
+            f"{toc_context.strip()}\n"
+            "Use this only as supporting evidence for numbering patterns. "
+            "All offsets and selected_text values must still be based only on the provided page text. "
+            "Do not infer or reconstruct missing headings from the TOC. "
+            "If the TOC shows that a section number should appear around this page, use that as a cue to inspect the page carefully for a matching standalone heading block or bare numeric heading at the start of a new block. "
+            "Pay especially close attention to text near the top of the page, immediately after visible line breaks, and at the start of indented or isolated blocks, because missing headings often appear there as short standalone numbers. "
+            "If the exact section number appears on this page as a standalone block heading, even without a title, tag that exact on-page text as a section. "
+            "If a candidate number appears alone on its own line or clearly starts a new block and the surrounding text is section body text, that is stronger evidence of a true heading than the same number appearing inline in prose. "
+            "Do not tag inline prose references or numbers that are not functioning as headings on this page."
+        )
+    return prompt
 
 
 def _system_prompt_excerpt() -> str:
@@ -415,8 +429,9 @@ def _system_prompt_excerpt() -> str:
     )
 
 
-def _user_prompt_full(page_uuid: str, text: str) -> str:
+def _user_prompt_full(page_uuid: str, text: str, toc_context: str | None = None) -> str:
     _ = page_uuid
+    _ = toc_context
     # Pass only the source page text so the model cannot echo prompt scaffolding
     # (e.g., PAGE_UUID/Task lines) into tagged_text.
     return text
@@ -459,6 +474,7 @@ def build_jsonl_lines_for_page(
     model: str,
     uncertain_spans: List[UncertainSpan],
     xml_version: int | None = None,
+    toc_context: str | None = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Returns:
@@ -484,8 +500,13 @@ def build_jsonl_lines_for_page(
                     "schema": schema_full,
                 }
             },
-            "instructions": _system_prompt_full(),
-            "input": [{"role": "user", "content": _user_prompt_full(page_uuid, text)}],
+            "instructions": _system_prompt_full(toc_context=toc_context),
+            "input": [
+                {
+                    "role": "user",
+                    "content": _user_prompt_full(page_uuid, text, toc_context=toc_context),
+                }
+            ],
         }
         lines.append(
             {

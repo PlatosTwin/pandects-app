@@ -15,6 +15,10 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
     XML_REASON_TOO_FEW_ARTICLES,
+    XML_VERIFY_INSTRUCTIONS,
+    _build_xml_verify_batch_request_body,
+    _build_xml_verify_toc_context,
+    _render_tag_tree_from_root,
     _reason_rows_changed,
     _apply_xml_verify_batch_output,
     find_hard_rule_violations,
@@ -161,6 +165,183 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
         self.assertEqual(target.page_uuids, ("page-2", "page-3"))
+
+    def test_find_hard_rule_violations_suppresses_forward_gap_when_toc_matches_body(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>1.1 First</text>
+                <text>1.2 Second</text>
+                <text>1.4 Closing</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2" />
+                  <section title="Section 1.4 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
+
+    def test_find_hard_rule_violations_suppresses_duplicate_when_toc_matches_body(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>12.1 Intro</text>
+                <text>12.1 Duplicate Intro</text>
+                <text>12.2 Closing</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE XII">
+                  <section title="Section 12.1 Intro" pageUUID="page-1" />
+                  <section title="Section 12.1 Duplicate Intro" pageUUID="page-2" />
+                  <section title="Section 12.2 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE XIII"><section title="Section 13.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE XIV"><section title="Section 14.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE XV"><section title="Section 15.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE XVI"><section title="Section 16.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
+
+    def test_find_hard_rule_violations_keeps_gap_when_toc_conflicts(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>1.1 First</text>
+                <text>1.2 Second</text>
+                <text>1.3 Third</text>
+                <text>1.4 Closing</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2" />
+                  <section title="Section 1.4 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertTrue(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
+
+    def test_find_hard_rule_violations_keeps_gap_when_toc_is_partial(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>1.1 First</text>
+                <text>1.2 Second</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE I">
+                  <section title="Section 1.1 First" pageUUID="page-1" />
+                  <section title="Section 1.2 Second" pageUUID="page-2" />
+                  <section title="Section 1.4 Closing" pageUUID="page-3" />
+                </article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-5" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-6" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-7" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-8" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertTrue(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
+
+    def test_xml_verify_instructions_include_toc_exception(self) -> None:
+        self.assertIn("tableOfContents", XML_VERIFY_INSTRUCTIONS)
+        self.assertIn("exactly matches", XML_VERIFY_INSTRUCTIONS)
+
+    def test_xml_verify_toc_context_summarizes_numbering_for_llm_input(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>5.20 Intellectual Property</text>
+                <text>5.21 [Reserved]</text>
+                <text>5.22 Customers and Suppliers</text>
+                <text>5.23 Accounts Receivable and Payable; Loans</text>
+                <text>6.1 Corporate Existence and Power</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE V">
+                  <section title="Section 5.20 Intellectual Property" pageUUID="page-1" />
+                  <section title="Section 5.22 Customers and Suppliers" pageUUID="page-2" />
+                  <section title="Section 5.23 Accounts Receivable and Payable; Loans" pageUUID="page-3" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        toc_context = _build_xml_verify_toc_context(root)
+
+        self.assertEqual(
+            toc_context,
+            "XML tableOfContents numbering:\n"
+            "Article 5: 5.20, 5.21, 5.22, 5.23\n"
+            "Article 6: 6.1",
+        )
+
+    def test_xml_verify_request_body_includes_toc_context_when_available(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <tableOfContents>
+                <text>5.20 Intellectual Property</text>
+                <text>5.21 [Reserved]</text>
+                <text>5.22 Customers and Suppliers</text>
+              </tableOfContents>
+              <body>
+                <article title="ARTICLE V">
+                  <section title="Section 5.20 Intellectual Property" pageUUID="page-1" />
+                  <section title="Section 5.22 Customers and Suppliers" pageUUID="page-2" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        body = _build_xml_verify_batch_request_body(
+            custom_id="agreement|1",
+            tag_tree=_render_tag_tree_from_root(root),
+            model="gpt-5-mini",
+            toc_context=_build_xml_verify_toc_context(root),
+        )["body"]
+
+        self.assertIn("XML tag tree:", str(body["input"]))
+        self.assertIn("XML tableOfContents numbering:", str(body["input"]))
+        self.assertIn("Article 5: 5.20, 5.21, 5.22", str(body["input"]))
 
     def test_reason_rows_changed_ignores_order(self) -> None:
         existing = [
