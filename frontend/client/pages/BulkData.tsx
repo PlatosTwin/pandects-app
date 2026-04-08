@@ -217,7 +217,7 @@ export default function BulkData() {
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
               <div>
-                <div className="text-muted-foreground mb-2">
+                <div className="mb-2 text-foreground/80">
                   # API call to get dumps info
                 </div>
                 <div className="whitespace-nowrap pr-10">
@@ -252,9 +252,9 @@ export default function BulkData() {
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-              <div className="text-muted-foreground mb-2">
-                # Download latest dump
-              </div>
+                <div className="mb-2 text-foreground/80">
+                  # Download latest dump
+                </div>
               <div className="whitespace-nowrap pr-10">
                 {latestSqlUrl
                   ? `wget ${latestSqlUrl}`
@@ -293,9 +293,9 @@ export default function BulkData() {
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-              <div className="text-muted-foreground mb-2">
-                # Verify file integrity
-              </div>
+                <div className="mb-2 text-foreground/80">
+                  # Verify file integrity
+                </div>
               <div className="whitespace-nowrap pr-10">
                 {latestSha256
                   ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
@@ -311,7 +311,7 @@ export default function BulkData() {
         <h2 className="text-xl font-semibold text-foreground mb-2">
           About the SQL Dump
         </h2>
-        <p className="text-muted-foreground prose max-w-none">
+        <p className="prose max-w-none text-foreground/80">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
@@ -333,7 +333,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads
           </h2>
-          <p className="text-muted-foreground mt-1">
+          <p className="mt-1 text-foreground/80">
             Database dumps hosted on Cloudflare, sorted by date (newest first)
           </p>
         </div>
@@ -341,7 +341,7 @@ export default function BulkData() {
         {loading ? (
           <div className="p-8 text-center" role="status" aria-live="polite">
             <LoadingSpinner size="lg" aria-label="Loading dumps" className="mx-auto" />
-            <p className="text-muted-foreground mt-2">Loading dumps...</p>
+            <p className="mt-2 text-foreground/80">Loading dumps...</p>
           </div>
         ) : error ? (
           <div className="p-8 text-center" role="alert">
@@ -391,7 +391,7 @@ export default function BulkData() {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono text-sm text-muted-foreground truncate max-w-xs">
+                          <span className="max-w-xs truncate font-mono text-sm text-foreground/80">
                             <span title={dump.sha256} aria-label={dump.sha256}>
                               {formatSha256(dump.sha256)}
                             </span>
@@ -416,7 +416,7 @@ export default function BulkData() {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-foreground/80">
                           {formatSize(dump.size_bytes)}
                         </span>
                       </TableCell>
@@ -497,16 +497,16 @@ export default function BulkData() {
                             </Badge>
                           )}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-foreground/80">
                         {formatSize(dump.size_bytes)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
                         SHA256 hash
                       </div>
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">
+                        <span className="font-mono text-xs text-foreground/80">
                           {formatSha256(dump.sha256)}
                         </span>
                         <Button

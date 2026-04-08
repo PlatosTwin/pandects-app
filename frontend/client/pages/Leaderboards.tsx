@@ -150,9 +150,9 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={descriptionId} className="text-xl sm:text-2xl">
+            <h2 id={descriptionId} className="text-xl font-semibold leading-none tracking-tight sm:text-2xl">
               {title}
-            </CardTitle>
+            </h2>
             <CardDescription className="max-w-3xl text-sm sm:text-base">
               {description}
             </CardDescription>

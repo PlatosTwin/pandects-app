@@ -254,11 +254,11 @@ export default function Taxonomy() {
           void copyToClipboard(value);
         }
       }}
-      className="cursor-pointer rounded-sm border-0 bg-transparent p-0 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-border/50 bg-background/80 text-foreground/80 transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={label}
       title={label}
     >
-      <Copy className="h-3 w-3" aria-hidden="true" />
+      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
     </button>
   );
 
@@ -268,7 +268,7 @@ export default function Taxonomy() {
       title="Taxonomy"
     >
       <div className="mb-4">
-        <div className="rounded-lg bg-muted/20 pb-3 pt-0 text-sm text-muted-foreground sm:text-base">
+        <div className="rounded-lg bg-muted/20 pb-3 pt-0 text-sm text-foreground/80 sm:text-base">
           Pull the latest taxonomy via the{" "}
           <span className="font-mono text-sm text-foreground">/v1/taxonomy</span>{" "}
           API route. See the{" "}
@@ -323,12 +323,12 @@ export default function Taxonomy() {
                     <Skeleton className="h-4 w-3/4" />
                   </div>
                 ) : searchResults.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-foreground/80">
                     No matching clause types yet.
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
                       {searchResults.length}{" "}
                       {searchResults.length === 1 ? "result" : "results"}
                     </div>
@@ -358,7 +358,7 @@ export default function Taxonomy() {
                               </div>
                               {result.l2 && (
                                 <div className="ml-1 mt-0.5 border-l border-foreground/35 pl-3">
-                                  <div className="relative leading-snug text-muted-foreground">
+                                  <div className="relative leading-snug text-foreground/80">
                                     <span
                                       aria-hidden="true"
                                       className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/35"
@@ -378,7 +378,7 @@ export default function Taxonomy() {
                                   )}
                                 </div>
                               )}
-                              <div className="font-mono text-xs text-muted-foreground/80">
+                              <div className="font-mono text-xs text-foreground/75">
                                 {renderHighlighted(result.id)}
                               </div>
                             </div>
@@ -424,7 +424,7 @@ export default function Taxonomy() {
               ) : (
                 <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
                       <Folder className="h-4 w-4" aria-hidden="true" />
                       Level 1 Categories
                     </div>
@@ -436,7 +436,7 @@ export default function Taxonomy() {
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
                       <Layers className="h-4 w-4" aria-hidden="true" />
                       Level 2 Groups
                     </div>
@@ -448,7 +448,7 @@ export default function Taxonomy() {
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       Level 3 Types
                     </div>
@@ -490,7 +490,7 @@ export default function Taxonomy() {
               </div>
             ) : taxonomyEntries.length === 0 ? (
               <Card className="border-border/60 bg-card">
-                <CardContent className="py-6 text-sm text-muted-foreground">
+                <CardContent className="py-6 text-sm text-foreground/80">
                   No taxonomy entries are available right now.
                 </CardContent>
               </Card>
@@ -521,9 +521,9 @@ export default function Taxonomy() {
                           <div className="text-xl font-semibold text-foreground">
                             {entry.label}
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
-                              <span className="font-mono text-[11px] text-muted-foreground/70">
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/80">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
+                              <span className="font-mono text-[11px] text-foreground/75">
                                 {entry.id}
                               </span>
                               {renderCopyControl(entry.id, "Copy level 1 ID")}
@@ -583,8 +583,8 @@ export default function Taxonomy() {
                               </AccordionTrigger>
                               <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                                 <div className="mb-3">
-                                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
-                                    <span className="font-mono text-[11px] text-muted-foreground/70">
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
+                                    <span className="font-mono text-[11px] text-foreground/75">
                                       {child.id}
                                     </span>
                                     {renderCopyControl(child.id, "Copy level 2 ID")}
@@ -604,8 +604,8 @@ export default function Taxonomy() {
                                       <div className="text-sm font-medium text-foreground">
                                         {leaf.label}
                                       </div>
-                                      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                                        <span className="font-mono text-xs text-muted-foreground/70">
+                                      <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80">
+                                        <span className="font-mono text-xs text-foreground/75">
                                           {leaf.id}
                                         </span>
                                         {renderCopyControl(leaf.id, "Copy level 3 ID")}
