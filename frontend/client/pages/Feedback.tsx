@@ -138,7 +138,12 @@ export default function Feedback() {
               })
             }
           >
-            General Feedback
+            <div className="flex flex-col items-start gap-1 text-left">
+              <span>General Feedback</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                May take a few seconds to load
+              </span>
+            </div>
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">
             <div className="bg-card rounded-lg">
