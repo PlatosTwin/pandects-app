@@ -889,7 +889,7 @@ def _enqueue_ai_repair_for_agreements(
     return sorted(enqueued_agreement_uuids)
 
 
-@dg.asset(name="5-1_ai_repair_enqueue_asset")
+@dg.asset(name="05-01_ai_repair_enqueue_asset")
 def ai_repair_enqueue_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -905,7 +905,7 @@ def ai_repair_enqueue_asset(
 
 
 @dg.asset(
-    name="5-1-regular_ingest_ai_repair_enqueue_asset",
+    name="05-01_regular_ingest_ai_repair_enqueue_asset",
     ins={"verified_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
 )
 def regular_ingest_ai_repair_enqueue_asset(
@@ -1651,7 +1651,7 @@ def _poll_ai_repair_batches(
 
 
 @dg.asset(
-    name="5-2_ai_repair_poll_asset",
+    name="05-02_ai_repair_poll_asset",
     ins={"enqueued_agreement_uuids": dg.AssetIn(key=ai_repair_enqueue_asset.key)},
 )
 def ai_repair_poll_asset(
@@ -1670,7 +1670,7 @@ def ai_repair_poll_asset(
 
 
 @dg.asset(
-    name="5-2-regular_ingest_ai_repair_poll_asset",
+    name="05-02_regular_ingest_ai_repair_poll_asset",
     ins={"enqueued_agreement_uuids": dg.AssetIn(key=regular_ingest_ai_repair_enqueue_asset.key)},
 )
 def regular_ingest_ai_repair_poll_asset(

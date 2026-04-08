@@ -154,9 +154,15 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         if self.conn is not None:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
             self.conn.close()
+            self.conn = None
         if self.engine is not None:
             self.engine.dispose()
+            self.engine = None
 
     def test_refresh_keeps_only_sections_from_latest_eligible_xml(self) -> None:
         assert self.conn is not None

@@ -12,7 +12,7 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh
 
 class PostAssetRefreshTests(unittest.TestCase):
     def test_refresh_disabled_is_no_op(self) -> None:
-        context = SimpleNamespace(asset_key=SimpleNamespace(path=["3_tagging_asset"]))
+        context = SimpleNamespace(asset_key=SimpleNamespace(path=["03_tagging_asset"]))
         db = SimpleNamespace(database="pdx")
         pipeline_config = SimpleNamespace(refresh=False)
 
@@ -41,7 +41,7 @@ class PostAssetRefreshTests(unittest.TestCase):
 
         db = SimpleNamespace(database="pdx", get_engine=lambda: SimpleNamespace(begin=lambda: _FakeBegin()))
 
-        for asset_name in ("7_taxonomy_asset", "8_tx_metadata_asset", "9_embed_sections"):
+        for asset_name in ("07_taxonomy_asset", "10_tx_metadata_asset", "11_embed_sections"):
             context = SimpleNamespace(asset_key=SimpleNamespace(path=[asset_name]))
             with (
                 patch("etl.utils.post_asset_refresh.apply_gating") as apply_gating,

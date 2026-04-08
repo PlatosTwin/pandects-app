@@ -665,12 +665,13 @@ def _run_tax_module_for_agreements(
     return sorted(set(processed_agreement_uuids))
 
 
-@dg.asset(deps=[sections_asset], name="8_tax_module_asset")
+@dg.asset(deps=[sections_asset], name="08_tax_module_asset")
 def tax_module_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> list[str]:
+    """Manual tax-module entrypoint for generic sections runs."""
     return _run_tax_module_for_agreements(
         context,
         db,
@@ -681,7 +682,7 @@ def tax_module_asset(
 
 
 @dg.asset(
-    name="8-1_tax_module_from_fresh_xml",
+    name="08-01_tax_module_from_fresh_xml",
     ins={"section_agreement_uuids": dg.AssetIn(key=sections_from_fresh_xml_asset.key)},
 )
 def tax_module_from_fresh_xml_asset(
@@ -700,7 +701,7 @@ def tax_module_from_fresh_xml_asset(
 
 
 @dg.asset(
-    name="8-2_tax_module_from_repair_xml",
+    name="08-02_tax_module_from_repair_xml",
     ins={"section_agreement_uuids": dg.AssetIn(key=sections_from_repair_xml_asset.key)},
 )
 def tax_module_from_repair_xml_asset(
@@ -719,7 +720,7 @@ def tax_module_from_repair_xml_asset(
 
 
 @dg.asset(
-    name="8-3_regular_ingest_tax_module_asset",
+    name="08-03_regular_ingest_tax_module_asset",
     ins={"section_agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_llm_asset.key)},
 )
 def regular_ingest_tax_module_asset(

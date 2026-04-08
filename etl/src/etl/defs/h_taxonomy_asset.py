@@ -950,13 +950,14 @@ def _run_taxonomy_mode(
     return sorted(processed_agreement_uuids)
 
 
-@dg.asset(deps=[sections_asset], name="7_taxonomy_asset")
+@dg.asset(deps=[sections_asset], name="07_taxonomy_asset")
 def taxonomy_asset(
     context: AssetExecutionContext,
     db: DBResource,
     taxonomy_model: TaxonomyModel,
     pipeline_config: PipelineConfig,
 ) -> None:
+    """Manual taxonomy entrypoint for generic sections runs."""
     processed_agreement_uuids = _run_taxonomy_mode(
         context,
         db=db,
@@ -970,7 +971,7 @@ def taxonomy_asset(
 
 
 @dg.asset(
-    name="7-1_regular_ingest_taxonomy_llm_asset",
+    name="07-01_regular_ingest_taxonomy_llm_asset",
     ins={
         "fresh_section_agreement_uuids": dg.AssetIn(key=regular_ingest_sections_from_fresh_xml_asset.key),
         "repair_section_agreement_uuids": dg.AssetIn(key=regular_ingest_sections_from_repair_xml_asset.key),
@@ -996,8 +997,8 @@ def regular_ingest_taxonomy_llm_asset(
 
 
 @dg.asset(
-    name="7-2_regular_ingest_taxonomy_gold_backfill_asset",
-    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("8-3_regular_ingest_tax_module_asset"))},
+    name="09_regular_ingest_taxonomy_gold_backfill_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("08-03_regular_ingest_tax_module_asset"))},
 )
 def regular_ingest_taxonomy_gold_backfill_asset(
     context: AssetExecutionContext,

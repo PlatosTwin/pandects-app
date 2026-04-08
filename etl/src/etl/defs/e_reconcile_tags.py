@@ -112,7 +112,7 @@ def _reconcile_tags_for_requests(
 
 
 @dg.asset(
-    name="5-3_reconcile_tags",
+    name="05-03_reconcile_tags",
     ins={"polled_request_ids": dg.AssetIn(key=ai_repair_poll_asset.key)},
 )
 def reconcile_tags(
@@ -131,7 +131,7 @@ def reconcile_tags(
 
 
 @dg.asset(
-    name="5-3-regular_ingest_reconcile_tags",
+    name="05-03_regular_ingest_reconcile_tags",
     ins={"polled_request_ids": dg.AssetIn(key=regular_ingest_ai_repair_poll_asset.key)},
 )
 def regular_ingest_reconcile_tags(

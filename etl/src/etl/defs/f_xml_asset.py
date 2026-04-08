@@ -1314,7 +1314,7 @@ def _run_xml_build_for_agreements(
     return sorted(set(built_agreement_uuids))
 
 
-@dg.asset(deps=[tagging_asset], name="4-1_build_xml")
+@dg.asset(deps=[tagging_asset], name="04-01_build_xml")
 def xml_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -1344,7 +1344,7 @@ def xml_asset(
 
 
 @dg.asset(
-    name="4-1-regular_ingest_build_xml",
+    name="04-01_regular_ingest_build_xml",
     ins={"tagged_agreement_uuids": dg.AssetIn(key=regular_ingest_tagging_asset.key)},
 )
 def regular_ingest_xml_asset(
@@ -1365,7 +1365,7 @@ def regular_ingest_xml_asset(
 
 
 @dg.asset(
-    name="4-2_verify_xml",
+    name="04-02_verify_xml",
     ins={"built_xml_agreement_uuids": dg.AssetIn(key=xml_asset.key)},
 )
 def xml_verify_asset(
@@ -1706,7 +1706,7 @@ def xml_verify_asset(
 
 
 @dg.asset(
-    name="4-2-regular_ingest_verify_xml",
+    name="04-02_regular_ingest_verify_xml",
     ins={"built_xml_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_asset.key)},
 )
 def regular_ingest_xml_verify_asset(

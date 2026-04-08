@@ -46,7 +46,7 @@ from etl.defs.k_tax_module_asset import (
     tax_module_from_fresh_xml_asset,
     tax_module_from_repair_xml_asset,
 )
-from etl.defs.z_gating_asset import gating_asset
+from etl.defs.gating_asset import gating_asset
 from etl.defs.resources import get_resources
 
 base_resources = get_resources()
@@ -126,15 +126,15 @@ defs = dg.Definitions(
         regular_ingest_sections_from_repair_xml_asset,
         taxonomy_asset,
         regular_ingest_taxonomy_llm_asset,
+        tax_module_asset,
+        tax_module_from_fresh_xml_asset,
+        tax_module_from_repair_xml_asset,
+        regular_ingest_tax_module_asset,
         regular_ingest_taxonomy_gold_backfill_asset,
         tx_metadata_asset,
         regular_ingest_tx_metadata_offline_asset,
         regular_ingest_tx_metadata_web_search_asset,
         embed_sections_asset,
-        tax_module_asset,
-        tax_module_from_fresh_xml_asset,
-        tax_module_from_repair_xml_asset,
-        regular_ingest_tax_module_asset,
         gating_asset,
     ],
     jobs=[xml_fresh_pipeline, xml_repair_cycle_pipeline, regular_ingest],

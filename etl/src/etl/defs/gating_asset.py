@@ -3,15 +3,16 @@ import dagster as dg
 from dagster import AssetExecutionContext
 
 from etl.defs.resources import DBResource
-from etl.domain.z_gating import apply_gating
+from etl.domain.gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 
-@dg.asset(name="z_gating")
+@dg.asset(name="99_gating")
 def gating_asset(
     context: AssetExecutionContext,
     db: DBResource,
 ) -> None:
+    """Manual maintenance asset for gating and summary refresh."""
     engine = db.get_engine()
     with engine.begin() as conn:
         context.log.info("Gating: applying criteria + priority updates.")

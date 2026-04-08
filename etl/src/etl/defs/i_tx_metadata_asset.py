@@ -719,12 +719,13 @@ def _sync_counsel_mappings(
     )
 
 
-@dg.asset(deps=[], name="8_tx_metadata_asset")
+@dg.asset(deps=[], name="10_tx_metadata_asset")
 def tx_metadata_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> None:
+    """Manual transaction-metadata entrypoint outside the explicit ingest jobs."""
     run_pre_asset_gating(context, db)
 
     ensure_single_batch_run(context, pipeline_config, asset_name="tx_metadata_asset")
@@ -764,7 +765,7 @@ def tx_metadata_asset(
 
 
 @dg.asset(
-    name="9-1_regular_ingest_tx_metadata_offline_asset",
+    name="10-01_regular_ingest_tx_metadata_offline_asset",
     ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_gold_backfill_asset.key)},
 )
 def regular_ingest_tx_metadata_offline_asset(
@@ -796,7 +797,7 @@ def regular_ingest_tx_metadata_offline_asset(
 
 
 @dg.asset(
-    name="9-2_regular_ingest_tx_metadata_web_search_asset",
+    name="10-02_regular_ingest_tx_metadata_web_search_asset",
     ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_tx_metadata_offline_asset.key)},
 )
 def regular_ingest_tx_metadata_web_search_asset(

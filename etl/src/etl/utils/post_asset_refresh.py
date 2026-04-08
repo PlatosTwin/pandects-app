@@ -5,19 +5,19 @@ from dagster import AssetExecutionContext
 from sqlalchemy.engine import Connection
 
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.domain.z_gating import apply_gating
+from etl.domain.gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 _MAIN_STAGE_REFRESH_ASSET_NAMES = {
-    "1_staging_asset",
-    "2_pre_processing_asset",
-    "3_tagging_asset",
-    "6_sections_asset",
-    "6-1_sections_from_fresh_xml",
-    "6-2_sections_from_repair_xml",
-    "7_taxonomy_asset",
-    "8_tx_metadata_asset",
-    "9_embed_sections",
+    "01_staging_asset",
+    "02_pre_processing_asset",
+    "03_tagging_asset",
+    "06_sections_asset",
+    "06-01_sections_from_fresh_xml",
+    "06-02_sections_from_repair_xml",
+    "07_taxonomy_asset",
+    "10_tx_metadata_asset",
+    "11_embed_sections",
 }
 
 

@@ -136,7 +136,7 @@ def _run_tagging_for_agreements(
     return sorted(processed_agreement_uuids)
 
 
-@dg.asset(deps=[pre_processing_asset], name="3_tagging_asset")
+@dg.asset(deps=[pre_processing_asset], name="03_tagging_asset")
 def tagging_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -165,7 +165,7 @@ def tagging_asset(
 
 
 @dg.asset(
-    name="3-1_regular_ingest_tagging_asset",
+    name="03-01_regular_ingest_tagging_asset",
     ins={"pre_processed_agreement_uuids": dg.AssetIn(key=regular_ingest_pre_processing_asset.key)},
 )
 def regular_ingest_tagging_asset(

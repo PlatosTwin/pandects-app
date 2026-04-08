@@ -169,7 +169,7 @@ def _run_pre_processing_from_scratch(
     return sorted(processed_agreement_uuids)
 
 
-@dg.asset(deps=[staging_asset], name="2_pre_processing_asset")
+@dg.asset(deps=[staging_asset], name="02_pre_processing_asset")
 def pre_processing_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -366,7 +366,7 @@ def pre_processing_asset(
 
 
 @dg.asset(
-    name="2-1_regular_ingest_pre_processing_asset",
+    name="02-01_regular_ingest_pre_processing_asset",
     ins={"staged_agreement_uuids": dg.AssetIn(key=regular_ingest_staging_asset.key)},
 )
 def regular_ingest_pre_processing_asset(

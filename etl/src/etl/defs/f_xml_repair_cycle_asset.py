@@ -46,7 +46,7 @@ from etl.utils.schema_guards import assert_tables_exist
 
 
 @dg.asset(
-    name="5-4_post_repair_build_xml",
+    name="05-04_post_repair_build_xml",
     ins={"reconciled_agreement_uuids": dg.AssetIn(key=reconcile_tags.key)},
 )
 def post_repair_build_xml_asset(
@@ -237,7 +237,7 @@ def post_repair_build_xml_asset(
 
 
 @dg.asset(
-    name="5-5_post_repair_verify_xml",
+    name="05-05_post_repair_verify_xml",
     ins={"rebuilt_agreement_uuids": dg.AssetIn(key=post_repair_build_xml_asset.key)},
 )
 def post_repair_verify_xml_asset(
@@ -576,7 +576,7 @@ def post_repair_verify_xml_asset(
 
 
 @dg.asset(
-    name="5-4-regular_ingest_post_repair_build_xml",
+    name="05-04_regular_ingest_post_repair_build_xml",
     ins={"reconciled_agreement_uuids": dg.AssetIn(key=regular_ingest_reconcile_tags.key)},
 )
 def regular_ingest_post_repair_build_xml_asset(
@@ -723,7 +723,7 @@ def regular_ingest_post_repair_build_xml_asset(
 
 
 @dg.asset(
-    name="5-5-regular_ingest_post_repair_verify_xml",
+    name="05-05_regular_ingest_post_repair_verify_xml",
     ins={"rebuilt_agreement_uuids": dg.AssetIn(key=regular_ingest_post_repair_build_xml_asset.key)},
 )
 def regular_ingest_post_repair_verify_xml_asset(

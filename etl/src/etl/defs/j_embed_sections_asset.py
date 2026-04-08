@@ -20,7 +20,7 @@ _VOYAGE_EMBED_BATCH_SIZE = 128
 def _voyage_client() -> Any:
     api_key = os.getenv("VOYAGE_API_KEY")
     if not api_key:
-        raise ValueError("VOYAGE_API_KEY is required for 9_embed_sections.")
+        raise ValueError("VOYAGE_API_KEY is required for 11_embed_sections.")
     voyageai = importlib.import_module("voyageai")
     return voyageai.Client(api_key=api_key)
 
@@ -54,7 +54,7 @@ def _assert_sections_embedding_columns(conn: Connection, schema: str) -> None:
     if missing:
         missing_csv = ", ".join(missing)
         raise RuntimeError(
-            f"9_embed_sections requires columns on {schema}.sections: {missing_csv}."
+            f"11_embed_sections requires columns on {schema}.sections: {missing_csv}."
         )
 
 
@@ -140,12 +140,13 @@ def _embed_documents(client: Any, documents: List[str]) -> List[List[float]]:
     return embeddings
 
 
-@dg.asset(deps=[sections_asset], name="9_embed_sections")
+@dg.asset(deps=[sections_asset], name="11_embed_sections")
 def embed_sections_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> int:
+    """Manual downstream embedding entrypoint for populated sections."""
     agreement_batch_size = pipeline_config.embed_agreement_batch_size
     focus_batch_size = pipeline_config.embed_focus_section_batch_size
     focus_section = pipeline_config.embed_focus_section.strip()
@@ -167,7 +168,7 @@ def embed_sections_asset(
             agreement_uuids = _select_agreement_pool(conn, sections_table, agreement_batch_size)
             section_rows = _select_sections_for_agreements(conn, sections_table, agreement_uuids)
             context.log.info(
-                "9_embed_sections: selected %s agreements and %s sections.",
+                "11_embed_sections: selected %s agreements and %s sections.",
                 len(agreement_uuids),
                 len(section_rows),
             )
@@ -176,7 +177,7 @@ def embed_sections_asset(
                 conn, sections_table, focus_section, focus_batch_size
             )
             context.log.info(
-                "9_embed_sections: selected %s sections where section_standard_id='%s'.",
+                "11_embed_sections: selected %s sections where section_standard_id='%s'.",
                 len(section_rows),
                 focus_section,
             )
@@ -216,7 +217,7 @@ def embed_sections_asset(
             updated_rows += int(result.rowcount or 0)
 
     context.log.info(
-        "9_embed_sections: embedded %s sections, updated=%s.",
+        "11_embed_sections: embedded %s sections, updated=%s.",
         len(section_rows),
         updated_rows,
     )

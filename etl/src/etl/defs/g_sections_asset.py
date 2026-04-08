@@ -143,13 +143,13 @@ def _run_sections_for_agreements(
     return sorted(set(processed_agreement_uuids))
 
 
-@dg.asset(deps=[xml_verify_asset, reconcile_tags, post_repair_verify_xml_asset], name="6_sections_asset")
+@dg.asset(deps=[xml_verify_asset, reconcile_tags, post_repair_verify_xml_asset], name="06_sections_asset")
 def sections_asset(
     context: AssetExecutionContext,
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> List[str]:
-    # Backward-compatible generic sections run (not run-scoped).
+    # Backward-compatible manual sections run (not run-scoped).
     return _run_sections_for_agreements(
         context,
         db,
@@ -160,7 +160,7 @@ def sections_asset(
 
 
 @dg.asset(
-    name="6-1_sections_from_fresh_xml",
+    name="06-01_sections_from_fresh_xml",
     ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=xml_verify_asset.key)},
 )
 def sections_from_fresh_xml_asset(
@@ -190,7 +190,7 @@ def sections_from_fresh_xml_asset(
 
 
 @dg.asset(
-    name="6-1-regular_ingest_sections_from_fresh_xml",
+    name="06-01_regular_ingest_sections_from_fresh_xml",
     ins={"verified_fresh_agreement_uuids": dg.AssetIn(key=regular_ingest_xml_verify_asset.key)},
 )
 def regular_ingest_sections_from_fresh_xml_asset(
@@ -209,7 +209,7 @@ def regular_ingest_sections_from_fresh_xml_asset(
 
 
 @dg.asset(
-    name="6-2_sections_from_repair_xml",
+    name="06-02_sections_from_repair_xml",
     ins={"verified_repair_agreement_uuids": dg.AssetIn(key=post_repair_verify_xml_asset.key)},
 )
 def sections_from_repair_xml_asset(
@@ -228,7 +228,7 @@ def sections_from_repair_xml_asset(
 
 
 @dg.asset(
-    name="6-2-regular_ingest_sections_from_repair_xml",
+    name="06-02_regular_ingest_sections_from_repair_xml",
     ins={"verified_repair_agreement_uuids": dg.AssetIn(key=regular_ingest_post_repair_verify_xml_asset.key)},
 )
 def regular_ingest_sections_from_repair_xml_asset(

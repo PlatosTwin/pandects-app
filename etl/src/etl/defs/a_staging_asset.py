@@ -596,7 +596,7 @@ def _run_staging(
         raise
 
 
-@dg.asset(name="1_staging_asset")
+@dg.asset(name="01_staging_asset")
 def staging_asset(
     context: AssetExecutionContext,
     db: DBResource,
@@ -607,7 +607,7 @@ def staging_asset(
     return total_count
 
 
-@dg.asset(name="1-1_regular_ingest_staging_asset")
+@dg.asset(name="01-01_regular_ingest_staging_asset")
 def regular_ingest_staging_asset(
     context: AssetExecutionContext,
     db: DBResource,
