@@ -209,6 +209,20 @@ _METADATA_FIELD_COVERAGE_CONFIG = (
         "note": "Expected for all eligible agreements.",
     },
     {
+        "field": "target_counsel",
+        "label": "Target counsel",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_counsel IS NOT NULL AND TRIM(a.target_counsel) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_counsel",
+        "label": "Acquirer counsel",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_counsel IS NOT NULL AND TRIM(a.acquirer_counsel) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
         "field": "target_pe",
         "label": "Target PE",
         "eligible_sql": "1 = 1",

@@ -1207,14 +1207,17 @@ class MainRoutesTests(unittest.TestCase):
                         "agreement_uuid, filing_date, target, acquirer, verified, gated, url, "
                         "transaction_consideration, transaction_price_total, transaction_price_cash, "
                         "transaction_price_stock, transaction_price_assets, target_type, acquirer_type, "
-                        "target_pe, acquirer_pe, target_industry, acquirer_industry, announce_date, "
+                        "target_counsel, acquirer_counsel, target_pe, acquirer_pe, "
+                        "target_industry, acquirer_industry, announce_date, "
                         "close_date, deal_status, attitude, deal_type, purpose"
                         ") VALUES "
                         "('cash_complete', '2023-04-01', 'Target Cash', 'Acquirer Cash', 1, 0, 'http://example.com/cash_complete', "
-                        "'cash', '100', '100', NULL, NULL, 'public', 'private', 1, 0, '52', '51', "
+                        "'cash', '100', '100', NULL, NULL, 'public', 'private', "
+                        "'Target Counsel LLP', 'Acquirer Counsel LLP', 1, 0, '52', '51', "
                         "'2023-01-01', '2023-03-01', 'complete', 'friendly', 'merger', 'strategic'), "
                         "('stock_missing_optional', '2023-04-02', 'Target Stock', 'Acquirer Stock', 1, 0, 'http://example.com/stock_missing_optional', "
-                        "'stock', '250', NULL, '250', NULL, 'private', 'public', NULL, NULL, NULL, '54', "
+                        "'stock', '250', NULL, '250', NULL, 'private', 'public', "
+                        "'Target Counsel LLP', NULL, NULL, NULL, NULL, '54', "
                         "'2023-02-01', NULL, 'pending', NULL, 'stock_acquisition', NULL)"
                     )
                 )
@@ -1240,6 +1243,10 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(metadata_field_coverage["transaction_price_assets"]["eligible_agreements"], 0)
         self.assertEqual(metadata_field_coverage["transaction_price_assets"]["covered_agreements"], 0)
         self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["coverage_pct"])
+        self.assertEqual(metadata_field_coverage["target_counsel"]["covered_agreements"], 2)
+        self.assertEqual(metadata_field_coverage["target_counsel"]["coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["coverage_pct"], 50.0)
         self.assertEqual(metadata_field_coverage["target_pe"]["covered_agreements"], 1)
         self.assertEqual(metadata_field_coverage["purpose"]["covered_agreements"], 1)
 
