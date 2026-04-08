@@ -7,7 +7,7 @@ dependencies = [
     "datasketch>=1.6.0",
     "beautifulsoup4>=4.13",
     "pandas>=2.3",
-    "numpy>=2.0",
+    "numpy>=2.4.4",
     "torch>=2.6",
     "pytorch-lightning>=2.5",
     "lightning>=2.5",
@@ -26,7 +26,7 @@ dependencies = [
     "tensorboard>=2.20",
     "huggingface-hub>=0.34",
     "mysqlclient>=2.2",
-    "basedpyright>=1.36",
+    "basedpyright>=1.39",
 ]
 
 [dependency-groups]
