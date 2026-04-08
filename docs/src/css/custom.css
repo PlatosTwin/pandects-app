@@ -2,13 +2,13 @@
 @import "../../../branding/tokens.css";
 
 :root {
-  --ifm-color-primary: #2563eb;
-  --ifm-color-primary-dark: #1d4ed8;
-  --ifm-color-primary-darker: #1e40af;
-  --ifm-color-primary-darkest: #1e3a8a;
-  --ifm-color-primary-light: #3b82f6;
-  --ifm-color-primary-lighter: #60a5fa;
-  --ifm-color-primary-lightest: #93c5fd;
+  --ifm-color-primary: #1d4ed8;
+  --ifm-color-primary-dark: #1a47c5;
+  --ifm-color-primary-darker: #163fad;
+  --ifm-color-primary-darkest: #132f7f;
+  --ifm-color-primary-light: #315fdb;
+  --ifm-color-primary-lighter: #4d74e0;
+  --ifm-color-primary-lightest: #8daceb;
 
   --ifm-background-color: var(--brand-background);
   --ifm-background-surface-color: #ffffff;
@@ -18,13 +18,13 @@
   --ifm-heading-font-family: "Inter", "Segoe UI", sans-serif;
   --ifm-font-color-base: var(--brand-ink);
   --ifm-heading-color: var(--brand-heading);
-  --ifm-font-size-base: 14px;
+  --ifm-font-size-base: 15px;
   --ifm-line-height-base: 1.5;
-  --ifm-global-radius: 7px;
+  --ifm-global-radius: 8px;
   --ifm-toc-border-color: var(--brand-border);
 
-  --openapi-card-border-radius: 10px;
-  --openapi-explorer-border-color: #d7deea;
+  --openapi-card-border-radius: 12px;
+  --openapi-explorer-border-color: #d8e1ef;
   --openapi-required: #b42318;
   --code-tab-logo-width: 20px;
   --code-tab-logo-height: 20px;
@@ -163,7 +163,9 @@ body {
 
 .theme-doc-sidebar-container {
   position: relative;
-  background: var(--docs-sidebar-bg);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: inset -1px 0 0 var(--docs-sidebar-divider);
 }
 
@@ -195,12 +197,12 @@ body {
   top: 0.9rem;
   left: 1rem;
   right: 1rem;
-  height: 2rem;
-  border: 1px solid #d3dce9;
+  height: 2.25rem;
+  border: 1px solid #d8e1ef;
   border-radius: 8px;
-  background: #f8fafd;
+  background: rgba(255, 255, 255, 0.75);
   color: #495d79;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   letter-spacing: 0.03em;
   font-weight: 700;
   display: flex;
@@ -242,13 +244,13 @@ body {
 }
 
 .menu__link:hover {
-  background: #e8edf5;
+  background: rgba(15, 23, 42, 0.04);
   color: #2b3f62;
 }
 
 .menu__link--active {
-  color: #243a61;
-  background: var(--docs-sidebar-active);
+  color: var(--ifm-color-primary);
+  background: rgba(29, 78, 216, 0.08);
   font-weight: 600;
 }
 
@@ -414,8 +416,8 @@ body {
 .table-of-contents__link {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding-block: 0.16rem;
+  min-height: 1.5rem;
+  padding-block: 0.12rem;
 }
 
 .breadcrumbs__link:hover,
@@ -544,8 +546,8 @@ body {
 .openapi-security__summary-container {
   border-radius: var(--openapi-card-border-radius);
   border: 1px solid var(--openapi-explorer-border-color);
-  box-shadow: none;
-  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(12, 26, 51, 0.04);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .openapi-tabs__code-container {
@@ -684,7 +686,7 @@ div.openapi-tabs__response-header-section > div.openapi-tabs__response-container
 .openapi-explorer__response-container {
   border-radius: 14px;
   border: 1px solid #d5dce7;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
   overflow: hidden;
   position: relative;
 }
@@ -695,7 +697,7 @@ div.openapi-tabs__response-header-section > div.openapi-tabs__response-container
   justify-content: space-between;
   padding: 0.82rem 1rem;
   border-bottom: 1px solid #dbe3ef;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .openapi-explorer__response-title {
@@ -1070,6 +1072,35 @@ div.openapi-explorer__form-item > label > div.openapi-schema__container > span.o
 }
 
 @media (max-width: 996px) {
+  .navbar a,
+  .navbar button,
+  .menu a,
+  .menu button,
+  .breadcrumbs a,
+  .footer a,
+  .openapi button,
+  .openapi .tabs__item {
+    min-height: 44px;
+  }
+
+  .navbar__toggle,
+  .clean-btn,
+  .menu__caret,
+  .breadcrumbs__link,
+  .footer__link-item,
+  .tabs__item,
+  .openapi-tabs__code-item,
+  .openapi__copy-url-btn,
+  .openapi-explorer__request-btn {
+    min-height: 44px;
+  }
+
+  .navbar__toggle,
+  .clean-btn,
+  .openapi__copy-url-btn {
+    min-width: 44px;
+  }
+
   .navbar__inner {
     min-height: 48px;
     padding: 0 0.8rem;
@@ -1110,6 +1141,39 @@ div.openapi-explorer__form-item > label > div.openapi-schema__container > span.o
 
   .menu {
     padding: 3.8rem 0.72rem 0.7rem;
+  }
+
+  .breadcrumbs__link,
+  .footer__link-item {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .navbar a,
+  .navbar button,
+  .menu a,
+  .menu button,
+  .breadcrumbs a,
+  .footer a {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .tabs__item,
+  .openapi-tabs__code-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .openapi__copy-url-btn {
+    align-self: center;
+  }
+
+  .footer__links {
+    row-gap: 0.5rem;
   }
 
   .openapi-right-panel__container {
