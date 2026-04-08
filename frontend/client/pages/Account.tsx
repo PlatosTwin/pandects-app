@@ -91,6 +91,15 @@ const PANDECTS_MCP_URL = "https://api.pandects.org/mcp";
 const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
 const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
 
+type MpcClientCardProps = {
+  id: string;
+  title: string;
+  description: string;
+  command: string;
+  copied: boolean;
+  onCopy: () => void;
+};
+
 function parseIsoDayToUtcMs(isoDay: string): number {
   const [year, month, day] = isoDay.split("-").map((part) => Number(part));
   return Date.UTC(year, month - 1, day);
@@ -112,6 +121,54 @@ function formatUsageTooltipDay(isoDay: string): string {
 
 function utcDayToIso(utcMs: number): string {
   return new Date(utcMs).toISOString().slice(0, 10);
+}
+
+function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcClientCardProps) {
+  const titleId = `${id}-mcp-title`;
+  const descriptionId = `${id}-mcp-description`;
+  const commandId = `${id}-mcp-command`;
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      aria-describedby={`${descriptionId} ${commandId}`}
+      className="rounded-lg border border-border/60 bg-background p-4"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 id={titleId} className="text-sm font-semibold">
+            {title}
+          </h3>
+          <p id={descriptionId} className="mt-1 text-sm text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto sm:shrink-0"
+          aria-label={`${copied ? "Copied" : "Copy"} ${title} MCP command`}
+          aria-describedby={commandId}
+          onClick={onCopy}
+        >
+          {copied ? (
+            <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+          ) : (
+            <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
+          )}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <pre
+        id={commandId}
+        tabIndex={0}
+        className="mt-3 max-w-full overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        <code className="font-mono whitespace-pre">{command}</code>
+      </pre>
+    </section>
+  );
 }
 
 export default function Account() {
@@ -780,65 +837,22 @@ export default function Account() {
               </Alert>
 
               <div className="grid gap-4">
-                <div className="rounded-lg border border-border/60 bg-background p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold">Codex</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Add the server, then finish the Pandects sign-in flow when
-                        Codex prompts you.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto sm:shrink-0"
-                      aria-label="Copy Codex MCP command"
-                      onClick={() => void handleCopyMcpSnippet("codex", CODEX_MCP_COMMAND)}
-                    >
-                      {copiedMcpSnippet === "codex" ? (
-                        <Check className="mr-1 h-3 w-3" aria-hidden="true" />
-                      ) : (
-                        <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
-                      )}
-                      Copy
-                    </Button>
-                  </div>
-                  <pre className="mt-3 overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
-                    <code className="font-mono whitespace-pre">{CODEX_MCP_COMMAND}</code>
-                  </pre>
-                </div>
-
-                <div className="rounded-lg border border-border/60 bg-background p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold">Claude Code</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Add the remote HTTP server, then run `/mcp` and finish the
-                        Pandects sign-in flow in Claude Code.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto sm:shrink-0"
-                      aria-label="Copy Claude Code MCP command"
-                      onClick={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
-                    >
-                      {copiedMcpSnippet === "claude" ? (
-                        <Check className="mr-1 h-3 w-3" aria-hidden="true" />
-                      ) : (
-                        <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
-                      )}
-                      Copy
-                    </Button>
-                  </div>
-                  <pre className="mt-3 overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground">
-                    <code className="font-mono whitespace-pre">{CLAUDE_MCP_COMMAND}</code>
-                  </pre>
-                </div>
+                <MpcClientCard
+                  id="codex"
+                  title="Codex"
+                  description="Add the server, then finish the Pandects sign-in flow when Codex prompts you."
+                  command={CODEX_MCP_COMMAND}
+                  copied={copiedMcpSnippet === "codex"}
+                  onCopy={() => void handleCopyMcpSnippet("codex", CODEX_MCP_COMMAND)}
+                />
+                <MpcClientCard
+                  id="claude"
+                  title="Claude Code"
+                  description="Add the remote HTTP server, then run `/mcp` and finish the Pandects sign-in flow in Claude Code."
+                  command={CLAUDE_MCP_COMMAND}
+                  copied={copiedMcpSnippet === "claude"}
+                  onCopy={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
+                />
               </div>
 
               <div className="rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
@@ -852,7 +866,7 @@ export default function Account() {
                 >
                   MCP guide
                 </a>
-                <span className="sr-only"> opens in a new tab</span>
+                <span className="ml-1 text-xs text-muted-foreground/80">(opens in a new tab)</span>
                 .
               </div>
             </div>

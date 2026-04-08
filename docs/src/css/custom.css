@@ -91,18 +91,19 @@ body {
   font-size: 0.86rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: #5d6f8e;
+  color: #455a78;
 }
 
 .navbar__item.navbar__link {
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
-  color: #364a69;
+  color: #2f4567;
   font-weight: 600;
   font-size: 0.92rem;
   border-radius: 10px;
-  padding: 0.3rem 0.62rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
   transition: color 150ms ease;
 }
 
@@ -198,7 +199,7 @@ body {
   border: 1px solid #d3dce9;
   border-radius: 8px;
   background: #f8fafd;
-  color: #566882;
+  color: #495d79;
   font-size: 0.84rem;
   letter-spacing: 0.03em;
   font-weight: 700;
@@ -223,16 +224,19 @@ body {
 }
 
 .menu__caret {
-  padding: 0.34rem 0.52rem;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
+  padding: 0.64rem;
   border-radius: 7px;
 }
 
 .menu__link {
-  color: var(--docs-sidebar-muted);
+  color: #4c607d;
   font-size: 0.94rem;
   font-weight: 500;
   line-height: 1.34;
-  padding: 0.48rem 0.72rem;
+  min-height: 2.5rem;
+  padding: 0.62rem 0.8rem;
   background: transparent;
   transition: background-color 120ms ease, color 120ms ease;
 }
@@ -343,7 +347,7 @@ body {
 }
 
 .theme-doc-markdown {
-  color: #415675;
+  color: #344964;
 }
 
 .theme-doc-markdown h1,
@@ -372,7 +376,23 @@ body {
 .theme-doc-markdown li {
   font-size: 0.97rem;
   line-height: 1.56;
-  color: #425675;
+  color: #344964;
+}
+
+.theme-doc-markdown a {
+  color: #1b4aa5;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+  font-weight: 500;
+}
+
+.theme-doc-markdown a:hover {
+  color: #163d86;
+}
+
+.theme-doc-markdown strong {
+  color: #223754;
 }
 
 .theme-doc-markdown :not(pre) > code,
@@ -381,6 +401,26 @@ body {
   border: 1px solid #d9e2ed;
   border-radius: 9px;
   padding: 0.16rem 0.52rem;
+  color: #223754;
+}
+
+.breadcrumbs__link,
+.breadcrumbs__item:last-child,
+.table-of-contents__link {
+  color: #4a5f7d;
+}
+
+.breadcrumbs__link,
+.table-of-contents__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding-block: 0.16rem;
+}
+
+.breadcrumbs__link:hover,
+.table-of-contents__link:hover {
+  color: #223754;
 }
 
 .pagination-nav {
