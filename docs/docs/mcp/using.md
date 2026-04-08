@@ -13,6 +13,15 @@ Use it inside MCP clients such as Codex or Claude Code to work with merger agree
 
 You can ask your client to find agreements, compare clause language, inspect specific sections, pull tax-related provisions, and use Pandects reference data while you work.
 
+## How to Think About MCP
+
+The Pandects MCP is designed for humans using LLM clients. That means:
+
+- You ask for the research task in normal language
+- The client decides which Pandects tools to call
+- You review the result, refine the request, and keep going
+- You should not need to manually fetch tokens, API keys, or document IDs from the website just to make the MCP work
+
 ## What MCP Is Good For
 
 The Pandects MCP is most useful when you want your client to:
@@ -39,7 +48,7 @@ Examples:
 
 ## What Your Client Can Reach Through MCP
 
-Behind those prompts, The Pandects MCP gives your client access to:
+Behind those prompts, the Pandects MCP gives your client access to:
 
 - Agreement search and retrieval
 - Section search and section-level inspection
@@ -49,16 +58,7 @@ Behind those prompts, The Pandects MCP gives your client access to:
 - Counsel and NAICS reference data
 - High-level corpus summaries and trend data
 
-You generally should not need to think about exact tool names or tool order unless you are debugging or building a more structured workflow on top of MCP.
-
-## How to Think About MCP
-
-The Pandects MCP is designed for humans using LLM clients. That means:
-
-- You ask for the research task in normal language
-- The client decides which Pandects tools to call
-- You review the result, refine the request, and keep going
-- You should not need to manually fetch tokens, API keys, or document IDs from the website just to make MCP work
+You generally should not need to think about exact tool names or tool order unless you are debugging or building a more structured workflow on top of the MCP.
 
 ## Next Step
 
