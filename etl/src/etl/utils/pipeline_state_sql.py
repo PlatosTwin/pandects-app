@@ -267,7 +267,13 @@ def canonical_fresh_xml_build_queue_sql(schema: str, *, scoped: bool = False) ->
             has_latest_xml = 0
             OR (
                 has_latest_xml = 1
-                AND has_stale_body_tags = 1
+                AND (
+                    has_stale_body_tags = 1
+                    OR (
+                        latest_xml_status IS NULL
+                        AND latest_xml_ai_repair_attempted = 0
+                    )
+                )
             )
       )
     ORDER BY agreement_uuid ASC
