@@ -25,7 +25,7 @@
 
   --openapi-card-border-radius: 10px;
   --openapi-explorer-border-color: #d7deea;
-  --openapi-required: #ef4444;
+  --openapi-required: #b42318;
   --code-tab-logo-width: 20px;
   --code-tab-logo-height: 20px;
 
@@ -464,7 +464,7 @@ body {
 
 .openapi__method-endpoint-path {
   margin: 0 0 0 0.68rem;
-  color: var(--brand-muted-text) !important;
+  color: #465c80 !important;
   font-size: 1.0rem !important;
   font-family: var(--ifm-font-family-monospace);
   font-weight: 400 !important;
@@ -477,7 +477,7 @@ body {
 
 .openapi__method-endpoint-path .openapi__url-param,
 .openapi__url-param {
-  color: var(--brand-muted-text) !important;
+  color: #465c80 !important;
 }
 
 .openapi__copy-url-btn {
@@ -602,7 +602,7 @@ body {
 .openapi-explorer__request-header-container,
 .openapi-explorer__response-title-container {
   border-bottom: 1px solid #dbe3ef;
-  color: #425a7a;
+  color: #344a69;
   font-size: 0.8rem;
   letter-spacing: 0.03em;
   font-weight: 800;
@@ -617,11 +617,12 @@ body {
   padding: 0.78rem;
 }
 
-.openapi-explorer__request-btn {
+div.col > form.openapi-explorer__request-form > div.openapi-explorer__details-outer-container > button.openapi-explorer__request-btn,
+.openapi-explorer__request-form .openapi-explorer__request-btn {
   border-radius: 9px;
-  border: 1px solid #e9d6ac;
-  background: #f3dfb5;
-  color: #3d2f19;
+  border: 1px solid #1d4ed8 !important;
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
   font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: 0;
@@ -629,8 +630,9 @@ body {
   padding: 0.48rem 0.9rem;
 }
 
-.openapi-explorer__request-btn:hover {
-  background: #f6e5c4;
+div.col > form.openapi-explorer__request-form > div.openapi-explorer__details-outer-container > button.openapi-explorer__request-btn:hover,
+.openapi-explorer__request-form .openapi-explorer__request-btn:hover {
+  background: #1e40af !important;
 }
 
 .openapi-explorer__request-btn:focus-visible {
@@ -640,7 +642,7 @@ body {
 
 .openapi-explorer__response-placeholder-message {
   font-size: 0.88rem;
-  color: #5b6f90;
+  color: #465c80;
   line-height: 1.58;
   padding: 1.25rem 1rem;
 }
@@ -648,6 +650,34 @@ body {
 .openapi-tabs__tab-item {
   font-weight: 600;
   font-size: 0.84rem;
+}
+
+div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item,
+.openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item {
+  color: #31445e !important;
+  background: #f8fafc !important;
+  font-weight: 700;
+  opacity: 1 !important;
+}
+
+div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item.success,
+div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item.success.active,
+.openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item.success,
+.openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item.success.active {
+  color: #ffffff !important;
+  background: #0f766e !important;
+}
+
+div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item.danger.active,
+.openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item.danger.active {
+  color: #ffffff !important;
+  background: #b42318 !important;
+}
+
+div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item.info.active,
+.openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item.info.active {
+  color: #ffffff !important;
+  background: #1d4ed8 !important;
 }
 
 /* Response panel: lighter, readme-style presentation */
@@ -669,7 +699,7 @@ body {
 }
 
 .openapi-explorer__response-title {
-  color: #5b6a7f;
+  color: #425774;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 0.74rem;
@@ -688,7 +718,7 @@ body {
 .openapi-explorer__response-status {
   display: inline-flex;
   align-items: center;
-  color: #5f7085;
+  color: #445972;
   font-size: 0.76rem;
   font-weight: 750;
   white-space: nowrap;
@@ -718,7 +748,7 @@ body {
 }
 
 .openapi-explorer__response-example-chip {
-  color: #3f4f65;
+  color: #31445e;
   background: #e9eef4;
   border: 1px solid #d8e0ea;
   border-radius: 999px;
@@ -874,7 +904,7 @@ body {
 }
 
 .theme-api-markdown .openapi-params__list-item .openapi-schema__type {
-  color: #6d7f99;
+  color: #556b88;
   opacity: 1;
   padding-left: 0;
 }
@@ -913,7 +943,7 @@ body {
 
 .theme-api-markdown .openapi-params__list-item p {
   margin: 0.38rem 0 0;
-  color: #3d526f;
+  color: #344964;
   line-height: 1.5;
 }
 
@@ -933,12 +963,13 @@ body {
 }
 
 .openapi-schema__required {
-  color: #ef4444;
+  color: #b42318 !important;
   font-weight: 700;
 }
 
-.openapi-schema__nullable {
-  color: #0ea5e9;
+li.openapi-schema__list-item > div > span.openapi-schema__container > span.openapi-schema__nullable,
+.theme-api-markdown .openapi-schema__nullable {
+  color: #0f5f8f !important;
   font-weight: 700;
 }
 
@@ -948,7 +979,8 @@ body {
 }
 
 .openapi-schema__type {
-  color: #5d7093;
+  color: #4f6684;
+  opacity: 1;
 }
 
 .theme-api-markdown .openapi-schema__list-item {
@@ -963,7 +995,12 @@ body {
   padding-right: 0.35rem;
 }
 
-.theme-api-markdown .openapi-schema__name {
+details.details_lb9f > summary > span.openapi-schema__container > span.openapi-schema__name,
+li.openapi-schema__list-item > div > span.openapi-schema__container > span.openapi-schema__name,
+.theme-api-markdown .openapi-markdown__details .openapi-schema__name,
+.theme-api-markdown .openapi-schema__list-item .openapi-schema__name {
+  color: #4f6684 !important;
+  opacity: 1 !important;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -989,6 +1026,13 @@ body {
   align-items: baseline;
   gap: 0.34rem;
   padding-right: 0.35rem;
+}
+
+div.openapi-explorer__form-item > label > div.openapi-schema__container > span.openapi-schema__type,
+.theme-api-markdown .openapi-explorer__form-item .openapi-schema__type,
+.theme-api-markdown .openapi-explorer__form-item-meta .openapi-schema__type {
+  color: #556b88 !important;
+  opacity: 1 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
