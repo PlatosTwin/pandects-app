@@ -599,10 +599,11 @@ def _apply_taxonomy_llm_batch_output(
     sections_table: str,
     batch: Any,
     model_name: str,
+    log_prefix: str,
 ) -> tuple[int, int, list[str]]:
     output_file_id = getattr(batch, "output_file_id", None)
     if not output_file_id:
-        context.log.warning("taxonomy_asset (llm): batch %s has no output_file_id.", batch.id)
+        context.log.warning("%s: batch %s has no output_file_id.", log_prefix, batch.id)
         return 0, 0, []
 
     out_content = client.files.content(output_file_id)
@@ -634,7 +635,8 @@ def _apply_taxonomy_llm_batch_output(
         except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
             parse_errors += 1
             context.log.warning(
-                "taxonomy_asset (llm): parse error for %s: %s",
+                "%s: parse error for %s: %s",
+                log_prefix,
                 custom_id,
                 exc,
             )
@@ -692,10 +694,9 @@ def _apply_taxonomy_llm_batch_output(
         refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
 
     context.log.info(
-        (
-            "taxonomy_asset (llm): applied %s section labels across %s agreements; "
-            "upserted %s XMLs; refreshed latest_sections_search rows=%s"
-        ),
+        ("%s: applied %s section labels across %s agreements; upserted %s XMLs; "
+         + "refreshed latest_sections_search rows=%s"),
+        log_prefix,
         len(payload_by_section_uuid),
         len(agreement_uuids),
         xml_updated,
@@ -712,12 +713,13 @@ def _resume_and_apply_taxonomy_llm_batch(
     db: DBResource,
     sections_table: str,
     batch_row: dict[str, Any],
+    log_prefix: str,
 ) -> None:
     batch = poll_batch_until_terminal(
         context,
         client,
         str(batch_row["batch_id"]),
-        log_prefix="taxonomy_asset (llm)",
+        log_prefix=log_prefix,
     )
     with engine.begin() as conn:
         _upsert_taxonomy_llm_batch_row(
@@ -738,10 +740,12 @@ def _resume_and_apply_taxonomy_llm_batch(
             sections_table=sections_table,
             batch=batch,
             model_name=str(batch_row["model_name"]),
+            log_prefix=log_prefix,
         )
     else:
         context.log.warning(
-            "taxonomy_asset (llm): batch %s ended with status=%s; no labels applied.",
+            "%s: batch %s ended with status=%s; no labels applied.",
+            log_prefix,
             batch.id,
             batch.status,
         )
@@ -760,6 +764,7 @@ def _create_and_apply_taxonomy_llm_batch(
     model_name: str,
     sections_per_request: int,
     batch_key_override: str | None = None,
+    log_prefix: str,
 ) -> None:
     agreement_uuids = sorted({str(row["agreement_uuid"]) for row in prediction_rows})
     batch_key = batch_key_override or agreement_batch_key(agreement_uuids)
@@ -773,7 +778,7 @@ def _create_and_apply_taxonomy_llm_batch(
         sections_per_request=sections_per_request,
     )
     if not lines:
-        context.log.info("taxonomy_asset (llm): no request lines to submit.")
+        context.log.info("%s: no request lines to submit.", log_prefix)
         return
 
     jsonl_buf = io.StringIO()
@@ -799,7 +804,8 @@ def _create_and_apply_taxonomy_llm_batch(
             batch_key=batch_key,
         )
     context.log.info(
-        "taxonomy_asset (llm): created batch %s with %s requests for %s agreements.",
+        "%s: created batch %s with %s requests for %s agreements.",
+        log_prefix,
         batch.id,
         len(lines),
         len(agreement_uuids),
@@ -817,6 +823,7 @@ def _create_and_apply_taxonomy_llm_batch(
             "model_name": model_name,
             "batch_key": batch_key,
         },
+        log_prefix=log_prefix,
     )
 
 
@@ -844,7 +851,12 @@ def _run_taxonomy_mode(
     sections_table = f"{schema}.sections"
     xml_table = f"{schema}.xml"
     last_uuid = ""
+    explicit_scope = target_agreement_uuids is not None
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; no taxonomy work to run.", log_prefix)
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
     scoped_batch_key = batch_key_override or (agreement_batch_key(scoped_uuids) if scoped_uuids else None)
     processed_agreement_uuids: set[str] = set()
 
@@ -872,6 +884,7 @@ def _run_taxonomy_mode(
                     db=db,
                     sections_table=sections_table,
                     batch_row=existing_batch,
+                    log_prefix=log_prefix,
                 )
                 if scoped_uuids or single_batch_run:
                     break
@@ -947,6 +960,7 @@ def _run_taxonomy_mode(
                         model_name=pipeline_config.taxonomy_llm_model,
                         sections_per_request=llm_sections_per_request,
                         batch_key_override=scoped_batch_key,
+                        log_prefix=log_prefix,
                     )
                     processed_agreement_uuids.update(agreement_uuids)
 

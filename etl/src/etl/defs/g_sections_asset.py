@@ -47,7 +47,11 @@ def _run_sections_for_agreements(
     last_uuid = ""
     processed_agreement_uuids: List[str] = []
 
+    explicit_scope = target_agreement_uuids is not None
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; no section extraction work to run.", log_prefix)
+        return []
     use_scope = len(scoped_uuids) > 0
     scoped_limit = max(agreement_batch_size, len(scoped_uuids))
     if use_scope and len(scoped_uuids) > agreement_batch_size:

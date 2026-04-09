@@ -47,6 +47,7 @@ def _run_pre_processing_from_scratch(
     target_agreement_uuids: list[str] | None,
     log_prefix: str,
 ) -> list[str]:
+    explicit_scope = target_agreement_uuids is not None
     last_uuid = ""
     engine = db.get_engine()
     raw_inference_model = classifier_model.model()
@@ -63,6 +64,9 @@ def _run_pre_processing_from_scratch(
     schema = db.database
     agreements_table = f"{schema}.agreements"
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; nothing to pre-process.", log_prefix)
+        return []
     processed_agreement_uuids: set[str] = set()
 
     while True:

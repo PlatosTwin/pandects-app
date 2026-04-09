@@ -193,6 +193,47 @@ class TaxModuleAssetTests(unittest.TestCase):
         self.assertEqual(fetch_batch.call_args.kwargs["batch_key"], expected_batch_key)
         self.assertEqual(create_lines.call_args.kwargs["batch_key"], expected_batch_key)
 
+    def test_regular_ingest_tax_module_noops_for_explicit_empty_scope(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    tax_module_agreement_batch_size=10,
+                    tax_module_llm_clauses_per_request=1,
+                    tax_module_llm_model="gpt-5-mini",
+                    resume_openai_batches=True,
+                    queue_run_mode="SINGLE_BATCH",
+                ),
+            ),
+        )
+
+        with (
+            patch("etl.defs.k_tax_module_asset.load_active_scope_for_job", return_value=[]),
+            patch("etl.defs.k_tax_module_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.k_tax_module_asset.mark_logical_run_stage_completed", return_value=None),
+            patch(
+                "etl.defs.k_tax_module_asset._fetch_unapplied_tax_module_batch",
+                side_effect=AssertionError("empty scoped run should not inspect tax-module batches"),
+            ),
+            patch(
+                "etl.defs.k_tax_module_asset._create_llm_lines",
+                side_effect=AssertionError("empty scoped run should not create tax-module requests"),
+            ),
+            patch("etl.defs.k_tax_module_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_tax_module_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                [],
+            )
+
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     _ = unittest.main()

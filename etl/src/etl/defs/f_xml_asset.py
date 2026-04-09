@@ -1165,7 +1165,11 @@ def _run_xml_build_for_agreements(
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     xml_table = f"{schema}.xml"
+    explicit_scope = target_agreement_uuids is not None
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; no XML build work to run.", log_prefix)
+        return []
 
     if pipeline_config.resume_openai_batches:
         with engine.begin() as conn:

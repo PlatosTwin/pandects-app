@@ -38,6 +38,7 @@ def _run_tagging_for_agreements(
     target_agreement_uuids: list[str] | None,
     log_prefix: str,
 ) -> list[str]:
+    explicit_scope = target_agreement_uuids is not None
     inference_model = cast(
         TaggingModelProtocol, cast(object, tagging_model.model())
     )
@@ -51,6 +52,9 @@ def _run_tagging_for_agreements(
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; nothing to tag.", log_prefix)
+        return []
     processed_agreement_uuids: set[str] = set()
 
     while True:

@@ -355,6 +355,45 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         fetch_batch_agreements.assert_called_once()
         fetch_candidates.assert_not_called()
 
+    def test_regular_ingest_enqueue_noops_for_explicit_empty_scope(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=25,
+                    resume_openai_batches=True,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+
+        with (
+            patch("etl.defs.d_ai_repair_asset.load_active_scope_for_job", return_value=[]),
+            patch("etl.defs.d_ai_repair_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.d_ai_repair_asset.mark_logical_run_stage_completed", return_value=None),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_open_ai_repair_batch_for_scope",
+                side_effect=AssertionError("empty scoped run should not inspect repair batches"),
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_candidates",
+                side_effect=AssertionError("empty scoped run should not select repair candidates"),
+            ),
+            patch("etl.defs.d_ai_repair_asset.run_post_asset_refresh", return_value=None),
+        ):
+            enqueue_fn = getattr(regular_ingest_ai_repair_enqueue_asset.op.compute_fn, "decorated_fn")
+            result = enqueue_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                [],
+            )
+
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     _ = unittest.main()

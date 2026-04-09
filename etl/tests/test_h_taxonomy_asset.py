@@ -495,6 +495,47 @@ class TaxonomyAssetTests(unittest.TestCase):
         self.assertEqual(fetch_batch.call_args.kwargs["batch_key"], expected_scope_key)
         self.assertEqual(create_batch.call_args.kwargs["batch_key_override"], expected_scope_key)
 
+    def test_regular_ingest_llm_mode_noops_for_explicit_empty_scope(self) -> None:
+        conn = _FakeConn(sec_rows=[])
+        context = SimpleNamespace(log=_FakeLog())
+        db = SimpleNamespace(database="pdx", get_engine=lambda: _FakeEngine(conn))
+        taxonomy_model = SimpleNamespace(model=lambda: object())
+        pipeline_config = SimpleNamespace(
+            taxonomy_agreement_batch_size=10,
+            taxonomy_mode=TaxonomyMode.LLM,
+            taxonomy_section_title_regex=None,
+            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_sections_per_request=1,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
+            resume_openai_batches=True,
+        )
+
+        with (
+            patch("etl.defs.h_taxonomy_asset.load_active_scope_for_job", return_value=[]),
+            patch("etl.defs.h_taxonomy_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.h_taxonomy_asset.mark_logical_run_stage_completed", return_value=None),
+            patch(
+                "etl.defs.h_taxonomy_asset._fetch_unapplied_taxonomy_llm_batch",
+                side_effect=AssertionError("empty scoped run should not inspect taxonomy batches"),
+            ),
+            patch(
+                "etl.defs.h_taxonomy_asset._create_and_apply_taxonomy_llm_batch",
+                side_effect=AssertionError("empty scoped run should not create taxonomy batches"),
+            ),
+            patch("etl.defs.h_taxonomy_asset.run_post_asset_refresh", return_value=None),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_taxonomy_llm_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, db),
+                taxonomy_model=cast(object, taxonomy_model),
+                pipeline_config=cast(object, pipeline_config),
+                fresh_section_agreement_uuids=[],
+                repair_section_agreement_uuids=[],
+            )
+
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     _ = unittest.main()

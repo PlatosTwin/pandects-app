@@ -534,6 +534,12 @@ def _run_tax_module_for_agreements(
     schema = db.database
     last_uuid = ""
     processed_agreement_uuids: list[str] = []
+    explicit_scope = target_agreement_uuids is not None
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; no tax-module work to run.", log_prefix)
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
 
     with engine.begin() as conn:
         assert_tables_exist(
@@ -549,7 +555,6 @@ def _run_tax_module_for_agreements(
             ),
         )
 
-    scoped_uuids = sorted(set(target_agreement_uuids or []))
     scoped_batch_key = batch_key_override or (agreement_batch_key(scoped_uuids) if scoped_uuids else None)
     while True:
         if pipeline_config.resume_openai_batches:

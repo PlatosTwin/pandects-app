@@ -1476,6 +1476,45 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             any("failed agreements by stage" in str(call[0]) for call in fake_log.warning_calls)
         )
 
+    def test_run_offline_mode_noops_for_explicit_empty_scope(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        with patch(
+            "etl.defs.i_tx_metadata_asset._oai_client",
+            side_effect=AssertionError("empty scoped run should not create tx metadata clients"),
+        ):
+            result = _run_offline_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=_NoopEngine(),
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                pages_table="pdx.pages",
+                tagged_outputs_table="pdx.tagged_outputs",
+                batch_size=10,
+                target_agreement_uuids=[],
+                log_prefix="ingestion_cleanup_a_tx_metadata_offline_asset",
+            )
+
+        self.assertEqual(result, [])
+
+    def test_run_web_search_mode_noops_for_explicit_empty_scope(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        with patch(
+            "etl.defs.i_tx_metadata_asset.assert_tables_exist",
+            side_effect=AssertionError("empty scoped run should not inspect web metadata tables"),
+        ):
+            result = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=_NoopEngine(),
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=10,
+                target_agreement_uuids=[],
+                log_prefix="ingestion_cleanup_a_tx_metadata_web_search_asset",
+            )
+
+        self.assertEqual(result["processed_uuids"], [])
+        self.assertEqual(result["total_searches"], 0)
+
 
 if __name__ == "__main__":
     _ = unittest.main()

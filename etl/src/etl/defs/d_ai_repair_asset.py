@@ -678,7 +678,12 @@ def _enqueue_ai_repair_for_agreements(
     batch_completion_window = "24h"
     should_exit_after_tx = False
     resume_openai_batches = pipeline_config.resume_openai_batches
+    explicit_scope = target_agreement_uuids is not None
     scoped_uuids = sorted(set(target_agreement_uuids or []))
+    if explicit_scope and not scoped_uuids:
+        context.log.info("%s: explicit empty scope; no AI repair work to enqueue.", log_prefix)
+        run_post_asset_refresh(context, db, pipeline_config)
+        return []
 
     enqueued_agreement_uuids: Set[str] = set()
 
