@@ -26,6 +26,39 @@ MANAGED_LOGICAL_JOB_NAMES = {
 }
 
 MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
+    "regular_ingest": (
+        "regular_ingest_pre_processing",
+        "regular_ingest_tagging",
+        "regular_ingest_xml_verify",
+        "regular_ingest_ai_repair_enqueue",
+        "regular_ingest_ai_repair_poll",
+        "regular_ingest_reconcile_tags",
+        "regular_ingest_post_repair_build_xml",
+        "regular_ingest_post_repair_verify_xml",
+        "regular_ingest_sections_from_fresh_xml",
+        "regular_ingest_sections_from_repair_xml",
+        "regular_ingest_taxonomy_llm",
+        "regular_ingest_tax_module",
+        "regular_ingest_taxonomy_gold_backfill",
+        "regular_ingest_tx_metadata_offline",
+        "regular_ingest_tx_metadata_web_search",
+    ),
+    "ingestion_cleanup_a": (
+        "ingestion_cleanup_a_tagging",
+        "ingestion_cleanup_a_xml_verify",
+        "ingestion_cleanup_a_sections_from_fresh_xml",
+        "ingestion_cleanup_a_ai_repair_enqueue",
+        "ingestion_cleanup_a_ai_repair_poll",
+        "ingestion_cleanup_a_reconcile_tags",
+        "ingestion_cleanup_a_post_repair_build_xml",
+        "ingestion_cleanup_a_post_repair_verify_xml",
+        "ingestion_cleanup_a_sections_from_repair_xml",
+        "ingestion_cleanup_a_taxonomy_llm",
+        "ingestion_cleanup_a_tax_module",
+        "ingestion_cleanup_a_taxonomy_gold_backfill",
+        "ingestion_cleanup_a_tx_metadata_offline",
+        "ingestion_cleanup_a_tx_metadata_web_search",
+    ),
     "ingestion_cleanup_b": (
         "ingestion_cleanup_b_ai_repair_enqueue",
         "ingestion_cleanup_b_ai_repair_poll",
@@ -40,6 +73,28 @@ MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
         "ingestion_cleanup_b_tx_metadata_web_search",
     ),
 }
+
+
+def normalize_managed_stage_name(stage_name: str | None) -> str | None:
+    if not stage_name:
+        return None
+    tokens = [token for token in str(stage_name).split("_") if token]
+    while tokens and tokens[0].isdigit():
+        _ = tokens.pop(0)
+    if not tokens:
+        return None
+    normalized = "_".join(tokens)
+    if normalized.endswith("_asset"):
+        normalized = normalized[: -len("_asset")]
+    return normalized or None
+
+
+def _stage_index(job_name: str, stage_name: str | None) -> int:
+    stage_sequence = MANAGED_JOB_STAGE_SEQUENCE.get(job_name)
+    normalized = normalize_managed_stage_name(stage_name)
+    if stage_sequence is None or normalized not in stage_sequence:
+        return -1
+    return stage_sequence.index(normalized)
 
 
 @dataclass(frozen=True)
@@ -188,25 +243,34 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
 
 
 def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
-    row = conn.execute(
+    rows = [
+        dict(row)
+        for row in conn.execute(
         text(
             f"""
-            SELECT logical_run_id, job_name, status, current_stage
+            SELECT logical_run_id, job_name, status, current_stage, started_at
             FROM {_job_runs_table(schema, conn)}
             WHERE job_name = :job_name
               AND status IN :resumable_statuses
-            ORDER BY started_at DESC, logical_run_id DESC
-            LIMIT 1
             """
         ).bindparams(bindparam("resumable_statuses", expanding=True)),
         {
             "job_name": job_name,
             "resumable_statuses": [LOGICAL_RUN_STATUS_RUNNING, LOGICAL_RUN_STATUS_FAILED],
         },
-    ).mappings().first()
-    if row is None:
+    ).mappings().all()
+    ]
+    if not rows:
         return None
-    return dict(row)
+    rows.sort(
+        key=lambda row: (
+            _stage_index(job_name, row.get("current_stage")),
+            str(row.get("started_at") or ""),
+            str(row.get("logical_run_id") or ""),
+        ),
+        reverse=True,
+    )
+    return rows[0]
 
 
 def load_active_logical_run(*, db: DBResource, job_name: str) -> dict[str, Any] | None:
@@ -303,7 +367,9 @@ def start_or_resume_logical_run(
                 logical_run_id=logical_run_id,
                 job_name=job_name,
                 status=LOGICAL_RUN_STATUS_RUNNING,
-                current_stage=str(existing_run["current_stage"]) if existing_run.get("current_stage") is not None else None,
+                current_stage=normalize_managed_stage_name(
+                    str(existing_run["current_stage"]) if existing_run.get("current_stage") is not None else None
+                ),
                 agreement_uuids=resumed_scope,
                 resumed_existing=True,
             )
@@ -456,6 +522,7 @@ def mark_logical_run_failed(
                 return
             logical_run_id = str(active_run["logical_run_id"])
 
+        normalized_stage_name = normalize_managed_stage_name(stage_name)
         _ = conn.execute(
             text(
                 f"""
@@ -469,7 +536,7 @@ def mark_logical_run_failed(
             ),
             {
                 "logical_run_id": logical_run_id,
-                "current_stage": stage_name,
+                "current_stage": normalized_stage_name,
                 "failed_status": LOGICAL_RUN_STATUS_FAILED,
             },
         )
@@ -490,7 +557,7 @@ def should_skip_managed_stage(
         return False, None
 
     current_stage_raw = active_run.get("current_stage")
-    current_stage = str(current_stage_raw) if current_stage_raw is not None else None
+    current_stage = normalize_managed_stage_name(str(current_stage_raw) if current_stage_raw is not None else None)
     if current_stage not in stage_sequence:
         return False, current_stage
 
@@ -513,9 +580,19 @@ def mark_logical_run_stage_completed(
         active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
         if active_run is None:
             return
+        existing_stage = normalize_managed_stage_name(
+            str(active_run["current_stage"]) if active_run.get("current_stage") is not None else None
+        )
+        normalized_stage_name = normalize_managed_stage_name(stage_name)
+        next_stage_name = normalized_stage_name
+        if (
+            not complete_run
+            and _stage_index(job_name, existing_stage) > _stage_index(job_name, normalized_stage_name)
+        ):
+            next_stage_name = existing_stage
         params: dict[str, Any] = {
             "logical_run_id": str(active_run["logical_run_id"]),
-            "current_stage": stage_name,
+            "current_stage": next_stage_name,
         }
         if complete_run:
             _ = conn.execute(

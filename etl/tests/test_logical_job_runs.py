@@ -20,6 +20,7 @@ from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_failed,
     mark_logical_run_stage_completed,
+    normalize_managed_stage_name,
     should_skip_managed_stage,
     start_or_resume_logical_run,
 )
@@ -376,6 +377,53 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(final_row["status"], LOGICAL_RUN_STATUS_FAILED)
         self.assertEqual(final_row["current_stage"], "ingestion_cleanup_b_post_repair_verify_xml")
         self.assertIsNotNone(final_row["finished_at"])
+
+    def test_normalize_managed_stage_name_handles_step_keys_and_asset_suffixes(self) -> None:
+        self.assertEqual(
+            normalize_managed_stage_name("05_14_ingestion_cleanup_b_post_repair_verify_xml"),
+            "ingestion_cleanup_b_post_repair_verify_xml",
+        )
+        self.assertEqual(
+            normalize_managed_stage_name("10_06_ingestion_cleanup_b_tx_metadata_web_search_asset"),
+            "ingestion_cleanup_b_tx_metadata_web_search",
+        )
+        self.assertEqual(
+            normalize_managed_stage_name("09_regular_ingest_taxonomy_gold_backfill_asset"),
+            "regular_ingest_taxonomy_gold_backfill",
+        )
+
+    def test_mark_completed_does_not_regress_managed_stage_progress(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        self.assertIsNotNone(logical_run)
+
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+        )
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_ai_repair_enqueue",
+        )
+
+        active_run = load_active_logical_run(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+        )
+        self.assertIsNotNone(active_run)
+        assert active_run is not None
+        self.assertEqual(active_run["current_stage"], "ingestion_cleanup_b_post_repair_verify_xml")
 
     def test_should_skip_managed_stage_for_earlier_cleanup_b_stage_after_failure(self) -> None:
         db = _FakeDB()
