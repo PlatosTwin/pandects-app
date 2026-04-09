@@ -14,10 +14,13 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.utils.logical_job_runs import (
     LOGICAL_RUN_STATUS_ABANDONED,
     LOGICAL_RUN_STATUS_COMPLETED,
+    LOGICAL_RUN_STATUS_FAILED,
     LOGICAL_RUN_STATUS_RUNNING,
     load_active_logical_run,
     load_active_scope_for_job,
+    mark_logical_run_failed,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
     start_or_resume_logical_run,
 )
 
@@ -185,6 +188,105 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(status_by_run_id[first_run.logical_run_id], LOGICAL_RUN_STATUS_ABANDONED)
         self.assertEqual(status_by_run_id[second_run.logical_run_id], LOGICAL_RUN_STATUS_RUNNING)
 
+    def test_start_resumes_failed_run_instead_of_starting_fresh(self) -> None:
+        db = _FakeDB()
+        first_context = SimpleNamespace(run_id="dagster-1")
+        second_context = SimpleNamespace(run_id="dagster-2")
+
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, first_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-1", "agreement-2"],
+        )
+        assert first_run is not None
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+            dagster_run_id="dagster-1",
+        )
+
+        resumed_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-3"],
+        )
+
+        self.assertIsNotNone(resumed_run)
+        assert resumed_run is not None
+        self.assertTrue(resumed_run.resumed_existing)
+        self.assertEqual(resumed_run.logical_run_id, first_run.logical_run_id)
+        self.assertEqual(resumed_run.agreement_uuids, ["agreement-1", "agreement-2"])
+        self.assertEqual(resumed_run.status, LOGICAL_RUN_STATUS_RUNNING)
+
+        active_run = load_active_logical_run(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+        )
+        self.assertIsNotNone(active_run)
+        assert active_run is not None
+        self.assertEqual(active_run["logical_run_id"], first_run.logical_run_id)
+        self.assertEqual(active_run["status"], LOGICAL_RUN_STATUS_RUNNING)
+
+    def test_force_new_logical_run_abandons_failed_run_and_creates_new_one(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert first_run is not None
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_post_repair_verify_xml",
+            dagster_run_id="dagster-1",
+        )
+
+        second_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        self.assertIsNotNone(second_run)
+        assert second_run is not None
+        self.assertNotEqual(first_run.logical_run_id, second_run.logical_run_id)
+        self.assertEqual(second_run.agreement_uuids, ["agreement-2"])
+
+        with db.get_engine().begin() as conn:
+            statuses = conn.execute(
+                text(
+                    """
+                    SELECT logical_run_id, status
+                    FROM pipeline_job_runs
+                    WHERE job_name = :job_name
+                    ORDER BY logical_run_id ASC
+                    """
+                ),
+                {"job_name": "regular_ingest"},
+            ).mappings().all()
+
+        status_by_run_id = {str(row["logical_run_id"]): str(row["status"]) for row in statuses}
+        self.assertEqual(status_by_run_id[first_run.logical_run_id], LOGICAL_RUN_STATUS_ABANDONED)
+        self.assertEqual(status_by_run_id[second_run.logical_run_id], LOGICAL_RUN_STATUS_RUNNING)
+
     def test_mark_completed_updates_stage_and_final_status(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(run_id="dagster-1")
@@ -229,6 +331,96 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(final_row["status"], LOGICAL_RUN_STATUS_COMPLETED)
         self.assertEqual(final_row["current_stage"], "ingestion_cleanup_a_tx_metadata_web_search")
         self.assertIsNotNone(final_row["finished_at"])
+
+    def test_mark_failed_updates_status_and_stage_for_matching_dagster_run(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        self.assertIsNotNone(logical_run)
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+            dagster_run_id="dagster-1",
+        )
+
+        active_run = load_active_logical_run(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+        )
+        self.assertIsNone(active_run)
+
+        with db.get_engine().begin() as conn:
+            final_row = conn.execute(
+                text(
+                    """
+                    SELECT status, current_stage, finished_at
+                    FROM pipeline_job_runs
+                    WHERE job_name = :job_name
+                    """
+                ),
+                {"job_name": "ingestion_cleanup_b"},
+            ).mappings().first()
+
+        self.assertIsNotNone(final_row)
+        assert final_row is not None
+        self.assertEqual(final_row["status"], LOGICAL_RUN_STATUS_FAILED)
+        self.assertEqual(final_row["current_stage"], "ingestion_cleanup_b_post_repair_verify_xml")
+        self.assertIsNotNone(final_row["finished_at"])
+
+    def test_should_skip_managed_stage_for_earlier_cleanup_b_stage_after_failure(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        self.assertIsNotNone(logical_run)
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+            dagster_run_id="dagster-1",
+        )
+        _ = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-2"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        should_skip_enqueue, current_stage_enqueue = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_ai_repair_enqueue",
+        )
+        self.assertTrue(should_skip_enqueue)
+        self.assertEqual(current_stage_enqueue, "ingestion_cleanup_b_post_repair_verify_xml")
+
+        should_skip_verify, current_stage_verify = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+        )
+        self.assertFalse(should_skip_verify)
+        self.assertEqual(current_stage_verify, "ingestion_cleanup_b_post_repair_verify_xml")
 
 
 if __name__ == "__main__":

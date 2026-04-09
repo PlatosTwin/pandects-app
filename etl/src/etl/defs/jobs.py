@@ -80,8 +80,21 @@ from etl.defs.k_tax_module_asset import (
 )
 from etl.defs.gating_asset import gating_asset
 from etl.defs.resources import get_resources
+from etl.utils.logical_job_runs import MANAGED_LOGICAL_JOB_NAMES, mark_logical_run_failed
 
 base_resources = get_resources()
+
+
+@dg.failure_hook(required_resource_keys={"db"})
+def _managed_logical_run_failure_hook(context: dg.HookContext) -> None:
+    if context.job_name not in MANAGED_LOGICAL_JOB_NAMES:
+        return
+    mark_logical_run_failed(
+        db=context.resources.db,
+        job_name=context.job_name,
+        stage_name=context.step_key,
+        dagster_run_id=context.run_id,
+    )
 
 xml_fresh_pipeline = dg.define_asset_job(
     name="xml_fresh_pipeline",
@@ -108,6 +121,7 @@ xml_repair_cycle_pipeline = dg.define_asset_job(
 
 regular_ingest = dg.define_asset_job(
     name="regular_ingest",
+    hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         regular_ingest_staging_asset,
         regular_ingest_pre_processing_asset,
@@ -131,6 +145,7 @@ regular_ingest = dg.define_asset_job(
 
 ingestion_cleanup_a = dg.define_asset_job(
     name="ingestion_cleanup_a",
+    hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_a_tagging_asset,
         ingestion_cleanup_a_xml_asset,
@@ -152,6 +167,7 @@ ingestion_cleanup_a = dg.define_asset_job(
 
 ingestion_cleanup_b = dg.define_asset_job(
     name="ingestion_cleanup_b",
+    hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_b_ai_repair_enqueue_asset,
         ingestion_cleanup_b_ai_repair_poll_asset,

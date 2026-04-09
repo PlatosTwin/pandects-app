@@ -42,6 +42,7 @@ from etl.utils.logical_job_runs import (
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
 )
 from etl.utils.openai_batch import (
     extract_output_text_from_batch_body,
@@ -1129,6 +1130,17 @@ def ingestion_cleanup_b_taxonomy_llm_asset(
     pipeline_config: PipelineConfig,
     repair_section_agreement_uuids: list[str],
 ) -> list[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_taxonomy_llm",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_taxonomy_llm_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,
@@ -1203,6 +1215,17 @@ def ingestion_cleanup_b_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_taxonomy_gold_backfill",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_taxonomy_gold_backfill_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,

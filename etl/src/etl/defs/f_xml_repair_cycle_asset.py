@@ -44,6 +44,7 @@ from etl.utils.logical_job_runs import (
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
 )
 from etl.utils.openai_batch import poll_batch_until_terminal
 from etl.utils.post_asset_refresh import run_post_asset_refresh
@@ -1476,6 +1477,17 @@ def ingestion_cleanup_b_post_repair_build_xml_asset(
     pipeline_config: PipelineConfig,
     reconciled_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_post_repair_build_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_post_repair_build_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     target_agreement_uuids = load_active_scope_for_job(
         context,
@@ -1634,6 +1646,17 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
     pipeline_config: PipelineConfig,
     rebuilt_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_post_repair_verify_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_post_repair_verify_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
     resume_openai_batches = pipeline_config.resume_openai_batches
     target_agreement_uuids = load_active_scope_for_job(

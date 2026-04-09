@@ -16,12 +16,29 @@ from etl.utils.schema_guards import assert_tables_exist
 
 LOGICAL_RUN_STATUS_RUNNING = "RUNNING"
 LOGICAL_RUN_STATUS_COMPLETED = "COMPLETED"
+LOGICAL_RUN_STATUS_FAILED = "FAILED"
 LOGICAL_RUN_STATUS_ABANDONED = "ABANDONED"
 
 MANAGED_LOGICAL_JOB_NAMES = {
     "regular_ingest",
     "ingestion_cleanup_a",
     "ingestion_cleanup_b",
+}
+
+MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
+    "ingestion_cleanup_b": (
+        "ingestion_cleanup_b_ai_repair_enqueue",
+        "ingestion_cleanup_b_ai_repair_poll",
+        "ingestion_cleanup_b_reconcile_tags",
+        "ingestion_cleanup_b_post_repair_build_xml",
+        "ingestion_cleanup_b_post_repair_verify_xml",
+        "ingestion_cleanup_b_sections_from_repair_xml",
+        "ingestion_cleanup_b_taxonomy_llm",
+        "ingestion_cleanup_b_tax_module",
+        "ingestion_cleanup_b_taxonomy_gold_backfill",
+        "ingestion_cleanup_b_tx_metadata_offline",
+        "ingestion_cleanup_b_tx_metadata_web_search",
+    ),
 }
 
 
@@ -170,6 +187,28 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
     return dict(row)
 
 
+def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
+    row = conn.execute(
+        text(
+            f"""
+            SELECT logical_run_id, job_name, status, current_stage
+            FROM {_job_runs_table(schema, conn)}
+            WHERE job_name = :job_name
+              AND status IN :resumable_statuses
+            ORDER BY started_at DESC, logical_run_id DESC
+            LIMIT 1
+            """
+        ).bindparams(bindparam("resumable_statuses", expanding=True)),
+        {
+            "job_name": job_name,
+            "resumable_statuses": [LOGICAL_RUN_STATUS_RUNNING, LOGICAL_RUN_STATUS_FAILED],
+        },
+    ).mappings().first()
+    if row is None:
+        return None
+    return dict(row)
+
+
 def load_active_logical_run(*, db: DBResource, job_name: str) -> dict[str, Any] | None:
     engine = db.get_engine()
     schema = db.database
@@ -209,12 +248,12 @@ def _abandon_active_runs(
                 finished_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             WHERE job_name = :job_name
-              AND status = :running_status
+              AND status IN :unfinished_statuses
             """
-        ),
+        ).bindparams(bindparam("unfinished_statuses", expanding=True)),
         {
             "job_name": job_name,
-            "running_status": LOGICAL_RUN_STATUS_RUNNING,
+            "unfinished_statuses": [LOGICAL_RUN_STATUS_RUNNING, LOGICAL_RUN_STATUS_FAILED],
             "abandoned_status": LOGICAL_RUN_STATUS_ABANDONED,
         },
     )
@@ -240,7 +279,7 @@ def start_or_resume_logical_run(
         assert_logical_job_run_tables_exist(conn, schema=schema)
         existing_run = None
         if pipeline_config.resume_logical_runs and not pipeline_config.force_new_logical_run:
-            existing_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+            existing_run = fetch_resumable_logical_run(conn, schema=schema, job_name=job_name)
         if existing_run is not None:
             logical_run_id = str(existing_run["logical_run_id"])
             resumed_scope = load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
@@ -249,6 +288,7 @@ def start_or_resume_logical_run(
                     f"""
                     UPDATE {_job_runs_table(schema, conn)}
                     SET dagster_run_id = :dagster_run_id,
+                        status = :running_status,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE logical_run_id = :logical_run_id
                     """
@@ -256,12 +296,13 @@ def start_or_resume_logical_run(
                 {
                     "logical_run_id": logical_run_id,
                     "dagster_run_id": _current_dagster_run_id(context),
+                    "running_status": LOGICAL_RUN_STATUS_RUNNING,
                 },
             )
             return LogicalJobRun(
                 logical_run_id=logical_run_id,
                 job_name=job_name,
-                status=str(existing_run["status"]),
+                status=LOGICAL_RUN_STATUS_RUNNING,
                 current_stage=str(existing_run["current_stage"]) if existing_run.get("current_stage") is not None else None,
                 agreement_uuids=resumed_scope,
                 resumed_existing=True,
@@ -373,6 +414,89 @@ def build_logical_batch_key(*, logical_run_id: str | None, stage_name: str, defa
     if default_key:
         return f"{logical_run_id}:{stage_name}:{default_key}"
     return f"{logical_run_id}:{stage_name}"
+
+
+def mark_logical_run_failed(
+    *,
+    db: DBResource,
+    job_name: str,
+    stage_name: str | None,
+    dagster_run_id: str | None = None,
+) -> None:
+    engine = db.get_engine()
+    schema = db.database
+    with engine.begin() as conn:
+        assert_logical_job_run_tables_exist(conn, schema=schema)
+        logical_run_id: str | None = None
+        if dagster_run_id:
+            row = conn.execute(
+                text(
+                    f"""
+                    SELECT logical_run_id
+                    FROM {_job_runs_table(schema, conn)}
+                    WHERE job_name = :job_name
+                      AND status = :running_status
+                      AND dagster_run_id = :dagster_run_id
+                    ORDER BY started_at DESC, logical_run_id DESC
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "job_name": job_name,
+                    "running_status": LOGICAL_RUN_STATUS_RUNNING,
+                    "dagster_run_id": dagster_run_id,
+                },
+            ).scalar()
+            if row is not None:
+                logical_run_id = str(row)
+
+        if logical_run_id is None:
+            active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+            if active_run is None:
+                return
+            logical_run_id = str(active_run["logical_run_id"])
+
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {_job_runs_table(schema, conn)}
+                SET current_stage = :current_stage,
+                    status = :failed_status,
+                    updated_at = CURRENT_TIMESTAMP,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE logical_run_id = :logical_run_id
+                """
+            ),
+            {
+                "logical_run_id": logical_run_id,
+                "current_stage": stage_name,
+                "failed_status": LOGICAL_RUN_STATUS_FAILED,
+            },
+        )
+
+
+def should_skip_managed_stage(
+    *,
+    db: DBResource,
+    job_name: str,
+    stage_name: str,
+) -> tuple[bool, str | None]:
+    stage_sequence = MANAGED_JOB_STAGE_SEQUENCE.get(job_name)
+    if stage_sequence is None or stage_name not in stage_sequence:
+        return False, None
+
+    active_run = load_active_logical_run(db=db, job_name=job_name)
+    if active_run is None:
+        return False, None
+
+    current_stage_raw = active_run.get("current_stage")
+    current_stage = str(current_stage_raw) if current_stage_raw is not None else None
+    if current_stage not in stage_sequence:
+        return False, current_stage
+
+    current_idx = stage_sequence.index(current_stage)
+    stage_idx = stage_sequence.index(stage_name)
+    return current_idx > stage_idx, current_stage
 
 
 def mark_logical_run_stage_completed(

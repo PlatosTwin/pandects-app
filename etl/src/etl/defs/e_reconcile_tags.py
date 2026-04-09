@@ -12,7 +12,7 @@ from etl.defs.d_ai_repair_asset import (
     regular_ingest_ai_repair_poll_asset,
 )
 from etl.defs.resources import DBResource, PipelineConfig
-from etl.utils.logical_job_runs import mark_logical_run_stage_completed
+from etl.utils.logical_job_runs import mark_logical_run_stage_completed, should_skip_managed_stage
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 
 
@@ -193,6 +193,17 @@ def ingestion_cleanup_b_reconcile_tags(
     pipeline_config: PipelineConfig,
     polled_request_ids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_reconcile_tags",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_reconcile_tags: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     updated_agreements = _reconcile_tags_for_requests(
         context,
         db,

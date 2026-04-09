@@ -64,6 +64,7 @@ from etl.utils.logical_job_runs import (
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_gating
 from etl.utils.run_config import ensure_single_batch_run
@@ -1019,6 +1020,17 @@ def ingestion_cleanup_b_tx_metadata_offline_asset(
     agreement_uuids: list[str],
 ) -> list[str]:
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_offline_asset")
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_tx_metadata_offline",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_tx_metadata_offline_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,
@@ -1076,6 +1088,17 @@ def ingestion_cleanup_b_tx_metadata_web_search_asset(
     agreement_uuids: list[str],
 ) -> list[str]:
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_web_search_asset")
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_tx_metadata_web_search",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_tx_metadata_web_search_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,

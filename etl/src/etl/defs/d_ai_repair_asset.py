@@ -51,6 +51,7 @@ from etl.utils.logical_job_runs import (
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
     start_or_resume_logical_run,
 )
 from etl.utils.schema_guards import assert_tables_exist
@@ -1103,6 +1104,17 @@ def ingestion_cleanup_b_ai_repair_enqueue_asset(
         selected_agreement_uuids=selected_scope,
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_ai_repair_enqueue",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_ai_repair_enqueue_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
         context,
         db,
@@ -1939,6 +1951,17 @@ def ingestion_cleanup_b_ai_repair_poll_asset(
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_ai_repair_poll",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_ai_repair_poll_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     successful_request_ids = _poll_ai_repair_batches(
         context,
         db,

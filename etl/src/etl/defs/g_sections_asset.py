@@ -23,6 +23,7 @@ from etl.utils.db_utils import upsert_sections
 from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.latest_sections_search import refresh_latest_sections_search
@@ -353,6 +354,17 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
     pipeline_config: PipelineConfig,
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_sections_from_repair_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_b_sections_from_repair_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,

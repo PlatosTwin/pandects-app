@@ -144,6 +144,14 @@ class DagsterAssetGraphTests(unittest.TestCase):
         )
         self.assertTrue({"10_tx_metadata_asset", "11_embed_sections", "99_gating"}.issubset(jobs["__ASSET_JOB"]))
 
+    def test_managed_jobs_include_logical_run_failure_hook(self) -> None:
+        repo = defs.get_repository_def()
+
+        for job_name in ("regular_ingest", "ingestion_cleanup_a", "ingestion_cleanup_b"):
+            job = repo.get_job(job_name)
+            hook_names = {hook.name for hook in job.hook_defs}
+            self.assertIn("_managed_logical_run_failure_hook", hook_names)
+
 
 if __name__ == "__main__":
     _ = unittest.main()

@@ -255,6 +255,7 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
         with (
             patch("etl.defs.d_ai_repair_asset._oai_client", side_effect=AssertionError("resume path should not create an OpenAI client")),
             patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
+            patch("etl.defs.d_ai_repair_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.d_ai_repair_asset.start_or_resume_logical_run",
                 return_value=SimpleNamespace(
@@ -302,6 +303,49 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
         self.assertIsNone(fetch_candidates.call_args_list[1].kwargs.get("exclude_in_flight"))
         self.assertEqual(fetch_batch.call_count, 2)
         self.assertTrue(all("batch_key" in call.kwargs for call in fetch_batch.call_args_list))
+
+    def test_cleanup_b_ai_repair_enqueue_skips_when_failed_run_already_reached_later_stage(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=25,
+                    resume_openai_batches=True,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+
+        with (
+            patch("etl.defs.d_ai_repair_asset._select_ai_repair_scope", return_value=["agreement-1"]),
+            patch(
+                "etl.defs.d_ai_repair_asset.start_or_resume_logical_run",
+                return_value=SimpleNamespace(
+                    logical_run_id="logical-run-1",
+                    agreement_uuids=["agreement-1"],
+                    resumed_existing=True,
+                ),
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset.should_skip_managed_stage",
+                return_value=(True, "ingestion_cleanup_b_post_repair_verify_xml"),
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._enqueue_ai_repair_for_agreements",
+                side_effect=AssertionError("cleanup_b enqueue should skip when the logical run already reached a later stage"),
+            ),
+        ):
+            enqueue_fn = getattr(cast(object, ingestion_cleanup_b_ai_repair_enqueue_asset.op.compute_fn), "decorated_fn")
+            result = enqueue_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+            )
+
+        self.assertEqual(result, [])
 
     def test_cleanup_a_post_repair_build_does_not_defer_for_unrelated_verify_batch(self) -> None:
         db = _FakeDB()
