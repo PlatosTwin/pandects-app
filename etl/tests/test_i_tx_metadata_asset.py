@@ -1530,6 +1530,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         with (
             patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=[]),
             patch(
                 "etl.defs.i_tx_metadata_asset.run_pre_asset_gating",
@@ -1562,6 +1563,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         with (
             patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=[]),
             patch(
                 "etl.defs.i_tx_metadata_asset.run_pre_asset_gating",

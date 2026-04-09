@@ -116,6 +116,7 @@ class LogicalJobRun:
     job_name: str
     status: str
     current_stage: str | None
+    completed_stages: list[str]
     agreement_uuids: list[str]
     resumed_existing: bool
 
@@ -134,6 +135,100 @@ def _job_run_agreements_table(schema: str, bind: Any | None = None) -> str:
     if bind is not None and _is_sqlite_bind(bind):
         return "pipeline_job_run_agreements"
     return f"{schema}.pipeline_job_run_agreements"
+
+
+def _job_runs_has_column(conn: Any, *, schema: str, column_name: str) -> bool:
+    table_name = _job_runs_table(schema, conn)
+    if _is_sqlite_bind(conn):
+        rows = conn.execute(text(f"PRAGMA table_info({table_name})")).mappings().all()
+        return any(str(row.get("name") or "") == column_name for row in rows)
+    row = conn.execute(
+        text(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = :schema
+              AND table_name = :table_name
+              AND column_name = :column_name
+            LIMIT 1
+            """
+        ),
+        {
+            "schema": schema,
+            "table_name": table_name.split(".")[-1],
+            "column_name": column_name,
+        },
+    ).first()
+    return row is not None
+
+
+def _job_runs_completed_stages_expr(conn: Any, *, schema: str) -> str:
+    if _job_runs_has_column(conn, schema=schema, column_name="completed_stages_json"):
+        return "completed_stages_json"
+    return "NULL AS completed_stages_json"
+
+
+def _stage_sort_key(job_name: str, stage_name: str) -> tuple[int, str]:
+    return (_stage_index(job_name, stage_name), stage_name)
+
+
+def _infer_completed_stages_from_current_stage(job_name: str, current_stage: str | None) -> list[str]:
+    normalized_stage = normalize_managed_stage_name(current_stage)
+    stage_sequence = MANAGED_JOB_STAGE_SEQUENCE.get(job_name)
+    if normalized_stage is None or stage_sequence is None or normalized_stage not in stage_sequence:
+        return []
+    stage_idx = stage_sequence.index(normalized_stage)
+    return list(stage_sequence[: stage_idx + 1])
+
+
+def _decode_completed_stages(
+    *,
+    job_name: str,
+    raw_value: Any,
+    current_stage: str | None,
+) -> list[str]:
+    if isinstance(raw_value, str) and raw_value.strip():
+        try:
+            parsed = json.loads(raw_value)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            normalized = {
+                stage_name
+                for item in parsed
+                for stage_name in [normalize_managed_stage_name(str(item))]
+                if stage_name
+            }
+            return sorted(normalized, key=lambda stage_name: _stage_sort_key(job_name, stage_name))
+    return _infer_completed_stages_from_current_stage(job_name, current_stage)
+
+
+def _encode_completed_stages(job_name: str, completed_stages: set[str]) -> str:
+    normalized: set[str] = set()
+    for stage_name in completed_stages:
+        normalized_stage = normalize_managed_stage_name(stage_name)
+        if normalized_stage:
+            normalized.add(normalized_stage)
+    return json.dumps(sorted(normalized, key=lambda stage_name: _stage_sort_key(job_name, stage_name)))
+
+
+def _highest_completed_stage(job_name: str, completed_stages: set[str]) -> str | None:
+    if not completed_stages:
+        return None
+    return sorted(completed_stages, key=lambda stage_name: _stage_sort_key(job_name, stage_name))[-1]
+
+
+def _hydrate_logical_run_row(job_name: str, row: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(row)
+    current_stage_raw = hydrated.get("current_stage")
+    current_stage = normalize_managed_stage_name(str(current_stage_raw) if current_stage_raw is not None else None)
+    hydrated["current_stage"] = current_stage
+    hydrated["completed_stages"] = _decode_completed_stages(
+        job_name=job_name,
+        raw_value=hydrated.get("completed_stages_json"),
+        current_stage=current_stage,
+    )
+    return hydrated
 
 
 def _pipeline_config_payload(pipeline_config: PipelineConfig) -> str | None:
@@ -234,10 +329,11 @@ def assert_logical_job_run_tables_exist(conn: Any, *, schema: str) -> None:
 
 
 def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
+    completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
     row = conn.execute(
         text(
             f"""
-            SELECT logical_run_id, job_name, status, current_stage
+            SELECT logical_run_id, job_name, status, current_stage, {completed_stages_expr}
             FROM {_job_runs_table(schema, conn)}
             WHERE job_name = :job_name
               AND status = :status
@@ -252,16 +348,17 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
     ).mappings().first()
     if row is None:
         return None
-    return dict(row)
+    return _hydrate_logical_run_row(job_name, dict(row))
 
 
 def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
+    completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
     rows = [
-        dict(row)
+        _hydrate_logical_run_row(job_name, dict(row))
         for row in conn.execute(
         text(
             f"""
-            SELECT logical_run_id, job_name, status, current_stage, started_at
+            SELECT logical_run_id, job_name, status, current_stage, started_at, {completed_stages_expr}
             FROM {_job_runs_table(schema, conn)}
             WHERE job_name = :job_name
               AND status IN :resumable_statuses
@@ -277,7 +374,10 @@ def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dic
         return None
     rows.sort(
         key=lambda row: (
-            _stage_index(job_name, row.get("current_stage")),
+            max(
+                [_stage_index(job_name, row.get("current_stage"))]
+                + [_stage_index(job_name, stage_name) for stage_name in row.get("completed_stages", [])]
+            ),
             str(row.get("started_at") or ""),
             str(row.get("logical_run_id") or ""),
         ),
@@ -380,9 +480,8 @@ def start_or_resume_logical_run(
                 logical_run_id=logical_run_id,
                 job_name=job_name,
                 status=LOGICAL_RUN_STATUS_RUNNING,
-                current_stage=normalize_managed_stage_name(
-                    str(existing_run["current_stage"]) if existing_run.get("current_stage") is not None else None
-                ),
+                current_stage=str(existing_run["current_stage"]) if existing_run.get("current_stage") is not None else None,
+                completed_stages=list(existing_run.get("completed_stages", [])),
                 agreement_uuids=resumed_scope,
                 resumed_existing=True,
             )
@@ -394,43 +493,54 @@ def start_or_resume_logical_run(
             return None
 
         logical_run_id = str(uuid4())
+        insert_columns = [
+            "logical_run_id",
+            "job_name",
+            "status",
+            "current_stage",
+            "dagster_run_id",
+            "config_json",
+            "scope_size",
+            "started_at",
+            "updated_at",
+            "finished_at",
+        ]
+        insert_values = [
+            ":logical_run_id",
+            ":job_name",
+            ":status",
+            ":current_stage",
+            ":dagster_run_id",
+            ":config_json",
+            ":scope_size",
+            "CURRENT_TIMESTAMP",
+            "CURRENT_TIMESTAMP",
+            "NULL",
+        ]
+        params: dict[str, Any] = {
+            "logical_run_id": logical_run_id,
+            "job_name": job_name,
+            "status": LOGICAL_RUN_STATUS_RUNNING,
+            "current_stage": initial_stage,
+            "dagster_run_id": _current_dagster_run_id(context),
+            "config_json": _pipeline_config_payload(pipeline_config),
+            "scope_size": len(scope),
+        }
+        if _job_runs_has_column(conn, schema=schema, column_name="completed_stages_json"):
+            insert_columns.insert(4, "completed_stages_json")
+            insert_values.insert(4, ":completed_stages_json")
+            params["completed_stages_json"] = json.dumps([])
         _ = conn.execute(
             text(
                 f"""
                 INSERT INTO {_job_runs_table(schema, conn)} (
-                    logical_run_id,
-                    job_name,
-                    status,
-                    current_stage,
-                    dagster_run_id,
-                    config_json,
-                    scope_size,
-                    started_at,
-                    updated_at,
-                    finished_at
+                    {", ".join(insert_columns)}
                 ) VALUES (
-                    :logical_run_id,
-                    :job_name,
-                    :status,
-                    :current_stage,
-                    :dagster_run_id,
-                    :config_json,
-                    :scope_size,
-                    CURRENT_TIMESTAMP,
-                    CURRENT_TIMESTAMP,
-                    NULL
+                    {", ".join(insert_values)}
                 )
                 """
             ),
-            {
-                "logical_run_id": logical_run_id,
-                "job_name": job_name,
-                "status": LOGICAL_RUN_STATUS_RUNNING,
-                "current_stage": initial_stage,
-                "dagster_run_id": _current_dagster_run_id(context),
-                "config_json": _pipeline_config_payload(pipeline_config),
-                "scope_size": len(scope),
-            },
+            params,
         )
         _insert_agreement_scope(
             conn,
@@ -443,6 +553,7 @@ def start_or_resume_logical_run(
             job_name=job_name,
             status=LOGICAL_RUN_STATUS_RUNNING,
             current_stage=initial_stage,
+            completed_stages=[],
             agreement_uuids=scope,
             resumed_existing=False,
         )
@@ -569,14 +680,13 @@ def should_skip_managed_stage(
     if active_run is None:
         return False, None
 
-    current_stage_raw = active_run.get("current_stage")
-    current_stage = normalize_managed_stage_name(str(current_stage_raw) if current_stage_raw is not None else None)
-    if current_stage not in stage_sequence:
-        return False, current_stage
-
-    current_idx = stage_sequence.index(current_stage)
-    stage_idx = stage_sequence.index(stage_name)
-    return current_idx > stage_idx, current_stage
+    current_stage = active_run.get("current_stage")
+    completed_stages = {
+        stage
+        for stage in active_run.get("completed_stages", [])
+        if isinstance(stage, str) and stage in stage_sequence
+    }
+    return stage_name in completed_stages, current_stage
 
 
 def mark_logical_run_stage_completed(
@@ -593,46 +703,42 @@ def mark_logical_run_stage_completed(
         active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
         if active_run is None:
             return
-        existing_stage = normalize_managed_stage_name(
-            str(active_run["current_stage"]) if active_run.get("current_stage") is not None else None
-        )
         normalized_stage_name = normalize_managed_stage_name(stage_name)
-        next_stage_name = normalized_stage_name
-        if (
-            not complete_run
-            and _stage_index(job_name, existing_stage) > _stage_index(job_name, normalized_stage_name)
-        ):
-            next_stage_name = existing_stage
+        completed_stages = {
+            stage
+            for stage in active_run.get("completed_stages", [])
+            if isinstance(stage, str)
+        }
+        if normalized_stage_name is not None:
+            completed_stages.add(normalized_stage_name)
+        next_stage_name = _highest_completed_stage(job_name, completed_stages) or normalized_stage_name
         params: dict[str, Any] = {
             "logical_run_id": str(active_run["logical_run_id"]),
             "current_stage": next_stage_name,
         }
+        set_clauses = [
+            "current_stage = :current_stage",
+            "updated_at = CURRENT_TIMESTAMP",
+        ]
         if complete_run:
-            _ = conn.execute(
-                text(
-                    f"""
-                    UPDATE {_job_runs_table(schema, conn)}
-                    SET current_stage = :current_stage,
-                        status = :completed_status,
-                        updated_at = CURRENT_TIMESTAMP,
-                        finished_at = CURRENT_TIMESTAMP
-                    WHERE logical_run_id = :logical_run_id
-                    """
-                ),
-                {
-                    **params,
-                    "completed_status": LOGICAL_RUN_STATUS_COMPLETED,
-                },
+            set_clauses.extend(
+                [
+                    "status = :completed_status",
+                    "finished_at = CURRENT_TIMESTAMP",
+                ]
             )
-        else:
-            _ = conn.execute(
-                text(
-                    f"""
-                    UPDATE {_job_runs_table(schema, conn)}
-                    SET current_stage = :current_stage,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE logical_run_id = :logical_run_id
-                    """
-                ),
-                params,
-            )
+        if _job_runs_has_column(conn, schema=schema, column_name="completed_stages_json"):
+            params["completed_stages_json"] = _encode_completed_stages(job_name, completed_stages)
+            set_clauses.insert(1, "completed_stages_json = :completed_stages_json")
+        if complete_run:
+            params["completed_status"] = LOGICAL_RUN_STATUS_COMPLETED
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {_job_runs_table(schema, conn)}
+                SET {", ".join(set_clauses)}
+                WHERE logical_run_id = :logical_run_id
+                """
+            ),
+            params,
+        )

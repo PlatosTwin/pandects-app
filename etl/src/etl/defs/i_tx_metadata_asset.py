@@ -780,33 +780,71 @@ def tx_metadata_asset(
     run_post_asset_refresh(context, db, pipeline_config)
 
 
-@dg.asset(
-    name="10-01_regular_ingest_tx_metadata_offline_asset",
-    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_gold_backfill_asset.key)},
-)
-def regular_ingest_tx_metadata_offline_asset(
+def _maybe_skip_managed_tx_metadata_stage(
     context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    job_name: str,
+    stage_name: str,
+    log_prefix: str,
+    skip_if_completed: bool,
+) -> bool:
+    if not skip_if_completed:
+        return False
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+    )
+    if not should_skip:
+        return False
+    context.log.info(
+        "%s: skipping because logical run already reached %s.",
+        log_prefix,
+        current_stage,
+    )
+    return True
+
+
+def _run_managed_tx_metadata_offline_asset(
+    context: AssetExecutionContext,
+    *,
     db: DBResource,
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
+    asset_name: str,
+    job_name: str,
+    stage_name: str,
+    log_prefix: str,
+    skip_if_completed: bool = False,
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_offline_asset")
+    ensure_single_batch_run(context, pipeline_config, asset_name=asset_name)
+    if _maybe_skip_managed_tx_metadata_stage(
+        context,
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+        log_prefix=log_prefix,
+        skip_if_completed=skip_if_completed,
+    ):
+        return []
+
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,
-        job_name="regular_ingest",
+        job_name=job_name,
         fallback_agreement_uuids=agreement_uuids,
     )
     if not scope_uuids:
         mark_logical_run_stage_completed(
             db=db,
-            job_name="regular_ingest",
-            stage_name="regular_ingest_tx_metadata_offline",
+            job_name=job_name,
+            stage_name=stage_name,
         )
         return []
-    run_pre_asset_gating(context, db)
-    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
 
+    run_pre_asset_gating(context, db)
+    active_run = load_active_logical_run(db=db, job_name=job_name)
     engine = db.get_engine()
     schema = db.database
     agreements_table = f"{schema}.agreements"
@@ -823,18 +861,111 @@ def regular_ingest_tx_metadata_offline_asset(
         target_agreement_uuids=scope_uuids,
         batch_key_override=build_logical_batch_key(
             logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="regular_ingest_tx_metadata_offline",
+            stage_name=stage_name,
             default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
         ),
-        log_prefix="regular_ingest_tx_metadata_offline_asset",
+        log_prefix=log_prefix,
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
         db=db,
-        job_name="regular_ingest",
-        stage_name="regular_ingest_tx_metadata_offline",
+        job_name=job_name,
+        stage_name=stage_name,
     )
     return processed_agreement_uuids
+
+
+def _run_managed_tx_metadata_web_search_asset(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+    asset_name: str,
+    job_name: str,
+    stage_name: str,
+    log_prefix: str,
+    skip_if_completed: bool = False,
+) -> list[str]:
+    ensure_single_batch_run(context, pipeline_config, asset_name=asset_name)
+    if _maybe_skip_managed_tx_metadata_stage(
+        context,
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+        log_prefix=log_prefix,
+        skip_if_completed=skip_if_completed,
+    ):
+        return []
+
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name=job_name,
+        fallback_agreement_uuids=agreement_uuids,
+    )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name=job_name,
+            stage_name=stage_name,
+            complete_run=True,
+        )
+        return []
+
+    run_pre_asset_gating(context, db)
+    engine = db.get_engine()
+    schema = db.database
+    agreements_table = f"{schema}.agreements"
+    summary = _run_web_search_mode(
+        context,
+        engine,
+        schema,
+        agreements_table,
+        pipeline_config.tx_metadata_agreement_batch_size,
+        target_agreement_uuids=scope_uuids,
+        log_prefix=log_prefix,
+    )
+    context.add_output_metadata(
+        {
+            "total_web_searches": summary["total_searches"],
+            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
+        }
+    )
+    run_post_asset_refresh(context, db, pipeline_config)
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+        complete_run=True,
+    )
+    processed_uuids = summary["processed_uuids"]
+    if not isinstance(processed_uuids, list):
+        raise TypeError(f"{asset_name} expected summary['processed_uuids'] to be a list.")
+    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
+
+
+@dg.asset(
+    name="10-01_regular_ingest_tx_metadata_offline_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_gold_backfill_asset.key)},
+)
+def regular_ingest_tx_metadata_offline_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_tx_metadata_offline_asset(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="regular_ingest_tx_metadata_offline_asset",
+        job_name="regular_ingest",
+        stage_name="regular_ingest_tx_metadata_offline",
+        log_prefix="regular_ingest_tx_metadata_offline_asset",
+        skip_if_completed=True,
+    )
 
 
 @dg.asset(
@@ -847,52 +978,17 @@ def regular_ingest_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_web_search_asset")
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tx_metadata_web_search_asset(
         context,
         db=db,
-        job_name="regular_ingest",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="regular_ingest",
-            stage_name="regular_ingest_tx_metadata_web_search",
-            complete_run=True,
-        )
-        return []
-    run_pre_asset_gating(context, db)
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    summary = _run_web_search_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="regular_ingest_tx_metadata_web_search_asset",
-    )
-    context.add_output_metadata(
-        {
-            "total_web_searches": summary["total_searches"],
-            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
-        }
-    )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="regular_ingest_tx_metadata_web_search_asset",
         job_name="regular_ingest",
         stage_name="regular_ingest_tx_metadata_web_search",
-        complete_run=True,
+        log_prefix="regular_ingest_tx_metadata_web_search_asset",
+        skip_if_completed=True,
     )
-    processed_uuids = summary["processed_uuids"]
-    if not isinstance(processed_uuids, list):
-        raise TypeError("regular_ingest_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
-    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
 
 
 @dg.asset(
@@ -905,51 +1001,17 @@ def ingestion_cleanup_a_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_a_tx_metadata_offline_asset")
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tx_metadata_offline_asset(
         context,
         db=db,
-        job_name="ingestion_cleanup_a",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_a",
-            stage_name="ingestion_cleanup_a_tx_metadata_offline",
-        )
-        return []
-    run_pre_asset_gating(context, db)
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    pages_table = f"{schema}.pages"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    processed_agreement_uuids = _run_offline_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pages_table,
-        tagged_outputs_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_a_tx_metadata_offline",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="ingestion_cleanup_a_tx_metadata_offline_asset",
-    )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_a_tx_metadata_offline_asset",
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_tx_metadata_offline",
+        log_prefix="ingestion_cleanup_a_tx_metadata_offline_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -962,52 +1024,17 @@ def ingestion_cleanup_a_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_a_tx_metadata_web_search_asset")
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tx_metadata_web_search_asset(
         context,
         db=db,
-        job_name="ingestion_cleanup_a",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_a",
-            stage_name="ingestion_cleanup_a_tx_metadata_web_search",
-            complete_run=True,
-        )
-        return []
-    run_pre_asset_gating(context, db)
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    summary = _run_web_search_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="ingestion_cleanup_a_tx_metadata_web_search_asset",
-    )
-    context.add_output_metadata(
-        {
-            "total_web_searches": summary["total_searches"],
-            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
-        }
-    )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_a_tx_metadata_web_search_asset",
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_tx_metadata_web_search",
-        complete_run=True,
+        log_prefix="ingestion_cleanup_a_tx_metadata_web_search_asset",
+        skip_if_completed=True,
     )
-    processed_uuids = summary["processed_uuids"]
-    if not isinstance(processed_uuids, list):
-        raise TypeError("ingestion_cleanup_a_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
-    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
 
 
 @dg.asset(
@@ -1020,62 +1047,17 @@ def ingestion_cleanup_b_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_offline_asset")
-    should_skip, current_stage = should_skip_managed_stage(
+    return _run_managed_tx_metadata_offline_asset(
+        context,
         db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_b_tx_metadata_offline_asset",
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_tx_metadata_offline",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_b_tx_metadata_offline_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_b",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_b",
-            stage_name="ingestion_cleanup_b_tx_metadata_offline",
-        )
-        return []
-    run_pre_asset_gating(context, db)
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    pages_table = f"{schema}.pages"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    processed_agreement_uuids = _run_offline_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pages_table,
-        tagged_outputs_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_b_tx_metadata_offline",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
         log_prefix="ingestion_cleanup_b_tx_metadata_offline_asset",
+        skip_if_completed=True,
     )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_tx_metadata_offline",
-    )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1088,63 +1070,17 @@ def ingestion_cleanup_b_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_web_search_asset")
-    should_skip, current_stage = should_skip_managed_stage(
+    return _run_managed_tx_metadata_web_search_asset(
+        context,
         db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_b_tx_metadata_web_search_asset",
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_tx_metadata_web_search",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_b_tx_metadata_web_search_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_b",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_b",
-            stage_name="ingestion_cleanup_b_tx_metadata_web_search",
-            complete_run=True,
-        )
-        return []
-    run_pre_asset_gating(context, db)
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    summary = _run_web_search_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
         log_prefix="ingestion_cleanup_b_tx_metadata_web_search_asset",
+        skip_if_completed=True,
     )
-    context.add_output_metadata(
-        {
-            "total_web_searches": summary["total_searches"],
-            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
-        }
-    )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_tx_metadata_web_search",
-        complete_run=True,
-    )
-    processed_uuids = summary["processed_uuids"]
-    if not isinstance(processed_uuids, list):
-        raise TypeError("ingestion_cleanup_b_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
-    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
 
 
 @dg.asset(
@@ -1157,62 +1093,17 @@ def ingestion_cleanup_c_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_c_tx_metadata_offline_asset")
-    should_skip, current_stage = should_skip_managed_stage(
+    return _run_managed_tx_metadata_offline_asset(
+        context,
         db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_c_tx_metadata_offline_asset",
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_tx_metadata_offline",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_c_tx_metadata_offline_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_c",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_c",
-            stage_name="ingestion_cleanup_c_tx_metadata_offline",
-        )
-        return []
-    run_pre_asset_gating(context, db)
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_c")
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    pages_table = f"{schema}.pages"
-    tagged_outputs_table = f"{schema}.tagged_outputs"
-    processed_agreement_uuids = _run_offline_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pages_table,
-        tagged_outputs_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_c_tx_metadata_offline",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
         log_prefix="ingestion_cleanup_c_tx_metadata_offline_asset",
+        skip_if_completed=True,
     )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_tx_metadata_offline",
-    )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1225,63 +1116,17 @@ def ingestion_cleanup_c_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_c_tx_metadata_web_search_asset")
-    should_skip, current_stage = should_skip_managed_stage(
+    return _run_managed_tx_metadata_web_search_asset(
+        context,
         db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_c_tx_metadata_web_search_asset",
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_tx_metadata_web_search",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_c_tx_metadata_web_search_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_c",
-        fallback_agreement_uuids=agreement_uuids,
-    )
-    if not scope_uuids:
-        mark_logical_run_stage_completed(
-            db=db,
-            job_name="ingestion_cleanup_c",
-            stage_name="ingestion_cleanup_c_tx_metadata_web_search",
-            complete_run=True,
-        )
-        return []
-    run_pre_asset_gating(context, db)
-
-    engine = db.get_engine()
-    schema = db.database
-    agreements_table = f"{schema}.agreements"
-    summary = _run_web_search_mode(
-        context,
-        engine,
-        schema,
-        agreements_table,
-        pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
         log_prefix="ingestion_cleanup_c_tx_metadata_web_search_asset",
+        skip_if_completed=True,
     )
-    context.add_output_metadata(
-        {
-            "total_web_searches": summary["total_searches"],
-            "web_searches_by_agreement": dg.MetadataValue.json(summary["searches_by_agreement"]),
-        }
-    )
-    run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_tx_metadata_web_search",
-        complete_run=True,
-    )
-    processed_uuids = summary["processed_uuids"]
-    if not isinstance(processed_uuids, list):
-        raise TypeError("ingestion_cleanup_c_tx_metadata_web_search_asset expected summary['processed_uuids'] to be a list.")
-    return sorted({str(agreement_uuid) for agreement_uuid in processed_uuids if agreement_uuid})
 
 
 def _run_offline_mode(

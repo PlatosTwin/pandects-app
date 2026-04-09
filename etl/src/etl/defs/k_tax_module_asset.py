@@ -737,6 +737,58 @@ def tax_module_from_repair_xml_asset(
     )
 
 
+def _run_managed_tax_module_asset(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    job_name: str,
+    stage_name: str,
+    fallback_agreement_uuids: list[str],
+    log_prefix: str,
+    skip_if_completed: bool = False,
+) -> list[str]:
+    if skip_if_completed:
+        should_skip, current_stage = should_skip_managed_stage(
+            db=db,
+            job_name=job_name,
+            stage_name=stage_name,
+        )
+        if should_skip:
+            context.log.info(
+                "%s: skipping because logical run already reached %s.",
+                log_prefix,
+                current_stage,
+            )
+            return []
+
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name=job_name,
+        fallback_agreement_uuids=fallback_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name=job_name)
+    processed_agreement_uuids = _run_tax_module_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name=stage_name,
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        ),
+        log_prefix=log_prefix,
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+    )
+    return processed_agreement_uuids
+
+
 @dg.asset(
     name="08-03_regular_ingest_tax_module_asset",
     ins={"section_agreement_uuids": dg.AssetIn(key=regular_ingest_taxonomy_llm_asset.key)},
@@ -747,31 +799,16 @@ def regular_ingest_tax_module_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tax_module_asset(
         context,
         db=db,
-        job_name="regular_ingest",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
-    processed_agreement_uuids = _run_tax_module_for_agreements(
-        context,
-        db,
-        pipeline_config,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="regular_ingest_tax_module",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="regular_ingest_tax_module_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
+        pipeline_config=pipeline_config,
         job_name="regular_ingest",
         stage_name="regular_ingest_tax_module",
+        fallback_agreement_uuids=section_agreement_uuids,
+        log_prefix="regular_ingest_tax_module_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -784,31 +821,16 @@ def ingestion_cleanup_a_tax_module_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tax_module_asset(
         context,
         db=db,
-        job_name="ingestion_cleanup_a",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
-    processed_agreement_uuids = _run_tax_module_for_agreements(
-        context,
-        db,
-        pipeline_config,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_a_tax_module",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="ingestion_cleanup_a_tax_module_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
+        pipeline_config=pipeline_config,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_tax_module",
+        fallback_agreement_uuids=section_agreement_uuids,
+        log_prefix="ingestion_cleanup_a_tax_module_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -821,42 +843,16 @@ def ingestion_cleanup_b_tax_module_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_tax_module",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_b_tax_module_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tax_module_asset(
         context,
         db=db,
+        pipeline_config=pipeline_config,
         job_name="ingestion_cleanup_b",
+        stage_name="ingestion_cleanup_b_tax_module",
         fallback_agreement_uuids=section_agreement_uuids,
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
-    processed_agreement_uuids = _run_tax_module_for_agreements(
-        context,
-        db,
-        pipeline_config,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_b_tax_module",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
         log_prefix="ingestion_cleanup_b_tax_module_asset",
+        skip_if_completed=True,
     )
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_tax_module",
-    )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -869,39 +865,13 @@ def ingestion_cleanup_c_tax_module_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_tax_module",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_c_tax_module_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
+    return _run_managed_tax_module_asset(
         context,
         db=db,
+        pipeline_config=pipeline_config,
         job_name="ingestion_cleanup_c",
+        stage_name="ingestion_cleanup_c_tax_module",
         fallback_agreement_uuids=section_agreement_uuids,
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_c")
-    processed_agreement_uuids = _run_tax_module_for_agreements(
-        context,
-        db,
-        pipeline_config,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_c_tax_module",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
         log_prefix="ingestion_cleanup_c_tax_module_asset",
+        skip_if_completed=True,
     )
-    mark_logical_run_stage_completed(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_tax_module",
-    )
-    return processed_agreement_uuids

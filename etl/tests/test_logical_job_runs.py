@@ -40,6 +40,7 @@ class _FakeDB:
                         job_name TEXT NOT NULL,
                         status TEXT NOT NULL,
                         current_stage TEXT NULL,
+                        completed_stages_json TEXT NULL,
                         dagster_run_id TEXT NULL,
                         config_json TEXT NULL,
                         scope_size INTEGER NOT NULL,
@@ -106,6 +107,7 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertIsNotNone(active_run)
         assert active_run is not None
         self.assertEqual(active_run["status"], LOGICAL_RUN_STATUS_RUNNING)
+        self.assertEqual(active_run["completed_stages"], [])
 
         persisted_scope = load_active_scope_for_job(
             cast(AssetExecutionContext, cast(object, context)),
@@ -345,7 +347,7 @@ class LogicalJobRunTests(unittest.TestCase):
             final_row = conn.execute(
                 text(
                     """
-                    SELECT status, current_stage, finished_at
+                    SELECT status, current_stage, finished_at, completed_stages_json
                     FROM pipeline_job_runs
                     WHERE job_name = :job_name
                     """
@@ -358,6 +360,7 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(final_row["status"], LOGICAL_RUN_STATUS_COMPLETED)
         self.assertEqual(final_row["current_stage"], "ingestion_cleanup_a_tx_metadata_web_search")
         self.assertIsNotNone(final_row["finished_at"])
+        self.assertEqual(final_row["completed_stages_json"], '["ingestion_cleanup_a_tx_metadata_web_search"]')
 
     def test_mark_failed_updates_status_and_stage_for_matching_dagster_run(self) -> None:
         db = _FakeDB()
@@ -391,6 +394,7 @@ class LogicalJobRunTests(unittest.TestCase):
                 text(
                     """
                     SELECT status, current_stage, finished_at
+                    , completed_stages_json
                     FROM pipeline_job_runs
                     WHERE job_name = :job_name
                     """
@@ -403,6 +407,7 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(final_row["status"], LOGICAL_RUN_STATUS_FAILED)
         self.assertEqual(final_row["current_stage"], "ingestion_cleanup_b_post_repair_verify_xml")
         self.assertIsNotNone(final_row["finished_at"])
+        self.assertEqual(final_row["completed_stages_json"], "[]")
 
     def test_normalize_managed_stage_name_handles_step_keys_and_asset_suffixes(self) -> None:
         self.assertEqual(
@@ -454,6 +459,10 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertIsNotNone(active_run)
         assert active_run is not None
         self.assertEqual(active_run["current_stage"], "ingestion_cleanup_b_post_repair_verify_xml")
+        self.assertEqual(
+            active_run["completed_stages"],
+            ["ingestion_cleanup_b_ai_repair_enqueue", "ingestion_cleanup_b_post_repair_verify_xml"],
+        )
 
     def test_should_skip_managed_stage_for_earlier_cleanup_b_stage_after_failure(self) -> None:
         db = _FakeDB()
@@ -469,6 +478,11 @@ class LogicalJobRunTests(unittest.TestCase):
         )
         self.assertIsNotNone(logical_run)
 
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_ai_repair_enqueue",
+        )
         mark_logical_run_failed(
             db=cast(DBResource, cast(object, db)),
             job_name="ingestion_cleanup_b",
@@ -499,6 +513,42 @@ class LogicalJobRunTests(unittest.TestCase):
         )
         self.assertFalse(should_skip_verify)
         self.assertEqual(current_stage_verify, "ingestion_cleanup_b_post_repair_verify_xml")
+
+    def test_should_not_skip_uncompleted_parallel_branch_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        self.assertIsNotNone(logical_run)
+
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_sections_from_fresh_xml",
+        )
+
+        should_skip_fresh, current_stage_fresh = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_sections_from_fresh_xml",
+        )
+        self.assertTrue(should_skip_fresh)
+        self.assertEqual(current_stage_fresh, "regular_ingest_sections_from_fresh_xml")
+
+        should_skip_repair, current_stage_repair = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_sections_from_repair_xml",
+        )
+        self.assertFalse(should_skip_repair)
+        self.assertEqual(current_stage_repair, "regular_ingest_sections_from_fresh_xml")
 
 
 if __name__ == "__main__":

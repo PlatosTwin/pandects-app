@@ -996,6 +996,66 @@ def taxonomy_asset(
     context.log.info("taxonomy_asset: processed %s agreements", len(processed_agreement_uuids))
 
 
+def _run_managed_taxonomy_asset(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    job_name: str,
+    stage_name: str,
+    fallback_agreement_uuids: list[str],
+    mode: TaxonomyMode,
+    log_prefix: str,
+    skip_if_completed: bool = False,
+) -> list[str]:
+    if skip_if_completed:
+        should_skip, current_stage = should_skip_managed_stage(
+            db=db,
+            job_name=job_name,
+            stage_name=stage_name,
+        )
+        if should_skip:
+            context.log.info(
+                "%s: skipping because logical run already reached %s.",
+                log_prefix,
+                current_stage,
+            )
+            return []
+
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name=job_name,
+        fallback_agreement_uuids=fallback_agreement_uuids,
+    )
+    active_run = load_active_logical_run(db=db, job_name=job_name) if mode == TaxonomyMode.LLM else None
+    batch_key_override = None
+    if mode == TaxonomyMode.LLM:
+        batch_key_override = build_logical_batch_key(
+            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
+            stage_name=stage_name,
+            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
+        )
+
+    processed_agreement_uuids = _run_taxonomy_mode(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        mode=mode,
+        target_agreement_uuids=scope_uuids,
+        batch_key_override=batch_key_override,
+        log_prefix=log_prefix,
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name=job_name,
+        stage_name=stage_name,
+    )
+    return processed_agreement_uuids
+
+
 @dg.asset(
     name="07-01_regular_ingest_taxonomy_llm_asset",
     ins={
@@ -1011,33 +1071,18 @@ def regular_ingest_taxonomy_llm_asset(
     fresh_section_agreement_uuids: list[str],
     repair_section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="regular_ingest",
-        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
-    )
-    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.LLM,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="regular_ingest_taxonomy_llm",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="regular_ingest_taxonomy_llm_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_taxonomy_llm",
+        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+        mode=TaxonomyMode.LLM,
+        log_prefix="regular_ingest_taxonomy_llm_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1051,27 +1096,18 @@ def regular_ingest_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="regular_ingest",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.GOLD_BACKFILL,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="regular_ingest_taxonomy_gold_backfill_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_taxonomy_gold_backfill",
+        fallback_agreement_uuids=section_agreement_uuids,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        log_prefix="regular_ingest_taxonomy_gold_backfill_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1089,33 +1125,18 @@ def ingestion_cleanup_a_taxonomy_llm_asset(
     fresh_section_agreement_uuids: list[str],
     repair_section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_a",
-        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.LLM,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_a_taxonomy_llm",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="ingestion_cleanup_a_taxonomy_llm_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_taxonomy_llm",
+        fallback_agreement_uuids=sorted(set(fresh_section_agreement_uuids) | set(repair_section_agreement_uuids)),
+        mode=TaxonomyMode.LLM,
+        log_prefix="ingestion_cleanup_a_taxonomy_llm_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1131,44 +1152,18 @@ def ingestion_cleanup_b_taxonomy_llm_asset(
     pipeline_config: PipelineConfig,
     repair_section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_taxonomy_llm",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_b_taxonomy_llm_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_b",
-        fallback_agreement_uuids=sorted(set(repair_section_agreement_uuids)),
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.LLM,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_b_taxonomy_llm",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="ingestion_cleanup_b_taxonomy_llm_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_taxonomy_llm",
+        fallback_agreement_uuids=sorted(set(repair_section_agreement_uuids)),
+        mode=TaxonomyMode.LLM,
+        log_prefix="ingestion_cleanup_b_taxonomy_llm_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1182,44 +1177,18 @@ def ingestion_cleanup_c_taxonomy_llm_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_taxonomy_llm",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_c_taxonomy_llm_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_c",
-        fallback_agreement_uuids=sorted(set(section_agreement_uuids)),
-    )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_c")
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.LLM,
-        target_agreement_uuids=scope_uuids,
-        batch_key_override=build_logical_batch_key(
-            logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
-            stage_name="ingestion_cleanup_c_taxonomy_llm",
-            default_key=agreement_batch_key(scope_uuids) if scope_uuids else None,
-        ),
-        log_prefix="ingestion_cleanup_c_taxonomy_llm_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_taxonomy_llm",
+        fallback_agreement_uuids=sorted(set(section_agreement_uuids)),
+        mode=TaxonomyMode.LLM,
+        log_prefix="ingestion_cleanup_c_taxonomy_llm_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1233,27 +1202,18 @@ def ingestion_cleanup_a_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_a",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.GOLD_BACKFILL,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="ingestion_cleanup_a_taxonomy_gold_backfill_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_taxonomy_gold_backfill",
+        fallback_agreement_uuids=section_agreement_uuids,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        log_prefix="ingestion_cleanup_a_taxonomy_gold_backfill_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1267,38 +1227,18 @@ def ingestion_cleanup_b_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_b",
-        stage_name="ingestion_cleanup_b_taxonomy_gold_backfill",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_b_taxonomy_gold_backfill_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_b",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.GOLD_BACKFILL,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="ingestion_cleanup_b_taxonomy_gold_backfill_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_taxonomy_gold_backfill",
+        fallback_agreement_uuids=section_agreement_uuids,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        log_prefix="ingestion_cleanup_b_taxonomy_gold_backfill_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids
 
 
 @dg.asset(
@@ -1312,35 +1252,15 @@ def ingestion_cleanup_c_taxonomy_gold_backfill_asset(
     pipeline_config: PipelineConfig,
     section_agreement_uuids: list[str],
 ) -> list[str]:
-    should_skip, current_stage = should_skip_managed_stage(
-        db=db,
-        job_name="ingestion_cleanup_c",
-        stage_name="ingestion_cleanup_c_taxonomy_gold_backfill",
-    )
-    if should_skip:
-        context.log.info(
-            "ingestion_cleanup_c_taxonomy_gold_backfill_asset: skipping because logical run already reached %s.",
-            current_stage,
-        )
-        return []
-    scope_uuids = load_active_scope_for_job(
-        context,
-        db=db,
-        job_name="ingestion_cleanup_c",
-        fallback_agreement_uuids=section_agreement_uuids,
-    )
-    processed_agreement_uuids = _run_taxonomy_mode(
+    return _run_managed_taxonomy_asset(
         context,
         db=db,
         taxonomy_model=taxonomy_model,
         pipeline_config=pipeline_config,
-        mode=TaxonomyMode.GOLD_BACKFILL,
-        target_agreement_uuids=scope_uuids,
-        log_prefix="ingestion_cleanup_c_taxonomy_gold_backfill_asset",
-    )
-    mark_logical_run_stage_completed(
-        db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_taxonomy_gold_backfill",
+        fallback_agreement_uuids=section_agreement_uuids,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        log_prefix="ingestion_cleanup_c_taxonomy_gold_backfill_asset",
+        skip_if_completed=True,
     )
-    return processed_agreement_uuids

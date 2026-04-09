@@ -2172,6 +2172,7 @@ def regular_ingest_xml_verify_asset(
             "regular_ingest_xml_verify_asset: no upstream-selected XML rows with status IS NULL, latest=1, and ai_repair_attempted=0."
         ),
         request_filename_prefix="regular_ingest_xml_verify_requests",
+        mark_stage_on_no_eligible=True,
     )
 
 
@@ -2203,6 +2204,7 @@ def ingestion_cleanup_a_xml_verify_asset(
             "ingestion_cleanup_a_xml_verify_asset: no upstream-selected XML rows with status IS NULL, latest=1, and ai_repair_attempted=0."
         ),
         request_filename_prefix="ingestion_cleanup_a_xml_verify_requests",
+        mark_stage_on_no_eligible=True,
     )
 
 

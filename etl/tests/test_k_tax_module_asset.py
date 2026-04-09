@@ -149,6 +149,7 @@ class TaxModuleAssetTests(unittest.TestCase):
         with (
             patch("etl.defs.k_tax_module_asset.assert_tables_exist", return_value=None),
             patch("etl.defs.k_tax_module_asset.runs_single_batch", return_value=True),
+            patch("etl.defs.k_tax_module_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.k_tax_module_asset.load_active_scope_for_job",
                 side_effect=_fallback_scope,
@@ -211,6 +212,7 @@ class TaxModuleAssetTests(unittest.TestCase):
         )
 
         with (
+            patch("etl.defs.k_tax_module_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.k_tax_module_asset.load_active_scope_for_job", return_value=[]),
             patch("etl.defs.k_tax_module_asset.load_active_logical_run", return_value=None),
             patch("etl.defs.k_tax_module_asset.mark_logical_run_stage_completed", return_value=None),
