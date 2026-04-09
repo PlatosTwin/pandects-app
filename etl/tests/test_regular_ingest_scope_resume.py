@@ -4,10 +4,11 @@
 import unittest
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from dagster import AssetExecutionContext
 
+from etl.defs.b_pre_processing_asset import regular_ingest_pre_processing_asset
 from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
 from etl.defs.f_xml_repair_cycle_asset import (
     regular_ingest_post_repair_build_xml_asset,
@@ -101,6 +102,39 @@ def _fallback_scope(
 
 
 class RegularIngestScopeResumeTests(unittest.TestCase):
+    def test_regular_ingest_pre_processing_skips_pre_gating_for_empty_scope(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = PipelineConfig()
+        classifier_model = cast(object, SimpleNamespace())
+        review_model = cast(object, SimpleNamespace())
+
+        with (
+            patch("etl.defs.b_pre_processing_asset.is_pre_processing_cleanup_mode", return_value=False),
+            patch("etl.defs.b_pre_processing_asset.start_or_resume_logical_run", return_value=None),
+            patch(
+                "etl.defs.b_pre_processing_asset.run_pre_asset_gating",
+                side_effect=AssertionError("regular_ingest_pre_processing_asset should not gate an empty staged scope"),
+            ),
+            patch("etl.defs.b_pre_processing_asset.mark_logical_run_stage_completed", return_value=None) as mark_stage,
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_pre_processing_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                classifier_model,
+                review_model,
+                pipeline_config,
+                [],
+            )
+
+        self.assertEqual(result, [])
+        mark_stage.assert_called_once_with(
+            db=ANY,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_pre_processing",
+        )
+
     def test_regular_ingest_xml_verify_does_not_resume_unrelated_stranded_batch(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(log=_FakeLog())

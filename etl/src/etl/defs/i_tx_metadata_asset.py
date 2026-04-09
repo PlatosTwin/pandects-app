@@ -788,7 +788,6 @@ def regular_ingest_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_offline_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -796,6 +795,14 @@ def regular_ingest_tx_metadata_offline_asset(
         job_name="regular_ingest",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tx_metadata_offline",
+        )
+        return []
+    run_pre_asset_gating(context, db)
     active_run = load_active_logical_run(db=db, job_name="regular_ingest")
 
     engine = db.get_engine()
@@ -838,7 +845,6 @@ def regular_ingest_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="regular_ingest_tx_metadata_web_search_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -846,6 +852,15 @@ def regular_ingest_tx_metadata_web_search_asset(
         job_name="regular_ingest",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tx_metadata_web_search",
+            complete_run=True,
+        )
+        return []
+    run_pre_asset_gating(context, db)
 
     engine = db.get_engine()
     schema = db.database
@@ -888,7 +903,6 @@ def ingestion_cleanup_a_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_a_tx_metadata_offline_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -896,6 +910,14 @@ def ingestion_cleanup_a_tx_metadata_offline_asset(
         job_name="ingestion_cleanup_a",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tx_metadata_offline",
+        )
+        return []
+    run_pre_asset_gating(context, db)
     active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
 
     engine = db.get_engine()
@@ -938,7 +960,6 @@ def ingestion_cleanup_a_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_a_tx_metadata_web_search_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -946,6 +967,15 @@ def ingestion_cleanup_a_tx_metadata_web_search_asset(
         job_name="ingestion_cleanup_a",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tx_metadata_web_search",
+            complete_run=True,
+        )
+        return []
+    run_pre_asset_gating(context, db)
 
     engine = db.get_engine()
     schema = db.database
@@ -988,7 +1018,6 @@ def ingestion_cleanup_b_tx_metadata_offline_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_offline_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -996,6 +1025,14 @@ def ingestion_cleanup_b_tx_metadata_offline_asset(
         job_name="ingestion_cleanup_b",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_tx_metadata_offline",
+        )
+        return []
+    run_pre_asset_gating(context, db)
     active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
 
     engine = db.get_engine()
@@ -1038,7 +1075,6 @@ def ingestion_cleanup_b_tx_metadata_web_search_asset(
     pipeline_config: PipelineConfig,
     agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     ensure_single_batch_run(context, pipeline_config, asset_name="ingestion_cleanup_b_tx_metadata_web_search_asset")
     scope_uuids = load_active_scope_for_job(
         context,
@@ -1046,6 +1082,15 @@ def ingestion_cleanup_b_tx_metadata_web_search_asset(
         job_name="ingestion_cleanup_b",
         fallback_agreement_uuids=agreement_uuids,
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="ingestion_cleanup_b",
+            stage_name="ingestion_cleanup_b_tx_metadata_web_search",
+            complete_run=True,
+        )
+        return []
+    run_pre_asset_gating(context, db)
 
     engine = db.get_engine()
     schema = db.database

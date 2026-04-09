@@ -385,7 +385,6 @@ def regular_ingest_pre_processing_asset(
     pipeline_config: PipelineConfig,
     staged_agreement_uuids: list[str],
 ) -> list[str]:
-    run_pre_asset_gating(context, db)
     if is_pre_processing_cleanup_mode(context, pipeline_config):
         raise ValueError("regular_ingest_pre_processing_asset requires FROM_SCRATCH pre_processing_mode.")
     logical_run = start_or_resume_logical_run(
@@ -401,6 +400,14 @@ def regular_ingest_pre_processing_asset(
         if logical_run is not None
         else sorted({str(agreement_uuid) for agreement_uuid in staged_agreement_uuids if agreement_uuid})
     )
+    if not scope_uuids:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_pre_processing",
+        )
+        return []
+    run_pre_asset_gating(context, db)
     processed_agreement_uuids = _run_pre_processing_from_scratch(
         context,
         db=db,

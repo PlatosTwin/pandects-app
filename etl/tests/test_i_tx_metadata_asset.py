@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
-from dagster import AssetExecutionContext
+from dagster import AssetExecutionContext, build_op_context
 from openai import OpenAI
 
 from etl.defs.resources import PipelineConfig, QueueRunMode
@@ -19,6 +19,8 @@ from etl.defs.i_tx_metadata_asset import (
     _run_offline_mode,
     _run_web_search_mode,
     _web_search_missing_core_metadata_sql,
+    ingestion_cleanup_a_tx_metadata_offline_asset,
+    ingestion_cleanup_a_tx_metadata_web_search_asset,
     tx_metadata_asset,
 )
 from etl.domain.i_tx_metadata import (
@@ -219,6 +221,13 @@ class _NoopConn:
 class _NoopEngine:
     def begin(self) -> _FakeBeginContext:
         return _FakeBeginContext(_NoopConn())
+
+
+class _FakeDbResource:
+    database = "pdx"
+
+    def get_engine(self) -> _NoopEngine:
+        return _NoopEngine()
 
 
 def _fake_web_search_output(search_count: int) -> list[object]:
@@ -1514,6 +1523,67 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(result["processed_uuids"], [])
         self.assertEqual(result["total_searches"], 0)
+
+    def test_cleanup_a_tx_metadata_offline_asset_skips_pre_gating_for_empty_scope(self) -> None:
+        context = build_op_context()
+        pipeline_config = PipelineConfig()
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=[]),
+            patch(
+                "etl.defs.i_tx_metadata_asset.run_pre_asset_gating",
+                side_effect=AssertionError("empty scoped run should not perform pre-asset gating"),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.mark_logical_run_stage_completed", return_value=None) as mark_stage,
+        ):
+            decorated_fn = getattr(cast(object, ingestion_cleanup_a_tx_metadata_offline_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, _FakeDbResource()),
+                pipeline_config=pipeline_config,
+                agreement_uuids=[],
+            )
+
+        self.assertEqual(result, [])
+        mark_stage.assert_called_once_with(
+            db=unittest.mock.ANY,
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tx_metadata_offline",
+        )
+
+    def test_cleanup_a_tx_metadata_web_search_asset_skips_pre_gating_for_empty_scope(self) -> None:
+        def _add_output_metadata(_metadata: object) -> None:
+            return None
+
+        context = build_op_context()
+        context.add_output_metadata = _add_output_metadata  # type: ignore[method-assign]
+        pipeline_config = PipelineConfig()
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=[]),
+            patch(
+                "etl.defs.i_tx_metadata_asset.run_pre_asset_gating",
+                side_effect=AssertionError("empty scoped run should not perform pre-asset gating"),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.mark_logical_run_stage_completed", return_value=None) as mark_stage,
+        ):
+            decorated_fn = getattr(cast(object, ingestion_cleanup_a_tx_metadata_web_search_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, _FakeDbResource()),
+                pipeline_config=pipeline_config,
+                agreement_uuids=[],
+            )
+
+        self.assertEqual(result, [])
+        mark_stage.assert_called_once_with(
+            db=unittest.mock.ANY,
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tx_metadata_web_search",
+            complete_run=True,
+        )
 
 
 if __name__ == "__main__":
