@@ -1249,7 +1249,11 @@ class MainRoutesTests(unittest.TestCase):
                         "('stock_missing_optional', '2023-04-02', 'Target Stock', 'Acquirer Stock', 1, 0, 'http://example.com/stock_missing_optional', "
                         "'stock', '250', NULL, '250', NULL, 'private', 'public', "
                         "'Target Counsel LLP', NULL, NULL, NULL, NULL, '54', "
-                        "'2023-02-01', NULL, 'pending', NULL, 'stock_acquisition', NULL)"
+                        "'2023-02-01', NULL, 'pending', NULL, 'stock_acquisition', NULL), "
+                        "('cash_ingested_only', '2023-04-03', 'Target Pending', 'Acquirer Pending', 0, 0, 'http://example.com/cash_ingested_only', "
+                        "'cash', '175', NULL, NULL, NULL, 'public', 'private', "
+                        "'Target Counsel LLP', 'Acquirer Counsel LLP', NULL, NULL, '31', '32', "
+                        "'2023-02-15', NULL, 'pending', NULL, 'merger', NULL)"
                     )
                 )
 
@@ -1265,21 +1269,58 @@ class MainRoutesTests(unittest.TestCase):
         metadata_field_coverage = {
             row["field"]: row for row in body.get("metadata_field_coverage", [])
         }
-        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["eligible_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["covered_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["coverage_pct"], 100.0)
-        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["eligible_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["covered_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["coverage_pct"], 100.0)
-        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["eligible_agreements"], 0)
-        self.assertEqual(metadata_field_coverage["transaction_price_assets"]["covered_agreements"], 0)
-        self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["coverage_pct"])
-        self.assertEqual(metadata_field_coverage["target_counsel"]["covered_agreements"], 2)
-        self.assertEqual(metadata_field_coverage["target_counsel"]["coverage_pct"], 100.0)
-        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["covered_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["coverage_pct"], 50.0)
-        self.assertEqual(metadata_field_coverage["target_pe"]["covered_agreements"], 1)
-        self.assertEqual(metadata_field_coverage["purpose"]["covered_agreements"], 1)
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_cash"]["ingested_eligible_agreements"], 2
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_cash"]["ingested_covered_agreements"], 1
+        )
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["ingested_coverage_pct"], 50.0)
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_cash"]["processed_eligible_agreements"], 1
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_cash"]["processed_covered_agreements"], 1
+        )
+        self.assertEqual(metadata_field_coverage["transaction_price_cash"]["processed_coverage_pct"], 100.0)
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_stock"]["ingested_eligible_agreements"], 1
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_stock"]["ingested_covered_agreements"], 1
+        )
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["ingested_coverage_pct"], 100.0)
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_stock"]["processed_eligible_agreements"], 1
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_stock"]["processed_covered_agreements"], 1
+        )
+        self.assertEqual(metadata_field_coverage["transaction_price_stock"]["processed_coverage_pct"], 100.0)
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_assets"]["ingested_eligible_agreements"], 0
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_assets"]["ingested_covered_agreements"], 0
+        )
+        self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["ingested_coverage_pct"])
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_assets"]["processed_eligible_agreements"], 0
+        )
+        self.assertEqual(
+            metadata_field_coverage["transaction_price_assets"]["processed_covered_agreements"], 0
+        )
+        self.assertIsNone(metadata_field_coverage["transaction_price_assets"]["processed_coverage_pct"])
+        self.assertEqual(metadata_field_coverage["target_counsel"]["ingested_covered_agreements"], 3)
+        self.assertEqual(metadata_field_coverage["target_counsel"]["ingested_coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["target_counsel"]["processed_covered_agreements"], 2)
+        self.assertEqual(metadata_field_coverage["target_counsel"]["processed_coverage_pct"], 100.0)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["ingested_covered_agreements"], 2)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["ingested_coverage_pct"], 66.7)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["processed_covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["acquirer_counsel"]["processed_coverage_pct"], 50.0)
+        self.assertEqual(metadata_field_coverage["target_pe"]["processed_covered_agreements"], 1)
+        self.assertEqual(metadata_field_coverage["purpose"]["processed_covered_agreements"], 1)
 
     def test_agreements_status_summary_excludes_gated_unverified_from_latest_filing_date(self):
         with self.app.app_context():

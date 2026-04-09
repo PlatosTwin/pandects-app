@@ -324,7 +324,11 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             agreement_where_parts.append(
                 "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
             )
-        agreement_where = "\n                      AND ".join(agreement_where_parts)
+        ingested_where = "\n                      AND ".join(agreement_where_parts)
+        processed_where_parts = [*agreement_where_parts]
+        if agreement_columns.get("verified") is not None:
+            processed_where_parts.append("COALESCE(a.verified, 0) = 1")
+        processed_where = "\n                      AND ".join(processed_where_parts)
         agreements_table = f"{deps._schema_prefix()}agreements"
         aggregate_select_lines: list[str] = []
         for config in _METADATA_FIELD_COVERAGE_CONFIG:
@@ -334,12 +338,24 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             aggregate_select_lines.extend(
                 [
                     (
-                        f"SUM(CASE WHEN {eligible_sql} THEN 1 ELSE 0 END) "
-                        f"AS {field}_eligible_agreements"
+                        "SUM(CASE WHEN a._coverage_scope_ingested = 1 "
+                        f"AND {eligible_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_ingested_eligible_agreements"
                     ),
                     (
-                        f"SUM(CASE WHEN {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
-                        f"AS {field}_covered_agreements"
+                        "SUM(CASE WHEN a._coverage_scope_ingested = 1 "
+                        f"AND {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_ingested_covered_agreements"
+                    ),
+                    (
+                        "SUM(CASE WHEN a._coverage_scope_processed = 1 "
+                        f"AND {eligible_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_processed_eligible_agreements"
+                    ),
+                    (
+                        "SUM(CASE WHEN a._coverage_scope_processed = 1 "
+                        f"AND {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                        f"AS {field}_processed_covered_agreements"
                     ),
                 ]
             )
@@ -350,8 +366,21 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     f"""
                     SELECT
                         {aggregate_select}
-                    FROM {agreements_table} a
-                    WHERE {agreement_where}
+                    FROM (
+                        SELECT
+                            a.*,
+                            1 AS _coverage_scope_ingested,
+                            0 AS _coverage_scope_processed
+                        FROM {agreements_table} a
+                        WHERE {ingested_where}
+                        UNION ALL
+                        SELECT
+                            a.*,
+                            0 AS _coverage_scope_ingested,
+                            1 AS _coverage_scope_processed
+                        FROM {agreements_table} a
+                        WHERE {processed_where}
+                    ) a
                     """
                 )
             )
@@ -362,24 +391,38 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
         for config in _METADATA_FIELD_COVERAGE_CONFIG:
             field = cast(str, config["field"])
-            eligible_agreements = deps._to_int(
-                cast(object, row_dict.get(f"{field}_eligible_agreements"))
+            ingested_eligible_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_ingested_eligible_agreements"))
             ) or 0
-            covered_agreements = deps._to_int(
-                cast(object, row_dict.get(f"{field}_covered_agreements"))
+            ingested_covered_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_ingested_covered_agreements"))
             ) or 0
-            coverage_pct = (
-                round((covered_agreements / eligible_agreements) * 100, 1)
-                if eligible_agreements > 0
+            processed_eligible_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_processed_eligible_agreements"))
+            ) or 0
+            processed_covered_agreements = deps._to_int(
+                cast(object, row_dict.get(f"{field}_processed_covered_agreements"))
+            ) or 0
+            ingested_coverage_pct = (
+                round((ingested_covered_agreements / ingested_eligible_agreements) * 100, 1)
+                if ingested_eligible_agreements > 0
+                else None
+            )
+            processed_coverage_pct = (
+                round((processed_covered_agreements / processed_eligible_agreements) * 100, 1)
+                if processed_eligible_agreements > 0
                 else None
             )
             coverage_rows.append(
                 {
                     "field": config["field"],
                     "label": config["label"],
-                    "eligible_agreements": eligible_agreements,
-                    "covered_agreements": covered_agreements,
-                    "coverage_pct": coverage_pct,
+                    "ingested_eligible_agreements": ingested_eligible_agreements,
+                    "ingested_covered_agreements": ingested_covered_agreements,
+                    "ingested_coverage_pct": ingested_coverage_pct,
+                    "processed_eligible_agreements": processed_eligible_agreements,
+                    "processed_covered_agreements": processed_covered_agreements,
+                    "processed_coverage_pct": processed_coverage_pct,
                     "note": config["note"],
                 }
             )

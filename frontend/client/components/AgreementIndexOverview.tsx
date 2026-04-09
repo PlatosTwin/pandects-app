@@ -79,9 +79,12 @@ type AgreementStatusSummaryResponse = {
 type MetadataFieldCoverageRow = {
   field: string;
   label: string;
-  eligible_agreements: number;
-  covered_agreements: number;
-  coverage_pct: number | null;
+  ingested_eligible_agreements: number;
+  ingested_covered_agreements: number;
+  ingested_coverage_pct: number | null;
+  processed_eligible_agreements: number;
+  processed_covered_agreements: number;
+  processed_coverage_pct: number | null;
   note: string | null;
 };
 
@@ -125,6 +128,16 @@ const formatDealTypeLabel = (dealType: string) =>
 
 const dealTypeSeriesKey = (dealType: string) =>
   `dealType_${dealType.replace(/[^a-z0-9]+/gi, "_")}`;
+
+const formatCoverageDetail = (
+  covered: number,
+  eligible: number,
+  pct: number | null,
+  label: string,
+) =>
+  `${formatNumberValue(covered, { maximumFractionDigits: 0 })} / ${formatNumberValue(eligible, {
+    maximumFractionDigits: 0,
+  })} ${label} ${pct === null ? "—" : `${pct.toFixed(1)}%`}`;
 
 function MobileChartModal({
   open,
@@ -309,8 +322,8 @@ export function AgreementIndexOverview() {
           Coverage by field
         </p>
         <p className="text-xs text-muted-foreground">
-          Pricing fields use consideration-aware denominators rather than all
-          processed agreements.
+          Pricing fields use consideration-aware denominators for both ingested
+          and processed deals.
         </p>
       </div>
       <div className="space-y-2">
@@ -324,23 +337,24 @@ export function AgreementIndexOverview() {
               key={row.field}
               className="rounded-md border border-border/60 bg-background/70 p-2"
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <div className="text-xs font-medium text-foreground">
-                  {row.label}
+              <div className="text-xs font-medium text-foreground">{row.label}</div>
+              <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                <div>
+                  {formatCoverageDetail(
+                    row.processed_covered_agreements,
+                    row.processed_eligible_agreements,
+                    row.processed_coverage_pct,
+                    "processed deals",
+                  )}
                 </div>
-                <div className="text-xs font-mono tabular-nums text-muted-foreground">
-                  {row.coverage_pct === null ? "—" : `${row.coverage_pct.toFixed(1)}%`}
+                <div>
+                  {formatCoverageDetail(
+                    row.ingested_covered_agreements,
+                    row.ingested_eligible_agreements,
+                    row.ingested_coverage_pct,
+                    "ingested deals",
+                  )}
                 </div>
-              </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                {formatNumberValue(row.covered_agreements, {
-                  maximumFractionDigits: 0,
-                })}
-                {" / "}
-                {formatNumberValue(row.eligible_agreements, {
-                  maximumFractionDigits: 0,
-                })}
-                {" applicable deals"}
               </div>
               {row.note ? (
                 <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
