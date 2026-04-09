@@ -3,7 +3,7 @@ resources:
     config:
       pre_processing_mode: from_scratch
       queue_run_mode: single_batch
-      refresh: false
+      refresh: true
       resume_openai_batches: true
       tagging_agreement_batch_size: 10
       pre_processing_agreement_batch_size: 10

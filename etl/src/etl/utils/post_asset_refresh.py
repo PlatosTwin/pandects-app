@@ -1,5 +1,5 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
-"""Shared end-of-asset refresh helper (gating + summary data)."""
+"""Shared end-of-job refresh helper (gating + summary data)."""
 
 from dagster import AssetExecutionContext
 from sqlalchemy.engine import Connection
@@ -8,15 +8,11 @@ from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
-_MAIN_STAGE_REFRESH_ASSET_NAMES = {
-    "01_staging_asset",
-    "02_pre_processing_asset",
-    "03_tagging_asset",
-    "06_sections_asset",
-    "06-01_sections_from_fresh_xml",
-    "06-02_sections_from_repair_xml",
-    "07_taxonomy_asset",
+_END_OF_JOB_REFRESH_ASSET_NAMES = {
     "10_tx_metadata_asset",
+    "10-02_regular_ingest_tx_metadata_web_search_asset",
+    "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",
+    "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
     "11_embed_sections",
 }
 
@@ -49,14 +45,14 @@ def run_post_asset_refresh(
     conn: Connection | None = None,
 ) -> None:
     """
-    Run end-of-stage gating + summary refresh for the main stage-ending assets.
+    Run a final gating + summary refresh for terminal assets only.
 
-    For non-stage-ending assets this is a no-op by design.
+    For non-terminal assets this is a no-op by design.
     """
     if not pipeline_config.refresh:
         return
     asset_name = context.asset_key.path[-1] if context.asset_key.path else ""
-    if asset_name not in _MAIN_STAGE_REFRESH_ASSET_NAMES:
+    if asset_name not in _END_OF_JOB_REFRESH_ASSET_NAMES:
         return
 
     if conn is None:

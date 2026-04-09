@@ -81,7 +81,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
 
     pre_processing_mode: PreProcessingMode = PreProcessingMode.FROM_SCRATCH
     queue_run_mode: QueueRunMode = QueueRunMode.SINGLE_BATCH
-    refresh: bool = False  # run end-of-asset gating + summary refresh
+    refresh: bool = True  # run end-of-job gating + summary refresh for terminal assets
     resume_openai_batches: bool = True  # resume matching in-flight OpenAI batches when possible
     resume_logical_runs: bool = True  # resume unfinished logical runs for managed ingest jobs
     force_new_logical_run: bool = False  # bypass unfinished logical run and start a fresh managed ingest run
