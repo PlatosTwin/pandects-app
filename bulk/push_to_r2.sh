@@ -27,20 +27,28 @@ TARGET_DB="${MARIADB_DATABASE:-pdx}"
 
 # API-facing table allowlist (all and only what backend API currently requires).
 API_TABLES=(
+  agreement_counsel
   agreement_buyer_type_matrix_summary
   agreement_deal_type_summary
   agreement_industry_pairing_summary
+  agreement_overview_summary
   agreement_ownership_deal_size_summary
   agreement_ownership_mix_summary
   agreement_status_summary
   agreement_target_industry_summary
   agreements
+  clauses
+  counsel
   latest_sections_search
   latest_sections_search_standard_ids
   naics_sectors
   naics_sub_sectors
   sections
   summary_data
+  tax_clause_assignments
+  tax_clause_taxonomy_l1
+  tax_clause_taxonomy_l2
+  tax_clause_taxonomy_l3
   taxonomy_l1
   taxonomy_l2
   taxonomy_l3
