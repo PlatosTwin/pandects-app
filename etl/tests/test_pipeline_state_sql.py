@@ -49,9 +49,10 @@ class PipelineStateSqlTests(unittest.TestCase):
         self.assertIn("has_latest_xml = 0", sql)
         self.assertIn("has_latest_xml = 1", sql)
         self.assertIn("has_stale_body_tags = 1", sql)
+        self.assertIn("latest_xml_status = 'verified'", sql)
+        self.assertIn("latest_section_count = 0", sql)
         self.assertIn("latest_xml_status IS NULL", sql)
         self.assertIn("latest_xml_ai_repair_attempted = 0", sql)
-        self.assertNotIn("latest_xml_status = 'verified'", sql)
 
     def test_ai_repair_queue_selects_latest_invalid_xml_rows(self) -> None:
         sql = canonical_ai_repair_enqueue_queue_sql("pdx")

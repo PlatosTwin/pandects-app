@@ -7,6 +7,7 @@ from sqlalchemy import bindparam, text
 
 from etl.defs.e_reconcile_tags import reconcile_tags
 from etl.defs.f_xml_asset import (
+    ingestion_cleanup_c_xml_verify_asset,
     ingestion_cleanup_a_xml_verify_asset,
     regular_ingest_xml_verify_asset,
     xml_verify_asset,
@@ -381,5 +382,47 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_sections_from_repair_xml",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(
+    name="06-06_ingestion_cleanup_c_sections_asset",
+    ins={"verified_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_c_xml_verify_asset.key)},
+)
+def ingestion_cleanup_c_sections_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    verified_agreement_uuids: list[str],
+) -> list[str]:
+    scope_uuids = load_active_scope_for_job(
+        context,
+        db=db,
+        job_name="ingestion_cleanup_c",
+        fallback_agreement_uuids=verified_agreement_uuids,
+    )
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_c",
+        stage_name="ingestion_cleanup_c_sections",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_c_sections_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
+    processed_agreement_uuids = _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_c_sections_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_c",
+        stage_name="ingestion_cleanup_c_sections",
     )
     return processed_agreement_uuids

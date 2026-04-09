@@ -144,6 +144,31 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(resumed_run.logical_run_id, first_run.logical_run_id)
         self.assertEqual(resumed_run.agreement_uuids, ["agreement-1", "agreement-2"])
 
+    def test_start_creates_new_cleanup_c_run_with_sections_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-c-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_c",
+            initial_stage="ingestion_cleanup_c_build_xml",
+            selected_agreement_uuids=["agreement-2", "agreement-1"],
+        )
+
+        self.assertIsNotNone(logical_run)
+        assert logical_run is not None
+        self.assertEqual(logical_run.agreement_uuids, ["agreement-1", "agreement-2"])
+
+        persisted_scope = load_active_scope_for_job(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_c",
+            fallback_agreement_uuids=[],
+        )
+        self.assertEqual(persisted_scope, ["agreement-1", "agreement-2"])
+
     def test_force_new_logical_run_abandons_old_run_and_creates_new_one(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(run_id="dagster-1")

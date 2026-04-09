@@ -270,6 +270,10 @@ def canonical_fresh_xml_build_queue_sql(schema: str, *, scoped: bool = False) ->
                 AND (
                     has_stale_body_tags = 1
                     OR (
+                        latest_xml_status = 'verified'
+                        AND latest_section_count = 0
+                    )
+                    OR (
                         latest_xml_status IS NULL
                         AND latest_xml_ai_repair_attempted = 0
                     )

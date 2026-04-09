@@ -13,6 +13,7 @@ _END_OF_JOB_REFRESH_ASSET_NAMES = {
     "10-02_regular_ingest_tx_metadata_web_search_asset",
     "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",
     "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
+    "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
     "11_embed_sections",
 }
 

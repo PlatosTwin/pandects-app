@@ -23,6 +23,8 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "04-02_regular_ingest_verify_xml",
             "04-03_ingestion_cleanup_a_build_xml",
             "04-04_ingestion_cleanup_a_verify_xml",
+            "04-05_ingestion_cleanup_c_build_xml",
+            "04-06_ingestion_cleanup_c_verify_xml",
             "05-01_ai_repair_enqueue_asset",
             "05-01_regular_ingest_ai_repair_enqueue_asset",
             "05-02_ai_repair_poll_asset",
@@ -51,19 +53,23 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "06-03_ingestion_cleanup_a_sections_from_fresh_xml",
             "06-04_ingestion_cleanup_a_sections_from_repair_xml",
             "06-05_ingestion_cleanup_b_sections_from_repair_xml",
+            "06-06_ingestion_cleanup_c_sections_asset",
             "07_taxonomy_asset",
             "07-01_regular_ingest_taxonomy_llm_asset",
             "07-02_ingestion_cleanup_a_taxonomy_llm_asset",
             "07-03_ingestion_cleanup_b_taxonomy_llm_asset",
+            "07-04_ingestion_cleanup_c_taxonomy_llm_asset",
             "08_tax_module_asset",
             "08-01_tax_module_from_fresh_xml",
             "08-02_tax_module_from_repair_xml",
             "08-03_regular_ingest_tax_module_asset",
             "08-04_ingestion_cleanup_a_tax_module_asset",
             "08-05_ingestion_cleanup_b_tax_module_asset",
+            "08-06_ingestion_cleanup_c_tax_module_asset",
             "09_regular_ingest_taxonomy_gold_backfill_asset",
             "09-01_ingestion_cleanup_a_taxonomy_gold_backfill_asset",
             "09-02_ingestion_cleanup_b_taxonomy_gold_backfill_asset",
+            "09-03_ingestion_cleanup_c_taxonomy_gold_backfill_asset",
             "10_tx_metadata_asset",
             "10-01_regular_ingest_tx_metadata_offline_asset",
             "10-02_regular_ingest_tx_metadata_web_search_asset",
@@ -71,6 +77,8 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",
             "10-05_ingestion_cleanup_b_tx_metadata_offline_asset",
             "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
+            "10-07_ingestion_cleanup_c_tx_metadata_offline_asset",
+            "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
             "11_embed_sections",
             "99_gating",
         }
@@ -142,12 +150,25 @@ class DagsterAssetGraphTests(unittest.TestCase):
                 "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
             },
         )
+        self.assertEqual(
+            jobs["ingestion_cleanup_c"],
+            {
+                "04-05_ingestion_cleanup_c_build_xml",
+                "04-06_ingestion_cleanup_c_verify_xml",
+                "06-06_ingestion_cleanup_c_sections_asset",
+                "07-04_ingestion_cleanup_c_taxonomy_llm_asset",
+                "08-06_ingestion_cleanup_c_tax_module_asset",
+                "09-03_ingestion_cleanup_c_taxonomy_gold_backfill_asset",
+                "10-07_ingestion_cleanup_c_tx_metadata_offline_asset",
+                "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
+            },
+        )
         self.assertTrue({"10_tx_metadata_asset", "11_embed_sections", "99_gating"}.issubset(jobs["__ASSET_JOB"]))
 
     def test_managed_jobs_include_logical_run_failure_hook(self) -> None:
         repo = defs.get_repository_def()
 
-        for job_name in ("regular_ingest", "ingestion_cleanup_a", "ingestion_cleanup_b"):
+        for job_name in ("regular_ingest", "ingestion_cleanup_a", "ingestion_cleanup_b", "ingestion_cleanup_c"):
             job = repo.get_job(job_name)
             hook_names = {hook.name for hook in job.hook_defs}
             self.assertIn("_managed_logical_run_failure_hook", hook_names)
