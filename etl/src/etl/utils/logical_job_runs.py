@@ -30,6 +30,7 @@ MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
     "regular_ingest": (
         "regular_ingest_pre_processing",
         "regular_ingest_tagging",
+        "regular_ingest_build_xml",
         "regular_ingest_xml_verify",
         "regular_ingest_ai_repair_enqueue",
         "regular_ingest_ai_repair_poll",
@@ -46,6 +47,7 @@ MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
     ),
     "ingestion_cleanup_a": (
         "ingestion_cleanup_a_tagging",
+        "ingestion_cleanup_a_build_xml",
         "ingestion_cleanup_a_xml_verify",
         "ingestion_cleanup_a_sections_from_fresh_xml",
         "ingestion_cleanup_a_ai_repair_enqueue",

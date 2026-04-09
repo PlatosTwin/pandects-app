@@ -16,6 +16,7 @@ from etl.utils.logical_job_runs import (
     LOGICAL_RUN_STATUS_COMPLETED,
     LOGICAL_RUN_STATUS_FAILED,
     LOGICAL_RUN_STATUS_RUNNING,
+    MANAGED_JOB_STAGE_SEQUENCE,
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_failed,
@@ -416,6 +417,10 @@ class LogicalJobRunTests(unittest.TestCase):
             normalize_managed_stage_name("09_regular_ingest_taxonomy_gold_backfill_asset"),
             "regular_ingest_taxonomy_gold_backfill",
         )
+
+    def test_managed_stage_sequences_include_xml_build_stages(self) -> None:
+        self.assertIn("regular_ingest_build_xml", MANAGED_JOB_STAGE_SEQUENCE["regular_ingest"])
+        self.assertIn("ingestion_cleanup_a_build_xml", MANAGED_JOB_STAGE_SEQUENCE["ingestion_cleanup_a"])
 
     def test_mark_completed_does_not_regress_managed_stage_progress(self) -> None:
         db = _FakeDB()
