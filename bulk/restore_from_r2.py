@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 from pathlib import Path
 
 import boto3
@@ -18,6 +19,64 @@ BACKUP_ARCHIVE = Path("/tmp/logical_backup.tar.gz")
 BACKUP_DIR = Path("/tmp/logical_backup")
 
 LOGICAL_PREFIX = "logical_backups/backup_"
+
+
+class ProgressPrinter:
+    def __init__(self, label: str, total_bytes: int) -> None:
+        self.label = label
+        self.total_bytes = total_bytes
+        self.seen_bytes = 0
+        self.last_percent = -1
+        self.last_line_length = 0
+        self.lock = threading.Lock()
+
+    @staticmethod
+    def _format_bytes(num_bytes: int) -> str:
+        units = ["B", "KB", "MB", "GB", "TB"]
+        value = float(num_bytes)
+        unit = units[0]
+        for unit in units:
+            if value < 1024 or unit == units[-1]:
+                break
+            value /= 1024
+        if unit == "B":
+            return f"{int(value)} {unit}"
+        return f"{value:.1f} {unit}"
+
+    def __call__(self, chunk_size: int) -> None:
+        with self.lock:
+            self.seen_bytes += chunk_size
+            if self.total_bytes == 0:
+                percent = 100
+            else:
+                percent = min(int(self.seen_bytes * 100 / self.total_bytes), 100)
+
+            if percent != self.last_percent or self.seen_bytes >= self.total_bytes:
+                progress = (
+                    f"\r   {self.label}: {percent:3d}% "
+                    f"({self._format_bytes(self.seen_bytes)}/"
+                    f"{self._format_bytes(self.total_bytes)})"
+                )
+                padded_progress = progress.ljust(self.last_line_length)
+                sys.stdout.write(padded_progress)
+                sys.stdout.flush()
+                self.last_percent = percent
+                self.last_line_length = len(padded_progress)
+
+    def finish(self) -> None:
+        with self.lock:
+            if self.last_percent < 100:
+                progress = (
+                    f"\r   {self.label}: 100% "
+                    f"({self._format_bytes(self.total_bytes)}/"
+                    f"{self._format_bytes(self.total_bytes)})"
+                )
+                padded_progress = progress.ljust(self.last_line_length)
+                sys.stdout.write(padded_progress)
+            else:
+                sys.stdout.write("\r".ljust(self.last_line_length))
+            sys.stdout.write("\n")
+            sys.stdout.flush()
 
 
 def get_restore_target_key(client, bucket):
@@ -61,8 +120,16 @@ def restore_backup():
     )
 
     key = get_restore_target_key(client, R2_BUCKET_NAME)
-    print(f"⬇️  Downloading backup: {key}", flush=True)
-    client.download_file(R2_BUCKET_NAME, key, str(BACKUP_ARCHIVE))
+    head = client.head_object(Bucket=R2_BUCKET_NAME, Key=key)
+    archive_size_bytes = head["ContentLength"]
+    print(
+        f"⬇️  Downloading backup: {key} "
+        f"({ProgressPrinter._format_bytes(archive_size_bytes)})",
+        flush=True,
+    )
+    progress = ProgressPrinter("download", archive_size_bytes)
+    client.download_file(R2_BUCKET_NAME, key, str(BACKUP_ARCHIVE), Callback=progress)
+    progress.finish()
 
     print("🧹 Cleaning extraction area...")
     if BACKUP_DIR.exists():
@@ -80,11 +147,19 @@ def restore_backup():
         if path.is_file():
             path.unlink()
 
+    sql_files = list(BACKUP_DIR.glob("*.sql"))
+
     if not (BACKUP_DIR / "metadata").exists():
         raise Exception("Logical backup missing metadata file; cannot restore.")
 
-    if not list(BACKUP_DIR.glob("*.sql")):
+    if not sql_files:
         raise Exception("Logical backup contains no .sql files; cannot restore.")
+
+    print(
+        f"✅ Extracted logical backup to {BACKUP_DIR} "
+        f"with {len(sql_files)} SQL files",
+        flush=True,
+    )
 
     print("🧽 Resetting target database...")
     reset_sql = f"DROP DATABASE IF EXISTS `{db_name}`; CREATE DATABASE `{db_name}`;"
@@ -105,7 +180,7 @@ def restore_backup():
         check=True,
     )
 
-    print("📥 Loading logical dump into remote DB (myloader)...")
+    print(f"📥 Loading logical dump into remote DB (myloader, threads={myloader_threads})...")
     subprocess.run(
         [
             "myloader",
