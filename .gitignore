@@ -40,6 +40,7 @@ backend/build/
 .dagster_home
 *.sqlite
 *.sql
+etl/sql/*
 *.csv
 !etl/src/etl/models/ner/configs/grid.csv
 *.parquet
