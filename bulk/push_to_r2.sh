@@ -1,12 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="${SCRIPT_DIR}/.venv"
+PYTHON_BIN="${VENV_DIR}/bin/python3"
+
 # ── Config ──────────────────────────────────────────────────────
 # Load .env if it exists
 if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
-elif [ -f bulk/.env ]; then
-    export $(grep -v '^#' bulk/.env | xargs)
+elif [ -f "${SCRIPT_DIR}/.env" ]; then
+    export $(grep -v '^#' "${SCRIPT_DIR}/.env" | xargs)
 fi
 
 # R2 Credentials should be exported in the environment:
@@ -73,6 +77,14 @@ fi
 if [ -z "${R2_ACCESS_KEY_ID:-}" ] || [ -z "${R2_SECRET_ACCESS_KEY:-}" ]; then
     echo "❌ Error: R2 credentials are missing."
     echo "   Please create a .env file in bulk/ with R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY."
+    exit 1
+fi
+
+if [ ! -x "$PYTHON_BIN" ]; then
+    echo "❌ Error: bulk virtualenv is missing: $PYTHON_BIN"
+    echo "   Create it with:"
+    echo "   python3 -m venv bulk/.venv"
+    echo "   bulk/.venv/bin/python3 -m pip install -r bulk/requirements.txt"
     exit 1
 fi
 
@@ -150,12 +162,12 @@ echo "✅ Checksum file created: $CHECKSUM_FILE"
 echo "☁️  [3/4] Uploading artifacts to R2..."
 
 # Ensure boto3 is installed
-if ! $(which python3) -c "import boto3" 2>/dev/null; then
+if ! "$PYTHON_BIN" -c "import boto3" 2>/dev/null; then
     echo "⚠️  boto3 not found. Installing..."
-    $(which pip3) install boto3
+    "$PYTHON_BIN" -m pip install -r "${SCRIPT_DIR}/requirements.txt"
 fi
 
-$(which python3) - <<EOF
+"$PYTHON_BIN" - <<EOF
 import boto3
 import hashlib
 import json
