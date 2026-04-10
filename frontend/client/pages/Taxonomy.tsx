@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import brandLinks from "@branding/links.json";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
@@ -20,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logger } from "@/lib/logger";
 import {
   buildTaxonomyEntries,
@@ -29,9 +31,13 @@ import {
   type TaxonomySearchEntry,
 } from "@/lib/taxonomy-search";
 
+type TaxonomyTab = "main" | "tax";
+
 export default function Taxonomy() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const { taxonomyTree, isLoading, error } = useTaxonomy();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get("tab") === "tax" ? "tax" : "main";
+  const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
   const [searchQuery, setSearchQuery] = useState("");
   const [hasActivatedSearch, setHasActivatedSearch] = useState(false);
   const [openLevel1, setOpenLevel1] = useState<string[]>([]);
@@ -40,6 +46,11 @@ export default function Taxonomy() {
   >({});
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
+  const endpointPath =
+    currentTab === "tax" ? "/v1/taxonomy/tax-clauses" : "/v1/taxonomy";
+  const overviewTitle =
+    currentTab === "tax" ? "Tax Taxonomy Overview" : "Taxonomy Overview";
+  const treeTitle = currentTab === "tax" ? "Tax Taxonomy Tree" : "Taxonomy Tree";
   const taxonomyEntries = useMemo(
     () => (taxonomyTree ? buildTaxonomyEntries(taxonomyTree) : []),
     [taxonomyTree],
@@ -262,6 +273,26 @@ export default function Taxonomy() {
     </button>
   );
 
+  const handleTabChange = (value: string) => {
+    const nextTab: TaxonomyTab = value === "tax" ? "tax" : "main";
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === "main") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    setSearchParams(nextParams, { replace: true });
+    setSearchQuery("");
+    setHasActivatedSearch(false);
+    setOpenLevel1([]);
+    setOpenLevel2ByParent({});
+    setHighlightedId(null);
+    if (highlightTimerRef.current) {
+      window.clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
+    }
+  };
+
   return (
     <PageShell
       size="xl"
@@ -270,7 +301,7 @@ export default function Taxonomy() {
       <div className="mb-4">
         <div className="rounded-lg bg-muted/20 pb-3 pt-0 text-sm text-foreground/80 sm:text-base">
           Pull the latest taxonomy via the{" "}
-          <span className="font-mono text-sm text-foreground">/v1/taxonomy</span>{" "}
+          <span className="font-mono text-sm text-foreground">{endpointPath}</span>{" "}
           API route. See the{" "}
           <a
             href={docsUrl}
@@ -283,6 +314,19 @@ export default function Taxonomy() {
       </div>
 
       <div className="grid gap-6">
+        <section aria-label="Taxonomy mode">
+          <Tabs
+            value={currentTab}
+            onValueChange={handleTabChange}
+            className="space-y-0"
+          >
+            <TabsList className="grid h-auto w-full grid-cols-2">
+              <TabsTrigger value="main">Main</TabsTrigger>
+              <TabsTrigger value="tax">Tax</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </section>
+
         <section aria-labelledby="taxonomy-search">
           <div className="rounded-lg border border-border/60 bg-card p-4 shadow-sm">
             <Label
@@ -403,7 +447,7 @@ export default function Taxonomy() {
                 id="taxonomy-overview"
                 className="text-xl font-semibold leading-none tracking-tight"
               >
-                Taxonomy Overview
+                {overviewTitle}
               </h2>
               <CardDescription id="taxonomy-overview-desc">
                 Expand a level to see how categories roll up to standard IDs and
@@ -477,7 +521,7 @@ export default function Taxonomy() {
               id="taxonomy-tree"
               className="text-xl font-semibold leading-none tracking-tight"
             >
-              Taxonomy Tree
+              {treeTitle}
             </h2>
           </div>
 

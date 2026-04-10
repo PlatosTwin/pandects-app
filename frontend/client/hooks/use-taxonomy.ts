@@ -5,6 +5,8 @@ import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
+export type TaxonomyKind = "main" | "tax";
+
 interface UseTaxonomyReturn {
   taxonomyTree: ClauseTypeTree | null;
   isLoading: boolean;
@@ -15,15 +17,19 @@ interface UseTaxonomyOptions {
   enabled?: boolean;
   deferMs?: number;
   fresh?: boolean;
+  kind?: TaxonomyKind;
 }
 
 export function useTaxonomy(
   options: UseTaxonomyOptions = {},
 ): UseTaxonomyReturn {
-  const { enabled = true, deferMs = 0, fresh = false } = options;
+  const { enabled = true, deferMs = 0, fresh = false, kind = "main" } = options;
   const [taxonomyTree, setTaxonomyTree] = useState<ClauseTypeTree | null>(null);
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const endpoint = kind === "tax" ? "v1/taxonomy/tax-clauses" : "v1/taxonomy";
+  const cacheKey = kind === "tax" ? "taxClauseTaxonomyTree" : "taxonomyTree";
+  const endpointLabel = kind === "tax" ? "api/taxonomy/tax-clauses" : "api/taxonomy";
 
   useEffect(() => {
     if (!enabled) {
@@ -32,7 +38,7 @@ export function useTaxonomy(
     }
 
     if (!fresh) {
-      const cachedData = sessionStorage.getItem("taxonomyTree");
+      const cachedData = sessionStorage.getItem(cacheKey);
       if (cachedData) {
         try {
           const parsed: ClauseTypeTree = JSON.parse(cachedData);
@@ -40,20 +46,20 @@ export function useTaxonomy(
           setIsLoading(false);
           return;
         } catch {
-          sessionStorage.removeItem("taxonomyTree");
+          sessionStorage.removeItem(cacheKey);
         }
       }
     }
 
     const fetchTaxonomy = async () => {
       try {
-        const response = await authFetch(apiUrl("v1/taxonomy"), {
+        const response = await authFetch(apiUrl(endpoint), {
           cache: fresh ? "no-store" : undefined,
         });
 
         if (!response.ok) {
           trackEvent("api_error", {
-            endpoint: "api/taxonomy",
+            endpoint: endpointLabel,
             status: response.status,
             status_text: response.statusText,
           });
@@ -62,12 +68,12 @@ export function useTaxonomy(
 
         const data: ClauseTypeTree = await response.json();
         setTaxonomyTree(data);
-        sessionStorage.setItem("taxonomyTree", JSON.stringify(data));
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
         setError(null);
       } catch (err) {
         logger.error("Failed to fetch taxonomy:", err);
         trackEvent("api_error", {
-          endpoint: "api/taxonomy",
+          endpoint: endpointLabel,
           kind:
             err instanceof TypeError && err.message.includes("fetch")
               ? "network"
@@ -86,7 +92,7 @@ export function useTaxonomy(
     }
 
     fetchTaxonomy();
-  }, [deferMs, enabled, fresh]);
+  }, [cacheKey, deferMs, enabled, endpoint, endpointLabel, fresh]);
 
   return {
     taxonomyTree,
