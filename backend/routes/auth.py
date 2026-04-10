@@ -1676,36 +1676,22 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return _website_auth_error_payload("Invalid authorization state.")
         next_path = deps._safe_next_path(cookie_payload.get("next")) or "/account"
         provider_name = "zitadel"
+        flow = cookie_payload.get("flow")
 
         try:
             if has_intent:
-                linked_user = None
-                if isinstance(user_id, str) and user_id.strip():
-                    linked_user = _linked_user_for_subject(
-                        issuer=mcp_oidc_issuer(),
-                        subject=user_id.strip(),
-                    )
-                if linked_user is not None:
-                    external_identity = type(
-                        "ExternalIdentityLinkedSubject",
-                        (),
-                        {
-                            "issuer": mcp_oidc_issuer(),
-                            "subject": cast(str, user_id).strip(),
-                            "claims": {},
-                        },
-                    )()
-                elif isinstance(user_id, str) and user_id.strip():
-                    external_identity = _zitadel_user_identity(user_id=user_id.strip())
-                else:
-                    retrieved = _zitadel_api_json(
-                        path=f"/v2/idp_intents/{cast(str, intent_id).strip()}",
-                        json_body={"idpIntentToken": cast(str, intent_token).strip()},
-                    )
-                    external_identity = _zitadel_google_identity_from_intent(
-                        payload=retrieved,
-                        user_id=user_id if isinstance(user_id, str) else None,
-                    )
+                if flow != "google_intent":
+                    resp = _website_auth_error_payload("Invalid authorization state.")
+                    _clear_zitadel_web_cookie(resp)
+                    return resp
+                retrieved = _zitadel_api_json(
+                    path=f"/v2/idp_intents/{cast(str, intent_id).strip()}",
+                    json_body={"idpIntentToken": cast(str, intent_token).strip()},
+                )
+                external_identity = _zitadel_google_identity_from_intent(
+                    payload=retrieved,
+                    user_id=None,
+                )
             else:
                 expected_state = cookie_payload.get("state")
                 code_verifier = cookie_payload.get("code_verifier")

@@ -800,7 +800,7 @@ class AuthFlowTests(unittest.TestCase):
                 ).fetchall()
             self.assertEqual(signons, [("zitadel", "login")])
 
-    def test_zitadel_google_intent_callback_uses_existing_linked_subject_without_retrieval(self):
+    def test_zitadel_google_intent_callback_retrieves_intent_before_using_existing_linked_subject(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
         os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
@@ -819,6 +819,7 @@ class AuthFlowTests(unittest.TestCase):
             db.session.commit()
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
+        retrieved_intent = {"value": False}
 
         def _fake_oauth_fetch_json(
             url: str,
@@ -830,7 +831,24 @@ class AuthFlowTests(unittest.TestCase):
         ):
             if url == "https://pandects-test-zitadel.example.com/v2/idp_intents":
                 return {"authUrl": "https://accounts.google.com/o/oauth2/v2/auth?client_id=test"}
-            self.fail("Existing linked ZITADEL user should not retrieve the idp intent payload.")
+            if url == "https://pandects-test-zitadel.example.com/v2/idp_intents/intent-123":
+                retrieved_intent["value"] = True
+                self.assertEqual(method, "POST")
+                self.assertEqual(json_body, {"idpIntentToken": "intent-token-123"})
+                return {
+                    "idpInformation": {
+                        "idpId": "google-idp-123",
+                        "rawInformation": {
+                            "User": {
+                                "sub": "google-sub-123",
+                                "email": "linked-google@example.com",
+                                "email_verified": True,
+                                "name": "Linked Google",
+                            }
+                        },
+                    }
+                }
+            self.fail(f"Unexpected ZITADEL API request: {url}")
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         try:
@@ -854,8 +872,34 @@ class AuthFlowTests(unittest.TestCase):
             )
             self.assertEqual(me.status_code, 200)
             self.assertEqual(me.get_json()["user"]["email"], "linked-google@example.com")
+            self.assertTrue(retrieved_intent["value"])
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+    def test_zitadel_complete_rejects_google_intent_payload_without_google_intent_flow(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        client = self.app.test_client()
+
+        start = client.get("/v1/auth/zitadel/start?next=/account&provider=email")
+        self.assertEqual(start.status_code, 200)
+
+        res = client.post(
+            "/v1/auth/zitadel/complete",
+            json={
+                "intent_id": "intent-123",
+                "intent_token": "intent-token-123",
+                "user_id": "zitadel-user-linked-123",
+            },
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.get_json()["message"], "Invalid authorization state.")
 
     def test_zitadel_google_intent_callback_reuses_existing_zitadel_user_after_conflict(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
