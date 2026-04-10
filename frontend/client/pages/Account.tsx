@@ -42,7 +42,12 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
-import { AUTH_WAKEUP_MESSAGE, isAuthWakeupError, withAuthWakeRetry } from "@/lib/auth-wake";
+import {
+  AUTH_WAKEUP_MESSAGE,
+  isAuthWakeupError,
+  prewarmAuthBackend,
+  withAuthWakeRetry,
+} from "@/lib/auth-wake";
 import brandLinks from "@branding/links.json";
 
 type UsageChartPoint = {
@@ -301,6 +306,10 @@ export default function Account() {
   useEffect(() => {
     usageKeyFilterRef.current = usageKeyFilter;
   }, [usageKeyFilter]);
+
+  useEffect(() => {
+    void prewarmAuthBackend();
+  }, []);
 
   useEffect(() => {
     if (!user) {

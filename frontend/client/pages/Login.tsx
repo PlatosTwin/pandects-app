@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { LegalAcceptancePrompt } from "@/components/auth/LegalAcceptancePrompt";
@@ -18,6 +18,7 @@ import {
 import { safeNextPath } from "@/lib/auth-next";
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
+import { prewarmAuthBackend, withAuthWakeRetry } from "@/lib/auth-wake";
 
 type LoginState =
   | { kind: "form" }
@@ -71,6 +72,10 @@ export default function Login() {
     error !== null &&
     error.toLowerCase().includes("verify your email before signing in");
 
+  useEffect(() => {
+    void prewarmAuthBackend();
+  }, []);
+
   if (status === "authenticated") {
     return <Navigate to={nextPath} replace />;
   }
@@ -122,7 +127,9 @@ export default function Login() {
     setSubmitting(true);
     setError(null);
     try {
-      const { authorize_url } = await startZitadelGoogleWebsiteAuth(nextPath);
+      const { authorize_url } = await withAuthWakeRetry(() =>
+        startZitadelGoogleWebsiteAuth(nextPath),
+      );
       window.location.assign(authorize_url);
     } catch (err) {
       setSubmitting(false);
