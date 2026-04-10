@@ -1610,6 +1610,7 @@ def _build_offline_metadata_lines(
 ) -> List[Dict[str, Any]]:
     if target_agreement_uuids is not None and not target_agreement_uuids:
         return []
+    query_limit = max(batch_size, len(set(target_agreement_uuids))) if target_agreement_uuids else batch_size
     scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
     pages_q = text(
         f"""
@@ -1683,7 +1684,7 @@ def _build_offline_metadata_lines(
     if target_agreement_uuids:
         pages_q = pages_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        params: dict[str, object] = {"lim": batch_size}
+        params: dict[str, object] = {"lim": query_limit}
         if target_agreement_uuids:
             params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
         page_rows = conn.execute(pages_q, params).mappings().fetchall()
@@ -1714,6 +1715,7 @@ def _build_offline_counsel_lines(
 ) -> List[Dict[str, Any]]:
     if target_agreement_uuids is not None and not target_agreement_uuids:
         return []
+    query_limit = max(batch_size, len(set(target_agreement_uuids))) if target_agreement_uuids else batch_size
     pages_table = f"{schema}.pages"
     tagged_outputs_table = f"{schema}.tagged_outputs"
     standard_ids_table = f"{schema}.latest_sections_search_standard_ids"
@@ -1799,7 +1801,7 @@ def _build_offline_counsel_lines(
             candidate_q,
             {
                 "counsel_standard_id": COUNSEL_SECTION_STANDARD_ID,
-                "lim": batch_size,
+                "lim": query_limit,
                 **(
                     {"agreement_uuids": tuple(sorted(set(target_agreement_uuids)))}
                     if target_agreement_uuids
@@ -1861,6 +1863,7 @@ def _run_web_search_mode(
     if target_agreement_uuids is not None and not target_agreement_uuids:
         context.log.info("%s: explicit empty scope; no web-search work to run.", log_prefix)
         return {"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": []}
+    query_limit = max(batch_size, len(set(target_agreement_uuids))) if target_agreement_uuids else batch_size
     with engine.begin() as conn:
         assert_tables_exist(
             conn,
@@ -1929,7 +1932,7 @@ def _run_web_search_mode(
     if target_agreement_uuids:
         select_q = select_q.bindparams(bindparam("agreement_uuids", expanding=True))
     with engine.begin() as conn:
-        params: dict[str, object] = {"lim": batch_size}
+        params: dict[str, object] = {"lim": query_limit}
         if target_agreement_uuids:
             params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
         rows = conn.execute(select_q, params).mappings().fetchall()

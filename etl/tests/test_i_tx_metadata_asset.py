@@ -179,10 +179,14 @@ class _FakeCounselSelectionConn:
         self.candidate_rows = candidate_rows
         self.section_rows = section_rows
         self.executed_sql: list[str] = []
+        self.last_params: dict[str, object] | None = None
+        self.params_history: list[dict[str, object]] = []
 
     def execute(self, statement: object, _params: dict[str, object]) -> _FakeResult:
         sql = str(statement)
         self.executed_sql.append(sql)
+        self.last_params = dict(_params)
+        self.params_history.append(dict(_params))
         if "FROM pdx.latest_sections_search_standard_ids lssi" in sql and "s.xml_content" in sql:
             return _FakeResult(rows=self.section_rows)
         return _FakeResult(rows=self.candidate_rows)
@@ -200,9 +204,11 @@ class _FakeMetadataSelectionConn:
     def __init__(self, rows: list[dict[str, object]]) -> None:
         self.rows = rows
         self.executed_sql: list[str] = []
+        self.last_params: dict[str, object] | None = None
 
     def execute(self, statement: object, _params: dict[str, object]) -> _FakeResult:
         self.executed_sql.append(str(statement))
+        self.last_params = dict(_params)
         return _FakeResult(rows=self.rows)
 
 
@@ -868,6 +874,40 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             any("missing_all_counsel_fields DESC" in sql and "filing_date ASC" in sql for sql in conn.executed_sql)
         )
 
+    def test_build_offline_counsel_lines_uses_full_explicit_scope_limit(self) -> None:
+        conn = _FakeCounselSelectionConn(
+            candidate_rows=[
+                {
+                    "agreement_uuid": "agreement-1",
+                    "target": "Target A",
+                    "acquirer": "Acquirer A",
+                    "filing_date": date(2023, 1, 1),
+                    "missing_all_counsel_fields": 1,
+                }
+            ],
+            section_rows=[
+                {
+                    "agreement_uuid": "agreement-1",
+                    "section_uuid": "section-1",
+                    "xml_content": "<section>Target counsel is A.</section>",
+                }
+            ],
+        )
+        engine = _FakeCounselSelectionEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        _ = _build_offline_counsel_lines(
+            context=cast(AssetExecutionContext, cast(object, context)),
+            engine=engine,
+            schema="pdx",
+            agreements_table="pdx.agreements",
+            batch_size=10,
+            target_agreement_uuids=[f"agreement-{idx}" for idx in range(12)],
+        )
+
+        self.assertTrue(conn.params_history)
+        self.assertEqual(conn.params_history[0]["lim"], 12)
+
     def test_build_offline_metadata_lines_prioritizes_missing_all_fields_then_oldest_filing_date(self) -> None:
         conn = _FakeMetadataSelectionConn(
             [
@@ -911,6 +951,32 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertTrue(
             any("missing_all_metadata_fields DESC" in sql and "filing_date ASC" in sql for sql in conn.executed_sql)
         )
+
+    def test_build_offline_metadata_lines_uses_full_explicit_scope_limit(self) -> None:
+        conn = _FakeMetadataSelectionConn(
+            [
+                {
+                    "agreement_uuid": "agreement-1",
+                    "page_order": 1,
+                    "page_text": "Front matter",
+                }
+            ]
+        )
+        engine = _FakeMetadataSelectionEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        _ = _build_offline_metadata_lines(
+            context=cast(AssetExecutionContext, cast(object, context)),
+            engine=engine,
+            agreements_table="pdx.agreements",
+            pages_table="pdx.pages",
+            tagged_outputs_table="pdx.tagged_outputs",
+            batch_size=10,
+            target_agreement_uuids=[f"agreement-{idx}" for idx in range(12)],
+        )
+
+        assert conn.last_params is not None
+        self.assertEqual(conn.last_params["lim"], 12)
 
     def test_build_offline_counsel_update_params_only_emits_raw_counsel_fields(self) -> None:
         self.assertEqual(
@@ -1454,6 +1520,29 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         assert conn.last_select_rows is not None
         self.assertEqual(conn.last_select_rows[0]["agreement_uuid"], "agreement-clean")
         self.assertEqual(conn.last_select_rows[1]["agreement_uuid"], "agreement-retry")
+
+    def test_run_web_search_mode_uses_full_explicit_scope_limit(self) -> None:
+        conn = _FakeWebConn()
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        with (
+            patch(
+                "etl.defs.i_tx_metadata_asset._oai_client",
+                return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=10,
+                target_agreement_uuids=[f"agreement-{idx}" for idx in range(12)],
+            )
+
+        assert conn.last_select_params is not None
+        self.assertEqual(conn.last_select_params["lim"], 12)
 
     def test_run_web_search_mode_logs_failed_uuid_summary(self) -> None:
         conn = _FakeWebConn()

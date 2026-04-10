@@ -709,6 +709,11 @@ def _enqueue_ai_repair_for_agreements(
         # 1) fetch candidate pages needing AI repair
         batch_size = pipeline_config.xml_agreement_batch_size
         page_budget = int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0)
+        agreement_limit = (
+            None
+            if page_budget > 0
+            else (max(batch_size, len(scoped_uuids)) if scoped_uuids else batch_size)
+        )
         candidate_agreement_by_page_uuid: Dict[str, str] = {}
 
         preselected_candidates: List[Dict[str, Any]] | None = None
@@ -729,7 +734,7 @@ def _enqueue_ai_repair_for_agreements(
                 preselected_candidates = _fetch_candidates(
                     conn,
                     db.database,
-                    agreement_limit=None if page_budget > 0 else batch_size,
+                    agreement_limit=agreement_limit,
                     target_agreement_uuids=None,
                     page_budget=page_budget if page_budget > 0 else None,
                     attempt_priority=pipeline_config.ai_repair_attempt_priority,
@@ -793,7 +798,7 @@ def _enqueue_ai_repair_for_agreements(
                 candidates = _fetch_candidates(
                     conn,
                     db.database,
-                    agreement_limit=None if page_budget > 0 else batch_size,
+                    agreement_limit=agreement_limit,
                     target_agreement_uuids=scoped_uuids or None,
                     page_budget=page_budget if page_budget > 0 else None,
                     attempt_priority=pipeline_config.ai_repair_attempt_priority,

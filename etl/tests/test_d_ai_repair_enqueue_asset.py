@@ -394,6 +394,48 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
 
         self.assertEqual(result, [])
 
+    def test_regular_ingest_enqueue_uses_full_explicit_scope_limit(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=10,
+                    resume_openai_batches=False,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+        scoped_uuids = [f"agreement-{idx:02d}" for idx in range(12)]
+
+        with (
+            patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
+            patch(
+                "etl.defs.d_ai_repair_asset._fetch_candidates",
+                return_value=[],
+            ) as fetch_candidates,
+            patch("etl.defs.d_ai_repair_asset.run_post_asset_refresh", return_value=None),
+        ):
+            result = _enqueue_ai_repair_for_agreements(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                target_agreement_uuids=scoped_uuids,
+                log_prefix="regular_ingest_ai_repair_enqueue_asset",
+            )
+
+        self.assertEqual(result, [])
+        fetch_candidates.assert_called_once_with(
+            ANY,
+            "pdx",
+            agreement_limit=12,
+            target_agreement_uuids=scoped_uuids,
+            page_budget=None,
+            attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+        )
+
 
 if __name__ == "__main__":
     _ = unittest.main()
