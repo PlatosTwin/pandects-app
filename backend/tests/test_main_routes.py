@@ -1256,6 +1256,13 @@ class MainRoutesTests(unittest.TestCase):
                         "'2023-02-15', NULL, 'pending', NULL, 'merger', NULL)"
                     )
                 )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('cash_complete', '<document><article><section uuid=\"10000000-0000-0000-0000-000000000001\"><text>CASH</text></section></article></document>', 1, 'verified', 1), "
+                        "('stock_missing_optional', '<document><article><section uuid=\"10000000-0000-0000-0000-000000000002\"><text>STOCK</text></section></article></document>', 1, 'verified', 1)"
+                    )
+                )
 
         client = self.app.test_client()
         res = client.get("/v1/agreements-status-summary")

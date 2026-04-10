@@ -326,8 +326,14 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             )
         ingested_where = "\n                      AND ".join(agreement_where_parts)
         processed_where_parts = [*agreement_where_parts]
-        if agreement_columns.get("verified") is not None:
-            processed_where_parts.append("COALESCE(a.verified, 0) = 1")
+        processed_where_parts.append(
+            "EXISTS ("
+            f"SELECT 1 FROM {deps._schema_prefix()}xml x "
+            "WHERE x.agreement_uuid = a.agreement_uuid "
+            "AND x.latest = 1 "
+            "AND (x.status IS NULL OR x.status = 'verified')"
+            ")"
+        )
         processed_where = "\n                      AND ".join(processed_where_parts)
         agreements_table = f"{deps._schema_prefix()}agreements"
         aggregate_select_lines: list[str] = []

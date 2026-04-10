@@ -129,15 +129,17 @@ const formatDealTypeLabel = (dealType: string) =>
 const dealTypeSeriesKey = (dealType: string) =>
   `dealType_${dealType.replace(/[^a-z0-9]+/gi, "_")}`;
 
-const formatCoverageDetail = (
+const formatCoverageRatio = (
   covered: number,
   eligible: number,
-  pct: number | null,
   label: string,
 ) =>
   `${formatNumberValue(covered, { maximumFractionDigits: 0 })} / ${formatNumberValue(eligible, {
     maximumFractionDigits: 0,
-  })} ${label} ${pct === null ? "—" : `${pct.toFixed(1)}%`}`;
+  })} ${label}`;
+
+const formatCoveragePct = (pct: number | null) =>
+  pct === null ? "—" : `${pct.toFixed(1)}%`;
 
 function MobileChartModal({
   open,
@@ -338,22 +340,26 @@ export function AgreementIndexOverview() {
               className="rounded-md border border-border/60 bg-background/70 p-2"
             >
               <div className="text-xs font-medium text-foreground">{row.label}</div>
-              <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
-                <div>
-                  {formatCoverageDetail(
+              <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="min-w-0">
+                  {formatCoverageRatio(
                     row.processed_covered_agreements,
                     row.processed_eligible_agreements,
-                    row.processed_coverage_pct,
                     "processed deals",
                   )}
                 </div>
-                <div>
-                  {formatCoverageDetail(
+                <div className="text-right font-mono tabular-nums">
+                  {formatCoveragePct(row.processed_coverage_pct)}
+                </div>
+                <div className="min-w-0">
+                  {formatCoverageRatio(
                     row.ingested_covered_agreements,
                     row.ingested_eligible_agreements,
-                    row.ingested_coverage_pct,
                     "ingested deals",
                   )}
+                </div>
+                <div className="text-right font-mono tabular-nums">
+                  {formatCoveragePct(row.ingested_coverage_pct)}
                 </div>
               </div>
               {row.note ? (
