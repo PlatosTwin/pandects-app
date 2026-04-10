@@ -93,6 +93,7 @@ echo "📚 Export table allowlist (${#API_TABLES[@]} tables): ${API_TABLES[*]}"
 
 LOGICAL_DIR="${SESSION_DIR}/logical"
 LOGICAL_ARCHIVE="${SESSION_DIR}/logical_backup_${TIMESTAMP}.tar.gz"
+LOGICAL_CHECKSUM_FILE="${LOGICAL_ARCHIVE}.sha256"
 
 mkdir -p "$LOGICAL_DIR"
 
@@ -134,6 +135,10 @@ echo "✅ Logical dump sanity checks passed"
 echo "🗜️  Compressing Logical Backup..."
 COPYFILE_DISABLE=1 tar -czf "$LOGICAL_ARCHIVE" -C "$LOGICAL_DIR" .
 echo "✅ Logical Archive Ready: $(du -h "$LOGICAL_ARCHIVE" | cut -f1)"
+
+echo "🔐 [1b/4] Generating logical backup checksum..."
+sha256sum "$LOGICAL_ARCHIVE" > "$LOGICAL_CHECKSUM_FILE"
+echo "✅ Logical checksum file created: $LOGICAL_CHECKSUM_FILE"
 
 # ── 2. Create SQL Dump (For Public Access) ──────────────────────
 echo "📄 [2/4] Taking SQL Dump (for Public Access)..."
@@ -181,6 +186,7 @@ from pathlib import Path
 endpoint        = "${R2_ENDPOINT}"
 public_dev_base = "${PUBLIC_DEV_BASE}"
 bucket          = "${R2_BUCKET_NAME}"
+tables_csv      = "${TABLES_LIST}"
 
 session = boto3.session.Session()
 client  = session.client(
@@ -256,6 +262,14 @@ class ProgressPrinter:
             sys.stdout.flush()
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def upload_with_progress(path: Path, key: str, acl: str, label: str) -> None:
     print(f"📤 Uploading {label}: {key}")
     progress = ProgressPrinter(label, path)
@@ -279,8 +293,13 @@ def update_latest_pointer(src_key: str, dst_key: str, acl: str = "public-read") 
     )
 
 # ── Upload Logical Backup ────────────────────────────────────────
+logical_path = Path("${LOGICAL_ARCHIVE}")
+logical_checksum_path = Path("${LOGICAL_CHECKSUM_FILE}")
 logical_key = f"logical_backups/backup_${TIMESTAMP}.tar.gz"
-upload_with_progress(Path("${LOGICAL_ARCHIVE}"), logical_key, "private", "logical backup")
+logical_checksum_key = f"{logical_key}.sha256"
+
+upload_with_progress(logical_path, logical_key, "private", "logical backup")
+upload_with_progress(logical_checksum_path, logical_checksum_key, "private", "logical checksum")
 print(f"   ✅ Logical backup uploaded: {logical_key}")
 
 # ── Upload SQL Dump and Related Files ─────────────────────────────
@@ -294,8 +313,10 @@ upload_with_progress(dump_path, dump_key, "public-read", "dump")
 
 upload_with_progress(checksum_path, checksum_key, "public-read", "checksum")
 
+logical_sha256 = sha256_file(logical_path)
+dump_sha256 = sha256_file(dump_path)
+
 # ── Generate Manifest ─────────────────────────────────────────────
-sha256_digest = hashlib.sha256(dump_path.read_bytes()).hexdigest()
 dump_url       = f"{endpoint}/{bucket}/{dump_key}"
 checksum_url   = f"{endpoint}/{bucket}/{checksum_key}"
 dump_url_dev   = f"{public_dev_base}/{dump_key}"
@@ -305,7 +326,7 @@ manifest = {
     "filename":          dump_path.name,
     "timestamp":         time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "size_bytes":        dump_path.stat().st_size,
-    "sha256":            sha256_digest,
+    "sha256":            dump_sha256,
     "download_url":      dump_url,
     "checksum_url":      checksum_url,
     "download_url_dev":  dump_url_dev,
@@ -319,15 +340,37 @@ manifest_path.write_text(json.dumps(manifest, indent=2))
 manifest_key = f"dumps/{manifest_path.name}"
 upload_with_progress(manifest_path, manifest_key, "public-read", "manifest")
 
+logical_manifest = {
+    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "logical_key": logical_key,
+    "logical_sha256": logical_sha256,
+    "logical_size_bytes": logical_path.stat().st_size,
+    "logical_checksum_key": logical_checksum_key,
+    "public_dump_key": dump_key,
+    "public_dump_sha256": dump_sha256,
+    "public_dump_size_bytes": dump_path.stat().st_size,
+    "tables": tables_csv.split(","),
+}
+
+logical_manifest_path = logical_path.with_suffix(logical_path.suffix + ".manifest.json")
+print(f"📝 Writing logical manifest to {logical_manifest_path}")
+logical_manifest_path.write_text(json.dumps(logical_manifest, indent=2))
+
+logical_manifest_key = f"logical_backups/{logical_manifest_path.name}"
+upload_with_progress(logical_manifest_path, logical_manifest_key, "private", "logical manifest")
+
 # ── Update latest.* Pointers ─────────────────────────────────────
 print("🔁 Updating latest.* symlinks...")
 for src_key, dst_key in [
-    (dump_key,      "dumps/latest.sql.gz"),
-    (checksum_key,  "dumps/latest.sql.gz.sha256"),
-    (manifest_key,  "dumps/latest.json"),
-    (logical_key,   "logical_backups/latest.tar.gz"),
+    (dump_key,             "dumps/latest.sql.gz"),
+    (checksum_key,         "dumps/latest.sql.gz.sha256"),
+    (manifest_key,         "dumps/latest.json"),
+    (logical_key,          "logical_backups/latest.tar.gz"),
+    (logical_checksum_key, "logical_backups/latest.tar.gz.sha256"),
+    (logical_manifest_key, "logical_backups/latest.json"),
 ]:
-    update_latest_pointer(src_key, dst_key)
+    acl = "public-read" if dst_key.startswith("dumps/") else "private"
+    update_latest_pointer(src_key, dst_key, acl=acl)
 
 print("✅ All uploads successful.")
 EOF

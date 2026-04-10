@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -18,7 +19,7 @@ R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
 BACKUP_ARCHIVE = Path("/tmp/logical_backup.tar.gz")
 BACKUP_DIR = Path("/tmp/logical_backup")
 
-LOGICAL_PREFIX = "logical_backups/backup_"
+LOGICAL_LATEST_MANIFEST_KEY = "logical_backups/latest.json"
 
 
 class ProgressPrinter:
@@ -79,14 +80,26 @@ class ProgressPrinter:
             sys.stdout.flush()
 
 
-def get_restore_target_key(client, bucket):
-    print("🔍 Finding latest logical backup in R2...", flush=True)
-    response = client.list_objects_v2(Bucket=bucket, Prefix=LOGICAL_PREFIX)
-    if "Contents" not in response:
-        raise Exception("No backups found in 'logical_backups/' prefix")
+def sha256_file(path: Path) -> str:
+    import hashlib
 
-    latest = sorted(response["Contents"], key=lambda x: x["LastModified"])[-1]
-    return latest["Key"]
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def get_restore_target_manifest(client, bucket):
+    print("🔍 Fetching promoted logical backup manifest from R2...", flush=True)
+    response = client.get_object(Bucket=bucket, Key=LOGICAL_LATEST_MANIFEST_KEY)
+    manifest = json.loads(response["Body"].read())
+    required_fields = {"logical_key", "logical_sha256"}
+    missing_fields = required_fields - manifest.keys()
+    if missing_fields:
+        missing_csv = ", ".join(sorted(missing_fields))
+        raise Exception(f"Logical backup manifest missing required fields: {missing_csv}")
+    return manifest
 
 
 def restore_backup():
@@ -119,7 +132,8 @@ def restore_backup():
         endpoint_url=R2_ENDPOINT,
     )
 
-    key = get_restore_target_key(client, R2_BUCKET_NAME)
+    manifest = get_restore_target_manifest(client, R2_BUCKET_NAME)
+    key = manifest["logical_key"]
     head = client.head_object(Bucket=R2_BUCKET_NAME, Key=key)
     archive_size_bytes = head["ContentLength"]
     print(
@@ -130,6 +144,15 @@ def restore_backup():
     progress = ProgressPrinter("download", archive_size_bytes)
     client.download_file(R2_BUCKET_NAME, key, str(BACKUP_ARCHIVE), Callback=progress)
     progress.finish()
+
+    expected_sha256 = manifest["logical_sha256"]
+    actual_sha256 = sha256_file(BACKUP_ARCHIVE)
+    if actual_sha256 != expected_sha256:
+        raise Exception(
+            "Downloaded logical backup checksum mismatch: "
+            + f"expected {expected_sha256}, got {actual_sha256}"
+        )
+    print("✅ Logical backup checksum verified", flush=True)
 
     print("🧹 Cleaning extraction area...")
     if BACKUP_DIR.exists():
