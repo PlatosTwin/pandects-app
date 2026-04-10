@@ -161,6 +161,7 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
         with (
             patch("etl.defs.f_xml_asset._oai_client", return_value=SimpleNamespace()),
             patch("etl.defs.f_xml_asset.assert_tables_exist", return_value=None),
+            patch("etl.defs.f_xml_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.f_xml_asset.load_active_scope_for_job",
                 side_effect=_fallback_scope,
@@ -199,6 +200,7 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
         )
 
         with (
+            patch("etl.defs.d_ai_repair_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.d_ai_repair_asset._oai_client", side_effect=AssertionError("resume path should not create an OpenAI client")),
             patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
             patch(

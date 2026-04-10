@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 from dagster import AssetExecutionContext, build_op_context
 
-from etl.defs.g_sections_asset import sections_from_fresh_xml_asset
+from etl.defs.g_sections_asset import (
+    regular_ingest_sections_from_fresh_xml_asset,
+    sections_from_fresh_xml_asset,
+)
 from etl.defs.resources import DBResource, PipelineConfig
 
 
@@ -19,7 +22,7 @@ class FreshSectionsAssetTests(unittest.TestCase):
             build_op_context() as context,
             patch("etl.defs.g_sections_asset._run_sections_for_agreements", return_value=[]) as runner,
         ):
-            sections_from_fresh_xml_asset(
+            _ = sections_from_fresh_xml_asset(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 db=cast(DBResource, cast(object, db)),
                 pipeline_config=cast(PipelineConfig, cast(object, pipeline_config)),
@@ -43,7 +46,7 @@ class FreshSectionsAssetTests(unittest.TestCase):
             build_op_context() as context,
             patch("etl.defs.g_sections_asset._run_sections_for_agreements", return_value=[]) as runner,
         ):
-            sections_from_fresh_xml_asset(
+            _ = sections_from_fresh_xml_asset(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 db=cast(DBResource, cast(object, db)),
                 pipeline_config=cast(PipelineConfig, cast(object, pipeline_config)),
@@ -67,7 +70,7 @@ class FreshSectionsAssetTests(unittest.TestCase):
             build_op_context() as context,
             patch("etl.defs.g_sections_asset._run_sections_for_agreements", return_value=[]) as runner,
         ):
-            sections_from_fresh_xml_asset(
+            _ = sections_from_fresh_xml_asset(
                 context=cast(AssetExecutionContext, cast(object, context)),
                 db=cast(DBResource, cast(object, db)),
                 pipeline_config=cast(PipelineConfig, cast(object, pipeline_config)),
@@ -82,6 +85,30 @@ class FreshSectionsAssetTests(unittest.TestCase):
             log_prefix="sections_from_fresh_xml_asset",
         )
 
+    def test_regular_ingest_sections_from_fresh_xml_skips_when_stage_already_completed(self) -> None:
+        db = SimpleNamespace()
+        pipeline_config = SimpleNamespace()
+
+        with (
+            build_op_context() as context,
+            patch(
+                "etl.defs.g_sections_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_taxonomy_llm"),
+            ),
+            patch(
+                "etl.defs.g_sections_asset._run_sections_for_agreements",
+                side_effect=AssertionError("regular_ingest sections should skip when already completed"),
+            ),
+        ):
+            result = regular_ingest_sections_from_fresh_xml_asset(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                db=cast(DBResource, cast(object, db)),
+                pipeline_config=cast(PipelineConfig, cast(object, pipeline_config)),
+                verified_fresh_agreement_uuids=["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
-    unittest.main()
+    _ = unittest.main()

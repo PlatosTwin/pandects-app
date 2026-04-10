@@ -9,6 +9,7 @@ from dagster import AssetExecutionContext
 from etl.defs.d_ai_repair_asset import (
     _enqueue_ai_repair_for_agreements,
     ai_repair_enqueue_asset,
+    regular_ingest_ai_repair_poll_asset,
     regular_ingest_ai_repair_enqueue_asset,
 )
 from etl.defs.resources import (
@@ -268,6 +269,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         )
 
         with (
+            patch("etl.defs.d_ai_repair_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.d_ai_repair_asset._oai_client",
                 side_effect=AssertionError("resume path should not create an OpenAI client"),
@@ -312,6 +314,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         )
 
         with (
+            patch("etl.defs.d_ai_repair_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.d_ai_repair_asset._oai_client",
                 side_effect=AssertionError("resume path should not create an OpenAI client"),
@@ -371,6 +374,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         )
 
         with (
+            patch("etl.defs.d_ai_repair_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.d_ai_repair_asset.load_active_scope_for_job", return_value=[]),
             patch("etl.defs.d_ai_repair_asset.load_active_logical_run", return_value=None),
             patch("etl.defs.d_ai_repair_asset.mark_logical_run_stage_completed", return_value=None),
@@ -435,6 +439,66 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
             page_budget=None,
             attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
         )
+
+    def test_regular_ingest_enqueue_skips_when_stage_already_completed(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    xml_agreement_batch_size=25,
+                    resume_openai_batches=True,
+                    ai_repair_attempt_priority=AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+                ),
+            ),
+        )
+
+        with (
+            patch(
+                "etl.defs.d_ai_repair_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_ai_repair_poll"),
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._enqueue_ai_repair_for_agreements",
+                side_effect=AssertionError("regular_ingest enqueue should skip when already completed"),
+            ),
+        ):
+            enqueue_fn = getattr(regular_ingest_ai_repair_enqueue_asset.op.compute_fn, "decorated_fn")
+            result = enqueue_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
+
+    def test_regular_ingest_poll_skips_when_stage_already_completed(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(PipelineConfig, cast(object, SimpleNamespace()))
+
+        with (
+            patch(
+                "etl.defs.d_ai_repair_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_reconcile_tags"),
+            ),
+            patch(
+                "etl.defs.d_ai_repair_asset._poll_ai_repair_batches",
+                side_effect=AssertionError("regular_ingest poll should skip when already completed"),
+            ),
+        ):
+            poll_fn = getattr(regular_ingest_ai_repair_poll_asset.op.compute_fn, "decorated_fn")
+            result = poll_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":

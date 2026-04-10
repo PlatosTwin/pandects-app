@@ -216,6 +216,17 @@ def regular_ingest_sections_from_fresh_xml_asset(
     pipeline_config: PipelineConfig,
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_sections_from_fresh_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_sections_from_fresh_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,
@@ -265,6 +276,17 @@ def regular_ingest_sections_from_repair_xml_asset(
     pipeline_config: PipelineConfig,
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_sections_from_repair_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_sections_from_repair_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,
@@ -295,6 +317,17 @@ def ingestion_cleanup_a_sections_from_fresh_xml_asset(
     pipeline_config: PipelineConfig,
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_sections_from_fresh_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,
@@ -325,6 +358,17 @@ def ingestion_cleanup_a_sections_from_repair_xml_asset(
     pipeline_config: PipelineConfig,
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_sections_from_repair_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_sections_from_repair_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     processed_agreement_uuids = _run_sections_for_agreements(
         context,
         db,

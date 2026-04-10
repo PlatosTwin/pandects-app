@@ -1029,6 +1029,17 @@ def regular_ingest_ai_repair_enqueue_asset(
     pipeline_config: PipelineConfig,
     verified_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_ai_repair_enqueue",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_ai_repair_enqueue_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,
@@ -1066,6 +1077,17 @@ def ingestion_cleanup_a_ai_repair_enqueue_asset(
     pipeline_config: PipelineConfig,
     verified_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_ai_repair_enqueue",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_ai_repair_enqueue_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     scope_uuids = load_active_scope_for_job(
         context,
         db=db,
@@ -1896,6 +1918,17 @@ def regular_ingest_ai_repair_poll_asset(
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_ai_repair_poll",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_ai_repair_poll_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     successful_request_ids = _poll_ai_repair_batches(
         context,
         db,
@@ -1926,6 +1959,17 @@ def ingestion_cleanup_a_ai_repair_poll_asset(
     pipeline_config: PipelineConfig,
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_ai_repair_poll",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_ai_repair_poll_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
     successful_request_ids = _poll_ai_repair_batches(
         context,
         db,

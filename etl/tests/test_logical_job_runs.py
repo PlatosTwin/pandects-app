@@ -426,6 +426,8 @@ class LogicalJobRunTests(unittest.TestCase):
     def test_managed_stage_sequences_include_xml_build_stages(self) -> None:
         self.assertIn("regular_ingest_build_xml", MANAGED_JOB_STAGE_SEQUENCE["regular_ingest"])
         self.assertIn("ingestion_cleanup_a_build_xml", MANAGED_JOB_STAGE_SEQUENCE["ingestion_cleanup_a"])
+        self.assertIn("regular_ingest_verify_xml", MANAGED_JOB_STAGE_SEQUENCE["regular_ingest"])
+        self.assertIn("ingestion_cleanup_a_verify_xml", MANAGED_JOB_STAGE_SEQUENCE["ingestion_cleanup_a"])
 
     def test_mark_completed_does_not_regress_managed_stage_progress(self) -> None:
         db = _FakeDB()
