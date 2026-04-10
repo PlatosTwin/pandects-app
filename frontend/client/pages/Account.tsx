@@ -42,6 +42,7 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
 import { safeNextPath } from "@/lib/auth-next";
+import { AUTH_WAKEUP_MESSAGE, isAuthWakeupError, withAuthWakeRetry } from "@/lib/auth-wake";
 import brandLinks from "@branding/links.json";
 
 type UsageChartPoint = {
@@ -172,7 +173,7 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
 }
 
 export default function Account() {
-  const { status, user, logout } = useAuth();
+  const { status, user, logout, wakePending } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const requestedNextPath = useMemo(
@@ -196,6 +197,7 @@ export default function Account() {
   const [accountDataLoading, setAccountDataLoading] = useState(false);
   const [accountDataLoaded, setAccountDataLoaded] = useState(false);
   const [accountDataError, setAccountDataError] = useState<string | null>(null);
+  const [authWakePending, setAuthWakePending] = useState(false);
 
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -229,10 +231,20 @@ export default function Account() {
       const runId = ++usageRequestRunRef.current;
       if (!silent) setUsageLoading(true);
       try {
-        const usage = await fetchUsageForSelection(period, keyId);
+        const usage = await withAuthWakeRetry(async () => {
+          try {
+            return await fetchUsageForSelection(period, keyId);
+          } catch (error) {
+            if (isAuthWakeupError(error)) {
+              setAuthWakePending(true);
+            }
+            throw error;
+          }
+        });
         if (usageRequestRunRef.current !== runId) return;
         setUsageByDay(usage.by_day);
         setUsageTotal(usage.total);
+        setAuthWakePending(false);
       } finally {
         if (!silent && usageRequestRunRef.current === runId) {
           setUsageLoading(false);
@@ -244,8 +256,18 @@ export default function Account() {
 
   const loadAccountData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setAccountDataLoading(true);
+    setAuthWakePending(false);
     try {
-      const keys = await listApiKeys();
+      const keys = await withAuthWakeRetry(async () => {
+        try {
+          return await listApiKeys();
+        } catch (error) {
+          if (isAuthWakeupError(error)) {
+            setAuthWakePending(true);
+          }
+          throw error;
+        }
+      });
       setApiKeys(keys.keys);
       const selectedKeyExists =
         usageKeyFilterRef.current === "all"
@@ -262,7 +284,9 @@ export default function Account() {
       });
       setAccountDataLoaded(true);
       setAccountDataError(null);
+      setAuthWakePending(false);
     } catch (err) {
+      setAuthWakePending(false);
       setAccountDataError(err instanceof Error ? err.message : String(err));
       throw err;
     } finally {
@@ -291,9 +315,11 @@ export default function Account() {
       setAccountDataLoaded(false);
       setAccountDataLoading(false);
       setAccountDataError(null);
+      setAuthWakePending(false);
       return;
     }
     void loadAccountData().catch((err) => {
+      if (isAuthWakeupError(err)) return;
       toast({ title: "Failed to load account", description: String(err) });
     });
   }, [loadAccountData, user]);
@@ -354,6 +380,7 @@ export default function Account() {
   }, [status, hasAnyKey]);
 
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
+  const accountWakeLoading = authWakePending && !accountDataLoaded && !accountDataError;
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
@@ -497,7 +524,7 @@ export default function Account() {
     >
       {status === "loading" ? (
         <Card className="p-6" role="status" aria-live="polite">
-          Loading…
+          {wakePending ? AUTH_WAKEUP_MESSAGE : "Loading…"}
         </Card>
       ) : status === "anonymous" ? (
         <Navigate to={`/login?next=${encodeURIComponent(requestedNextPath)}`} replace />
@@ -557,7 +584,12 @@ export default function Account() {
               </div>
             </div>
 
-            {accountDataError ? (
+            {accountWakeLoading ? (
+              <Alert className="mt-4">
+                <AlertTitle>Auth service is waking up</AlertTitle>
+                <AlertDescription>{AUTH_WAKEUP_MESSAGE}</AlertDescription>
+              </Alert>
+            ) : accountDataError ? (
               <Alert className="mt-4" variant="destructive">
                 <AlertTitle>Account data unavailable</AlertTitle>
                 <AlertDescription>{accountDataError}</AlertDescription>
@@ -566,9 +598,9 @@ export default function Account() {
 
             <div className="mt-4">
               <div className="grid gap-4 sm:hidden">
-                {accountDataBootstrapping ? (
+                {accountDataBootstrapping || accountWakeLoading ? (
                   <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    Loading API keys…
+                    {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading API keys…"}
                   </div>
                 ) : (
                   <>
@@ -717,10 +749,10 @@ export default function Account() {
                       </tr>
                     </thead>
                     <tbody>
-                      {accountDataBootstrapping ? (
+                      {accountDataBootstrapping || accountWakeLoading ? (
                         <tr>
                           <td className="py-3 text-muted-foreground" colSpan={5}>
-                            Loading API keys…
+                            {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading API keys…"}
                           </td>
                         </tr>
                       ) : activeApiKeys.length === 0 ? (
@@ -904,6 +936,7 @@ export default function Account() {
                         period: value,
                         keyId: usageKeyFilterRef.current,
                       }).catch((err) => {
+                        if (isAuthWakeupError(err)) return;
                         toast({ title: "Failed to load usage", description: String(err) });
                       });
                     }}
@@ -941,6 +974,7 @@ export default function Account() {
                         period: usagePeriodRef.current,
                         keyId: value,
                       }).catch((err) => {
+                        if (isAuthWakeupError(err)) return;
                         toast({ title: "Failed to load usage", description: String(err) });
                       });
                     }}
@@ -961,8 +995,10 @@ export default function Account() {
             </div>
 
             <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
-              {accountDataBootstrapping ? (
-                <div className="text-sm text-muted-foreground">Loading usage…</div>
+              {accountDataBootstrapping || accountWakeLoading ? (
+                <div className="text-sm text-muted-foreground">
+                  {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading usage…"}
+                </div>
               ) : usageChartData.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No usage yet.</div>
               ) : (

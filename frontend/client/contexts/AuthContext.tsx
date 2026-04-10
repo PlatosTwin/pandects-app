@@ -4,6 +4,7 @@ import type { AuthUser } from "@/lib/auth-types";
 import { clearSessionToken, getSessionToken, setSessionToken } from "@/lib/auth-session";
 import { fetchMe, logoutSession } from "@/lib/auth-api";
 import { authSessionTransport } from "@/lib/auth-transport";
+import { isAuthWakeupError, withAuthWakeRetry } from "@/lib/auth-wake";
 
 type AuthStatus = "loading" | "anonymous" | "authenticated";
 
@@ -11,6 +12,7 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   session_token: string | null;
+  wakePending: boolean;
   refresh: () => Promise<void>;
   logout: () => void;
 }
@@ -25,15 +27,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session_token, setSessionTokenState] = useState<string | null>(initialToken);
+  const [wakePending, setWakePending] = useState(false);
 
   const refresh = useCallback(async () => {
     const token = transport === "bearer" ? getSessionToken() : null;
     setSessionTokenState(token);
+    setStatus("loading");
+    setWakePending(false);
 
     try {
-      const me = await fetchMe();
+      const me = await withAuthWakeRetry(async () => {
+        try {
+          return await fetchMe();
+        } catch (error) {
+          if (isAuthWakeupError(error)) {
+            setWakePending(true);
+          }
+          throw error;
+        }
+      });
       setUser(me.user);
       setStatus("authenticated");
+      setWakePending(false);
     } catch {
       if (transport === "bearer") {
         clearSessionToken();
@@ -41,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSessionTokenState(null);
       setUser(null);
       setStatus("anonymous");
+      setWakePending(false);
     }
   }, [transport]);
 
@@ -57,11 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionTokenState(null);
     setUser(null);
     setStatus("anonymous");
+    setWakePending(false);
   }, [transport]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, session_token, refresh, logout }),
-    [status, user, session_token, refresh, logout],
+    () => ({ status, user, session_token, wakePending, refresh, logout }),
+    [status, user, session_token, wakePending, refresh, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
