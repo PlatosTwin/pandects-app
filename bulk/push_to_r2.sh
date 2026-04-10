@@ -161,6 +161,7 @@ import hashlib
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -176,10 +177,75 @@ client  = session.client(
     endpoint_url=endpoint,
 )
 
+
+class ProgressPrinter:
+    def __init__(self, label: str, path: Path) -> None:
+        self.label = label
+        self.path = path
+        self.total_bytes = path.stat().st_size
+        self.seen_bytes = 0
+        self.last_percent = -1
+        self.lock = threading.Lock()
+
+    @staticmethod
+    def _format_bytes(num_bytes: int) -> str:
+        units = ["B", "KB", "MB", "GB", "TB"]
+        value = float(num_bytes)
+        unit = units[0]
+        for unit in units:
+            if value < 1024 or unit == units[-1]:
+                break
+            value /= 1024
+        if unit == "B":
+            return f"{int(value)} {unit}"
+        return f"{value:.1f} {unit}"
+
+    def __call__(self, chunk_size: int) -> None:
+        with self.lock:
+            self.seen_bytes += chunk_size
+            if self.total_bytes == 0:
+                percent = 100
+            else:
+                percent = min(int(self.seen_bytes * 100 / self.total_bytes), 100)
+
+            if percent != self.last_percent or self.seen_bytes >= self.total_bytes:
+                progress = (
+                    f"\r   {self.label}: {percent:3d}% "
+                    f"({self._format_bytes(self.seen_bytes)}/"
+                    f"{self._format_bytes(self.total_bytes)})"
+                )
+                sys.stdout.write(progress)
+                sys.stdout.flush()
+                self.last_percent = percent
+
+    def finish(self) -> None:
+        with self.lock:
+            if self.last_percent < 100:
+                self.seen_bytes = self.total_bytes
+                sys.stdout.write(
+                    f"\r   {self.label}: 100% "
+                    f"({self._format_bytes(self.total_bytes)}/"
+                    f"{self._format_bytes(self.total_bytes)})"
+                )
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+
+def upload_with_progress(path: Path, key: str, acl: str, label: str) -> None:
+    print(f"📤 Uploading {label}: {key}")
+    progress = ProgressPrinter(label, path)
+    client.upload_file(
+        str(path),
+        bucket,
+        key,
+        ExtraArgs={"ACL": acl},
+        Callback=progress,
+    )
+    progress.finish()
+
 # ── Upload Logical Backup ────────────────────────────────────────
-print(f"📤 Uploading logical backup...")
 logical_key = f"logical_backups/backup_${TIMESTAMP}.tar.gz"
-client.upload_file("${LOGICAL_ARCHIVE}", bucket, logical_key, ExtraArgs={"ACL":"private"})
+upload_with_progress(Path("${LOGICAL_ARCHIVE}"), logical_key, "private", "logical backup")
 print(f"   ✅ Logical backup uploaded: {logical_key}")
 
 # ── Upload SQL Dump and Related Files ─────────────────────────────
@@ -189,11 +255,9 @@ checksum_path = Path("${CHECKSUM_FILE}")
 dump_key     = f"dumps/{dump_path.name}"
 checksum_key = f"dumps/{checksum_path.name}"
 
-print(f"📤 Uploading dump: {dump_key}")
-client.upload_file(str(dump_path), bucket, dump_key, ExtraArgs={"ACL":"public-read"})
+upload_with_progress(dump_path, dump_key, "public-read", "dump")
 
-print(f"📤 Uploading checksum: {checksum_key}")
-client.upload_file(str(checksum_path), bucket, checksum_key, ExtraArgs={"ACL":"public-read"})
+upload_with_progress(checksum_path, checksum_key, "public-read", "checksum")
 
 # ── Generate Manifest ─────────────────────────────────────────────
 sha256_digest = hashlib.sha256(dump_path.read_bytes()).hexdigest()
@@ -218,8 +282,7 @@ print(f"📝 Writing manifest to {manifest_path}")
 manifest_path.write_text(json.dumps(manifest, indent=2))
 
 manifest_key = f"dumps/{manifest_path.name}"
-print(f"📤 Uploading manifest: {manifest_key}")
-client.upload_file(str(manifest_path), bucket, manifest_key, ExtraArgs={"ACL":"public-read"})
+upload_with_progress(manifest_path, manifest_key, "public-read", "manifest")
 
 # ── Update latest.* Pointers ─────────────────────────────────────
 print("🔁 Updating latest.* symlinks...")
