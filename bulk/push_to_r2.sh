@@ -175,6 +175,7 @@ import os
 import sys
 import threading
 import time
+from botocore.config import Config
 from pathlib import Path
 
 endpoint        = "${R2_ENDPOINT}"
@@ -187,6 +188,11 @@ client  = session.client(
     aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],
     aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
     endpoint_url=endpoint,
+    config=Config(
+        connect_timeout=30,
+        read_timeout=300,
+        retries={"max_attempts": 10, "mode": "standard"},
+    ),
 )
 
 
@@ -197,6 +203,7 @@ class ProgressPrinter:
         self.total_bytes = path.stat().st_size
         self.seen_bytes = 0
         self.last_percent = -1
+        self.last_line_length = 0
         self.lock = threading.Lock()
 
     @staticmethod
@@ -226,19 +233,25 @@ class ProgressPrinter:
                     f"({self._format_bytes(self.seen_bytes)}/"
                     f"{self._format_bytes(self.total_bytes)})"
                 )
-                sys.stdout.write(progress)
+                padded_progress = progress.ljust(self.last_line_length)
+                sys.stdout.write(padded_progress)
                 sys.stdout.flush()
                 self.last_percent = percent
+                self.last_line_length = len(padded_progress)
 
     def finish(self) -> None:
         with self.lock:
             if self.last_percent < 100:
                 self.seen_bytes = self.total_bytes
-                sys.stdout.write(
+                progress = (
                     f"\r   {self.label}: 100% "
                     f"({self._format_bytes(self.total_bytes)}/"
                     f"{self._format_bytes(self.total_bytes)})"
                 )
+                padded_progress = progress.ljust(self.last_line_length)
+                sys.stdout.write(padded_progress)
+            else:
+                sys.stdout.write("\r".ljust(self.last_line_length))
             sys.stdout.write("\n")
             sys.stdout.flush()
 
@@ -254,6 +267,16 @@ def upload_with_progress(path: Path, key: str, acl: str, label: str) -> None:
         Callback=progress,
     )
     progress.finish()
+
+
+def update_latest_pointer(src_key: str, dst_key: str, acl: str = "public-read") -> None:
+    print(f"   ↪ {dst_key} <= {src_key}")
+    client.copy_object(
+        Bucket=bucket,
+        CopySource={"Bucket": bucket, "Key": src_key},
+        Key=dst_key,
+        ACL=acl,
+    )
 
 # ── Upload Logical Backup ────────────────────────────────────────
 logical_key = f"logical_backups/backup_${TIMESTAMP}.tar.gz"
@@ -304,12 +327,7 @@ for src_key, dst_key in [
     (manifest_key,  "dumps/latest.json"),
     (logical_key,   "logical_backups/latest.tar.gz"),
 ]:
-    client.copy_object(
-        Bucket=bucket,
-        CopySource={"Bucket": bucket, "Key": src_key},
-        Key=dst_key,
-        ACL="public-read"
-    )
+    update_latest_pointer(src_key, dst_key)
 
 print("✅ All uploads successful.")
 EOF
