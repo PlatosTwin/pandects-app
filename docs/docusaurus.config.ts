@@ -124,15 +124,6 @@ const config: Config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   favicon: "img/pandects-logo-128.png",
-  headTags: [
-    {
-      tagName: "meta",
-      attributes: {
-        name: "robots",
-        content: "index,follow,max-image-preview:large",
-      },
-    },
-  ],
   markdown: {
     hooks: {
       onBrokenMarkdownLinks: "warn",
@@ -150,6 +141,9 @@ const config: Config = {
           docItemComponent: "@theme/DocItem",
         },
         blog: false,
+        sitemap: {
+          ignorePatterns: ["/"],
+        },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
