@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import type { AuthUser } from "@/lib/auth-types";
-import { clearSessionToken, getSessionToken, setSessionToken } from "@/lib/auth-session";
+import { clearSessionToken, getSessionToken } from "@/lib/auth-session";
 import { fetchMe, logoutSession } from "@/lib/auth-api";
 import { authSessionTransport } from "@/lib/auth-transport";
 import { isAuthWakeupError, withAuthWakeRetry } from "@/lib/auth-wake";

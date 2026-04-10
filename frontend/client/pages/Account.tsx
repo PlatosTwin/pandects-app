@@ -599,7 +599,11 @@ export default function Account() {
             <div className="mt-4">
               <div className="grid gap-4 sm:hidden">
                 {accountDataBootstrapping || accountWakeLoading ? (
-                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground"
+                  >
                     {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading API keys…"}
                   </div>
                 ) : (
@@ -979,7 +983,11 @@ export default function Account() {
                       });
                     }}
                   >
-                    <SelectTrigger id="usage-key-filter" className="h-8 w-full" disabled={accountDataBootstrapping}>
+                    <SelectTrigger
+                      id="usage-key-filter"
+                      className="h-10 w-full sm:h-8"
+                      disabled={accountDataBootstrapping}
+                    >
                       <SelectValue placeholder="All keys" />
                     </SelectTrigger>
                     <SelectContent>
@@ -996,7 +1004,7 @@ export default function Account() {
 
             <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
               {accountDataBootstrapping || accountWakeLoading ? (
-                <div className="text-sm text-muted-foreground">
+                <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
                   {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading usage…"}
                 </div>
               ) : usageChartData.length === 0 ? (
@@ -1171,13 +1179,12 @@ export default function Account() {
               onClick={() => {
                 if (!revealedKey) return;
                 void navigator.clipboard.writeText(revealedKey);
-                // Defer state and toast updates to avoid reflow
                 setTimeout(() => {
                   setCopiedNewKey(true);
                   toast({ title: "Copied to clipboard" });
                 }, 0);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-background p-1.5 shadow-sm border border-border/60 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border/60 bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
               title="Copy to clipboard"
               aria-label="Copy API key"
             >
