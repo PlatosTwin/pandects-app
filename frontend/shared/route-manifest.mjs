@@ -42,7 +42,8 @@ const ROUTE_MANIFEST = [
     pageDescription:
       "Search and filter merger agreement clauses across deals, years, and parties in the Pandects database.",
     sitemap: true,
-    renderStrategy: "runtime",
+    renderStrategy: "prerender",
+    prerenderFilename: "search.html",
     queryRobots: NOINDEX_FOLLOW,
     changefreq: "weekly",
     priority: "0.9",
@@ -172,7 +173,6 @@ const ROUTE_MANIFEST = [
     pageName: "Feedback",
     pageDescription:
       "Share feedback, report issues, or suggest improvements for the Pandects platform.",
-    sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "feedback.html",
     changefreq: "monthly",
@@ -188,7 +188,6 @@ const ROUTE_MANIFEST = [
     pageName: "Contribute",
     pageDescription:
       "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
-    sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "contribute.html",
     changefreq: "monthly",
@@ -328,7 +327,7 @@ const ROUTE_DEFINITION_BY_PATH = new Map(
   ROUTE_MANIFEST.map((route) => [route.pathname, route]),
 );
 
-const SITEMAP_ROUTES = ROUTE_MANIFEST.filter((route) => route.sitemap);
+const SITEMAP_ROUTES = ROUTE_MANIFEST.filter((route) => route.sitemap && route.indexable);
 const PRERENDER_ROUTES = ROUTE_MANIFEST.filter((route) => route.renderStrategy === "prerender");
 
 export {

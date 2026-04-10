@@ -7,6 +7,7 @@ import type * as OpenApiPlugin from "docusaurus-plugin-openapi-docs";
 
 const brandLinks = require("../branding/links.json");
 const path = require("node:path");
+const docsOgImage = `${brandLinks.mainSiteUrl.replace(/\/+$/, "")}/og.jpg`;
 
 function createOpenApiSidebarDocItem(item: any, context: any) {
   const id = item.type === "schema" ? `schemas/${item.id}` : item.id;
@@ -120,8 +121,18 @@ const config: Config = {
   tagline: "Engineering-grade docs for the Pandects API",
   url: brandLinks.docsSiteUrl,
   baseUrl: "/",
+  trailingSlash: false,
   onBrokenLinks: "throw",
   favicon: "img/pandects-logo-128.png",
+  headTags: [
+    {
+      tagName: "meta",
+      attributes: {
+        name: "robots",
+        content: "index,follow,max-image-preview:large",
+      },
+    },
+  ],
   markdown: {
     hooks: {
       onBrokenMarkdownLinks: "warn",
@@ -156,6 +167,25 @@ const config: Config = {
       colorMode: {
         disableSwitch: true,
       },
+      image: docsOgImage,
+      metadata: [
+        {
+          name: "description",
+          content: "Engineering-grade guides and API reference for the Pandects API and MCP server.",
+        },
+        {
+          name: "twitter:site",
+          content: "@pandects",
+        },
+        {
+          name: "twitter:creator",
+          content: "@pandects",
+        },
+        {
+          property: "og:site_name",
+          content: "Pandects Docs",
+        },
+      ],
       navbar: {
         title: "v1.0",
         logo: {

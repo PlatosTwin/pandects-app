@@ -16,6 +16,7 @@ import Landing from "@/pages/Landing";
 import Leaderboards from "@/pages/Leaderboards";
 import License from "@/pages/License";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import Search from "@/pages/Search";
 import SoftwareLicense from "@/pages/SoftwareLicense";
 import SourcesMethods from "@/pages/SourcesMethods";
 import Taxonomy from "@/pages/Taxonomy";
@@ -35,6 +36,7 @@ const PRERENDER_COMPONENTS: Record<string, JSX.Element> = {
   "/license/data": <DataLicense />,
   "/license/software": <SoftwareLicense />,
   "/privacy-policy": <PrivacyPolicy />,
+  "/search": <Search />,
   "/sources-methods": <SourcesMethods />,
   "/taxonomy": <Taxonomy />,
   "/terms": <Terms />,

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
@@ -16,7 +16,12 @@ import { useSections } from "@/hooks/use-sections";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { Button } from "@/components/ui/button";
+import { AgreementModal } from "@/components/AgreementModal";
 import { Badge } from "@/components/ui/badge";
+import ErrorModal from "@/components/ErrorModal";
+import { SearchPagination } from "@/components/SearchPagination";
+import { SearchResultsTable } from "@/components/SearchResultsTable";
+import { SearchSidebar } from "@/components/SearchSidebar";
 import {
   Sheet,
   SheetContent,
@@ -32,28 +37,6 @@ import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-i
 import { trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
-
-const SearchSidebar = lazy(() =>
-  import("@/components/SearchSidebar").then((mod) => ({
-    default: mod.SearchSidebar,
-  })),
-);
-const SearchResultsTable = lazy(() =>
-  import("@/components/SearchResultsTable").then((mod) => ({
-    default: mod.SearchResultsTable,
-  })),
-);
-const SearchPagination = lazy(() =>
-  import("@/components/SearchPagination").then((mod) => ({
-    default: mod.SearchPagination,
-  })),
-);
-const AgreementModal = lazy(() =>
-  import("@/components/AgreementModal").then((mod) => ({
-    default: mod.AgreementModal,
-  })),
-);
-const ErrorModal = lazy(() => import("@/components/ErrorModal"));
 
 export default function Search() {
   const { status: authStatus } = useAuth();
@@ -376,31 +359,25 @@ export default function Search() {
     <div className="w-full">
       <div className="flex min-h-full">
         {isDesktopLayout ? (
-          <Suspense
-            fallback={
-              <div className="h-screen w-16 border-r border-border bg-card lg:w-80" />
-            }
-          >
-            <SearchSidebar
-              filters={filters}
-              years={years}
-              targets={targets}
-              acquirers={acquirers}
-              target_counsels={target_counsels}
-              acquirer_counsels={acquirer_counsels}
-              target_industries={target_industries}
-              acquirer_industries={acquirer_industries}
-              clauseTypesNested={clauseTypesNested}
-              clauseTypeLabelById={clauseTypeLabelById}
-              isLoadingFilterOptions={isLoadingFilterOptions}
-              isLoadingTaxonomy={isLoadingTaxonomy}
-              onToggleFilterValue={toggleFilterValue}
-              onTextFilterChange={trackingActions.setTextFilterValue}
-              onClearFilters={clearFilters}
-              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-              isCollapsed={sidebarCollapsed}
-            />
-          </Suspense>
+          <SearchSidebar
+            filters={filters}
+            years={years}
+            targets={targets}
+            acquirers={acquirers}
+            target_counsels={target_counsels}
+            acquirer_counsels={acquirer_counsels}
+            target_industries={target_industries}
+            acquirer_industries={acquirer_industries}
+            clauseTypesNested={clauseTypesNested}
+            clauseTypeLabelById={clauseTypeLabelById}
+            isLoadingFilterOptions={isLoadingFilterOptions}
+            isLoadingTaxonomy={isLoadingTaxonomy}
+            onToggleFilterValue={toggleFilterValue}
+            onTextFilterChange={trackingActions.setTextFilterValue}
+            onClearFilters={clearFilters}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            isCollapsed={sidebarCollapsed}
+          />
         ) : null}
 
         <div className="flex flex-col flex-1 min-w-0">
@@ -432,32 +409,24 @@ export default function Search() {
                     <SheetDescription className="sr-only">
                       Filter agreement clause results.
                     </SheetDescription>
-                    <Suspense
-                      fallback={
-                        <div className="p-4 text-sm text-muted-foreground">
-                          Loading filters...
-                        </div>
-                      }
-                    >
-                      <SearchSidebar
-                        variant="sheet"
-                        filters={filters}
-                        years={years}
-                        targets={targets}
-                        acquirers={acquirers}
-                        target_counsels={target_counsels}
-                        acquirer_counsels={acquirer_counsels}
-                        target_industries={target_industries}
-                        acquirer_industries={acquirer_industries}
-                        clauseTypesNested={clauseTypesNested}
-                        clauseTypeLabelById={clauseTypeLabelById}
-                        isLoadingFilterOptions={isLoadingFilterOptions}
-                        isLoadingTaxonomy={isLoadingTaxonomy}
-                        onToggleFilterValue={toggleFilterValue}
-                        onTextFilterChange={trackingActions.setTextFilterValue}
-                        onClearFilters={clearFilters}
-                      />
-                    </Suspense>
+                    <SearchSidebar
+                      variant="sheet"
+                      filters={filters}
+                      years={years}
+                      targets={targets}
+                      acquirers={acquirers}
+                      target_counsels={target_counsels}
+                      acquirer_counsels={acquirer_counsels}
+                      target_industries={target_industries}
+                      acquirer_industries={acquirer_industries}
+                      clauseTypesNested={clauseTypesNested}
+                      clauseTypeLabelById={clauseTypeLabelById}
+                      isLoadingFilterOptions={isLoadingFilterOptions}
+                      isLoadingTaxonomy={isLoadingTaxonomy}
+                      onToggleFilterValue={toggleFilterValue}
+                      onTextFilterChange={trackingActions.setTextFilterValue}
+                      onClearFilters={clearFilters}
+                    />
                   </SheetContent>
                 </Sheet>
               </div>
@@ -761,54 +730,40 @@ export default function Search() {
                     </div>
                   ) : (
                     <>
-                      <Suspense fallback={null}>
-                        <SearchPagination
-                          currentPage={currentPage}
-                          totalPages={total_pages}
-                          pageSize={page_size}
-                          totalCount={total_count}
-                          totalCountIsApproximate={totalCountIsApproximate}
-                          hasNext={has_next}
-                          hasPrev={has_prev}
-                          onPageChange={(page) =>
-                            trackingActions.goToPage(page)
-                          }
-                          onPageSizeChange={(nextPageSize) =>
-                            trackingActions.changePageSize(nextPageSize)
-                          }
-                          isLoading={isSearching}
-                          isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                        />
-                      </Suspense>
-
-                      <Suspense
-                        fallback={
-                          <div
-                            className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground"
-                            role="status"
-                            aria-live="polite"
-                          >
-                            Loading results...
-                          </div>
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={total_pages}
+                        pageSize={page_size}
+                        totalCount={total_count}
+                        totalCountIsApproximate={totalCountIsApproximate}
+                        hasNext={has_next}
+                        hasPrev={has_prev}
+                        onPageChange={(page) =>
+                          trackingActions.goToPage(page)
                         }
-                      >
-                        <SearchResultsTable
-                          searchResults={searchResults}
-                          selectedResults={selectedResults}
-                          clauseTypePathByStandardId={clauseTypePathByStandardId}
-                          sort_by={currentSort ?? "year"}
-                          sort_direction={sort_direction}
-                          onToggleResultSelection={toggleResultSelection}
-                          onToggleSelectAll={toggleSelectAll}
-                          onOpenAgreement={openAgreement}
-                          onSortResults={sortResults}
-                          onToggleSortDirection={toggleSortDirection}
-                          density={resultsDensity}
-                          onDensityChange={updateResultsDensity}
-                          currentPage={currentPage}
-                          page_size={page_size}
-                        />
-                      </Suspense>
+                        onPageSizeChange={(nextPageSize) =>
+                          trackingActions.changePageSize(nextPageSize)
+                        }
+                        isLoading={isSearching}
+                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                      />
+
+                      <SearchResultsTable
+                        searchResults={searchResults}
+                        selectedResults={selectedResults}
+                        clauseTypePathByStandardId={clauseTypePathByStandardId}
+                        sort_by={currentSort ?? "year"}
+                        sort_direction={sort_direction}
+                        onToggleResultSelection={toggleResultSelection}
+                        onToggleSelectAll={toggleSelectAll}
+                        onOpenAgreement={openAgreement}
+                        onSortResults={sortResults}
+                        onToggleSortDirection={toggleSortDirection}
+                        density={resultsDensity}
+                        onDensityChange={updateResultsDensity}
+                        currentPage={currentPage}
+                        page_size={page_size}
+                      />
 
                       {selectedResults.size > 0 && (
                         <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
@@ -836,25 +791,23 @@ export default function Search() {
                         </div>
                       )}
 
-                      <Suspense fallback={null}>
-                        <SearchPagination
-                          currentPage={currentPage}
-                          totalPages={total_pages}
-                          pageSize={page_size}
-                          totalCount={total_count}
-                          totalCountIsApproximate={totalCountIsApproximate}
-                          hasNext={has_next}
-                          hasPrev={has_prev}
-                          onPageChange={(page) =>
-                            trackingActions.goToPage(page)
-                          }
-                          onPageSizeChange={(nextPageSize) =>
-                            trackingActions.changePageSize(nextPageSize)
-                          }
-                          isLoading={isSearching}
-                          isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                        />
-                      </Suspense>
+                      <SearchPagination
+                        currentPage={currentPage}
+                        totalPages={total_pages}
+                        pageSize={page_size}
+                        totalCount={total_count}
+                        totalCountIsApproximate={totalCountIsApproximate}
+                        hasNext={has_next}
+                        hasPrev={has_prev}
+                        onPageChange={(page) =>
+                          trackingActions.goToPage(page)
+                        }
+                        onPageSizeChange={(nextPageSize) =>
+                          trackingActions.changePageSize(nextPageSize)
+                        }
+                        isLoading={isSearching}
+                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                      />
                     </>
                   )}
                 </div>
@@ -865,25 +818,21 @@ export default function Search() {
       </div>
 
       {showErrorModal && (
-        <Suspense fallback={null}>
-          <ErrorModal
-            isOpen={showErrorModal}
-            onClose={closeErrorModal}
-            message={errorMessage}
-          />
-        </Suspense>
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={closeErrorModal}
+          message={errorMessage}
+        />
       )}
 
       {selectedAgreement && (
-        <Suspense fallback={null}>
-          <AgreementModal
-            isOpen={!!selectedAgreement}
-            onClose={closeAgreement}
-            agreement_uuid={selectedAgreement.agreement_uuid}
-            targetSectionUuid={selectedAgreement.section_uuid}
-            agreementMetadata={selectedAgreement.metadata}
-          />
-        </Suspense>
+        <AgreementModal
+          isOpen={!!selectedAgreement}
+          onClose={closeAgreement}
+          agreement_uuid={selectedAgreement.agreement_uuid}
+          targetSectionUuid={selectedAgreement.section_uuid}
+          agreementMetadata={selectedAgreement.metadata}
+        />
       )}
     </div>
   );
