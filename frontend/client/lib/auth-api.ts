@@ -31,6 +31,15 @@ export type WebsiteAuthResult =
       user: AuthUser;
     };
 
+export type McpTokenResult = {
+  status: "mcp_token";
+  next_path: string;
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+  scope?: string;
+};
+
 export async function fetchMe() {
   return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
@@ -103,6 +112,13 @@ export async function startZitadelGoogleWebsiteAuth(nextPath = "/account") {
   );
 }
 
+export async function startMcpAccessTokenAuth(nextPath = "/account") {
+  const query = new URLSearchParams({ next: nextPath });
+  return authFetchJson<{ authorize_url: string }>(
+    apiUrl(`v1/auth/mcp-token/start?${query.toString()}`),
+  );
+}
+
 export async function loginWithPassword(payload: {
   email: string;
   password: string;
@@ -154,7 +170,7 @@ export async function completeZitadelWebsiteAuth(
     | { code: string; state: string }
     | { intent_id: string; intent_token: string; user_id?: string },
 ) {
-  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/zitadel/complete"), {
+  return authFetchJson<WebsiteAuthResult | McpTokenResult>(apiUrl("v1/auth/zitadel/complete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

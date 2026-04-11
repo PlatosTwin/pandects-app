@@ -1286,6 +1286,32 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             deps._set_auth_cookies(resp, session_token=token)
         return resp
 
+    def _mcp_access_token_response(
+        *,
+        access_token: str,
+        next_path: str,
+        token_payload: dict[str, object],
+    ):
+        payload: dict[str, object] = {
+            "status": "mcp_token",
+            "next_path": next_path,
+            "access_token": access_token,
+        }
+        token_type = token_payload.get("token_type")
+        if isinstance(token_type, str) and token_type.strip():
+            payload["token_type"] = token_type.strip()
+        expires_in = token_payload.get("expires_in")
+        if isinstance(expires_in, int):
+            payload["expires_in"] = expires_in
+        elif isinstance(expires_in, float) and expires_in.is_integer():
+            payload["expires_in"] = int(expires_in)
+        scope = token_payload.get("scope")
+        if isinstance(scope, str) and scope.strip():
+            payload["scope"] = scope.strip()
+        resp = make_response(jsonify(payload), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @auth_blp.route("/me", methods=["GET"])
     def auth_me():
         deps._require_auth_db()
@@ -1609,6 +1635,53 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         _set_zitadel_web_cookie(resp, cookie_payload)
         return resp
 
+    @auth_blp.route("/mcp-token/start", methods=["GET"])
+    def auth_mcp_token_start():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        if deps._auth_is_mocked():
+            abort(501, description="ZITADEL auth is unavailable in mocked auth mode.")
+        _ = user
+
+        next_path = deps._safe_next_path(request.args.get("next")) or "/account"
+        state = secrets.token_urlsafe(32)
+        code_verifier = secrets.token_urlsafe(64)
+        code_challenge = _build_pkce_challenge(code_verifier)
+        cookie_payload = {
+            "state": state,
+            "code_verifier": code_verifier,
+            "next": next_path,
+            "provider": "zitadel",
+            "flow": "mcp_token",
+        }
+        params = {
+            "client_id": _zitadel_client_id(),
+            "redirect_uri": _website_zitadel_redirect_uri(deps),
+            "response_type": "code",
+            "scope": _zitadel_scopes(),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "prompt": "login",
+        }
+        resource = _zitadel_resource()
+        audience = _zitadel_audience()
+        if resource:
+            params["resource"] = resource
+        if audience:
+            params["audience"] = audience
+
+        resp = make_response(
+            jsonify(
+                {
+                    "authorize_url": f"{_zitadel_authorization_endpoint()}?{urlencode(params)}",
+                }
+            )
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        _set_zitadel_web_cookie(resp, cookie_payload)
+        return resp
+
     @auth_blp.route("/zitadel/google/start", methods=["GET"])
     def auth_zitadel_google_start():
         deps._require_auth_db()
@@ -1738,9 +1811,23 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                                 issuer=external_identity.issuer,
                                 subject=external_identity.subject,
                                 scopes=scopes if isinstance(scopes, frozenset) else frozenset(),
-                                audiences=audiences if isinstance(audiences, frozenset) else frozenset(),
-                                claims=merged_claims,
-                            )
+                            audiences=audiences if isinstance(audiences, frozenset) else frozenset(),
+                            claims=merged_claims,
+                        )
+                if flow == "mcp_token":
+                    user, _ctx = deps._require_verified_user()
+                    _link_external_identity_for_user(
+                        user=user,
+                        provider_name=provider_name,
+                        external_identity=external_identity,
+                    )
+                    resp = _mcp_access_token_response(
+                        access_token=access_token.strip(),
+                        next_path=next_path,
+                        token_payload=token_payload,
+                    )
+                    _clear_zitadel_web_cookie(resp)
+                    return resp
             resp = _complete_website_auth_for_identity(
                 external_identity=external_identity,
                 next_path=next_path,

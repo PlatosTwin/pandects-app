@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   completeZitadelWebsiteAuth,
   finalizeZitadelWebsiteAuth,
+  type McpTokenResult,
 } from "@/lib/auth-api";
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
@@ -25,6 +26,8 @@ type CallbackState =
   | { kind: "working" }
   | { kind: "error"; message: string }
   | { kind: "legal"; email: string; nextPath: string };
+
+const MCP_TOKEN_RESULT_STORAGE_KEY = "pandects.mcpTokenResult";
 
 export default function AuthZitadelCallback() {
   const navigate = useNavigate();
@@ -51,6 +54,13 @@ export default function AuthZitadelCallback() {
         setSessionToken(payload.session_token);
       }
       await refresh();
+      if (!cancelled) {
+        navigate(safeNextPath(payload.next_path), { replace: true });
+      }
+    };
+
+    const finishMcpToken = async (payload: McpTokenResult) => {
+      sessionStorage.setItem(MCP_TOKEN_RESULT_STORAGE_KEY, JSON.stringify(payload));
       if (!cancelled) {
         navigate(safeNextPath(payload.next_path), { replace: true });
       }
@@ -108,6 +118,10 @@ export default function AuthZitadelCallback() {
         });
         if (cancelled) return;
         setWakePending(false);
+        if (result.status === "mcp_token") {
+          await finishMcpToken(result);
+          return;
+        }
         if (result.status === "legal_required") {
           setState({
             kind: "legal",

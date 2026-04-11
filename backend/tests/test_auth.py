@@ -2204,6 +2204,89 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(len(users), 1)
             self.assertEqual(len(rows), 1)
 
+    def test_zitadel_mcp_token_flow_returns_access_token_for_current_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+        os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+        os.environ["MCP_OIDC_AUTHORIZATION_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/authorize"
+        )
+        os.environ["MCP_OIDC_TOKEN_ENDPOINT"] = (
+            "https://pandects-test-zitadel.example.com/oauth/v2/token"
+        )
+        client = self.app.test_client()
+        self._create_local_user(email="token-user@example.com")
+        session_token = self._issue_bearer_session(email="token-user@example.com")
+        auth_headers = {"Authorization": f"Bearer {session_token}"}
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        original_authenticate = backend_app._authenticate_external_identity
+
+        def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
+            self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
+            self.assertIsNotNone(data)
+            self.assertEqual(data["grant_type"], "authorization_code")
+            return {
+                "access_token": "test-mcp-access-token",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "sections:search agreements:search agreements:read",
+            }
+
+        def _fake_authenticate_external_identity(
+            *, access_token: str, provider_name: str | None = None
+        ):
+            self.assertEqual(access_token, "test-mcp-access-token")
+            self.assertEqual(provider_name, "zitadel")
+            return type(
+                "ExternalIdentityStub",
+                (),
+                {
+                    "issuer": "https://pandects-test-zitadel.example.com",
+                    "subject": "zitadel-token-user",
+                    "claims": {
+                        "email": "token-user@example.com",
+                        "email_verified": True,
+                    },
+                },
+            )()
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        backend_app._authenticate_external_identity = _fake_authenticate_external_identity
+        try:
+            start = client.get("/v1/auth/mcp-token/start?next=/account", headers=auth_headers)
+            self.assertEqual(start.status_code, 200)
+            query = parse_qs(urlparse(start.get_json()["authorize_url"]).query)
+            state = query.get("state", [None])[0]
+            self.assertIsInstance(state, str)
+
+            res = client.post(
+                "/v1/auth/zitadel/complete",
+                json={"code": "token-code", "state": state},
+                headers=auth_headers,
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+            backend_app._authenticate_external_identity = original_authenticate
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.get_json(),
+            {
+                "status": "mcp_token",
+                "next_path": "/account",
+                "access_token": "test-mcp-access-token",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "sections:search agreements:search agreements:read",
+            },
+        )
+        with self.app.app_context():
+            rows = AuthExternalSubject.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].subject, "zitadel-token-user")
+
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
