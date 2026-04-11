@@ -31,6 +31,7 @@ RUN npm ci --include=dev
 # Copy application code and the repo-root license consumed by the frontend build
 COPY frontend ./
 COPY LICENSE.md /app/LICENSE.md
+COPY branding /app/branding
 
 # Build application
 RUN npm run build

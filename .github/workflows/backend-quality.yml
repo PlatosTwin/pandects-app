@@ -36,7 +36,7 @@ jobs:
 
       - name: Run basedpyright
         run: |
-          backend/venv/bin/python -m basedpyright --outputjson -p backend/pyrightconfig.json > /tmp/basedpyright.json
+          backend/venv/bin/python -m basedpyright --outputjson -p backend/pyrightconfig.json > /tmp/basedpyright.json || true
           backend/venv/bin/python - <<'PY'
           import json
           import sys
