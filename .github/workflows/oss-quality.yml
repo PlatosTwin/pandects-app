@@ -97,11 +97,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: "docs/package.json"
+          cache: "yarn"
+          cache-dependency-path: "docs/yarn.lock"
 
       - name: Install docs dependencies
-        run: npm install
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
 
       - name: Build docs
-        run: npm run build
+        run: |
+          corepack enable
+          yarn build

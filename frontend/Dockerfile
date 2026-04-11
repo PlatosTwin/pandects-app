@@ -7,7 +7,7 @@ FROM node:${NODE_VERSION}-slim AS base
 LABEL fly_launch_runtime="Vite"
 
 # Vite app lives here
-WORKDIR /app
+WORKDIR /app/frontend
 
 # Set production environment
 ENV NODE_ENV="production"
@@ -25,11 +25,12 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
 # Install node modules
-COPY package-lock.json package.json ./
+COPY frontend/package-lock.json frontend/package.json ./
 RUN npm ci --include=dev
 
-# Copy application code
-COPY . .
+# Copy application code and the repo-root license consumed by the frontend build
+COPY frontend ./
+COPY LICENSE.md /app/LICENSE.md
 
 # Build application
 RUN npm run build
