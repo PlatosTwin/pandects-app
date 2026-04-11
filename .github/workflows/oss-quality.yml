@@ -103,7 +103,13 @@ jobs:
       - name: Install docs dependencies
         run: |
           corepack enable
-          yarn install --frozen-lockfile
+          for attempt in 1 2 3; do
+            yarn install --frozen-lockfile && break
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Build docs
         run: |

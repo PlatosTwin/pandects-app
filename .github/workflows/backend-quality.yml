@@ -35,7 +35,34 @@ jobs:
           backend/venv/bin/python -m pip install -r backend/requirements.txt
 
       - name: Run basedpyright
-        run: backend/venv/bin/python -m basedpyright --level error -p backend/pyrightconfig.json
+        run: |
+          backend/venv/bin/python -m basedpyright --outputjson -p backend/pyrightconfig.json > /tmp/basedpyright.json
+          backend/venv/bin/python - <<'PY'
+          import json
+          import sys
+
+          with open("/tmp/basedpyright.json", "r", encoding="utf-8") as f:
+              report = json.load(f)
+
+          errors = [
+              diag for diag in report.get("generalDiagnostics", [])
+              if diag.get("severity") == "error"
+          ]
+          if errors:
+              for diag in errors[:50]:
+                  file = diag.get("file", "<unknown>")
+                  message = diag.get("message", "")
+                  rule = diag.get("rule", "")
+                  print(f"{file}: {message} {f'[{rule}]' if rule else ''}".rstrip())
+              print(f"basedpyright found {len(errors)} error diagnostics.")
+              sys.exit(1)
+
+          summary = report.get("summary", {})
+          print(
+              f"basedpyright passed with {summary.get('errorCount', 0)} errors and "
+              f"{summary.get('warningCount', 0)} warnings."
+          )
+          PY
 
       - name: Run backend unit tests
         run: backend/venv/bin/python -m unittest discover backend/tests -v

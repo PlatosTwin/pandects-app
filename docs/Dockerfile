@@ -11,8 +11,9 @@ COPY docs/package.json docs/yarn.lock ./
 RUN corepack enable && yarn install --frozen-lockfile
 
 COPY docs ./
-COPY branding ../../branding
-COPY frontend/public/openapi.yaml ../../frontend/public/openapi.yaml
+COPY branding /app/branding
+RUN mkdir -p /app/frontend/public
+COPY frontend/public/openapi.yaml /app/frontend/public/openapi.yaml
 
 RUN yarn build
 

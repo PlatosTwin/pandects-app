@@ -46,10 +46,10 @@ FROM nginx
 RUN rm -rf /usr/share/nginx/html/*
 
 # copy spa build into nginx root
-COPY --from=build /app/dist/spa/. /usr/share/nginx/html/
+COPY --from=build /app/frontend/dist/spa/. /usr/share/nginx/html/
 
 # overwrite default config with an SPA-friendly one
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD [ "nginx", "-g", "daemon off;" ]
