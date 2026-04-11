@@ -1112,9 +1112,7 @@ div.openapi-explorer__form-item > label > div.openapi-schema__container > span.o
   }
 
   .navbar__item.navbar__link {
-    white-space: nowrap;
-    font-size: 0.88rem;
-    padding: 0.26rem 0.52rem;
+    display: none;
   }
 
   .theme-doc-markdown h1,
