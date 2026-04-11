@@ -95,6 +95,7 @@ const usageDayTooltipFormatter = new Intl.DateTimeFormat(undefined, {
 const USAGE_DAY_MS = 24 * 60 * 60 * 1000;
 const PANDECTS_MCP_URL = "https://api.pandects.org/mcp";
 const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
+const CODEX_MCP_LOGIN_COMMAND = "codex mcp login pandects";
 const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
 
 type MpcClientCardProps = {
@@ -874,8 +875,8 @@ export default function Account() {
                   MCP uses account login, not API keys
                 </AlertTitle>
                 <AlertDescription className="text-muted-foreground">
-                  Add the Pandects MCP server in your client, then sign in with the same
-                  Pandects account you use on this site when the browser auth flow opens.
+                  Add the Pandects MCP server in your client, then start the client OAuth
+                  flow and sign in with the same Pandects account you use on this site.
                   You should not need to manually fetch a bearer token, copy an API key,
                   or pull anything else from this page.
                 </AlertDescription>
@@ -885,15 +886,20 @@ export default function Account() {
                 <MpcClientCard
                   id="codex"
                   title="Codex"
-                  description="Add the server, then finish the Pandects sign-in flow when Codex prompts you."
-                  command={CODEX_MCP_COMMAND}
+                  description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow. If Codex reports dynamic client registration is unsupported, Pandects OAuth is not yet fully compatible with Codex remote MCP login.`}
+                  command={`${CODEX_MCP_COMMAND}\n${CODEX_MCP_LOGIN_COMMAND}`}
                   copied={copiedMcpSnippet === "codex"}
-                  onCopy={() => void handleCopyMcpSnippet("codex", CODEX_MCP_COMMAND)}
+                  onCopy={() =>
+                    void handleCopyMcpSnippet(
+                      "codex",
+                      `${CODEX_MCP_COMMAND}\n${CODEX_MCP_LOGIN_COMMAND}`,
+                    )
+                  }
                 />
                 <MpcClientCard
                   id="claude"
                   title="Claude Code"
-                  description="Add the remote HTTP server, then run `/mcp` and finish the Pandects sign-in flow in Claude Code."
+                  description="Add the remote HTTP server, then run `/mcp`, authenticate the `pandects` server there, and finish the Pandects sign-in flow in the browser."
                   command={CLAUDE_MCP_COMMAND}
                   copied={copiedMcpSnippet === "claude"}
                   onCopy={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}

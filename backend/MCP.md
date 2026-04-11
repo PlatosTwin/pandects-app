@@ -4,6 +4,8 @@ This backend exposes a read-only authenticated MCP server at `/mcp` and protecte
 
 The MCP server is an OAuth protected resource. Browser sessions and `X-API-Key` auth do not work on `/mcp`. MCP requests must send `Authorization: Bearer <access-token>`.
 
+For Codex specifically, `codex mcp add ...` only registers the server. The login attempt starts with `codex mcp login <name>`. If Codex reports `Dynamic client registration not supported`, the identity provider backing Pandects MCP is not yet exposing the OAuth dynamic client registration support Codex expects.
+
 ## ZITADEL Config
 
 For ZITADEL, configure these backend env vars:

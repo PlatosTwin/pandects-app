@@ -77,7 +77,8 @@ Use these when the client needs canonical lookup data or corpus-level context.
 
 - MCP uses normal Pandects account login
 - MCP does not use Pandects API keys
-- Clients should handle the browser-based sign-in flow and token exchange automatically
+- `codex mcp add` only registers the server; in Codex, `codex mcp login <name>` starts OAuth
+- Clients that use OAuth for remote MCP may require dynamic client registration support from the Pandects identity provider
 
 ## Related Pages
 
