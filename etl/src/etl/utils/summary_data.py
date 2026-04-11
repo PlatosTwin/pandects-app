@@ -7,7 +7,6 @@ from dagster import AssetExecutionContext
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from backend.summary_specs import METADATA_FIELD_COVERAGE_CONFIG
 from etl.defs.resources import DBResource
 from etl.utils.pipeline_state_sql import canonical_stage_state_sql
 
@@ -18,6 +17,141 @@ _TREND_BUYER_BUCKET_ORDER = (
     "private_strategic",
     "private_equity",
     "other",
+)
+_METADATA_FIELD_COVERAGE_CONFIG = (
+    {
+        "field": "transaction_consideration",
+        "label": "Consideration",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "transaction_price_total",
+        "label": "Total price",
+        "eligible_sql": "a.transaction_consideration IS NOT NULL AND TRIM(a.transaction_consideration) <> ''",
+        "covered_sql": "a.transaction_price_total IS NOT NULL AND TRIM(a.transaction_price_total) <> ''",
+        "note": "Derived from consideration and populated price components; some mixed deals legitimately have no total.",
+    },
+    {
+        "field": "transaction_price_cash",
+        "label": "Cash price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('cash', 'mixed')",
+        "covered_sql": "a.transaction_price_cash IS NOT NULL AND TRIM(a.transaction_price_cash) <> ''",
+        "note": "Only applies to cash or mixed deals.",
+    },
+    {
+        "field": "transaction_price_stock",
+        "label": "Stock price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') IN ('stock', 'mixed')",
+        "covered_sql": "a.transaction_price_stock IS NOT NULL AND TRIM(a.transaction_price_stock) <> ''",
+        "note": "Only applies to stock or mixed deals.",
+    },
+    {
+        "field": "transaction_price_assets",
+        "label": "Asset price",
+        "eligible_sql": "COALESCE(a.transaction_consideration, '') = 'mixed'",
+        "covered_sql": "a.transaction_price_assets IS NOT NULL AND TRIM(a.transaction_price_assets) <> ''",
+        "note": "Shown only against mixed deals; null can still be valid when no asset component exists.",
+    },
+    {
+        "field": "target_type",
+        "label": "Target type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_type IS NOT NULL AND TRIM(a.target_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "acquirer_type",
+        "label": "Acquirer type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_type IS NOT NULL AND TRIM(a.acquirer_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "target_counsel",
+        "label": "Target counsel",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_counsel IS NOT NULL AND TRIM(a.target_counsel) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_counsel",
+        "label": "Acquirer counsel",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_counsel IS NOT NULL AND TRIM(a.acquirer_counsel) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "target_pe",
+        "label": "Target PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_pe",
+        "label": "Acquirer PE",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_pe IS NOT NULL",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "target_industry",
+        "label": "Target industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.target_industry IS NOT NULL AND TRIM(a.target_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "acquirer_industry",
+        "label": "Acquirer industry",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.acquirer_industry IS NOT NULL AND TRIM(a.acquirer_industry) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "announce_date",
+        "label": "Announce date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.announce_date IS NOT NULL AND TRIM(a.announce_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "close_date",
+        "label": "Close date",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.close_date IS NOT NULL AND TRIM(a.close_date) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_status",
+        "label": "Deal status",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_status IS NOT NULL AND TRIM(a.deal_status) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "attitude",
+        "label": "Attitude",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.attitude IS NOT NULL AND TRIM(a.attitude) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
+    {
+        "field": "deal_type",
+        "label": "Deal type",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.deal_type IS NOT NULL AND TRIM(a.deal_type) <> ''",
+        "note": "Expected for all eligible agreements.",
+    },
+    {
+        "field": "purpose",
+        "label": "Purpose",
+        "eligible_sql": "1 = 1",
+        "covered_sql": "a.purpose IS NOT NULL AND TRIM(a.purpose) <> ''",
+        "note": "Optional in sourcing, but counted when present.",
+    },
 )
 
 
@@ -494,7 +628,7 @@ def _refresh_metadata_field_coverage_summary_table(conn: Connection, *, schema: 
     processed_where = "\n                      AND ".join(processed_where_parts)
 
     aggregate_select_lines: list[str] = []
-    for config in METADATA_FIELD_COVERAGE_CONFIG:
+    for config in _METADATA_FIELD_COVERAGE_CONFIG:
         field = str(config["field"])
         eligible_sql = str(config["eligible_sql"])
         covered_sql = str(config["covered_sql"])
@@ -553,7 +687,7 @@ def _refresh_metadata_field_coverage_summary_table(conn: Connection, *, schema: 
     row_dict = dict(aggregate_rows[0]) if aggregate_rows else {}
 
     insert_rows: list[dict[str, object | None]] = []
-    for config in METADATA_FIELD_COVERAGE_CONFIG:
+    for config in _METADATA_FIELD_COVERAGE_CONFIG:
         field = str(config["field"])
         ingested_eligible_agreements = _coerce_int(
             row_dict.get(f"{field}_ingested_eligible_agreements")
