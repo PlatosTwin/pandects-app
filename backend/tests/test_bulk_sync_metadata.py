@@ -20,6 +20,12 @@ _RESTORE_SPEC.loader.exec_module(_RESTORE_MODULE)
 
 
 class BulkSyncMetadataTests(unittest.TestCase):
+    def test_push_script_loads_db_env_from_backend_and_only_r2_env_from_bulk(self) -> None:
+        script = _PUSH_TO_R2_PATH.read_text()
+        self.assertIn('source "${REPO_ROOT}/backend/.env"', script)
+        self.assertIn('grep -E \'^(R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY)=\' "${SCRIPT_DIR}/.env"', script)
+        self.assertNotIn('source "${SCRIPT_DIR}/.env"', script)
+
     def test_push_script_promotes_logical_latest_metadata(self) -> None:
         script = _PUSH_TO_R2_PATH.read_text()
         self.assertIn('logical_backups/latest.tar.gz', script)

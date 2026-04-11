@@ -2,15 +2,26 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 PYTHON_BIN="${VENV_DIR}/bin/python3"
 
 # ── Config ──────────────────────────────────────────────────────
-# Load .env if it exists
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-elif [ -f "${SCRIPT_DIR}/.env" ]; then
-    export $(grep -v '^#' "${SCRIPT_DIR}/.env" | xargs)
+# Load DB env from backend/.env and only R2 env from bulk/.env.
+if [ -f "${REPO_ROOT}/backend/.env" ]; then
+    set -a
+    source "${REPO_ROOT}/backend/.env"
+    set +a
+fi
+
+if [ -f "${SCRIPT_DIR}/.env" ]; then
+    while IFS='=' read -r key value; do
+        case "$key" in
+            R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY)
+                export "$key=$value"
+                ;;
+        esac
+    done < <(grep -E '^(R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY)=' "${SCRIPT_DIR}/.env" || true)
 fi
 
 # R2 Credentials should be exported in the environment:
@@ -84,6 +95,12 @@ if [ -z "${R2_ACCESS_KEY_ID:-}" ] || [ -z "${R2_SECRET_ACCESS_KEY:-}" ]; then
     exit 1
 fi
 
+if [ -z "${MARIADB_HOST:-}" ] || [ -z "${MARIADB_USER:-}" ] || [ -z "${MARIADB_PASSWORD:-}" ] || [ -z "${MARIADB_DATABASE:-}" ]; then
+    echo "❌ Error: MariaDB credentials are missing."
+    echo "   Expected MARIADB_HOST, MARIADB_USER, MARIADB_PASSWORD, and MARIADB_DATABASE from backend/.env."
+    exit 1
+fi
+
 if [ ! -x "$PYTHON_BIN" ]; then
     echo "❌ Error: bulk virtualenv is missing: $PYTHON_BIN"
     echo "   Create it with:"
@@ -104,10 +121,10 @@ mkdir -p "$LOGICAL_DIR"
 # ── 1. Create Logical Backup (For Fly Restore) ──────────────────
 echo "📦 [1/4] Taking Logical Backup (mydumper)..."
 mydumper \
-  --host="${MARIADB_HOST:-127.0.0.1}" \
+  --host="${MARIADB_HOST}" \
   --port="${MARIADB_PORT:-3306}" \
-  --user="${MARIADB_USER:-root}" \
-  --password="${MARIADB_PASSWORD:-}" \
+  --user="${MARIADB_USER}" \
+  --password="${MARIADB_PASSWORD}" \
   --database="${TARGET_DB}" \
   --tables-list="${TABLES_LIST}" \
   --outputdir="$LOGICAL_DIR" \
@@ -147,10 +164,10 @@ echo "✅ Logical checksum file created: $LOGICAL_CHECKSUM_FILE"
 # ── 2. Create SQL Dump (For Public Access) ──────────────────────
 echo "📄 [2/4] Taking SQL Dump (for Public Access)..."
 mysqldump \
-  --host="${MARIADB_HOST:-127.0.0.1}" \
+  --host="${MARIADB_HOST}" \
   --port="${MARIADB_PORT:-3306}" \
-  --user="${MARIADB_USER:-root}" \
-  --password="${MARIADB_PASSWORD:-}" \
+  --user="${MARIADB_USER}" \
+  --password="${MARIADB_PASSWORD}" \
   --single-transaction \
   --quick \
   --lock-tables=false \
