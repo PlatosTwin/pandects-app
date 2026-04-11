@@ -1,0 +1,107 @@
+name: OSS Quality
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "SUPPORT.md"
+      - "ENVIRONMENT.md"
+      - "Makefile"
+      - "backend/**"
+      - "frontend/**"
+      - "docs/**"
+      - "emails/**"
+      - "examples/**"
+      - "branding/**"
+      - "bulk/**"
+      - "db/**"
+      - ".github/workflows/oss-quality.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "SUPPORT.md"
+      - "ENVIRONMENT.md"
+      - "Makefile"
+      - "backend/**"
+      - "frontend/**"
+      - "docs/**"
+      - "emails/**"
+      - "examples/**"
+      - "branding/**"
+      - "bulk/**"
+      - "db/**"
+      - ".github/workflows/oss-quality.yml"
+
+jobs:
+  docs-and-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify contributor docs exist
+        run: |
+          test -f README.md
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          test -f SUPPORT.md
+          test -f ENVIRONMENT.md
+          test -f backend/README.md
+          test -f frontend/README.md
+          test -f docs/README.md
+          test -f etl/README.md
+          test -f emails/README.md
+          test -f bulk/README.md
+          test -f db/README.md
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Run frontend typecheck
+        run: npm run typecheck
+
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "docs/package.json"
+
+      - name: Install docs dependencies
+        run: npm install
+
+      - name: Build docs
+        run: npm run build

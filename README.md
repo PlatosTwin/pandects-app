@@ -1,64 +1,102 @@
-# Pandects App
+# Pandects
 
-**Pandects** is an open-source M\&A research platform built with a Vite frontend and Flask backend.
+Pandects is an open-source M&A agreement research platform. This repository contains the public web application, Flask API, documentation site, ETL pipelines, email templates, and deployment helpers that power [pandects.org](https://pandects.org).
 
-For more on the project, including data sources and pipelines, see our [About page](https://pandects.org/about) on the frontend.
+This repo is open to outside contributions, but not every subsystem is equally accessible. The intended contributor path is a public-safe local mode that does not require your own MariaDB snapshot or real credentials for Resend, Cloudflare R2, Zitadel, Fly, or other private infrastructure.
 
-We welcome contributions to the frontend via pull requests. To contribute to data pipelines and analytics, please send a note to Nikita Bogdanov at nmbogdan [at] alumni [dot] stanford [dot] edu.
+## Repo layout
 
-## Getting Started
+- `frontend/`: Vite + React client, SSR/prerender server, shared frontend types
+- `backend/`: Flask API, auth/session logic, MCP routes, OpenAPI source
+- `docs/`: Docusaurus guides and API reference site
+- `etl/`: Dagster pipelines and ML/data processing code
+- `emails/`: existing React Email templates plus maintainer-only delivery tooling
+- `bulk/`: maintainer-only bulk export and R2 sync scripts
+- `db/`: maintainer-only Fly deployment config for the main MariaDB instance
+- `branding/`: Shared brand links, tokens, and logo assets
+- `examples/`: public notebooks and API usage examples
+- `pg/`: maintainer notes for Fly Postgres auth DB access
 
-### Prerequisites
+## Supported contribution paths
 
-* Python 3.11+
-* Node.js 18+
+### Fully contributor-friendly
 
-### Installation
+- `frontend/`
+- `docs/`
+- most documentation changes at the repo root
+
+### Contributor-friendly in public-safe local mode
+
+- `backend/` when using `SKIP_MAIN_DB_REFLECTION=1`
+- auth-related backend work that can use the default local sqlite auth DB
+- tests, type checks, docs, and UI work that do not need live private integrations
+
+### Partially public, operationally maintainer-gated
+
+- `etl/`
+- `bulk/`
+- `db/`
+- credential-backed integrations such as Resend, Cloudflare R2, Zitadel, Fly, and private MariaDB access
+
+These areas are still open-source code, but many workflows assume private infrastructure that outside contributors will not have.
+
+For `etl/`, `bulk/`, `db/`, `pg/`, and credential-backed parts of `emails/`, contributors should treat the code as readable and patchable, but not assume the operational commands are runnable without maintainer coordination.
+
+## Prerequisites
+
+- Python 3.11
+- Node.js 24.x
+- npm 10+
+- `caffeinate` if you want to use the repo's preferred long-running command style on macOS
+
+Optional maintainer tooling:
+
+- Fly CLI
+- WireGuard
+- MariaDB client tools
+- `mydumper` / `myloader`
+
+## Public-safe local mode quickstart
+
+This is the default onboarding path for outside contributors.
+
+### 1. Clone and inspect environment examples
 
 ```bash
-# Clone the repo
 git clone https://github.com/PlatosTwin/pandects-app.git
 cd pandects-app
 ```
 
-#### Backend (Flask)
+Copy only the env files you actually need:
 
 ```bash
-cd backend
-cp .env.example .env  # fill in values (never commit secrets)
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd ..
-FLASK_APP=backend.app flask run
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-##### Optional: Google sign-in
+You do not need real secrets for routine frontend, docs, or most backend test work.
 
-Google sign-in is implemented via backend OAuth endpoints and requires these env vars (set them in `backend/.env` locally, and as secrets in production):
+### 2. Backend safe mode
 
-- `AUTH_SECRET_KEY`
-- `GOOGLE_OAUTH_CLIENT_ID`
-- `GOOGLE_OAUTH_CLIENT_SECRET`
-- `PUBLIC_API_BASE_URL` (e.g. `https://api.pandects.org`)
-- `PUBLIC_FRONTEND_BASE_URL` (e.g. `https://pandects.org`)
+```bash
+python3 -m venv backend/venv
+backend/venv/bin/python -m pip install -r backend/requirements.txt
+SKIP_MAIN_DB_REFLECTION=1 backend/venv/bin/python -m unittest discover backend/tests -v
+```
 
-##### Session auth (recommended for production)
+For local API work that should not touch the main MariaDB schema:
 
-Production can use cookie-based sessions with CSRF protection:
+```bash
+SKIP_MAIN_DB_REFLECTION=1 FLASK_APP=backend.app backend/venv/bin/flask run --port 5113
+```
 
-- Backend: `AUTH_SESSION_TRANSPORT=cookie` (default on Fly)
-- Frontend: `VITE_AUTH_SESSION_TRANSPORT=cookie` (default in production builds)
+Notes:
 
-Local development defaults to bearer tokens to avoid cross-site cookie limitations on `http://localhost`.
+- The backend loads `backend/.env` automatically.
+- Auth data defaults to a local sqlite database unless you explicitly point it elsewhere.
+- Features that require the real main MariaDB schema or third-party auth/email services are maintainer-only.
 
-##### Auth DB (Fly Postgres)
-
-Auth data (users, API keys, usage) lives in a separate database bind. Locally, it defaults to a sqlite file (`backend/auth_dev.sqlite`). For Fly deployments, set `AUTH_DATABASE_URI` (preferred) or `DATABASE_URL` to your Postgres URL.
-
-For local end-to-end testing against Fly Postgres, the recommended approach is a Fly WireGuard tunnel; see `pg/README.md`.
-
-#### Frontend (Vite + React/TypeScript)
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -66,73 +104,81 @@ npm install
 npm run dev
 ```
 
-Note: In local dev on `http://localhost:8080`, the Google Identity Services button iframe (`accounts.google.com/gsi/button`) may show a `403` in DevTools even though the button renders. Production runs on `https://…` and does not hit this.
+Default local frontend URL: `http://localhost:8080`
 
-Google Identity Services button requires the public client ID in the frontend environment:
+You can point the frontend at:
 
-```bash
-```
+- a local backend via `VITE_API_BASE_URL=http://localhost:5113`
+- the public API if you are doing purely UI work that does not need unsafe mutations or private auth flows
 
-If you omit it, the frontend will fetch the client ID from `GET /v1/auth/google/client-id`.
-
-Optional: override the API base URL at build/runtime:
+### 4. Docs
 
 ```bash
-export VITE_API_BASE_URL=https://api.pandects.org
+cd docs
+npm install
+npm run build
 ```
 
-Navbar easter egg (purely cosmetic): type `panda` anywhere (when not focused in a text input) to toggle a little gravity-driven ball.
+For local docs development:
 
 ```bash
-export VITE_DISABLE_PANDA_EASTER_EGG=1
+cd docs
+npm run dev:clean
 ```
 
-Optional: switch the end effect back to a fade-out:
+Default local docs URL: `http://localhost:3001`
 
-```bash
-export VITE_PANDA_END_STYLE=fade
-```
+## Root helper commands
+
+A small contributor-focused `Makefile` is provided:
+
+- `make help`
+- `make backend-test`
+- `make dev-backend-safe`
+- `make frontend-test`
+- `make frontend-typecheck`
+- `make dev-frontend`
+- `make docs-build`
+- `make etl-typecheck`
+
+`dev-all.sh` still exists, but it is a maintainer-oriented full-stack script. It assumes a much richer local environment than most outside contributors will have.
+
+## Environment files
+
+Each subsystem that reads env vars now has a colocated example file where that makes sense:
+
+- `backend/.env.example`
+- `frontend/.env.example`
+- `etl/.env.example`
+- `bulk/.env.example`
+- `emails/.env.example`
+- `db/.env.example`
+
+The high-level variable matrix lives in [ENVIRONMENT.md](ENVIRONMENT.md).
+
+## Maintainer-only infrastructure
+
+These systems are part of the production or private-maintainer setup and are not required for normal public contributions:
+
+- main MariaDB data on the maintainer machine
+- Resend template syncing and live email delivery
+- Cloudflare R2 bulk dump publishing
+- Zitadel-backed auth and MCP identity configuration
+- Fly deployment and Fly-internal networking
+- Fly Postgres / WireGuard access described in `pg/README.md`
+
+The documentation should label these clearly instead of treating them as default onboarding steps.
 
 ## Contributing
 
-### Reporting Bugs & Requesting Features
+Start with:
 
-1. **Search existing issues** to see if your bug or feature request already exists.
-2. **Open a new issue** and include:
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- [SUPPORT.md](SUPPORT.md)
 
-   * A clear, descriptive title.
-   * A concise description of the problem or desired enhancement.
-   * Steps to reproduce (for bugs) or example usage (for features).
-   * Any relevant logs or screenshots.
-
-### Getting Started
-
-1. **Fork** the repository on GitHub
-2. **Clone** your fork locally:
-
-   ```bash
-    git clone [https://github.com/](https://github.com/)<your-username>/pandects-app.git
-    cd pandects-app
-    ```
-3. **Create a branch** for your work:  
-    ```bash
-    git checkout -b feature/new-thing
-    ```
-
-### Submitting a Pull Request
-
-1. **Push** your branch to your fork:
-
-   ```bash
-   git push origin feature/new-thing
-   ```
-
-2. **Open a Pull Request** against `main` in the upstream repository.
-3. In your PR description, link to any related issues and describe:
-   - What you’ve changed
-   - Why it’s needed
-   - How to test it
+When in doubt, prefer work that is fully reproducible in public-safe local mode and call out any maintainer-only assumptions in your PR.
 
 ## License
 
-This project is licensed under the GNU GPLv3 license. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU GPLv3. See [LICENSE.md](LICENSE.md).

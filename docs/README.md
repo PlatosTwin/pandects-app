@@ -1,31 +1,62 @@
-# Pandects Docs (Docusaurus)
+# Docs
 
-Standalone Docusaurus app for Pandects Guides + API Reference.
+## Purpose
 
-## Local
+`docs/` is the standalone Docusaurus site for Pandects guides, MCP docs, and API reference material.
+
+## What outside contributors can do here
+
+- docs content
+- navigation and information architecture
+- API reference presentation
+- docs build fixes
+
+This is fully contributor-friendly.
+
+## Required tools
+
+- Node.js 24.x
+- npm 10+
+
+## Local commands
+
+Install dependencies:
 
 ```bash
 cd docs
-nvm use 20
-npm run dev:clean
+npm install
 ```
 
-## Build
+Run the local docs server:
 
 ```bash
-cd docs
-npm run build
+caffeinate -i npm run dev:clean
 ```
 
-## Deploy (Fly)
+Build the docs site:
 
 ```bash
-cd docs
-flyctl deploy -c fly.toml
+caffeinate -i npm run build
 ```
 
-This app uses:
+Regenerate API docs when the backend OpenAPI changes:
 
-- `auto_stop_machines = 'stop'`
-- `auto_start_machines = true`
-- `min_machines_running = 0`
+```bash
+caffeinate -i npm run clean-api
+caffeinate -i npm run gen-api
+```
+
+## Environment variables
+
+No dedicated docs `.env.example` is provided because the docs app does not currently require a tracked local env contract for standard contributor workflows.
+
+## Maintainer-only dependencies and quirks
+
+- deployment uses Fly and is maintainer-only
+- API reference generation expects the tracked OpenAPI source that lives with the repo; deploy access is not required
+
+## Related docs
+
+- root [README.md](../README.md)
+- root [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [backend/README.md](../backend/README.md)

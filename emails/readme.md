@@ -1,36 +1,59 @@
-# All things email
+# Emails
 
-We use [Resend](https://resend.com/) and [React Email](https://react.email/) to create email templates—e.g., a React Email template sits behind the "Verify your email" message new non-Google users get upon creating an account.
+## Purpose
 
-## Getting Started
+`emails/` contains the React Email templates and sync tooling used for Pandects auth and account emails.
 
-First, install the dependencies:
+## What outside contributors can do here
 
-```sh
+- inspect the existing email templates
+- improve markup, copy, or documentation in reviewed changes
+- work on preview-only local changes
+
+Rendering and previewing the existing templates can be done locally. Adding or publishing templates that depend on real delivery is maintainer-only.
+
+## Required tools
+
+- Node.js 24.x
+- npm 10+
+
+## Local commands
+
+Install dependencies:
+
+```bash
+cd emails
 npm install
-# or
-yarn
 ```
 
-Then, run the development server:
+Run the local preview server:
 
-```sh
-npm run dev
-# or
-yarn dev
+```bash
+caffeinate -i npm run dev
 ```
 
-Open [localhost:3000](http://localhost:3000) with your browser to see available templates.
+Build templates:
 
-## Uploading templates to Resend
-
-To upload a template to Resend:
-```
-npm run email -- --template-id <template id>
+```bash
+caffeinate -i npm run build
 ```
 
-If the template ID doesn't exist, the script will create a new template. If it exists but isn't published, the script will throw an error. If it exists and is published, the script will update the template, putting the updates into draft mode.
+## Environment variables
 
-## License
+See:
 
-MIT License
+- `emails/.env.example`
+- root `ENVIRONMENT.md`
+
+Local preview does not require secrets.
+
+## Maintainer-only dependencies and quirks
+
+- Resend publishing and template syncing are maintainer-only workflows.
+- `npm run email` requires a valid `RESEND_API_KEY`
+- syncing is an operational workflow and should not be presented as default contributor setup
+
+## Related docs
+
+- root [README.md](../README.md)
+- root [ENVIRONMENT.md](../ENVIRONMENT.md)
