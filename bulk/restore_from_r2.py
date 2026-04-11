@@ -104,7 +104,7 @@ def get_restore_target_manifest(client, bucket):
 
 
 def strip_definers_in_sql_files(sql_files: list[Path]) -> int:
-    # Older myloader builds may not support --skip-definer, so sanitize the extracted SQL in place.
+    # Older myloader builds may not support --skip-definer, so sanitize trigger SQL in place.
     patterns = [
         re.compile(r"/\*![0-9]{5}\s+DEFINER=`[^`]+`@`[^`]+`\*/\s*"),
         re.compile(r"\s+DEFINER=`[^`]+`@`[^`]+`"),
@@ -112,14 +112,23 @@ def strip_definers_in_sql_files(sql_files: list[Path]) -> int:
 
     rewritten_files = 0
     for path in sql_files:
-        original = path.read_text()
-        rewritten = original
-        for pattern in patterns:
-            rewritten = pattern.sub(" ", rewritten)
+        temp_path = path.with_suffix(path.suffix + ".tmp")
+        file_changed = False
 
-        if rewritten != original:
-            path.write_text(rewritten)
+        with path.open("r") as src, temp_path.open("w") as dst:
+            for line in src:
+                rewritten_line = line
+                for pattern in patterns:
+                    rewritten_line = pattern.sub(" ", rewritten_line)
+                if rewritten_line != line:
+                    file_changed = True
+                dst.write(rewritten_line)
+
+        if file_changed:
+            temp_path.replace(path)
             rewritten_files += 1
+        else:
+            temp_path.unlink()
 
     return rewritten_files
 
@@ -206,9 +215,10 @@ def restore_backup():
         flush=True,
     )
 
-    rewritten_files = strip_definers_in_sql_files(sql_files)
+    trigger_sql_files = sorted(BACKUP_DIR.glob("*-schema-triggers.sql"))
+    rewritten_files = strip_definers_in_sql_files(trigger_sql_files)
     if rewritten_files:
-        print(f"🧼 Stripped DEFINER clauses from {rewritten_files} SQL files", flush=True)
+        print(f"🧼 Stripped DEFINER clauses from {rewritten_files} trigger SQL files", flush=True)
 
     print("🧽 Resetting target database...")
     reset_sql = f"DROP DATABASE IF EXISTS `{db_name}`; CREATE DATABASE `{db_name}`;"

@@ -23,5 +23,5 @@ RUN pip install --no-cache-dir boto3
 # Copy the restore script
 COPY restore_from_r2.py /app/restore_from_r2.py
 
-# Default command (can be overridden, but useful for testing)
-CMD ["python3", "/app/restore_from_r2.py"]
+# Verify
+CMD ["bash", "-lc", "echo bulk image ready"]
