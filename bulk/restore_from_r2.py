@@ -221,6 +221,7 @@ def restore_backup():
             db_name,
             "--threads",
             str(myloader_threads),
+            "--skip-definer",
             "--verbose",
             "3",
         ],
