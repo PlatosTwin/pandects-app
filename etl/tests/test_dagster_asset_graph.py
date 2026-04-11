@@ -173,6 +173,22 @@ class DagsterAssetGraphTests(unittest.TestCase):
             hook_names = {hook.name for hook in job.hook_defs}
             self.assertIn("_managed_logical_run_failure_hook", hook_names)
 
+    def test_cleanup_jobs_have_descriptions(self) -> None:
+        repo = defs.get_repository_def()
+
+        self.assertEqual(
+            repo.get_job("ingestion_cleanup_a").description,
+            "Base cleanup job; resumes with page tagging previously gated agreements.",
+        )
+        self.assertEqual(
+            repo.get_job("ingestion_cleanup_b").description,
+            "Invalid XML cleanup job; starts with attempting to clear invalid XML.",
+        )
+        self.assertEqual(
+            repo.get_job("ingestion_cleanup_c").description,
+            "Fresh XML cleanup job; resumes by building XML from fresh-XML eligible agreements.",
+        )
+
 
 if __name__ == "__main__":
     _ = unittest.main()

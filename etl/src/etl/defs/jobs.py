@@ -153,6 +153,7 @@ regular_ingest = dg.define_asset_job(
 
 ingestion_cleanup_a = dg.define_asset_job(
     name="ingestion_cleanup_a",
+    description="Base cleanup job; resumes with page tagging previously gated agreements.",
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_a_tagging_asset,
@@ -175,6 +176,7 @@ ingestion_cleanup_a = dg.define_asset_job(
 
 ingestion_cleanup_b = dg.define_asset_job(
     name="ingestion_cleanup_b",
+    description="Invalid XML cleanup job; starts with attempting to clear invalid XML.",
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_b_ai_repair_enqueue_asset,
@@ -193,6 +195,7 @@ ingestion_cleanup_b = dg.define_asset_job(
 
 ingestion_cleanup_c = dg.define_asset_job(
     name="ingestion_cleanup_c",
+    description="Fresh XML cleanup job; resumes by building XML from fresh-XML eligible agreements.",
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_c_xml_asset,
