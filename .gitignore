@@ -51,6 +51,8 @@ etl/sql/*
 **/model_files/
 **/configs/splits/*
 
+.pycache/
+
 _t.*
 
 
