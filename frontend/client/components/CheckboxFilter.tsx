@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { truncateText, pluralizeLabel, formatFilterOption, pluralize } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,9 @@ interface CheckboxFilterProps {
   hideSearch?: boolean;
   disabled?: boolean;
   formatValues?: boolean; // Whether to format option values (for hardcoded enums)
+  asyncSearch?: {
+    loadOptions: (query: string) => Promise<string[]>;
+  };
 }
 
 export function CheckboxFilter({
@@ -32,19 +35,60 @@ export function CheckboxFilter({
   hideSearch = false,
   disabled = false,
   formatValues = false,
+  asyncSearch,
 }: CheckboxFilterProps) {
   const labelId = useId();
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [asyncOptions, setAsyncOptions] = useState<string[]>([]);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+  const [asyncError, setAsyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!asyncSearch || !open) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setAsyncLoading(true);
+        setAsyncError(null);
+        const nextOptions = await asyncSearch.loadOptions(searchTerm.trim());
+        if (!cancelled) {
+          setAsyncOptions(nextOptions);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAsyncError(
+            error instanceof Error ? error.message : `Unable to load ${label.toLowerCase()} options.`,
+          );
+          setAsyncOptions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setAsyncLoading(false);
+        }
+      }
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [asyncSearch, label, open, searchTerm]);
+
+  const effectiveOptions = asyncSearch ? asyncOptions : options;
 
   const selectedOptions = useMemo(
-    () => options.filter((option) => selectedValues.includes(option)),
-    [options, selectedValues],
+    () =>
+      asyncSearch
+        ? selectedValues
+        : effectiveOptions.filter((option) => selectedValues.includes(option)),
+    [asyncSearch, effectiveOptions, selectedValues],
   );
   const unselectedOptions = useMemo(
-    () => options.filter((option) => !selectedValues.includes(option)),
-    [options, selectedValues],
+    () => effectiveOptions.filter((option) => !selectedValues.includes(option)),
+    [effectiveOptions, selectedValues],
   );
 
   const selectedLabel = useMemo(() => {
@@ -95,7 +139,7 @@ export function CheckboxFilter({
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
-          <Command shouldFilter={!hideSearch}>
+          <Command shouldFilter={!hideSearch && !asyncSearch}>
             {!hideSearch && (
               <CommandInput
                 placeholder={`Search ${pluralize(formatFilterOption(label.toLowerCase()))}...`}
@@ -105,7 +149,11 @@ export function CheckboxFilter({
             )}
             <CommandList id={listId}>
               <CommandEmpty>
-                {searchTerm.trim()
+                {asyncLoading
+                  ? `Loading ${pluralize(formatFilterOption(label.toLowerCase()))}...`
+                  : asyncError
+                    ? asyncError
+                    : searchTerm.trim()
                   ? `No ${pluralize(formatFilterOption(label.toLowerCase()))} found matching "${searchTerm}"`
                   : "No options available"}
               </CommandEmpty>

@@ -7,6 +7,7 @@ from dagster import AssetExecutionContext
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from backend.summary_specs import METADATA_FIELD_COVERAGE_CONFIG
 from etl.defs.resources import DBResource
 from etl.utils.pipeline_state_sql import canonical_stage_state_sql
 
@@ -338,6 +339,358 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
     )
     _ = conn.execute(text("ALTER TABLE tmp_agreement_trends_base ADD PRIMARY KEY (agreement_uuid)"))
 
+    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_filter_option_base"))
+    _ = conn.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE tmp_filter_option_base AS
+            SELECT
+                a.agreement_uuid,
+                a.target,
+                a.acquirer,
+                a.target_industry,
+                a.acquirer_industry
+            FROM {schema}.agreements a
+            JOIN tmp_xml_latest x
+                ON x.agreement_uuid = a.agreement_uuid
+            JOIN tmp_sections_agg s
+                ON s.agreement_uuid = a.agreement_uuid
+            WHERE (x.status IS NULL OR x.status = 'verified')
+              AND {_summary_eligible_agreement_where_sql(alias='a')}
+            """
+        )
+    )
+    _ = conn.execute(text("ALTER TABLE tmp_filter_option_base ADD PRIMARY KEY (agreement_uuid)"))
+
+    _ = conn.execute(text("DROP TEMPORARY TABLE IF EXISTS tmp_agreement_index_base"))
+    _ = conn.execute(
+        text(
+            f"""
+            CREATE TEMPORARY TABLE tmp_agreement_index_base AS
+            SELECT
+                a.agreement_uuid,
+                CASE
+                    WHEN a.filing_date IS NULL THEN NULL
+                    WHEN TRIM(a.filing_date) REGEXP '^[0-9]{{4}}' THEN
+                        CAST(SUBSTRING(TRIM(a.filing_date), 1, 4) AS UNSIGNED)
+                    ELSE NULL
+                END AS year,
+                a.target,
+                a.acquirer,
+                COALESCE(a.verified, 0) AS verified
+            FROM {schema}.agreements a
+            JOIN tmp_xml_eligible x
+                ON x.agreement_uuid = a.agreement_uuid
+            WHERE {_summary_eligible_agreement_where_sql(alias='a')}
+            """
+        )
+    )
+    _ = conn.execute(text("ALTER TABLE tmp_agreement_index_base ADD PRIMARY KEY (agreement_uuid)"))
+
+
+def _refresh_filter_option_summary_table(conn: Connection, *, schema: str) -> None:
+    filter_table = f"{schema}.agreement_filter_option_summary"
+    insert_rows = (
+        (
+            "targets",
+            """
+            SELECT 'targets' AS field_name, target AS option_value, COUNT(*) AS agreement_count
+            FROM tmp_filter_option_base
+            WHERE target IS NOT NULL AND TRIM(target) <> ''
+            GROUP BY target
+            """,
+        ),
+        (
+            "acquirers",
+            """
+            SELECT 'acquirers' AS field_name, acquirer AS option_value, COUNT(*) AS agreement_count
+            FROM tmp_filter_option_base
+            WHERE acquirer IS NOT NULL AND TRIM(acquirer) <> ''
+            GROUP BY acquirer
+            """,
+        ),
+        (
+            "target_industries",
+            """
+            SELECT 'target_industries' AS field_name, target_industry AS option_value, COUNT(*) AS agreement_count
+            FROM tmp_filter_option_base
+            WHERE target_industry IS NOT NULL AND TRIM(target_industry) <> ''
+            GROUP BY target_industry
+            """,
+        ),
+        (
+            "acquirer_industries",
+            """
+            SELECT 'acquirer_industries' AS field_name, acquirer_industry AS option_value, COUNT(*) AS agreement_count
+            FROM tmp_filter_option_base
+            WHERE acquirer_industry IS NOT NULL AND TRIM(acquirer_industry) <> ''
+            GROUP BY acquirer_industry
+            """,
+        ),
+        (
+            "target_counsels",
+            f"""
+            SELECT 'target_counsels' AS field_name, c.canonical_name AS option_value, COUNT(*) AS agreement_count
+            FROM {schema}.agreement_counsel ac
+            JOIN {schema}.counsel c
+                ON c.counsel_id = ac.counsel_id
+            JOIN tmp_filter_option_base f
+                ON f.agreement_uuid = ac.agreement_uuid
+            WHERE ac.side = 'target'
+              AND c.canonical_name IS NOT NULL
+              AND TRIM(c.canonical_name) <> ''
+            GROUP BY c.canonical_name
+            """,
+        ),
+        (
+            "acquirer_counsels",
+            f"""
+            SELECT 'acquirer_counsels' AS field_name, c.canonical_name AS option_value, COUNT(*) AS agreement_count
+            FROM {schema}.agreement_counsel ac
+            JOIN {schema}.counsel c
+                ON c.counsel_id = ac.counsel_id
+            JOIN tmp_filter_option_base f
+                ON f.agreement_uuid = ac.agreement_uuid
+            WHERE ac.side = 'acquirer'
+              AND c.canonical_name IS NOT NULL
+              AND TRIM(c.canonical_name) <> ''
+            GROUP BY c.canonical_name
+            """,
+        ),
+    )
+    for _, select_sql in insert_rows:
+        _ = conn.execute(
+            text(
+                f"""
+                INSERT INTO {filter_table} (
+                    field_name,
+                    option_value,
+                    agreement_count
+                )
+                {select_sql}
+                """
+            )
+        )
+
+
+def _refresh_metadata_field_coverage_summary_table(conn: Connection, *, schema: str) -> None:
+    coverage_table = f"{schema}.agreement_metadata_field_coverage_summary"
+    agreements_table = f"{schema}.agreements"
+    agreement_where_parts = ["1 = 1"]
+    agreement_where_parts.append("COALESCE(LOWER(a.status), '') <> 'invalid'")
+    agreement_where_parts.append(
+        "NOT (COALESCE(a.gated, 0) = 1 AND COALESCE(a.verified, 0) = 0)"
+    )
+    ingested_where = "\n                      AND ".join(agreement_where_parts)
+    processed_where_parts = [*agreement_where_parts]
+    processed_where_parts.append(
+        "EXISTS ("
+        f"SELECT 1 FROM {schema}.xml x "
+        "WHERE x.agreement_uuid = a.agreement_uuid "
+        "AND x.latest = 1 "
+        "AND (x.status IS NULL OR x.status = 'verified')"
+        ")"
+    )
+    processed_where = "\n                      AND ".join(processed_where_parts)
+
+    aggregate_select_lines: list[str] = []
+    for config in METADATA_FIELD_COVERAGE_CONFIG:
+        field = str(config["field"])
+        eligible_sql = str(config["eligible_sql"])
+        covered_sql = str(config["covered_sql"])
+        aggregate_select_lines.extend(
+            [
+                (
+                    "SUM(CASE WHEN a._coverage_scope_ingested = 1 "
+                    f"AND {eligible_sql} THEN 1 ELSE 0 END) "
+                    f"AS {field}_ingested_eligible_agreements"
+                ),
+                (
+                    "SUM(CASE WHEN a._coverage_scope_ingested = 1 "
+                    f"AND {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                    f"AS {field}_ingested_covered_agreements"
+                ),
+                (
+                    "SUM(CASE WHEN a._coverage_scope_processed = 1 "
+                    f"AND {eligible_sql} THEN 1 ELSE 0 END) "
+                    f"AS {field}_processed_eligible_agreements"
+                ),
+                (
+                    "SUM(CASE WHEN a._coverage_scope_processed = 1 "
+                    f"AND {eligible_sql} AND {covered_sql} THEN 1 ELSE 0 END) "
+                    f"AS {field}_processed_covered_agreements"
+                ),
+            ]
+        )
+    aggregate_select = ",\n                            ".join(aggregate_select_lines)
+    aggregate_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT
+                    {aggregate_select}
+                FROM (
+                    SELECT
+                        a.*,
+                        1 AS _coverage_scope_ingested,
+                        0 AS _coverage_scope_processed
+                    FROM {agreements_table} a
+                    WHERE {ingested_where}
+                    UNION ALL
+                    SELECT
+                        a.*,
+                        0 AS _coverage_scope_ingested,
+                        1 AS _coverage_scope_processed
+                    FROM {agreements_table} a
+                    WHERE {processed_where}
+                ) a
+                """
+            )
+        )
+        .mappings()
+        .all()
+    )
+    row_dict = dict(aggregate_rows[0]) if aggregate_rows else {}
+
+    insert_rows: list[dict[str, object | None]] = []
+    for config in METADATA_FIELD_COVERAGE_CONFIG:
+        field = str(config["field"])
+        ingested_eligible_agreements = _coerce_int(
+            row_dict.get(f"{field}_ingested_eligible_agreements")
+        ) or 0
+        ingested_covered_agreements = _coerce_int(
+            row_dict.get(f"{field}_ingested_covered_agreements")
+        ) or 0
+        processed_eligible_agreements = _coerce_int(
+            row_dict.get(f"{field}_processed_eligible_agreements")
+        ) or 0
+        processed_covered_agreements = _coerce_int(
+            row_dict.get(f"{field}_processed_covered_agreements")
+        ) or 0
+        insert_rows.append(
+            {
+                "field_name": field,
+                "label": config["label"],
+                "ingested_eligible_agreements": ingested_eligible_agreements,
+                "ingested_covered_agreements": ingested_covered_agreements,
+                "ingested_coverage_pct": (
+                    round((ingested_covered_agreements / ingested_eligible_agreements) * 100, 1)
+                    if ingested_eligible_agreements > 0
+                    else None
+                ),
+                "processed_eligible_agreements": processed_eligible_agreements,
+                "processed_covered_agreements": processed_covered_agreements,
+                "processed_coverage_pct": (
+                    round((processed_covered_agreements / processed_eligible_agreements) * 100, 1)
+                    if processed_eligible_agreements > 0
+                    else None
+                ),
+                "note": config["note"],
+            }
+        )
+    if insert_rows:
+        _ = conn.execute(
+            text(
+                f"""
+                INSERT INTO {coverage_table} (
+                    field_name,
+                    label,
+                    ingested_eligible_agreements,
+                    ingested_covered_agreements,
+                    ingested_coverage_pct,
+                    processed_eligible_agreements,
+                    processed_covered_agreements,
+                    processed_coverage_pct,
+                    note
+                ) VALUES (
+                    :field_name,
+                    :label,
+                    :ingested_eligible_agreements,
+                    :ingested_covered_agreements,
+                    :ingested_coverage_pct,
+                    :processed_eligible_agreements,
+                    :processed_covered_agreements,
+                    :processed_coverage_pct,
+                    :note
+                )
+                """
+            ),
+            insert_rows,
+        )
+
+
+def _refresh_counsel_leaderboard_summary_table(conn: Connection, *, schema: str) -> None:
+    leaderboard_table = f"{schema}.agreement_counsel_leaderboard_summary"
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO {leaderboard_table} (
+                side,
+                counsel_key,
+                counsel,
+                year,
+                deal_count,
+                total_transaction_value
+            )
+            SELECT
+                CASE ac.side
+                    WHEN 'acquirer' THEN 'buy_side'
+                    WHEN 'target' THEN 'sell_side'
+                    ELSE ac.side
+                END AS side,
+                c.canonical_name_normalized AS counsel_key,
+                c.canonical_name AS counsel,
+                CASE
+                    WHEN a.filing_date IS NULL THEN NULL
+                    WHEN TRIM(a.filing_date) REGEXP '^[0-9]{{4}}' THEN
+                        CAST(SUBSTRING(TRIM(a.filing_date), 1, 4) AS UNSIGNED)
+                    ELSE NULL
+                END AS year,
+                COUNT(*) AS deal_count,
+                COALESCE(SUM(CAST(COALESCE(a.transaction_price_total, 0) AS DECIMAL(24, 2))), 0) AS total_transaction_value
+            FROM {schema}.agreement_counsel ac
+            JOIN {schema}.counsel c
+                ON c.counsel_id = ac.counsel_id
+            JOIN {schema}.agreements a
+                ON a.agreement_uuid = ac.agreement_uuid
+            JOIN tmp_xml_latest x
+                ON x.agreement_uuid = a.agreement_uuid
+            WHERE (x.status IS NULL OR x.status = 'verified')
+              AND {_summary_eligible_agreement_where_sql(alias='a')}
+              AND c.canonical_name IS NOT NULL
+              AND TRIM(c.canonical_name) <> ''
+              AND c.canonical_name_normalized IS NOT NULL
+              AND TRIM(c.canonical_name_normalized) <> ''
+            GROUP BY side, counsel_key, counsel, year
+            HAVING year IS NOT NULL
+            """
+        )
+    )
+
+
+def _refresh_agreement_index_summary_table(conn: Connection, *, schema: str) -> None:
+    index_table = f"{schema}.agreement_index_summary"
+    _ = conn.execute(
+        text(
+            f"""
+            INSERT INTO {index_table} (
+                agreement_uuid,
+                year,
+                target,
+                acquirer,
+                verified
+            )
+            SELECT
+                agreement_uuid,
+                year,
+                target,
+                acquirer,
+                verified
+            FROM tmp_agreement_index_base
+            """
+        )
+    )
+
 
 def _refresh_summary_table(conn: Connection, *, schema: str) -> None:
     summary_table = f"{schema}.summary_data"
@@ -561,6 +914,10 @@ def _refresh_agreement_trends_summary_tables(conn: Connection, *, schema: str) -
     buyer_type_matrix_table = f"{schema}.agreement_buyer_type_matrix_summary"
     target_industry_table = f"{schema}.agreement_target_industry_summary"
     industry_pairing_table = f"{schema}.agreement_industry_pairing_summary"
+    filter_option_table = f"{schema}.agreement_filter_option_summary"
+    metadata_field_coverage_table = f"{schema}.agreement_metadata_field_coverage_summary"
+    counsel_leaderboard_table = f"{schema}.agreement_counsel_leaderboard_summary"
+    agreement_index_table = f"{schema}.agreement_index_summary"
 
     _ = conn.execute(
         text(
@@ -780,6 +1137,10 @@ def refresh_summary_data(
     buyer_type_matrix_table = f"{schema}.agreement_buyer_type_matrix_summary"
     target_industry_table = f"{schema}.agreement_target_industry_summary"
     industry_pairing_table = f"{schema}.agreement_industry_pairing_summary"
+    filter_option_table = f"{schema}.agreement_filter_option_summary"
+    metadata_field_coverage_table = f"{schema}.agreement_metadata_field_coverage_summary"
+    counsel_leaderboard_table = f"{schema}.agreement_counsel_leaderboard_summary"
+    agreement_index_table = f"{schema}.agreement_index_summary"
 
     lock_name = f"{schema}.summary_data_refresh"
     lock_timeout_seconds = 300
@@ -818,12 +1179,20 @@ def refresh_summary_data(
             _ = conn.execute(text(f"TRUNCATE TABLE {buyer_type_matrix_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {target_industry_table}"))
             _ = conn.execute(text(f"TRUNCATE TABLE {industry_pairing_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {filter_option_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {metadata_field_coverage_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {counsel_leaderboard_table}"))
+            _ = conn.execute(text(f"TRUNCATE TABLE {agreement_index_table}"))
             _build_summary_temp_tables(conn, schema=schema)
             _refresh_summary_table(conn, schema=schema)
             _refresh_status_summary_table(conn, schema=schema)
             _refresh_deal_type_summary_table(conn, schema=schema)
             _refresh_agreement_overview_summary_table(conn, schema=schema)
             _refresh_agreement_trends_summary_tables(conn, schema=schema)
+            _refresh_filter_option_summary_table(conn, schema=schema)
+            _refresh_metadata_field_coverage_summary_table(conn, schema=schema)
+            _refresh_counsel_leaderboard_summary_table(conn, schema=schema)
+            _refresh_agreement_index_summary_table(conn, schema=schema)
         finally:
             _ = conn.execute(
                 text("SELECT RELEASE_LOCK(:lock_name)"), {"lock_name": lock_name}

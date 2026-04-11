@@ -260,6 +260,49 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "CREATE TABLE IF NOT EXISTS agreement_filter_option_summary ("
+                        "field_name TEXT NOT NULL, "
+                        "option_value TEXT NOT NULL, "
+                        "agreement_count INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_metadata_field_coverage_summary ("
+                        "field_name TEXT NOT NULL PRIMARY KEY, "
+                        "label TEXT NOT NULL, "
+                        "ingested_eligible_agreements INTEGER NOT NULL, "
+                        "ingested_covered_agreements INTEGER NOT NULL, "
+                        "ingested_coverage_pct REAL NULL, "
+                        "processed_eligible_agreements INTEGER NOT NULL, "
+                        "processed_covered_agreements INTEGER NOT NULL, "
+                        "processed_coverage_pct REAL NULL, "
+                        "note TEXT NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_counsel_leaderboard_summary ("
+                        "side TEXT NOT NULL, "
+                        "counsel_key TEXT NOT NULL, "
+                        "counsel TEXT NOT NULL, "
+                        "year INTEGER NOT NULL, "
+                        "deal_count INTEGER NOT NULL, "
+                        "total_transaction_value REAL NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_index_summary ("
+                        "agreement_uuid TEXT NOT NULL PRIMARY KEY, "
+                        "year INTEGER NULL, "
+                        "target TEXT NULL, "
+                        "acquirer TEXT NULL, "
+                        "verified INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
                         "(2020, 'merger', 1), "
                         "(2021, 'stock_acquisition', 2)"
@@ -353,6 +396,10 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM counsel"))
                 conn.execute(text("DELETE FROM xml"))
                 conn.execute(text("DELETE FROM agreements"))
+                conn.execute(text("DELETE FROM agreement_filter_option_summary"))
+                conn.execute(text("DELETE FROM agreement_metadata_field_coverage_summary"))
+                conn.execute(text("DELETE FROM agreement_counsel_leaderboard_summary"))
+                conn.execute(text("DELETE FROM agreement_index_summary"))
                 conn.execute(
                     text(
                         "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, deal_type, "
@@ -493,6 +540,59 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
                         "('clause-a1-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z'), "
                         "('clause-a1-2', 'tax_treatment', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_filter_option_summary (field_name, option_value, agreement_count) VALUES "
+                        "('targets', 'Target A', 1), "
+                        "('targets', 'Target B', 1), "
+                        "('targets', 'Target C', 1), "
+                        "('acquirers', 'Acquirer A', 1), "
+                        "('acquirers', 'Acquirer B', 1), "
+                        "('acquirers', 'Acquirer C', 1), "
+                        "('target_counsels', 'Goodwin Procter', 1), "
+                        "('target_counsels', 'Wachtell, Lipton, Rosen & Katz', 1), "
+                        "('target_counsels', 'Wilson Sonsini Goodrich & Rosati', 2), "
+                        "('acquirer_counsels', 'Skadden, Arps, Slate, Meagher & Flom', 1), "
+                        "('acquirer_counsels', 'Wiggin & Dana', 2), "
+                        "('target_industries', 'energy', 1), "
+                        "('target_industries', 'healthcare', 1), "
+                        "('target_industries', 'tech', 1), "
+                        "('acquirer_industries', 'industrial', 1), "
+                        "('acquirer_industries', 'tech', 2)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_metadata_field_coverage_summary ("
+                        "field_name, label, ingested_eligible_agreements, ingested_covered_agreements, "
+                        "ingested_coverage_pct, processed_eligible_agreements, processed_covered_agreements, "
+                        "processed_coverage_pct, note"
+                        ") VALUES "
+                        "('deal_type', 'Deal type', 3, 3, 100.0, 2, 2, 100.0, 'Expected for all eligible agreements.'), "
+                        "('target_industry', 'Target industry', 3, 3, 100.0, 2, 2, 100.0, 'Optional in sourcing, but counted when present.')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_counsel_leaderboard_summary ("
+                        "side, counsel_key, counsel, year, deal_count, total_transaction_value"
+                        ") VALUES "
+                        "('buy_side', 'wiggin dana', 'Wiggin & Dana', 2020, 1, 50000000), "
+                        "('buy_side', 'wiggin dana', 'Wiggin & Dana', 2021, 1, 150000000), "
+                        "('buy_side', 'skadden arps slate meagher flom', 'Skadden, Arps, Slate, Meagher & Flom', 2022, 1, 300000000), "
+                        "('sell_side', 'wilson sonsini goodrich rosati', 'Wilson Sonsini Goodrich & Rosati', 2020, 1, 50000000), "
+                        "('sell_side', 'wilson sonsini goodrich rosati', 'Wilson Sonsini Goodrich & Rosati', 2021, 1, 150000000), "
+                        "('sell_side', 'goodwin procter', 'Goodwin Procter', 2020, 1, 50000000), "
+                        "('sell_side', 'wachtell lipton rosen katz', 'Wachtell, Lipton, Rosen & Katz', 2022, 1, 300000000)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_index_summary (agreement_uuid, year, target, acquirer, verified) VALUES "
+                        "('a2', 2021, 'Target B', 'Acquirer B', 0), "
+                        "('a3', 2022, 'Target C', 'Acquirer C', 1)"
                     )
                 )
             self.app_module._filter_options_cache["payload"] = None
@@ -905,6 +1005,12 @@ class MainRoutesTests(unittest.TestCase):
                             "('a_index_time', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000061\"><text>INDEX</text></section></article></document>', 1, 'verified', 1)"
                         )
                     )
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreement_index_summary (agreement_uuid, year, target, acquirer, verified) "
+                            "VALUES ('a_index_time', 2024, 'Target Index', 'Acquirer Index', 1)"
+                        )
+                    )
 
             client = self.app.test_client()
             res = client.get("/v1/agreements-index?query=2024&page=1&page_size=10")
@@ -918,6 +1024,7 @@ class MainRoutesTests(unittest.TestCase):
             with self.app.app_context():
                 engine = self.app_module.db.engine
                 with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM agreement_index_summary WHERE agreement_uuid = 'a_index_time'"))
                     conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_index_time'"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_index_time'"))
 
@@ -1087,6 +1194,33 @@ class MainRoutesTests(unittest.TestCase):
         self.assertIn("Goodwin Procter", body.get("target_counsels", []))
         self.assertIn("Wiggin & Dana", body.get("acquirer_counsels", []))
 
+    def test_filter_options_can_limit_fields(self):
+        self.app_module._filter_options_cache["payload"] = None
+        self.app_module._filter_options_cache["ts"] = 0
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/filter-options?fields=target_counsels&fields=acquirer_industries"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(
+            set(body.keys()),
+            {"target_counsels", "acquirer_industries"},
+        )
+        self.assertIn("Goodwin Procter", body.get("target_counsels", []))
+        self.assertIn("tech", body.get("acquirer_industries", []))
+
+    def test_filter_option_values_endpoint_searches_targets(self):
+        client = self.app.test_client()
+        res = client.get("/v1/filter-options/target?query=Target%20A&limit=5")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIn("Target A", body.get("options", []))
+        self.assertLessEqual(len(body.get("options", [])), 5)
+        hidden_res = client.get("/v1/filter-options/target?query=Target%20Hidden")
+        self.assertEqual(hidden_res.status_code, 200)
+        self.assertEqual(hidden_res.get_json().get("options", []), [])
+
     def test_agreements_deal_types_summary(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements-deal-types-summary")
@@ -1230,6 +1364,23 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO agreement_overview_summary "
                         "(singleton_key, metadata_covered_agreements, metadata_coverage_pct, taxonomy_covered_sections, taxonomy_coverage_pct, latest_filing_date) VALUES "
                         "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
+                    )
+                )
+                conn.execute(text("DELETE FROM agreement_metadata_field_coverage_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_metadata_field_coverage_summary ("
+                        "field_name, label, ingested_eligible_agreements, ingested_covered_agreements, "
+                        "ingested_coverage_pct, processed_eligible_agreements, processed_covered_agreements, "
+                        "processed_coverage_pct, note"
+                        ") VALUES "
+                        "('transaction_price_cash', 'Cash price', 2, 1, 50.0, 1, 1, 100.0, 'Only applies to cash or mixed deals.'), "
+                        "('transaction_price_stock', 'Stock price', 1, 1, 100.0, 1, 1, 100.0, 'Only applies to stock or mixed deals.'), "
+                        "('transaction_price_assets', 'Asset price', 0, 0, NULL, 0, 0, NULL, 'Shown only against mixed deals; null can still be valid when no asset component exists.'), "
+                        "('target_counsel', 'Target counsel', 3, 3, 100.0, 2, 2, 100.0, 'Optional in sourcing, but counted when present.'), "
+                        "('acquirer_counsel', 'Acquirer counsel', 3, 2, 66.7, 2, 1, 50.0, 'Optional in sourcing, but counted when present.'), "
+                        "('target_pe', 'Target PE', 3, 1, 33.3, 2, 1, 50.0, 'Optional in sourcing, but counted when present.'), "
+                        "('purpose', 'Purpose', 3, 1, 33.3, 2, 1, 50.0, 'Optional in sourcing, but counted when present.')"
                     )
                 )
                 conn.execute(
@@ -1389,6 +1540,7 @@ class MainRoutesTests(unittest.TestCase):
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM agreement_status_summary"))
                     conn.execute(text("DELETE FROM agreement_overview_summary"))
+                    conn.execute(text("DELETE FROM agreement_metadata_field_coverage_summary"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_pending'"))
 
     def test_mysql_agreement_year_expr_avoids_str_to_date(self):

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { logger } from "@/lib/logger";
 import { FilterOptionsResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
@@ -22,12 +22,27 @@ interface UseFilterOptionsReturn {
 interface UseFilterOptionsOptions {
   enabled?: boolean;
   deferMs?: number;
+  fields?: Array<keyof FilterOptionsResponse>;
+}
+
+function normalizeFields(fields?: Array<keyof FilterOptionsResponse>) {
+  if (!fields || fields.length === 0) return null;
+  return Array.from(new Set(fields)).sort();
+}
+
+function cacheKeyForFields(fields?: Array<keyof FilterOptionsResponse>) {
+  const normalizedFields = normalizeFields(fields);
+  if (!normalizedFields) return FILTER_OPTIONS_CACHE_KEY;
+  return `${FILTER_OPTIONS_CACHE_KEY}:${normalizedFields.join(",")}`;
 }
 
 export function useFilterOptions(
   options: UseFilterOptionsOptions = {},
 ): UseFilterOptionsReturn {
-  const { enabled = true, deferMs = 0 } = options;
+  const { enabled = true, deferMs = 0, fields } = options;
+  const fieldsKey = JSON.stringify(fields ?? []);
+  const normalizedFields = useMemo(() => normalizeFields(fields), [fieldsKey]);
+  const cacheKey = useMemo(() => cacheKeyForFields(fields), [fieldsKey]);
   const [targets, setTargets] = useState<string[]>([]);
   const [acquirers, setAcquirers] = useState<string[]>([]);
   const [target_counsels, setTargetCounsels] = useState<string[]>([]);
@@ -44,7 +59,7 @@ export function useFilterOptions(
     }
 
     // Check if we already have cached data in sessionStorage
-    const cachedData = sessionStorage.getItem(FILTER_OPTIONS_CACHE_KEY);
+    const cachedData = sessionStorage.getItem(cacheKey);
     if (cachedData) {
       try {
         const parsed: FilterOptionsResponse = JSON.parse(cachedData);
@@ -58,7 +73,7 @@ export function useFilterOptions(
         return;
       } catch (e) {
         // If parsing fails, continue to fetch from API
-        sessionStorage.removeItem(FILTER_OPTIONS_CACHE_KEY);
+        sessionStorage.removeItem(cacheKey);
       }
     }
     sessionStorage.removeItem(LEGACY_FILTER_OPTIONS_CACHE_KEY);
@@ -66,7 +81,14 @@ export function useFilterOptions(
     // Fetch from API
     const fetchFilterOptions = async () => {
       try {
-        const response = await authFetch(apiUrl("v1/filter-options"));
+        const params = new URLSearchParams();
+        normalizedFields?.forEach((field) => {
+          params.append("fields", field);
+        });
+        const endpoint = params.size
+          ? `v1/filter-options?${params.toString()}`
+          : "v1/filter-options";
+        const response = await authFetch(apiUrl(endpoint));
 
         if (!response.ok) {
           trackEvent("api_error", {
@@ -88,7 +110,7 @@ export function useFilterOptions(
         setAcquirerIndustries(data.acquirer_industries || []);
 
         // Cache in sessionStorage for future use
-        sessionStorage.setItem(FILTER_OPTIONS_CACHE_KEY, JSON.stringify(data));
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
 
         setError(null);
       } catch (err) {
@@ -122,7 +144,7 @@ export function useFilterOptions(
     }
 
     fetchFilterOptions();
-  }, [deferMs, enabled]);
+  }, [cacheKey, deferMs, enabled, normalizedFields]);
 
   return {
     targets,

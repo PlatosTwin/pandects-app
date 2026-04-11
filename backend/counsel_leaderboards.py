@@ -714,9 +714,77 @@ def build_counsel_leaderboards_from_assignments(
         "buy_side": to_payload(sides["buy_side"]),
         "sell_side": to_payload(sides["sell_side"]),
     }
+
+
+def build_counsel_leaderboards_from_summary_rows(
+    rows: list[dict[str, Any]],
+    *,
+    limit: int = 15,
+) -> dict[str, object]:
+    sides: dict[str, dict[str, _FirmAggregate]] = {
+        "buy_side": {},
+        "sell_side": {},
+    }
+
+    for row in rows:
+        side = str(row.get("side") or "").strip()
+        if side not in sides:
+            continue
+        year = _year_from_value(row.get("year"))
+        if year is None:
+            continue
+        counsel_key = str(row.get("counsel_key") or row.get("counsel") or "").strip()
+        counsel_name = str(row.get("counsel") or "").strip()
+        if not counsel_key or not counsel_name:
+            continue
+        deal_count = int(row.get("deal_count") or 0)
+        if deal_count <= 0:
+            continue
+        transaction_value = _decimal_from_value(row.get("total_transaction_value"))
+        aggregate = sides[side].setdefault(counsel_key, _FirmAggregate())
+        aggregate.display_candidates[counsel_name] += deal_count
+        aggregate.deal_count += deal_count
+        aggregate.total_transaction_value += transaction_value
+        year_bucket = aggregate.yearly.setdefault(
+            year,
+            {
+                "deal_count": 0,
+                "total_transaction_value": Decimal("0"),
+            },
+        )
+        year_bucket["deal_count"] = int(year_bucket["deal_count"]) + deal_count
+        year_bucket["total_transaction_value"] = (
+            _decimal_from_value(year_bucket["total_transaction_value"])
+            + transaction_value
+        )
+
+    def to_payload(side_aggregates: dict[str, _FirmAggregate]) -> dict[str, object]:
+        all_years = sorted(
+            {
+                year
+                for aggregate in side_aggregates.values()
+                for year in aggregate.yearly.keys()
+            },
+            reverse=True,
+        )
+        annual = [
+            {
+                "year": year,
+                **_build_ranked_rows(side_aggregates, limit=limit, year=year),
+            }
+            for year in all_years
+        ]
+        return {
+            **_build_ranked_rows(side_aggregates, limit=limit),
+            "annual": annual,
+        }
+
+    return {
+        "buy_side": to_payload(sides["buy_side"]),
+        "sell_side": to_payload(sides["sell_side"]),
+    }
 class _RankedCounselRow(TypedDict):
     counsel: str
     deal_count: int
     total_transaction_value: float
     years: list[dict[str, object]]
-

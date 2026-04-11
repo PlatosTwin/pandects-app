@@ -36,6 +36,7 @@ import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
 import { trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
+import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 export default function Search() {
@@ -215,6 +216,12 @@ export default function Search() {
   } = useFilterOptions({
     deferMs: 1200,
     enabled: shouldLoadFilterData,
+    fields: [
+      "target_counsels",
+      "acquirer_counsels",
+      "target_industries",
+      "acquirer_industries",
+    ],
   });
 
   // Static years data (not dynamic for now)
@@ -234,6 +241,27 @@ export default function Search() {
     () => indexClauseTypeLabels(clauseTypesNested),
     [clauseTypesNested],
   );
+
+  const loadSearchFilterOptions = async (
+    field: "target" | "acquirer",
+    query: string,
+  ) => {
+    const params = new URLSearchParams();
+    if (query.trim()) {
+      params.set("query", query.trim());
+    }
+    params.set("limit", "100");
+    const response = await authFetch(
+      apiUrl(`v1/filter-options/${field}?${params.toString()}`),
+    );
+    if (!response.ok) {
+      throw new Error(`Unable to load ${field} options.`);
+    }
+    const payload = (await response.json()) as { options?: unknown };
+    return Array.isArray(payload.options)
+      ? payload.options.filter((value): value is string => typeof value === "string")
+      : [];
+  };
 
   // Wrap actions with tracking
   const trackingActions = {
@@ -375,6 +403,8 @@ export default function Search() {
             onToggleFilterValue={toggleFilterValue}
             onTextFilterChange={trackingActions.setTextFilterValue}
             onClearFilters={clearFilters}
+            loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
+            loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
             isCollapsed={sidebarCollapsed}
           />
@@ -426,6 +456,8 @@ export default function Search() {
                       onToggleFilterValue={toggleFilterValue}
                       onTextFilterChange={trackingActions.setTextFilterValue}
                       onClearFilters={clearFilters}
+                      loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
+                      loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
                     />
                   </SheetContent>
                 </Sheet>

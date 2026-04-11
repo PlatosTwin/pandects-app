@@ -137,6 +137,24 @@ class SummaryDataTests(unittest.TestCase):
         self.assertTrue(
             any("TRUNCATE TABLE pdx.agreement_industry_pairing_summary" in sql for sql in conn.executed_sql)
         )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_filter_option_summary" in sql for sql in conn.executed_sql)
+        )
+        self.assertTrue(
+            any(
+                "TRUNCATE TABLE pdx.agreement_metadata_field_coverage_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any(
+                "TRUNCATE TABLE pdx.agreement_counsel_leaderboard_summary" in sql
+                for sql in conn.executed_sql
+            )
+        )
+        self.assertTrue(
+            any("TRUNCATE TABLE pdx.agreement_index_summary" in sql for sql in conn.executed_sql)
+        )
         summary_insert_sql = next(
             sql
             for sql in conn.executed_sql
@@ -229,6 +247,37 @@ class SummaryDataTests(unittest.TestCase):
             if "INSERT INTO pdx.agreement_industry_pairing_summary" in sql
         )
         self.assertIn("GROUP BY target_industry, acquirer_industry", pairing_insert_sql)
+        filter_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_filter_option_summary" in sql
+        )
+        self.assertIn("FROM tmp_filter_option_base", filter_insert_sql)
+        leaderboard_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_counsel_leaderboard_summary" in sql
+        )
+        self.assertIn("FROM pdx.agreement_counsel ac", leaderboard_insert_sql)
+        self.assertIn("GROUP BY side, counsel_key, counsel, year", leaderboard_insert_sql)
+        index_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_index_summary" in sql
+        )
+        self.assertIn("FROM tmp_agreement_index_base", index_insert_sql)
+        coverage_insert_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "INSERT INTO pdx.agreement_metadata_field_coverage_summary" in sql
+        )
+        self.assertIn("processed_coverage_pct", coverage_insert_sql)
+        self.assertTrue(
+            any(
+                "transaction_price_total_processed_covered_agreements" in sql
+                for sql in conn.executed_sql
+            )
+        )
         self.assertTrue(
             any(
                 "CREATE TABLE IF NOT EXISTS pdx.agreement_ownership_mix_summary" in sql

@@ -61,6 +61,8 @@ interface SearchSidebarProps {
   onToggleFilterValue: (field: string, value: string) => void;
   onTextFilterChange: (field: string, value: string) => void;
   onClearFilters: () => void;
+  loadTargetOptions?: (query: string) => Promise<string[]>;
+  loadAcquirerOptions?: (query: string) => Promise<string[]>;
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
   variant?: "sidebar" | "sheet";
@@ -83,6 +85,8 @@ export function SearchSidebar({
   onToggleFilterValue,
   onTextFilterChange,
   onClearFilters,
+  loadTargetOptions,
+  loadAcquirerOptions,
   onToggleCollapse,
   isCollapsed = false,
   variant = "sidebar",
@@ -137,16 +141,14 @@ export function SearchSidebar({
           options={targets}
           selectedValues={filters.target || []}
           onToggle={(value) => onToggleFilterValue("target", value)}
+          asyncSearch={
+            loadTargetOptions
+              ? {
+                  loadOptions: loadTargetOptions,
+                }
+              : undefined
+          }
         />
-        {isLoadingFilterOptions && (
-          <div
-            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
-            role="status"
-            aria-live="polite"
-          >
-            <LoadingSpinner size="sm" aria-label="Loading filter options" />
-          </div>
-        )}
       </div>
 
       {/* Acquirer Filter */}
@@ -156,16 +158,14 @@ export function SearchSidebar({
           options={acquirers}
           selectedValues={filters.acquirer || []}
           onToggle={(value) => onToggleFilterValue("acquirer", value)}
+          asyncSearch={
+            loadAcquirerOptions
+              ? {
+                  loadOptions: loadAcquirerOptions,
+                }
+              : undefined
+          }
         />
-        {isLoadingFilterOptions && (
-          <div
-            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
-            role="status"
-            aria-live="polite"
-          >
-            <LoadingSpinner size="sm" aria-label="Loading filter options" />
-          </div>
-        )}
       </div>
 
       {/* Clause Type Filter */}

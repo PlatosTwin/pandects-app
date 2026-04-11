@@ -33,13 +33,17 @@ TARGET_DB="${MARIADB_DATABASE:-pdx}"
 API_TABLES=(
   agreement_counsel
   agreement_buyer_type_matrix_summary
+  agreement_counsel_leaderboard_summary
   agreement_deal_type_summary
+  agreement_filter_option_summary
   agreement_industry_pairing_summary
   agreement_overview_summary
   agreement_ownership_deal_size_summary
   agreement_ownership_mix_summary
   agreement_status_summary
   agreement_target_industry_summary
+  agreement_metadata_field_coverage_summary
+  agreement_index_summary
   agreements
   clauses
   counsel
