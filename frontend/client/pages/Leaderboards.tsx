@@ -16,6 +16,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
+import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 
 type LeaderboardMetric = "deal_count" | "total_transaction_value";
 type LeaderboardView = "table" | "chart";
@@ -71,6 +72,8 @@ const LEADERBOARD_COLORS = [
   "hsl(151 55% 42%)",
   "hsl(215 70% 59%)",
 ];
+const LEADERBOARDS_CACHE_KEY = "leaderboards:v1";
+const LEADERBOARDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function formatDealCount(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -310,9 +313,14 @@ function LeaderboardsSkeleton() {
 }
 
 export default function Leaderboards() {
-  const [data, setData] = useState<CounselLeaderboardResponse | null>(null);
+  const [data, setData] = useState<CounselLeaderboardResponse | null>(() =>
+    readSessionCache<CounselLeaderboardResponse>(
+      LEADERBOARDS_CACHE_KEY,
+      LEADERBOARDS_CACHE_TTL_MS,
+    ),
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(data === null);
 
   useEffect(() => {
     let cancelled = false;
@@ -331,6 +339,7 @@ export default function Leaderboards() {
         const nextData = (await response.json()) as CounselLeaderboardResponse;
         if (!cancelled) {
           setData(nextData);
+          writeSessionCache(LEADERBOARDS_CACHE_KEY, nextData);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {

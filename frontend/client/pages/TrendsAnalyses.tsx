@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
+import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
 type HeatmapMetric = "deal_count" | "median_transaction_value";
@@ -70,6 +71,8 @@ type AgreementTrendsResponse = {
     pairings: IndustryPairingRow[];
   };
 };
+const TRENDS_CACHE_KEY = "agreement-trends:v1";
+const TRENDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type LabeledKey = {
   key: string;
@@ -758,9 +761,14 @@ function IndustryDynamicsPanel({
 }
 
 export default function TrendsAnalyses() {
-  const [data, setData] = useState<AgreementTrendsResponse | null>(null);
+  const [data, setData] = useState<AgreementTrendsResponse | null>(() =>
+    readSessionCache<AgreementTrendsResponse>(
+      TRENDS_CACHE_KEY,
+      TRENDS_CACHE_TTL_MS,
+    ),
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(data === null);
 
   useEffect(() => {
     let cancelled = false;
@@ -779,6 +787,7 @@ export default function TrendsAnalyses() {
         const nextData = (await response.json()) as AgreementTrendsResponse;
         if (!cancelled) {
           setData(nextData);
+          writeSessionCache(TRENDS_CACHE_KEY, nextData);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {

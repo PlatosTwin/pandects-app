@@ -56,6 +56,16 @@ def _to_float_or_none(value: object) -> float | None:
         return None
 
 
+def _cacheable_json_response(
+    payload: dict[str, object],
+    *,
+    max_age: int,
+) -> tuple[Response, int]:
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = f"public, max-age={max_age}"
+    return resp, 200
+
+
 def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str]) -> str:
     raw_text = str(raw_value or "").strip()
     if not raw_text:
@@ -812,7 +822,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
 
         return {"results": results, **meta}
 
-    def get_agreements_status_summary() -> dict[str, object]:
+    def get_agreements_status_summary() -> tuple[Response, int] | Response:
         cache_enabled = not current_app.testing
         now = deps.time.time()
         if cache_enabled:
@@ -823,7 +833,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
                 )
             if cache_is_valid and isinstance(cached_payload, dict):
-                return cached_payload
+                return _cacheable_json_response(
+                    cached_payload,
+                    max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+                )
 
         db = deps.db
         overview_row = (
@@ -905,9 +918,12 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             with agreement_status_summary_lock:
                 agreement_status_summary_cache["payload"] = payload
                 agreement_status_summary_cache["ts"] = now
-        return payload
+        return _cacheable_json_response(
+            payload,
+            max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+        )
 
-    def get_agreements_deal_types_summary() -> dict[str, object]:
+    def get_agreements_deal_types_summary() -> tuple[Response, int] | Response:
         cache_enabled = not current_app.testing
         now = deps.time.time()
         if cache_enabled:
@@ -918,7 +934,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
                 )
             if cache_is_valid and isinstance(cached_payload, dict):
-                return cached_payload
+                return _cacheable_json_response(
+                    cached_payload,
+                    max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+                )
 
         db = deps.db
         rows = (
@@ -954,9 +973,12 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             with agreement_deal_types_summary_lock:
                 agreement_deal_types_summary_cache["payload"] = payload
                 agreement_deal_types_summary_cache["ts"] = now
-        return payload
+        return _cacheable_json_response(
+            payload,
+            max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+        )
 
-    def get_agreements_summary() -> dict[str, int]:
+    def get_agreements_summary() -> tuple[Response, int] | Response:
         now = deps.time.time()
         with deps._agreements_summary_lock:
             cached_payload = deps._agreements_summary_cache["payload"]
@@ -965,7 +987,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
             )
         if cache_is_valid and cached_payload is not None:
-            return cached_payload
+            return _cacheable_json_response(
+                cast(dict[str, object], cached_payload),
+                max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+            )
 
         db = deps.db
         row = db.session.execute(
@@ -990,9 +1015,12 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             deps._agreements_summary_cache["payload"] = payload
             deps._agreements_summary_cache["ts"] = now
 
-        return payload
+        return _cacheable_json_response(
+            cast(dict[str, object], payload),
+            max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+        )
 
-    def get_counsel_leaderboards() -> dict[str, object]:
+    def get_counsel_leaderboards() -> tuple[Response, int] | Response:
         cache_enabled = not current_app.testing
         now = deps.time.time()
         if cache_enabled:
@@ -1003,7 +1031,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
                 )
             if cache_is_valid and isinstance(cached_payload, dict):
-                return cached_payload
+                return _cacheable_json_response(
+                    cached_payload,
+                    max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+                )
 
         db = deps.db
         rows = (
@@ -1036,9 +1067,12 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             with counsel_leaderboards_lock:
                 counsel_leaderboards_cache["payload"] = payload
                 counsel_leaderboards_cache["ts"] = now
-        return payload
+        return _cacheable_json_response(
+            payload,
+            max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+        )
 
-    def get_agreement_trends() -> dict[str, object]:
+    def get_agreement_trends() -> tuple[Response, int] | Response:
         cache_enabled = not current_app.testing
         now = deps.time.time()
         if cache_enabled:
@@ -1049,7 +1083,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                     now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
                 )
             if cache_is_valid and isinstance(cached_payload, dict):
-                return cached_payload
+                return _cacheable_json_response(
+                    cached_payload,
+                    max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+                )
 
         db = deps.db
         schema_prefix = deps._schema_prefix()
@@ -1273,7 +1310,10 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             with agreement_trends_lock:
                 agreement_trends_cache["payload"] = payload
                 agreement_trends_cache["ts"] = now
-        return cast(dict[str, object], payload)
+        return _cacheable_json_response(
+            cast(dict[str, object], payload),
+            max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
+        )
 
     def get_filter_options() -> tuple[Response, int] | Response:
         allowed_fields = {

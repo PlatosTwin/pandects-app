@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/accordion";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -121,10 +122,17 @@ const summaryCards = [
     description: "Pages parsed across filings",
   },
 ] as const;
+const AGREEMENT_SUMMARY_CACHE_KEY = "agreement-index-summary:v1";
+const AGREEMENT_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function AgreementIndex() {
-  const [summary, setSummary] = useState<AgreementIndexSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summary, setSummary] = useState<AgreementIndexSummary | null>(() =>
+    readSessionCache<AgreementIndexSummary>(
+      AGREEMENT_SUMMARY_CACHE_KEY,
+      AGREEMENT_SUMMARY_CACHE_TTL_MS,
+    ),
+  );
+  const [summaryLoading, setSummaryLoading] = useState(summary === null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [hasLoadedOverview, setHasLoadedOverview] = useState(false);
 
@@ -160,6 +168,7 @@ export default function AgreementIndex() {
         const data = (await res.json()) as AgreementIndexSummary;
         if (!cancelled) {
           setSummary(data);
+          writeSessionCache(AGREEMENT_SUMMARY_CACHE_KEY, data);
         }
       } catch (err) {
         if (!cancelled) {

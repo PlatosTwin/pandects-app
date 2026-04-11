@@ -12,6 +12,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
+const ASYNC_OPTION_CACHE = new Map<string, string[]>();
+
 interface CheckboxFilterProps {
   label: string;
   options: string[];
@@ -44,6 +46,7 @@ export function CheckboxFilter({
   const [asyncOptions, setAsyncOptions] = useState<string[]>([]);
   const [asyncLoading, setAsyncLoading] = useState(false);
   const [asyncError, setAsyncError] = useState<string | null>(null);
+  const asyncCacheKey = `${label.toLowerCase()}:${searchTerm.trim().toLowerCase()}`;
 
   useEffect(() => {
     if (!asyncSearch || !open) return;
@@ -51,10 +54,18 @@ export function CheckboxFilter({
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
+        const cached = ASYNC_OPTION_CACHE.get(asyncCacheKey);
+        if (cached) {
+          setAsyncOptions(cached);
+          setAsyncError(null);
+          setAsyncLoading(false);
+          return;
+        }
         setAsyncLoading(true);
         setAsyncError(null);
         const nextOptions = await asyncSearch.loadOptions(searchTerm.trim());
         if (!cancelled) {
+          ASYNC_OPTION_CACHE.set(asyncCacheKey, nextOptions);
           setAsyncOptions(nextOptions);
         }
       } catch (error) {
@@ -75,7 +86,7 @@ export function CheckboxFilter({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [asyncSearch, label, open, searchTerm]);
+  }, [asyncCacheKey, asyncSearch, label, open, searchTerm]);
 
   const effectiveOptions = asyncSearch ? asyncOptions : options;
 
