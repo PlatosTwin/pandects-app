@@ -94,6 +94,7 @@ etl/tests/test_historical_agreement_dedupe.py
 *.pyc
 **/.ipynb_checkpoints/
 __pycache__/
+**/.cache
 
 
 ############################
