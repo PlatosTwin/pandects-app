@@ -108,7 +108,7 @@ mydumper \
   --tables-list="${TABLES_LIST}" \
   --outputdir="$LOGICAL_DIR" \
   --threads="${MYDUMPER_THREADS:-6}" \
-  --rows="${MYDUMPER_ROWS:-500000}" \
+  --rows="${MYDUMPER_ROWS:-100000}" \
   --triggers \
   --routines \
   --events

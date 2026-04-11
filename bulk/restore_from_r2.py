@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tarfile
 import threading
+import re
 from pathlib import Path
 
 import boto3
@@ -102,6 +103,27 @@ def get_restore_target_manifest(client, bucket):
     return manifest
 
 
+def strip_definers_in_sql_files(sql_files: list[Path]) -> int:
+    # Older myloader builds may not support --skip-definer, so sanitize the extracted SQL in place.
+    patterns = [
+        re.compile(r"/\*![0-9]{5}\s+DEFINER=`[^`]+`@`[^`]+`\*/\s*"),
+        re.compile(r"\s+DEFINER=`[^`]+`@`[^`]+`"),
+    ]
+
+    rewritten_files = 0
+    for path in sql_files:
+        original = path.read_text()
+        rewritten = original
+        for pattern in patterns:
+            rewritten = pattern.sub(" ", rewritten)
+
+        if rewritten != original:
+            path.write_text(rewritten)
+            rewritten_files += 1
+
+    return rewritten_files
+
+
 def restore_backup():
     if not R2_ACCESS_KEY_ID or not R2_SECRET_ACCESS_KEY:
         raise Exception("Missing R2 credentials: R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be set")
@@ -184,6 +206,10 @@ def restore_backup():
         flush=True,
     )
 
+    rewritten_files = strip_definers_in_sql_files(sql_files)
+    if rewritten_files:
+        print(f"🧼 Stripped DEFINER clauses from {rewritten_files} SQL files", flush=True)
+
     print("🧽 Resetting target database...")
     reset_sql = f"DROP DATABASE IF EXISTS `{db_name}`; CREATE DATABASE `{db_name}`;"
     subprocess.run(
@@ -221,7 +247,6 @@ def restore_backup():
             db_name,
             "--threads",
             str(myloader_threads),
-            "--skip-definer",
             "--verbose",
             "3",
         ],
