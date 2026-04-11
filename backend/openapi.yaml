@@ -723,6 +723,15 @@ paths:
                 type: object
                 additionalProperties:
                   type: object
+                  required:
+                  - id
+                  properties:
+                    id:
+                      type: string
+                    children:
+                      type: object
+                      additionalProperties:
+                        type: object
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
@@ -742,6 +751,15 @@ paths:
                 type: object
                 additionalProperties:
                   type: object
+                  required:
+                  - id
+                  properties:
+                    id:
+                      type: string
+                    children:
+                      type: object
+                      additionalProperties:
+                        type: object
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
       tags:
