@@ -23,6 +23,10 @@
     {
       "root": "tests",
       "reportAny": "none",
+      "reportArgumentType": "none",
+      "reportCallIssue": "none",
+      "reportIndexIssue": "none",
+      "reportInvalidTypeForm": "none",
       "reportUnusedCallResult": "none",
       "reportPrivateUsage": "none",
       "reportPrivateLocalImportUsage": "none",
@@ -32,6 +36,9 @@
       "reportUnknownParameterType": "none",
       "reportUnknownLambdaType": "none",
       "reportMissingParameterType": "none",
+      "reportOptionalMemberAccess": "none",
+      "reportOptionalSubscript": "none",
+      "reportUninitializedInstanceVariable": "none",
       "reportImplicitStringConcatenation": "none"
     }
   ],

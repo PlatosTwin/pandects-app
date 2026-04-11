@@ -22,6 +22,7 @@ from werkzeug.security import check_password_hash
 from backend.auth.runtime import cookie_settings
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.mcp_runtime import (
+    ExternalIdentity,
     McpAuthError,
     mcp_jwt_algorithms,
     mcp_jwks_url,
@@ -579,7 +580,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         given_name: str | None = None,
         family_name: str | None = None,
         picture: str | None = None,
-    ):
+    ) -> ExternalIdentity:
         claims: dict[str, object] = {
             "email": email,
             "email_verified": email_verified,
@@ -592,15 +593,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             claims["family_name"] = family_name.strip()
         if isinstance(picture, str) and picture.strip():
             claims["picture"] = picture.strip()
-        return type(
-            "ExternalIdentityWithClaims",
-            (),
-            {
-                "issuer": mcp_oidc_issuer(),
-                "subject": subject,
-                "claims": claims,
-            },
-        )()
+        return ExternalIdentity(
+            issuer=mcp_oidc_issuer(),
+            subject=subject,
+            scopes=frozenset(),
+            audiences=frozenset(),
+            claims=claims,
+        )
 
     def _zitadel_human_payload(
         *,
@@ -1256,7 +1255,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 else:
                     raise
 
-        claims = {
+        claims: dict[str, object] = {
             "email": raw_user.get("email"),
             "email_verified": raw_user.get("email_verified"),
             "name": raw_user.get("name"),
@@ -1264,15 +1263,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             "family_name": raw_user.get("family_name"),
             "picture": raw_user.get("picture"),
         }
-        return type(
-            "ExternalIdentityWithClaims",
-            (),
-            {
-                "issuer": mcp_oidc_issuer(),
-                "subject": resolved_user_id,
-                "claims": claims,
-            },
-        )()
+        return ExternalIdentity(
+            issuer=mcp_oidc_issuer(),
+            subject=resolved_user_id,
+            scopes=frozenset(),
+            audiences=frozenset(),
+            claims=claims,
+        )
 
     def _auth_success_response(*, user, next_path: str, resp_code: int = 200):
         token = deps._issue_session_token(user.id)
@@ -1690,7 +1687,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 )
                 external_identity = _zitadel_google_identity_from_intent(
                     payload=retrieved,
-                    user_id=None,
+                    user_id=user_id if isinstance(user_id, str) else None,
                 )
             else:
                 expected_state = cookie_payload.get("state")
@@ -1735,15 +1732,15 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                         if id_claims is not None:
                             merged_claims = dict(getattr(external_identity, "claims", {}))
                             merged_claims.update(id_claims)
-                            external_identity = type(
-                                "ExternalIdentityWithClaims",
-                                (),
-                                {
-                                    "issuer": external_identity.issuer,
-                                    "subject": external_identity.subject,
-                                    "claims": merged_claims,
-                                },
-                            )()
+                            scopes = getattr(external_identity, "scopes", frozenset())
+                            audiences = getattr(external_identity, "audiences", frozenset())
+                            external_identity = ExternalIdentity(
+                                issuer=external_identity.issuer,
+                                subject=external_identity.subject,
+                                scopes=scopes if isinstance(scopes, frozenset) else frozenset(),
+                                audiences=audiences if isinstance(audiences, frozenset) else frozenset(),
+                                claims=merged_claims,
+                            )
             resp = _complete_website_auth_for_identity(
                 external_identity=external_identity,
                 next_path=next_path,
@@ -1846,7 +1843,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         data = deps._load_json(deps.AuthPasswordLoginSchema())
         email_raw = data.get("email")
         password = data.get("password")
-        next_path = deps._safe_next_path(data.get("next") if isinstance(data.get("next"), str) else None) or "/account"
+        next_raw = data.get("next")
+        next_path = deps._safe_next_path(next_raw if isinstance(next_raw, str) else None) or "/account"
         if not isinstance(email_raw, str) or not email_raw.strip():
             abort(400, description="Email is required.")
         if not isinstance(password, str) or not password:
@@ -1905,7 +1903,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         password = data.get("password")
         first_name = data.get("first_name")
         last_name = data.get("last_name")
-        next_path = deps._safe_next_path(data.get("next") if isinstance(data.get("next"), str) else None) or "/account"
+        next_raw = data.get("next")
+        next_path = deps._safe_next_path(next_raw if isinstance(next_raw, str) else None) or "/account"
         if not isinstance(email_raw, str) or not email_raw.strip():
             abort(400, description="Email is required.")
         if not isinstance(password, str) or not password:

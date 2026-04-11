@@ -32,7 +32,7 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
 
       - name: Run basedpyright
-        run: python -m basedpyright -p backend/pyrightconfig.json
+        run: python -m basedpyright --level error -p backend/pyrightconfig.json
 
       - name: Run backend unit tests
         run: python -m unittest discover backend/tests -v

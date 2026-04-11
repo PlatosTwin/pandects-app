@@ -309,10 +309,13 @@ def _decode_access_token(token: str) -> dict[str, object]:
     except ImportError as exc:
         raise RuntimeError("PyJWT dependency is required for MCP auth.") from exc
 
-    signing_key = _signing_key_from_token(token)
+    signing_key = cast(Any, _signing_key_from_token(token))
     audiences = mcp_oidc_audiences()
     audience: str | list[str]
-    audience = list(audiences) if len(audiences) > 1 else audiences[0]
+    audience_values = list(audiences)
+    if not audience_values:
+        raise RuntimeError("MCP_OIDC_AUDIENCE is required for MCP auth.")
+    audience = audience_values if len(audience_values) > 1 else audience_values[0]
     try:
         payload_obj = jwt.decode(
             token,

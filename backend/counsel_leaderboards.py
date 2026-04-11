@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import re
-from typing import Any
+from typing import Any, TypedDict
 
 
 _MULTI_COUNSEL_SPLIT_RE = re.compile(r"\s*;\s*|\s*\n+\s*|\s+/\s+")
@@ -436,7 +436,7 @@ def _build_ranked_rows(
     limit: int,
     year: int | None = None,
 ) -> dict[str, object]:
-    rows: list[dict[str, object]] = []
+    rows: list[_RankedCounselRow] = []
     for aggregate in side_aggregates.values():
         display_name = min(
             aggregate.display_candidates.items(),
@@ -714,3 +714,9 @@ def build_counsel_leaderboards_from_assignments(
         "buy_side": to_payload(sides["buy_side"]),
         "sell_side": to_payload(sides["sell_side"]),
     }
+class _RankedCounselRow(TypedDict):
+    counsel: str
+    deal_count: int
+    total_transaction_value: float
+    years: list[dict[str, object]]
+

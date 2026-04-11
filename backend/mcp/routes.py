@@ -33,13 +33,14 @@ def _json_rpc_error(
     message: str,
     data: object | None = None,
 ) -> Response:
+    error_payload: dict[str, object] = {"code": code, "message": message}
+    if data is not None:
+        error_payload["data"] = data
     payload: dict[str, object] = {
         "jsonrpc": "2.0",
         "id": request_id,
-        "error": {"code": code, "message": message},
+        "error": error_payload,
     }
-    if data is not None:
-        payload["error"]["data"] = data
     return make_response(jsonify(payload), 200)
 
 
@@ -158,10 +159,11 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 resp.headers["WWW-Authenticate"] = 'Bearer realm="pandects-mcp"'
                 return resp
             except HTTPException as exc:
+                description = exc.description if isinstance(exc.description, str) else "Request failed."
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32602 if exc.code == 400 else -32004,
-                    message=exc.description,
+                    message=description,
                 )
             return _json_rpc_result(
                 request_id=request_id,

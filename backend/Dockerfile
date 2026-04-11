@@ -20,14 +20,15 @@ LABEL fly_launch_runtime="flask"
 WORKDIR /code
 
 RUN mkdir -p /code/backend
-COPY requirements.txt /code/backend/requirements.txt
-RUN mkdir -p /code/backend/emails
-COPY emails/package.json /code/backend/emails/package.json
-COPY emails/package-lock.json /code/backend/emails/package-lock.json
+COPY backend/requirements.txt /code/backend/requirements.txt
+RUN mkdir -p /code/emails
+COPY emails/package.json /code/emails/package.json
+COPY emails/package-lock.json /code/emails/package-lock.json
 RUN pip3 install -r /code/backend/requirements.txt
-RUN npm ci --prefix /code/backend/emails
+RUN npm ci --prefix /code/emails
 
-COPY . /code/backend
+COPY backend /code/backend
+COPY emails /code/emails
 
 EXPOSE 8080
 

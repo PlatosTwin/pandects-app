@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from flask import abort
-from marshmallow import Schema, ValidationError, fields, validate
+from marshmallow import Schema, ValidationError, fields as ma_fields, validate
 from sqlalchemy import and_, asc, desc, func, or_, text
 
 from backend.auth.mcp_runtime import McpPrincipal
@@ -37,44 +37,47 @@ _FILTER_OPTIONS_FIELDS = (
 
 
 class McpAgreementArgsSchema(AgreementArgsSchema):
-    agreement_uuid = fields.Str(required=True)
+    agreement_uuid = ma_fields.Str(required=True)
 
 
 class McpSectionArgsSchema(Schema):
-    section_uuid = fields.Str(required=True)
+    section_uuid = ma_fields.Str(required=True)
 
 
 class McpSearchAgreementsArgsSchema(Schema):
-    query = fields.Str(load_default="")
-    page = fields.Int(load_default=1)
-    page_size = fields.Int(load_default=25)
-    sort_by = fields.Str(load_default="year", validate=validate.OneOf(["year", "target", "acquirer"]))
-    sort_dir = fields.Str(load_default="desc", validate=validate.OneOf(["asc", "desc"]))
+    query = ma_fields.Str(load_default="")
+    page = ma_fields.Int(load_default=1)
+    page_size = ma_fields.Int(load_default=25)
+    sort_by = ma_fields.Str(load_default="year", validate=validate.OneOf(["year", "target", "acquirer"]))
+    sort_dir = ma_fields.Str(load_default="desc", validate=validate.OneOf(["asc", "desc"]))
 
 
 class McpListAgreementSectionsArgsSchema(Schema):
-    agreement_uuid = fields.Str(required=True)
-    standard_id = fields.List(fields.Str(), load_default=[])
-    page = fields.Int(load_default=1)
-    page_size = fields.Int(load_default=25)
-    sort_by = fields.Str(
+    agreement_uuid = ma_fields.Str(required=True)
+    standard_id = ma_fields.List(ma_fields.Str(), load_default=[])
+    page = ma_fields.Int(load_default=1)
+    page_size = ma_fields.Int(load_default=25)
+    sort_by = ma_fields.Str(
         load_default="section_uuid",
         validate=validate.OneOf(list(_SECTION_LIST_SORT_FIELDS)),
     )
-    sort_direction = fields.Str(load_default="asc", validate=validate.OneOf(["asc", "desc"]))
+    sort_direction = ma_fields.Str(load_default="asc", validate=validate.OneOf(["asc", "desc"]))
 
 
 class McpFilterOptionsArgsSchema(Schema):
-    fields = fields.List(
-        fields.Str(validate=validate.OneOf(list(_FILTER_OPTIONS_FIELDS))),
-        load_default=[],
+    fields = cast(
+        Any,
+        ma_fields.List(
+            ma_fields.Str(validate=validate.OneOf(list(_FILTER_OPTIONS_FIELDS))),
+            load_default=[],
+        ),
     )
 
 
 @dataclass(frozen=True)
 class McpToolResult:
     text: str
-    structured_content: dict[str, object]
+    structured_content: object
 
 
 def _require_scope(principal: McpPrincipal, scope: str) -> None:

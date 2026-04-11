@@ -29,8 +29,11 @@ class UserLikeProtocol(Protocol):
 
 
 class ExternalIdentityLikeProtocol(Protocol):
-    issuer: str
-    subject: str
+    @property
+    def issuer(self) -> str: ...
+
+    @property
+    def subject(self) -> str: ...
 
 
 class ApiKeyLikeProtocol(Protocol):

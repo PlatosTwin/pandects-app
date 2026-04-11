@@ -49,6 +49,18 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v yarn >/dev/null 2>&1; then
+  if command -v corepack >/dev/null 2>&1; then
+    echo "🧶 Enabling Corepack so yarn is available for Docusaurus..."
+    corepack enable
+  fi
+fi
+
+if ! command -v yarn >/dev/null 2>&1; then
+  echo "Error: yarn is required to run docs generation. Install it or enable Corepack." >&2
+  exit 1
+fi
+
 npm run clean-api
 npm run gen-api
 

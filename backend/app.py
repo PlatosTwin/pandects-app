@@ -1,5 +1,5 @@
 import os
-from typing import Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 from collections.abc import Iterable
 from pathlib import Path
 import time
@@ -1144,7 +1144,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
             kwargs["headers"] = headers
         if method is not None:
             kwargs["method"] = method
-        return _oauth_fetch_json(url, **kwargs)
+        return cast(Any, _oauth_fetch_json)(url, **kwargs)
 
     def _verify_turnstile_token_for_routes(*, token: str) -> None:
         _verify_turnstile_token(token=token)

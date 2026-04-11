@@ -12,19 +12,19 @@ from sqlalchemy import text
 
 
 def _set_default_env() -> None:
-    os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
-    os.environ.setdefault("MARIADB_USER", "root")
-    os.environ.setdefault("MARIADB_PASSWORD", "password")
-    os.environ.setdefault("MARIADB_HOST", "127.0.0.1")
-    os.environ.setdefault("MARIADB_DATABASE", "pdx")
-    os.environ.setdefault("AUTH_SECRET_KEY", "test-auth-secret")
-    os.environ.setdefault("PUBLIC_API_BASE_URL", "http://localhost:5000")
-    os.environ.setdefault("PUBLIC_FRONTEND_BASE_URL", "http://localhost:8080")
-    os.environ.setdefault("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id")
-    os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
-    os.environ.setdefault("MCP_ZITADEL_CLIENT_ID", "test-zitadel-client-id")
-    os.environ.setdefault("MCP_OIDC_ISSUER", "https://pandects-test-zitadel.example.com")
-    os.environ.setdefault("MCP_OIDC_AUDIENCE", "https://api.pandects.org/mcp")
+    os.environ["SKIP_MAIN_DB_REFLECTION"] = "1"
+    os.environ["MARIADB_USER"] = "root"
+    os.environ["MARIADB_PASSWORD"] = "password"
+    os.environ["MARIADB_HOST"] = "127.0.0.1"
+    os.environ["MARIADB_DATABASE"] = "pdx"
+    os.environ["AUTH_SECRET_KEY"] = "test-auth-secret"
+    os.environ["PUBLIC_API_BASE_URL"] = "http://localhost:5000"
+    os.environ["PUBLIC_FRONTEND_BASE_URL"] = "http://localhost:8080"
+    os.environ["GOOGLE_OAUTH_CLIENT_ID"] = "test-google-client-id"
+    os.environ["GOOGLE_OAUTH_CLIENT_SECRET"] = "test-google-client-secret"
+    os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
+    os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
+    os.environ["MCP_OIDC_AUDIENCE"] = "https://api.pandects.org/mcp"
     os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
     os.environ.pop("AUTH_ZITADEL_PROJECT_NAME", None)
     os.environ["TURNSTILE_ENABLED"] = "0"
@@ -36,7 +36,7 @@ _set_default_env()
 
 _AUTH_DB_TEMP = tempfile.NamedTemporaryFile(prefix="pandects_auth_", suffix=".sqlite", delete=False)
 _AUTH_DB_TEMP.close()
-os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
+os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 
 from backend.app import create_test_app, db, ApiKey, ApiUsageDaily, AuthExternalSubject, AuthUser  # noqa: E402
@@ -61,6 +61,7 @@ class AuthFlowTests(unittest.TestCase):
             db.create_all(bind_key="auth")
 
     def setUp(self) -> None:
+        _set_default_env()
         with self.app.app_context():
             engine = db.engines["auth"]
             with engine.begin() as conn:
@@ -752,6 +753,24 @@ class AuthFlowTests(unittest.TestCase):
                                 "isVerified": True,
                             },
                         }
+                    }
+                }
+            if url == "https://pandects-test-zitadel.example.com/v2/idp_intents/intent-123":
+                self.assertEqual(method, "POST")
+                self.assertEqual(json_body, {"idpIntentToken": "intent-token-123"})
+                return {
+                    "idpInformation": {
+                        "idpId": "google-idp-123",
+                        "rawInformation": {
+                            "User": {
+                                "sub": "google-sub-123",
+                                "email": "existing-google@example.com",
+                                "email_verified": True,
+                                "name": "Existing Google",
+                                "given_name": "Existing",
+                                "family_name": "Google",
+                            }
+                        },
                     }
                 }
             self.fail(f"Unexpected ZITADEL API request: {url}")

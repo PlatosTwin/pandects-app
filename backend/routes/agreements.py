@@ -1136,7 +1136,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         ).mappings().first()
 
         row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
-        payload: dict[str, object] = {
+        payload: dict[str, int] = {
             "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
             "sections": deps._to_int(cast(object, row_dict.get("sections"))),
             "pages": deps._to_int(cast(object, row_dict.get("pages"))),
