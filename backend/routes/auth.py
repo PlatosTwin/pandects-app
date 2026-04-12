@@ -1513,15 +1513,37 @@ if (!token) {{
         if token_endpoint_auth_method != "none":
             abort(400, description="Only public clients with token_endpoint_auth_method=none are supported.")
         grant_types = data.get("grant_types", ["authorization_code"])
+        if not isinstance(grant_types, list) or not all(
+            isinstance(item, str) and item.strip() for item in grant_types
+        ):
+            abort(400, description="grant_types must be a non-empty array of strings.")
+        normalized_grant_types = {
+            item.strip() for item in grant_types if isinstance(item, str) and item.strip()
+        }
+        if not normalized_grant_types or "authorization_code" not in normalized_grant_types:
+            abort(400, description="OAuth clients must support the authorization_code grant.")
+        unsupported_grant_types = normalized_grant_types.difference(
+            {"authorization_code", "refresh_token"}
+        )
+        if unsupported_grant_types:
+            abort(400, description="Only authorization_code clients are supported.")
+
         response_types = data.get("response_types", ["code"])
-        if grant_types != ["authorization_code"] or response_types != ["code"]:
-            abort(400, description="Only authorization_code/code clients are supported.")
+        if not isinstance(response_types, list) or not all(
+            isinstance(item, str) and item.strip() for item in response_types
+        ):
+            abort(400, description="response_types must be a non-empty array of strings.")
+        normalized_response_types = {
+            item.strip() for item in response_types if isinstance(item, str) and item.strip()
+        }
+        if normalized_response_types != {"code"}:
+            abort(400, description="Only code response types are supported.")
         client = deps.AuthOAuthClient(
             client_id=secrets.token_urlsafe(24),
             client_name=(data.get("client_name") or None) if isinstance(data.get("client_name"), str) else None,
             redirect_uris=normalized_redirect_uris,
             token_endpoint_auth_method="none",
-            grant_types=["authorization_code"],
+            grant_types=sorted(normalized_grant_types),
             response_types=["code"],
             created_by_ip=deps._request_ip_address(),
         )
@@ -1531,7 +1553,7 @@ if (!token) {{
             "client_id": client.client_id,
             "client_id_issued_at": int(client.created_at.timestamp()),
             "redirect_uris": normalized_redirect_uris,
-            "grant_types": ["authorization_code"],
+            "grant_types": sorted(normalized_grant_types),
             "response_types": ["code"],
             "token_endpoint_auth_method": "none",
         }

@@ -2417,6 +2417,26 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIn("pandects.sessionToken", body)
         self.assertIn("/v1/auth/oauth/browser-session", body)
 
+    def test_oauth_register_accepts_refresh_token_metadata_for_public_code_clients(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        self.assertEqual(
+            register.get_json()["grant_types"],
+            ["authorization_code", "refresh_token"],
+        )
+
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
