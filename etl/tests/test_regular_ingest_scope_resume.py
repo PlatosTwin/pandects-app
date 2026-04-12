@@ -8,8 +8,10 @@ from unittest.mock import ANY, patch
 
 from dagster import AssetExecutionContext
 
+from etl.defs.a_staging_asset import regular_ingest_staging_asset
 from etl.defs.b_pre_processing_asset import regular_ingest_pre_processing_asset
-from etl.defs.f_xml_asset import regular_ingest_xml_verify_asset
+from etl.defs.c_tagging_asset import regular_ingest_tagging_asset
+from etl.defs.f_xml_asset import regular_ingest_xml_asset, regular_ingest_xml_verify_asset
 from etl.defs.f_xml_repair_cycle_asset import (
     regular_ingest_post_repair_build_xml_asset,
     regular_ingest_post_repair_verify_xml_asset,
@@ -102,6 +104,34 @@ def _fallback_scope(
 
 
 class RegularIngestScopeResumeTests(unittest.TestCase):
+    def test_regular_ingest_staging_skips_when_stage_already_completed(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = PipelineConfig()
+
+        with (
+            patch(
+                "etl.defs.a_staging_asset.start_or_resume_logical_run",
+                return_value=SimpleNamespace(agreement_uuids=["agreement-1"], resumed_existing=True),
+            ),
+            patch(
+                "etl.defs.a_staging_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_tx_metadata_offline"),
+            ),
+            patch(
+                "etl.defs.a_staging_asset._run_staging",
+                side_effect=AssertionError("regular_ingest_staging_asset should not restage a resumed run"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_staging_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+
     def test_regular_ingest_pre_processing_skips_pre_gating_for_empty_scope(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(log=_FakeLog())
@@ -112,6 +142,7 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
         with (
             patch("etl.defs.b_pre_processing_asset.is_pre_processing_cleanup_mode", return_value=False),
             patch("etl.defs.b_pre_processing_asset.start_or_resume_logical_run", return_value=None),
+            patch("etl.defs.b_pre_processing_asset.should_skip_managed_stage", return_value=(False, None)),
             patch(
                 "etl.defs.b_pre_processing_asset.run_pre_asset_gating",
                 side_effect=AssertionError("regular_ingest_pre_processing_asset should not gate an empty staged scope"),
@@ -135,6 +166,94 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
             stage_name="regular_ingest_pre_processing",
         )
 
+    def test_regular_ingest_pre_processing_skips_completed_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = PipelineConfig()
+        classifier_model = cast(object, SimpleNamespace())
+        review_model = cast(object, SimpleNamespace())
+
+        with (
+            patch("etl.defs.b_pre_processing_asset.is_pre_processing_cleanup_mode", return_value=False),
+            patch(
+                "etl.defs.b_pre_processing_asset.start_or_resume_logical_run",
+                return_value=SimpleNamespace(agreement_uuids=["agreement-1"], resumed_existing=True),
+            ),
+            patch(
+                "etl.defs.b_pre_processing_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_tx_metadata_offline"),
+            ),
+            patch(
+                "etl.defs.b_pre_processing_asset._run_pre_processing_from_scratch",
+                side_effect=AssertionError("regular_ingest_pre_processing_asset should skip completed stage work"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_pre_processing_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                classifier_model,
+                review_model,
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+
+    def test_regular_ingest_tagging_skips_completed_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = PipelineConfig()
+        tagging_model = cast(object, SimpleNamespace())
+
+        with (
+            patch("etl.defs.c_tagging_asset.load_active_scope_for_job", return_value=["agreement-1"]),
+            patch(
+                "etl.defs.c_tagging_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_tx_metadata_offline"),
+            ),
+            patch(
+                "etl.defs.c_tagging_asset._run_tagging_for_agreements",
+                side_effect=AssertionError("regular_ingest_tagging_asset should skip completed stage work"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_tagging_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                tagging_model,
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+
+    def test_regular_ingest_xml_build_skips_completed_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(log=_FakeLog())
+        pipeline_config = PipelineConfig()
+
+        with (
+            patch("etl.defs.f_xml_asset.load_active_scope_for_job", return_value=["agreement-1"]),
+            patch(
+                "etl.defs.f_xml_asset.should_skip_managed_stage",
+                return_value=(True, "regular_ingest_tx_metadata_offline"),
+            ),
+            patch(
+                "etl.defs.f_xml_asset._run_xml_build_for_agreements",
+                side_effect=AssertionError("regular_ingest_xml_asset should skip completed stage work"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_xml_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+
     def test_regular_ingest_xml_verify_does_not_resume_unrelated_stranded_batch(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(log=_FakeLog())
@@ -151,6 +270,7 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
                 side_effect=_fallback_scope,
             ),
             patch("etl.defs.f_xml_asset.load_active_logical_run", return_value=None),
+            patch("etl.defs.f_xml_asset.should_skip_managed_stage", return_value=(False, None)),
             patch("etl.defs.f_xml_asset.mark_logical_run_stage_completed", return_value=None),
             patch(
                 "etl.defs.f_xml_asset._fetch_unpulled_xml_verify_batch",

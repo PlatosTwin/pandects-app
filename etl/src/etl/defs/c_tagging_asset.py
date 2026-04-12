@@ -22,6 +22,7 @@ from etl.utils.db_utils import upsert_tags
 from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
     start_or_resume_logical_run,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
@@ -223,6 +224,17 @@ def regular_ingest_tagging_asset(
         job_name="regular_ingest",
         fallback_agreement_uuids=pre_processed_agreement_uuids,
     )
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_tagging",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_tagging_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return scope_uuids
     processed_agreement_uuids = _run_tagging_for_agreements(
         context,
         db=db,
@@ -261,6 +273,17 @@ def ingestion_cleanup_a_tagging_asset(
         selected_agreement_uuids=selected_scope,
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_tagging",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_tagging_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return scope_uuids
     processed_agreement_uuids = _run_tagging_for_agreements(
         context,
         db=db,

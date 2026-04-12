@@ -28,6 +28,7 @@ MANAGED_LOGICAL_JOB_NAMES = {
 
 MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
     "regular_ingest": (
+        "regular_ingest_staging",
         "regular_ingest_pre_processing",
         "regular_ingest_tagging",
         "regular_ingest_build_xml",
@@ -686,7 +687,18 @@ def should_skip_managed_stage(
         for stage in active_run.get("completed_stages", [])
         if isinstance(stage, str) and stage in stage_sequence
     }
-    return stage_name in completed_stages, current_stage
+    if stage_name in completed_stages:
+        return True, current_stage
+
+    # Backward compatibility for logical runs recorded before completed_stages_json
+    # was populated consistently. If a legacy run has no explicit completed-stage
+    # history but has already advanced to a later stage, skip any earlier stage.
+    current_stage_index = _stage_index(job_name, str(current_stage) if current_stage is not None else None)
+    target_stage_index = _stage_index(job_name, stage_name)
+    if not completed_stages and current_stage_index > target_stage_index >= 0:
+        return True, current_stage
+
+    return False, current_stage
 
 
 def mark_logical_run_stage_completed(

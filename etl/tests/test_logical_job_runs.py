@@ -264,6 +264,37 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(active_run["logical_run_id"], first_run.logical_run_id)
         self.assertEqual(active_run["status"], LOGICAL_RUN_STATUS_RUNNING)
 
+    def test_regular_ingest_staging_is_tracked_as_completed_stage(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-staging-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+
+        self.assertIsNotNone(logical_run)
+        assert logical_run is not None
+        self.assertEqual(MANAGED_JOB_STAGE_SEQUENCE["regular_ingest"][0], "regular_ingest_staging")
+
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+
+        should_skip, current_stage = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+        self.assertTrue(should_skip)
+        self.assertEqual(current_stage, "regular_ingest_staging")
+
     def test_force_new_logical_run_abandons_failed_run_and_creates_new_one(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(run_id="dagster-1")
@@ -551,6 +582,51 @@ class LogicalJobRunTests(unittest.TestCase):
         )
         self.assertFalse(should_skip_repair)
         self.assertEqual(current_stage_repair, "regular_ingest_sections_from_fresh_xml")
+
+    def test_should_skip_earlier_stage_for_legacy_run_without_completed_stage_history(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-legacy-1")
+
+        logical_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        self.assertIsNotNone(logical_run)
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tx_metadata_offline",
+            dagster_run_id="dagster-legacy-1",
+        )
+        _ = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-legacy-2"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=[],
+        )
+
+        should_skip_staging, current_stage_staging = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+        self.assertTrue(should_skip_staging)
+        self.assertEqual(current_stage_staging, "regular_ingest_tx_metadata_offline")
+
+        should_skip_current, current_stage_current = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tx_metadata_offline",
+        )
+        self.assertFalse(should_skip_current)
+        self.assertEqual(current_stage_current, "regular_ingest_tx_metadata_offline")
 
 
 if __name__ == "__main__":

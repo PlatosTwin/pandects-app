@@ -1410,6 +1410,17 @@ def regular_ingest_xml_asset(
         job_name="regular_ingest",
         fallback_agreement_uuids=tagged_agreement_uuids,
     )
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_build_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return scope_uuids
     built_agreement_uuids = _run_xml_build_for_agreements(
         context,
         db=db,
@@ -1442,6 +1453,17 @@ def ingestion_cleanup_a_xml_asset(
         job_name="ingestion_cleanup_a",
         fallback_agreement_uuids=tagged_agreement_uuids,
     )
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_a",
+        stage_name="ingestion_cleanup_a_build_xml",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_a_xml_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return scope_uuids
     built_agreement_uuids = _run_xml_build_for_agreements(
         context,
         db=db,

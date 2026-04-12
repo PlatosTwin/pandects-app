@@ -32,6 +32,7 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_g
 from etl.utils.pipeline_state_sql import canonical_pre_processing_queue_sql
 from etl.utils.logical_job_runs import (
     mark_logical_run_stage_completed,
+    should_skip_managed_stage,
     start_or_resume_logical_run,
 )
 from etl.utils.run_config import is_pre_processing_cleanup_mode, runs_single_batch
@@ -400,6 +401,17 @@ def regular_ingest_pre_processing_asset(
         if logical_run is not None
         else sorted({str(agreement_uuid) for agreement_uuid in staged_agreement_uuids if agreement_uuid})
     )
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_pre_processing",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_pre_processing_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return scope_uuids
     if not scope_uuids:
         mark_logical_run_stage_completed(
             db=db,

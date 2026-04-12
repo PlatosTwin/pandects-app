@@ -25,6 +25,11 @@ from etl.domain.a_staging import (
     fetch_new_filings_sec_index,
 )
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
+from etl.utils.logical_job_runs import (
+    mark_logical_run_stage_completed,
+    should_skip_managed_stage,
+    start_or_resume_logical_run,
+)
 from etl.utils.db_utils import upsert_agreements as _upsert_agreements
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 
@@ -614,9 +619,45 @@ def regular_ingest_staging_asset(
     pipeline_config: PipelineConfig,
 ) -> list[str]:
     """Stage filings and return only newly inserted, non-deduped agreement UUIDs."""
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="regular_ingest",
+        initial_stage="regular_ingest_staging",
+        selected_agreement_uuids=[],
+    )
+    resumed_scope = logical_run.agreement_uuids if logical_run is not None else []
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="regular_ingest",
+        stage_name="regular_ingest_staging",
+    )
+    if should_skip:
+        context.log.info(
+            "regular_ingest_staging_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return resumed_scope
+
     _, scoped_agreement_uuids = _run_staging(context, db, pipeline_config)
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="regular_ingest",
+        initial_stage="regular_ingest_staging",
+        selected_agreement_uuids=scoped_agreement_uuids,
+    )
+    final_scope = logical_run.agreement_uuids if logical_run is not None else sorted(set(scoped_agreement_uuids))
+    if final_scope:
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
     context.log.info(
         "regular_ingest_staging_asset: scoped %s newly inserted non-deduped agreements.",
-        len(scoped_agreement_uuids),
+        len(final_scope),
     )
-    return scoped_agreement_uuids
+    return final_scope
