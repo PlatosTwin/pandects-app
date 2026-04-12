@@ -108,9 +108,9 @@ export default function XmlSchema() {
                 role="region"
                 aria-label="XML element tree"
                 tabIndex={0}
-                className="rounded-lg border border-border/60 bg-muted/40 p-4 overflow-x-auto"
+                className="rounded-lg border border-border/60 bg-muted/40 p-4"
               >
-                <pre className="whitespace-pre text-sm font-mono text-muted-foreground">
+                <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs font-mono text-muted-foreground [overflow-wrap:anywhere] sm:text-sm sm:whitespace-pre">
                   {XML_ELEMENT_TREE}
                 </pre>
               </div>

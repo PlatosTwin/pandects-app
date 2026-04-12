@@ -1,11 +1,14 @@
 import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
 
 import type { TrendsChartSeries } from "@/components/AgreementTrendsCharts";
+import { MobileChartModal } from "@/components/MobileChartModal";
 import { PageShell } from "@/components/PageShell";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
@@ -278,8 +281,11 @@ function OwnershipStructurePanel({
 }: {
   ownership: AgreementTrendsResponse["ownership"];
 }) {
+  const isMobile = useIsMobile();
   const [mixMetric, setMixMetric] = useState<OwnershipMetric>("deal_count");
   const [matrixMetric, setMatrixMetric] = useState<HeatmapMetric>("deal_count");
+  const [isMixChartModalOpen, setIsMixChartModalOpen] = useState(false);
+  const [isDealSizeChartModalOpen, setIsDealSizeChartModalOpen] = useState(false);
   const mixDescriptionId = useId();
   const dealSizeDescriptionId = useId();
   const matrixDescriptionId = useId();
@@ -421,16 +427,54 @@ function OwnershipStructurePanel({
             100 percent stacked area chart showing public-target and private-target share by filing
             year.
           </p>
-          <Suspense fallback={<ChartSkeleton />}>
-            <TrendsStackedShareAreaChart
-              ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
-              data={mixChartData}
-              describedBy={mixDescriptionId}
-              series={OWNERSHIP_SERIES}
-              tableId={mixTableId}
-              valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
-            />
-          </Suspense>
+          {isMobile ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsMixChartModalOpen(true)}
+                aria-haspopup="dialog"
+                aria-describedby={mixDescriptionId}
+              >
+                Open chart
+              </Button>
+              <MobileChartModal
+                open={isMixChartModalOpen}
+                onOpenChange={setIsMixChartModalOpen}
+                title="Public vs. Private Target Mix Over Time"
+                description="Shows the share of public versus private targets by filing year."
+              >
+                <div className="mx-auto w-full max-w-[980px]">
+                  <h2 className="mb-2 text-base font-semibold">
+                    Public vs. Private Target Mix Over Time
+                  </h2>
+                  <Suspense fallback={<ChartSkeleton />}>
+                    <TrendsStackedShareAreaChart
+                      className="border-0 bg-background p-0"
+                      ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
+                      data={mixChartData}
+                      describedBy={mixDescriptionId}
+                      series={OWNERSHIP_SERIES}
+                      tableId={mixTableId}
+                      valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
+                    />
+                  </Suspense>
+                </div>
+              </MobileChartModal>
+            </>
+          ) : (
+            <Suspense fallback={<ChartSkeleton />}>
+              <TrendsStackedShareAreaChart
+                ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
+                data={mixChartData}
+                describedBy={mixDescriptionId}
+                series={OWNERSHIP_SERIES}
+                tableId={mixTableId}
+                valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
+              />
+            </Suspense>
+          )}
         </CardContent>
       </Card>
 
@@ -450,15 +494,52 @@ function OwnershipStructurePanel({
             Line chart showing median reported deal size with 25th to 75th percentile bands for
             public and private targets by filing year.
           </p>
-          <Suspense fallback={<ChartSkeleton />}>
-            <TrendsMedianBandChart
-              ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
-              data={dealSizeChartData}
-              describedBy={dealSizeDescriptionId}
-              tableId={dealSizeTableId}
-              valueFormatter={(value) => formatMoney(value)}
-            />
-          </Suspense>
+          {isMobile ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsDealSizeChartModalOpen(true)}
+                aria-haspopup="dialog"
+                aria-describedby={dealSizeDescriptionId}
+              >
+                Open chart
+              </Button>
+              <MobileChartModal
+                open={isDealSizeChartModalOpen}
+                onOpenChange={setIsDealSizeChartModalOpen}
+                title="Public vs. Private Deal Size"
+                description="Shows median reported deal value with percentile bands for public and private targets by filing year."
+              >
+                <div className="mx-auto w-full max-w-[980px]">
+                  <h2 className="mb-2 text-base font-semibold">
+                    Public vs. Private Deal Size
+                  </h2>
+                  <Suspense fallback={<ChartSkeleton />}>
+                    <TrendsMedianBandChart
+                      className="border-0 bg-background p-0"
+                      ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
+                      data={dealSizeChartData}
+                      describedBy={dealSizeDescriptionId}
+                      tableId={dealSizeTableId}
+                      valueFormatter={(value) => formatMoney(value)}
+                    />
+                  </Suspense>
+                </div>
+              </MobileChartModal>
+            </>
+          ) : (
+            <Suspense fallback={<ChartSkeleton />}>
+              <TrendsMedianBandChart
+                ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
+                data={dealSizeChartData}
+                describedBy={dealSizeDescriptionId}
+                tableId={dealSizeTableId}
+                valueFormatter={(value) => formatMoney(value)}
+              />
+            </Suspense>
+          )}
         </CardContent>
       </Card>
 
@@ -523,12 +604,17 @@ function IndustryDynamicsPanel({
 }: {
   industries: AgreementTrendsResponse["industries"];
 }) {
+  const isMobile = useIsMobile();
   const [compositionMetric, setCompositionMetric] =
     useState<OwnershipMetric>("deal_count");
   const [pairingsMetric, setPairingsMetric] =
     useState<OwnershipMetric>("deal_count");
   const [concentrationMetric, setConcentrationMetric] =
     useState<OwnershipMetric>("deal_count");
+  const [isCompositionChartModalOpen, setIsCompositionChartModalOpen] =
+    useState(false);
+  const [isConcentrationChartModalOpen, setIsConcentrationChartModalOpen] =
+    useState(false);
   const compositionDescriptionId = useId();
   const pairingsDescriptionId = useId();
   const concentrationDescriptionId = useId();
@@ -743,18 +829,58 @@ function IndustryDynamicsPanel({
           <p id={compositionTableId} className="sr-only">
             100 percent stacked area chart showing target-industry composition by filing year.
           </p>
-          <Suspense fallback={<ChartSkeleton />}>
-            <TrendsStackedShareAreaChart
-              ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
-              data={industryComposition.data}
-              describedBy={compositionDescriptionId}
-              series={industryComposition.series}
-              tableId={compositionTableId}
-              valueFormatter={
-                compositionMetric === "deal_count" ? formatCount : formatMoney
-              }
-            />
-          </Suspense>
+          {isMobile ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsCompositionChartModalOpen(true)}
+                aria-haspopup="dialog"
+                aria-describedby={compositionDescriptionId}
+              >
+                Open chart
+              </Button>
+              <MobileChartModal
+                open={isCompositionChartModalOpen}
+                onOpenChange={setIsCompositionChartModalOpen}
+                title="Industry Composition Over Time"
+                description="Shows the share of deals by target industry over time."
+              >
+                <div className="mx-auto w-full max-w-[980px]">
+                  <h2 className="mb-2 text-base font-semibold">
+                    Industry Composition Over Time
+                  </h2>
+                  <Suspense fallback={<ChartSkeleton />}>
+                    <TrendsStackedShareAreaChart
+                      className="border-0 bg-background p-0"
+                      ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
+                      data={industryComposition.data}
+                      describedBy={compositionDescriptionId}
+                      series={industryComposition.series}
+                      tableId={compositionTableId}
+                      valueFormatter={
+                        compositionMetric === "deal_count" ? formatCount : formatMoney
+                      }
+                    />
+                  </Suspense>
+                </div>
+              </MobileChartModal>
+            </>
+          ) : (
+            <Suspense fallback={<ChartSkeleton />}>
+              <TrendsStackedShareAreaChart
+                ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
+                data={industryComposition.data}
+                describedBy={compositionDescriptionId}
+                series={industryComposition.series}
+                tableId={compositionTableId}
+                valueFormatter={
+                  compositionMetric === "deal_count" ? formatCount : formatMoney
+                }
+              />
+            </Suspense>
+          )}
         </CardContent>
       </Card>
 
@@ -841,15 +967,54 @@ function IndustryDynamicsPanel({
             Line chart showing the share of annual activity accounted for by the top five target
             industries.
           </p>
-          <Suspense fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}>
-            <TrendsPercentLineChart
-              ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
-              data={concentrationTrend.data}
-              describedBy={concentrationDescriptionId}
-              lineColor="hsl(12 76% 61%)"
-              tableId={concentrationTableId}
-            />
-          </Suspense>
+          {isMobile ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsConcentrationChartModalOpen(true)}
+                aria-haspopup="dialog"
+                aria-describedby={concentrationDescriptionId}
+              >
+                Open chart
+              </Button>
+              <MobileChartModal
+                open={isConcentrationChartModalOpen}
+                onOpenChange={setIsConcentrationChartModalOpen}
+                title="Sector Concentration Trend"
+                description="Shows the share of annual activity accounted for by the five largest target industries."
+              >
+                <div className="mx-auto w-full max-w-[980px]">
+                  <h2 className="mb-2 text-base font-semibold">
+                    Sector Concentration Trend
+                  </h2>
+                  <Suspense
+                    fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}
+                  >
+                    <TrendsPercentLineChart
+                      className="border-0 bg-background p-0"
+                      ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
+                      data={concentrationTrend.data}
+                      describedBy={concentrationDescriptionId}
+                      lineColor="hsl(12 76% 61%)"
+                      tableId={concentrationTableId}
+                    />
+                  </Suspense>
+                </div>
+              </MobileChartModal>
+            </>
+          ) : (
+            <Suspense fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}>
+              <TrendsPercentLineChart
+                ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
+                data={concentrationTrend.data}
+                describedBy={concentrationDescriptionId}
+                lineColor="hsl(12 76% 61%)"
+                tableId={concentrationTableId}
+              />
+            </Suspense>
+          )}
           <div className="flex flex-wrap gap-2">
             {concentrationTrend.topIndustries.map((industry) => (
               <span

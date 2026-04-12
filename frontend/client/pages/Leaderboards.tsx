@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
@@ -86,6 +87,7 @@ function formatTransactionValue(value: number) {
 }
 
 function LeaderboardSection({ description, side, title }: CounselSectionProps) {
+  const isMobile = useIsMobile();
   const [metric, setMetric] = useState<LeaderboardMetric>("deal_count");
   const [view, setView] = useState<LeaderboardView>("table");
   const [tableYear, setTableYear] = useState<string>("all");
@@ -147,6 +149,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
         return nextRow;
       });
   }, [chartRows, metric]);
+  const activeView: LeaderboardView = isMobile ? "table" : view;
 
   return (
     <section aria-labelledby={descriptionId} className="space-y-4">
@@ -188,34 +191,36 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                View
-              </span>
-              <ToggleGroup
-                type="single"
-                value={view}
-                onValueChange={(value) => {
-                  if (value === "table" || value === "chart") {
-                    setView(value);
-                  }
-                }}
-                variant="outline"
-                aria-label={`${title} view`}
-                className="justify-start"
-              >
-                <ToggleGroupItem value="table" aria-label="Show table">
-                  Table
-                </ToggleGroupItem>
-                <ToggleGroupItem value="chart" aria-label="Show chart">
-                  Chart
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
+            {!isMobile ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  View
+                </span>
+                <ToggleGroup
+                  type="single"
+                  value={view}
+                  onValueChange={(value) => {
+                    if (value === "table" || value === "chart") {
+                      setView(value);
+                    }
+                  }}
+                  variant="outline"
+                  aria-label={`${title} view`}
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="table" aria-label="Show table">
+                    Table
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="chart" aria-label="Show chart">
+                    Chart
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {view === "table" ? (
+          {activeView === "table" ? (
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Table window
@@ -239,18 +244,18 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
             </div>
           ) : null}
 
-          {view === "table" && tableRows.length === 0 ? (
+          {activeView === "table" && tableRows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/80 bg-background/70 px-4 py-8 text-sm text-muted-foreground">
               No counsel leaderboard data is available for that year yet.
             </div>
-          ) : view === "table" ? (
+          ) : activeView === "table" ? (
             <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/80">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60%] min-w-[16rem]">Firm</TableHead>
+                    <TableHead className="w-[52%] min-w-[12rem] sm:min-w-[14rem]">Firm</TableHead>
                     <TableHead className="text-right">Deals</TableHead>
-                    <TableHead className="text-right">Total transaction value</TableHead>
+                    <TableHead className="text-right">Total value</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

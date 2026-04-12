@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { logger } from "@/lib/logger";
 import {
   buildTaxonomyEntries,
@@ -39,6 +40,7 @@ export default function Taxonomy() {
   const currentTab = searchParams.get("tab") === "tax" ? "tax" : "main";
   const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
   const [searchQuery, setSearchQuery] = useState("");
+  const isMobile = useIsMobile();
   const [hasActivatedSearch, setHasActivatedSearch] = useState(false);
   const [openLevel1, setOpenLevel1] = useState<string[]>([]);
   const [openLevel2ByParent, setOpenLevel2ByParent] = useState<
@@ -422,9 +424,11 @@ export default function Taxonomy() {
                                   )}
                                 </div>
                               )}
-                              <div className="font-mono text-xs text-foreground/75">
-                                {renderHighlighted(result.id)}
-                              </div>
+                              {!isMobile ? (
+                                <div className="font-mono text-xs text-foreground/75">
+                                  {renderHighlighted(result.id)}
+                                </div>
+                              ) : null}
                             </div>
                           </button>
                         </li>
@@ -566,12 +570,14 @@ export default function Taxonomy() {
                             {entry.label}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/80">
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
-                              <span className="font-mono text-[11px] text-foreground/75">
-                                {entry.id}
+                            {!isMobile ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
+                                <span className="font-mono text-[11px] text-foreground/75">
+                                  {entry.id}
+                                </span>
+                                {renderCopyControl(entry.id, "Copy level 1 ID")}
                               </span>
-                              {renderCopyControl(entry.id, "Copy level 1 ID")}
-                            </span>
+                            ) : null}
                             <span>{entry.l2Count} groups</span>
                             <span>{entry.l3Count} types</span>
                           </div>
@@ -626,14 +632,16 @@ export default function Taxonomy() {
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                <div className="mb-3">
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
-                                    <span className="font-mono text-[11px] text-foreground/75">
-                                      {child.id}
+                                {!isMobile ? (
+                                  <div className="mb-3">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
+                                      <span className="font-mono text-[11px] text-foreground/75">
+                                        {child.id}
+                                      </span>
+                                      {renderCopyControl(child.id, "Copy level 2 ID")}
                                     </span>
-                                    {renderCopyControl(child.id, "Copy level 2 ID")}
-                                  </span>
-                                </div>
+                                  </div>
+                                ) : null}
                                 <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                   {child.children.map((leaf) => (
                                     <li
@@ -648,12 +656,14 @@ export default function Taxonomy() {
                                       <div className="text-sm font-medium text-foreground">
                                         {leaf.label}
                                       </div>
-                                      <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80">
-                                        <span className="font-mono text-xs text-foreground/75">
-                                          {leaf.id}
-                                        </span>
-                                        {renderCopyControl(leaf.id, "Copy level 3 ID")}
-                                      </div>
+                                      {!isMobile ? (
+                                        <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80">
+                                          <span className="font-mono text-xs text-foreground/75">
+                                            {leaf.id}
+                                          </span>
+                                          {renderCopyControl(leaf.id, "Copy level 3 ID")}
+                                        </div>
+                                      ) : null}
                                     </li>
                                   ))}
                                 </ul>
