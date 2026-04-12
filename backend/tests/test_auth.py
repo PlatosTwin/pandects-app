@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import time
+from base64 import urlsafe_b64encode
 from datetime import date, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
@@ -47,6 +48,10 @@ from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
 
 def _make_api_usage_daily(*, api_key_id: str, day: date, count: int) -> object:
     return ApiUsageDaily(api_key_id=api_key_id, day=day, count=count)  # pyright: ignore[reportCallIssue]
+
+
+def _pkce_challenge(verifier: str) -> str:
+    return urlsafe_b64encode(hashlib.sha256(verifier.encode("utf-8")).digest()).rstrip(b"=").decode("ascii")
 
 
 class AuthFlowTests(unittest.TestCase):
@@ -2286,6 +2291,131 @@ class AuthFlowTests(unittest.TestCase):
             rows = AuthExternalSubject.query.all()
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0].subject, "zitadel-token-user")
+
+    def test_oauth_facade_flow_registers_authorizes_and_initializes_mcp(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="oauth-facade@example.com")
+        with self.app.app_context():
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="oauth-facade-zitadel-user",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="oauth-facade@example.com")
+        client.get("/v1/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        redirect_location = authorize.headers["Location"]
+        parsed = urlparse(redirect_location)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "codex.example.com")
+        auth_code = parse_qs(parsed.query)["code"][0]
+
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "test-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 400)
+
+        good_challenge = _pkce_challenge("good-verifier")
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            f"&code_challenge={good_challenge}"
+            "&code_challenge_method=S256"
+        )
+        auth_code = parse_qs(urlparse(authorize.headers["Location"]).query)["code"][0]
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "good-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 200)
+        access_token = token.get_json()["access_token"]
+
+        mcp = client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        )
+        self.assertEqual(mcp.status_code, 200)
+        self.assertEqual(mcp.get_json()["result"]["serverInfo"]["name"], "pandects-mcp")
+
+    def test_oauth_authorize_returns_bearer_bridge_when_session_transport_is_bearer(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 200)
+        body = authorize.get_data(as_text=True)
+        self.assertIn("pandects.sessionToken", body)
+        self.assertIn("/v1/auth/oauth/browser-session", body)
 
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

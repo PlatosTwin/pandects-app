@@ -261,6 +261,9 @@ class AuthDeps:
     AuthApiKeySchema: type[Schema]
     AuthDeleteAccountSchema: type[Schema]
     AuthExternalSubject: Any
+    AuthOAuthAuthorizationCode: Any
+    AuthOAuthClient: Any
+    AuthOAuthSigningKey: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
     AuthPasswordLoginSchema: type[Schema]

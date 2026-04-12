@@ -206,3 +206,50 @@ class AuthSignonEvent(db.Model):
     occurred_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     ip_address = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(512), nullable=True)
+
+
+class AuthOAuthClient(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_oauth_clients"
+
+    client_id = db.Column(db.String(128), primary_key=True)
+    client_name = db.Column(db.String(255), nullable=True)
+    redirect_uris = db.Column(db.JSON, nullable=False)
+    token_endpoint_auth_method = db.Column(db.String(32), nullable=False, default="none")
+    grant_types = db.Column(db.JSON, nullable=False)
+    response_types = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    created_by_ip = db.Column(db.String(64), nullable=True)
+
+
+class AuthOAuthAuthorizationCode(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_oauth_authorization_codes"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    code_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
+    client_id = db.Column(
+        db.String(128), db.ForeignKey("auth_oauth_clients.client_id"), index=True, nullable=False
+    )
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    redirect_uri = db.Column(db.Text, nullable=False)
+    scope = db.Column(db.Text, nullable=False)
+    code_challenge = db.Column(db.String(255), nullable=False)
+    code_challenge_method = db.Column(db.String(16), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+
+
+class AuthOAuthSigningKey(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_oauth_signing_keys"
+
+    kid = db.Column(db.String(128), primary_key=True)
+    algorithm = db.Column(db.String(16), nullable=False, default="RS256")
+    private_pem = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    activated_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    active = db.Column(db.Boolean, nullable=False, default=True)

@@ -13,9 +13,10 @@ from urllib.request import Request, urlopen
 from flask import request
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.auth.mcp_oauth_runtime import decode_access_token, mcp_oauth_issuer, public_pem_from_private_pem
 from backend.auth.session_runtime import AccessContext
 from backend.extensions import db
-from backend.models import AuthExternalSubject, AuthUser
+from backend.models import AuthExternalSubject, AuthOAuthSigningKey, AuthUser
 
 
 class McpAuthError(Exception):
@@ -126,10 +127,7 @@ def mcp_oidc_issuer() -> str:
 
 
 def mcp_authorization_server_url() -> str:
-    raw = os.environ.get("MCP_OIDC_AUTHORIZATION_SERVER_URL", "").strip()
-    if raw:
-        return raw.rstrip("/")
-    return mcp_oidc_issuer()
+    return mcp_oauth_issuer()
 
 
 def mcp_oidc_audiences() -> tuple[str, ...]:
@@ -217,6 +215,48 @@ def _bearer_challenge(*, error: str | None = None, description: str | None = Non
         safe = description.replace('"', "'")
         attrs.append(f'error_description="{safe}"')
     return f"Bearer {', '.join(attrs)}"
+
+
+def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
+    active_keys = AuthOAuthSigningKey.query.filter_by(active=True).all()
+    for key in active_keys:
+        try:
+            payload = decode_access_token(
+                token=token,
+                public_key_pem=public_pem_from_private_pem(key.private_pem),
+                audience=mcp_resource_url(),
+            )
+        except Exception:
+            continue
+        subject = payload.get("sub")
+        if not isinstance(subject, str) or not subject.strip():
+            raise McpAuthError(
+                status_code=401,
+                message="Bearer token missing subject.",
+                www_authenticate=_bearer_challenge(
+                    error="invalid_token",
+                    description="The OAuth access token did not include a subject.",
+                ),
+            )
+        scope_set = _scope_set(payload)
+        user = db.session.get(AuthUser, subject.strip())
+        if user is None or user.email_verified_at is None:
+            raise McpAuthError(
+                status_code=401,
+                message="Linked Pandects account is not verified.",
+                www_authenticate=_bearer_challenge(
+                    error="invalid_token",
+                    description="The token subject is not linked to a verified Pandects user.",
+                ),
+            )
+        return McpPrincipal(
+            access_context=AccessContext(tier="mcp", user_id=user.id),
+            scopes=scope_set,
+            issuer=mcp_oauth_issuer(),
+            subject=subject.strip(),
+            user_id=user.id,
+        )
+    return None
 
 
 def _scope_set(payload: dict[str, object]) -> frozenset[str]:
@@ -544,8 +584,6 @@ def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
 
 def authenticate_mcp_request() -> McpPrincipal:
     try:
-        _ = mcp_oidc_issuer()
-        _ = mcp_oidc_audiences()
         _ = mcp_authorization_server_url()
     except RuntimeError as exc:
         raise McpAuthError(
@@ -577,6 +615,9 @@ def authenticate_mcp_request() -> McpPrincipal:
         )
 
     try:
+        pandects_principal = _authenticate_pandects_access_token(token)
+        if pandects_principal is not None:
+            return pandects_principal
         external_identity = authenticate_external_identity(access_token=token)
         user = _linked_verified_user(
             issuer=external_identity.issuer,

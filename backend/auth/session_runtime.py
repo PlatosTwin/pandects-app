@@ -156,6 +156,12 @@ def csrf_required(path: str) -> bool:
         return False
     if not path.startswith("/v1/"):
         return False
+    if path in {
+        "/v1/auth/oauth/register",
+        "/v1/auth/oauth/token",
+        "/v1/auth/oauth/browser-session",
+    }:
+        return False
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return False
     if request.cookies.get(_SESSION_COOKIE_NAME):

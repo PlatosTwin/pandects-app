@@ -346,7 +346,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
         self.assertEqual(payload["resource"], self.mcp_runtime.mcp_resource_url())
-        self.assertIn("https://issuer.example.com", payload["authorization_servers"])
+        self.assertIn("http://localhost:5000/v1/auth/oauth", payload["authorization_servers"])
 
     def test_mcp_requires_bearer_token(self):
         client = self.app.test_client()

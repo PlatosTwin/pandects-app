@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import time
 import uuid
+from html import escape
 from base64 import urlsafe_b64encode
 from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
 from typing import cast
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -19,6 +21,22 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
+from backend.auth.mcp_oauth_runtime import (
+    access_token_claims,
+    encode_access_token,
+    generate_signing_keypair,
+    mcp_oauth_access_token_ttl_seconds,
+    mcp_oauth_authorization_code_ttl_seconds,
+    mcp_oauth_authorization_endpoint,
+    mcp_oauth_authorization_server_metadata_url,
+    mcp_oauth_issuer,
+    mcp_oauth_jwks_uri,
+    mcp_oauth_metadata,
+    mcp_oauth_openid_configuration_url,
+    mcp_oauth_registration_endpoint,
+    mcp_oauth_token_endpoint,
+    public_jwk_from_private_pem,
+)
 from backend.auth.runtime import cookie_settings
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.mcp_runtime import (
@@ -28,6 +46,7 @@ from backend.auth.mcp_runtime import (
     mcp_jwks_url,
     mcp_oidc_audiences,
     mcp_oidc_issuer,
+    mcp_resource_url,
     mcp_supported_scopes,
 )
 from backend.routes.deps import AuthDeps
@@ -38,6 +57,8 @@ _ZITADEL_WEB_COOKIE_NAME = "pdcts_zitadel_web"
 _ZITADEL_WEB_COOKIE_MAX_AGE = 60 * 10
 _ZITADEL_PENDING_COOKIE_NAME = "pdcts_zitadel_pending"
 _ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
+_OAUTH_BROWSER_COOKIE_NAME = "pdcts_oauth_browser"
+_OAUTH_BROWSER_COOKIE_MAX_AGE = 60 * 20
 _ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 
 
@@ -60,6 +81,13 @@ def _zitadel_pending_cookie_serializer() -> URLSafeTimedSerializer:
     if not secret:
         abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-pending-cookie")
+
+
+def _oauth_browser_cookie_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-browser-cookie")
 
 
 def _zitadel_client_id() -> str:
@@ -352,6 +380,33 @@ def _clear_zitadel_pending_cookie(resp) -> None:
     _clear_signed_cookie(
         name=_ZITADEL_PENDING_COOKIE_NAME,
         path="/v1/auth/zitadel/finalize",
+        resp=resp,
+    )
+
+
+def _set_oauth_browser_cookie(resp, payload: dict[str, str]) -> None:
+    _set_signed_cookie(
+        name=_OAUTH_BROWSER_COOKIE_NAME,
+        serializer=_oauth_browser_cookie_serializer(),
+        payload=payload,
+        max_age=_OAUTH_BROWSER_COOKIE_MAX_AGE,
+        path="/v1/auth/oauth",
+        resp=resp,
+    )
+
+
+def _load_oauth_browser_cookie() -> dict[str, str] | None:
+    return _load_signed_cookie(
+        name=_OAUTH_BROWSER_COOKIE_NAME,
+        serializer=_oauth_browser_cookie_serializer(),
+        max_age=_OAUTH_BROWSER_COOKIE_MAX_AGE,
+    )
+
+
+def _clear_oauth_browser_cookie(resp) -> None:
+    _clear_signed_cookie(
+        name=_OAUTH_BROWSER_COOKIE_NAME,
+        path="/v1/auth/oauth",
         resp=resp,
     )
 
@@ -1309,6 +1364,308 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         if isinstance(scope, str) and scope.strip():
             payload["scope"] = scope.strip()
         resp = make_response(jsonify(payload), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _oauth_code_hash(code: str) -> str:
+        return sha256(code.encode("utf-8")).hexdigest()
+
+    def _oauth_scope_string(raw: str | None) -> str:
+        allowed = set(mcp_supported_scopes())
+        requested = [part.strip() for part in (raw or "").split() if part.strip()]
+        if not requested:
+            return ""
+        deduped: list[str] = []
+        for scope_name in requested:
+            if scope_name not in allowed:
+                abort(400, description=f"Unsupported OAuth scope: {scope_name}")
+            if scope_name not in deduped:
+                deduped.append(scope_name)
+        return " ".join(deduped)
+
+    def _oauth_redirect_uri_allowed(client, redirect_uri: str) -> bool:
+        raw_uris = getattr(client, "redirect_uris", None)
+        if not isinstance(raw_uris, list):
+            return False
+        return redirect_uri in [str(item).strip() for item in raw_uris if str(item).strip()]
+
+    def _oauth_active_signing_key():
+        key = deps.AuthOAuthSigningKey.query.filter_by(active=True).first()
+        if key is not None:
+            return key
+        kid, private_pem = generate_signing_keypair()
+        key = deps.AuthOAuthSigningKey(kid=kid, private_pem=private_pem, active=True)
+        deps.db.session.add(key)
+        deps.db.session.commit()
+        return key
+
+    def _oauth_error_response(message: str, *, code: int = 400):
+        resp = make_response(
+            f"<html><body><h1>OAuth request failed</h1><p>{escape(message)}</p></body></html>",
+            code,
+        )
+        resp.headers["Content-Type"] = "text/html; charset=utf-8"
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _oauth_redirect_error(redirect_uri: str, *, error: str, state: str | None = None):
+        params = {"error": error}
+        if isinstance(state, str) and state.strip():
+            params["state"] = state.strip()
+        return redirect(f"{redirect_uri}?{urlencode(params)}", code=302)
+
+    def _oauth_authorize_bridge_response(*, next_path: str):
+        login_url = f"{deps._frontend_base_url()}/login?next={quote(next_path, safe='/%?=&')}"
+        body = f"""<!doctype html>
+<html><body>
+<script>
+const token = window.localStorage.getItem("pandects.sessionToken");
+if (!token) {{
+  window.location.replace({json.dumps(login_url)});
+}} else {{
+  fetch({json.dumps(f"{mcp_oauth_issuer()}/browser-session")}, {{
+    method: "POST",
+    headers: {{ "Authorization": `Bearer ${{token}}` }}
+  }}).then((res) => {{
+    if (!res.ok) {{
+      window.location.replace({json.dumps(login_url)});
+      return;
+    }}
+    window.location.replace(window.location.href);
+  }}).catch(() => {{
+    window.location.replace({json.dumps(login_url)});
+  }});
+}}
+</script>
+</body></html>"""
+        resp = make_response(body, 200)
+        resp.headers["Content-Type"] = "text/html; charset=utf-8"
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _oauth_authenticated_user():
+        cookie_payload = _load_oauth_browser_cookie()
+        if cookie_payload is not None:
+            user_id = cookie_payload.get("user_id")
+            if isinstance(user_id, str) and user_id.strip():
+                user = deps.db.session.get(deps.AuthUser, user_id.strip())
+                if user is not None and cast(object, user.email_verified_at) is not None:
+                    return user
+        try:
+            user, _ctx = deps._require_verified_user()
+            return user
+        except HTTPException:
+            return None
+
+    @auth_blp.get("/oauth/.well-known/openid-configuration")
+    def oauth_openid_configuration():
+        resp = make_response(jsonify(mcp_oauth_metadata()), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.get("/oauth/.well-known/oauth-authorization-server")
+    def oauth_authorization_server_metadata():
+        resp = make_response(jsonify(mcp_oauth_metadata()), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.get("/oauth/jwks.json")
+    def oauth_jwks():
+        keys = deps.AuthOAuthSigningKey.query.filter_by(active=True).all()
+        payload = {
+            "keys": [
+                public_jwk_from_private_pem(kid=key.kid, private_pem=key.private_pem)
+                for key in keys
+            ]
+        }
+        resp = make_response(jsonify(payload), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.post("/oauth/register")
+    def oauth_register():
+        deps._require_auth_db()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid client registration payload.")
+        unsupported_keys = {
+            "jwks",
+            "jwks_uri",
+            "logo_uri",
+            "policy_uri",
+            "tos_uri",
+            "client_secret",
+        }.intersection(data.keys())
+        if unsupported_keys:
+            abort(400, description="Unsupported OAuth client metadata.")
+        redirect_uris = data.get("redirect_uris")
+        if not isinstance(redirect_uris, list) or not redirect_uris:
+            abort(400, description="redirect_uris must be a non-empty array.")
+        normalized_redirect_uris: list[str] = []
+        for raw_uri in redirect_uris:
+            if not isinstance(raw_uri, str) or not raw_uri.strip():
+                abort(400, description="redirect_uris must contain only non-empty strings.")
+            normalized = raw_uri.strip()
+            if normalized in normalized_redirect_uris:
+                continue
+            normalized_redirect_uris.append(normalized)
+        token_endpoint_auth_method = data.get("token_endpoint_auth_method", "none")
+        if token_endpoint_auth_method != "none":
+            abort(400, description="Only public clients with token_endpoint_auth_method=none are supported.")
+        grant_types = data.get("grant_types", ["authorization_code"])
+        response_types = data.get("response_types", ["code"])
+        if grant_types != ["authorization_code"] or response_types != ["code"]:
+            abort(400, description="Only authorization_code/code clients are supported.")
+        client = deps.AuthOAuthClient(
+            client_id=secrets.token_urlsafe(24),
+            client_name=(data.get("client_name") or None) if isinstance(data.get("client_name"), str) else None,
+            redirect_uris=normalized_redirect_uris,
+            token_endpoint_auth_method="none",
+            grant_types=["authorization_code"],
+            response_types=["code"],
+            created_by_ip=deps._request_ip_address(),
+        )
+        deps.db.session.add(client)
+        deps.db.session.commit()
+        payload = {
+            "client_id": client.client_id,
+            "client_id_issued_at": int(client.created_at.timestamp()),
+            "redirect_uris": normalized_redirect_uris,
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+        }
+        if isinstance(client.client_name, str) and client.client_name.strip():
+            payload["client_name"] = client.client_name.strip()
+        resp = make_response(jsonify(payload), 201)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.post("/oauth/browser-session")
+    def oauth_browser_session():
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        resp = make_response(jsonify({"status": "ok"}), 200)
+        _set_oauth_browser_cookie(resp, {"user_id": user.id})
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @auth_blp.get("/oauth/authorize")
+    def oauth_authorize():
+        deps._require_auth_db()
+        client_id = request.args.get("client_id", "").strip()
+        redirect_uri = request.args.get("redirect_uri", "").strip()
+        response_type = request.args.get("response_type", "").strip()
+        state = request.args.get("state", "").strip() or None
+        scope = _oauth_scope_string(request.args.get("scope"))
+        code_challenge = request.args.get("code_challenge", "").strip()
+        code_challenge_method = request.args.get("code_challenge_method", "").strip()
+        if not client_id or not redirect_uri:
+            return _oauth_error_response("Missing OAuth client_id or redirect_uri.")
+        client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
+        if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
+            return _oauth_error_response("Invalid OAuth client or redirect URI.")
+        if response_type != "code":
+            return _oauth_redirect_error(redirect_uri, error="unsupported_response_type", state=state)
+        if not scope:
+            return _oauth_redirect_error(redirect_uri, error="invalid_scope", state=state)
+        if not code_challenge or code_challenge_method != "S256":
+            return _oauth_redirect_error(redirect_uri, error="invalid_request", state=state)
+
+        user = _oauth_authenticated_user()
+        if user is None:
+            next_path = f"/v1/auth/oauth/authorize?{urlencode({k: v for k, v in request.args.items() if isinstance(v, str)})}"
+            if deps._auth_session_transport() == "bearer":
+                return _oauth_authorize_bridge_response(next_path=next_path)
+            return redirect(
+                f"{deps._frontend_base_url()}/login?next={quote(next_path, safe='/%?=&')}",
+                code=302,
+            )
+
+        if not deps._user_has_current_legal_acceptances(user_id=user.id):
+            return redirect(
+                f"{deps._frontend_base_url()}/login?next={quote(request.full_path.rstrip('?'), safe='/%?=&')}",
+                code=302,
+            )
+        linked_subject = _ensure_linked_zitadel_subject_for_user(user=user)
+        if not linked_subject:
+            linked_subject = _linked_zitadel_subject_for_email(email=user.email)
+        if not linked_subject:
+            return _oauth_error_response("Pandects could not link this account to MCP identity.", code=403)
+
+        raw_code = secrets.token_urlsafe(32)
+        code = deps.AuthOAuthAuthorizationCode(
+            code_hash=_oauth_code_hash(raw_code),
+            client_id=client.client_id,
+            user_id=user.id,
+            redirect_uri=redirect_uri,
+            scope=scope,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+            expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_authorization_code_ttl_seconds()),
+        )
+        deps.db.session.add(code)
+        deps.db.session.commit()
+        _params = {"code": raw_code}
+        if state:
+            _params["state"] = state
+        resp = redirect(f"{redirect_uri}?{urlencode(_params)}", code=302)
+        _clear_oauth_browser_cookie(resp)
+        return resp
+
+    @auth_blp.post("/oauth/token")
+    def oauth_token():
+        deps._require_auth_db()
+        grant_type = request.form.get("grant_type", "").strip()
+        code = request.form.get("code", "").strip()
+        client_id = request.form.get("client_id", "").strip()
+        redirect_uri = request.form.get("redirect_uri", "").strip()
+        code_verifier = request.form.get("code_verifier", "").strip()
+        if grant_type != "authorization_code":
+            abort(400, description="Only authorization_code grant_type is supported.")
+        if not code or not client_id or not redirect_uri or not code_verifier:
+            abort(400, description="Missing OAuth token exchange fields.")
+        client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
+        if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
+            abort(400, description="Invalid OAuth client or redirect URI.")
+        auth_code = deps.AuthOAuthAuthorizationCode.query.filter_by(
+            code_hash=_oauth_code_hash(code),
+            client_id=client.client_id,
+        ).first()
+        if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < deps._utc_now():
+            abort(400, description="Invalid or expired OAuth code.")
+        if auth_code.redirect_uri != redirect_uri:
+            abort(400, description="OAuth redirect URI mismatch.")
+        expected_challenge = _build_pkce_challenge(code_verifier)
+        if not secrets.compare_digest(expected_challenge, auth_code.code_challenge):
+            abort(400, description="OAuth PKCE verification failed.")
+        user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
+        if user is None or cast(object, user.email_verified_at) is None:
+            abort(403, description="Linked Pandects account is not verified.")
+        active_key = _oauth_active_signing_key()
+        token = encode_access_token(
+            private_pem=active_key.private_pem,
+            kid=active_key.kid,
+            claims=access_token_claims(
+                subject=user.id,
+                audience=mcp_resource_url(),
+                scope=auth_code.scope,
+                token_id=str(uuid.uuid4()),
+            ),
+        )
+        auth_code.used_at = deps._utc_now()
+        deps.db.session.commit()
+        resp = make_response(
+            jsonify(
+                {
+                    "access_token": token,
+                    "token_type": "Bearer",
+                    "expires_in": mcp_oauth_access_token_ttl_seconds(),
+                    "scope": auth_code.scope,
+                }
+            ),
+            200,
+        )
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
