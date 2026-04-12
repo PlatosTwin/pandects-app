@@ -2385,7 +2385,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(mcp.status_code, 200)
         self.assertEqual(mcp.get_json()["result"]["serverInfo"]["name"], "pandects-mcp")
 
-    def test_oauth_authorize_returns_bearer_bridge_when_session_transport_is_bearer(self):
+    def test_oauth_authorize_returns_login_bridge_when_session_transport_is_bearer(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
 
@@ -2414,8 +2414,9 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(authorize.status_code, 200)
         body = authorize.get_data(as_text=True)
-        self.assertIn("pandects.sessionToken", body)
-        self.assertIn("/v1/auth/oauth/browser-session", body)
+        self.assertIn("/login?next=", body)
+        self.assertNotIn("pandects.sessionToken", body)
+        self.assertNotIn("/v1/auth/oauth/browser-session", body)
 
     def test_oauth_register_accepts_refresh_token_metadata_for_public_code_clients(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

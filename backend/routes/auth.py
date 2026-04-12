@@ -1419,24 +1419,9 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         body = f"""<!doctype html>
 <html><body>
 <script>
-const token = window.localStorage.getItem("pandects.sessionToken");
-if (!token) {{
-  window.location.replace({json.dumps(login_url)});
-}} else {{
-  fetch({json.dumps(f"{mcp_oauth_issuer()}/browser-session")}, {{
-    method: "POST",
-    headers: {{ "Authorization": `Bearer ${{token}}` }}
-  }}).then((res) => {{
-    if (!res.ok) {{
-      window.location.replace({json.dumps(login_url)});
-      return;
-    }}
-    window.location.replace(window.location.href);
-  }}).catch(() => {{
-    window.location.replace({json.dumps(login_url)});
-  }});
-}}
+window.location.replace({json.dumps(login_url)});
 </script>
+<noscript><meta http-equiv="refresh" content="0; url={escape(login_url, quote=True)}"></noscript>
 </body></html>"""
         resp = make_response(body, 200)
         resp.headers["Content-Type"] = "text/html; charset=utf-8"

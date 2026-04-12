@@ -1,25 +1,20 @@
-const STORAGE_KEY = "pandects.sessionToken";
+let sessionToken: string | null = null;
 
-function canUseLocalStorage(): boolean {
-  try {
-    return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-  } catch {
-    return false;
-  }
+function canUseBrowserMemory(): boolean {
+  return typeof window !== "undefined";
 }
 
 export function getSessionToken(): string | null {
-  if (!canUseLocalStorage()) return null;
-  const token = localStorage.getItem(STORAGE_KEY);
-  return token && token.trim().length > 0 ? token : null;
+  if (!canUseBrowserMemory()) return null;
+  return sessionToken && sessionToken.trim().length > 0 ? sessionToken : null;
 }
 
 export function setSessionToken(token: string) {
-  if (!canUseLocalStorage()) return;
-  localStorage.setItem(STORAGE_KEY, token);
+  if (!canUseBrowserMemory()) return;
+  sessionToken = token;
 }
 
 export function clearSessionToken() {
-  if (!canUseLocalStorage()) return;
-  localStorage.removeItem(STORAGE_KEY);
+  if (!canUseBrowserMemory()) return;
+  sessionToken = null;
 }
