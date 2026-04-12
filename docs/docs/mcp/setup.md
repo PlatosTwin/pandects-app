@@ -55,20 +55,6 @@ Optional check:
 codex mcp list
 ```
 
-If Codex shows `Auth Unsupported`, or `codex mcp login pandects` fails with `Dynamic client registration not supported`, the Pandects identity provider is not yet advertising the OAuth dynamic client registration support Codex expects for remote MCP login. In that state, browser auth will not start successfully in Codex.
-
-Fallback for Codex right now:
-
-1. Sign in to your Pandects account on the website
-2. Open Account and generate an MCP bearer token
-3. Export that token in your shell
-4. Add the MCP server with a bearer-token env var
-
-```bash
-export PANDECTS_MCP_BEARER_TOKEN='<token-from-account-page>'
-codex mcp add pandects --url https://api.pandects.org/mcp --bearer-token-env-var PANDECTS_MCP_BEARER_TOKEN
-```
-
 ## Claude Code
 
 Add the server:
@@ -92,7 +78,7 @@ Pandects currently documents setup for:
 - Codex
 - Claude Code
 
-Other MCP clients may work if they support remote HTTP MCP servers with browser-based authentication. Codex additionally expects OAuth dynamic client registration for remote MCP login.
+Other MCP clients may work if they support remote HTTP MCP servers with browser-based authentication.
 
 ## Troubleshooting
 
@@ -104,7 +90,6 @@ If setup does not complete cleanly:
 - Use browser sign-in when the client asks for authentication
 - Do not use a Pandects API key for MCP
 - If the client already has a stale failed connection saved, remove the server and add it again
-- If Codex reports `Dynamic client registration not supported`, the issue is on the Pandects auth-server side, not in your local Codex setup
 
 If authentication succeeds but tool calls still fail, reconnect the server and retry the browser sign-in flow once before investigating anything more exotic.
 

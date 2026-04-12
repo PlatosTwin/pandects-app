@@ -35,7 +35,6 @@ import {
   listApiKeys,
   permanentlyDeleteApiKey,
   revokeApiKey,
-  startMcpAccessTokenAuth,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
 import { Check, Copy, Trash2 } from "lucide-react";
@@ -97,18 +96,7 @@ const USAGE_DAY_MS = 24 * 60 * 60 * 1000;
 const PANDECTS_MCP_URL = "https://api.pandects.org/mcp";
 const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
 const CODEX_MCP_LOGIN_COMMAND = "codex mcp login pandects";
-const CODEX_MCP_BEARER_ENV_VAR = "PANDECTS_MCP_BEARER_TOKEN";
-const CODEX_MCP_BEARER_COMMAND =
-  `codex mcp add pandects --url ${PANDECTS_MCP_URL} --bearer-token-env-var ${CODEX_MCP_BEARER_ENV_VAR}`;
 const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
-const MCP_TOKEN_RESULT_STORAGE_KEY = "pandects.mcpTokenResult";
-
-type McpAccessTokenState = {
-  accessToken: string;
-  tokenType: string;
-  expiresAt: string | null;
-  scope: string | null;
-};
 
 type MpcClientCardProps = {
   id: string;
@@ -221,9 +209,6 @@ export default function Account() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedNewKey, setCopiedNewKey] = useState(false);
   const [copiedMcpSnippet, setCopiedMcpSnippet] = useState<string | null>(null);
-  const [mcpTokenPending, setMcpTokenPending] = useState(false);
-  const [mcpTokenDialogOpen, setMcpTokenDialogOpen] = useState(false);
-  const [mcpAccessToken, setMcpAccessToken] = useState<McpAccessTokenState | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -350,39 +335,6 @@ export default function Account() {
   }, [loadAccountData, user]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.sessionStorage.getItem(MCP_TOKEN_RESULT_STORAGE_KEY);
-    if (!raw) return;
-    window.sessionStorage.removeItem(MCP_TOKEN_RESULT_STORAGE_KEY);
-    try {
-      const parsed = JSON.parse(raw) as {
-        access_token?: string;
-        token_type?: string;
-        expires_in?: number;
-        scope?: string;
-      };
-      if (typeof parsed.access_token !== "string" || !parsed.access_token.trim()) return;
-      const expiresAt =
-        typeof parsed.expires_in === "number" && Number.isFinite(parsed.expires_in)
-          ? new Date(Date.now() + parsed.expires_in * 1000).toISOString()
-          : null;
-      setMcpAccessToken({
-        accessToken: parsed.access_token.trim(),
-        tokenType:
-          typeof parsed.token_type === "string" && parsed.token_type.trim()
-            ? parsed.token_type.trim()
-            : "Bearer",
-        expiresAt,
-        scope:
-          typeof parsed.scope === "string" && parsed.scope.trim() ? parsed.scope.trim() : null,
-      });
-      setMcpTokenDialogOpen(true);
-    } catch {
-      window.sessionStorage.removeItem(MCP_TOKEN_RESULT_STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!user) return;
 
     const refreshAccountDataIfVisible = () => {
@@ -425,21 +377,6 @@ export default function Account() {
     } catch (err) {
       toast({
         title: "Copy failed",
-        description: err instanceof Error ? err.message : String(err),
-        variant: "destructive",
-      });
-    }
-  }, []);
-
-  const startMcpTokenFlow = useCallback(async () => {
-    setMcpTokenPending(true);
-    try {
-      const { authorize_url } = await withAuthWakeRetry(() => startMcpAccessTokenAuth("/account"));
-      window.location.assign(authorize_url);
-    } catch (err) {
-      setMcpTokenPending(false);
-      toast({
-        title: "Failed to start MCP token flow",
         description: err instanceof Error ? err.message : String(err),
         variant: "destructive",
       });
@@ -940,8 +877,6 @@ export default function Account() {
                 <AlertDescription className="text-muted-foreground">
                   Add the Pandects MCP server in your client, then start the client OAuth
                   flow and sign in with the same Pandects account you use on this site.
-                  If direct Codex OAuth is blocked by missing dynamic-registration support,
-                  generate a short-lived MCP bearer token below and use the env-var fallback.
                 </AlertDescription>
               </Alert>
 
@@ -949,7 +884,7 @@ export default function Account() {
                 <MpcClientCard
                   id="codex"
                   title="Codex"
-                  description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow. If Codex reports dynamic client registration is unsupported, Pandects OAuth is not yet fully compatible with Codex remote MCP login.`}
+                  description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow.`}
                   command={`${CODEX_MCP_COMMAND}\n${CODEX_MCP_LOGIN_COMMAND}`}
                   copied={copiedMcpSnippet === "codex"}
                   onCopy={() =>
@@ -967,27 +902,6 @@ export default function Account() {
                   copied={copiedMcpSnippet === "claude"}
                   onCopy={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
                 />
-              </div>
-
-              <div className="rounded-lg border border-border/60 bg-background p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">Codex bearer-token fallback</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Generate a short-lived MCP access token tied to your Pandects
-                      account, then configure Codex with `--bearer-token-env-var`.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full sm:w-auto sm:shrink-0"
-                    disabled={mcpTokenPending}
-                    onClick={() => void startMcpTokenFlow()}
-                  >
-                    {mcpTokenPending ? "Starting…" : "Generate token"}
-                  </Button>
-                </div>
               </div>
 
               <div className="rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
@@ -1207,114 +1121,6 @@ export default function Account() {
           </Card>
         </div>
       )}
-
-      <Dialog
-        open={mcpTokenDialogOpen}
-        onOpenChange={(open) => {
-          setMcpTokenDialogOpen(open);
-          if (!open) {
-            setMcpAccessToken(null);
-            setMcpTokenPending(false);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>MCP bearer token</DialogTitle>
-            <DialogDescription>
-              Treat this token like a secret. Codex can use it immediately with the
-              bearer-token environment-variable flow.
-            </DialogDescription>
-          </DialogHeader>
-          {mcpAccessToken ? (
-            <div className="grid gap-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Token type</span>
-                  <span className="font-medium">{mcpAccessToken.tokenType}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Expires</span>
-                  <span className="font-medium">
-                    {mcpAccessToken.expiresAt ? formatDate(mcpAccessToken.expiresAt) : "Not provided"}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-muted-foreground">Scope</span>
-                  <span className="max-w-[28rem] break-all text-right font-medium">
-                    {mcpAccessToken.scope ?? "Not provided"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label>MCP access token</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      void handleCopyMcpSnippet("mcp-token", mcpAccessToken.accessToken)
-                    }
-                  >
-                    {copiedMcpSnippet === "mcp-token" ? (
-                      <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-                    )}
-                    Copy token
-                  </Button>
-                </div>
-                <pre className="max-h-40 overflow-auto rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
-                  <code>{mcpAccessToken.accessToken}</code>
-                </pre>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label>Codex setup</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      void handleCopyMcpSnippet(
-                        "mcp-setup",
-                        `export ${CODEX_MCP_BEARER_ENV_VAR}='${mcpAccessToken.accessToken}'\n${CODEX_MCP_BEARER_COMMAND}`,
-                      )
-                    }
-                  >
-                    {copiedMcpSnippet === "mcp-setup" ? (
-                      <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-                    )}
-                    Copy setup
-                  </Button>
-                </div>
-                <pre className="overflow-auto rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
-                  <code>{`export ${CODEX_MCP_BEARER_ENV_VAR}='${mcpAccessToken.accessToken}'
-${CODEX_MCP_BEARER_COMMAND}`}</code>
-                </pre>
-              </div>
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setMcpTokenDialogOpen(false);
-                setMcpAccessToken(null);
-                setMcpTokenPending(false);
-              }}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={createKeyDialogOpen}
