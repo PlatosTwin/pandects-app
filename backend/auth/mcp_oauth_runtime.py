@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import base64
-import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 from backend.auth.runtime import public_api_base_url
 
@@ -104,8 +104,12 @@ def generate_signing_keypair() -> tuple[str, str]:
 
 
 def public_jwk_from_private_pem(*, kid: str, private_pem: str) -> dict[str, str]:
-    private_key = serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None)
-    public_numbers = private_key.public_key().public_numbers()
+    private_key = cast(
+        RSAPrivateKey,
+        serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None),
+    )
+    public_key: RSAPublicKey = private_key.public_key()
+    public_numbers = public_key.public_numbers()
     return {
         "kty": "RSA",
         "kid": kid,
@@ -140,8 +144,11 @@ def decode_access_token(*, token: str, public_key_pem: str, audience: str) -> di
 
 
 def public_pem_from_private_pem(private_pem: str) -> str:
-    private_key = serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None)
-    public_key = private_key.public_key()
+    private_key = cast(
+        RSAPrivateKey,
+        serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None),
+    )
+    public_key: RSAPublicKey = private_key.public_key()
     return public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,

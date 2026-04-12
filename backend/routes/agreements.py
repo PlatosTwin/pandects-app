@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import date, datetime
 from threading import Lock
-from typing import Any, Protocol, cast
+from typing import Any, Mapping, Protocol, cast
 
 from flask import Flask, Response, abort, current_app, jsonify, request
 from flask.views import MethodView
@@ -57,7 +57,7 @@ def _to_float_or_none(value: object) -> float | None:
 
 
 def _cacheable_json_response(
-    payload: dict[str, object],
+    payload: Mapping[str, object],
     *,
     max_age: int,
 ) -> tuple[Response, int]:
