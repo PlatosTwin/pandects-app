@@ -104,7 +104,7 @@ class _FakeEngine:
 
 
 class StagingAssetTests(unittest.TestCase):
-    def test_parse_index_file_raises_when_daily_index_is_missing(self) -> None:
+    def test_parse_index_file_raises_when_daily_index_returns_404(self) -> None:
         response = cast(Response, cast(object, SimpleNamespace(status_code=404)))
         error = HTTPError(response=response)
 
@@ -121,7 +121,24 @@ class StagingAssetTests(unittest.TestCase):
                 rate_limited_get=_missing_index,
             )
 
-    def test_parse_index_file_reraises_non_404_http_error(self) -> None:
+    def test_parse_index_file_raises_when_daily_index_returns_403(self) -> None:
+        response = cast(Response, cast(object, SimpleNamespace(status_code=403)))
+        error = HTTPError(response=response)
+
+        def _forbidden_index(*_args: object, **_kwargs: object) -> Response:
+            raise error
+
+        context = _ParseContext()
+
+        with self.assertRaises(SecDailyIndexUnavailable):
+            _ = parse_index_file(
+                index_url="https://www.sec.gov/Archives/edgar/daily-index/2026/QTR1/form.20260314.idx",
+                user_agent="test-agent",
+                context=context,
+                rate_limited_get=_forbidden_index,
+            )
+
+    def test_parse_index_file_reraises_non_403_or_404_http_error(self) -> None:
         response = cast(Response, cast(object, SimpleNamespace(status_code=500)))
         error = HTTPError(response=response)
 
@@ -158,7 +175,10 @@ class StagingAssetTests(unittest.TestCase):
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",
                 side_effect=[[], unavailable, [], []],
             ) as fetch_new_filings,
-            patch("etl.defs.a_staging_asset._reconcile_cross_day_duplicates", return_value=0),
+            patch(
+                "etl.defs.a_staging_asset._reconcile_cross_day_duplicates",
+                return_value=(0, set()),
+            ),
             patch("etl.defs.a_staging_asset.run_post_asset_refresh", return_value=None),
         ):
             decorated_fn = getattr(cast(object, staging_asset.op.compute_fn), "decorated_fn")
@@ -200,7 +220,10 @@ class StagingAssetTests(unittest.TestCase):
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",
                 side_effect=[[], [], [], unavailable],
             ) as fetch_new_filings,
-            patch("etl.defs.a_staging_asset._reconcile_cross_day_duplicates", return_value=0),
+            patch(
+                "etl.defs.a_staging_asset._reconcile_cross_day_duplicates",
+                return_value=(0, set()),
+            ),
             patch("etl.defs.a_staging_asset.run_post_asset_refresh", return_value=None),
         ):
             decorated_fn = getattr(cast(object, staging_asset.op.compute_fn), "decorated_fn")

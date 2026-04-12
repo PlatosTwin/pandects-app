@@ -119,7 +119,7 @@ class ExhibitSignature:
 
 
 class SecDailyIndexUnavailable(Exception):
-    """Raised when a requested SEC daily index has not been published yet."""
+    """Raised when a requested SEC daily index is unavailable to the ingest job."""
 
     def __init__(self, index_url: str) -> None:
         self.index_url = index_url
@@ -611,8 +611,10 @@ def parse_index_file(
         response.raise_for_status()
     except requests.exceptions.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else None
-        if status_code == 404:
-            context.log.info(f"SEC daily index not available yet: {index_url}")
+        if status_code in {403, 404}:
+            context.log.info(
+                f"SEC daily index unavailable ({status_code}) for ingest: {index_url}"
+            )
             raise SecDailyIndexUnavailable(index_url) from exc
         raise
 
