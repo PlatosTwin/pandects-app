@@ -9,7 +9,7 @@ import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import brandLinks from "@branding/links.json";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Landing() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
@@ -19,7 +19,7 @@ export default function Landing() {
   const separatorRef = useRef<HTMLSpanElement | null>(null);
   const [showHeaderSeparator, setShowHeaderSeparator] = useState(true);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const badge = headerBadgeRef.current;
     const sourced = sourcedTextRef.current;
     const updated = updatedTextRef.current;

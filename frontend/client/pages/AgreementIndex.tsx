@@ -43,11 +43,6 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 const AgreementModal = lazy(() =>
   import("@/components/AgreementModal").then((mod) => ({
@@ -156,6 +151,8 @@ export default function AgreementIndex() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
 
     const fetchSummary = async () => {
       try {
@@ -185,9 +182,27 @@ export default function AgreementIndex() {
       }
     };
 
-    fetchSummary();
+    const scheduleFetch = () => {
+      if (cancelled) return;
+      void fetchSummary();
+    };
+
+    const browserWindow = typeof window !== "undefined" ? window : null;
+
+    if (browserWindow && "requestIdleCallback" in browserWindow) {
+      idleId = browserWindow.requestIdleCallback(scheduleFetch, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(scheduleFetch, 800);
+    }
+
     return () => {
       cancelled = true;
+      if (idleId !== null && browserWindow && "cancelIdleCallback" in browserWindow) {
+        browserWindow.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
@@ -610,26 +625,19 @@ export default function AgreementIndex() {
                       </TableCell>
                       <TableCell className="text-right">
                         {agreement.verified ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                aria-label="Verified agreement"
-                                className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
-                              >
-                                <BadgeCheck
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                <span className="hidden sm:inline">
-                                  Verified
-                                </span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left">
-                              <p>This agreement has been verified by hand.</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <span
+                            title="This agreement has been verified by hand."
+                            aria-label="Verified agreement. This agreement has been verified by hand."
+                            className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
+                          >
+                            <BadgeCheck
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                            <span className="hidden sm:inline">
+                              Verified
+                            </span>
+                          </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             —

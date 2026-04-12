@@ -1,12 +1,6 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
 
-import {
-  TrendsHeatmapTable,
-  TrendsMedianBandChart,
-  TrendsPercentLineChart,
-  TrendsStackedShareAreaChart,
-  type TrendsChartSeries,
-} from "@/components/AgreementTrendsCharts";
+import type { TrendsChartSeries } from "@/components/AgreementTrendsCharts";
 import { PageShell } from "@/components/PageShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiUrl } from "@/lib/api-config";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
+import { cn } from "@/lib/utils";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
 type HeatmapMetric = "deal_count" | "median_transaction_value";
@@ -74,9 +69,30 @@ type AgreementTrendsResponse = {
 const TRENDS_CACHE_KEY = "agreement-trends:v1";
 const TRENDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
+const TrendsStackedShareAreaChart = lazy(async () => {
+  const module = await import("@/components/AgreementTrendsCharts");
+  return { default: module.TrendsStackedShareAreaChart };
+});
+
+const TrendsMedianBandChart = lazy(async () => {
+  const module = await import("@/components/AgreementTrendsCharts");
+  return { default: module.TrendsMedianBandChart };
+});
+
+const TrendsPercentLineChart = lazy(async () => {
+  const module = await import("@/components/AgreementTrendsCharts");
+  return { default: module.TrendsPercentLineChart };
+});
+
 type LabeledKey = {
   key: string;
   label: string;
+};
+
+type TrendsHeatmapCell = {
+  displayValue: string;
+  intensity: number;
+  rawValue: number | null;
 };
 
 const OWNERSHIP_SERIES: TrendsChartSeries[] = [
@@ -161,6 +177,98 @@ function TrendsSkeleton() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function ChartSkeleton({ className = "h-[260px] sm:h-[320px] lg:h-[360px]" }: { className?: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+      <Skeleton className={`w-full ${className}`} />
+    </div>
+  );
+}
+
+function TrendsHeatmapTable({
+  caption,
+  className,
+  columns,
+  formatterLabel,
+  getCell,
+  rows,
+}: {
+  caption: string;
+  className?: string;
+  columns: string[];
+  formatterLabel: string;
+  getCell: (row: string, column: string) => TrendsHeatmapCell;
+  rows: string[];
+}) {
+  return (
+    <div className={cn("overflow-x-auto rounded-lg border border-border/60 bg-background/80", className)}>
+      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+        <caption className="sr-only">{caption}</caption>
+        <thead>
+          <tr className="border-b border-border/60">
+            <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
+              Segment
+            </th>
+            {columns.map((column) => (
+              <th
+                key={column}
+                className="w-44 px-3 py-2 text-center font-semibold text-foreground"
+                title={column}
+              >
+                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                  {column}
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row} className="border-b border-border/40 last:border-0">
+              <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
+                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+                  {row}
+                </span>
+              </th>
+              {columns.map((column) => {
+                const cell = getCell(row, column);
+                const opacity = 0.1 + (cell.intensity * 0.75);
+                const backgroundColor = `hsl(212 93% 50% / ${opacity})`;
+                const foregroundClass =
+                  cell.intensity > 0.58 ? "text-white" : "text-foreground";
+
+                return (
+                  <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
+                    <div
+                      className={cn(
+                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
+                        foregroundClass,
+                      )}
+                      style={
+                        cell.rawValue === null || cell.rawValue === 0
+                          ? undefined
+                          : { backgroundColor }
+                      }
+                      aria-label={`${row}, ${column}, ${formatterLabel}: ${cell.displayValue}`}
+                    >
+                      <div className="text-xs font-medium uppercase tracking-wide opacity-75">
+                        {formatterLabel}
+                      </div>
+                      <div className="mt-1 font-mono text-sm tabular-nums">
+                        {cell.displayValue}
+                      </div>
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -313,14 +421,16 @@ function OwnershipStructurePanel({
             100 percent stacked area chart showing public-target and private-target share by filing
             year.
           </p>
-          <TrendsStackedShareAreaChart
-            ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
-            data={mixChartData}
-            describedBy={mixDescriptionId}
-            series={OWNERSHIP_SERIES}
-            tableId={mixTableId}
-            valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
-          />
+          <Suspense fallback={<ChartSkeleton />}>
+            <TrendsStackedShareAreaChart
+              ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
+              data={mixChartData}
+              describedBy={mixDescriptionId}
+              series={OWNERSHIP_SERIES}
+              tableId={mixTableId}
+              valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
+            />
+          </Suspense>
         </CardContent>
       </Card>
 
@@ -340,13 +450,15 @@ function OwnershipStructurePanel({
             Line chart showing median reported deal size with 25th to 75th percentile bands for
             public and private targets by filing year.
           </p>
-          <TrendsMedianBandChart
-            ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
-            data={dealSizeChartData}
-            describedBy={dealSizeDescriptionId}
-            tableId={dealSizeTableId}
-            valueFormatter={(value) => formatMoney(value)}
-          />
+          <Suspense fallback={<ChartSkeleton />}>
+            <TrendsMedianBandChart
+              ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
+              data={dealSizeChartData}
+              describedBy={dealSizeDescriptionId}
+              tableId={dealSizeTableId}
+              valueFormatter={(value) => formatMoney(value)}
+            />
+          </Suspense>
         </CardContent>
       </Card>
 
@@ -631,16 +743,18 @@ function IndustryDynamicsPanel({
           <p id={compositionTableId} className="sr-only">
             100 percent stacked area chart showing target-industry composition by filing year.
           </p>
-          <TrendsStackedShareAreaChart
-            ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
-            data={industryComposition.data}
-            describedBy={compositionDescriptionId}
-            series={industryComposition.series}
-            tableId={compositionTableId}
-            valueFormatter={
-              compositionMetric === "deal_count" ? formatCount : formatMoney
-            }
-          />
+          <Suspense fallback={<ChartSkeleton />}>
+            <TrendsStackedShareAreaChart
+              ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
+              data={industryComposition.data}
+              describedBy={compositionDescriptionId}
+              series={industryComposition.series}
+              tableId={compositionTableId}
+              valueFormatter={
+                compositionMetric === "deal_count" ? formatCount : formatMoney
+              }
+            />
+          </Suspense>
         </CardContent>
       </Card>
 
@@ -727,13 +841,15 @@ function IndustryDynamicsPanel({
             Line chart showing the share of annual activity accounted for by the top five target
             industries.
           </p>
-          <TrendsPercentLineChart
-            ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
-            data={concentrationTrend.data}
-            describedBy={concentrationDescriptionId}
-            lineColor="hsl(12 76% 61%)"
-            tableId={concentrationTableId}
-          />
+          <Suspense fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}>
+            <TrendsPercentLineChart
+              ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
+              data={concentrationTrend.data}
+              describedBy={concentrationDescriptionId}
+              lineColor="hsl(12 76% 61%)"
+              tableId={concentrationTableId}
+            />
+          </Suspense>
           <div className="flex flex-wrap gap-2">
             {concentrationTrend.topIndustries.map((industry) => (
               <span

@@ -7,9 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
-  bootstrapAnalytics,
   installGlobalErrorTracking,
-  loadAnalyticsScript,
+  scheduleAnalyticsScriptLoad,
 } from "@/lib/analytics";
 import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
@@ -40,21 +39,8 @@ const License = lazy(() => import("./pages/License"));
 const SoftwareLicense = lazy(() => import("./pages/SoftwareLicense"));
 const DataLicense = lazy(() => import("./pages/DataLicense"));
 
-bootstrapAnalytics();
-
 const App = () => {
-  useEffect(() => {
-    const schedule = window.requestIdleCallback
-      ? window.requestIdleCallback(() => loadAnalyticsScript())
-      : window.setTimeout(() => loadAnalyticsScript(), 1500);
-    return () => {
-      if (window.cancelIdleCallback) {
-        window.cancelIdleCallback(schedule as number);
-      } else {
-        window.clearTimeout(schedule as number);
-      }
-    };
-  }, []);
+  useEffect(() => scheduleAnalyticsScriptLoad(), []);
 
   useEffect(() => installGlobalErrorTracking(), []);
 

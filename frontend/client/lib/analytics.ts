@@ -3,6 +3,7 @@ type AnalyticsParams = Record<string, string | number | boolean | undefined>;
 const GA_MEASUREMENT_ID = "G-94X4EVQVHZ";
 let analyticsBootstrapped = false;
 let analyticsScriptLoaded = false;
+let analyticsScriptScheduled = false;
 
 export function bootstrapAnalytics() {
   if (typeof window === "undefined" || analyticsBootstrapped) return;
@@ -27,6 +28,44 @@ export function loadAnalyticsScript() {
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
   document.head.appendChild(script);
+}
+
+export function scheduleAnalyticsScriptLoad() {
+  if (typeof window === "undefined" || analyticsScriptLoaded || analyticsScriptScheduled) {
+    return () => undefined;
+  }
+
+  analyticsScriptScheduled = true;
+
+  const listenerOptions: AddEventListenerOptions = {
+    once: true,
+    passive: true,
+  };
+
+  let timeoutId: number | null = window.setTimeout(() => {
+    load();
+  }, 10_000);
+
+  const cleanup = () => {
+    window.removeEventListener("pointerdown", load, listenerOptions);
+    window.removeEventListener("keydown", load, listenerOptions);
+    window.removeEventListener("touchstart", load, listenerOptions);
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  const load = () => {
+    cleanup();
+    loadAnalyticsScript();
+  };
+
+  window.addEventListener("pointerdown", load, listenerOptions);
+  window.addEventListener("keydown", load, listenerOptions);
+  window.addEventListener("touchstart", load, listenerOptions);
+
+  return cleanup;
 }
 
 export function trackEvent(eventName: string, params?: AnalyticsParams) {
