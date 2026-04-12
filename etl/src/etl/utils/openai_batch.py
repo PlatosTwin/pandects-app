@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dagster import AssetExecutionContext
-from openai import OpenAI
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expired")
 
@@ -63,7 +65,7 @@ def read_openai_file_text(resp: Any) -> str:
 
 def poll_batch_until_terminal(
     context: AssetExecutionContext,
-    client: OpenAI,
+    client: "OpenAI",
     batch_id: str,
     *,
     log_prefix: str,

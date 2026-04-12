@@ -20,13 +20,12 @@ import json
 import os
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Tuple
 
 import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
-from openai import OpenAI
 
 from etl.domain.counsel import (
     canonicalize_counsel_name,
@@ -71,6 +70,9 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh, run_pre_asset_g
 from etl.utils.run_config import ensure_single_batch_run
 from etl.utils.schema_guards import assert_tables_exist
 
+if TYPE_CHECKING:
+    from openai import OpenAI
+
 MAX_TX_METADATA_FAILURE_PAYLOAD_CHARS = 20_000
 WEB_SEARCH_MAX_WORKERS = 30
 WEB_SEARCH_COMMIT_BATCH_SIZE = 10
@@ -79,7 +81,9 @@ OFFLINE_COUNSEL_BATCH_KIND = "counsel"
 COUNSEL_SECTION_STANDARD_ID = "d75eeddb4839a607"
 
 
-def _oai_client() -> OpenAI:
+def _oai_client() -> "OpenAI":
+    from openai import OpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for tx_metadata_asset.")
@@ -454,7 +458,7 @@ def _extract_web_search_count(resp: Any) -> int:
 def _apply_offline_batch_output(
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     schema: str,
     agreements_table: str,
     batch: Any,
@@ -1296,7 +1300,7 @@ def _prepare_offline_metadata_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     schema: str,
     agreements_table: str,
     pages_table: str,
@@ -1360,7 +1364,7 @@ def _prepare_offline_counsel_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     schema: str,
     agreements_table: str,
     batch_size: int,
@@ -1439,7 +1443,7 @@ def _resume_and_apply_offline_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     schema: str,
     agreements_table: str,
     batch_kind: str,
@@ -1515,7 +1519,7 @@ def _create_offline_batch(
     *,
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     schema: str,
     batch_kind: str,
     lines: List[Dict[str, Any]],

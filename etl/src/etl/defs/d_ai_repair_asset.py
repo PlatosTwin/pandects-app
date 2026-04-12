@@ -15,13 +15,12 @@ Required tables (managed via migrations):
 import io
 import json
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Tuple, Set, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Set, Optional
 
 import dagster as dg
 from dagster import AssetExecutionContext
 from sqlalchemy import text, bindparam
 from sqlalchemy.engine import Connection
-from openai import OpenAI
 import os
 import time
 
@@ -60,7 +59,13 @@ from etl.domain.d_ai_repair import (
     build_jsonl_lines_for_page,
 )
 
-def _oai_client() -> OpenAI:
+if TYPE_CHECKING:
+    from openai import OpenAI
+
+
+def _oai_client() -> "OpenAI":
+    from openai import OpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for ai_repair assets.")

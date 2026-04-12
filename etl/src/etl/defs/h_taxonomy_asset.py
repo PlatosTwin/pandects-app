@@ -4,11 +4,10 @@ import io
 import json
 import os
 from collections import defaultdict
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from openai import OpenAI
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
@@ -54,6 +53,9 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import runs_single_batch
 from etl.utils.schema_guards import assert_tables_exist
 
+if TYPE_CHECKING:
+    from openai import OpenAI
+
 
 TAXONOMY_LLM_BATCHES_TABLE = "taxonomy_llm_batches"
 TAXONOMY_LLM_REQUEST_FILENAME = "taxonomy_llm_requests.jsonl"
@@ -61,7 +63,9 @@ DEFAULT_TAXONOMY_LLM_SECTIONS_PER_REQUEST = 5
 TAXONOMY_LLM_COMPLETION_WINDOW = "24h"
 
 
-def _oai_client() -> OpenAI:
+def _oai_client() -> "OpenAI":
+    from openai import OpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for taxonomy_asset llm mode.")
@@ -596,7 +600,7 @@ def _apply_taxonomy_llm_batch_output(
     context: AssetExecutionContext,
     *,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     db: DBResource,
     sections_table: str,
     batch: Any,
@@ -711,7 +715,7 @@ def _resume_and_apply_taxonomy_llm_batch(
     context: AssetExecutionContext,
     *,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     db: DBResource,
     sections_table: str,
     batch_row: dict[str, Any],
@@ -759,7 +763,7 @@ def _create_and_apply_taxonomy_llm_batch(
     context: AssetExecutionContext,
     *,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     db: DBResource,
     sections_table: str,
     prediction_rows: list[dict[str, Any]],

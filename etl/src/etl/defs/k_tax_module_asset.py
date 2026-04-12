@@ -3,11 +3,10 @@
 import io
 import json
 import os
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from openai import OpenAI
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
@@ -52,6 +51,9 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.run_config import runs_single_batch
 from etl.utils.schema_guards import assert_tables_exist
 
+if TYPE_CHECKING:
+    from openai import OpenAI
+
 
 CLAUSES_TABLE = "clauses"
 TAX_CLAUSE_ASSIGNMENTS_TABLE = "tax_clause_assignments"
@@ -63,7 +65,9 @@ TAX_MODULE_LLM_REQUEST_FILENAME = "tax_module_llm_requests.jsonl"
 TAX_MODULE_LLM_COMPLETION_WINDOW = "24h"
 
 
-def _oai_client() -> OpenAI:
+def _oai_client() -> "OpenAI":
+    from openai import OpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for tax_module_asset.")
@@ -414,7 +418,7 @@ def _apply_tax_module_batch_output(
     context: AssetExecutionContext,
     *,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     db: DBResource,
     batch: Any,
     model_name: str,
@@ -478,7 +482,7 @@ def _resume_and_apply_tax_module_batch(
     context: AssetExecutionContext,
     *,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     db: DBResource,
     batch_row: dict[str, Any],
 ) -> None:

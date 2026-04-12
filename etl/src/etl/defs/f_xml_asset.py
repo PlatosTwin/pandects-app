@@ -7,13 +7,12 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import pandas as pd
 
 import dagster as dg
 from dagster import AssetExecutionContext
-from openai import OpenAI
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
@@ -47,6 +46,9 @@ from etl.utils.pipeline_state_sql import (
 )
 from etl.utils.run_config import runs_single_batch
 from etl.utils.schema_guards import assert_tables_exist
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 
 TAG_TREE_SKIP_TAGS = {"text", "page", "definition", "pageUUID"}
@@ -99,7 +101,9 @@ class XMLHardRuleViolation:
     page_uuids: Tuple[str, ...]
 
 
-def _oai_client() -> OpenAI:
+def _oai_client() -> "OpenAI":
+    from openai import OpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for xml_verify_asset.")
@@ -242,7 +246,7 @@ def _mark_xml_verify_batch_pulled(conn: Connection, schema: str, batch_id: str) 
 
 
 def _load_xml_verify_batch_agreement_uuids(
-    client: OpenAI,
+    client: "OpenAI",
     batch_row: Dict[str, Any],
 ) -> List[str]:
     input_file_id = batch_row.get("input_file_id")
@@ -272,7 +276,7 @@ def _resume_xml_verify_batch(
     engine: Any,
     db: DBResource,
     pipeline_config: PipelineConfig,
-    client: OpenAI,
+    client: "OpenAI",
     *,
     schema: str,
     xml_table: str,
@@ -1075,7 +1079,7 @@ def _set_xml_status_with_reasons(
 def _apply_xml_verify_batch_output(
     context: AssetExecutionContext,
     engine: Any,
-    client: OpenAI,
+    client: "OpenAI",
     xml_table: str,
     xml_status_reasons_table: str,
     batch: Any,

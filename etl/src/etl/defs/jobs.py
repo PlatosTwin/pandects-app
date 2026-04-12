@@ -91,6 +91,9 @@ from etl.defs.resources import get_resources
 from etl.utils.logical_job_runs import MANAGED_LOGICAL_JOB_NAMES, mark_logical_run_failed
 
 base_resources = get_resources()
+# Dagster's default multiprocess execution uses fork-based subprocess launches on macOS.
+# That interacts badly with gRPC-backed SDKs used by some ETL assets, so keep runs in-process.
+SAFE_ETL_EXECUTOR = dg.in_process_executor
 
 
 @dg.failure_hook(required_resource_keys={"db"})
@@ -106,6 +109,7 @@ def _managed_logical_run_failure_hook(context: dg.HookContext) -> None:
 
 xml_fresh_pipeline = dg.define_asset_job(
     name="xml_fresh_pipeline",
+    executor_def=SAFE_ETL_EXECUTOR,
     selection=dg.AssetSelection.assets(
         xml_asset,
         xml_verify_asset,
@@ -116,6 +120,7 @@ xml_fresh_pipeline = dg.define_asset_job(
 
 xml_repair_cycle_pipeline = dg.define_asset_job(
     name="xml_repair_cycle_pipeline",
+    executor_def=SAFE_ETL_EXECUTOR,
     selection=dg.AssetSelection.assets(
         ai_repair_enqueue_asset,
         ai_repair_poll_asset,
@@ -129,6 +134,7 @@ xml_repair_cycle_pipeline = dg.define_asset_job(
 
 regular_ingest = dg.define_asset_job(
     name="regular_ingest",
+    executor_def=SAFE_ETL_EXECUTOR,
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         regular_ingest_staging_asset,
@@ -154,6 +160,7 @@ regular_ingest = dg.define_asset_job(
 ingestion_cleanup_a = dg.define_asset_job(
     name="ingestion_cleanup_a",
     description="Base cleanup job; resumes with page tagging previously gated agreements.",
+    executor_def=SAFE_ETL_EXECUTOR,
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_a_tagging_asset,
@@ -177,6 +184,7 @@ ingestion_cleanup_a = dg.define_asset_job(
 ingestion_cleanup_b = dg.define_asset_job(
     name="ingestion_cleanup_b",
     description="Invalid XML cleanup job; starts with attempting to clear invalid XML.",
+    executor_def=SAFE_ETL_EXECUTOR,
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_b_ai_repair_enqueue_asset,
@@ -196,6 +204,7 @@ ingestion_cleanup_b = dg.define_asset_job(
 ingestion_cleanup_c = dg.define_asset_job(
     name="ingestion_cleanup_c",
     description="Fresh XML cleanup job; resumes by building XML from fresh-XML eligible agreements.",
+    executor_def=SAFE_ETL_EXECUTOR,
     hooks={_managed_logical_run_failure_hook},
     selection=dg.AssetSelection.assets(
         ingestion_cleanup_c_xml_asset,
@@ -283,6 +292,7 @@ defs = dg.Definitions(
         embed_sections_asset,
         gating_asset,
     ],
+    executor=SAFE_ETL_EXECUTOR,
     jobs=[
         xml_fresh_pipeline,
         xml_repair_cycle_pipeline,
