@@ -2,32 +2,86 @@ import { PageShell } from "@/components/PageShell";
 
 export default function About() {
   return (
-    <PageShell
-      size="xl"
-      title="About"
-    >
+    <PageShell size="xl" title="About">
       <article className="space-y-12">
-        <section id="overview" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="overview-heading">
-          <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+        <section
+          id="overview"
+          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          aria-labelledby="overview-heading"
+        >
+          <h2
+            id="overview-heading"
+            className="text-2xl font-semibold tracking-tight text-foreground"
+          >
             Overview
           </h2>
-          <p className="text-muted-foreground">
-            Pandects is an open-source M&A research platform built to make it
-            easier to browse and analyze clauses across definitive agreements.
+          <p className="text-muted-foreground prose max-w-none">
+            Pandects is an <strong>open-source M&A research platform</strong>{" "}
+            built to make it easier to browse and analyze clauses across
+            definitive merger agreements. Unlike other corpora, we update our
+            database on a <strong>monthly basis</strong>, and make available not
+            just EDGAR URLs or unprocessed HTML, but also <strong>XML</strong>,
+            compiled with purpose-built ML and data orchestration pipelines. On
+            top of exposing XML, we <strong>taxonomize</strong> each section of
+            each agreement into a comprehensive taxonomy, and enrich each deal
+            with detailed metadata.
           </p>
-          <p className="text-muted-foreground">
-            We plan to soft-launch the site in mid to late March 2026. Check back then
-            for more complete data.
+          <p className="text-muted-foreground prose max-w-none">
+            While we expose a web-based search interface, the real power of the
+            Pandects platform lies in the <strong>API </strong>and associated{" "}
+            <strong>MCP server</strong>. By creating a free account, you gain
+            access to unredacted XML and unlock higher rate limits for public
+            endpoints, putting Pandects data at your fingertips. An account also
+            provides access to the MCP server, enabling you to tackle research
+            questions by partnering with an AI research agent of your choice. To
+            aid adoption of both the API and MCP server, we've put together a
+            small collection of{" "}
+            <a
+              href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub directory of API examples (opens in a new tab)"
+              className="underline underline-offset-2"
+            >
+              Jupyter Notebook examples
+            </a>{" "}
+            as well as built out a{" "}
+            <a
+              href="https://docs.pandects.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Documentation site (opens in a new tab)"
+              className="underline underline-offset-2"
+            >
+              documentation site
+            </a>
+            . Finally, for more control, users may elect to <a
+              href="https://pandects.org/bulk-data/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Bulk data download page (opens in a new tab)"
+              className="underline underline-offset-2"
+            >
+              bulk download
+            </a> a copy
+            of the complete database.
           </p>
         </section>
 
-        <section id="contributing" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="contributing-heading">
-          <h2 id="contributing-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+        <section
+          id="contributing"
+          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          aria-labelledby="contributing-heading"
+        >
+          <h2
+            id="contributing-heading"
+            className="text-2xl font-semibold tracking-tight text-foreground"
+          >
             Contributing
           </h2>
           <p className="text-muted-foreground prose max-w-none">
-            This is an open-source project, and contributions are welcome.
-            See the{" "}
+            This is an open-source project, and contributions are welcome. See
+            the{" "}
             <a
               href="https://github.com/PlatosTwin/pandects-app"
               target="_blank"
@@ -49,14 +103,21 @@ export default function About() {
           </ul>
         </section>
 
-        <section id="credits" className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6" aria-labelledby="credits-heading">
-          <h2 id="credits-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+        <section
+          id="credits"
+          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          aria-labelledby="credits-heading"
+        >
+          <h2
+            id="credits-heading"
+            className="text-2xl font-semibold tracking-tight text-foreground"
+          >
             Credits
           </h2>
           <div className="space-y-6 text-muted-foreground">
             <p className="prose max-w-none text-muted-foreground">
-              Professor Emiliano Catan at NYU Law has been an active advisor
-              to this project from the beginning. The{" "}
+              Professor Emiliano Catan at NYU Law has been an active advisor to
+              this project from the beginning. The{" "}
               <a
                 href="https://www.law.nyu.edu/leadershipprogram"
                 target="_blank"
@@ -67,8 +128,8 @@ export default function About() {
                 Jacobson Leadership Program in Law and Business
               </a>{" "}
               at NYU has also provided support, including a commitment to
-              substantially all of the startup funding. We are also thankful to NYU
-              Law professor Chris Sprigman. The concept and design for this
+              substantially all of the startup funding. We are also thankful to
+              NYU Law professor Chris Sprigman. The concept and design for this
               site borrow heavily from the{" "}
               <a
                 href="https://case.law"
@@ -95,8 +156,8 @@ export default function About() {
             </p>
             <p className="prose max-w-none text-muted-foreground">
               This project would not have gotten off the ground without the
-              prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko,
-              and Eric Talley, whose{" "}
+              prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko, and
+              Eric Talley, whose{" "}
               <a
                 href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
                 target="_blank"
@@ -124,7 +185,9 @@ export default function About() {
               .
             </p>
             <p className="prose max-w-none text-muted-foreground">
-              Finally, this project was supported in part through the NYU IT High Performance Computing resources, services, and staff expertise.
+              Finally, this project was supported in part through the NYU IT
+              High Performance Computing resources, services, and staff
+              expertise.
             </p>
           </div>
         </section>
