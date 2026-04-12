@@ -845,8 +845,6 @@ def strip_formatting_tags(
         _ = node.replace_with(NavigableString(text))
 
     for node in list(soup.find_all(string=True)):
-        if not isinstance(node, NavigableString):
-            continue
         next_sibling = node.next_sibling
         if not isinstance(next_sibling, NavigableString):
             continue

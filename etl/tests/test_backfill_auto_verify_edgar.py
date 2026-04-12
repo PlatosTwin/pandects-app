@@ -77,7 +77,7 @@ class BackfillAutoVerifyEdgarTests(unittest.TestCase):
 
         self.assertEqual(updated, 205)
         self.assertEqual(len(conn.executions), 2)
-        self.assertIn("SET status = 'valid'", conn.executions[0][0])
+        self.assertIn("SET status = 'verified'", conn.executions[0][0])
         self.assertEqual(len(cast(list[str], conn.executions[0][1]["agreement_uuids"])), 200)
         self.assertEqual(len(cast(list[str], conn.executions[1][1]["agreement_uuids"])), 5)
 

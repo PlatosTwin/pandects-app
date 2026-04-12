@@ -103,14 +103,21 @@ class _SecRateLimitedFetcher:
     def rate_limited_get(self, url: str, **kwargs: object) -> Response:
         self._acquire_rate_slot()
         session = self._get_session()
+        session_get = cast(Callable[..., Response], session.get)
         last_exception: Exception | None = None
         for attempt in range(_FETCH_MAX_RETRIES):
             try:
-                response = session.get(url, **kwargs)
+                response = session_get(url, **kwargs)
                 response.raise_for_status()
                 return response
             except requests.exceptions.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code in {429, 500, 502, 503, 504}:
+                error_response = cast(Response | None, exc.response)
+                status_code = (
+                    cast(int, cast(object, error_response.status_code))
+                    if error_response is not None
+                    else None
+                )
+                if status_code in {429, 500, 502, 503, 504}:
                     last_exception = exc
                     if attempt < _FETCH_MAX_RETRIES - 1:
                         wait_time = _FETCH_RETRY_BACKOFF_BASE ** (attempt + 1)
@@ -197,8 +204,10 @@ def _assert_agreements_status_supports_verified(conn: Connection, schema: str) -
     normalized = column_type.casefold()
     if "verified" not in normalized:
         raise RuntimeError(
-            "agreements.status does not support 'verified' yet. "
-            "Run the agreements-status migration before running this backfill."
+            (
+                "agreements.status does not support 'verified' yet. "
+                "Run the agreements-status migration before running this backfill."
+            )
         )
 
 
