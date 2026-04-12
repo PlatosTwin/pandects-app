@@ -8,6 +8,9 @@ on:
       - "branding/**"
       - "frontend/public/openapi.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

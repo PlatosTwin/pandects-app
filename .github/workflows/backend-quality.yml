@@ -11,6 +11,9 @@ on:
       - "backend/**"
       - ".github/workflows/backend-quality.yml"
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
