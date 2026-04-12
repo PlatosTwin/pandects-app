@@ -8,8 +8,48 @@ import { Link } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import brandLinks from "@branding/links.json";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export default function Landing() {
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const headerBadgeRef = useRef<HTMLDivElement | null>(null);
+  const sourcedTextRef = useRef<HTMLSpanElement | null>(null);
+  const updatedTextRef = useRef<HTMLSpanElement | null>(null);
+  const separatorRef = useRef<HTMLSpanElement | null>(null);
+  const [showHeaderSeparator, setShowHeaderSeparator] = useState(true);
+
+  useLayoutEffect(() => {
+    const badge = headerBadgeRef.current;
+    const sourced = sourcedTextRef.current;
+    const updated = updatedTextRef.current;
+    const separator = separatorRef.current;
+    if (!badge || !sourced || !updated || !separator) return;
+
+    const measureWrap = () => {
+      const top = sourced.offsetTop;
+      const nextShowHeaderSeparator =
+        separator.offsetTop === top && updated.offsetTop === top;
+
+      setShowHeaderSeparator((previous) =>
+        previous === nextShowHeaderSeparator ? previous : nextShowHeaderSeparator,
+      );
+    };
+
+    measureWrap();
+
+    const resizeObserver = new ResizeObserver(() => {
+      measureWrap();
+    });
+    resizeObserver.observe(badge);
+
+    window.addEventListener("resize", measureWrap);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", measureWrap);
+    };
+  }, []);
+
   return (
     <div className="relative isolate min-h-[80vh] overflow-hidden px-4 py-8 sm:py-10">
       <div
@@ -23,8 +63,19 @@ export default function Landing() {
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="flex w-full max-w-[860px] flex-col items-center">
           <Card className="w-full animate-fade-in-up border-border/60 bg-background/75 px-6 py-12 text-center backdrop-blur shadow-lg supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
-            <div className="mx-auto mb-6 inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70">
-              Sourced from EDGAR • Updated{"\u00A0"}monthly
+            <div
+              ref={headerBadgeRef}
+              className="mx-auto mb-6 inline-flex flex-wrap items-center justify-center gap-x-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70"
+            >
+              <span ref={sourcedTextRef}>Sourced from EDGAR</span>
+              <span
+                ref={separatorRef}
+                aria-hidden="true"
+                className={showHeaderSeparator ? "" : "invisible"}
+              >
+                •
+              </span>
+              <span ref={updatedTextRef}>Updated{"\u00A0"}monthly</span>
             </div>
 
             <AdaptiveTooltip
@@ -98,35 +149,63 @@ export default function Landing() {
               </Button>
             </div>
 
-            <div className="mt-6 flex flex-col items-center justify-center gap-1 text-sm sm:mt-4 sm:flex-row sm:gap-4">
-              <Button
-                asChild
-                variant="link"
-                className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
-              >
-                <a
-                  href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="See API Examples (opens in a new tab)"
-                  onClick={() =>
-                    trackEvent("landing_cta_click", {
-                      cta: "See API Examples",
-                      href:
-                        "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
-                    })
-                  }
+            <div className="mt-6 flex flex-col items-center gap-3 sm:mt-4">
+              <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
+                <Button
+                  asChild
+                  variant="link"
+                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
                 >
-                  <Code className="h-4 w-4" aria-hidden="true" />
-                  See API Examples
-                </a>
-              </Button>
-              <span
-                aria-hidden="true"
-                className="hidden text-muted-foreground/50 sm:inline"
-              >
-                •
-              </span>
+                  <a
+                    href={`${docsUrl}/docs/mcp/using`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Connect to MCP (opens in a new tab)"
+                    onClick={() =>
+                      trackEvent("landing_cta_click", {
+                        cta: "Connect to MCP",
+                        href: `${docsUrl}/docs/mcp/using`,
+                      })
+                    }
+                  >
+                    <img
+                      src="/mcp-logo.svg"
+                      alt=""
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                    />
+                    Connect to MCP
+                  </a>
+                </Button>
+                <span
+                  aria-hidden="true"
+                  className="hidden text-muted-foreground/50 sm:inline"
+                >
+                  •
+                </span>
+                <Button
+                  asChild
+                  variant="link"
+                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <a
+                    href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="See API Examples (opens in a new tab)"
+                    onClick={() =>
+                      trackEvent("landing_cta_click", {
+                        cta: "See API Examples",
+                        href:
+                          "https://github.com/PlatosTwin/pandects-app/tree/main/examples",
+                      })
+                    }
+                  >
+                    <Code className="h-4 w-4" aria-hidden="true" />
+                    See API Examples
+                  </a>
+                </Button>
+              </div>
               <Button
                 asChild
                 variant="link"
