@@ -2437,6 +2437,51 @@ class AuthFlowTests(unittest.TestCase):
             ["authorization_code", "refresh_token"],
         )
 
+    def test_oauth_authorize_defaults_scope_when_client_omits_it(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        user_id = self._create_local_user(email="scope-default@example.com", verified=True, legal=True)
+        with self.app.app_context():
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|scope-default",
+                )
+            )
+            db.session.commit()
+        token = self._issue_bearer_session(email="scope-default@example.com")
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "codex.example.com")
+        self.assertIn("code", parse_qs(parsed.query))
+
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

@@ -1374,7 +1374,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         allowed = set(mcp_supported_scopes())
         requested = [part.strip() for part in (raw or "").split() if part.strip()]
         if not requested:
-            return ""
+            return " ".join(mcp_supported_scopes())
         deduped: list[str] = []
         for scope_name in requested:
             if scope_name not in allowed:
