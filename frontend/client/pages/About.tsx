@@ -185,7 +185,7 @@ export default function About() {
               .
             </p>
             <p className="prose max-w-none text-muted-foreground">
-              Finally, this project was supported in part through the NYU IT
+              Finally, this project was supported in part through NYU IT
               High Performance Computing resources, services, and staff
               expertise.
             </p>
