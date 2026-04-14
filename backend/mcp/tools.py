@@ -9,6 +9,7 @@ from marshmallow import Schema, ValidationError, fields as ma_fields, validate
 from sqlalchemy import and_, asc, desc, func, or_, text
 
 from backend.auth.mcp_runtime import McpPrincipal
+from backend.filtering import build_canonical_counsel_agreement_uuid_subquery, build_transaction_price_bucket_filter
 from backend.routes.agreements import (
     _agreement_is_public_eligible_expr,
     _normalize_industry_label,
@@ -22,18 +23,126 @@ from backend.schemas.public_api import (
     AgreementsBulkArgsPayload,
     AgreementsBulkArgsSchema,
 )
-from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
+from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsArgsPayload, SectionsArgsSchema
 from backend.services.sections_service import run_sections
 
 _SECTION_LIST_SORT_FIELDS = ("article_title", "section_title", "section_uuid")
+_SEARCH_SORT_FIELDS = ("year", "target", "acquirer")
+_SORT_DIRECTIONS = ("asc", "desc")
+_TRANSACTION_PRICE_BUCKET_OPTIONS = (
+    "0 - 100M",
+    "100M - 250M",
+    "250M - 500M",
+    "500M - 750M",
+    "750M - 1B",
+    "1B - 5B",
+    "5B - 10B",
+    "10B - 20B",
+    "20B+",
+)
 _FILTER_OPTIONS_FIELDS = (
     "targets",
     "acquirers",
+    "transaction_price_totals",
+    "transaction_price_stocks",
+    "transaction_price_cashes",
+    "transaction_price_assets",
+    "transaction_considerations",
+    "target_types",
+    "acquirer_types",
     "target_counsels",
     "acquirer_counsels",
     "target_industries",
     "acquirer_industries",
+    "deal_statuses",
+    "attitudes",
+    "deal_types",
+    "purposes",
+    "target_pes",
+    "acquirer_pes",
 )
+_STRUCTURED_FILTER_ARRAY_FIELDS = (
+    "year",
+    "target",
+    "acquirer",
+    "transaction_price_total",
+    "transaction_price_stock",
+    "transaction_price_cash",
+    "transaction_price_assets",
+    "transaction_consideration",
+    "target_type",
+    "acquirer_type",
+    "target_counsel",
+    "acquirer_counsel",
+    "target_industry",
+    "acquirer_industry",
+    "deal_status",
+    "attitude",
+    "deal_type",
+    "purpose",
+    "target_pe",
+    "acquirer_pe",
+)
+
+
+def _array_schema_for_filter(field_name: str) -> dict[str, object]:
+    item_type = "integer" if field_name == "year" else "string"
+    return {"type": "array", "items": {"type": item_type}}
+
+
+def _enum_array_schema(
+    values: tuple[str, ...],
+    *,
+    description: str | None = None,
+    examples: list[object] | None = None,
+) -> dict[str, object]:
+    schema: dict[str, object] = {"type": "array", "items": {"type": "string", "enum": list(values)}}
+    if description is not None:
+        schema["description"] = description
+    if examples is not None:
+        schema["examples"] = examples
+    return schema
+
+
+def _structured_filter_properties(*, include_cursor: bool = False, include_xml: bool = False) -> dict[str, object]:
+    properties: dict[str, object] = {}
+    if include_cursor:
+        properties["cursor"] = {"type": ["string", "null"], "description": "Opaque cursor from a previous list_agreements call."}
+    properties["page_size"] = {"type": "integer", "description": "Maximum number of results to return."}
+    if include_xml:
+        properties["include_xml"] = {
+            "type": "boolean",
+            "description": "When true, include full agreement XML. Requires agreements:read_fulltext.",
+        }
+    for field_name in _STRUCTURED_FILTER_ARRAY_FIELDS:
+        if field_name == "year":
+            properties[field_name] = {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "Agreement filing years to include.",
+            }
+        elif field_name in {
+            "transaction_price_total",
+            "transaction_price_stock",
+            "transaction_price_cash",
+            "transaction_price_assets",
+        }:
+            properties[field_name] = _enum_array_schema(
+                _TRANSACTION_PRICE_BUCKET_OPTIONS,
+                description="Transaction-price bucket filters.",
+                examples=[["100M - 250M", "250M - 500M"]],
+            )
+        elif field_name in {"target_pe", "acquirer_pe"}:
+            properties[field_name] = _enum_array_schema(
+                ("true", "false"),
+                description="Boolean-like PE filter values encoded as strings.",
+                examples=[["true"]],
+            )
+        else:
+            properties[field_name] = _array_schema_for_filter(field_name)
+    properties["agreement_uuid"] = {"type": ["string", "null"], "description": "Filter to one agreement UUID."}
+    properties["section_uuid"] = {"type": ["string", "null"], "description": "Filter to one section UUID."}
+    return properties
 
 
 class McpAgreementArgsSchema(AgreementArgsSchema):
@@ -50,6 +159,28 @@ class McpSearchAgreementsArgsSchema(Schema):
     page_size = ma_fields.Int(load_default=25)
     sort_by = ma_fields.Str(load_default="year", validate=validate.OneOf(["year", "target", "acquirer"]))
     sort_dir = ma_fields.Str(load_default="desc", validate=validate.OneOf(["asc", "desc"]))
+    year = ma_fields.List(ma_fields.Int(), load_default=[])
+    target = ma_fields.List(ma_fields.Str(), load_default=[])
+    acquirer = ma_fields.List(ma_fields.Str(), load_default=[])
+    transaction_price_total = ma_fields.List(ma_fields.Str(), load_default=[])
+    transaction_price_stock = ma_fields.List(ma_fields.Str(), load_default=[])
+    transaction_price_cash = ma_fields.List(ma_fields.Str(), load_default=[])
+    transaction_price_assets = ma_fields.List(ma_fields.Str(), load_default=[])
+    transaction_consideration = ma_fields.List(ma_fields.Str(), load_default=[])
+    target_type = ma_fields.List(ma_fields.Str(), load_default=[])
+    acquirer_type = ma_fields.List(ma_fields.Str(), load_default=[])
+    target_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
+    acquirer_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
+    target_industry = ma_fields.List(ma_fields.Str(), load_default=[])
+    acquirer_industry = ma_fields.List(ma_fields.Str(), load_default=[])
+    deal_status = ma_fields.List(ma_fields.Str(), load_default=[])
+    attitude = ma_fields.List(ma_fields.Str(), load_default=[])
+    deal_type = ma_fields.List(ma_fields.Str(), load_default=[])
+    purpose = ma_fields.List(ma_fields.Str(), load_default=[])
+    target_pe = ma_fields.List(ma_fields.Str(), load_default=[])
+    acquirer_pe = ma_fields.List(ma_fields.Str(), load_default=[])
+    agreement_uuid = ma_fields.Str(load_default=None, allow_none=True)
+    section_uuid = ma_fields.Str(load_default=None, allow_none=True)
 
 
 class McpListAgreementSectionsArgsSchema(Schema):
@@ -497,7 +628,11 @@ def _list_agreements(
         agreements.acquirer_pe.label("acquirer_pe"),
         agreements.url.label("url"),
     ]
-    q = db.session.query(*item_columns).join(xml, deps._agreement_latest_xml_join_condition())
+    q = (
+        db.session.query(*item_columns)
+        .join(xml, deps._agreement_latest_xml_join_condition())
+        .filter(_agreement_is_public_eligible_expr(agreements))
+    )
 
     if include_xml:
         q = q.add_columns(xml.xml.label("xml"))
@@ -516,10 +651,6 @@ def _list_agreements(
     list_filters = (
         ("target", agreements.target),
         ("acquirer", agreements.acquirer),
-        ("transaction_price_total", agreements.transaction_price_total),
-        ("transaction_price_stock", agreements.transaction_price_stock),
-        ("transaction_price_cash", agreements.transaction_price_cash),
-        ("transaction_price_assets", agreements.transaction_price_assets),
         ("transaction_consideration", agreements.transaction_consideration),
         ("target_type", agreements.target_type),
         ("acquirer_type", agreements.acquirer_type),
@@ -534,6 +665,31 @@ def _list_agreements(
         values = parsed_args[key]
         if values:
             q = q.filter(column.in_(values))
+
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_total,
+        parsed_args["transaction_price_total"],
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_stock,
+        parsed_args["transaction_price_stock"],
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_cash,
+        parsed_args["transaction_price_cash"],
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_assets,
+        parsed_args["transaction_price_assets"],
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
 
     for key, column in (("target_pe", agreements.target_pe), ("acquirer_pe", agreements.acquirer_pe)):
         values = parsed_args[key]
@@ -645,6 +801,10 @@ def _search_agreements(
     query = cast(str, parsed_args["query"]).strip()
 
     agreements = deps.Agreements
+    agreement_counsel = deps.AgreementCounsel
+    counsel = deps.Counsel
+    xml = deps.XML
+    sections = deps.Sections
     db = deps.db
     year_expr = deps._agreement_year_expr()
     sort_map = {"year": year_expr, "target": agreements.target, "acquirer": agreements.acquirer}
@@ -661,15 +821,137 @@ def _search_agreements(
             agreements.url,
             agreements.verified,
         )
-        .join(deps.XML, deps._agreement_latest_xml_join_condition())
+        .join(xml, deps._agreement_latest_xml_join_condition())
         .filter(_agreement_is_public_eligible_expr(agreements))
     )
     count_q = (
         db.session.query(func.count(agreements.agreement_uuid))
         .select_from(agreements)
-        .join(deps.XML, deps._agreement_latest_xml_join_condition())
+        .join(xml, deps._agreement_latest_xml_join_condition())
         .filter(_agreement_is_public_eligible_expr(agreements))
     )
+
+    years = cast(list[int], parsed_args["year"])
+    if years:
+        year_filters = tuple(
+            and_(
+                agreements.filing_date >= f"{year:04d}-01-01",
+                agreements.filing_date < f"{year + 1:04d}-01-01",
+            )
+            for year in years
+        )
+        year_clause = or_(*year_filters)
+        q = q.filter(year_clause)
+        count_q = count_q.filter(year_clause)
+
+    list_filters = (
+        ("target", agreements.target),
+        ("acquirer", agreements.acquirer),
+        ("transaction_price_total", agreements.transaction_price_total),
+        ("transaction_price_stock", agreements.transaction_price_stock),
+        ("transaction_price_cash", agreements.transaction_price_cash),
+        ("transaction_price_assets", agreements.transaction_price_assets),
+        ("transaction_consideration", agreements.transaction_consideration),
+        ("target_type", agreements.target_type),
+        ("acquirer_type", agreements.acquirer_type),
+        ("target_industry", agreements.target_industry),
+        ("acquirer_industry", agreements.acquirer_industry),
+        ("deal_status", agreements.deal_status),
+        ("attitude", agreements.attitude),
+        ("deal_type", agreements.deal_type),
+        ("purpose", agreements.purpose),
+    )
+    for key, column in list_filters:
+        values = cast(list[str], parsed_args[key])
+        if values:
+            clause = column.in_(values)
+            q = q.filter(clause)
+            count_q = count_q.filter(clause)
+
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_total,
+        cast(list[str], parsed_args["transaction_price_total"]),
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+        count_q = count_q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_stock,
+        cast(list[str], parsed_args["transaction_price_stock"]),
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+        count_q = count_q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_cash,
+        cast(list[str], parsed_args["transaction_price_cash"]),
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+        count_q = count_q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_assets,
+        cast(list[str], parsed_args["transaction_price_assets"]),
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
+        count_q = count_q.filter(transaction_price_assets_filter)
+
+    for key, column in (("target_pe", agreements.target_pe), ("acquirer_pe", agreements.acquirer_pe)):
+        values = cast(list[str], parsed_args[key])
+        if not values:
+            continue
+        db_values: list[int] = []
+        for value in values:
+            if value == "true":
+                db_values.append(1)
+            elif value == "false":
+                db_values.append(0)
+        if db_values:
+            clause = column.in_(db_values)
+            q = q.filter(clause)
+            count_q = count_q.filter(clause)
+
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=cast(list[str], parsed_args["target_counsel"]),
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        clause = agreements.agreement_uuid.in_(target_counsel_subquery)
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=cast(list[str], parsed_args["acquirer_counsel"]),
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        clause = agreements.agreement_uuid.in_(acquirer_counsel_subquery)
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+
+    agreement_uuid = cast(str | None, parsed_args["agreement_uuid"])
+    if agreement_uuid and agreement_uuid.strip():
+        clause = agreements.agreement_uuid == agreement_uuid.strip()
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+
+    section_uuid = cast(str | None, parsed_args["section_uuid"])
+    if section_uuid and section_uuid.strip():
+        section_exists = (
+            db.session.query(sections.section_uuid)
+            .filter(
+                sections.agreement_uuid == agreements.agreement_uuid,
+                sections.section_uuid == section_uuid.strip(),
+                sections.xml_version == xml.version,
+            )
+            .exists()
+        )
+        q = q.filter(section_exists)
+        count_q = count_q.filter(section_exists)
 
     if query:
         if query.isdigit():
@@ -1077,6 +1359,68 @@ def _list_filter_options(
                 )
             ).fetchall()
         ]
+    if "transaction_price_totals" in selected_fields:
+        payload_out["transaction_price_totals"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
+    if "transaction_price_stocks" in selected_fields:
+        payload_out["transaction_price_stocks"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
+    if "transaction_price_cashes" in selected_fields:
+        payload_out["transaction_price_cashes"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
+    if "transaction_price_assets" in selected_fields:
+        payload_out["transaction_price_assets"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
+    if "transaction_considerations" in selected_fields:
+        payload_out["transaction_considerations"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.transaction_consideration
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.transaction_consideration IS NOT NULL
+                      AND a.transaction_consideration <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.transaction_consideration
+                    """
+                )
+            ).fetchall()
+        ]
+    if "target_types" in selected_fields:
+        payload_out["target_types"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.target_type
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.target_type IS NOT NULL
+                      AND a.target_type <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.target_type
+                    """
+                )
+            ).fetchall()
+        ]
+    if "acquirer_types" in selected_fields:
+        payload_out["acquirer_types"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.acquirer_type
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.acquirer_type IS NOT NULL
+                      AND a.acquirer_type <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.acquirer_type
+                    """
+                )
+            ).fetchall()
+        ]
     if "target_counsels" in selected_fields:
         payload_out["target_counsels"] = [
             cast(str, row[0])
@@ -1159,8 +1503,108 @@ def _list_filter_options(
                 )
             ).fetchall()
         ]
+    if "deal_statuses" in selected_fields:
+        payload_out["deal_statuses"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.deal_status
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.deal_status IS NOT NULL
+                      AND a.deal_status <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.deal_status
+                    """
+                )
+            ).fetchall()
+        ]
+    if "attitudes" in selected_fields:
+        payload_out["attitudes"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.attitude
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.attitude IS NOT NULL
+                      AND a.attitude <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.attitude
+                    """
+                )
+            ).fetchall()
+        ]
+    if "deal_types" in selected_fields:
+        payload_out["deal_types"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.deal_type
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.deal_type IS NOT NULL
+                      AND a.deal_type <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.deal_type
+                    """
+                )
+            ).fetchall()
+        ]
+    if "purposes" in selected_fields:
+        payload_out["purposes"] = [
+            cast(str, row[0])
+            for row in db.session.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT a.purpose
+                    FROM {schema_prefix()}agreements a
+                    WHERE a.purpose IS NOT NULL
+                      AND a.purpose <> ''
+                      AND {is_public_eligible}
+                      AND {has_sections}
+                      AND {xml_eligible}
+                    ORDER BY a.purpose
+                    """
+                )
+            ).fetchall()
+        ]
+    if "target_pes" in selected_fields:
+        payload_out["target_pes"] = ["true", "false"]
+    if "acquirer_pes" in selected_fields:
+        payload_out["acquirer_pes"] = ["true", "false"]
 
-    response = {"fields": list(selected_fields), **payload_out}
+    response = {
+        "fields": list(selected_fields),
+        "retrieval_parameter_map": {
+            "targets": "target",
+            "acquirers": "acquirer",
+            "transaction_price_totals": "transaction_price_total",
+            "transaction_price_stocks": "transaction_price_stock",
+            "transaction_price_cashes": "transaction_price_cash",
+            "transaction_price_assets": "transaction_price_assets",
+            "transaction_considerations": "transaction_consideration",
+            "target_types": "target_type",
+            "acquirer_types": "acquirer_type",
+            "target_counsels": "target_counsel",
+            "acquirer_counsels": "acquirer_counsel",
+            "target_industries": "target_industry",
+            "acquirer_industries": "acquirer_industry",
+            "deal_statuses": "deal_status",
+            "attitudes": "attitude",
+            "deal_types": "deal_type",
+            "purposes": "purpose",
+            "target_pes": "target_pe",
+            "acquirer_pes": "acquirer_pe",
+        },
+        **payload_out,
+    }
     return McpToolResult(
         text=f"Returned {len(selected_fields)} filter option group(s).",
         structured_content=response,
@@ -1262,15 +1706,28 @@ def tool_definitions() -> list[dict[str, object]]:
     return [
         {
             "name": "search_agreements",
-            "description": "Find agreements by company name or year when you need discovery rather than exact filtering.",
+            "description": "Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string"},
-                    "page": {"type": "integer"},
-                    "page_size": {"type": "integer"},
-                    "sort_by": {"type": "string"},
-                    "sort_dir": {"type": "string"},
+                    "query": {
+                        "type": "string",
+                        "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
+                        "examples": ["Slack", "2020"],
+                    },
+                    "page": {"type": "integer", "description": "1-based page number for discovery results."},
+                    "page_size": {"type": "integer", "description": "Page size for discovery results."},
+                    "sort_by": {
+                        "type": "string",
+                        "enum": list(_SEARCH_SORT_FIELDS),
+                        "description": "Discovery sort key.",
+                    },
+                    "sort_dir": {
+                        "type": "string",
+                        "enum": list(_SORT_DIRECTIONS),
+                        "description": "Discovery sort direction.",
+                    },
+                    **_structured_filter_properties(),
                 },
                 "additionalProperties": False,
             },
@@ -1281,37 +1738,35 @@ def tool_definitions() -> list[dict[str, object]]:
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "year": {"type": "array", "items": {"type": "integer"}},
-                    "target": {"type": "array", "items": {"type": "string"}},
-                    "acquirer": {"type": "array", "items": {"type": "string"}},
+                    **_structured_filter_properties(),
                     "standard_id": {"type": "array", "items": {"type": "string"}},
-                    "metadata": {"type": "array", "items": {"type": "string"}},
-                    "agreement_uuid": {"type": ["string", "null"]},
-                    "section_uuid": {"type": ["string", "null"]},
-                    "sort_by": {"type": "string"},
-                    "sort_direction": {"type": "string"},
-                    "page": {"type": "integer"},
-                    "page_size": {"type": "integer"},
+                    "metadata": _enum_array_schema(
+                        cast(tuple[str, ...], SECTIONS_RESULT_METADATA_FIELDS),
+                        description="Agreement metadata fields to include under results[].metadata.",
+                        examples=[["deal_type", "target_industry"]],
+                    ),
+                    "sort_by": {
+                        "type": "string",
+                        "enum": list(_SEARCH_SORT_FIELDS),
+                        "description": "Section search sort key.",
+                    },
+                    "sort_direction": {
+                        "type": "string",
+                        "enum": list(_SORT_DIRECTIONS),
+                        "description": "Section search sort direction.",
+                    },
+                    "page": {"type": "integer", "description": "1-based page number."},
                 },
-                "additionalProperties": True,
+                "additionalProperties": False,
             },
         },
         {
             "name": "list_agreements",
-            "description": "List agreements with exact structured filters and cursor pagination when you already know the filters you want.",
+            "description": "Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
             "inputSchema": {
                 "type": "object",
-                "properties": {
-                    "cursor": {"type": ["string", "null"]},
-                    "page_size": {"type": "integer"},
-                    "include_xml": {"type": "boolean"},
-                    "year": {"type": "array", "items": {"type": "integer"}},
-                    "target": {"type": "array", "items": {"type": "string"}},
-                    "acquirer": {"type": "array", "items": {"type": "string"}},
-                    "agreement_uuid": {"type": ["string", "null"]},
-                    "section_uuid": {"type": ["string", "null"]},
-                },
-                "additionalProperties": True,
+                "properties": _structured_filter_properties(include_cursor=True, include_xml=True),
+                "additionalProperties": False,
             },
         },
         {
@@ -1383,11 +1838,15 @@ def tool_definitions() -> list[dict[str, object]]:
         },
         {
             "name": "list_filter_options",
-            "description": "List valid filter values for agreement and section searches so agents do not need to guess exact names.",
+            "description": "List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "fields": {"type": "array", "items": {"type": "string"}},
+                    "fields": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(_FILTER_OPTIONS_FIELDS)},
+                        "description": "Optional subset of filter catalogs to return.",
+                    },
                 },
                 "additionalProperties": False,
             },

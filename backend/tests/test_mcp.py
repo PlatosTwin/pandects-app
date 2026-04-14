@@ -56,8 +56,14 @@ class McpTests(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(
                     text(
-                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url) "
-                        "VALUES ('a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1')"
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, url, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, deal_type, purpose, target_pe, acquirer_pe"
+                        ") VALUES ("
+                        "'a1', '2020-01-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'merger', 'strategic', 0, 0"
+                        ")"
                     )
                 )
                 conn.execute(
@@ -393,11 +399,61 @@ class McpTests(unittest.TestCase):
             ],
         )
 
+    def test_tools_list_advertises_structured_counsel_filters(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        )
+        self.assertEqual(res.status_code, 200)
+        tools = {
+            tool["name"]: tool["inputSchema"]
+            for tool in res.get_json()["result"]["tools"]
+        }
+
+        search_agreements_schema = tools["search_agreements"]
+        self.assertFalse(search_agreements_schema["additionalProperties"])
+        self.assertIn("target_counsel", search_agreements_schema["properties"])
+        self.assertIn("acquirer_counsel", search_agreements_schema["properties"])
+        self.assertEqual(
+            search_agreements_schema["properties"]["sort_by"]["enum"],
+            ["year", "target", "acquirer"],
+        )
+        self.assertIn(
+            "100M - 250M",
+            search_agreements_schema["properties"]["transaction_price_total"]["items"]["enum"],
+        )
+
+        search_sections_schema = tools["search_sections"]
+        self.assertFalse(search_sections_schema["additionalProperties"])
+        self.assertIn("target_counsel", search_sections_schema["properties"])
+        self.assertIn("acquirer_counsel", search_sections_schema["properties"])
+        self.assertNotIn("target_counsels", search_sections_schema["properties"])
+        self.assertNotIn("acquirer_counsels", search_sections_schema["properties"])
+        self.assertIn("deal_type", search_sections_schema["properties"]["metadata"]["items"]["enum"])
+        self.assertEqual(search_sections_schema["properties"]["sort_direction"]["enum"], ["asc", "desc"])
+
+        list_agreements_schema = tools["list_agreements"]
+        self.assertFalse(list_agreements_schema["additionalProperties"])
+        self.assertIn("target_counsel", list_agreements_schema["properties"])
+        self.assertIn("acquirer_counsel", list_agreements_schema["properties"])
+
     def test_search_agreements_tool(self):
         res = self._call_tool("search_agreements", {"query": "Target"})
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["page"], 1)
+        self.assertEqual(payload["returned_count"], 1)
+        self.assertEqual(payload["results"][0]["agreement_uuid"], "a1")
+
+    def test_search_agreements_supports_counsel_filters(self):
+        res = self._call_tool(
+            "search_agreements",
+            {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["returned_count"], 1)
         self.assertEqual(payload["results"][0]["agreement_uuid"], "a1")
 
@@ -440,11 +496,24 @@ class McpTests(unittest.TestCase):
         self.assertEqual(section_payload["returned_count"], 2)
 
     def test_filter_and_catalog_tools(self):
-        filter_res = self._call_tool("list_filter_options", {"fields": ["targets", "target_counsels"]})
+        filter_res = self._call_tool(
+            "list_filter_options",
+            {"fields": ["targets", "target_counsels", "transaction_price_totals", "deal_types", "target_pes"]},
+        )
         self.assertEqual(filter_res.status_code, 200)
         filter_payload = filter_res.get_json()["result"]["structuredContent"]
         self.assertEqual(filter_payload["targets"], ["Target A"])
         self.assertEqual(filter_payload["target_counsels"], ["Wachtell, Lipton, Rosen & Katz"])
+        self.assertIn("0 - 100M", filter_payload["transaction_price_totals"])
+        self.assertEqual(filter_payload["deal_types"], ["merger"])
+        self.assertEqual(filter_payload["target_pes"], ["true", "false"])
+        self.assertEqual(filter_payload["retrieval_parameter_map"]["targets"], "target")
+        self.assertEqual(filter_payload["retrieval_parameter_map"]["target_counsels"], "target_counsel")
+        self.assertEqual(
+            filter_payload["retrieval_parameter_map"]["transaction_price_totals"],
+            "transaction_price_total",
+        )
+        self.assertEqual(filter_payload["retrieval_parameter_map"]["deal_types"], "deal_type")
 
         taxonomy_res = self._call_tool("get_clause_taxonomy", {})
         self.assertEqual(taxonomy_res.status_code, 200)
