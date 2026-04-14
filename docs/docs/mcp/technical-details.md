@@ -18,9 +18,10 @@ The current MCP surface covers:
 - Agreement discovery and retrieval
 - Section search and section listing within one agreement
 - Section-level retrieval
+- Concept-to-taxonomy mapping and focused snippet extraction
 - Tax clause retrieval
 - Filter and taxonomy lookup
-- Counsel, NAICS, summary, and trend reference data
+- Counsel, NAICS, summary, trend, and server-introspection reference data
 
 ## Tool Groups
 
@@ -37,8 +38,15 @@ Use these when the client needs to find the right agreement first or fetch one a
 - `search_sections`
 - `list_agreement_sections`
 - `get_section`
+- `get_section_snippet`
 
-Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, or inspect a known section directly.
+Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, inspect a known section directly, or extract a shorter plain-text excerpt from one section.
+
+### Discovery Helpers
+
+- `suggest_clause_families`
+
+Use this when the client knows the business or legal concept but does not know the right taxonomy `standard_id` yet. The tool returns ranked clause-family candidates with their taxonomy paths and matched terms.
 
 ### Tax Clause Research
 
@@ -61,8 +69,34 @@ Use these when the client needs valid structured inputs before searching.
 - `get_naics_catalog`
 - `get_agreements_summary`
 - `get_agreement_trends`
+- `get_server_capabilities`
+- `get_server_metrics`
 
-Use these when the client needs canonical lookup data or corpus-level context.
+Use these when the client needs canonical lookup data, corpus-level context, or MCP introspection metadata.
+
+## Current Tool List
+
+The current MCP tools are:
+
+- `search_agreements`
+- `search_sections`
+- `list_agreements`
+- `list_agreement_sections`
+- `get_agreement`
+- `get_section`
+- `get_section_snippet`
+- `get_agreement_tax_clauses`
+- `get_section_tax_clauses`
+- `list_filter_options`
+- `suggest_clause_families`
+- `get_server_metrics`
+- `get_server_capabilities`
+- `get_clause_taxonomy`
+- `get_tax_clause_taxonomy`
+- `get_counsel_catalog`
+- `get_naics_catalog`
+- `get_agreements_summary`
+- `get_agreement_trends`
 
 ## Design Notes
 
@@ -71,7 +105,10 @@ Use these when the client needs canonical lookup data or corpus-level context.
 - `search_agreements` is the discovery-oriented agreement search
 - `list_agreements` is the exact-filter, cursor-based agreement listing surface
 - `list_agreement_sections` is an MCP convenience tool for within-agreement navigation
+- `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids
+- `get_section_snippet` is a focused reading aid, not a replacement for `get_section`
 - `get_agreement` preserves the current redaction and full-text access behavior
+- The MCP intentionally does not currently expose built-in comparison-orchestration tools; comparison flows are expected to compose the primitive retrieval tools
 
 ## Authentication
 
