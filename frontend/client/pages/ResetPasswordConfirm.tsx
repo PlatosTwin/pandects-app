@@ -42,8 +42,9 @@ export default function ResetPasswordConfirm() {
       title="Choose a new password"
       subtitle="Finish resetting your Pandects password."
       size="md"
+      className="max-w-3xl"
     >
-      <Card className="p-6">
+      <Card className="mx-auto w-full max-w-2xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {!userId || !code ? (
             <Alert variant="destructive">
@@ -71,9 +72,11 @@ export default function ResetPasswordConfirm() {
           ) : null}
 
           {!submitted ? (
-            <form className="grid gap-4" onSubmit={submit}>
+            <form className="grid gap-5" onSubmit={submit}>
               <div className="grid gap-2">
-                <Label htmlFor="new-password">New password</Label>
+                <Label htmlFor="new-password" className="text-sm font-medium text-foreground/90">
+                  New password
+                </Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -82,10 +85,16 @@ export default function ResetPasswordConfirm() {
                   onChange={(event) => setPassword(event.target.value)}
                   disabled={!userId || !code}
                   required
+                  className="h-11 border-border/80 bg-background"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="confirm-password">Confirm password</Label>
+                <Label
+                  htmlFor="confirm-password"
+                  className="text-sm font-medium text-foreground/90"
+                >
+                  Confirm password
+                </Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -94,15 +103,22 @@ export default function ResetPasswordConfirm() {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   disabled={!userId || !code}
                   required
+                  className="h-11 border-border/80 bg-background"
                 />
               </div>
-              <Button type="submit" disabled={submitting || !userId || !code} className="w-full">
-                {submitting ? "Updating password…" : "Update password"}
-              </Button>
+              <div className="flex justify-center pt-1">
+                <Button
+                  type="submit"
+                  disabled={submitting || !userId || !code}
+                  className="min-w-[10rem] rounded-full px-6"
+                >
+                  {submitting ? "Updating password…" : "Update password"}
+                </Button>
+              </div>
             </form>
           ) : null}
 
-          <div className="text-sm text-muted-foreground">
+          <div className="text-center text-sm text-muted-foreground">
             <Link to="/login" className="text-primary hover:underline">
               Back to sign in
             </Link>
