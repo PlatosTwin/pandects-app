@@ -1382,6 +1382,7 @@ class AuthFlowTests(unittest.TestCase):
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
         sent_verification = {"called": False}
+        created_signup_payloads: list[dict[str, object]] = []
 
         def _fake_oauth_fetch_json(
             url: str,
@@ -1409,11 +1410,12 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(method, "POST")
             self.assertIsInstance(json_body, dict)
             assert json_body is not None
+            created_signup_payloads.append(json_body)
             self.assertEqual(json_body["username"], "new-password-user@example.com")
             self.assertEqual(json_body["profile"]["givenName"], "New")
             self.assertEqual(json_body["profile"]["familyName"], "User")
             self.assertEqual(json_body["email"]["email"], "new-password-user@example.com")
-            self.assertIn("/verify-email", json_body["email"]["sendCode"]["urlTemplate"])
+            self.assertNotIn("sendCode", json_body["email"])
             return {"userId": "zitadel-new-user"}
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
@@ -1447,6 +1449,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(finalize.status_code, 200)
         finalize_payload = finalize.get_json()
         self.assertEqual(finalize_payload["status"], "verification_required")
+        self.assertEqual(len(created_signup_payloads), 1)
         self.assertTrue(sent_verification["called"])
 
     def test_password_signup_assigns_default_zitadel_project_roles_when_project_is_configured(self):
@@ -1784,6 +1787,71 @@ class AuthFlowTests(unittest.TestCase):
         payload = res.get_json()
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "verify-again@example.com")
+
+    def test_password_signup_defers_verification_send_until_finalize(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        signup_payloads: list[dict[str, object]] = []
+        sent_verification = {"called": False}
+
+        def _fake_oauth_fetch_json(
+            url: str,
+            *,
+            data: dict[str, str] | None = None,
+            json_body: dict[str, object] | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ):
+            self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
+            self.assertIsNone(data)
+            if url == "https://pandects-test-zitadel.example.com/v2/users/human":
+                self.assertEqual(method, "POST")
+                self.assertIsInstance(json_body, dict)
+                assert json_body is not None
+                signup_payloads.append(json_body)
+                self.assertNotIn("sendCode", json_body["email"])
+                return {"userId": "zitadel-deferred-verify-user"}
+            if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-deferred-verify-user/email/send":
+                self.assertEqual(method, "POST")
+                sent_verification["called"] = True
+                return {"details": {}}
+            self.fail(f"Unexpected URL: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": "deferred-verify@example.com",
+                    "password": "Secr3tP4ss!",
+                    "next": "/account",
+                },
+            )
+            self.assertEqual(res.status_code, 200)
+            payload = res.get_json()
+            self.assertEqual(payload["status"], "legal_required")
+            self.assertFalse(sent_verification["called"])
+
+            finalize = client.post(
+                "/v1/auth/zitadel/finalize",
+                json={
+                    "legal": {
+                        "checked_at_ms": 1_715_000_000_000,
+                        "docs": ["tos", "privacy", "license"],
+                    }
+                },
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(len(signup_payloads), 1)
+        self.assertEqual(finalize.status_code, 200)
+        finalize_payload = finalize.get_json()
+        self.assertEqual(finalize_payload["status"], "verification_required")
+        self.assertTrue(sent_verification["called"])
 
     def test_password_reset_request_migrates_local_user_and_requests_reset_link(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

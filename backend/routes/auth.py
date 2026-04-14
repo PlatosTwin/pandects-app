@@ -1085,6 +1085,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         password: str,
         first_name: str | None = None,
         last_name: str | None = None,
+        send_verification: bool = False,
     ) -> str | None:
         subject = _ensure_linked_zitadel_subject_for_user(user=user)
         if isinstance(subject, str) and subject.strip():
@@ -1102,14 +1103,15 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                         deps.db.session.flush()
                 else:
                     raise
-        verify_url_template = _zitadel_email_verify_url_template(deps=deps)
         try:
             external_identity = _create_zitadel_human_user(
                 email=user.email,
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
-                verify_url_template=verify_url_template,
+                verify_url_template=(
+                    _zitadel_email_verify_url_template(deps=deps) if send_verification else None
+                ),
             )
         except HTTPException as exc:
             description = exc.description if isinstance(exc.description, str) else ""
@@ -2370,15 +2372,17 @@ window.location.replace({json.dumps(login_url)});
 
         existing_user = _local_user_by_email(email=email)
         if existing_user is not None:
+            has_current_legal = deps._user_has_current_legal_acceptances(user_id=existing_user.id)
             if existing_user.email_verified_at is None:
                 remote_subject = _ensure_pending_signup_remote_user(
                     user=existing_user,
                     password=password,
                     first_name=first_name if isinstance(first_name, str) else None,
                     last_name=last_name if isinstance(last_name, str) else None,
+                    send_verification=has_current_legal,
                 )
                 if isinstance(remote_subject, str) and remote_subject.strip():
-                    if not deps._user_has_current_legal_acceptances(user_id=existing_user.id):
+                    if not has_current_legal:
                         deps.db.session.commit()
                         return _pending_website_auth_response(
                             user=existing_user,
@@ -2399,20 +2403,15 @@ window.location.replace({json.dumps(login_url)});
             abort(409, description="An account with that email already exists. Sign in or reset your password.")
 
         try:
-            verify_url_template = _zitadel_email_verify_url_template(deps=deps)
             external_identity = _create_zitadel_human_user(
                 email=email,
                 password=password,
                 first_name=first_name if isinstance(first_name, str) else None,
                 last_name=last_name if isinstance(last_name, str) else None,
-                verify_url_template=verify_url_template,
             )
             user = _ensure_pending_signup_user(external_identity=external_identity)
-            _send_zitadel_email_verification(
-                user_id=external_identity.subject,
-                url_template=verify_url_template,
-            )
             if deps._user_has_current_legal_acceptances(user_id=user.id):
+                _send_zitadel_email_verification_for_user(user=user)
                 deps.db.session.commit()
                 resp = _verification_required_response(user=user, next_path=next_path)
             else:
