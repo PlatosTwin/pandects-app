@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import brandLinks from "@branding/links.json";
@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { logger } from "@/lib/logger";
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/lib/taxonomy-search";
 
 type TaxonomyTab = "main" | "tax";
+type TaxonomyViewMode = "tile" | "tree";
 
 export default function Taxonomy() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
@@ -45,6 +47,7 @@ export default function Taxonomy() {
   const [openLevel2ByParent, setOpenLevel2ByParent] = useState<
     Record<string, string[]>
   >({});
+  const [viewMode, setViewMode] = useState<TaxonomyViewMode>("tile");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const endpointPath =
@@ -117,6 +120,14 @@ export default function Taxonomy() {
     });
     return results;
   }, [searchResults]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   const renderHighlighted = (label: string) => {
     if (!hasQuery) {
@@ -240,6 +251,11 @@ export default function Taxonomy() {
     }, 25);
   };
 
+  const highlightRingClass = (id: string) =>
+    highlightedId === id
+      ? "bg-primary/10 ring-2 ring-primary/35"
+      : "ring-1 ring-transparent";
+
   const totals = useMemo(() => {
     const l1 = taxonomyEntries.length;
     const l2 = taxonomyEntries.reduce(
@@ -334,7 +350,7 @@ export default function Taxonomy() {
       <div className="grid gap-6">
         <section aria-label="Taxonomy mode">
           <div
-            className="grid w-full grid-cols-2 rounded-md bg-muted p-1"
+            className="grid w-full grid-cols-2 rounded-md bg-muted p-1 sm:max-w-xs"
             role="group"
             aria-label="Taxonomy mode"
           >
@@ -550,13 +566,42 @@ export default function Taxonomy() {
         )}
 
         <section aria-labelledby="taxonomy-tree">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2
               id="taxonomy-tree"
               className="text-xl font-semibold leading-none tracking-tight"
             >
-              {treeTitle}
+              {viewMode === "tree" ? `${treeTitle} View` : treeTitle}
             </h2>
+            <div className="flex items-center gap-3 sm:justify-end">
+              <Label
+                htmlFor="taxonomy-view-mode-tile"
+                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              >
+                View
+              </Label>
+              <ToggleGroup
+                type="single"
+                value={viewMode}
+                onValueChange={(value) => {
+                  if (value === "tile" || value === "tree") {
+                    setViewMode(value);
+                  }
+                }}
+                aria-label="Taxonomy view"
+              >
+                <ToggleGroupItem
+                  id="taxonomy-view-mode-tile"
+                  value="tile"
+                  aria-label="Show tile view"
+                >
+                  Tile
+                </ToggleGroupItem>
+                <ToggleGroupItem value="tree" aria-label="Show tree view">
+                  Tree
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           </div>
 
           <div className="mt-4" aria-busy={isLoading}>
@@ -567,145 +612,228 @@ export default function Taxonomy() {
                 <Skeleton className="h-24 w-full" />
               </div>
             ) : taxonomyEntries.length === 0 ? (
-                <Card className="border-border/60 bg-card">
-                  <CardContent className="py-6 text-sm text-foreground/90">
+              <Card className="border-border/60 bg-card">
+                <CardContent className="py-6 text-sm text-foreground/90">
                   No taxonomy entries are available right now.
                 </CardContent>
               </Card>
             ) : (
-              <Accordion
-                type="multiple"
-                value={openLevel1}
-                onValueChange={setOpenLevel1}
-                className="space-y-4"
-              >
-                {taxonomyEntries.map((entry) => (
-                  <AccordionItem
-                    key={entry.id}
-                    value={entry.id}
-                    id={`taxonomy-l1-${entry.id}`}
-                    className={`rounded-lg border border-border/60 bg-card px-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
-                      highlightedId === `taxonomy-l1-${entry.id}`
-                        ? "ring-2 ring-primary/30"
-                        : ""
-                    }`}
-                  >
-                    <AccordionTrigger
-                      headingLevel="h2"
-                      className="px-6 py-4 text-left text-xl font-semibold hover:no-underline"
+              viewMode === "tile" ? (
+                <Accordion
+                  type="multiple"
+                  value={openLevel1}
+                  onValueChange={setOpenLevel1}
+                  className="space-y-4"
+                >
+                  {taxonomyEntries.map((entry) => (
+                    <AccordionItem
+                      key={entry.id}
+                      value={entry.id}
+                      id={`taxonomy-l1-${entry.id}`}
+                      className={`rounded-lg border border-border/60 bg-card px-0 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
+                        `taxonomy-l1-${entry.id}`,
+                      )}`}
                     >
-                      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <div className="text-xl font-semibold text-foreground">
-                            {entry.label}
+                      <AccordionTrigger
+                        headingLevel="h2"
+                        className="px-6 py-4 text-left text-xl font-semibold hover:no-underline"
+                      >
+                        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-xl font-semibold text-foreground">
+                              {entry.label}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/90">
+                              {!isMobile ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
+                                  <span className="font-mono text-[11px] text-foreground/90">
+                                    {entry.id}
+                                  </span>
+                                  {renderCopyControl(entry.id, "Copy level 1 ID")}
+                                </span>
+                              ) : null}
+                              <span>{entry.l2Count} groups</span>
+                              <span>{entry.l3Count} types</span>
+                            </div>
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/90">
-                            {!isMobile ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
-                                <span className="font-mono text-[11px] text-foreground/90">
+                          <div className="flex items-center gap-2">
+                            <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                              {entry.l2Count} Groups
+                            </Badge>
+                            <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                              {entry.l3Count} Types
+                            </Badge>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                          <Accordion
+                            type="multiple"
+                            value={openLevel2ByParent[entry.id] ?? []}
+                            onValueChange={(value) => {
+                              setOpenLevel2ByParent((prev) => ({
+                                ...prev,
+                                [entry.id]: value,
+                              }));
+                            }}
+                            className="space-y-3"
+                          >
+                            {entry.children.map((child) => (
+                              <AccordionItem
+                                key={child.id}
+                                value={child.id}
+                                id={`taxonomy-l2-${child.id}`}
+                                className={`rounded-lg border border-border/60 bg-muted/20 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
+                                  `taxonomy-l2-${child.id}`,
+                                )}`}
+                              >
+                                <AccordionTrigger
+                                  headingLevel="h3"
+                                  className="px-5 py-3 text-left text-sm font-semibold hover:no-underline"
+                                >
+                                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                      <div className="text-sm font-semibold text-foreground">
+                                        {child.label}
+                                      </div>
+                                    </div>
+                                    <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                                      {child.children.length} Types
+                                    </Badge>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
+                                  {!isMobile ? (
+                                    <div className="mb-3">
+                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
+                                        <span className="font-mono text-[11px] text-foreground/90">
+                                          {child.id}
+                                        </span>
+                                        {renderCopyControl(child.id, "Copy level 2 ID")}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    {child.children.map((leaf) => (
+                                      <li
+                                        key={leaf.id}
+                                        id={`taxonomy-l3-${leaf.id}`}
+                                        className={`group rounded-md border border-border/60 bg-card px-3 py-3 shadow-sm transition-all duration-1000 hover:-translate-y-1 hover:border-primary/60 hover:shadow-md ${highlightRingClass(
+                                          `taxonomy-l3-${leaf.id}`,
+                                        )}`}
+                                      >
+                                        <div className="text-sm font-medium text-foreground">
+                                          {leaf.label}
+                                        </div>
+                                        {!isMobile ? (
+                                          <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/90">
+                                            <span className="font-mono text-xs text-foreground/90">
+                                              {leaf.id}
+                                            </span>
+                                            {renderCopyControl(leaf.id, "Copy level 3 ID")}
+                                          </div>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <Card className="border-border/60 bg-card">
+                  <CardContent className="p-5 sm:p-6">
+                    <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
+                      <ul className="space-y-4">
+                        {taxonomyEntries.map((entry) => (
+                          <li
+                            key={entry.id}
+                            id={`taxonomy-l1-${entry.id}`}
+                            className={`rounded-md px-3 py-2 transition-all duration-1000 ${highlightRingClass(
+                              `taxonomy-l1-${entry.id}`,
+                            )}`}
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">
+                                {entry.label}
+                              </span>
+                              {!isMobile ? (
+                                <span className="font-mono text-xs text-foreground/80">
                                   {entry.id}
                                 </span>
-                                {renderCopyControl(entry.id, "Copy level 1 ID")}
+                              ) : null}
+                              <span className="text-xs text-foreground/75">
+                                {entry.l2Count} groups, {entry.l3Count} types
                               </span>
-                            ) : null}
-                            <span>{entry.l2Count} groups</span>
-                            <span>{entry.l3Count} types</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
-                            {entry.l2Count} Groups
-                          </Badge>
-                          <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
-                            {entry.l3Count} Types
-                          </Badge>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                        <Accordion
-                          type="multiple"
-                          value={openLevel2ByParent[entry.id] ?? []}
-                          onValueChange={(value) => {
-                            setOpenLevel2ByParent((prev) => ({
-                              ...prev,
-                              [entry.id]: value,
-                            }));
-                          }}
-                          className="space-y-3"
-                        >
-                          {entry.children.map((child) => (
-                            <AccordionItem
-                              key={child.id}
-                              value={child.id}
-                              id={`taxonomy-l2-${child.id}`}
-                              className={`rounded-lg border border-border/60 bg-muted/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
-                                highlightedId === `taxonomy-l2-${child.id}`
-                                  ? "ring-2 ring-primary/30"
-                                  : ""
-                              }`}
-                            >
-                              <AccordionTrigger
-                                headingLevel="h3"
-                                className="px-5 py-3 text-left text-sm font-semibold hover:no-underline"
-                              >
-                                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                  <div>
-                                    <div className="text-sm font-semibold text-foreground">
+                            </div>
+                            <ul className="mt-3 space-y-3 border-l-2 border-foreground/35 pl-4">
+                              {entry.children.map((child) => (
+                                <li
+                                  key={child.id}
+                                  id={`taxonomy-l2-${child.id}`}
+                                  className={`relative rounded-md px-3 py-2 transition-all duration-1000 ${highlightRingClass(
+                                    `taxonomy-l2-${child.id}`,
+                                  )}`}
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className="absolute -left-4 top-5 h-0.5 w-3 bg-foreground/35"
+                                  />
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
                                       {child.label}
-                                    </div>
-                                  </div>
-                                  <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
-                                    {child.children.length} Types
-                                  </Badge>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                {!isMobile ? (
-                                  <div className="mb-3">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
-                                      <span className="font-mono text-[11px] text-foreground/90">
+                                    </span>
+                                    {!isMobile ? (
+                                      <span className="font-mono text-xs text-foreground/80">
                                         {child.id}
                                       </span>
-                                      {renderCopyControl(child.id, "Copy level 2 ID")}
+                                    ) : null}
+                                    <span className="text-xs text-foreground/75">
+                                      {child.children.length} types
                                     </span>
                                   </div>
-                                ) : null}
-                                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                  {child.children.map((leaf) => (
-                                    <li
-                                      key={leaf.id}
-                                      id={`taxonomy-l3-${leaf.id}`}
-                                      className={`group rounded-md border border-border/60 bg-card px-3 py-3 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-md ${
-                                        highlightedId === `taxonomy-l3-${leaf.id}`
-                                          ? "ring-2 ring-primary/30"
-                                          : ""
-                                      }`}
-                                    >
-                                      <div className="text-sm font-medium text-foreground">
-                                        {leaf.label}
-                                      </div>
-                                      {!isMobile ? (
-                                        <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/90">
-                                          <span className="font-mono text-xs text-foreground/90">
-                                            {leaf.id}
+                                  <ul className="mt-2 space-y-2 border-l-2 border-dashed border-foreground/30 pl-4">
+                                    {child.children.map((leaf) => (
+                                      <li
+                                        key={leaf.id}
+                                        id={`taxonomy-l3-${leaf.id}`}
+                                        className={`relative rounded-md px-3 py-1.5 transition-all duration-1000 ${highlightRingClass(
+                                          `taxonomy-l3-${leaf.id}`,
+                                        )}`}
+                                      >
+                                        <span
+                                          aria-hidden="true"
+                                          className="absolute -left-4 top-4 h-0.5 w-3 bg-foreground/30"
+                                        />
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm text-foreground">
+                                            {leaf.label}
                                           </span>
-                                          {renderCopyControl(leaf.id, "Copy level 3 ID")}
+                                          {!isMobile ? (
+                                            <span className="font-mono text-xs text-foreground/80">
+                                              {leaf.id}
+                                            </span>
+                                          ) : null}
                                         </div>
-                                      ) : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </li>
+                              ))}
+                            </ul>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
             )}
           </div>
         </section>
