@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+import time
 from typing import Any, cast
 
 from flask import Blueprint, Flask, Response, jsonify, make_response, request
@@ -15,8 +17,11 @@ from backend.auth.mcp_runtime import (
     mcp_server_name,
     mcp_server_version,
 )
-from backend.mcp.tools import call_tool, tool_definitions
+from backend.mcp.tools import McpOutputValidationError, call_tool, tool_definitions
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -65,6 +70,29 @@ def _request_id_from_json_body() -> object:
     if isinstance(body, dict):
         return body.get("id")
     return None
+
+
+def _log_mcp_tool_event(
+    *,
+    tool_name: str,
+    outcome: str,
+    latency_ms: int,
+    request_id: object,
+    scope_count: int,
+    error_category: str | None = None,
+) -> None:
+    logger.info(
+        "mcp_tool_call",
+        extra={
+            "event": "mcp_tool_call",
+            "tool_name": tool_name,
+            "outcome": outcome,
+            "latency_ms": latency_ms,
+            "request_id": request_id,
+            "scope_count": scope_count,
+            "error_category": error_category,
+        },
+    )
 
 
 def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
@@ -144,6 +172,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     code=-32602,
                     message="Tool arguments must be an object.",
                 )
+            started_at = time.perf_counter()
             try:
                 result = call_tool(
                     tool_name,
@@ -154,12 +183,28 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     reference_data_deps=deps.reference_data_deps,
                 )
             except KeyError:
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="error",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                    error_category="unknown_tool",
+                )
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32601,
                     message=f"Unknown tool: {tool_name}",
                 )
             except ValidationError as exc:
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="error",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                    error_category="validation",
+                )
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32602,
@@ -167,6 +212,14 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     data=exc.messages,
                 )
             except PermissionError as exc:
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="error",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                    error_category="authorization",
+                )
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32003,
@@ -175,13 +228,52 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     status_code=403,
                     www_authenticate='Bearer realm="pandects-mcp"',
                 )
+            except McpOutputValidationError as exc:
+                logger.exception(
+                    "mcp_tool_output_validation_failed",
+                    extra={
+                        "event": "mcp_tool_output_validation_failed",
+                        "tool_name": tool_name,
+                        "request_id": request_id,
+                        "scope_count": len(principal.scopes),
+                    },
+                )
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="error",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                    error_category="output_validation",
+                )
+                return _json_rpc_error(
+                    request_id=request_id,
+                    code=-32603,
+                    message="Tool result violated the advertised output contract.",
+                    data=exc.messages,
+                )
             except HTTPException as exc:
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="error",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                    error_category="http_exception",
+                )
                 description = exc.description if isinstance(exc.description, str) else "Request failed."
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32602 if exc.code == 400 else -32004,
                     message=description,
                 )
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="ok",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=len(principal.scopes),
+            )
             return _json_rpc_result(
                 request_id=request_id,
                 result={

@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import jwt
 from sqlalchemy import text
@@ -408,16 +409,17 @@ class McpTests(unittest.TestCase):
 
     def test_tool_call_returns_jsonrpc_result_contract(self):
         client = self.app.test_client()
-        res = client.post(
-            "/mcp",
-            headers={"Authorization": self._bearer()},
-            json={
-                "jsonrpc": "2.0",
-                "id": 77,
-                "method": "tools/call",
-                "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
-            },
-        )
+        with self.assertLogs("backend.mcp.routes", level="INFO") as log_context:
+            res = client.post(
+                "/mcp",
+                headers={"Authorization": self._bearer()},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 77,
+                    "method": "tools/call",
+                    "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
+                },
+            )
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body["jsonrpc"], "2.0")
@@ -427,6 +429,33 @@ class McpTests(unittest.TestCase):
         self.assertIsInstance(body["result"]["content"][0]["text"], str)
         structured = body["result"]["structuredContent"]
         self.assertEqual(structured["results"][0]["agreement_uuid"], "a1")
+        self.assertTrue(any("mcp_tool_call" in line for line in log_context.output))
+
+    def test_output_contract_violation_returns_jsonrpc_server_error(self):
+        import backend.mcp.tools as tools_module
+
+        client = self.app.test_client()
+        with patch(
+            "backend.mcp.routes.call_tool",
+            side_effect=tools_module.McpOutputValidationError({"structuredContent.page": "Missing required field."}),
+        ):
+            res = client.post(
+                "/mcp",
+                headers={"Authorization": self._bearer()},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 79,
+                    "method": "tools/call",
+                    "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
+                },
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 79)
+        self.assertEqual(body["error"]["code"], -32603)
+        self.assertEqual(body["error"]["message"], "Tool result violated the advertised output contract.")
+        self.assertIn("structuredContent.page", body["error"]["data"])
 
     def test_invalid_tool_arguments_return_jsonrpc_error_contract(self):
         client = self.app.test_client()
@@ -477,6 +506,7 @@ class McpTests(unittest.TestCase):
         )
         search_agreements_tool = next(tool for tool in res.get_json()["result"]["tools"] if tool["name"] == "search_agreements")
         self.assertIn("examples", search_agreements_tool)
+        self.assertIn("outputSchema", search_agreements_tool)
         self.assertEqual(search_agreements_tool["annotations"]["pagination"], "page")
         self.assertIn("agreements:search", search_agreements_tool["annotations"]["requiredScopes"])
 

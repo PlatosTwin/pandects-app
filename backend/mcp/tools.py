@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Callable, cast
 
 from flask import abort
@@ -180,6 +181,14 @@ def _schema_input_schema(
     return payload
 
 
+def _schema_output_schema(
+    schema: Schema,
+    *,
+    field_overrides: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return _schema_input_schema(schema, additional_properties=True, field_overrides=field_overrides)
+
+
 def _filter_option_metadata() -> dict[str, dict[str, object]]:
     return {
         "targets": {"retrieval_parameter": "target", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Target A"]]},
@@ -322,6 +331,12 @@ class McpToolResult:
     structured_content: object
 
 
+class McpOutputValidationError(ValueError):
+    def __init__(self, messages: dict[str, object]):
+        super().__init__("Tool result did not match the advertised output schema.")
+        self.messages = messages
+
+
 @dataclass(frozen=True)
 class McpToolSpec:
     name: str
@@ -347,6 +362,69 @@ def _validate_payload(schema: Schema, payload: dict[str, object]) -> dict[str, o
     except ValidationError:
         raise
     return cast(dict[str, object], loaded)
+
+
+def _matches_schema_type(expected_type: object, value: object) -> bool:
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "null":
+        return value is None
+    return True
+
+
+def _validate_output_against_schema(
+    schema: dict[str, object],
+    value: object,
+    *,
+    path: str = "structuredContent",
+) -> dict[str, object]:
+    errors: dict[str, object] = {}
+    expected_type = schema.get("type")
+    if isinstance(expected_type, list):
+        if not any(_matches_schema_type(type_name, value) for type_name in expected_type):
+            errors[path] = f"Expected one of {expected_type}, got {type(value).__name__}."
+            return errors
+    elif expected_type is not None and not _matches_schema_type(expected_type, value):
+        errors[path] = f"Expected {expected_type}, got {type(value).__name__}."
+        return errors
+
+    if isinstance(value, dict):
+        properties = cast(dict[str, dict[str, object]], schema.get("properties", {}))
+        required = cast(list[str], schema.get("required", []))
+        for field_name in required:
+            if field_name not in value:
+                errors[f"{path}.{field_name}"] = "Missing required field."
+        for field_name, field_schema in properties.items():
+            if field_name in value:
+                errors.update(
+                    _validate_output_against_schema(
+                        field_schema,
+                        value[field_name],
+                        path=f"{path}.{field_name}",
+                    )
+                )
+        return errors
+
+    if isinstance(value, list):
+        item_schema = cast(dict[str, object], schema.get("items", {}))
+        for index, item in enumerate(value):
+            errors.update(_validate_output_against_schema(item_schema, item, path=f"{path}[{index}]"))
+        return errors
+
+    enum_values = schema.get("enum")
+    if isinstance(enum_values, list) and value not in enum_values:
+        errors[path] = f"Unexpected enum value: {value!r}."
+    return errors
 
 
 def _normalized_page(page: int) -> int:
@@ -1846,9 +1924,10 @@ def _paginated_result_schema(*, cursor: bool = False) -> dict[str, object]:
         properties["page"] = {"type": "integer"}
         properties["page_size"] = {"type": "integer"}
         properties["total_count"] = {"type": "integer"}
-    return {"type": "object", "properties": properties}
+    return {"type": "object", "properties": properties, "additionalProperties": True}
 
 
+@lru_cache(maxsize=1)
 def _tool_specs() -> tuple[McpToolSpec, ...]:
     search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema())
     structured_filter_overrides = _structured_filter_properties()
@@ -2079,6 +2158,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     )
 
 
+@lru_cache(maxsize=1)
 def _tool_spec_map() -> dict[str, McpToolSpec]:
     return {spec.name: spec for spec in _tool_specs()}
 
@@ -2088,6 +2168,7 @@ def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
         "name": spec.name,
         "description": spec.description,
         "inputSchema": spec.input_schema,
+        "outputSchema": spec.output_schema,
         "examples": list(spec.examples),
         "annotations": {
             "selectionHint": spec.selection_hint,
@@ -2176,7 +2257,11 @@ def call_tool(
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
         handler_kwargs["reference_data_deps"] = reference_data_deps
-    return spec.handler(**handler_kwargs)
+    result = spec.handler(**handler_kwargs)
+    output_errors = _validate_output_against_schema(spec.output_schema, result.structured_content)
+    if output_errors:
+        raise McpOutputValidationError(output_errors)
+    return result
 
 
-__all__ = ["McpToolResult", "call_tool", "tool_definitions"]
+__all__ = ["McpOutputValidationError", "McpToolResult", "call_tool", "tool_definitions"]
