@@ -432,10 +432,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 return value.strip()
         return None
 
-    def _log_auth_diagnostic(event: str, **fields: object) -> None:
-        payload = {"event": event, **fields}
-        current_app.logger.warning("Auth diagnostic: %s", payload)
-
     def _parse_auth_notification(payload: dict[str, object]) -> tuple[str, str, str, str | None] | None:
         template_data = _notification_dict(payload, "templateData", "template_data")
         context_info = _notification_dict(payload, "contextInfo", "context_info")
@@ -715,12 +711,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         user_id = created.get("userId") or created.get("user_id")
         if not isinstance(user_id, str) or not user_id.strip():
             abort(502, description="ZITADEL did not return a user identifier.")
-        _log_auth_diagnostic(
-            "zitadel_human_user_created",
-            email=email,
-            user_id=user_id.strip(),
-            response_keys=sorted(created.keys()),
-        )
         _ensure_zitadel_default_user_grant(user_id=user_id.strip())
         return _build_external_identity(
             subject=user_id.strip(),
@@ -1020,18 +1010,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             "?user_id={{.UserID}}&code={{.Code}}&org_id={{.OrgID}}"
         )
 
-    def _send_zitadel_email_verification(*, user_id: str, url_template: str) -> dict[str, object]:
-        response = _zitadel_api_json(
+    def _send_zitadel_email_verification(*, user_id: str, url_template: str) -> None:
+        _zitadel_api_json(
             path=f"/v2/users/{user_id}/email/send",
             json_body={"sendCode": {"urlTemplate": url_template}},
         )
-        _log_auth_diagnostic(
-            "zitadel_verification_requested",
-            user_id=user_id,
-            url_template=url_template,
-            response=response,
-        )
-        return response
 
     def _ensure_linked_zitadel_subject_for_user(*, user) -> str | None:
         existing_link = deps.AuthExternalSubject.query.filter_by(
@@ -1060,12 +1043,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return False
         url_template = _zitadel_email_verify_url_template(deps=deps)
         try:
-            _ = _send_zitadel_email_verification(user_id=subject, url_template=url_template)
-            _log_auth_diagnostic(
-                "zitadel_verification_requested_for_user",
-                email=user.email,
-                user_id=subject,
-            )
+            _send_zitadel_email_verification(user_id=subject, url_template=url_template)
             return True
         except HTTPException as exc:
             description = exc.description if isinstance(exc.description, str) else ""
@@ -1091,15 +1069,9 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                     else:
                         existing_link.subject = refreshed_subject.strip()
                     deps.db.session.flush()
-                    _ = _send_zitadel_email_verification(
+                    _send_zitadel_email_verification(
                         user_id=refreshed_subject.strip(),
                         url_template=url_template,
-                    )
-                    _log_auth_diagnostic(
-                        "zitadel_verification_requested_for_user_refreshed_subject",
-                        email=user.email,
-                        old_user_id=subject,
-                        user_id=refreshed_subject.strip(),
                     )
                     return True
                 existing_link = deps.AuthExternalSubject.query.filter_by(
@@ -2607,17 +2579,10 @@ window.location.replace({json.dumps(login_url)});
         if not deps._is_email_like(email):
             abort(400, description="Enter a valid email address.")
 
-        debug_details: dict[str, object] = {
-            "email": email,
-            "subject": None,
-            "reset_requested": False,
-            "reason": None,
-        }
         try:
             subject = _linked_zitadel_subject_for_email(email=email, allow_unverified=True)
-            debug_details["subject"] = subject
             if isinstance(subject, str) and subject.strip():
-                reset_response = _zitadel_api_json(
+                _zitadel_api_json(
                     path=f"/v2/users/{subject}/password_reset",
                     json_body={
                         "sendLink": {
@@ -2628,26 +2593,7 @@ window.location.replace({json.dumps(login_url)});
                         }
                     },
                 )
-                debug_details["reset_requested"] = True
-                debug_details["reason"] = "zitadel_password_reset_requested"
-                debug_details["zitadel_response"] = reset_response
-                _log_auth_diagnostic(
-                    "zitadel_password_reset_requested",
-                    email=email,
-                    user_id=subject,
-                    response=reset_response,
-                )
-            else:
-                debug_details["reason"] = "no_linked_zitadel_subject"
         except HTTPException as exc:
-            debug_details["reason"] = f"http_{exc.code}"
-            current_app.logger.warning(
-                "Password reset request skipped: email=%s subject=%s code=%s description=%s",
-                email,
-                debug_details["subject"],
-                exc.code,
-                exc.description,
-            )
             if exc.code not in {400, 401, 403, 404, 409}:
                 raise
         except SQLAlchemyError:
@@ -2658,11 +2604,7 @@ window.location.replace({json.dumps(login_url)});
             current_app.logger.exception("Password reset request failed.")
             abort(503, description="Remote auth provider is unavailable right now.")
 
-        current_app.logger.warning("Password reset diagnostics: %s", debug_details)
-        payload: dict[str, object] = {"status": "requested"}
-        if current_app.debug:
-            payload["debug"] = debug_details
-        resp = make_response(jsonify(payload))
+        resp = deps._status_response("requested")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
