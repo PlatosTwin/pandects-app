@@ -27,6 +27,7 @@ export const pluralizeLabel = (label: string): string => {
     "Target": "targets",
     "Acquirer": "acquirers",
     "Clause Type": "clause types",
+    "Section Type": "section types",
     
     // Transaction Price filters (numeric ranges)
     "Total": "values",

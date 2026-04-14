@@ -57,6 +57,12 @@ export default function Taxonomy() {
   const overviewTitle =
     currentTab === "tax" ? "Tax Taxonomy Overview" : "Taxonomy Overview";
   const treeTitle = currentTab === "tax" ? "Tax Taxonomy Tree" : "Taxonomy Tree";
+  const taxonomySearchLabel =
+    currentTab === "tax" ? "Find a clause class" : "Find a section class";
+  const taxonomySearchPlaceholder =
+    currentTab === "tax"
+      ? "Search clause types or taxonomy IDs"
+      : "Search section types or taxonomy IDs";
   const taxonomyEntries = useMemo(
     () => (taxonomyTree ? buildTaxonomyEntries(taxonomyTree) : []),
     [taxonomyTree],
@@ -340,7 +346,7 @@ export default function Taxonomy() {
               htmlFor="taxonomy-search-input"
               className="text-sm font-semibold text-foreground"
             >
-              Find a clause class
+              {taxonomySearchLabel}
             </Label>
             <div className="relative mt-2">
               <Search
@@ -355,7 +361,7 @@ export default function Taxonomy() {
                   setSearchQuery(event.target.value);
                 }}
                 onFocus={() => setHasActivatedSearch(true)}
-                placeholder="Search clause types or taxonomy IDs"
+                placeholder={taxonomySearchPlaceholder}
                 className="pl-9"
                 autoComplete="off"
               />

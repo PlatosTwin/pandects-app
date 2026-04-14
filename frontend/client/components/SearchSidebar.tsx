@@ -168,10 +168,10 @@ export function SearchSidebar({
         />
       </div>
 
-      {/* Clause Type Filter */}
+      {/* Section Type Filter */}
       <div className="relative">
         <NestedCheckboxFilter
-          label="Clause Type"
+          label="Section Type"
           labelAddon={
             <AdaptiveTooltip
               trigger={

@@ -599,7 +599,7 @@ export default function Search() {
                     ["year", "Year", filters.year],
                     ["target", "Target", filters.target],
                     ["acquirer", "Acquirer", filters.acquirer],
-                    ["clauseType", "Clause type", filters.clauseType],
+                    ["clauseType", "Section type", filters.clauseType],
                     ["transaction_price_total", "Transaction price (total)", filters.transaction_price_total],
                     ["transaction_price_stock", "Transaction price (stock)", filters.transaction_price_stock],
                     ["transaction_price_cash", "Transaction price (cash)", filters.transaction_price_cash],
@@ -731,7 +731,7 @@ export default function Search() {
                           Start with filters, then search
                         </h2>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Pick a year, target/acquirer, and clause types to
+                          Pick a year, target/acquirer, and section types to
                           narrow the corpus. Then run a search to load results
                           (and open full agreements from any result).
                         </p>

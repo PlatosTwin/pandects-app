@@ -402,7 +402,7 @@ export function NestedCheckboxFilter({
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleSearchKeyDown}
           aria-label={`Search ${label}`}
-          placeholder="Search clause types..."
+          placeholder="Search section types..."
           className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-base leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:text-sm"
         />
       </div>
@@ -482,7 +482,7 @@ export function NestedCheckboxFilter({
             <DialogHeader>
               <DialogTitle>Select {label}s</DialogTitle>
               <DialogDescription>
-                Browse the tree or search for specific clause types.
+                Browse the tree or search for specific section types.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[65dvh] overflow-y-auto pr-1 pb-1 pt-1 pl-1">

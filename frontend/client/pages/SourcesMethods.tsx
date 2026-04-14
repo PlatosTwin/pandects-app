@@ -454,11 +454,11 @@ export default function SourcesMethods() {
                     <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
                       <span className="sr-only">Status quo:</span>
                       <div className="text-sm font-semibold text-foreground">
-                        A Sea of Clauses
+                        A Sea of Sections
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Whether working with raw or structured text, it's
-                        challenging to classify clauses at scale, and existing
+                        challenging to classify sections at scale, and existing
                         datasets don't offer taxonomies.
                       </p>
                     </div>
@@ -469,8 +469,8 @@ export default function SourcesMethods() {
                       </div>
                       <p className="text-sm text-foreground">
                         We use machine learning to classify every section into a
-                        specific clause taxonomy, making it effortless to query
-                        specific clause types across thousands of deals.
+                        specific section taxonomy, making it effortless to query
+                        specific section types across thousands of deals.
                       </p>
                     </div>
                   </div>
