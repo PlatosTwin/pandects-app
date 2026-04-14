@@ -1345,7 +1345,7 @@ class AuthFlowTests(unittest.TestCase):
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
                 return {"result": []}
-            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/zitadel-user-migrated/grants":
                 self.assertEqual(method, "POST")
                 return {"id": "grant-123"}
             self.fail(f"Unexpected URL: {url}")
@@ -1957,7 +1957,7 @@ class AuthFlowTests(unittest.TestCase):
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
                 return {"result": []}
-            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/zitadel-reset-user/grants":
                 self.assertEqual(method, "POST")
                 return {"id": "grant-123"}
             if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-reset-user/password_reset":
