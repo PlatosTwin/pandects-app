@@ -443,6 +443,20 @@ def _validate_output_against_schema(
                         path=f"{path}.{field_name}",
                     )
                 )
+        additional_properties = schema.get("additionalProperties", True)
+        extra_keys = [field_name for field_name in value.keys() if field_name not in properties]
+        if additional_properties is False:
+            for field_name in extra_keys:
+                errors[f"{path}.{field_name}"] = "Unexpected field."
+        elif isinstance(additional_properties, dict):
+            for field_name in extra_keys:
+                errors.update(
+                    _validate_output_against_schema(
+                        additional_properties,
+                        value[field_name],
+                        path=f"{path}.{field_name}",
+                    )
+                )
         return errors
 
     if isinstance(value, list):
@@ -2175,6 +2189,365 @@ def _metrics_output_schema() -> dict[str, object]:
     )
 
 
+def _tax_clause_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "clause_uuid": {"type": "string"},
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": ["string", "null"]},
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "anchor_label": {"type": ["string", "null"]},
+            "start_char": {"type": ["integer", "null"]},
+            "end_char": {"type": ["integer", "null"]},
+            "clause_text": {"type": ["string", "null"]},
+            "context_type": {"type": ["string", "null"]},
+            "standard_ids": _array_of({"type": "string"}),
+        },
+        required=["clause_uuid", "standard_ids"],
+        additional_properties=False,
+    )
+
+
+def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": "string"},
+            "clauses": _array_of(_tax_clause_result_schema()),
+            "returned_count": {"type": "integer"},
+        },
+        required=["agreement_uuid", "clauses", "returned_count"],
+        additional_properties=False,
+    )
+
+
+def _get_section_tax_clauses_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "section_uuid": {"type": "string"},
+            "clauses": _array_of(_tax_clause_result_schema()),
+            "returned_count": {"type": "integer"},
+        },
+        required=["section_uuid", "clauses", "returned_count"],
+        additional_properties=False,
+    )
+
+
+def _filter_option_metadata_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "retrieval_parameter": {"type": "string"},
+            "applies_to": _array_of({"type": "string"}),
+            "value_kind": {
+                "type": "string",
+                "enum": ["exact_string", "bucket", "string_boolean"],
+            },
+            "allowed_values": _array_of({"type": "string"}),
+            "recommended_tools": _array_of({"type": "string"}),
+            "examples": _array_of(_array_of({"type": "string"})),
+        },
+        required=["retrieval_parameter", "applies_to", "value_kind", "recommended_tools"],
+        additional_properties=False,
+    )
+
+
+def _list_filter_options_output_schema() -> dict[str, object]:
+    properties: dict[str, object] = {
+        "fields": _array_of({"type": "string", "enum": list(_FILTER_OPTIONS_FIELDS)}),
+        "retrieval_parameter_map": {"type": "object", "additionalProperties": {"type": "string"}},
+        "field_metadata": {"type": "object", "additionalProperties": _filter_option_metadata_schema()},
+    }
+    for field_name in _FILTER_OPTIONS_FIELDS:
+        properties[field_name] = _array_of({"type": "string"})
+    return _object_schema(
+        properties,
+        required=["fields", "retrieval_parameter_map", "field_metadata"],
+        additional_properties=False,
+    )
+
+
+def _taxonomy_leaf_node_schema() -> dict[str, object]:
+    return _object_schema({"id": {"type": "string"}}, required=["id"], additional_properties=False)
+
+
+def _taxonomy_branch_node_schema(*, child_schema: dict[str, object]) -> dict[str, object]:
+    return _object_schema(
+        {
+            "id": {"type": "string"},
+            "children": {"type": "object", "additionalProperties": child_schema},
+        },
+        required=["id", "children"],
+        additional_properties=False,
+    )
+
+
+def _taxonomy_output_schema() -> dict[str, object]:
+    level_three = _taxonomy_leaf_node_schema()
+    level_two = _taxonomy_branch_node_schema(child_schema=level_three)
+    level_one = _taxonomy_branch_node_schema(child_schema=level_two)
+    return {"type": "object", "additionalProperties": level_one}
+
+
+def _counsel_catalog_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "counsel": _array_of(
+                _object_schema(
+                    {
+                        "counsel_id": {"type": "integer"},
+                        "canonical_name": {"type": "string"},
+                    },
+                    required=["counsel_id", "canonical_name"],
+                    additional_properties=False,
+                )
+            )
+        },
+        required=["counsel"],
+        additional_properties=False,
+    )
+
+
+def _naics_catalog_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "sectors": _array_of(
+                _object_schema(
+                    {
+                        "sector_code": {"type": "string"},
+                        "sector_desc": {"type": "string"},
+                        "sector_group": {"type": "string"},
+                        "super_sector": {"type": "string"},
+                        "sub_sectors": _array_of(
+                            _object_schema(
+                                {
+                                    "sub_sector_code": {"type": "string"},
+                                    "sub_sector_desc": {"type": "string"},
+                                },
+                                required=["sub_sector_code", "sub_sector_desc"],
+                                additional_properties=False,
+                            )
+                        ),
+                    },
+                    required=["sector_code", "sector_desc", "sector_group", "super_sector", "sub_sectors"],
+                    additional_properties=False,
+                )
+            )
+        },
+        required=["sectors"],
+        additional_properties=False,
+    )
+
+
+def _agreements_summary_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreements": {"type": "integer"},
+            "sections": {"type": "integer"},
+            "pages": {"type": "integer"},
+        },
+        required=["agreements", "sections", "pages"],
+        additional_properties=False,
+    )
+
+
+def _agreement_trends_output_schema() -> dict[str, object]:
+    ownership_mix_item = _object_schema(
+        {
+            "year": {"type": "integer"},
+            "public_deal_count": {"type": "integer"},
+            "private_deal_count": {"type": "integer"},
+            "public_total_transaction_value": {"type": "number"},
+            "private_total_transaction_value": {"type": "number"},
+        },
+        required=[
+            "year",
+            "public_deal_count",
+            "private_deal_count",
+            "public_total_transaction_value",
+            "private_total_transaction_value",
+        ],
+        additional_properties=False,
+    )
+    ownership_deal_size_item = _object_schema(
+        {
+            "year": {"type": "integer"},
+            "public_deal_count": {"type": "integer"},
+            "private_deal_count": {"type": "integer"},
+            "public_p25_transaction_value": {"type": ["number", "null"]},
+            "public_median_transaction_value": {"type": ["number", "null"]},
+            "public_p75_transaction_value": {"type": ["number", "null"]},
+            "private_p25_transaction_value": {"type": ["number", "null"]},
+            "private_median_transaction_value": {"type": ["number", "null"]},
+            "private_p75_transaction_value": {"type": ["number", "null"]},
+        },
+        required=[
+            "year",
+            "public_deal_count",
+            "private_deal_count",
+            "public_p25_transaction_value",
+            "public_median_transaction_value",
+            "public_p75_transaction_value",
+            "private_p25_transaction_value",
+            "private_median_transaction_value",
+            "private_p75_transaction_value",
+        ],
+        additional_properties=False,
+    )
+    buyer_matrix_item = _object_schema(
+        {
+            "target_bucket": {"type": "string"},
+            "buyer_bucket": {"type": "string"},
+            "deal_count": {"type": "integer"},
+            "median_transaction_value": {"type": ["number", "null"]},
+        },
+        required=["target_bucket", "buyer_bucket", "deal_count", "median_transaction_value"],
+        additional_properties=False,
+    )
+    target_industry_item = _object_schema(
+        {
+            "year": {"type": "integer"},
+            "industry": {"type": "string"},
+            "deal_count": {"type": "integer"},
+            "total_transaction_value": {"type": "number"},
+        },
+        required=["year", "industry", "deal_count", "total_transaction_value"],
+        additional_properties=False,
+    )
+    pairing_item = _object_schema(
+        {
+            "target_industry": {"type": "string"},
+            "acquirer_industry": {"type": "string"},
+            "deal_count": {"type": "integer"},
+            "total_transaction_value": {"type": "number"},
+        },
+        required=["target_industry", "acquirer_industry", "deal_count", "total_transaction_value"],
+        additional_properties=False,
+    )
+    return _object_schema(
+        {
+            "ownership": _object_schema(
+                {
+                    "mix_by_year": _array_of(ownership_mix_item),
+                    "deal_size_by_year": _array_of(ownership_deal_size_item),
+                    "buyer_type_matrix": _array_of(buyer_matrix_item),
+                },
+                required=["mix_by_year", "deal_size_by_year", "buyer_type_matrix"],
+                additional_properties=False,
+            ),
+            "industries": _object_schema(
+                {
+                    "target_industries_by_year": _array_of(target_industry_item),
+                    "pairings": _array_of(pairing_item),
+                },
+                required=["target_industries_by_year", "pairings"],
+                additional_properties=False,
+            ),
+            "catalogs": _object_schema(
+                {"naics": _naics_catalog_output_schema()},
+                required=["naics"],
+                additional_properties=False,
+            ),
+        },
+        required=["ownership", "industries", "catalogs"],
+        additional_properties=False,
+    )
+
+
+def _tool_example_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "description": {"type": "string"},
+            "arguments": {"type": "object"},
+        },
+        required=["description", "arguments"],
+        additional_properties=False,
+    )
+
+
+def _tool_limits_for_pagination(pagination: str) -> dict[str, object]:
+    if pagination in {"page", "cursor"}:
+        return {
+            "mode": pagination,
+            "default_page_size": 25,
+            "max_page_size": 100,
+        }
+    return {"mode": "none"}
+
+
+def _tool_capabilities_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "required_scopes": _array_of({"type": "string"}),
+            "pagination": {"type": "string", "enum": ["page", "cursor", "none"]},
+            "selection_hint": {"type": "string"},
+            "examples": _array_of(_tool_example_schema()),
+            "limits": _object_schema(
+                {
+                    "mode": {"type": "string", "enum": ["page", "cursor", "none"]},
+                    "default_page_size": {"type": "integer"},
+                    "max_page_size": {"type": "integer"},
+                },
+                required=["mode"],
+            ),
+            "input_schema": {"type": "object"},
+            "output_schema": {"type": "object"},
+        },
+        required=[
+            "name",
+            "description",
+            "required_scopes",
+            "pagination",
+            "selection_hint",
+            "examples",
+            "limits",
+            "input_schema",
+            "output_schema",
+        ],
+        additional_properties=False,
+    )
+
+
+def _workflow_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "name": {"type": "string"},
+            "steps": _array_of({"type": "string"}),
+        },
+        required=["name", "steps"],
+        additional_properties=False,
+    )
+
+
+def _server_capabilities_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "server": _object_schema(
+                {
+                    "name": {"type": "string"},
+                    "primary_discovery_tool": {"type": "string"},
+                    "introspection_tool": {"type": "string"},
+                    "metrics_tool": {"type": "string"},
+                    "transport": {"type": "string"},
+                },
+                required=[
+                    "name",
+                    "primary_discovery_tool",
+                    "introspection_tool",
+                    "metrics_tool",
+                    "transport",
+                ],
+                additional_properties=False,
+            ),
+            "tools": _array_of(_tool_capabilities_output_schema()),
+            "workflows": _array_of(_workflow_output_schema()),
+        },
+        required=["server", "tools", "workflows"],
+        additional_properties=False,
+    )
+
+
 @lru_cache(maxsize=1)
 def _tool_specs() -> tuple[McpToolSpec, ...]:
     search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema())
@@ -2289,7 +2662,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_agreement_tax_clauses",
             description="Fetch extracted tax-module clauses for a specific agreement.",
             input_schema=_schema_input_schema(McpAgreementIdentifierSchema()),
-            output_schema={"type": "object", "properties": {"agreement_uuid": {"type": "string"}, "clauses": {"type": "array"}}},
+            output_schema=_get_agreement_tax_clauses_output_schema(),
             examples=(
                 {"description": "Retrieve tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
             ),
@@ -2302,7 +2675,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_section_tax_clauses",
             description="Fetch extracted tax-module clauses for a specific section.",
             input_schema=_schema_input_schema(McpSectionArgsSchema()),
-            output_schema={"type": "object", "properties": {"section_uuid": {"type": "string"}, "clauses": {"type": "array"}}},
+            output_schema=_get_section_tax_clauses_output_schema(),
             examples=(
                 {"description": "Retrieve tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
@@ -2315,9 +2688,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="list_filter_options",
             description="List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
             input_schema=_schema_input_schema(McpFilterOptionsArgsSchema()),
-            output_schema={"type": "object", "properties": {"retrieval_parameter_map": {"type": "object"}, "field_metadata": {"type": "object"}}},
+            output_schema=_list_filter_options_output_schema(),
             examples=(
                 {"description": "List valid counsel filter values.", "arguments": {"fields": ["target_counsels", "acquirer_counsels"]}},
+                {"description": "Inspect deal-status and transaction-price filter catalogs.", "arguments": {"fields": ["deal_statuses", "transaction_price_totals"]}},
             ),
             scopes=("agreements:search",),
             selection_hint="Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
@@ -2341,7 +2715,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_server_capabilities",
             description="Explain available MCP tools, selection guidance, pagination styles, scope requirements, and example workflows for this server.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {"server": {"type": "object"}, "tools": {"type": "array"}, "workflows": {"type": "array"}}},
+            output_schema=_server_capabilities_output_schema(),
             examples=(
                 {"description": "Inspect tool guidance before starting a workflow.", "arguments": {}},
             ),
@@ -2354,8 +2728,11 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_clause_taxonomy",
             description="Fetch the clause taxonomy tree used for section search standard IDs.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {}},
-            examples=({"description": "Inspect the clause taxonomy.", "arguments": {}},),
+            output_schema=_taxonomy_output_schema(),
+            examples=(
+                {"description": "Inspect the clause taxonomy.", "arguments": {}},
+                {"description": "Discover valid standard_id values before taxonomy-filtered section search.", "arguments": {}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need valid standard_id values for section taxonomy filtering.",
             pagination="none",
@@ -2365,8 +2742,11 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_tax_clause_taxonomy",
             description="Fetch the tax clause taxonomy tree used for tax-clause research.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {}},
-            examples=({"description": "Inspect the tax clause taxonomy.", "arguments": {}},),
+            output_schema=_taxonomy_output_schema(),
+            examples=(
+                {"description": "Inspect the tax clause taxonomy.", "arguments": {}},
+                {"description": "Look up valid tax clause ids before agreement tax-clause retrieval.", "arguments": {}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool.",
             pagination="none",
@@ -2376,8 +2756,11 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_counsel_catalog",
             description="Fetch canonical counsel names for filter selection and normalization.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {"counsel": {"type": "array"}}},
-            examples=({"description": "List canonical counsel names.", "arguments": {}},),
+            output_schema=_counsel_catalog_output_schema(),
+            examples=(
+                {"description": "List canonical counsel names.", "arguments": {}},
+                {"description": "Get a normalized counsel name before applying target_counsel filters.", "arguments": {}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
             pagination="none",
@@ -2387,8 +2770,11 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_naics_catalog",
             description="Fetch NAICS sectors and subsectors for industry reasoning and filter selection.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {"sectors": {"type": "array"}}},
-            examples=({"description": "List NAICS sectors and subsectors.", "arguments": {}},),
+            output_schema=_naics_catalog_output_schema(),
+            examples=(
+                {"description": "List NAICS sectors and subsectors.", "arguments": {}},
+                {"description": "Find canonical industry labels before target_industry filtering.", "arguments": {}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
             pagination="none",
@@ -2398,7 +2784,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_agreements_summary",
             description="Fetch high-level corpus counts for agreements, sections, and pages.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {"agreements": {"type": "integer"}, "sections": {"type": "integer"}, "pages": {"type": "integer"}}},
+            output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",
@@ -2409,8 +2795,11 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_agreement_trends",
             description="Fetch ownership and industry trend analytics for the agreement corpus.",
             input_schema=_empty_schema(),
-            output_schema={"type": "object", "properties": {"ownership": {"type": "object"}, "industries": {"type": "object"}}},
-            examples=({"description": "Inspect ownership and industry trends.", "arguments": {}},),
+            output_schema=_agreement_trends_output_schema(),
+            examples=(
+                {"description": "Inspect ownership and industry trends.", "arguments": {}},
+                {"description": "Compare public/private deal mix and buyer-type patterns by year.", "arguments": {}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use for aggregated corpus analytics rather than document retrieval.",
             pagination="none",
@@ -2447,6 +2836,7 @@ def _server_capabilities_payload() -> dict[str, object]:
             "primary_discovery_tool": "list_filter_options",
             "introspection_tool": "get_server_capabilities",
             "metrics_tool": "get_server_metrics",
+            "transport": "http_jsonrpc",
         },
         "tools": [
             {
@@ -2456,6 +2846,7 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "pagination": spec.pagination,
                 "selection_hint": spec.selection_hint,
                 "examples": list(spec.examples),
+                "limits": _tool_limits_for_pagination(spec.pagination),
                 "input_schema": spec.input_schema,
                 "output_schema": spec.output_schema,
             }

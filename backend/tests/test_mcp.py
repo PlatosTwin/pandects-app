@@ -1,13 +1,16 @@
 import os
 import json
+import threading
 import tempfile
 import unittest
 from typing import TYPE_CHECKING, cast
 from datetime import datetime, timezone
+from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import jwt
 from sqlalchemy import text
+from werkzeug.serving import BaseWSGIServer, make_server
 
 from backend.mcp.metrics import get_mcp_metrics_registry
 
@@ -65,6 +68,79 @@ class McpClientHarness:
         return structured_content
 
 
+class LiveMcpHttpClientHarness:
+    def __init__(self, test_case: "McpTests", *, scope: str = "sections:search agreements:search agreements:read") -> None:
+        self._test_case = test_case
+        self._scope = scope
+        self._server: BaseWSGIServer | None = None
+        self._thread: threading.Thread | None = None
+        self._base_url = ""
+        self._tools: dict[str, dict[str, object]] = {}
+
+    def __enter__(self) -> "LiveMcpHttpClientHarness":
+        try:
+            self._server = make_server("127.0.0.1", 0, self._test_case.app, threaded=True)
+        except (OSError, PermissionError, SystemExit):
+            self._test_case.skipTest("Local loopback socket binding is not permitted in this environment.")
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+        self._base_url = f"http://127.0.0.1:{self._server.server_port}"
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+
+    def _post(self, payload: dict[str, object]) -> dict[str, object]:
+        request = Request(
+            f"{self._base_url}/mcp",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": self._test_case._bearer(scope=self._scope),
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=5) as response:
+            self._test_case.assertEqual(response.status, 200)
+            body = json.loads(response.read().decode("utf-8"))
+        self._test_case.assertIsInstance(body, dict)
+        self._test_case.assertEqual(body["jsonrpc"], "2.0")
+        return cast(dict[str, object], body)
+
+    def initialize(self) -> dict[str, object]:
+        return self._post({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+
+    def list_tools(self) -> list[dict[str, object]]:
+        body = self._post({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+        tools = cast(list[dict[str, object]], cast(dict[str, object], body["result"])["tools"])
+        self._tools = {cast(str, tool["name"]): tool for tool in tools}
+        return tools
+
+    def call_tool(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
+        body = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            }
+        )
+        tool = self._tools[name]
+        import backend.mcp.tools as tools_module
+
+        structured_content = cast(dict[str, object], cast(dict[str, object], body["result"])["structuredContent"])
+        output_errors = tools_module._validate_output_against_schema(
+            cast(dict[str, object], tool["outputSchema"]),
+            structured_content,
+        )
+        self._test_case.assertEqual(output_errors, {})
+        return structured_content
+
+
 def _normalized_tools_snapshot(tools: list[dict[str, object]]) -> list[dict[str, object]]:
     return [
         {
@@ -88,6 +164,7 @@ def _normalized_capabilities_snapshot(payload: dict[str, object]) -> dict[str, o
                 "required_scopes": tool["required_scopes"],
                 "pagination": tool["pagination"],
                 "selection_hint": tool["selection_hint"],
+                "limits": tool["limits"],
                 "input_schema": tool["input_schema"],
                 "output_schema": tool["output_schema"],
             }
@@ -809,8 +886,11 @@ class McpTests(unittest.TestCase):
         payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
         self.assertEqual(payload["server"]["metrics_tool"], "get_server_metrics")
+        self.assertEqual(payload["server"]["transport"], "http_jsonrpc")
         search_agreements_tool = next(tool for tool in payload["tools"] if tool["name"] == "search_agreements")
         self.assertEqual(search_agreements_tool["pagination"], "page")
+        self.assertEqual(search_agreements_tool["limits"]["default_page_size"], 25)
+        self.assertEqual(search_agreements_tool["limits"]["max_page_size"], 100)
         self.assertIn("agreements:search", search_agreements_tool["required_scopes"])
         self.assertTrue(search_agreements_tool["examples"])
         workflow_names = [workflow["name"] for workflow in payload["workflows"]]
@@ -842,6 +922,21 @@ class McpTests(unittest.TestCase):
 
         metrics_payload = client.call_tool("get_server_metrics", {})
         self.assertIn("search_agreements", cast(dict[str, object], metrics_payload["tool_calls"]))
+
+    def test_live_http_transport_client_compatibility_flow(self):
+        with LiveMcpHttpClientHarness(self) as client:
+            init_payload = cast(dict[str, object], client.initialize()["result"])
+            self.assertEqual(cast(dict[str, object], init_payload["serverInfo"])["name"], "pandects-mcp")
+
+            tools = client.list_tools()
+            self.assertIn("get_server_capabilities", [tool["name"] for tool in tools])
+
+            capabilities_payload = client.call_tool("get_server_capabilities", {})
+            self.assertEqual(cast(dict[str, object], capabilities_payload["server"])["transport"], "http_jsonrpc")
+
+            agreements_payload = client.call_tool("search_agreements", {"query": "Target"})
+            agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
+            self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
 
     def test_tools_list_contract_snapshot(self):
         client = self.app.test_client()

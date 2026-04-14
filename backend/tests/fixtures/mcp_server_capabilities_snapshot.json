@@ -3,7 +3,8 @@
     "introspection_tool": "get_server_capabilities",
     "metrics_tool": "get_server_metrics",
     "name": "pandects-mcp",
-    "primary_discovery_tool": "list_filter_options"
+    "primary_discovery_tool": "list_filter_options",
+    "transport": "http_jsonrpc"
   },
   "tools": [
     {
@@ -286,6 +287,11 @@
           }
         },
         "type": "object"
+      },
+      "limits": {
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
       },
       "name": "search_agreements",
       "output_schema": {
@@ -724,6 +730,11 @@
         },
         "type": "object"
       },
+      "limits": {
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
+      },
       "name": "search_sections",
       "output_schema": {
         "additionalProperties": true,
@@ -1126,6 +1137,11 @@
         },
         "type": "object"
       },
+      "limits": {
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "cursor"
+      },
       "name": "list_agreements",
       "output_schema": {
         "additionalProperties": true,
@@ -1399,6 +1415,11 @@
         ],
         "type": "object"
       },
+      "limits": {
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
+      },
       "name": "list_agreement_sections",
       "output_schema": {
         "additionalProperties": true,
@@ -1554,6 +1575,9 @@
           "agreement_uuid"
         ],
         "type": "object"
+      },
+      "limits": {
+        "mode": "none"
       },
       "name": "get_agreement",
       "output_schema": {
@@ -1752,6 +1776,9 @@
         ],
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_section",
       "output_schema": {
         "additionalProperties": true,
@@ -1815,16 +1842,101 @@
         ],
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_agreement_tax_clauses",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "agreement_uuid": {
             "type": "string"
           },
           "clauses": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "agreement_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "anchor_label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "article_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_uuid": {
+                  "type": "string"
+                },
+                "context_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "end_char": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "section_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "section_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "standard_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "start_char": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "clause_uuid",
+                "standard_ids"
+              ],
+              "type": "object"
+            },
             "type": "array"
+          },
+          "returned_count": {
+            "type": "integer"
           }
         },
+        "required": [
+          "agreement_uuid",
+          "clauses",
+          "returned_count"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -1846,16 +1958,101 @@
         ],
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_section_tax_clauses",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "clauses": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "agreement_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "anchor_label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "article_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_uuid": {
+                  "type": "string"
+                },
+                "context_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "end_char": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "section_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "section_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "standard_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "start_char": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "clause_uuid",
+                "standard_ids"
+              ],
+              "type": "object"
+            },
             "type": "array"
+          },
+          "returned_count": {
+            "type": "integer"
           },
           "section_uuid": {
             "type": "string"
           }
         },
+        "required": [
+          "section_uuid",
+          "clauses",
+          "returned_count"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -1898,16 +2095,219 @@
         },
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "list_filter_options",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
+          "acquirer_counsels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_industries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_pes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "attitudes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "deal_statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "deal_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "field_metadata": {
+            "additionalProperties": {
+              "additionalProperties": false,
+              "properties": {
+                "allowed_values": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "applies_to": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "examples": {
+                  "items": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "recommended_tools": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "retrieval_parameter": {
+                  "type": "string"
+                },
+                "value_kind": {
+                  "enum": [
+                    "exact_string",
+                    "bucket",
+                    "string_boolean"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "retrieval_parameter",
+                "applies_to",
+                "value_kind",
+                "recommended_tools"
+              ],
+              "type": "object"
+            },
             "type": "object"
           },
+          "fields": {
+            "items": {
+              "enum": [
+                "targets",
+                "acquirers",
+                "transaction_price_totals",
+                "transaction_price_stocks",
+                "transaction_price_cashes",
+                "transaction_price_assets",
+                "transaction_considerations",
+                "target_types",
+                "acquirer_types",
+                "target_counsels",
+                "acquirer_counsels",
+                "target_industries",
+                "acquirer_industries",
+                "deal_statuses",
+                "attitudes",
+                "deal_types",
+                "purposes",
+                "target_pes",
+                "acquirer_pes"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "purposes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "retrieval_parameter_map": {
+            "additionalProperties": {
+              "type": "string"
+            },
             "type": "object"
+          },
+          "target_counsels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_industries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_pes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_considerations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_assets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_cashes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_stocks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_totals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
+        "required": [
+          "fields",
+          "retrieval_parameter_map",
+          "field_metadata"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -1921,6 +2321,9 @@
         "additionalProperties": false,
         "properties": {},
         "type": "object"
+      },
+      "limits": {
+        "mode": "none"
       },
       "name": "get_server_metrics",
       "output_schema": {
@@ -1999,19 +2402,160 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_server_capabilities",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "server": {
+            "additionalProperties": false,
+            "properties": {
+              "introspection_tool": {
+                "type": "string"
+              },
+              "metrics_tool": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "primary_discovery_tool": {
+                "type": "string"
+              },
+              "transport": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "primary_discovery_tool",
+              "introspection_tool",
+              "metrics_tool",
+              "transport"
+            ],
             "type": "object"
           },
           "tools": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "examples": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "arguments": {
+                        "type": "object"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "description",
+                      "arguments"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "input_schema": {
+                  "type": "object"
+                },
+                "limits": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "default_page_size": {
+                      "type": "integer"
+                    },
+                    "max_page_size": {
+                      "type": "integer"
+                    },
+                    "mode": {
+                      "enum": [
+                        "page",
+                        "cursor",
+                        "none"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ],
+                  "type": "object"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "output_schema": {
+                  "type": "object"
+                },
+                "pagination": {
+                  "enum": [
+                    "page",
+                    "cursor",
+                    "none"
+                  ],
+                  "type": "string"
+                },
+                "required_scopes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "selection_hint": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "required_scopes",
+                "pagination",
+                "selection_hint",
+                "examples",
+                "limits",
+                "input_schema",
+                "output_schema"
+              ],
+              "type": "object"
+            },
             "type": "array"
           },
           "workflows": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "steps": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "steps"
+              ],
+              "type": "object"
+            },
             "type": "array"
           }
         },
+        "required": [
+          "server",
+          "tools",
+          "workflows"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -2026,9 +2570,55 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_clause_taxonomy",
       "output_schema": {
-        "properties": {},
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "children": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "children"
+                ],
+                "type": "object"
+              },
+              "type": "object"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "children"
+          ],
+          "type": "object"
+        },
         "type": "object"
       },
       "pagination": "none",
@@ -2043,9 +2633,55 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_tax_clause_taxonomy",
       "output_schema": {
-        "properties": {},
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "children": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "children": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "children"
+                ],
+                "type": "object"
+              },
+              "type": "object"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "children"
+          ],
+          "type": "object"
+        },
         "type": "object"
       },
       "pagination": "none",
@@ -2060,13 +2696,36 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_counsel_catalog",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "counsel": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "canonical_name": {
+                  "type": "string"
+                },
+                "counsel_id": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "counsel_id",
+                "canonical_name"
+              ],
+              "type": "object"
+            },
             "type": "array"
           }
         },
+        "required": [
+          "counsel"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -2081,13 +2740,64 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_naics_catalog",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "sectors": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "sector_code": {
+                  "type": "string"
+                },
+                "sector_desc": {
+                  "type": "string"
+                },
+                "sector_group": {
+                  "type": "string"
+                },
+                "sub_sectors": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "sub_sector_code": {
+                        "type": "string"
+                      },
+                      "sub_sector_desc": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sub_sector_code",
+                      "sub_sector_desc"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "super_sector": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sector_code",
+                "sector_desc",
+                "sector_group",
+                "super_sector",
+                "sub_sectors"
+              ],
+              "type": "object"
+            },
             "type": "array"
           }
         },
+        "required": [
+          "sectors"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -2102,8 +2812,12 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_agreements_summary",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
           "agreements": {
             "type": "integer"
@@ -2115,6 +2829,11 @@
             "type": "integer"
           }
         },
+        "required": [
+          "agreements",
+          "sections",
+          "pages"
+        ],
         "type": "object"
       },
       "pagination": "none",
@@ -2129,16 +2848,285 @@
         "properties": {},
         "type": "object"
       },
+      "limits": {
+        "mode": "none"
+      },
       "name": "get_agreement_trends",
       "output_schema": {
+        "additionalProperties": false,
         "properties": {
+          "catalogs": {
+            "additionalProperties": false,
+            "properties": {
+              "naics": {
+                "additionalProperties": false,
+                "properties": {
+                  "sectors": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "sector_code": {
+                          "type": "string"
+                        },
+                        "sector_desc": {
+                          "type": "string"
+                        },
+                        "sector_group": {
+                          "type": "string"
+                        },
+                        "sub_sectors": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "sub_sector_code": {
+                                "type": "string"
+                              },
+                              "sub_sector_desc": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "sub_sector_code",
+                              "sub_sector_desc"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "super_sector": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "sector_code",
+                        "sector_desc",
+                        "sector_group",
+                        "super_sector",
+                        "sub_sectors"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "sectors"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "naics"
+            ],
+            "type": "object"
+          },
           "industries": {
+            "additionalProperties": false,
+            "properties": {
+              "pairings": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "acquirer_industry": {
+                      "type": "string"
+                    },
+                    "deal_count": {
+                      "type": "integer"
+                    },
+                    "target_industry": {
+                      "type": "string"
+                    },
+                    "total_transaction_value": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "target_industry",
+                    "acquirer_industry",
+                    "deal_count",
+                    "total_transaction_value"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "target_industries_by_year": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "deal_count": {
+                      "type": "integer"
+                    },
+                    "industry": {
+                      "type": "string"
+                    },
+                    "total_transaction_value": {
+                      "type": "number"
+                    },
+                    "year": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "industry",
+                    "deal_count",
+                    "total_transaction_value"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "target_industries_by_year",
+              "pairings"
+            ],
             "type": "object"
           },
           "ownership": {
+            "additionalProperties": false,
+            "properties": {
+              "buyer_type_matrix": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "buyer_bucket": {
+                      "type": "string"
+                    },
+                    "deal_count": {
+                      "type": "integer"
+                    },
+                    "median_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "target_bucket": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "target_bucket",
+                    "buyer_bucket",
+                    "deal_count",
+                    "median_transaction_value"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "deal_size_by_year": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "private_deal_count": {
+                      "type": "integer"
+                    },
+                    "private_median_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "private_p25_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "private_p75_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "public_deal_count": {
+                      "type": "integer"
+                    },
+                    "public_median_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "public_p25_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "public_p75_transaction_value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "year": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "public_deal_count",
+                    "private_deal_count",
+                    "public_p25_transaction_value",
+                    "public_median_transaction_value",
+                    "public_p75_transaction_value",
+                    "private_p25_transaction_value",
+                    "private_median_transaction_value",
+                    "private_p75_transaction_value"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "mix_by_year": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "private_deal_count": {
+                      "type": "integer"
+                    },
+                    "private_total_transaction_value": {
+                      "type": "number"
+                    },
+                    "public_deal_count": {
+                      "type": "integer"
+                    },
+                    "public_total_transaction_value": {
+                      "type": "number"
+                    },
+                    "year": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "year",
+                    "public_deal_count",
+                    "private_deal_count",
+                    "public_total_transaction_value",
+                    "private_total_transaction_value"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "mix_by_year",
+              "deal_size_by_year",
+              "buyer_type_matrix"
+            ],
             "type": "object"
           }
         },
+        "required": [
+          "ownership",
+          "industries",
+          "catalogs"
+        ],
         "type": "object"
       },
       "pagination": "none",
