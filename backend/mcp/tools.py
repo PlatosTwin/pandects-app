@@ -12,6 +12,7 @@ from sqlalchemy import and_, asc, desc, func, or_, text
 
 from backend.auth.mcp_runtime import McpPrincipal
 from backend.filtering import build_canonical_counsel_agreement_uuid_subquery, build_transaction_price_bucket_filter
+from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.routes.agreements import (
     _agreement_is_public_eligible_expr,
     _normalize_industry_label,
@@ -184,12 +185,38 @@ def _schema_input_schema(
     return payload
 
 
-def _schema_output_schema(
-    schema: Schema,
+def _object_schema(
+    properties: dict[str, object],
     *,
-    field_overrides: _FieldOverrides | None = None,
+    required: list[str] | None = None,
+    additional_properties: bool = True,
 ) -> dict[str, object]:
-    return _schema_input_schema(schema, additional_properties=True, field_overrides=field_overrides)
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": properties,
+        "additionalProperties": additional_properties,
+    }
+    if required:
+        schema["required"] = required
+    return schema
+
+
+def _array_of(item_schema: dict[str, object]) -> dict[str, object]:
+    return {"type": "array", "items": item_schema}
+
+
+def _pagination_response_properties() -> dict[str, object]:
+    return {
+        "page": {"type": "integer"},
+        "page_size": {"type": "integer"},
+        "total_count": {"type": "integer"},
+        "total_count_is_approximate": {"type": "boolean"},
+        "total_pages": {"type": "integer"},
+        "has_next": {"type": "boolean"},
+        "has_prev": {"type": "boolean"},
+        "next_num": {"type": ["integer", "null"]},
+        "prev_num": {"type": ["integer", "null"]},
+    }
 
 
 def _filter_option_metadata() -> dict[str, dict[str, object]]:
@@ -1916,18 +1943,236 @@ def _empty_schema() -> dict[str, object]:
     return {"type": "object", "properties": {}, "additionalProperties": False}
 
 
-def _paginated_result_schema(*, cursor: bool = False) -> dict[str, object]:
+def _access_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "tier": {"type": "string"},
+            "message": {"type": ["string", "null"]},
+        },
+        required=["tier", "message"],
+        additional_properties=False,
+    )
+
+
+def _agreement_search_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": "string"},
+            "year": {"type": ["integer", "null"]},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "filing_date": {"type": ["string", "null"]},
+            "url": {"type": ["string", "null"]},
+            "verified": {"type": "boolean"},
+        },
+        required=["agreement_uuid", "verified"],
+    )
+
+
+def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, object]:
     properties: dict[str, object] = {
-        "returned_count": {"type": "integer"},
-        "results": {"type": "array"},
+        "agreement_uuid": {"type": "string"},
+        "year": {"type": ["integer", "null"]},
+        "target": {"type": ["string", "null"]},
+        "acquirer": {"type": ["string", "null"]},
+        "filing_date": {"type": ["string", "null"]},
+        "prob_filing": {"type": ["string", "null"]},
+        "filing_company_name": {"type": ["string", "null"]},
+        "filing_company_cik": {"type": ["string", "null"]},
+        "form_type": {"type": ["string", "null"]},
+        "exhibit_type": {"type": ["string", "null"]},
+        "transaction_price_total": {"type": ["number", "null"]},
+        "transaction_price_stock": {"type": ["number", "null"]},
+        "transaction_price_cash": {"type": ["number", "null"]},
+        "transaction_price_assets": {"type": ["number", "null"]},
+        "transaction_consideration": {"type": ["string", "null"]},
+        "target_type": {"type": ["string", "null"]},
+        "acquirer_type": {"type": ["string", "null"]},
+        "target_industry": {"type": ["string", "null"]},
+        "acquirer_industry": {"type": ["string", "null"]},
+        "announce_date": {"type": ["string", "null"]},
+        "close_date": {"type": ["string", "null"]},
+        "deal_status": {"type": ["string", "null"]},
+        "attitude": {"type": ["string", "null"]},
+        "deal_type": {"type": ["string", "null"]},
+        "purpose": {"type": ["string", "null"]},
+        "target_pe": {"type": ["integer", "null"]},
+        "acquirer_pe": {"type": ["integer", "null"]},
+        "url": {"type": ["string", "null"]},
     }
-    if cursor:
-        properties["next_cursor"] = {"type": ["string", "null"]}
-    else:
-        properties["page"] = {"type": "integer"}
-        properties["page_size"] = {"type": "integer"}
-        properties["total_count"] = {"type": "integer"}
-    return {"type": "object", "properties": properties, "additionalProperties": True}
+    if include_xml:
+        properties["xml"] = {"type": ["string", "null"]}
+    return _object_schema(properties, required=["agreement_uuid"])
+
+
+def _section_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "id": {"type": "string"},
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "xml": {"type": ["string", "null"]},
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "target": {"type": ["string", "null"]},
+            "year": {"type": ["integer", "null"]},
+            "verified": {"type": "boolean"},
+            "metadata": {"type": "object", "additionalProperties": True},
+        },
+        required=["id", "section_uuid", "standard_id", "verified"],
+    )
+
+
+def _list_section_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "id": {"type": "string"},
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "year": {"type": ["integer", "null"]},
+            "verified": {"type": "boolean"},
+        },
+        required=["id", "section_uuid", "standard_id", "verified"],
+    )
+
+
+def _search_agreements_output_schema() -> dict[str, object]:
+    properties = _pagination_response_properties()
+    properties.update(
+        {
+            "returned_count": {"type": "integer"},
+            "results": _array_of(_agreement_search_result_schema()),
+        }
+    )
+    return _object_schema(
+        properties,
+        required=["results", "returned_count", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+    )
+
+
+def _search_sections_output_schema() -> dict[str, object]:
+    properties = _pagination_response_properties()
+    properties.update(
+        {
+            "results": _array_of(_section_result_schema()),
+            "access": _access_schema(),
+        }
+    )
+    return _object_schema(
+        properties,
+        required=["results", "access", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+    )
+
+
+def _list_agreements_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "results": _array_of(_agreement_list_result_schema()),
+            "access": _access_schema(),
+            "page_size": {"type": "integer"},
+            "returned_count": {"type": "integer"},
+            "has_next": {"type": "boolean"},
+            "next_cursor": {"type": ["string", "null"]},
+        },
+        required=["results", "access", "page_size", "returned_count", "has_next", "next_cursor"],
+    )
+
+
+def _list_agreement_sections_output_schema() -> dict[str, object]:
+    properties = _pagination_response_properties()
+    properties.update(
+        {
+            "agreement_uuid": {"type": "string"},
+            "results": _array_of(_list_section_result_schema()),
+            "returned_count": {"type": "integer"},
+        }
+    )
+    return _object_schema(
+        properties,
+        required=["agreement_uuid", "results", "returned_count", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+    )
+
+
+def _get_agreement_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "year": {"type": ["integer", "null"]},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "filing_date": {"type": ["string", "null"]},
+            "prob_filing": {"type": ["string", "null"]},
+            "filing_company_name": {"type": ["string", "null"]},
+            "filing_company_cik": {"type": ["string", "null"]},
+            "form_type": {"type": ["string", "null"]},
+            "exhibit_type": {"type": ["string", "null"]},
+            "transaction_price_total": {"type": ["number", "null"]},
+            "transaction_price_stock": {"type": ["number", "null"]},
+            "transaction_price_cash": {"type": ["number", "null"]},
+            "transaction_price_assets": {"type": ["number", "null"]},
+            "transaction_consideration": {"type": ["string", "null"]},
+            "target_type": {"type": ["string", "null"]},
+            "acquirer_type": {"type": ["string", "null"]},
+            "target_industry": {"type": ["string", "null"]},
+            "acquirer_industry": {"type": ["string", "null"]},
+            "announce_date": {"type": ["string", "null"]},
+            "close_date": {"type": ["string", "null"]},
+            "deal_status": {"type": ["string", "null"]},
+            "attitude": {"type": ["string", "null"]},
+            "deal_type": {"type": ["string", "null"]},
+            "purpose": {"type": ["string", "null"]},
+            "target_pe": {"type": ["integer", "null"]},
+            "acquirer_pe": {"type": ["integer", "null"]},
+            "url": {"type": ["string", "null"]},
+            "xml": {"type": "string"},
+            "is_redacted": {"type": "boolean"},
+        },
+        required=["xml"],
+    )
+
+
+def _get_section_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "xml": {"type": ["string", "null"]},
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+        },
+        required=["section_uuid", "standard_id"],
+    )
+
+
+def _metrics_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "latency_bucket_bounds_ms": _array_of({"type": "integer"}),
+            "tool_calls": {
+                "type": "object",
+                "additionalProperties": _object_schema(
+                    {
+                        "calls": {"type": "integer"},
+                        "errors": {"type": "integer"},
+                        "avg_latency_ms": {"type": "number"},
+                        "max_latency_ms": {"type": "integer"},
+                        "latency_buckets": _array_of({"type": "integer"}),
+                        "error_categories": {"type": "object", "additionalProperties": {"type": "integer"}},
+                    },
+                    required=["calls", "errors", "avg_latency_ms", "max_latency_ms", "latency_buckets", "error_categories"],
+                ),
+            },
+            "auth_failures": {"type": "object", "additionalProperties": {"type": "integer"}},
+        },
+        required=["latency_bucket_bounds_ms", "tool_calls", "auth_failures"],
+    )
 
 
 @lru_cache(maxsize=1)
@@ -1963,7 +2208,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="search_agreements",
             description="Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
             input_schema=_schema_input_schema(search_agreements_schema, field_overrides=search_agreements_overrides),
-            output_schema=_paginated_result_schema(),
+            output_schema=_search_agreements_output_schema(),
             examples=(
                 {"description": "Find agreements involving a target counsel.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]}},
                 {"description": "Combine a text lookup with a year filter.", "arguments": {"query": "Target", "year": [2020]}},
@@ -1977,7 +2222,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="search_sections",
             description="Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
-            output_schema=_paginated_result_schema(),
+            output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
                 {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
@@ -1991,7 +2236,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="list_agreements",
             description="Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
             input_schema=_schema_input_schema(AgreementsBulkArgsSchema(), field_overrides=agreements_list_overrides),
-            output_schema=_paginated_result_schema(cursor=True),
+            output_schema=_list_agreements_output_schema(),
             examples=(
                 {"description": "Page through agreements by exact counsel filter.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 50}},
                 {"description": "Retrieve all cash deals with a cursor.", "arguments": {"transaction_consideration": ["cash"], "cursor": None}},
@@ -2005,7 +2250,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="list_agreement_sections",
             description="Navigate the sections inside one agreement before drilling into a specific section.",
             input_schema=_schema_input_schema(McpListAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
-            output_schema=_paginated_result_schema(),
+            output_schema=_list_agreement_sections_output_schema(),
             examples=(
                 {"description": "List sections inside one agreement.", "arguments": {"agreement_uuid": "a1", "page_size": 25}},
             ),
@@ -2018,7 +2263,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_agreement",
             description="Fetch one agreement document, returning redacted XML unless full-text scope is present.",
             input_schema=_schema_input_schema(McpAgreementArgsSchema()),
-            output_schema={"type": "object", "properties": {"agreement_uuid": {"type": "string"}, "xml": {"type": "string"}}},
+            output_schema=_get_agreement_output_schema(),
             examples=(
                 {"description": "Fetch one agreement body.", "arguments": {"agreement_uuid": "a1"}},
             ),
@@ -2031,7 +2276,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             name="get_section",
             description="Fetch one section directly by section UUID when you already know the exact section to inspect.",
             input_schema=_schema_input_schema(McpSectionArgsSchema()),
-            output_schema={"type": "object", "properties": {"section_uuid": {"type": "string"}, "agreement_uuid": {"type": "string"}}},
+            output_schema=_get_section_output_schema(),
             examples=(
                 {"description": "Fetch one section after search_sections.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
@@ -2078,6 +2323,19 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
             pagination="none",
             handler=_list_filter_options,
+        ),
+        McpToolSpec(
+            name="get_server_metrics",
+            description="Return in-process MCP metrics, including per-tool call counts, latency buckets, error categories, and auth-failure counts since process start.",
+            input_schema=_empty_schema(),
+            output_schema=_metrics_output_schema(),
+            examples=(
+                {"description": "Inspect MCP usage and latency metrics.", "arguments": {}},
+            ),
+            scopes=("agreements:search",),
+            selection_hint="Use for operational monitoring and to see which MCP tools are slow or error-prone.",
+            pagination="none",
+            handler=_get_server_metrics,
         ),
         McpToolSpec(
             name="get_server_capabilities",
@@ -2188,6 +2446,7 @@ def _server_capabilities_payload() -> dict[str, object]:
             "name": "pandects-mcp",
             "primary_discovery_tool": "list_filter_options",
             "introspection_tool": "get_server_capabilities",
+            "metrics_tool": "get_server_metrics",
         },
         "tools": [
             {
@@ -2215,6 +2474,10 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "name": "filter agreements exactly and paginate deeply",
                 "steps": ["list_filter_options", "list_agreements", "get_agreement"],
             },
+            {
+                "name": "inspect MCP health and hot paths",
+                "steps": ["get_server_metrics", "get_server_capabilities"],
+            },
         ],
     }
 
@@ -2228,6 +2491,20 @@ def _get_server_capabilities(
     response = _server_capabilities_payload()
     return McpToolResult(
         text=f"Returned MCP server capabilities for {len(cast(list[object], response['tools']))} tool(s).",
+        structured_content=response,
+    )
+
+
+def _get_server_metrics(
+    *,
+    principal: McpPrincipal,
+) -> McpToolResult:
+    if not principal.scopes:
+        raise PermissionError("Missing required scope: agreements:search")
+    response = get_mcp_metrics_registry().snapshot()
+    tool_calls = cast(dict[str, object], response["tool_calls"])
+    return McpToolResult(
+        text=f"Returned MCP server metrics for {len(tool_calls)} recorded tool(s).",
         structured_content=response,
     )
 

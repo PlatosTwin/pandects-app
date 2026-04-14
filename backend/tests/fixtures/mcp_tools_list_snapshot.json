@@ -1,0 +1,2194 @@
+[
+  {
+    "annotations": {
+      "pagination": "page",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination."
+    },
+    "description": "Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "acquirer": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "agreement_uuid": {
+          "description": "Filter to one agreement UUID.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attitude": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "description": "Opaque cursor from a previous agreements listing response.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deal_status": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deal_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "include_xml": {
+          "description": "When true, include full agreement XML for each result.",
+          "type": "boolean"
+        },
+        "page": {
+          "description": "1-based page number.",
+          "example": 1,
+          "type": "integer"
+        },
+        "page_size": {
+          "description": "Maximum number of results to return.",
+          "example": 25,
+          "type": "integer"
+        },
+        "purpose": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "query": {
+          "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
+          "example": "Slack",
+          "examples": [
+            "Slack",
+            "2020"
+          ],
+          "type": "string"
+        },
+        "section_uuid": {
+          "description": "Filter to one section UUID.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sort_by": {
+          "description": "Sort key. One of: `year`, `target`, `acquirer`.",
+          "enum": [
+            "year",
+            "target",
+            "acquirer"
+          ],
+          "type": "string"
+        },
+        "sort_dir": {
+          "description": "Sort direction. One of: `asc`, `desc`.",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_consideration": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_assets": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_cash": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_stock": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_total": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "year": {
+          "description": "Agreement filing years to include.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_agreements",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        },
+        "next_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "prev_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "results": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "acquirer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "agreement_uuid": {
+                "type": "string"
+              },
+              "filing_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verified": {
+                "type": "boolean"
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "agreement_uuid",
+              "verified"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "returned_count": {
+          "type": "integer"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "total_count_is_approximate": {
+          "type": "boolean"
+        },
+        "total_pages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "results",
+        "returned_count",
+        "page",
+        "page_size",
+        "total_count",
+        "total_pages",
+        "has_next",
+        "has_prev",
+        "total_count_is_approximate"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "page",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+    },
+    "description": "Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "acquirer": {
+          "description": "Exact acquirer company names to include.",
+          "example": [
+            "salesforce.com, inc."
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "agreement_uuid": {
+          "description": "Filter to one agreement UUID.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attitude": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deal_status": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deal_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "description": "Agreement metadata fields to include under results[].metadata.",
+          "example": [
+            "deal_type",
+            "target_industry"
+          ],
+          "examples": [
+            [
+              "deal_type",
+              "target_industry"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "filing_date",
+              "prob_filing",
+              "filing_company_name",
+              "filing_company_cik",
+              "form_type",
+              "exhibit_type",
+              "transaction_price_total",
+              "transaction_price_stock",
+              "transaction_price_cash",
+              "transaction_price_assets",
+              "transaction_consideration",
+              "target_type",
+              "acquirer_type",
+              "target_industry",
+              "acquirer_industry",
+              "announce_date",
+              "close_date",
+              "deal_status",
+              "attitude",
+              "deal_type",
+              "purpose",
+              "target_pe",
+              "acquirer_pe",
+              "url"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "page": {
+          "description": "1-based page number.",
+          "example": 1,
+          "type": "integer"
+        },
+        "page_size": {
+          "description": "Maximum number of results to return.",
+          "example": 25,
+          "type": "integer"
+        },
+        "purpose": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "section_uuid": {
+          "description": "Filter to one section UUID.",
+          "example": "5e59453aaa9255c4",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sort_by": {
+          "description": "Sort key. One of: `year`, `target`, `acquirer`.",
+          "enum": [
+            "year",
+            "target",
+            "acquirer"
+          ],
+          "type": "string"
+        },
+        "sort_direction": {
+          "description": "Sort direction. One of: `asc`, `desc`.",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "standard_id": {
+          "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). Parent IDs expand to include descendant taxonomy nodes.",
+          "example": [
+            "1.1",
+            "1.2.3"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target": {
+          "description": "Exact target company names to include.",
+          "example": [
+            "Slack Technologies, Inc."
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_consideration": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_assets": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_cash": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_stock": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_total": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "year": {
+          "description": "Agreement filing years to include.",
+          "example": [
+            2022,
+            2023
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_sections",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "access": {
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tier": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "tier",
+            "message"
+          ],
+          "type": "object"
+        },
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        },
+        "next_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "prev_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "results": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "acquirer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "agreement_uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "article_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "section_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "section_uuid": {
+                "type": "string"
+              },
+              "standard_id": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "target": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verified": {
+                "type": "boolean"
+              },
+              "xml": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "section_uuid",
+              "standard_id",
+              "verified"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "total_count_is_approximate": {
+          "type": "boolean"
+        },
+        "total_pages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "results",
+        "access",
+        "page",
+        "page_size",
+        "total_count",
+        "total_pages",
+        "has_next",
+        "has_prev",
+        "total_count_is_approximate"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "cursor",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use when filters are already known and you expect to paginate deeply or export exact result sets."
+    },
+    "description": "Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "acquirer": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "acquirer_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "agreement_uuid": {
+          "description": "Filter to one agreement UUID.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attitude": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "description": "Opaque cursor from a previous list_agreements call.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deal_status": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deal_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "include_xml": {
+          "description": "When true, include full agreement XML. Requires agreements:read_fulltext.",
+          "type": "boolean"
+        },
+        "page_size": {
+          "description": "Maximum number of results to return.",
+          "example": 25,
+          "type": "integer"
+        },
+        "purpose": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "section_uuid": {
+          "description": "Filter to one section UUID.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_counsel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_industry": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_pe": {
+          "description": "Boolean-like PE filter values encoded as strings.",
+          "examples": [
+            [
+              "true"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "true",
+              "false"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target_type": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_consideration": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_assets": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_cash": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_stock": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_total": {
+          "description": "Transaction-price bucket filters.",
+          "examples": [
+            [
+              "100M - 250M",
+              "250M - 500M"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "0 - 100M",
+              "100M - 250M",
+              "250M - 500M",
+              "500M - 750M",
+              "750M - 1B",
+              "1B - 5B",
+              "5B - 10B",
+              "10B - 20B",
+              "20B+"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "year": {
+          "description": "Agreement filing years to include.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_agreements",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "access": {
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tier": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "tier",
+            "message"
+          ],
+          "type": "object"
+        },
+        "has_next": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "results": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "acquirer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "acquirer_industry": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "acquirer_pe": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "acquirer_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "agreement_uuid": {
+                "type": "string"
+              },
+              "announce_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "attitude": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "close_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "deal_status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "deal_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "exhibit_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "filing_company_cik": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "filing_company_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "filing_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "form_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "prob_filing": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "purpose": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_industry": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_pe": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "target_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transaction_consideration": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transaction_price_assets": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_cash": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_stock": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_total": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "agreement_uuid"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "returned_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "results",
+        "access",
+        "page_size",
+        "returned_count",
+        "has_next",
+        "next_cursor"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "page",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use after identifying an agreement and before calling get_section on one section UUID."
+    },
+    "description": "Navigate the sections inside one agreement before drilling into a specific section.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "sort_by": {
+          "description": "Section list sort key.",
+          "enum": [
+            "article_title",
+            "section_title",
+            "section_uuid"
+          ],
+          "type": "string"
+        },
+        "sort_direction": {
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "standard_id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "agreement_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "list_agreement_sections",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        },
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        },
+        "next_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "prev_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "results": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "acquirer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "agreement_uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "article_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "section_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "section_uuid": {
+                "type": "string"
+              },
+              "standard_id": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "target": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verified": {
+                "type": "boolean"
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "section_uuid",
+              "standard_id",
+              "verified"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "returned_count": {
+          "type": "integer"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "total_count_is_approximate": {
+          "type": "boolean"
+        },
+        "total_pages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agreement_uuid",
+        "results",
+        "returned_count",
+        "page",
+        "page_size",
+        "total_count",
+        "total_pages",
+        "has_next",
+        "has_prev",
+        "total_count_is_approximate"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:read"
+      ],
+      "selectionHint": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
+    },
+    "description": "Fetch one agreement document, returning redacted XML unless full-text scope is present.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        },
+        "focus_section_uuid": {
+          "description": "Optional section UUID used when redacting anonymous responses to keep a focused neighborhood visible.",
+          "example": "5e59453aaa9255c4",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "neighbor_sections": {
+          "description": "Number of neighboring sections to include around `focus_section_uuid` when response XML is redacted.",
+          "example": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agreement_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "get_agreement",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "acquirer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquirer_industry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquirer_pe": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "acquirer_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "announce_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attitude": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "close_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deal_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deal_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exhibit_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filing_company_cik": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filing_company_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filing_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "form_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_redacted": {
+          "type": "boolean"
+        },
+        "prob_filing": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "purpose": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_industry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_pe": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "target_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_consideration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_price_assets": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transaction_price_cash": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transaction_price_stock": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transaction_price_total": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "xml": {
+          "type": "string"
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "xml"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:read"
+      ],
+      "selectionHint": "Use when you already have a section UUID and want the exact section payload."
+    },
+    "description": "Fetch one section directly by section UUID when you already know the exact section to inspect.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "section_uuid": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "get_section",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "agreement_uuid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "article_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "section_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "section_uuid": {
+          "type": "string"
+        },
+        "standard_id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "xml": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "section_uuid",
+        "standard_id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:read"
+      ],
+      "selectionHint": "Use for agreement-level tax clause extraction once you know the agreement UUID."
+    },
+    "description": "Fetch extracted tax-module clauses for a specific agreement.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agreement_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "get_agreement_tax_clauses",
+    "outputSchema": {
+      "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        },
+        "clauses": {
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:read"
+      ],
+      "selectionHint": "Use for section-level tax clause extraction when you already have a section UUID."
+    },
+    "description": "Fetch extracted tax-module clauses for a specific section.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "section_uuid": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "get_section_tax_clauses",
+    "outputSchema": {
+      "properties": {
+        "clauses": {
+          "type": "array"
+        },
+        "section_uuid": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names."
+    },
+    "description": "List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "items": {
+            "enum": [
+              "targets",
+              "acquirers",
+              "transaction_price_totals",
+              "transaction_price_stocks",
+              "transaction_price_cashes",
+              "transaction_price_assets",
+              "transaction_considerations",
+              "target_types",
+              "acquirer_types",
+              "target_counsels",
+              "acquirer_counsels",
+              "target_industries",
+              "acquirer_industries",
+              "deal_statuses",
+              "attitudes",
+              "deal_types",
+              "purposes",
+              "target_pes",
+              "acquirer_pes"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_filter_options",
+    "outputSchema": {
+      "properties": {
+        "field_metadata": {
+          "type": "object"
+        },
+        "retrieval_parameter_map": {
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use for operational monitoring and to see which MCP tools are slow or error-prone."
+    },
+    "description": "Return in-process MCP metrics, including per-tool call counts, latency buckets, error categories, and auth-failure counts since process start.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_server_metrics",
+    "outputSchema": {
+      "additionalProperties": true,
+      "properties": {
+        "auth_failures": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "latency_bucket_bounds_ms": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "tool_calls": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "properties": {
+              "avg_latency_ms": {
+                "type": "number"
+              },
+              "calls": {
+                "type": "integer"
+              },
+              "error_categories": {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              "errors": {
+                "type": "integer"
+              },
+              "latency_buckets": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "max_latency_ms": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "calls",
+              "errors",
+              "avg_latency_ms",
+              "max_latency_ms",
+              "latency_buckets",
+              "error_categories"
+            ],
+            "type": "object"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "latency_bucket_bounds_ms",
+        "tool_calls",
+        "auth_failures"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
+    },
+    "description": "Explain available MCP tools, selection guidance, pagination styles, scope requirements, and example workflows for this server.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_server_capabilities",
+    "outputSchema": {
+      "properties": {
+        "server": {
+          "type": "object"
+        },
+        "tools": {
+          "type": "array"
+        },
+        "workflows": {
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when you need valid standard_id values for section taxonomy filtering."
+    },
+    "description": "Fetch the clause taxonomy tree used for section search standard IDs.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_clause_taxonomy",
+    "outputSchema": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool."
+    },
+    "description": "Fetch the tax clause taxonomy tree used for tax-clause research.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_tax_clause_taxonomy",
+    "outputSchema": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval."
+    },
+    "description": "Fetch canonical counsel names for filter selection and normalization.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_counsel_catalog",
+    "outputSchema": {
+      "properties": {
+        "counsel": {
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when you need canonical industry labels before industry-filtered retrieval."
+    },
+    "description": "Fetch NAICS sectors and subsectors for industry reasoning and filter selection.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_naics_catalog",
+    "outputSchema": {
+      "properties": {
+        "sectors": {
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use for top-level corpus sizing before deeper analysis."
+    },
+    "description": "Fetch high-level corpus counts for agreements, sections, and pages.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_agreements_summary",
+    "outputSchema": {
+      "properties": {
+        "agreements": {
+          "type": "integer"
+        },
+        "pages": {
+          "type": "integer"
+        },
+        "sections": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "agreements:search"
+      ],
+      "selectionHint": "Use for aggregated corpus analytics rather than document retrieval."
+    },
+    "description": "Fetch ownership and industry trend analytics for the agreement corpus.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "name": "get_agreement_trends",
+    "outputSchema": {
+      "properties": {
+        "industries": {
+          "type": "object"
+        },
+        "ownership": {
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  }
+]

@@ -1,11 +1,100 @@
 import os
+import json
 import tempfile
 import unittest
+from typing import TYPE_CHECKING, cast
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import jwt
 from sqlalchemy import text
+
+from backend.mcp.metrics import get_mcp_metrics_registry
+
+if TYPE_CHECKING:
+    from backend.auth.mcp_runtime import ExternalIdentity
+
+
+class McpClientHarness:
+    def __init__(self, test_case: "McpTests", *, scope: str = "sections:search agreements:search agreements:read") -> None:
+        self._test_case = test_case
+        self._scope = scope
+        self._client = test_case.app.test_client()
+        self._tools: dict[str, dict[str, object]] = {}
+
+    def _post(self, payload: dict[str, object]) -> dict[str, object]:
+        response = self._client.post(
+            "/mcp",
+            headers={"Authorization": self._test_case._bearer(scope=self._scope)},
+            json=payload,
+        )
+        self._test_case.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self._test_case.assertIsInstance(body, dict)
+        self._test_case.assertEqual(body["jsonrpc"], "2.0")
+        return cast(dict[str, object], body)
+
+    def initialize(self) -> dict[str, object]:
+        return self._post({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+
+    def list_tools(self) -> list[dict[str, object]]:
+        body = self._post({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+        tools = cast(list[dict[str, object]], cast(dict[str, object], body["result"])["tools"])
+        self._tools = {cast(str, tool["name"]): tool for tool in tools}
+        return tools
+
+    def call_tool(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
+        body = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            }
+        )
+        self._test_case.assertIn("result", body)
+        tool = self._tools[name]
+        import backend.mcp.tools as tools_module
+
+        structured_content = cast(dict[str, object], cast(dict[str, object], body["result"])["structuredContent"])
+        output_errors = tools_module._validate_output_against_schema(
+            cast(dict[str, object], tool["outputSchema"]),
+            structured_content,
+        )
+        self._test_case.assertEqual(output_errors, {})
+        return structured_content
+
+
+def _normalized_tools_snapshot(tools: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [
+        {
+            "name": tool["name"],
+            "description": tool["description"],
+            "annotations": tool["annotations"],
+            "inputSchema": tool["inputSchema"],
+            "outputSchema": tool["outputSchema"],
+        }
+        for tool in tools
+    ]
+
+
+def _normalized_capabilities_snapshot(payload: dict[str, object]) -> dict[str, object]:
+    tools = cast(list[dict[str, object]], payload["tools"])
+    return {
+        "server": payload["server"],
+        "tools": [
+            {
+                "name": tool["name"],
+                "required_scopes": tool["required_scopes"],
+                "pagination": tool["pagination"],
+                "selection_hint": tool["selection_hint"],
+                "input_schema": tool["input_schema"],
+                "output_schema": tool["output_schema"],
+            }
+            for tool in tools
+        ],
+        "workflows": payload["workflows"],
+    }
 
 
 def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
@@ -313,6 +402,9 @@ class McpTests(unittest.TestCase):
         cls.mcp_runtime._mcp_jwk_client = DummyJwkClient()
         cls.mcp_runtime._mcp_identity_provider = None
 
+    def setUp(self) -> None:
+        get_mcp_metrics_registry().reset()
+
     def _bearer(self, scope: str = "sections:search agreements:search agreements:read") -> str:
         return self._bearer_for_subject(subject="sub-123", scope=scope)
 
@@ -395,6 +487,7 @@ class McpTests(unittest.TestCase):
                 "get_agreement_tax_clauses",
                 "get_section_tax_clauses",
                 "list_filter_options",
+                "get_server_metrics",
                 "get_server_capabilities",
                 "get_clause_taxonomy",
                 "get_tax_clause_taxonomy",
@@ -507,6 +600,7 @@ class McpTests(unittest.TestCase):
         search_agreements_tool = next(tool for tool in res.get_json()["result"]["tools"] if tool["name"] == "search_agreements")
         self.assertIn("examples", search_agreements_tool)
         self.assertIn("outputSchema", search_agreements_tool)
+        self.assertIn("returned_count", search_agreements_tool["outputSchema"]["properties"])
         self.assertEqual(search_agreements_tool["annotations"]["pagination"], "page")
         self.assertIn("agreements:search", search_agreements_tool["annotations"]["requiredScopes"])
 
@@ -528,6 +622,9 @@ class McpTests(unittest.TestCase):
 
         capabilities_schema = tools["get_server_capabilities"]
         self.assertEqual(capabilities_schema["properties"], {})
+
+        metrics_schema = tools["get_server_metrics"]
+        self.assertEqual(metrics_schema["properties"], {})
 
         agreement_tax_schema = tools["get_agreement_tax_clauses"]
         self.assertEqual(agreement_tax_schema["required"], ["agreement_uuid"])
@@ -552,6 +649,7 @@ class McpTests(unittest.TestCase):
         tool_names = [tool["name"] for tool in tools_res.get_json()["result"]["tools"]]
         self.assertIn("list_filter_options", tool_names)
         self.assertIn("search_agreements", tool_names)
+        self.assertIn("get_server_metrics", tool_names)
         self.assertIn("get_server_capabilities", tool_names)
 
         filter_res = client.post(
@@ -710,12 +808,63 @@ class McpTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
+        self.assertEqual(payload["server"]["metrics_tool"], "get_server_metrics")
         search_agreements_tool = next(tool for tool in payload["tools"] if tool["name"] == "search_agreements")
         self.assertEqual(search_agreements_tool["pagination"], "page")
         self.assertIn("agreements:search", search_agreements_tool["required_scopes"])
         self.assertTrue(search_agreements_tool["examples"])
         workflow_names = [workflow["name"] for workflow in payload["workflows"]]
         self.assertIn("discover agreements by counsel", workflow_names)
+
+    def test_server_metrics_tool(self):
+        self._call_tool("search_agreements", {"query": "Target"})
+        self._call_tool("list_filter_options", {"fields": ["targets"]})
+
+        res = self._call_tool("get_server_metrics", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["latency_bucket_bounds_ms"], [50, 100, 250, 500, 1000, 2500, 5000])
+        self.assertIn("search_agreements", payload["tool_calls"])
+        self.assertGreaterEqual(payload["tool_calls"]["search_agreements"]["calls"], 1)
+        self.assertIn("get_server_metrics", payload["tool_calls"])
+
+    def test_client_harness_compatibility_flow(self):
+        client = McpClientHarness(self)
+        init_payload = cast(dict[str, object], client.initialize()["result"])
+        self.assertEqual(cast(dict[str, object], init_payload["serverInfo"])["name"], "pandects-mcp")
+
+        tools = client.list_tools()
+        self.assertIn("search_agreements", [tool["name"] for tool in tools])
+
+        agreements_payload = client.call_tool("search_agreements", {"query": "Target"})
+        agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
+        self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
+
+        metrics_payload = client.call_tool("get_server_metrics", {})
+        self.assertIn("search_agreements", cast(dict[str, object], metrics_payload["tool_calls"]))
+
+    def test_tools_list_contract_snapshot(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 401, "method": "tools/list"},
+        )
+        self.assertEqual(res.status_code, 200)
+        tools = _normalized_tools_snapshot(res.get_json()["result"]["tools"])
+        snapshot_path = os.path.join(os.path.dirname(__file__), "fixtures", "mcp_tools_list_snapshot.json")
+        with open(snapshot_path, "r", encoding="utf-8") as snapshot_file:
+            expected = json.load(snapshot_file)
+        self.assertEqual(tools, expected)
+
+    def test_server_capabilities_snapshot(self):
+        res = self._call_tool("get_server_capabilities", {})
+        self.assertEqual(res.status_code, 200)
+        payload = _normalized_capabilities_snapshot(res.get_json()["result"]["structuredContent"])
+        snapshot_path = os.path.join(os.path.dirname(__file__), "fixtures", "mcp_server_capabilities_snapshot.json")
+        with open(snapshot_path, "r", encoding="utf-8") as snapshot_file:
+            expected = json.load(snapshot_file)
+        self.assertEqual(payload, expected)
 
     def test_summary_and_trends_tools(self):
         summary_res = self._call_tool("get_agreements_summary", {})
@@ -1017,7 +1166,9 @@ class McpTests(unittest.TestCase):
         previous = os.environ.get("MCP_IDENTITY_PROVIDER")
 
         class StubProvider(runtime.McpIdentityProvider):
-            def authenticate_access_token(self, token: str) -> runtime.ExternalIdentity:
+            seen_token: str | None = None
+
+            def authenticate_access_token(self, token: str) -> "ExternalIdentity":
                 self.seen_token = token
                 return runtime.ExternalIdentity(
                     issuer="https://stub-issuer.example.com",

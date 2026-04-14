@@ -17,11 +17,13 @@ from backend.auth.mcp_runtime import (
     mcp_server_name,
     mcp_server_version,
 )
+from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.tools import McpOutputValidationError, call_tool, tool_definitions
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
 
 
 logger = logging.getLogger(__name__)
+metrics_registry = get_mcp_metrics_registry()
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,12 @@ def _log_mcp_tool_event(
             "error_category": error_category,
         },
     )
+    metrics_registry.record_tool_call(
+        tool_name=tool_name,
+        latency_ms=latency_ms,
+        outcome=outcome,
+        error_category=error_category,
+    )
 
 
 def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
@@ -115,6 +123,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
         try:
             principal = authenticate_mcp_request()
         except McpAuthError as exc:
+            metrics_registry.record_auth_failure(status_code=exc.status_code)
             return _json_rpc_error(
                 request_id=request_id,
                 code=-32001 if exc.status_code == 401 else -32003,
@@ -267,13 +276,27 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     code=-32602 if exc.code == 400 else -32004,
                     message=description,
                 )
-            _log_mcp_tool_event(
-                tool_name=tool_name,
-                outcome="ok",
-                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
-                request_id=request_id,
-                scope_count=len(principal.scopes),
-            )
+            latency_ms = max(0, int((time.perf_counter() - started_at) * 1000))
+            if tool_name == "get_server_metrics" and isinstance(result.structured_content, dict):
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="ok",
+                    latency_ms=latency_ms,
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                )
+                result = result.__class__(
+                    text=result.text,
+                    structured_content=metrics_registry.snapshot(),
+                )
+            else:
+                _log_mcp_tool_event(
+                    tool_name=tool_name,
+                    outcome="ok",
+                    latency_ms=latency_ms,
+                    request_id=request_id,
+                    scope_count=len(principal.scopes),
+                )
             return _json_rpc_result(
                 request_id=request_id,
                 result={
