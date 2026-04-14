@@ -1150,7 +1150,7 @@ class McpTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()["result"]["structuredContent"]
-        self.assertNotIn("is_redacted", payload)
+        self.assertFalse(payload["is_redacted"])
         self.assertIn("<text>KEEP</text>", payload["xml"])
 
     def test_missing_scope_is_403(self):

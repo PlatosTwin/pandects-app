@@ -1342,6 +1342,7 @@ def _get_agreement(
     }
     if allow_fulltext:
         response["xml"] = xml_content
+        response["is_redacted"] = False
     else:
         response["xml"] = deps._redact_agreement_xml(
             xml_content,
