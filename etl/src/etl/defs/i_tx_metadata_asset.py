@@ -94,7 +94,7 @@ def _has_text_sql(column_sql: str) -> str:
     return f"{column_sql} IS NOT NULL AND TRIM({column_sql}) <> ''"
 
 
-def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:
+def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:  # pyright: ignore[reportUnusedFunction]
     consideration_sql = f"{alias}.transaction_consideration"
     price_total_sql = f"{alias}.transaction_price_total"
     price_cash_sql = f"{alias}.transaction_price_cash"
@@ -1861,6 +1861,7 @@ def _run_web_search_mode(
     agreements_table: str,
     batch_size: int,
     target_agreement_uuids: list[str] | None = None,
+    include_all_scoped_agreements: bool = False,
     log_prefix: str = "tx_metadata_asset (web_search)",
 ) -> Dict[str, Any]:
     """Web-search: select agreements needing metadata with names or URL context; sync API; update web columns."""
@@ -1876,6 +1877,22 @@ def _run_web_search_mode(
         )
 
     scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
+    apply_default_candidate_filter = not (include_all_scoped_agreements and target_agreement_uuids)
+    candidate_filter_clause = (
+        """
+        (
+            COALESCE(a.metadata, 0) = 0
+            OR (
+                COALESCE(a.metadata, 0) = 1
+                AND (
+                    {_web_search_missing_core_metadata_sql(alias='a')}
+                )
+            )
+        )
+        """
+        if apply_default_candidate_filter
+        else "1 = 1"
+    )
     select_q = text(
         f"""
         SELECT
@@ -1907,15 +1924,7 @@ def _run_web_search_mode(
         FROM {agreements_table} a
         LEFT JOIN {schema}.tx_metadata_web_failures wf
           ON wf.agreement_uuid = a.agreement_uuid
-        WHERE (
-            COALESCE(a.metadata, 0) = 0
-            OR (
-                COALESCE(a.metadata, 0) = 1
-                AND (
-                    {_web_search_missing_core_metadata_sql(alias='a')}
-                )
-            )
-        )
+        WHERE {candidate_filter_clause}
           AND (
             (
               a.target IS NOT NULL AND TRIM(a.target) <> ''

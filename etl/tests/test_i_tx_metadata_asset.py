@@ -1030,6 +1030,32 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertIn("COALESCE(a.metadata, 0) = 1", select_sql)
         self.assertIn("initial_metadata_pass DESC", select_sql)
 
+    def test_run_web_search_mode_can_include_all_explicit_scope_agreements(self) -> None:
+        conn = _FakeWebConn()
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+
+        with (
+            patch(
+                "etl.defs.i_tx_metadata_asset._oai_client",
+                return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=10,
+                target_agreement_uuids=["agreement-1"],
+                include_all_scoped_agreements=True,
+            )
+
+        select_sql = next(sql for sql in conn.executed_sql if "FROM pdx.agreements a" in sql)
+        self.assertIn("WHERE 1 = 1", select_sql)
+        self.assertNotIn("WHERE (\n            COALESCE(a.metadata, 0) = 0", select_sql)
+
     def test_run_web_search_mode_uses_gpt_5_1_for_requeues_without_mixing_chunk_models(self) -> None:
         conn = _FakeWebConn(
             select_rows=[

@@ -729,6 +729,43 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertIsNone(params["close_date"])
         self.assertIsNone(params["deal_status"])
 
+    def test_build_update_params_web_search_only_allows_close_date_before_announce_for_private_target(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["target_public"] = False
+        payload["deal_status"] = "complete"
+        payload["announce_date"] = "2024-03-01"
+        payload["close_date"] = "2024-02-01"
+        payload["metadata_sources"] = {
+            "citations": [
+                self._citation("consideration_type"),
+                self._citation("purchase_price.cash"),
+                self._citation("purchase_price.stock"),
+                self._citation("purchase_price.assets"),
+                self._citation("target_public"),
+                self._citation("acquirer_public"),
+                self._citation("acquirer_pe"),
+                self._citation("target_industry"),
+                self._citation("acquirer_industry"),
+                self._citation("announce_date"),
+                self._citation("close_date"),
+                self._citation("deal_status"),
+                self._citation("attitude"),
+                self._citation("purpose"),
+            ],
+            "notes": None,
+        }
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["target_type"], "private")
+        self.assertEqual(params["announce_date"], "2024-03-01")
+        self.assertEqual(params["close_date"], "2024-02-01")
+        self.assertEqual(params["deal_status"], "complete")
+
     def test_build_update_params_web_search_only_allows_non_usd_note_with_null_prices(self) -> None:
         payload = self._valid_web_search_obj()
         payload["purchase_price"] = {"cash": None, "stock": None, "assets": None}

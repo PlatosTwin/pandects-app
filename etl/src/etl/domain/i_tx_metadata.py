@@ -764,7 +764,12 @@ def _sanitize_web_search_metadata_obj(
     if not isinstance(deal_status, str):
         return sanitized
 
-    if announce_date is not None and close_date is not None and close_date < announce_date:
+    if (
+        announce_date is not None
+        and close_date is not None
+        and close_date < announce_date
+        and not _close_before_announce_allowed_for_target(sanitized)
+    ):
         sanitized["close_date"] = None
         close_date = None
     if deal_status == "complete" and close_date is None:
@@ -1029,6 +1034,15 @@ def map_public_flag_to_type(value: object | None) -> Optional[str]:
     return "public" if value else "private"
 
 
+def _close_before_announce_allowed_for_target(tx_metadata_obj: Dict[str, Any]) -> bool:
+    target_public = tx_metadata_obj.get("target_public")
+    if target_public is None:
+        return False
+    if not isinstance(target_public, bool):
+        raise TypeError("target_public must be a boolean or null.")
+    return not target_public
+
+
 def build_tx_metadata_update_params(
     *,
     agreement_uuid: str,
@@ -1187,7 +1201,12 @@ def build_tx_metadata_update_params(
                 field_name="deal_status",
                 allowed=("pending", "complete", "cancelled"),
             )
-    if announce_date is not None and close_date is not None and close_date < announce_date:
+    if (
+        announce_date is not None
+        and close_date is not None
+        and close_date < announce_date
+        and not _close_before_announce_allowed_for_target(tx_metadata_obj)
+    ):
         raise ValueError("close_date cannot be earlier than announce_date.")
     if deal_status == "complete" and close_date is None:
         raise ValueError("deal_status='complete' requires a non-null close_date.")
