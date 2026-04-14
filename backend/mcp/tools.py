@@ -27,8 +27,6 @@ from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsAr
 from backend.services.sections_service import run_sections
 
 _SECTION_LIST_SORT_FIELDS = ("article_title", "section_title", "section_uuid")
-_SEARCH_SORT_FIELDS = ("year", "target", "acquirer")
-_SORT_DIRECTIONS = ("asc", "desc")
 _TRANSACTION_PRICE_BUCKET_OPTIONS = (
     "0 - 100M",
     "100M - 250M",
@@ -104,6 +102,128 @@ def _enum_array_schema(
     return schema
 
 
+def _one_of_choices(validators: list[object]) -> list[object] | None:
+    for validator_obj in validators:
+        if isinstance(validator_obj, validate.OneOf):
+            return list(validator_obj.choices)
+    return None
+
+
+def _field_json_schema(field: ma_fields.Field) -> dict[str, object]:
+    schema: dict[str, object]
+    if isinstance(field, ma_fields.List):
+        item_schema = _field_json_schema(field.inner)
+        item_schema.pop("description", None)
+        item_schema.pop("example", None)
+        item_schema.pop("examples", None)
+        schema = {"type": "array", "items": item_schema}
+    elif isinstance(field, ma_fields.Int):
+        schema = {"type": "integer"}
+    elif isinstance(field, ma_fields.Bool):
+        schema = {"type": "boolean"}
+    elif isinstance(field, ma_fields.Float):
+        schema = {"type": "number"}
+    else:
+        schema = {"type": "string"}
+
+    enum_choices = _one_of_choices(list(getattr(field, "validators", [])))
+    if enum_choices is not None:
+        schema["enum"] = enum_choices
+
+    if field.allow_none and "type" in schema:
+        schema["type"] = [cast(object, schema["type"]), "null"]
+
+    description = field.metadata.get("description")
+    if isinstance(description, str) and description.strip():
+        schema["description"] = description
+    example = field.metadata.get("example")
+    if example is not None:
+        schema["example"] = example
+    examples = field.metadata.get("examples")
+    if isinstance(examples, list) and examples:
+        schema["examples"] = examples
+    return schema
+
+
+def _schema_input_schema(
+    schema: Schema,
+    *,
+    additional_properties: bool = False,
+    field_overrides: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object]:
+    properties: dict[str, object] = {}
+    required: list[str] = []
+    for field_name, field in schema.fields.items():
+        field_schema = _field_json_schema(field)
+        if field_overrides and field_name in field_overrides:
+            field_schema.update(field_overrides[field_name])
+        properties[field_name] = field_schema
+        if field.required:
+            required.append(field_name)
+    payload: dict[str, object] = {
+        "type": "object",
+        "properties": properties,
+        "additionalProperties": additional_properties,
+    }
+    if required:
+        payload["required"] = required
+    return payload
+
+
+def _filter_option_metadata() -> dict[str, dict[str, object]]:
+    return {
+        "targets": {"retrieval_parameter": "target", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "acquirers": {"retrieval_parameter": "acquirer", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "transaction_price_totals": {
+            "retrieval_parameter": "transaction_price_total",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "bucket",
+            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+        },
+        "transaction_price_stocks": {
+            "retrieval_parameter": "transaction_price_stock",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "bucket",
+            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+        },
+        "transaction_price_cashes": {
+            "retrieval_parameter": "transaction_price_cash",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "bucket",
+            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+        },
+        "transaction_price_assets": {
+            "retrieval_parameter": "transaction_price_assets",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "bucket",
+            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+        },
+        "transaction_considerations": {"retrieval_parameter": "transaction_consideration", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "target_types": {"retrieval_parameter": "target_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "acquirer_types": {"retrieval_parameter": "acquirer_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "target_counsels": {"retrieval_parameter": "target_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "acquirer_counsels": {"retrieval_parameter": "acquirer_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "target_industries": {"retrieval_parameter": "target_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "acquirer_industries": {"retrieval_parameter": "acquirer_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "deal_statuses": {"retrieval_parameter": "deal_status", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "attitudes": {"retrieval_parameter": "attitude", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "deal_types": {"retrieval_parameter": "deal_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "purposes": {"retrieval_parameter": "purpose", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "target_pes": {
+            "retrieval_parameter": "target_pe",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "string_boolean",
+            "allowed_values": ["true", "false"],
+        },
+        "acquirer_pes": {
+            "retrieval_parameter": "acquirer_pe",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "string_boolean",
+            "allowed_values": ["true", "false"],
+        },
+    }
+
+
 def _structured_filter_properties(*, include_cursor: bool = False, include_xml: bool = False) -> dict[str, object]:
     properties: dict[str, object] = {}
     if include_cursor:
@@ -146,6 +266,10 @@ def _structured_filter_properties(*, include_cursor: bool = False, include_xml: 
 
 
 class McpAgreementArgsSchema(AgreementArgsSchema):
+    agreement_uuid = ma_fields.Str(required=True)
+
+
+class McpAgreementIdentifierSchema(Schema):
     agreement_uuid = ma_fields.Str(required=True)
 
 
@@ -1580,6 +1704,7 @@ def _list_filter_options(
     if "acquirer_pes" in selected_fields:
         payload_out["acquirer_pes"] = ["true", "false"]
 
+    filter_metadata = _filter_option_metadata()
     response = {
         "fields": list(selected_fields),
         "retrieval_parameter_map": {
@@ -1602,6 +1727,11 @@ def _list_filter_options(
             "purposes": "purpose",
             "target_pes": "target_pe",
             "acquirer_pes": "acquirer_pe",
+        },
+        "field_metadata": {
+            field_name: filter_metadata[field_name]
+            for field_name in selected_fields
+            if field_name in filter_metadata
         },
         **payload_out,
     }
@@ -1703,153 +1833,88 @@ def _get_agreement_trends(
 
 
 def tool_definitions() -> list[dict[str, object]]:
+    structured_filter_overrides = _structured_filter_properties()
+    agreements_list_overrides = _structured_filter_properties(include_cursor=True, include_xml=True)
+    search_agreements_overrides = {
+        **structured_filter_overrides,
+        "query": {
+            "type": "string",
+            "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
+            "examples": ["Slack", "2020"],
+        },
+    }
+    sections_search_overrides = {
+        **structured_filter_overrides,
+        "metadata": _enum_array_schema(
+            cast(tuple[str, ...], SECTIONS_RESULT_METADATA_FIELDS),
+            description="Agreement metadata fields to include under results[].metadata.",
+            examples=[["deal_type", "target_industry"]],
+        ),
+    }
+    list_agreement_sections_overrides = {
+        "sort_by": {
+            "type": "string",
+            "enum": list(_SECTION_LIST_SORT_FIELDS),
+            "description": "Section list sort key.",
+        },
+    }
     return [
         {
             "name": "search_agreements",
             "description": "Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
-                        "examples": ["Slack", "2020"],
-                    },
-                    "page": {"type": "integer", "description": "1-based page number for discovery results."},
-                    "page_size": {"type": "integer", "description": "Page size for discovery results."},
-                    "sort_by": {
-                        "type": "string",
-                        "enum": list(_SEARCH_SORT_FIELDS),
-                        "description": "Discovery sort key.",
-                    },
-                    "sort_dir": {
-                        "type": "string",
-                        "enum": list(_SORT_DIRECTIONS),
-                        "description": "Discovery sort direction.",
-                    },
-                    **_structured_filter_properties(),
-                },
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(
+                McpSearchAgreementsArgsSchema(),
+                field_overrides=search_agreements_overrides,
+            ),
         },
         {
             "name": "search_sections",
             "description": "Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    **_structured_filter_properties(),
-                    "standard_id": {"type": "array", "items": {"type": "string"}},
-                    "metadata": _enum_array_schema(
-                        cast(tuple[str, ...], SECTIONS_RESULT_METADATA_FIELDS),
-                        description="Agreement metadata fields to include under results[].metadata.",
-                        examples=[["deal_type", "target_industry"]],
-                    ),
-                    "sort_by": {
-                        "type": "string",
-                        "enum": list(_SEARCH_SORT_FIELDS),
-                        "description": "Section search sort key.",
-                    },
-                    "sort_direction": {
-                        "type": "string",
-                        "enum": list(_SORT_DIRECTIONS),
-                        "description": "Section search sort direction.",
-                    },
-                    "page": {"type": "integer", "description": "1-based page number."},
-                },
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(
+                SectionsArgsSchema(),
+                field_overrides=sections_search_overrides,
+            ),
         },
         {
             "name": "list_agreements",
             "description": "Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
-            "inputSchema": {
-                "type": "object",
-                "properties": _structured_filter_properties(include_cursor=True, include_xml=True),
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(
+                AgreementsBulkArgsSchema(),
+                field_overrides=agreements_list_overrides,
+            ),
         },
         {
             "name": "list_agreement_sections",
             "description": "Navigate the sections inside one agreement before drilling into a specific section.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "agreement_uuid": {"type": "string"},
-                    "standard_id": {"type": "array", "items": {"type": "string"}},
-                    "page": {"type": "integer"},
-                    "page_size": {"type": "integer"},
-                    "sort_by": {"type": "string"},
-                    "sort_direction": {"type": "string"},
-                },
-                "required": ["agreement_uuid"],
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(
+                McpListAgreementSectionsArgsSchema(),
+                field_overrides=list_agreement_sections_overrides,
+            ),
         },
         {
             "name": "get_agreement",
             "description": "Fetch one agreement document, returning redacted XML unless full-text scope is present.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "agreement_uuid": {"type": "string"},
-                    "focus_section_uuid": {"type": ["string", "null"]},
-                    "neighbor_sections": {"type": "integer"},
-                },
-                "required": ["agreement_uuid"],
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(McpAgreementArgsSchema()),
         },
         {
             "name": "get_section",
             "description": "Fetch one section directly by section UUID when you already know the exact section to inspect.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "section_uuid": {"type": "string"},
-                },
-                "required": ["section_uuid"],
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(McpSectionArgsSchema()),
         },
         {
             "name": "get_agreement_tax_clauses",
             "description": "Fetch extracted tax-module clauses for a specific agreement.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "agreement_uuid": {"type": "string"},
-                },
-                "required": ["agreement_uuid"],
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(McpAgreementIdentifierSchema()),
         },
         {
             "name": "get_section_tax_clauses",
             "description": "Fetch extracted tax-module clauses for a specific section.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "section_uuid": {"type": "string"},
-                },
-                "required": ["section_uuid"],
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(McpSectionArgsSchema()),
         },
         {
             "name": "list_filter_options",
             "description": "List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "fields": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": list(_FILTER_OPTIONS_FIELDS)},
-                        "description": "Optional subset of filter catalogs to return.",
-                    },
-                },
-                "additionalProperties": False,
-            },
+            "inputSchema": _schema_input_schema(McpFilterOptionsArgsSchema()),
         },
         {
             "name": "get_clause_taxonomy",

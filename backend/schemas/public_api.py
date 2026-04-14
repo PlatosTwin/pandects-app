@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypedDict, cast
 
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 from backend.schemas.sections import AccessInfoSchema
 
@@ -32,9 +32,19 @@ class AgreementArgsSchema(Schema):
 
 
 class AgreementsBulkArgsSchema(Schema):
-    cursor = fields.Str(load_default=None, allow_none=True)
-    page_size = fields.Int(load_default=25)
-    include_xml = fields.Bool(load_default=False)
+    cursor = fields.Str(
+        load_default=None,
+        allow_none=True,
+        metadata={"description": "Opaque cursor from a previous agreements listing response."},
+    )
+    page_size = fields.Int(
+        load_default=25,
+        metadata={"description": "Maximum number of agreements to return.", "example": 25},
+    )
+    include_xml = fields.Bool(
+        load_default=False,
+        metadata={"description": "When true, include full agreement XML for each result."},
+    )
     year = fields.List(fields.Int(), load_default=[])
     target = fields.List(fields.Str(), load_default=[])
     acquirer = fields.List(fields.Str(), load_default=[])
@@ -60,11 +70,28 @@ class AgreementsBulkArgsSchema(Schema):
 
 
 class AgreementsIndexArgsSchema(Schema):
-    page = fields.Int(load_default=1)
-    page_size = fields.Int(load_default=25)
-    sort_by = fields.Str(load_default="year")
-    sort_dir = fields.Str(load_default="desc")
-    query = fields.Str(load_default="")
+    page = fields.Int(load_default=1, metadata={"description": "1-based page number.", "example": 1})
+    page_size = fields.Int(
+        load_default=25,
+        metadata={"description": "Maximum number of agreements to return.", "example": 25},
+    )
+    sort_by = fields.Str(
+        load_default="year",
+        validate=validate.OneOf(["year", "target", "acquirer"]),
+        metadata={"description": "Sort key. One of: `year`, `target`, `acquirer`."},
+    )
+    sort_dir = fields.Str(
+        load_default="desc",
+        validate=validate.OneOf(["asc", "desc"]),
+        metadata={"description": "Sort direction. One of: `asc`, `desc`."},
+    )
+    query = fields.Str(
+        load_default="",
+        metadata={
+            "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
+            "example": "Slack",
+        },
+    )
 
 
 class AgreementArgsPayload(TypedDict):
