@@ -1341,6 +1341,7 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
                 self.assertEqual(json_body["username"], "legacy-password@example.com")
+                self.assertIs(json_body["email"]["isVerified"], True)
                 return {"userId": "zitadel-user-migrated"}
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
@@ -1416,6 +1417,7 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(json_body["profile"]["familyName"], "User")
             self.assertEqual(json_body["email"]["email"], "new-password-user@example.com")
             self.assertNotIn("sendCode", json_body["email"])
+            self.assertIs(json_body["email"]["isVerified"], False)
             return {"userId": "zitadel-new-user"}
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
@@ -1752,8 +1754,11 @@ class AuthFlowTests(unittest.TestCase):
                 raise NotFound(description="Not found")
             if url == "https://pandects-test-zitadel.example.com/v2/users/human":
                 self.assertEqual(method, "POST")
+                self.assertIsInstance(json_body, dict)
+                assert json_body is not None
                 self.assertEqual(json_body["username"], "pending-missing-remote@example.com")
                 self.assertEqual(json_body["password"]["password"], "NewP4ssword!")
+                self.assertIs(json_body["email"]["isVerified"], False)
                 return {"userId": "zitadel-recreated-pending-user"}
             self.fail(f"Unexpected URL: {url}")
 
@@ -1887,6 +1892,7 @@ class AuthFlowTests(unittest.TestCase):
                 assert json_body is not None
                 signup_payloads.append(json_body)
                 self.assertNotIn("sendCode", json_body["email"])
+                self.assertIs(json_body["email"]["isVerified"], False)
                 return {"userId": "zitadel-deferred-verify-user"}
             if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-deferred-verify-user/email/send":
                 self.assertEqual(method, "POST")
@@ -1953,6 +1959,9 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
             self.assertIsNone(data)
             if url == "https://pandects-test-zitadel.example.com/v2/users/human":
+                self.assertIsInstance(json_body, dict)
+                assert json_body is not None
+                self.assertIs(json_body["email"]["isVerified"], True)
                 return {"userId": "zitadel-reset-user"}
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
@@ -2181,7 +2190,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "resend-verify@example.com")
 
-    def test_zitadel_email_notification_verification_uses_pandects_email_sender(self):
+    def test_zitadel_email_notification_verification_is_ignored(self):
         client = self.app.test_client()
         payload = {
             "contextInfo": {"recipientEmailAddress": "verify-target@example.com"},
@@ -2196,14 +2205,9 @@ class AuthFlowTests(unittest.TestCase):
                 headers=self._zitadel_signature_headers(payload),
             )
 
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json(), {"status": "sent"})
-        send_email.assert_called_once_with(
-            notification_type="verify-email",
-            to_email="verify-target@example.com",
-            action_url="http://localhost:8080/verify-email?user_id=u&code=c",
-            code="17UA42",
-        )
+        self.assertEqual(res.status_code, 202)
+        self.assertEqual(res.get_json(), {"status": "ignored"})
+        send_email.assert_not_called()
 
     def test_zitadel_email_notification_reset_is_ignored(self):
         client = self.app.test_client()
