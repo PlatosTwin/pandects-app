@@ -2,6 +2,25 @@
  * Shared formatting utilities for consistent data display across the application
  */
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDateValue(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (DATE_ONLY_RE.test(trimmed)) {
+    const [yearText, monthText, dayText] = trimmed.split("-");
+    const year = Number(yearText);
+    const monthIndex = Number(monthText) - 1;
+    const day = Number(dayText);
+    const dt = new Date(year, monthIndex, day);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  const dt = new Date(trimmed);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 /**
  * Formats a date string to a localized date-time string
  * @param value - Date string or null
@@ -9,7 +28,8 @@
  */
 export function formatDate(value: string | null): string {
   if (!value) return "—";
-  const dt = new Date(value);
+  const dt = parseDateValue(value);
+  if (!dt) return value;
   return Number.isNaN(dt.getTime()) ? value : dt.toLocaleString();
 }
 
@@ -20,15 +40,13 @@ export function formatDate(value: string | null): string {
  */
 export function formatDateValue(value?: string | null): string {
   if (!value) return "—";
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }).format(new Date(value));
-  } catch {
-    return "—";
-  }
+  const dt = parseDateValue(value);
+  if (!dt) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(dt);
 }
 
 /**
