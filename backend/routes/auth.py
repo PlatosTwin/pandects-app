@@ -451,8 +451,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
         if "/verify-email" in action_url:
             return ("verify-email", recipient, action_url, code)
-        if "/reset-password/confirm" in action_url:
-            return ("reset-password", recipient, action_url, code)
         return None
 
     def _external_link_payload(*, link, provider_name: str) -> dict[str, object]:

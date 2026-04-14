@@ -2205,7 +2205,7 @@ class AuthFlowTests(unittest.TestCase):
             code="17UA42",
         )
 
-    def test_zitadel_email_notification_reset_uses_pandects_email_sender(self):
+    def test_zitadel_email_notification_reset_is_ignored(self):
         client = self.app.test_client()
         payload = {
             "contextInfo": {"recipientEmailAddress": "reset-target@example.com"},
@@ -2219,14 +2219,9 @@ class AuthFlowTests(unittest.TestCase):
                 headers=self._zitadel_signature_headers(payload),
             )
 
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json(), {"status": "sent"})
-        send_email.assert_called_once_with(
-            notification_type="reset-password",
-            to_email="reset-target@example.com",
-            action_url="http://localhost:8080/reset-password/confirm?user_id=u&code=c",
-            code=None,
-        )
+        self.assertEqual(res.status_code, 202)
+        self.assertEqual(res.get_json(), {"status": "ignored"})
+        send_email.assert_not_called()
 
     def test_zitadel_email_notification_rejects_invalid_signature(self):
         client = self.app.test_client()

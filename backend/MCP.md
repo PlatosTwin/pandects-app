@@ -103,7 +103,6 @@ Implementation notes:
 - The backend verifies the `Zitadel-Signature` header using the provider signing key.
 - Supported notification URLs currently map to:
   - `/verify-email`
-  - `/reset-password/confirm`
 - The backend renders Pandects HTML emails from the React Email templates in `emails/emails/` and sends them through Resend.
 - The `emails/` workspace dependencies must be installed on the server because backend email rendering uses `emails/scripts/render-template.ts`.
 
