@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 from flask import abort
 from marshmallow import Schema, ValidationError, fields as ma_fields, validate
@@ -320,6 +320,19 @@ class McpFilterOptionsArgsSchema(Schema):
 class McpToolResult:
     text: str
     structured_content: object
+
+
+@dataclass(frozen=True)
+class McpToolSpec:
+    name: str
+    description: str
+    input_schema: dict[str, object]
+    output_schema: dict[str, object]
+    examples: tuple[dict[str, object], ...]
+    scopes: tuple[str, ...]
+    selection_hint: str
+    pagination: str
+    handler: Callable[..., McpToolResult]
 
 
 def _require_scope(principal: McpPrincipal, scope: str) -> None:
@@ -1818,7 +1831,25 @@ def _get_agreement_trends(
     )
 
 
-def tool_definitions() -> list[dict[str, object]]:
+def _empty_schema() -> dict[str, object]:
+    return {"type": "object", "properties": {}, "additionalProperties": False}
+
+
+def _paginated_result_schema(*, cursor: bool = False) -> dict[str, object]:
+    properties: dict[str, object] = {
+        "returned_count": {"type": "integer"},
+        "results": {"type": "array"},
+    }
+    if cursor:
+        properties["next_cursor"] = {"type": ["string", "null"]}
+    else:
+        properties["page"] = {"type": "integer"}
+        properties["page_size"] = {"type": "integer"}
+        properties["total_count"] = {"type": "integer"}
+    return {"type": "object", "properties": properties}
+
+
+def _tool_specs() -> tuple[McpToolSpec, ...]:
     search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema())
     structured_filter_overrides = _structured_filter_properties()
     agreements_list_overrides = _structured_filter_properties(include_cursor=True, include_xml=True)
@@ -1845,95 +1876,280 @@ def tool_definitions() -> list[dict[str, object]]:
             "description": "Section list sort key.",
         },
     }
-    return [
-        {
-            "name": "search_agreements",
-            "description": "Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
-            "inputSchema": _schema_input_schema(
-                search_agreements_schema,
-                field_overrides=search_agreements_overrides,
+    return (
+        McpToolSpec(
+            name="search_agreements",
+            description="Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
+            input_schema=_schema_input_schema(search_agreements_schema, field_overrides=search_agreements_overrides),
+            output_schema=_paginated_result_schema(),
+            examples=(
+                {"description": "Find agreements involving a target counsel.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]}},
+                {"description": "Combine a text lookup with a year filter.", "arguments": {"query": "Target", "year": [2020]}},
             ),
-        },
-        {
-            "name": "search_sections",
-            "description": "Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
-            "inputSchema": _schema_input_schema(
-                SectionsArgsSchema(),
-                field_overrides=sections_search_overrides,
+            scopes=("agreements:search",),
+            selection_hint="Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination.",
+            pagination="page",
+            handler=_search_agreements,
+        ),
+        McpToolSpec(
+            name="search_sections",
+            description="Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
+            input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
+            output_schema=_paginated_result_schema(),
+            examples=(
+                {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
+                {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
             ),
-        },
-        {
-            "name": "list_agreements",
-            "description": "Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
-            "inputSchema": _schema_input_schema(
-                AgreementsBulkArgsSchema(),
-                field_overrides=agreements_list_overrides,
+            scopes=("sections:search",),
+            selection_hint="Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
+            pagination="page",
+            handler=_search_sections,
+        ),
+        McpToolSpec(
+            name="list_agreements",
+            description="Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
+            input_schema=_schema_input_schema(AgreementsBulkArgsSchema(), field_overrides=agreements_list_overrides),
+            output_schema=_paginated_result_schema(cursor=True),
+            examples=(
+                {"description": "Page through agreements by exact counsel filter.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 50}},
+                {"description": "Retrieve all cash deals with a cursor.", "arguments": {"transaction_consideration": ["cash"], "cursor": None}},
             ),
-        },
-        {
-            "name": "list_agreement_sections",
-            "description": "Navigate the sections inside one agreement before drilling into a specific section.",
-            "inputSchema": _schema_input_schema(
-                McpListAgreementSectionsArgsSchema(),
-                field_overrides=list_agreement_sections_overrides,
+            scopes=("agreements:search",),
+            selection_hint="Use when filters are already known and you expect to paginate deeply or export exact result sets.",
+            pagination="cursor",
+            handler=_list_agreements,
+        ),
+        McpToolSpec(
+            name="list_agreement_sections",
+            description="Navigate the sections inside one agreement before drilling into a specific section.",
+            input_schema=_schema_input_schema(McpListAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
+            output_schema=_paginated_result_schema(),
+            examples=(
+                {"description": "List sections inside one agreement.", "arguments": {"agreement_uuid": "a1", "page_size": 25}},
             ),
+            scopes=("sections:search",),
+            selection_hint="Use after identifying an agreement and before calling get_section on one section UUID.",
+            pagination="page",
+            handler=_list_agreement_sections,
+        ),
+        McpToolSpec(
+            name="get_agreement",
+            description="Fetch one agreement document, returning redacted XML unless full-text scope is present.",
+            input_schema=_schema_input_schema(McpAgreementArgsSchema()),
+            output_schema={"type": "object", "properties": {"agreement_uuid": {"type": "string"}, "xml": {"type": "string"}}},
+            examples=(
+                {"description": "Fetch one agreement body.", "arguments": {"agreement_uuid": "a1"}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
+            pagination="none",
+            handler=_get_agreement,
+        ),
+        McpToolSpec(
+            name="get_section",
+            description="Fetch one section directly by section UUID when you already know the exact section to inspect.",
+            input_schema=_schema_input_schema(McpSectionArgsSchema()),
+            output_schema={"type": "object", "properties": {"section_uuid": {"type": "string"}, "agreement_uuid": {"type": "string"}}},
+            examples=(
+                {"description": "Fetch one section after search_sections.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use when you already have a section UUID and want the exact section payload.",
+            pagination="none",
+            handler=_get_section,
+        ),
+        McpToolSpec(
+            name="get_agreement_tax_clauses",
+            description="Fetch extracted tax-module clauses for a specific agreement.",
+            input_schema=_schema_input_schema(McpAgreementIdentifierSchema()),
+            output_schema={"type": "object", "properties": {"agreement_uuid": {"type": "string"}, "clauses": {"type": "array"}}},
+            examples=(
+                {"description": "Retrieve tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use for agreement-level tax clause extraction once you know the agreement UUID.",
+            pagination="none",
+            handler=_get_agreement_tax_clauses,
+        ),
+        McpToolSpec(
+            name="get_section_tax_clauses",
+            description="Fetch extracted tax-module clauses for a specific section.",
+            input_schema=_schema_input_schema(McpSectionArgsSchema()),
+            output_schema={"type": "object", "properties": {"section_uuid": {"type": "string"}, "clauses": {"type": "array"}}},
+            examples=(
+                {"description": "Retrieve tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use for section-level tax clause extraction when you already have a section UUID.",
+            pagination="none",
+            handler=_get_section_tax_clauses,
+        ),
+        McpToolSpec(
+            name="list_filter_options",
+            description="List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
+            input_schema=_schema_input_schema(McpFilterOptionsArgsSchema()),
+            output_schema={"type": "object", "properties": {"retrieval_parameter_map": {"type": "object"}, "field_metadata": {"type": "object"}}},
+            examples=(
+                {"description": "List valid counsel filter values.", "arguments": {"fields": ["target_counsels", "acquirer_counsels"]}},
+            ),
+            scopes=("agreements:search",),
+            selection_hint="Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
+            pagination="none",
+            handler=_list_filter_options,
+        ),
+        McpToolSpec(
+            name="get_server_capabilities",
+            description="Explain available MCP tools, selection guidance, pagination styles, scope requirements, and example workflows for this server.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {"server": {"type": "object"}, "tools": {"type": "array"}, "workflows": {"type": "array"}}},
+            examples=(
+                {"description": "Inspect tool guidance before starting a workflow.", "arguments": {}},
+            ),
+            scopes=("agreements:search",),
+            selection_hint="Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
+            pagination="none",
+            handler=_get_server_capabilities,
+        ),
+        McpToolSpec(
+            name="get_clause_taxonomy",
+            description="Fetch the clause taxonomy tree used for section search standard IDs.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {}},
+            examples=({"description": "Inspect the clause taxonomy.", "arguments": {}},),
+            scopes=("sections:search",),
+            selection_hint="Use when you need valid standard_id values for section taxonomy filtering.",
+            pagination="none",
+            handler=_get_clause_taxonomy,
+        ),
+        McpToolSpec(
+            name="get_tax_clause_taxonomy",
+            description="Fetch the tax clause taxonomy tree used for tax-clause research.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {}},
+            examples=({"description": "Inspect the tax clause taxonomy.", "arguments": {}},),
+            scopes=("sections:search",),
+            selection_hint="Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool.",
+            pagination="none",
+            handler=_get_tax_clause_taxonomy,
+        ),
+        McpToolSpec(
+            name="get_counsel_catalog",
+            description="Fetch canonical counsel names for filter selection and normalization.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {"counsel": {"type": "array"}}},
+            examples=({"description": "List canonical counsel names.", "arguments": {}},),
+            scopes=("sections:search",),
+            selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
+            pagination="none",
+            handler=_get_counsel_catalog,
+        ),
+        McpToolSpec(
+            name="get_naics_catalog",
+            description="Fetch NAICS sectors and subsectors for industry reasoning and filter selection.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {"sectors": {"type": "array"}}},
+            examples=({"description": "List NAICS sectors and subsectors.", "arguments": {}},),
+            scopes=("sections:search",),
+            selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
+            pagination="none",
+            handler=_get_naics_catalog,
+        ),
+        McpToolSpec(
+            name="get_agreements_summary",
+            description="Fetch high-level corpus counts for agreements, sections, and pages.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {"agreements": {"type": "integer"}, "sections": {"type": "integer"}, "pages": {"type": "integer"}}},
+            examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
+            scopes=("agreements:search",),
+            selection_hint="Use for top-level corpus sizing before deeper analysis.",
+            pagination="none",
+            handler=_get_agreements_summary,
+        ),
+        McpToolSpec(
+            name="get_agreement_trends",
+            description="Fetch ownership and industry trend analytics for the agreement corpus.",
+            input_schema=_empty_schema(),
+            output_schema={"type": "object", "properties": {"ownership": {"type": "object"}, "industries": {"type": "object"}}},
+            examples=({"description": "Inspect ownership and industry trends.", "arguments": {}},),
+            scopes=("agreements:search",),
+            selection_hint="Use for aggregated corpus analytics rather than document retrieval.",
+            pagination="none",
+            handler=_get_agreement_trends,
+        ),
+    )
+
+
+def _tool_spec_map() -> dict[str, McpToolSpec]:
+    return {spec.name: spec for spec in _tool_specs()}
+
+
+def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
+    return {
+        "name": spec.name,
+        "description": spec.description,
+        "inputSchema": spec.input_schema,
+        "examples": list(spec.examples),
+        "annotations": {
+            "selectionHint": spec.selection_hint,
+            "pagination": spec.pagination,
+            "requiredScopes": list(spec.scopes),
         },
-        {
-            "name": "get_agreement",
-            "description": "Fetch one agreement document, returning redacted XML unless full-text scope is present.",
-            "inputSchema": _schema_input_schema(McpAgreementArgsSchema()),
+    }
+
+
+def _server_capabilities_payload() -> dict[str, object]:
+    specs = _tool_specs()
+    return {
+        "server": {
+            "name": "pandects-mcp",
+            "primary_discovery_tool": "list_filter_options",
+            "introspection_tool": "get_server_capabilities",
         },
-        {
-            "name": "get_section",
-            "description": "Fetch one section directly by section UUID when you already know the exact section to inspect.",
-            "inputSchema": _schema_input_schema(McpSectionArgsSchema()),
-        },
-        {
-            "name": "get_agreement_tax_clauses",
-            "description": "Fetch extracted tax-module clauses for a specific agreement.",
-            "inputSchema": _schema_input_schema(McpAgreementIdentifierSchema()),
-        },
-        {
-            "name": "get_section_tax_clauses",
-            "description": "Fetch extracted tax-module clauses for a specific section.",
-            "inputSchema": _schema_input_schema(McpSectionArgsSchema()),
-        },
-        {
-            "name": "list_filter_options",
-            "description": "List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
-            "inputSchema": _schema_input_schema(McpFilterOptionsArgsSchema()),
-        },
-        {
-            "name": "get_clause_taxonomy",
-            "description": "Fetch the clause taxonomy tree used for section search standard IDs.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "get_tax_clause_taxonomy",
-            "description": "Fetch the tax clause taxonomy tree used for tax-clause research.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "get_counsel_catalog",
-            "description": "Fetch canonical counsel names for filter selection and normalization.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "get_naics_catalog",
-            "description": "Fetch NAICS sectors and subsectors for industry reasoning and filter selection.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "get_agreements_summary",
-            "description": "Fetch high-level corpus counts for agreements, sections, and pages.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "get_agreement_trends",
-            "description": "Fetch ownership and industry trend analytics for the agreement corpus.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-    ]
+        "tools": [
+            {
+                "name": spec.name,
+                "description": spec.description,
+                "required_scopes": list(spec.scopes),
+                "pagination": spec.pagination,
+                "selection_hint": spec.selection_hint,
+                "examples": list(spec.examples),
+                "input_schema": spec.input_schema,
+                "output_schema": spec.output_schema,
+            }
+            for spec in specs
+        ],
+        "workflows": [
+            {
+                "name": "discover agreements by counsel",
+                "steps": ["list_filter_options", "search_agreements", "get_agreement"],
+            },
+            {
+                "name": "sample clause language by taxonomy",
+                "steps": ["get_clause_taxonomy", "search_sections", "get_section"],
+            },
+            {
+                "name": "filter agreements exactly and paginate deeply",
+                "steps": ["list_filter_options", "list_agreements", "get_agreement"],
+            },
+        ],
+    }
+
+
+def _get_server_capabilities(
+    *,
+    principal: McpPrincipal,
+) -> McpToolResult:
+    if not principal.scopes:
+        raise PermissionError("Missing required scope: agreements:search")
+    response = _server_capabilities_payload()
+    return McpToolResult(
+        text=f"Returned MCP server capabilities for {len(cast(list[object], response['tools']))} tool(s).",
+        structured_content=response,
+    )
+
+
+def tool_definitions() -> list[dict[str, object]]:
+    return [_tool_list_entry(spec) for spec in _tool_specs()]
 
 
 def call_tool(
@@ -1945,41 +2161,22 @@ def call_tool(
     agreements_deps: AgreementsDeps,
     reference_data_deps: ReferenceDataDeps,
 ) -> McpToolResult:
-    if name == "search_agreements":
-        return _search_agreements(agreements_deps, principal=principal, payload=arguments)
-    if name == "search_sections":
-        return _search_sections(sections_service_deps, principal=principal, payload=arguments)
-    if name == "list_agreements":
-        return _list_agreements(agreements_deps, principal=principal, payload=arguments)
-    if name == "list_agreement_sections":
-        return _list_agreement_sections(sections_service_deps, principal=principal, payload=arguments)
-    if name == "get_agreement":
-        return _get_agreement(agreements_deps, principal=principal, payload=arguments)
-    if name == "get_section":
-        return _get_section(agreements_deps, principal=principal, payload=arguments)
-    if name == "get_agreement_tax_clauses":
-        return _get_agreement_tax_clauses(agreements_deps, principal=principal, payload=arguments)
-    if name == "get_section_tax_clauses":
-        return _get_section_tax_clauses(agreements_deps, principal=principal, payload=arguments)
-    if name == "list_filter_options":
-        return _list_filter_options(agreements_deps, principal=principal, payload=arguments)
-    if name == "get_clause_taxonomy":
-        return _get_clause_taxonomy(reference_data_deps, principal=principal)
-    if name == "get_tax_clause_taxonomy":
-        return _get_tax_clause_taxonomy(reference_data_deps, principal=principal)
-    if name == "get_counsel_catalog":
-        return _get_counsel_catalog(reference_data_deps, principal=principal)
-    if name == "get_naics_catalog":
-        return _get_naics_catalog(reference_data_deps, principal=principal)
-    if name == "get_agreements_summary":
-        return _get_agreements_summary(agreements_deps, principal=principal)
+    spec = _tool_spec_map().get(name)
+    if spec is None:
+        raise KeyError(name)
+    handler_kwargs: dict[str, object] = {"principal": principal}
+    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
+        handler_kwargs["deps"] = agreements_deps
+    if name in {"search_sections", "list_agreement_sections"}:
+        handler_kwargs["deps"] = sections_service_deps
+    if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog"}:
+        handler_kwargs["deps"] = reference_data_deps
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "get_agreement", "get_section", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options"}:
+        handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
-        return _get_agreement_trends(
-            agreements_deps,
-            principal=principal,
-            reference_data_deps=reference_data_deps,
-        )
-    raise KeyError(name)
+        handler_kwargs["deps"] = agreements_deps
+        handler_kwargs["reference_data_deps"] = reference_data_deps
+    return spec.handler(**handler_kwargs)
 
 
 __all__ = ["McpToolResult", "call_tool", "tool_definitions"]

@@ -359,6 +359,10 @@ class McpTests(unittest.TestCase):
         res = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
         self.assertEqual(res.status_code, 401)
         self.assertIn("WWW-Authenticate", res.headers)
+        payload = res.get_json()
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertEqual(payload["id"], 1)
+        self.assertEqual(payload["error"]["data"]["category"], "authentication")
 
     def test_initialize_and_tools_list(self):
         client = self.app.test_client()
@@ -390,6 +394,7 @@ class McpTests(unittest.TestCase):
                 "get_agreement_tax_clauses",
                 "get_section_tax_clauses",
                 "list_filter_options",
+                "get_server_capabilities",
                 "get_clause_taxonomy",
                 "get_tax_clause_taxonomy",
                 "get_counsel_catalog",
@@ -470,6 +475,10 @@ class McpTests(unittest.TestCase):
             "100M - 250M",
             search_agreements_schema["properties"]["transaction_price_total"]["items"]["enum"],
         )
+        search_agreements_tool = next(tool for tool in res.get_json()["result"]["tools"] if tool["name"] == "search_agreements")
+        self.assertIn("examples", search_agreements_tool)
+        self.assertEqual(search_agreements_tool["annotations"]["pagination"], "page")
+        self.assertIn("agreements:search", search_agreements_tool["annotations"]["requiredScopes"])
 
         search_sections_schema = tools["search_sections"]
         self.assertIn("target_counsel", search_sections_schema["properties"])
@@ -486,6 +495,9 @@ class McpTests(unittest.TestCase):
         list_filter_options_schema = tools["list_filter_options"]
         self.assertIn("deal_types", list_filter_options_schema["properties"]["fields"]["items"]["enum"])
         self.assertIn("transaction_price_totals", list_filter_options_schema["properties"]["fields"]["items"]["enum"])
+
+        capabilities_schema = tools["get_server_capabilities"]
+        self.assertEqual(capabilities_schema["properties"], {})
 
         agreement_tax_schema = tools["get_agreement_tax_clauses"]
         self.assertEqual(agreement_tax_schema["required"], ["agreement_uuid"])
@@ -510,6 +522,7 @@ class McpTests(unittest.TestCase):
         tool_names = [tool["name"] for tool in tools_res.get_json()["result"]["tools"]]
         self.assertIn("list_filter_options", tool_names)
         self.assertIn("search_agreements", tool_names)
+        self.assertIn("get_server_capabilities", tool_names)
 
         filter_res = client.post(
             "/mcp",
@@ -661,6 +674,18 @@ class McpTests(unittest.TestCase):
         self.assertEqual(naics_res.status_code, 200)
         naics_payload = naics_res.get_json()["result"]["structuredContent"]
         self.assertEqual(naics_payload["sectors"][0]["sector_code"], "11")
+
+    def test_server_capabilities_tool(self):
+        res = self._call_tool("get_server_capabilities", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
+        search_agreements_tool = next(tool for tool in payload["tools"] if tool["name"] == "search_agreements")
+        self.assertEqual(search_agreements_tool["pagination"], "page")
+        self.assertIn("agreements:search", search_agreements_tool["required_scopes"])
+        self.assertTrue(search_agreements_tool["examples"])
+        workflow_names = [workflow["name"] for workflow in payload["workflows"]]
+        self.assertIn("discover agreements by counsel", workflow_names)
 
     def test_summary_and_trends_tools(self):
         summary_res = self._call_tool("get_agreements_summary", {})
@@ -830,6 +855,11 @@ class McpTests(unittest.TestCase):
             },
         )
         self.assertEqual(res.status_code, 403)
+        payload = res.get_json()
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertEqual(payload["id"], 6)
+        self.assertEqual(payload["error"]["data"]["category"], "authorization")
+        self.assertEqual(payload["error"]["message"], "Missing required scope: agreements:read")
 
     def test_zitadel_provider_falls_back_to_introspection_for_opaque_tokens(self):
         original_provider = os.environ.get("MCP_IDENTITY_PROVIDER")
@@ -878,6 +908,10 @@ class McpTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 401)
         self.assertIn("WWW-Authenticate", res.headers)
+        payload = res.get_json()
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertEqual(payload["id"], 7)
+        self.assertEqual(payload["error"]["data"]["category"], "authentication")
 
     def test_normalized_external_identity_supports_scope_and_scp_claims(self):
         normalized_from_scope = self.mcp_runtime._normalize_external_identity(

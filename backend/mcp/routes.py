@@ -32,6 +32,8 @@ def _json_rpc_error(
     code: int,
     message: str,
     data: object | None = None,
+    status_code: int = 200,
+    www_authenticate: str | None = None,
 ) -> Response:
     error_payload: dict[str, object] = {"code": code, "message": message}
     if data is not None:
@@ -41,7 +43,10 @@ def _json_rpc_error(
         "id": request_id,
         "error": error_payload,
     }
-    return make_response(jsonify(payload), 200)
+    response = make_response(jsonify(payload), status_code)
+    if www_authenticate is not None:
+        response.headers["WWW-Authenticate"] = www_authenticate
+    return response
 
 
 def _json_rpc_result(*, request_id: object, result: dict[str, object]) -> Response:
@@ -53,6 +58,13 @@ def _ensure_object_payload() -> dict[str, object]:
     if not isinstance(body, dict):
         raise ValueError("Request body must be a JSON object.")
     return cast(dict[str, object], body)
+
+
+def _request_id_from_json_body() -> object:
+    body = request.get_json(silent=True)
+    if isinstance(body, dict):
+        return body.get("id")
+    return None
 
 
 def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
@@ -71,15 +83,18 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
 
     @mcp_blp.route("/mcp", methods=["POST"])
     def mcp_endpoint() -> Response:
+        request_id = _request_id_from_json_body()
         try:
             principal = authenticate_mcp_request()
         except McpAuthError as exc:
-            resp = make_response(
-                jsonify({"error": "Unauthorized" if exc.status_code == 401 else "Service Unavailable", "message": exc.message}),
-                exc.status_code,
+            return _json_rpc_error(
+                request_id=request_id,
+                code=-32001 if exc.status_code == 401 else -32003,
+                message=exc.message,
+                data={"category": "authentication", "status_code": exc.status_code},
+                status_code=exc.status_code,
+                www_authenticate=exc.www_authenticate,
             )
-            resp.headers["WWW-Authenticate"] = exc.www_authenticate
-            return resp
 
         try:
             payload = _ensure_object_payload()
@@ -152,12 +167,14 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     data=exc.messages,
                 )
             except PermissionError as exc:
-                resp = make_response(
-                    jsonify({"error": "Forbidden", "message": str(exc)}),
-                    403,
+                return _json_rpc_error(
+                    request_id=request_id,
+                    code=-32003,
+                    message=str(exc),
+                    data={"category": "authorization", "status_code": 403},
+                    status_code=403,
+                    www_authenticate='Bearer realm="pandects-mcp"',
                 )
-                resp.headers["WWW-Authenticate"] = 'Bearer realm="pandects-mcp"'
-                return resp
             except HTTPException as exc:
                 description = exc.description if isinstance(exc.description, str) else "Request failed."
                 return _json_rpc_error(
