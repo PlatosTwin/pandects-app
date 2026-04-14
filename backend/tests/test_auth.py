@@ -2308,7 +2308,7 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(
                 json_body,
                 {
-                    "verificationCode": {"code": "reset-code-123"},
+                    "verificationCode": "reset-code-123",
                     "newPassword": {
                         "password": "N3wPassw0rd!",
                         "changeRequired": False,

@@ -2623,7 +2623,7 @@ window.location.replace({json.dumps(login_url)});
             _zitadel_api_json(
                 path=f"/v2/users/{user_id.strip()}/password",
                 json_body={
-                    "verificationCode": {"code": code.strip()},
+                    "verificationCode": code.strip(),
                     "newPassword": {
                         "password": password,
                         "changeRequired": False,
