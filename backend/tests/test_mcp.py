@@ -675,8 +675,6 @@ class McpTests(unittest.TestCase):
                 "list_filter_options",
                 "suggest_clause_families",
                 "get_section_snippet",
-                "plan_counsel_comparison",
-                "compare_counsel_clause_samples",
                 "get_server_metrics",
                 "get_server_capabilities",
                 "get_clause_taxonomy",
@@ -815,12 +813,6 @@ class McpTests(unittest.TestCase):
 
         snippet_schema = tools["get_section_snippet"]
         self.assertIn("focus_terms", snippet_schema["properties"])
-
-        comparison_plan_schema = tools["plan_counsel_comparison"]
-        self.assertEqual(comparison_plan_schema["properties"]["side"]["enum"], ["target", "acquirer", "either"])
-
-        comparison_schema = tools["compare_counsel_clause_samples"]
-        self.assertIn("sample_size", comparison_schema["properties"])
 
         capabilities_schema = tools["get_server_capabilities"]
         self.assertEqual(capabilities_schema["properties"], {})
@@ -1032,38 +1024,6 @@ class McpTests(unittest.TestCase):
         self.assertIn("disproportionate effects", snippet_payload["snippet"].lower())
         self.assertEqual(snippet_payload["matched_terms"], ["disproportionate effects"])
 
-    def test_counsel_comparison_tools(self):
-        plan_res = self._call_tool(
-            "plan_counsel_comparison",
-            {
-                "concept": "MAE carveouts",
-                "counsel_names": ["Wachtell", "Skadden"],
-                "side": "either",
-            },
-        )
-        self.assertEqual(plan_res.status_code, 200)
-        plan_payload = plan_res.get_json()["result"]["structuredContent"]
-        self.assertEqual(plan_payload["taxonomy_matches"][0]["standard_id"], "2.1")
-        self.assertEqual(plan_payload["recommended_workflow"][1]["tool"], "compare_counsel_clause_samples")
-
-        compare_res = self._call_tool(
-            "compare_counsel_clause_samples",
-            {
-                "concept": "MAE carveouts",
-                "counsel_names": ["Wachtell", "Skadden"],
-                "side": "either",
-                "sample_size": 2,
-            },
-        )
-        self.assertEqual(compare_res.status_code, 200)
-        compare_payload = compare_res.get_json()["result"]["structuredContent"]
-        self.assertEqual(compare_payload["standard_id"], ["2.1"])
-        self.assertEqual(compare_payload["returned_count"], 2)
-        canonical_names = [item["canonical_name"] for item in compare_payload["comparisons"]]
-        self.assertIn("Wachtell, Lipton, Rosen & Katz", canonical_names)
-        self.assertIn("Skadden, Arps, Slate, Meagher & Flom LLP", canonical_names)
-        self.assertTrue(all(item["sample_sections"] for item in compare_payload["comparisons"]))
-
     def test_server_capabilities_tool(self):
         res = self._call_tool("get_server_capabilities", {})
         self.assertEqual(res.status_code, 200)
@@ -1085,7 +1045,6 @@ class McpTests(unittest.TestCase):
         workflow_names = [workflow["name"] for workflow in payload["workflows"]]
         self.assertIn("discover agreements by counsel", workflow_names)
         self.assertIn("map a plain-English concept to clause samples", workflow_names)
-        self.assertIn("plan an exploratory counsel comparison", workflow_names)
 
     def test_server_metrics_tool(self):
         self._call_tool("search_agreements", {"query": "Target"})
@@ -1150,24 +1109,22 @@ class McpTests(unittest.TestCase):
             agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
             self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
 
-    def test_live_http_transport_concept_to_comparison_workflow(self):
+    def test_live_http_transport_concept_to_snippet_workflow(self):
         with LiveMcpHttpClientHarness(self) as client:
             client.initialize()
             client.list_tools()
 
             suggestions = client.call_tool("suggest_clause_families", {"concept": "MAE carveouts", "top_k": 2})
             self.assertEqual(cast(list[dict[str, object]], suggestions["matches"])[0]["standard_id"], "2.1")
-
-            comparison = client.call_tool(
-                "compare_counsel_clause_samples",
+            snippet = client.call_tool(
+                "get_section_snippet",
                 {
-                    "concept": "MAE carveouts",
-                    "counsel_names": ["Wachtell", "Skadden"],
-                    "side": "either",
-                    "sample_size": 1,
+                    "section_uuid": "00000000-0000-0000-0000-000000000003",
+                    "focus_terms": ["disproportionate effects"],
+                    "max_chars": 220,
                 },
             )
-            self.assertEqual(cast(int, comparison["returned_count"]), 2)
+            self.assertEqual(cast(str, snippet["section_uuid"]), "00000000-0000-0000-0000-000000000003")
 
     def test_live_http_transport_redaction_and_fulltext_workflow(self):
         with LiveMcpHttpClientHarness(self) as client:

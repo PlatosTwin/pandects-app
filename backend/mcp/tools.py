@@ -771,62 +771,6 @@ def _focused_snippet(text_content: str, *, focus_terms: list[str], max_chars: in
     return snippet, matched_terms
 
 
-def _counsel_rows(deps: ReferenceDataDeps) -> list[dict[str, object]]:
-    rows = cast(
-        list[tuple[object, object, object]],
-        deps.db.session.query(
-            deps.Counsel.counsel_id,
-            deps.Counsel.canonical_name,
-            deps.Counsel.canonical_name_normalized,
-        )
-        .order_by(deps.Counsel.canonical_name.asc(), deps.Counsel.counsel_id.asc())
-        .all(),
-    )
-    result: list[dict[str, object]] = []
-    for counsel_id, canonical_name, canonical_name_normalized in rows:
-        if isinstance(counsel_id, int) and isinstance(canonical_name, str):
-            result.append(
-                {
-                    "counsel_id": counsel_id,
-                    "canonical_name": canonical_name,
-                    "canonical_name_normalized": canonical_name_normalized if isinstance(canonical_name_normalized, str) else _normalized_text(canonical_name),
-                }
-            )
-    return result
-
-
-def _canonicalize_counsel_names(
-    deps: ReferenceDataDeps,
-    names: list[str],
-) -> list[dict[str, object]]:
-    catalog = _counsel_rows(deps)
-    resolved: list[dict[str, object]] = []
-    for input_name in names:
-        normalized_input = _normalized_text(input_name)
-        best_match: dict[str, object] | None = None
-        best_score = -1.0
-        for row in catalog:
-            canonical_name = cast(str, row["canonical_name"])
-            canonical_normalized = cast(str, row["canonical_name_normalized"])
-            score = SequenceMatcher(None, normalized_input, canonical_normalized).ratio()
-            if normalized_input == canonical_normalized:
-                score = 1.0
-            elif normalized_input and normalized_input in canonical_normalized:
-                score = max(score, 0.95)
-            elif canonical_normalized and canonical_normalized in normalized_input:
-                score = max(score, 0.9)
-            if score > best_score:
-                best_score = score
-                best_match = {
-                    "input_name": input_name,
-                    "canonical_name": canonical_name,
-                    "counsel_id": row["counsel_id"],
-                    "score": round(score, 4),
-                }
-        if best_match is not None:
-            resolved.append(best_match)
-    return resolved
-
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
     db = deps.db
     l1_rows = cast(
@@ -1839,236 +1783,6 @@ def _get_section_snippet(
     )
 
 
-def _search_sections_for_comparison(
-    deps: SectionsServiceDeps,
-    *,
-    principal: McpPrincipal,
-    standard_ids: list[str],
-    canonical_name: str,
-    side: str,
-    page_size: int,
-) -> list[dict[str, object]]:
-    payload: dict[str, object] = {
-        "standard_id": standard_ids,
-        "page": 1,
-        "page_size": page_size,
-        "sort_by": "year",
-        "sort_direction": "desc",
-    }
-    if side == "target":
-        payload["target_counsel"] = [canonical_name]
-    elif side == "acquirer":
-        payload["acquirer_counsel"] = [canonical_name]
-    else:
-        target_payload = dict(payload)
-        target_payload["target_counsel"] = [canonical_name]
-        acquirer_payload = dict(payload)
-        acquirer_payload["acquirer_counsel"] = [canonical_name]
-        target_results = cast(
-            list[dict[str, object]],
-            run_sections(
-                deps,
-                ctx=principal.access_context,
-                parsed_args=cast(
-                    SectionsArgsPayload,
-                    cast(object, _validate_payload(SectionsArgsSchema(), target_payload)),
-                ),
-            ).get("results", []),
-        )
-        acquirer_results = cast(
-            list[dict[str, object]],
-            run_sections(
-                deps,
-                ctx=principal.access_context,
-                parsed_args=cast(
-                    SectionsArgsPayload,
-                    cast(object, _validate_payload(SectionsArgsSchema(), acquirer_payload)),
-                ),
-            ).get("results", []),
-        )
-        deduped_results: list[dict[str, object]] = []
-        seen_section_uuids: set[str] = set()
-        for result in [*target_results, *acquirer_results]:
-            section_uuid = result.get("section_uuid")
-            if not isinstance(section_uuid, str) or section_uuid in seen_section_uuids:
-                continue
-            seen_section_uuids.add(section_uuid)
-            deduped_results.append(result)
-            if len(deduped_results) >= page_size:
-                break
-        return deduped_results
-
-    return cast(
-        list[dict[str, object]],
-        run_sections(
-            deps,
-            ctx=principal.access_context,
-            parsed_args=cast(
-                SectionsArgsPayload,
-                cast(object, _validate_payload(SectionsArgsSchema(), payload)),
-            ),
-        ).get("results", []),
-    )
-
-
-def _plan_counsel_comparison(
-    deps: ReferenceDataDeps,
-    *,
-    principal: McpPrincipal,
-    payload: dict[str, object],
-) -> McpToolResult:
-    _require_scope(principal, "sections:search")
-    parsed_args = _validate_payload(
-        _schema_from_fields(
-            "McpCounselComparisonPlanArgs",
-            {
-                "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
-                "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
-                "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
-                "top_k": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=5)),
-            },
-        ),
-        payload,
-    )
-    concept = cast(str, parsed_args["concept"]).strip()
-    side = cast(str, parsed_args["side"])
-    top_k = cast(int, parsed_args["top_k"])
-    counsel_names = [name for name in cast(list[str], parsed_args["counsel_names"]) if name.strip()]
-    canonical_counsel = _canonicalize_counsel_names(deps, counsel_names)
-    taxonomy_matches = _ranked_taxonomy_matches(deps=deps, concept=concept, taxonomy="clauses", top_k=top_k)
-    suggested_standard_ids = [cast(str, match["standard_id"]) for match in taxonomy_matches]
-
-    comparison_arguments: dict[str, object] = {
-        "concept": concept,
-        "counsel_names": [cast(str, item["canonical_name"]) for item in canonical_counsel],
-        "side": side,
-        "sample_size": 3,
-    }
-    if suggested_standard_ids:
-        comparison_arguments["standard_id"] = suggested_standard_ids[:1]
-
-    response = {
-        "concept": concept,
-        "side": side,
-        "counsel": canonical_counsel,
-        "taxonomy_matches": taxonomy_matches,
-        "recommended_workflow": [
-            {
-                "tool": "suggest_clause_families",
-                "purpose": "Refine the concept if the top clause family looks wrong.",
-                "arguments": {"concept": concept, "taxonomy": "clauses", "top_k": top_k},
-            },
-            {
-                "tool": "compare_counsel_clause_samples",
-                "purpose": "Pull sample sections for each counsel within the top-matching clause family.",
-                "arguments": comparison_arguments,
-            },
-            {
-                "tool": "get_section_snippet",
-                "purpose": "Zoom in on one section when you need a tighter excerpt around the matched concept.",
-                "arguments": {
-                    "section_uuid": "replace-with-section-uuid",
-                    "focus_terms": [concept],
-                    "max_chars": 400,
-                },
-            },
-        ],
-    }
-    return McpToolResult(
-        text=f"Planned a counsel-comparison workflow for '{concept}'.",
-        structured_content=response,
-    )
-
-
-def _compare_counsel_clause_samples(
-    sections_service_deps: SectionsServiceDeps,
-    *,
-    principal: McpPrincipal,
-    payload: dict[str, object],
-    reference_data_deps: ReferenceDataDeps,
-) -> McpToolResult:
-    _require_scope(principal, "sections:search")
-    parsed_args = _validate_payload(
-        _schema_from_fields(
-            "McpCounselClauseComparisonArgs",
-            {
-                "concept": ma_fields.Str(load_default="", allow_none=True),
-                "standard_id": ma_fields.List(ma_fields.Str(), load_default=[]),
-                "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
-                "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
-                "sample_size": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=10)),
-                "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
-            },
-        ),
-        payload,
-    )
-    concept = cast(str, parsed_args["concept"] or "").strip()
-    side = cast(str, parsed_args["side"])
-    sample_size = cast(int, parsed_args["sample_size"])
-    focus_terms = [term for term in cast(list[str], parsed_args["focus_terms"]) if term.strip()]
-    counsel_names = [name for name in cast(list[str], parsed_args["counsel_names"]) if name.strip()]
-    taxonomy_matches: list[dict[str, object]] = []
-    standard_ids = [value for value in cast(list[str], parsed_args["standard_id"]) if value.strip()]
-    if not standard_ids and concept:
-        taxonomy_matches = _ranked_taxonomy_matches(
-            deps=reference_data_deps,
-            concept=concept,
-            taxonomy="clauses",
-            top_k=3,
-        )
-        standard_ids = [cast(str, taxonomy_matches[0]["standard_id"])] if taxonomy_matches else []
-    if concept and concept not in focus_terms:
-        focus_terms = [concept, *focus_terms]
-
-    comparisons: list[dict[str, object]] = []
-    for counsel in _canonicalize_counsel_names(reference_data_deps, counsel_names):
-        canonical_name = cast(str, counsel["canonical_name"])
-        results = _search_sections_for_comparison(
-            sections_service_deps,
-            principal=principal,
-            standard_ids=standard_ids,
-            canonical_name=canonical_name,
-            side=side,
-            page_size=sample_size,
-        )
-        sample_sections: list[dict[str, object]] = []
-        for result in results[:sample_size]:
-            xml_text = _extract_text_from_xml(result.get("xml"))
-            snippet, matched_terms = _focused_snippet(xml_text, focus_terms=focus_terms, max_chars=400)
-            sample_sections.append(
-                {
-                    "agreement_uuid": result.get("agreement_uuid"),
-                    "section_uuid": result.get("section_uuid"),
-                    "standard_id": result.get("standard_id"),
-                    "article_title": result.get("article_title"),
-                    "section_title": result.get("section_title"),
-                    "snippet": snippet,
-                    "matched_terms": matched_terms,
-                }
-            )
-        comparisons.append(
-            {
-                "input_name": counsel["input_name"],
-                "canonical_name": canonical_name,
-                "side": side,
-                "sample_count": len(sample_sections),
-                "sample_sections": sample_sections,
-            }
-        )
-
-    response = {
-        "concept": concept if concept else None,
-        "standard_id": standard_ids,
-        "taxonomy_matches": taxonomy_matches,
-        "comparisons": comparisons,
-        "returned_count": len(comparisons),
-    }
-    return McpToolResult(
-        text=f"Compared clause samples across {len(comparisons)} counsel entr{'' if len(comparisons) == 1 else 'ies'}.",
-        structured_content=response,
-    )
-
-
 def _list_agreement_sections(
     deps: SectionsServiceDeps,
     *,
@@ -2892,89 +2606,6 @@ def _section_snippet_output_schema() -> dict[str, object]:
     )
 
 
-def _plan_step_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "tool": {"type": "string"},
-            "purpose": {"type": "string"},
-            "arguments": {"type": "object"},
-        },
-        required=["tool", "purpose", "arguments"],
-        additional_properties=False,
-    )
-
-
-def _canonical_counsel_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "input_name": {"type": "string"},
-            "canonical_name": {"type": "string"},
-            "counsel_id": {"type": "integer"},
-            "score": {"type": "number"},
-        },
-        required=["input_name", "canonical_name", "counsel_id", "score"],
-        additional_properties=False,
-    )
-
-
-def _plan_counsel_comparison_output_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "concept": {"type": "string"},
-            "side": {"type": "string", "enum": ["target", "acquirer", "either"]},
-            "counsel": _array_of(_canonical_counsel_schema()),
-            "taxonomy_matches": _array_of(_taxonomy_match_schema()),
-            "recommended_workflow": _array_of(_plan_step_schema()),
-        },
-        required=["concept", "side", "counsel", "taxonomy_matches", "recommended_workflow"],
-        additional_properties=False,
-    )
-
-
-def _comparison_sample_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "agreement_uuid": {"type": ["string", "null"]},
-            "section_uuid": {"type": "string"},
-            "standard_id": _array_of({"type": "string"}),
-            "article_title": {"type": ["string", "null"]},
-            "section_title": {"type": ["string", "null"]},
-            "snippet": {"type": "string"},
-            "matched_terms": _array_of({"type": "string"}),
-        },
-        required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms"],
-        additional_properties=False,
-    )
-
-
-def _comparison_result_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "input_name": {"type": "string"},
-            "canonical_name": {"type": "string"},
-            "side": {"type": "string", "enum": ["target", "acquirer", "either"]},
-            "sample_count": {"type": "integer"},
-            "sample_sections": _array_of(_comparison_sample_schema()),
-        },
-        required=["input_name", "canonical_name", "side", "sample_count", "sample_sections"],
-        additional_properties=False,
-    )
-
-
-def _compare_counsel_clause_samples_output_schema() -> dict[str, object]:
-    return _object_schema(
-        {
-            "concept": {"type": ["string", "null"]},
-            "standard_id": _array_of({"type": "string"}),
-            "taxonomy_matches": _array_of(_taxonomy_match_schema()),
-            "comparisons": _array_of(_comparison_result_schema()),
-            "returned_count": {"type": "integer"},
-        },
-        required=["concept", "standard_id", "taxonomy_matches", "comparisons", "returned_count"],
-        additional_properties=False,
-    )
-
-
 def _metrics_output_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -3436,26 +3067,6 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "max_chars": ma_fields.Int(load_default=400, validate=validate.Range(min=120, max=1200)),
         },
     )
-    plan_counsel_comparison_schema = _schema_from_fields(
-        "McpCounselComparisonPlanArgs",
-        {
-            "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
-            "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
-            "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
-            "top_k": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=5)),
-        },
-    )
-    compare_counsel_clause_samples_schema = _schema_from_fields(
-        "McpCounselClauseComparisonArgs",
-        {
-            "concept": ma_fields.Str(load_default="", allow_none=True),
-            "standard_id": ma_fields.List(ma_fields.Str(), load_default=[]),
-            "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
-            "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
-            "sample_size": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=10)),
-            "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
-        },
-    )
     return (
         McpToolSpec(
             name="search_agreements",
@@ -3671,45 +3282,6 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             redaction_behavior="none",
             fulltext_scope=None,
             handler=_get_section_snippet,
-        ),
-        McpToolSpec(
-            name="plan_counsel_comparison",
-            description="Plan an exploratory counsel comparison by normalizing counsel names, suggesting likely clause families, and returning the next MCP calls to make.",
-            input_schema=_schema_input_schema(plan_counsel_comparison_schema),
-            output_schema=_plan_counsel_comparison_output_schema(),
-            examples=(
-                {"description": "Plan a Kirkland vs. Wachtell comparison on carveouts.", "arguments": {"concept": "MAE carveouts", "counsel_names": ["Kirkland", "Wachtell"], "side": "target"}},
-            ),
-            response_examples=(
-                {"description": "Comparison workflow plan.", "content": {"concept": "MAE carveouts", "side": "target", "counsel": [{"input_name": "Wachtell", "canonical_name": "Wachtell, Lipton, Rosen & Katz", "counsel_id": 1, "score": 0.95}], "taxonomy_matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE"], "reason": "Matched concept tokens and clause-family synonyms."}], "recommended_workflow": [{"tool": "compare_counsel_clause_samples", "purpose": "Pull sample sections for each counsel within the top-matching clause family.", "arguments": {"concept": "MAE carveouts", "counsel_names": ["Wachtell, Lipton, Rosen & Katz"], "side": "target", "sample_size": 3, "standard_id": ["2.1"]}}]}},
-            ),
-            scopes=("sections:search",),
-            selection_hint="Use when the task is exploratory and you want the server to suggest the right sequence of taxonomy, retrieval, and snippet steps.",
-            pagination="none",
-            access_behavior="strict_scope_required",
-            redaction_behavior="none",
-            fulltext_scope=None,
-            handler=_plan_counsel_comparison,
-        ),
-        McpToolSpec(
-            name="compare_counsel_clause_samples",
-            description="Compare sample sections across one or more counsel using a concept or explicit taxonomy id, returning short snippets instead of whole sections.",
-            input_schema=_schema_input_schema(compare_counsel_clause_samples_schema),
-            output_schema=_compare_counsel_clause_samples_output_schema(),
-            examples=(
-                {"description": "Compare target-counsel samples for a concept.", "arguments": {"concept": "fiduciary out", "counsel_names": ["Wachtell", "Skadden"], "side": "target", "sample_size": 2}},
-                {"description": "Compare counsel using a known taxonomy id.", "arguments": {"standard_id": ["1.1"], "counsel_names": ["Wachtell, Lipton, Rosen & Katz"], "sample_size": 3}},
-            ),
-            response_examples=(
-                {"description": "Counsel comparison with snippets.", "content": {"concept": "fiduciary out", "standard_id": ["1.1"], "taxonomy_matches": [{"standard_id": "1.1", "label": "Fiduciary Out", "path": ["Deal Protection", "Fiduciary Out"], "score": 1.0, "matched_terms": ["fiduciary out"], "reason": "Matched concept tokens and clause-family synonyms."}], "returned_count": 1, "comparisons": [{"input_name": "Wachtell", "canonical_name": "Wachtell, Lipton, Rosen & Katz", "side": "target", "sample_count": 1, "sample_sections": [{"agreement_uuid": "a1", "section_uuid": "00000000-0000-0000-0000-000000000001", "standard_id": ["1.1"], "article_title": "ARTICLE I", "section_title": "Fiduciary Out", "snippet": "...board may change its recommendation in response to a superior proposal...", "matched_terms": ["fiduciary out"]}]}]}},
-            ),
-            scopes=("sections:search",),
-            selection_hint="Use for lightweight comparative research across counsel without building the workflow manually.",
-            pagination="none",
-            access_behavior="strict_scope_required",
-            redaction_behavior="none",
-            fulltext_scope=None,
-            handler=_compare_counsel_clause_samples,
         ),
         McpToolSpec(
             name="get_server_metrics",
@@ -3934,10 +3506,6 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "steps": ["suggest_clause_families", "search_sections", "get_section_snippet"],
             },
             {
-                "name": "plan an exploratory counsel comparison",
-                "steps": ["plan_counsel_comparison", "compare_counsel_clause_samples", "get_section_snippet"],
-            },
-            {
                 "name": "filter agreements exactly and paginate deeply",
                 "steps": ["list_filter_options", "list_agreements", "get_agreement"],
             },
@@ -3997,16 +3565,12 @@ def call_tool(
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections"}:
         handler_kwargs["deps"] = sections_service_deps
-    if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families", "plan_counsel_comparison"}:
+    if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "plan_counsel_comparison"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
-        handler_kwargs["reference_data_deps"] = reference_data_deps
-    if name == "compare_counsel_clause_samples":
-        handler_kwargs["sections_service_deps"] = sections_service_deps
-        handler_kwargs["payload"] = arguments
         handler_kwargs["reference_data_deps"] = reference_data_deps
     result = spec.handler(**handler_kwargs)
     output_errors = _validate_output_against_schema(spec.output_schema, result.structured_content)
