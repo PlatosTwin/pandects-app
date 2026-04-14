@@ -1,6 +1,8 @@
 import { PageShell } from "@/components/PageShell";
 
 export default function About() {
+  const docsUrl = "https://docs.pandects.org/docs/guides/getting-started";
+
   return (
     <PageShell size="xl" title="About">
       <article className="space-y-12">
@@ -47,7 +49,7 @@ export default function About() {
             </a>{" "}
             as well as built out a{" "}
             <a
-              href="https://docs.pandects.org/"
+              href={docsUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Documentation site (opens in a new tab)"

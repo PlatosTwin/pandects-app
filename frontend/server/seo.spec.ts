@@ -44,6 +44,8 @@ describe("SEO document injection", () => {
 
     expect(html).toContain("<title>About | Pandects</title>");
     expect(html).toContain('rel="canonical" href="https://pandects.org/about"');
-    expect(html).toContain('name="description" content="Learn what Pandects is, why it exists, and how it\'s built as an open-source M&amp;A research platform."');
+    expect(html).toContain(
+      'name="description" content="Learn how Pandects builds open-source M&amp;A research infrastructure around agreement data, API access, taxonomy design, and clause-level analysis."',
+    );
   });
 });

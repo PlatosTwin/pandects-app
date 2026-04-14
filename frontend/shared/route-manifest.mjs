@@ -21,11 +21,11 @@ const ROUTE_MANIFEST = [
     pathname: "/",
     title: "Pandects - Open-Source M&A Agreement Search & Data",
     description:
-      "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
+      "Open-source M&A research platform with structured agreement data, clause taxonomy, API access, and downloadable SEC EDGAR merger agreement datasets.",
     pageType: "WebSite",
     pageName: "Pandects",
     pageDescription:
-      "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.",
+      "Open-source M&A research platform with structured agreement data, clause taxonomy, API access, and downloadable SEC EDGAR merger agreement datasets.",
     sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "index.html",
@@ -153,11 +153,11 @@ const ROUTE_MANIFEST = [
     pathname: "/about",
     title: "About | Pandects",
     description:
-      "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
+      "Learn how Pandects builds open-source M&A research infrastructure around agreement data, API access, taxonomy design, and clause-level analysis.",
     pageType: "AboutPage",
     pageName: "About",
     pageDescription:
-      "Learn what Pandects is, why it exists, and how it's built as an open-source M&A research platform.",
+      "Learn how Pandects builds open-source M&A research infrastructure around agreement data, API access, taxonomy design, and clause-level analysis.",
     sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "about.html",

@@ -118,7 +118,7 @@ const config: Config = {
     v4: true,
   },
   title: "Pandects Docs",
-  tagline: "Engineering-grade docs for the Pandects API",
+  tagline: "Open-source M&A data, API, taxonomy, and clause research docs",
   url: brandLinks.docsSiteUrl,
   baseUrl: "/",
   trailingSlash: false,
@@ -165,7 +165,8 @@ const config: Config = {
       metadata: [
         {
           name: "description",
-          content: "Engineering-grade guides and API reference for the Pandects API and MCP server.",
+          content:
+            "Open-source documentation for Pandects covering M&A data, API usage, research workflows, taxonomy structure, and clause-level access.",
         },
         {
           name: "twitter:site",

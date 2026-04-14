@@ -2,7 +2,7 @@ import { ROUTE_DEFINITION_BY_PATH } from "./route-manifest.mjs";
 
 const DEFAULT_TITLE = "Pandects";
 const DEFAULT_DESCRIPTION =
-  "Search and download structured M&A agreements from SEC EDGAR. Tag clauses, extract terms, and export CSVs.";
+  "Open-source M&A research platform with structured agreement data, clause taxonomy, API access, and downloadable SEC EDGAR merger agreement datasets.";
 const OG_IMAGE_WIDTH = 1536;
 const OG_IMAGE_HEIGHT = 806;
 const OG_IMAGE_TYPE = "image/jpeg";
@@ -86,7 +86,8 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
       height: OG_IMAGE_HEIGHT,
     },
     sameAs: ["https://github.com/PlatosTwin/pandects-app"],
-    description: "Open-source M&A agreement search and data platform",
+    description:
+      "Open-source M&A research, data, API, taxonomy, and clause analysis platform",
   };
 
   const website = {
@@ -134,11 +135,15 @@ function buildJsonLd({ origin, canonical, pageType, pageName, pageDescription })
       "@id": `${canonical}#dataset`,
       name: "Pandects M&A Agreement Dataset",
       description:
-        "Structured M&A agreements from SEC EDGAR. Includes tagged clauses, extracted terms, and metadata for research and analysis.",
+        "Structured M&A agreement data from SEC EDGAR with tagged clauses, extracted terms, metadata, and taxonomy coverage for research and API workflows.",
       url: canonical,
       keywords: [
+        "open-source",
+        "data API",
         "M&A",
         "merger agreements",
+        "taxonomy",
+        "clauses",
         "SEC EDGAR",
         "definitive agreements",
         "acquisition agreements",

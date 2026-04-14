@@ -42,6 +42,7 @@ function NavigationComponent() {
   const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsHomeUrl = `${docsUrl}/docs/guides/getting-started`;
   const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change.`;
 
   const isActive = (path: string) => location.pathname === path;
@@ -53,7 +54,7 @@ function NavigationComponent() {
     () => [
       { to: "/search", label: "Search", pandaTarget: "nav-search" },
       {
-        to: docsUrl,
+        to: docsHomeUrl,
         label: "Docs",
         pandaTarget: "nav-docs",
         external: true,

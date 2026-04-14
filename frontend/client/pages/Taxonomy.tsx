@@ -50,6 +50,10 @@ export default function Taxonomy() {
   const highlightTimerRef = useRef<number | null>(null);
   const endpointPath =
     currentTab === "tax" ? "/v1/taxonomy/tax-clauses" : "/v1/taxonomy";
+  const endpointDocsUrl =
+    currentTab === "tax"
+      ? `${docsUrl}/docs/pandects/get-tax-clause-taxonomy`
+      : `${docsUrl}/docs/pandects/get-taxonomy`;
   const overviewTitle =
     currentTab === "tax" ? "Tax Taxonomy Overview" : "Taxonomy Overview";
   const treeTitle = currentTab === "tax" ? "Tax Taxonomy Tree" : "Taxonomy Tree";
@@ -306,7 +310,7 @@ export default function Taxonomy() {
           <span className="font-mono text-sm text-foreground">{endpointPath}</span>{" "}
           API route. See the{" "}
           <a
-            href={docsUrl}
+            href={endpointDocsUrl}
             className="text-primary underline underline-offset-2"
           >
             Docs

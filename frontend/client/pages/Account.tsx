@@ -392,6 +392,7 @@ export default function Account() {
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
   const accountWakeLoading = authWakePending && !accountDataLoaded && !accountDataError;
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const gettingStartedDocsUrl = `${docsUrl}/docs/guides/getting-started`;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
   const usageKeyOptions = useMemo(() => {
@@ -555,7 +556,7 @@ export default function Account() {
                   Use `X-API-Key` for API access. Keep keys secret — you can view
                   a newly created key only once. Full API examples and reference are on the{" "}
                   <a
-                    href={docsUrl}
+                    href={gettingStartedDocsUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="text-primary hover:underline"
