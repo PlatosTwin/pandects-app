@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth-api";
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
-import { safeNextPath } from "@/lib/auth-next";
+import { navigateToNextPath, safeNextPath } from "@/lib/auth-next";
 import {
   AUTH_WAKEUP_MESSAGE,
   isAuthWakeupError,
@@ -55,14 +55,14 @@ export default function AuthZitadelCallback() {
       }
       await refresh();
       if (!cancelled) {
-        navigate(safeNextPath(payload.next_path), { replace: true });
+        navigateToNextPath(navigate, payload.next_path, { replace: true });
       }
     };
 
     const finishMcpToken = async (payload: McpTokenResult) => {
       sessionStorage.setItem(MCP_TOKEN_RESULT_STORAGE_KEY, JSON.stringify(payload));
       if (!cancelled) {
-        navigate(safeNextPath(payload.next_path), { replace: true });
+        navigateToNextPath(navigate, payload.next_path, { replace: true });
       }
     };
 
@@ -173,7 +173,7 @@ export default function AuthZitadelCallback() {
         setSessionToken(result.session_token);
       }
       await refresh();
-      navigate(safeNextPath(result.next_path), { replace: true });
+      navigateToNextPath(navigate, result.next_path, { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setWakePending(false);

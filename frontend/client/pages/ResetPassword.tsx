@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { requestPasswordReset } from "@/lib/auth-api";
-import { safeNextPath } from "@/lib/auth-next";
+import { navigateToNextPath, nextPathRequiresDocumentNavigation, safeNextPath } from "@/lib/auth-next";
 
 export default function ResetPassword() {
   const { status } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const nextPath = useMemo(
     () => safeNextPath(new URLSearchParams(location.search).get("next")),
@@ -22,7 +23,17 @@ export default function ResetPassword() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (status !== "authenticated" || !nextPathRequiresDocumentNavigation(nextPath)) {
+      return;
+    }
+    navigateToNextPath(navigate, nextPath, { replace: true });
+  }, [navigate, nextPath, status]);
+
   if (status === "authenticated") {
+    if (nextPathRequiresDocumentNavigation(nextPath)) {
+      return null;
+    }
     return <Navigate to={nextPath} replace />;
   }
 

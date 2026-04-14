@@ -15,7 +15,7 @@ import {
   resendEmailVerification,
   startZitadelGoogleWebsiteAuth,
 } from "@/lib/auth-api";
-import { safeNextPath } from "@/lib/auth-next";
+import { navigateToNextPath, nextPathRequiresDocumentNavigation, safeNextPath } from "@/lib/auth-next";
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
 import { prewarmAuthBackend, withAuthWakeRetry } from "@/lib/auth-wake";
@@ -76,7 +76,17 @@ export default function Login() {
     void prewarmAuthBackend();
   }, []);
 
+  useEffect(() => {
+    if (status !== "authenticated" || !nextPathRequiresDocumentNavigation(nextPath)) {
+      return;
+    }
+    navigateToNextPath(navigate, nextPath, { replace: true });
+  }, [navigate, nextPath, status]);
+
   if (status === "authenticated") {
+    if (nextPathRequiresDocumentNavigation(nextPath)) {
+      return null;
+    }
     return <Navigate to={nextPath} replace />;
   }
 
@@ -91,7 +101,7 @@ export default function Login() {
       setSessionToken(payload.session_token);
     }
     await refresh();
-    navigate(safeNextPath(payload.next_path), { replace: true });
+    navigateToNextPath(navigate, payload.next_path, { replace: true });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {

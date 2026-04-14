@@ -9,7 +9,7 @@ import {
   completeEmailVerification,
   finalizeZitadelWebsiteAuth,
 } from "@/lib/auth-api";
-import { safeNextPath } from "@/lib/auth-next";
+import { navigateToNextPath, nextPathRequiresDocumentNavigation, safeNextPath } from "@/lib/auth-next";
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
 
@@ -47,8 +47,15 @@ export default function VerifyEmail() {
       setSessionToken(payload.session_token);
     }
     await refresh();
-    navigate(safeNextPath(payload.next_path), { replace: true });
+    navigateToNextPath(navigate, payload.next_path, { replace: true });
   };
+
+  useEffect(() => {
+    if (status !== "authenticated" || !nextPathRequiresDocumentNavigation(nextPath)) {
+      return;
+    }
+    navigateToNextPath(navigate, nextPath, { replace: true });
+  }, [navigate, nextPath, status]);
 
   useEffect(() => {
     let active = true;
@@ -104,6 +111,9 @@ export default function VerifyEmail() {
   };
 
   if (status === "authenticated") {
+    if (nextPathRequiresDocumentNavigation(nextPath)) {
+      return null;
+    }
     return <Navigate to={nextPath} replace />;
   }
 
