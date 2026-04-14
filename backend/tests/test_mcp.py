@@ -78,9 +78,12 @@ class LiveMcpHttpClientHarness:
         self._tools: dict[str, dict[str, object]] = {}
 
     def __enter__(self) -> "LiveMcpHttpClientHarness":
+        transport_required = os.environ.get("MCP_ENABLE_LIVE_TRANSPORT_TESTS") == "1"
         try:
             self._server = make_server("127.0.0.1", 0, self._test_case.app, threaded=True)
         except (OSError, PermissionError, SystemExit):
+            if transport_required:
+                raise
             self._test_case.skipTest("Local loopback socket binding is not permitted in this environment.")
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
@@ -164,6 +167,8 @@ def _normalized_capabilities_snapshot(payload: dict[str, object]) -> dict[str, o
                 "required_scopes": tool["required_scopes"],
                 "pagination": tool["pagination"],
                 "selection_hint": tool["selection_hint"],
+                "response_examples": tool["response_examples"],
+                "access": tool["access"],
                 "limits": tool["limits"],
                 "input_schema": tool["input_schema"],
                 "output_schema": tool["output_schema"],
@@ -891,8 +896,13 @@ class McpTests(unittest.TestCase):
         self.assertEqual(search_agreements_tool["pagination"], "page")
         self.assertEqual(search_agreements_tool["limits"]["default_page_size"], 25)
         self.assertEqual(search_agreements_tool["limits"]["max_page_size"], 100)
+        self.assertEqual(search_agreements_tool["access"]["scope_behavior"], "strict_scope_required")
+        self.assertTrue(search_agreements_tool["response_examples"])
         self.assertIn("agreements:search", search_agreements_tool["required_scopes"])
         self.assertTrue(search_agreements_tool["examples"])
+        get_agreement_tool = next(tool for tool in payload["tools"] if tool["name"] == "get_agreement")
+        self.assertEqual(get_agreement_tool["access"]["redaction"], "redacted_without_fulltext_scope")
+        self.assertEqual(get_agreement_tool["access"]["fulltext_scope"], "agreements:read_fulltext")
         workflow_names = [workflow["name"] for workflow in payload["workflows"]]
         self.assertIn("discover agreements by counsel", workflow_names)
 
@@ -937,6 +947,36 @@ class McpTests(unittest.TestCase):
             agreements_payload = client.call_tool("search_agreements", {"query": "Target"})
             agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
             self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
+
+    def test_live_http_transport_filter_to_retrieval_workflow(self):
+        with LiveMcpHttpClientHarness(self) as client:
+            client.initialize()
+            client.list_tools()
+
+            filter_payload = client.call_tool("list_filter_options", {"fields": ["target_counsels"]})
+            catalog_name = cast(list[str], filter_payload["target_counsels"])[0]
+            retrieval_param = cast(dict[str, str], filter_payload["retrieval_parameter_map"])["target_counsels"]
+
+            agreements_payload = client.call_tool("search_agreements", {retrieval_param: [catalog_name]})
+            agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
+            self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
+
+    def test_live_http_transport_redaction_and_fulltext_workflow(self):
+        with LiveMcpHttpClientHarness(self) as client:
+            client.initialize()
+            client.list_tools()
+
+            redacted_payload = client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            self.assertTrue(cast(bool, redacted_payload["is_redacted"]))
+
+        with LiveMcpHttpClientHarness(
+            self,
+            scope="sections:search agreements:search agreements:read agreements:read_fulltext",
+        ) as fulltext_client:
+            fulltext_client.initialize()
+            fulltext_client.list_tools()
+            fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            self.assertFalse(cast(bool, fulltext_payload["is_redacted"]))
 
     def test_tools_list_contract_snapshot(self):
         client = self.app.test_client()

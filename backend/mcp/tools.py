@@ -374,9 +374,13 @@ class McpToolSpec:
     input_schema: dict[str, object]
     output_schema: dict[str, object]
     examples: tuple[dict[str, object], ...]
+    response_examples: tuple[dict[str, object], ...]
     scopes: tuple[str, ...]
     selection_hint: str
     pagination: str
+    access_behavior: str
+    redaction_behavior: str
+    fulltext_scope: str | None
     handler: Callable[..., McpToolResult]
 
 
@@ -2464,6 +2468,17 @@ def _tool_example_schema() -> dict[str, object]:
     )
 
 
+def _tool_response_example_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "description": {"type": "string"},
+            "content": {"type": "object"},
+        },
+        required=["description", "content"],
+        additional_properties=False,
+    )
+
+
 def _tool_limits_for_pagination(pagination: str) -> dict[str, object]:
     if pagination in {"page", "cursor"}:
         return {
@@ -2472,6 +2487,25 @@ def _tool_limits_for_pagination(pagination: str) -> dict[str, object]:
             "max_page_size": 100,
         }
     return {"mode": "none"}
+
+
+def _tool_access_metadata_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "scope_behavior": {
+                "type": "string",
+                "enum": ["strict_scope_required", "partial_access_with_redaction"],
+            },
+            "redaction": {
+                "type": "string",
+                "enum": ["none", "redacted_without_fulltext_scope"],
+            },
+            "failure_status_code": {"type": "integer"},
+            "fulltext_scope": {"type": ["string", "null"]},
+        },
+        required=["scope_behavior", "redaction", "failure_status_code", "fulltext_scope"],
+        additional_properties=False,
+    )
 
 
 def _tool_capabilities_output_schema() -> dict[str, object]:
@@ -2483,6 +2517,8 @@ def _tool_capabilities_output_schema() -> dict[str, object]:
             "pagination": {"type": "string", "enum": ["page", "cursor", "none"]},
             "selection_hint": {"type": "string"},
             "examples": _array_of(_tool_example_schema()),
+            "response_examples": _array_of(_tool_response_example_schema()),
+            "access": _tool_access_metadata_schema(),
             "limits": _object_schema(
                 {
                     "mode": {"type": "string", "enum": ["page", "cursor", "none"]},
@@ -2501,6 +2537,8 @@ def _tool_capabilities_output_schema() -> dict[str, object]:
             "pagination",
             "selection_hint",
             "examples",
+            "response_examples",
+            "access",
             "limits",
             "input_schema",
             "output_schema",
@@ -2586,9 +2624,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Find agreements involving a target counsel.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]}},
                 {"description": "Combine a text lookup with a year filter.", "arguments": {"query": "Target", "year": [2020]}},
             ),
+            response_examples=(
+                {"description": "Agreement discovery result page.", "content": {"returned_count": 1, "results": [{"agreement_uuid": "a1", "target": "Target A", "acquirer": "Acquirer A"}]}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination.",
             pagination="page",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_search_agreements,
         ),
         McpToolSpec(
@@ -2600,9 +2644,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
                 {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
             ),
+            response_examples=(
+                {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}], "access": {"tier": "mcp"}}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
             pagination="page",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_search_sections,
         ),
         McpToolSpec(
@@ -2614,9 +2664,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Page through agreements by exact counsel filter.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 50}},
                 {"description": "Retrieve all cash deals with a cursor.", "arguments": {"transaction_consideration": ["cash"], "cursor": None}},
             ),
+            response_examples=(
+                {"description": "Cursor-based agreement page.", "content": {"returned_count": 1, "has_next": False, "next_cursor": None, "results": [{"agreement_uuid": "a1"}], "access": {"tier": "mcp"}}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use when filters are already known and you expect to paginate deeply or export exact result sets.",
             pagination="cursor",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_list_agreements,
         ),
         McpToolSpec(
@@ -2627,9 +2683,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "List sections inside one agreement.", "arguments": {"agreement_uuid": "a1", "page_size": 25}},
             ),
+            response_examples=(
+                {"description": "Section listing for an agreement.", "content": {"agreement_uuid": "a1", "returned_count": 2, "results": [{"section_uuid": "00000000-0000-0000-0000-000000000001"}]}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use after identifying an agreement and before calling get_section on one section UUID.",
             pagination="page",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_list_agreement_sections,
         ),
         McpToolSpec(
@@ -2640,9 +2702,16 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Fetch one agreement body.", "arguments": {"agreement_uuid": "a1"}},
             ),
+            response_examples=(
+                {"description": "Redacted agreement response without fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document />", "is_redacted": True}},
+                {"description": "Full agreement response with fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document><article>...</article></document>", "is_redacted": False}},
+            ),
             scopes=("agreements:read",),
             selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
             pagination="none",
+            access_behavior="partial_access_with_redaction",
+            redaction_behavior="redacted_without_fulltext_scope",
+            fulltext_scope="agreements:read_fulltext",
             handler=_get_agreement,
         ),
         McpToolSpec(
@@ -2653,9 +2722,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Fetch one section after search_sections.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
+            response_examples=(
+                {"description": "Exact section payload.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}},
+            ),
             scopes=("agreements:read",),
             selection_hint="Use when you already have a section UUID and want the exact section payload.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_section,
         ),
         McpToolSpec(
@@ -2666,9 +2741,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Retrieve tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
             ),
+            response_examples=(
+                {"description": "Agreement tax clause list.", "content": {"agreement_uuid": "a1", "returned_count": 2, "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
+            ),
             scopes=("agreements:read",),
             selection_hint="Use for agreement-level tax clause extraction once you know the agreement UUID.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_agreement_tax_clauses,
         ),
         McpToolSpec(
@@ -2679,9 +2760,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Retrieve tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
+            response_examples=(
+                {"description": "Section tax clause list.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "returned_count": 2, "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
+            ),
             scopes=("agreements:read",),
             selection_hint="Use for section-level tax clause extraction when you already have a section UUID.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_section_tax_clauses,
         ),
         McpToolSpec(
@@ -2693,9 +2780,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "List valid counsel filter values.", "arguments": {"fields": ["target_counsels", "acquirer_counsels"]}},
                 {"description": "Inspect deal-status and transaction-price filter catalogs.", "arguments": {"fields": ["deal_statuses", "transaction_price_totals"]}},
             ),
+            response_examples=(
+                {"description": "Filter catalog response with mapping metadata.", "content": {"fields": ["target_counsels"], "target_counsels": ["Wachtell, Lipton, Rosen & Katz"], "retrieval_parameter_map": {"target_counsels": "target_counsel"}}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_list_filter_options,
         ),
         McpToolSpec(
@@ -2706,9 +2799,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Inspect MCP usage and latency metrics.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Metrics snapshot with one recorded tool.", "content": {"latency_bucket_bounds_ms": [50, 100, 250], "tool_calls": {"search_agreements": {"calls": 1, "errors": 0}}, "auth_failures": {}}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use for operational monitoring and to see which MCP tools are slow or error-prone.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_server_metrics,
         ),
         McpToolSpec(
@@ -2719,9 +2818,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=(
                 {"description": "Inspect tool guidance before starting a workflow.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Capabilities payload with tool guidance.", "content": {"server": {"name": "pandects-mcp", "transport": "http_jsonrpc"}, "tools": [{"name": "search_agreements"}], "workflows": [{"name": "discover agreements by counsel"}]}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_server_capabilities,
         ),
         McpToolSpec(
@@ -2733,9 +2838,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Inspect the clause taxonomy.", "arguments": {}},
                 {"description": "Discover valid standard_id values before taxonomy-filtered section search.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Clause taxonomy tree.", "content": {"Deal Protection": {"id": "1", "children": {}}}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need valid standard_id values for section taxonomy filtering.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_clause_taxonomy,
         ),
         McpToolSpec(
@@ -2747,9 +2858,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Inspect the tax clause taxonomy.", "arguments": {}},
                 {"description": "Look up valid tax clause ids before agreement tax-clause retrieval.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Tax clause taxonomy tree.", "content": {"Tax": {"id": "tax", "children": {}}}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_tax_clause_taxonomy,
         ),
         McpToolSpec(
@@ -2761,9 +2878,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "List canonical counsel names.", "arguments": {}},
                 {"description": "Get a normalized counsel name before applying target_counsel filters.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Canonical counsel catalog.", "content": {"counsel": [{"counsel_id": 1, "canonical_name": "Wachtell, Lipton, Rosen & Katz"}]}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_counsel_catalog,
         ),
         McpToolSpec(
@@ -2775,9 +2898,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "List NAICS sectors and subsectors.", "arguments": {}},
                 {"description": "Find canonical industry labels before target_industry filtering.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "NAICS sector catalog.", "content": {"sectors": [{"sector_code": "11", "sub_sectors": [{"sub_sector_code": "111"}]}]}},
+            ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_naics_catalog,
         ),
         McpToolSpec(
@@ -2786,9 +2915,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
+            response_examples=(
+                {"description": "Corpus count summary.", "content": {"agreements": 1, "sections": 2, "pages": 5}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_agreements_summary,
         ),
         McpToolSpec(
@@ -2800,9 +2935,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Inspect ownership and industry trends.", "arguments": {}},
                 {"description": "Compare public/private deal mix and buyer-type patterns by year.", "arguments": {}},
             ),
+            response_examples=(
+                {"description": "Aggregated trend payload.", "content": {"ownership": {"mix_by_year": [{"year": 2020, "public_deal_count": 1}]}, "industries": {"target_industries_by_year": [{"year": 2020, "industry": "Crop Production"}]}}},
+            ),
             scopes=("agreements:search",),
             selection_hint="Use for aggregated corpus analytics rather than document retrieval.",
             pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
             handler=_get_agreement_trends,
         ),
     )
@@ -2846,6 +2987,13 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "pagination": spec.pagination,
                 "selection_hint": spec.selection_hint,
                 "examples": list(spec.examples),
+                "response_examples": list(spec.response_examples),
+                "access": {
+                    "scope_behavior": spec.access_behavior,
+                    "redaction": spec.redaction_behavior,
+                    "failure_status_code": 403,
+                    "fulltext_scope": spec.fulltext_scope,
+                },
                 "limits": _tool_limits_for_pagination(spec.pagination),
                 "input_schema": spec.input_schema,
                 "output_schema": spec.output_schema,

@@ -8,6 +8,12 @@
   },
   "tools": [
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -400,9 +406,30 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "results": [
+              {
+                "acquirer": "Acquirer A",
+                "agreement_uuid": "a1",
+                "target": "Target A"
+              }
+            ],
+            "returned_count": 1
+          },
+          "description": "Agreement discovery result page."
+        }
+      ],
       "selection_hint": "Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -885,9 +912,34 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "access": {
+              "tier": "mcp"
+            },
+            "results": [
+              {
+                "agreement_uuid": "a1",
+                "section_uuid": "00000000-0000-0000-0000-000000000001",
+                "standard_id": [
+                  "s1"
+                ]
+              }
+            ]
+          },
+          "description": "Section search result page."
+        }
+      ],
       "selection_hint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -1372,9 +1424,33 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "access": {
+              "tier": "mcp"
+            },
+            "has_next": false,
+            "next_cursor": null,
+            "results": [
+              {
+                "agreement_uuid": "a1"
+              }
+            ],
+            "returned_count": 1
+          },
+          "description": "Cursor-based agreement page."
+        }
+      ],
       "selection_hint": "Use when filters are already known and you expect to paginate deeply or export exact result sets."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -1548,9 +1624,29 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "agreement_uuid": "a1",
+            "results": [
+              {
+                "section_uuid": "00000000-0000-0000-0000-000000000001"
+              }
+            ],
+            "returned_count": 2
+          },
+          "description": "Section listing for an agreement."
+        }
+      ],
       "selection_hint": "Use after identifying an agreement and before calling get_section on one section UUID."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": "agreements:read_fulltext",
+        "redaction": "redacted_without_fulltext_scope",
+        "scope_behavior": "partial_access_with_redaction"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -1761,9 +1857,35 @@
       "required_scopes": [
         "agreements:read"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "acquirer": "Acquirer A",
+            "is_redacted": true,
+            "target": "Target A",
+            "xml": "<document />"
+          },
+          "description": "Redacted agreement response without fulltext scope."
+        },
+        {
+          "content": {
+            "acquirer": "Acquirer A",
+            "is_redacted": false,
+            "target": "Target A",
+            "xml": "<document><article>...</article></document>"
+          },
+          "description": "Full agreement response with fulltext scope."
+        }
+      ],
       "selection_hint": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -1827,9 +1949,27 @@
       "required_scopes": [
         "agreements:read"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "agreement_uuid": "a1",
+            "section_uuid": "00000000-0000-0000-0000-000000000001",
+            "standard_id": [
+              "s1"
+            ]
+          },
+          "description": "Exact section payload."
+        }
+      ],
       "selection_hint": "Use when you already have a section UUID and want the exact section payload."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -1943,9 +2083,32 @@
       "required_scopes": [
         "agreements:read"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "agreement_uuid": "a1",
+            "clauses": [
+              {
+                "clause_uuid": "clause-a1-1",
+                "standard_ids": [
+                  "tax_transfer"
+                ]
+              }
+            ],
+            "returned_count": 2
+          },
+          "description": "Agreement tax clause list."
+        }
+      ],
       "selection_hint": "Use for agreement-level tax clause extraction once you know the agreement UUID."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2059,9 +2222,32 @@
       "required_scopes": [
         "agreements:read"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "clauses": [
+              {
+                "clause_uuid": "clause-a1-1",
+                "standard_ids": [
+                  "tax_transfer"
+                ]
+              }
+            ],
+            "returned_count": 2,
+            "section_uuid": "00000000-0000-0000-0000-000000000001"
+          },
+          "description": "Section tax clause list."
+        }
+      ],
       "selection_hint": "Use for section-level tax clause extraction when you already have a section UUID."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2314,9 +2500,31 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "fields": [
+              "target_counsels"
+            ],
+            "retrieval_parameter_map": {
+              "target_counsels": "target_counsel"
+            },
+            "target_counsels": [
+              "Wachtell, Lipton, Rosen & Katz"
+            ]
+          },
+          "description": "Filter catalog response with mapping metadata."
+        }
+      ],
       "selection_hint": "Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2394,9 +2602,34 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "auth_failures": {},
+            "latency_bucket_bounds_ms": [
+              50,
+              100,
+              250
+            ],
+            "tool_calls": {
+              "search_agreements": {
+                "calls": 1,
+                "errors": 0
+              }
+            }
+          },
+          "description": "Metrics snapshot with one recorded tool."
+        }
+      ],
       "selection_hint": "Use for operational monitoring and to see which MCP tools are slow or error-prone."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2441,6 +2674,41 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "access": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "failure_status_code": {
+                      "type": "integer"
+                    },
+                    "fulltext_scope": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "redaction": {
+                      "enum": [
+                        "none",
+                        "redacted_without_fulltext_scope"
+                      ],
+                      "type": "string"
+                    },
+                    "scope_behavior": {
+                      "enum": [
+                        "strict_scope_required",
+                        "partial_access_with_redaction"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "scope_behavior",
+                    "redaction",
+                    "failure_status_code",
+                    "fulltext_scope"
+                  ],
+                  "type": "object"
+                },
                 "description": {
                   "type": "string"
                 },
@@ -2509,6 +2777,25 @@
                   },
                   "type": "array"
                 },
+                "response_examples": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "content": {
+                        "type": "object"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "description",
+                      "content"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
                 "selection_hint": {
                   "type": "string"
                 }
@@ -2520,6 +2807,8 @@
                 "pagination",
                 "selection_hint",
                 "examples",
+                "response_examples",
+                "access",
                 "limits",
                 "input_schema",
                 "output_schema"
@@ -2562,9 +2851,36 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "server": {
+              "name": "pandects-mcp",
+              "transport": "http_jsonrpc"
+            },
+            "tools": [
+              {
+                "name": "search_agreements"
+              }
+            ],
+            "workflows": [
+              {
+                "name": "discover agreements by counsel"
+              }
+            ]
+          },
+          "description": "Capabilities payload with tool guidance."
+        }
+      ],
       "selection_hint": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2625,9 +2941,26 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "Deal Protection": {
+              "children": {},
+              "id": "1"
+            }
+          },
+          "description": "Clause taxonomy tree."
+        }
+      ],
       "selection_hint": "Use when you need valid standard_id values for section taxonomy filtering."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2688,9 +3021,26 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "Tax": {
+              "children": {},
+              "id": "tax"
+            }
+          },
+          "description": "Tax clause taxonomy tree."
+        }
+      ],
       "selection_hint": "Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2732,9 +3082,28 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "counsel": [
+              {
+                "canonical_name": "Wachtell, Lipton, Rosen & Katz",
+                "counsel_id": 1
+              }
+            ]
+          },
+          "description": "Canonical counsel catalog."
+        }
+      ],
       "selection_hint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2804,9 +3173,32 @@
       "required_scopes": [
         "sections:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "sectors": [
+              {
+                "sector_code": "11",
+                "sub_sectors": [
+                  {
+                    "sub_sector_code": "111"
+                  }
+                ]
+              }
+            ]
+          },
+          "description": "NAICS sector catalog."
+        }
+      ],
       "selection_hint": "Use when you need canonical industry labels before industry-filtered retrieval."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -2840,9 +3232,25 @@
       "required_scopes": [
         "agreements:search"
       ],
+      "response_examples": [
+        {
+          "content": {
+            "agreements": 1,
+            "pages": 5,
+            "sections": 2
+          },
+          "description": "Corpus count summary."
+        }
+      ],
       "selection_hint": "Use for top-level corpus sizing before deeper analysis."
     },
     {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
@@ -3132,6 +3540,29 @@
       "pagination": "none",
       "required_scopes": [
         "agreements:search"
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "industries": {
+              "target_industries_by_year": [
+                {
+                  "industry": "Crop Production",
+                  "year": 2020
+                }
+              ]
+            },
+            "ownership": {
+              "mix_by_year": [
+                {
+                  "public_deal_count": 1,
+                  "year": 2020
+                }
+              ]
+            }
+          },
+          "description": "Aggregated trend payload."
+        }
       ],
       "selection_hint": "Use for aggregated corpus analytics rather than document retrieval."
     }

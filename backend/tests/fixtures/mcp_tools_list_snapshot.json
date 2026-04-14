@@ -2430,6 +2430,41 @@
           "items": {
             "additionalProperties": false,
             "properties": {
+              "access": {
+                "additionalProperties": false,
+                "properties": {
+                  "failure_status_code": {
+                    "type": "integer"
+                  },
+                  "fulltext_scope": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "redaction": {
+                    "enum": [
+                      "none",
+                      "redacted_without_fulltext_scope"
+                    ],
+                    "type": "string"
+                  },
+                  "scope_behavior": {
+                    "enum": [
+                      "strict_scope_required",
+                      "partial_access_with_redaction"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "scope_behavior",
+                  "redaction",
+                  "failure_status_code",
+                  "fulltext_scope"
+                ],
+                "type": "object"
+              },
               "description": {
                 "type": "string"
               },
@@ -2498,6 +2533,25 @@
                 },
                 "type": "array"
               },
+              "response_examples": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "type": "object"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "description",
+                    "content"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "selection_hint": {
                 "type": "string"
               }
@@ -2509,6 +2563,8 @@
               "pagination",
               "selection_hint",
               "examples",
+              "response_examples",
+              "access",
               "limits",
               "input_schema",
               "output_schema"
