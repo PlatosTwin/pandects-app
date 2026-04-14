@@ -439,12 +439,12 @@ export default function Taxonomy() {
                     <Skeleton className="h-4 w-3/4" />
                   </div>
                 ) : searchResults.length === 0 ? (
-                  <div className="text-sm text-foreground/90">
+                  <div className="text-sm text-foreground">
                     {emptySearchMessage}
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       {searchResults.length}{" "}
                       {searchResults.length === 1 ? "result" : "results"}
                     </div>
@@ -474,7 +474,7 @@ export default function Taxonomy() {
                               </div>
                               {result.l2 && (
                                 <div className="ml-1 mt-0.5 border-l border-foreground/35 pl-3">
-                                  <div className="relative leading-snug text-foreground/90">
+                                  <div className="relative leading-snug text-foreground">
                                     <span
                                       aria-hidden="true"
                                       className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/35"
@@ -495,7 +495,7 @@ export default function Taxonomy() {
                                 </div>
                               )}
                               {!isMobile ? (
-                                <div className="font-mono text-xs text-foreground/75">
+                                <div className="font-mono text-xs text-foreground/90">
                                   {renderHighlighted(result.id)}
                                 </div>
                               ) : null}
@@ -681,10 +681,10 @@ export default function Taxonomy() {
                             <div className="text-xl font-semibold text-foreground">
                               {entry.label}
                             </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/90">
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground">
                               {!isMobile ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
-                                  <span className="font-mono text-[11px] text-foreground/90">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                                  <span className="font-mono text-[11px] text-foreground">
                                     {entry.id}
                                   </span>
                                   {renderCopyControl(entry.id, "Copy level 1 ID")}
@@ -745,7 +745,7 @@ export default function Taxonomy() {
                                   {!isMobile ? (
                                     <div className="mb-3">
                                       <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
-                                        <span className="font-mono text-[11px] text-foreground/90">
+                                        <span className="font-mono text-[11px] text-foreground">
                                           {child.id}
                                         </span>
                                         {renderCopyControl(child.id, "Copy level 2 ID")}
@@ -765,8 +765,8 @@ export default function Taxonomy() {
                                           {leaf.label}
                                         </div>
                                         {!isMobile ? (
-                                          <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/90">
-                                            <span className="font-mono text-xs text-foreground/90">
+                                          <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground">
+                                            <span className="font-mono text-xs text-foreground">
                                               {leaf.id}
                                             </span>
                                             {renderCopyControl(leaf.id, "Copy level 3 ID")}

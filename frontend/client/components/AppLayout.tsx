@@ -96,6 +96,7 @@ export function AppLayout() {
       <Navigation />
       <main
         id="main-content"
+        role="main"
         tabIndex={-1}
         className="flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
