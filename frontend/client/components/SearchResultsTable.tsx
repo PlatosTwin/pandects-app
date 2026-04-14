@@ -875,9 +875,9 @@ export function SearchResultsTable({
                   ) : (
                     <div className={cn(density === "compact" ? "sm:h-28" : "sm:h-36")}>
                       <Alert className="h-full">
-                        <AlertTitle>Clause text not available</AlertTitle>
+                        <AlertTitle>Section text not available</AlertTitle>
                         <AlertDescription>
-                          This section has no stored clause text.
+                          This section has no stored text.
                         </AlertDescription>
                       </Alert>
                     </div>

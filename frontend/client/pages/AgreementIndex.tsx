@@ -108,7 +108,7 @@ const summaryCards = [
     key: "sections",
     label: "Sections",
     icon: Layers,
-    description: "Clause sections indexed",
+    description: "Sections indexed",
   },
   {
     key: "pages",

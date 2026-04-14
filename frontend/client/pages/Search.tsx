@@ -416,7 +416,7 @@ export default function Search() {
               <div className="flex items-center gap-3">
                 <FileText className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
                 <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                  M&A Clause Search
+                  M&A Section Search
                 </h1>
               </div>
 
@@ -437,7 +437,7 @@ export default function Search() {
                   >
                     <SheetTitle className="sr-only">Search filters</SheetTitle>
                     <SheetDescription className="sr-only">
-                      Filter agreement clause results.
+                      Filter agreement section results.
                     </SheetDescription>
                     <SearchSidebar
                       variant="sheet"
@@ -474,7 +474,7 @@ export default function Search() {
                   <AlertDescription>
                     <div className="grid gap-2">
                       <p>
-                        Sign in to view clause text, open full agreements, unlock
+                        Sign in to view section text, open full agreements, unlock
                         higher page sizes, and use the MCP server.
                       </p>
                       <div>
@@ -754,7 +754,7 @@ export default function Search() {
                         aria-hidden="true"
                       />
                       <p className="text-foreground font-medium">
-                        No clauses found.
+                        No sections found.
                       </p>
                       <p className="text-sm mt-2">
                         Try adjusting your filters and search again.

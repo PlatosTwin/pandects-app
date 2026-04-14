@@ -450,7 +450,7 @@ export function AgreementModal({
                       Agreement contents
                     </SheetTitle>
                     <SheetDescription className="sr-only">
-                      Browse agreement sections and jump to a clause.
+                      Browse agreement sections and jump to a section.
                     </SheetDescription>
                     {agreement ? (
                       <TableOfContents

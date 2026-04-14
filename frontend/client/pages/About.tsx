@@ -19,7 +19,7 @@ export default function About() {
           </h2>
           <p className="text-muted-foreground prose max-w-none">
             Pandects is an <strong>open-source M&A research platform</strong>{" "}
-            built to make it easier to browse and analyze clauses across
+            built to make it easier to browse and analyze sections across
             definitive merger agreements. Unlike other corpora, we update our
             database on a <strong>monthly basis</strong>, and make available not
             just EDGAR URLs or unprocessed HTML, but also <strong>XML</strong>,
