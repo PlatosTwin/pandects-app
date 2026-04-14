@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
@@ -16,12 +16,8 @@ import { useSections } from "@/hooks/use-sections";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { Button } from "@/components/ui/button";
-import { AgreementModal } from "@/components/AgreementModal";
 import { Badge } from "@/components/ui/badge";
 import ErrorModal from "@/components/ErrorModal";
-import { SearchPagination } from "@/components/SearchPagination";
-import { SearchResultsTable } from "@/components/SearchResultsTable";
-import { SearchSidebar } from "@/components/SearchSidebar";
 import {
   Sheet,
   SheetContent,
@@ -38,10 +34,86 @@ import { trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const AgreementModal = lazy(() =>
+  import("@/components/AgreementModal").then((mod) => ({
+    default: mod.AgreementModal,
+  })),
+);
+const SearchPagination = lazy(() =>
+  import("@/components/SearchPagination").then((mod) => ({
+    default: mod.SearchPagination,
+  })),
+);
+const SearchResultsTable = lazy(() =>
+  import("@/components/SearchResultsTable").then((mod) => ({
+    default: mod.SearchResultsTable,
+  })),
+);
+const SearchSidebar = lazy(() =>
+  import("@/components/SearchSidebar").then((mod) => ({
+    default: mod.SearchSidebar,
+  })),
+);
+
+function SearchSidebarFallback({
+  variant = "sidebar",
+}: {
+  variant?: "sidebar" | "sheet";
+}) {
+  const content = (
+    <div className="space-y-5 p-4">
+      <Skeleton className="h-5 w-28" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  );
+
+  if (variant === "sheet") {
+    return <div className="h-full overflow-y-auto">{content}</div>;
+  }
+
+  return (
+    <div className="hidden h-screen w-80 border-r border-b border-border bg-card lg:block">
+      {content}
+    </div>
+  );
+}
+
+function SearchPaginationFallback() {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <Skeleton className="h-9 w-56" />
+      <Skeleton className="h-9 w-48" />
+    </div>
+  );
+}
+
+function SearchResultsTableFallback() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-border/60 bg-card p-4 shadow-sm"
+        >
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="mt-3 h-4 w-full" />
+          <Skeleton className="mt-2 h-4 w-5/6" />
+          <Skeleton className="mt-4 h-20 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Search() {
   const { status: authStatus } = useAuth();
   const location = useLocation();
+  const [hasHydrated, setHasHydrated] = useState(false);
   const {
     filters,
     isSearching,
@@ -130,6 +202,10 @@ export default function Search() {
   const sectionUuidFromUrl = searchParams.get("section_uuid");
 
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
     if (
       !agreementUuidFromUrl ||
       !sectionUuidFromUrl ||
@@ -142,22 +218,6 @@ export default function Search() {
       metadata: { year: "", target: "", acquirer: "" },
     });
   }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
-
-  useEffect(() => {
-    const warmup = () => {
-      void fetch(apiUrl("v1/dumps")).catch(() => undefined);
-    };
-    const schedule = window.requestIdleCallback
-      ? window.requestIdleCallback(warmup, { timeout: 2500 })
-      : window.setTimeout(warmup, 1800);
-    return () => {
-      if (window.cancelIdleCallback) {
-        window.cancelIdleCallback(schedule as number);
-      } else {
-        window.clearTimeout(schedule as number);
-      }
-    };
-  }, []);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
@@ -387,27 +447,33 @@ export default function Search() {
     <div className="w-full">
       <div className="flex min-h-full">
         {isDesktopLayout ? (
-          <SearchSidebar
-            filters={filters}
-            years={years}
-            targets={targets}
-            acquirers={acquirers}
-            target_counsels={target_counsels}
-            acquirer_counsels={acquirer_counsels}
-            target_industries={target_industries}
-            acquirer_industries={acquirer_industries}
-            clauseTypesNested={clauseTypesNested}
-            clauseTypeLabelById={clauseTypeLabelById}
-            isLoadingFilterOptions={isLoadingFilterOptions}
-            isLoadingTaxonomy={isLoadingTaxonomy}
-            onToggleFilterValue={toggleFilterValue}
-            onTextFilterChange={trackingActions.setTextFilterValue}
-            onClearFilters={clearFilters}
-            loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
-            loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            isCollapsed={sidebarCollapsed}
-          />
+          hasHydrated ? (
+            <Suspense fallback={<SearchSidebarFallback />}>
+              <SearchSidebar
+                filters={filters}
+                years={years}
+                targets={targets}
+                acquirers={acquirers}
+                target_counsels={target_counsels}
+                acquirer_counsels={acquirer_counsels}
+                target_industries={target_industries}
+                acquirer_industries={acquirer_industries}
+                clauseTypesNested={clauseTypesNested}
+                clauseTypeLabelById={clauseTypeLabelById}
+                isLoadingFilterOptions={isLoadingFilterOptions}
+                isLoadingTaxonomy={isLoadingTaxonomy}
+                onToggleFilterValue={toggleFilterValue}
+                onTextFilterChange={trackingActions.setTextFilterValue}
+                onClearFilters={clearFilters}
+                loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
+                loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
+                onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                isCollapsed={sidebarCollapsed}
+              />
+            </Suspense>
+          ) : (
+            <SearchSidebarFallback />
+          )
         ) : null}
 
         <div className="flex flex-col flex-1 min-w-0">
@@ -439,26 +505,32 @@ export default function Search() {
                     <SheetDescription className="sr-only">
                       Filter agreement section results.
                     </SheetDescription>
-                    <SearchSidebar
-                      variant="sheet"
-                      filters={filters}
-                      years={years}
-                      targets={targets}
-                      acquirers={acquirers}
-                      target_counsels={target_counsels}
-                      acquirer_counsels={acquirer_counsels}
-                      target_industries={target_industries}
-                      acquirer_industries={acquirer_industries}
-                      clauseTypesNested={clauseTypesNested}
-                      clauseTypeLabelById={clauseTypeLabelById}
-                      isLoadingFilterOptions={isLoadingFilterOptions}
-                      isLoadingTaxonomy={isLoadingTaxonomy}
-                      onToggleFilterValue={toggleFilterValue}
-                      onTextFilterChange={trackingActions.setTextFilterValue}
-                      onClearFilters={clearFilters}
-                      loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
-                      loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
-                    />
+                    {hasHydrated ? (
+                      <Suspense fallback={<SearchSidebarFallback variant="sheet" />}>
+                        <SearchSidebar
+                          variant="sheet"
+                          filters={filters}
+                          years={years}
+                          targets={targets}
+                          acquirers={acquirers}
+                          target_counsels={target_counsels}
+                          acquirer_counsels={acquirer_counsels}
+                          target_industries={target_industries}
+                          acquirer_industries={acquirer_industries}
+                          clauseTypesNested={clauseTypesNested}
+                          clauseTypeLabelById={clauseTypeLabelById}
+                          isLoadingFilterOptions={isLoadingFilterOptions}
+                          isLoadingTaxonomy={isLoadingTaxonomy}
+                          onToggleFilterValue={toggleFilterValue}
+                          onTextFilterChange={trackingActions.setTextFilterValue}
+                          onClearFilters={clearFilters}
+                          loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
+                          loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
+                        />
+                      </Suspense>
+                    ) : (
+                      <SearchSidebarFallback variant="sheet" />
+                    )}
                   </SheetContent>
                 </Sheet>
               </div>
@@ -762,40 +834,53 @@ export default function Search() {
                     </div>
                   ) : (
                     <>
-                      <SearchPagination
-                        currentPage={currentPage}
-                        totalPages={total_pages}
-                        pageSize={page_size}
-                        totalCount={total_count}
-                        totalCountIsApproximate={totalCountIsApproximate}
-                        hasNext={has_next}
-                        hasPrev={has_prev}
-                        onPageChange={(page) =>
-                          trackingActions.goToPage(page)
-                        }
-                        onPageSizeChange={(nextPageSize) =>
-                          trackingActions.changePageSize(nextPageSize)
-                        }
-                        isLoading={isSearching}
-                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                      />
+                      {hasHydrated ? (
+                        <>
+                          <Suspense fallback={<SearchPaginationFallback />}>
+                            <SearchPagination
+                              currentPage={currentPage}
+                              totalPages={total_pages}
+                              pageSize={page_size}
+                              totalCount={total_count}
+                              totalCountIsApproximate={totalCountIsApproximate}
+                              hasNext={has_next}
+                              hasPrev={has_prev}
+                              onPageChange={(page) =>
+                                trackingActions.goToPage(page)
+                              }
+                              onPageSizeChange={(nextPageSize) =>
+                                trackingActions.changePageSize(nextPageSize)
+                              }
+                              isLoading={isSearching}
+                              isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                            />
+                          </Suspense>
 
-                      <SearchResultsTable
-                        searchResults={searchResults}
-                        selectedResults={selectedResults}
-                        clauseTypePathByStandardId={clauseTypePathByStandardId}
-                        sort_by={currentSort ?? "year"}
-                        sort_direction={sort_direction}
-                        onToggleResultSelection={toggleResultSelection}
-                        onToggleSelectAll={toggleSelectAll}
-                        onOpenAgreement={openAgreement}
-                        onSortResults={sortResults}
-                        onToggleSortDirection={toggleSortDirection}
-                        density={resultsDensity}
-                        onDensityChange={updateResultsDensity}
-                        currentPage={currentPage}
-                        page_size={page_size}
-                      />
+                          <Suspense fallback={<SearchResultsTableFallback />}>
+                            <SearchResultsTable
+                              searchResults={searchResults}
+                              selectedResults={selectedResults}
+                              clauseTypePathByStandardId={clauseTypePathByStandardId}
+                              sort_by={currentSort ?? "year"}
+                              sort_direction={sort_direction}
+                              onToggleResultSelection={toggleResultSelection}
+                              onToggleSelectAll={toggleSelectAll}
+                              onOpenAgreement={openAgreement}
+                              onSortResults={sortResults}
+                              onToggleSortDirection={toggleSortDirection}
+                              density={resultsDensity}
+                              onDensityChange={updateResultsDensity}
+                              currentPage={currentPage}
+                              page_size={page_size}
+                            />
+                          </Suspense>
+                        </>
+                      ) : (
+                        <>
+                          <SearchPaginationFallback />
+                          <SearchResultsTableFallback />
+                        </>
+                      )}
 
                       {selectedResults.size > 0 && (
                         <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
@@ -823,23 +908,29 @@ export default function Search() {
                         </div>
                       )}
 
-                      <SearchPagination
-                        currentPage={currentPage}
-                        totalPages={total_pages}
-                        pageSize={page_size}
-                        totalCount={total_count}
-                        totalCountIsApproximate={totalCountIsApproximate}
-                        hasNext={has_next}
-                        hasPrev={has_prev}
-                        onPageChange={(page) =>
-                          trackingActions.goToPage(page)
-                        }
-                        onPageSizeChange={(nextPageSize) =>
-                          trackingActions.changePageSize(nextPageSize)
-                        }
-                        isLoading={isSearching}
-                        isLimited={(access?.tier ?? "anonymous") === "anonymous"}
-                      />
+                      {hasHydrated ? (
+                        <Suspense fallback={<SearchPaginationFallback />}>
+                          <SearchPagination
+                            currentPage={currentPage}
+                            totalPages={total_pages}
+                            pageSize={page_size}
+                            totalCount={total_count}
+                            totalCountIsApproximate={totalCountIsApproximate}
+                            hasNext={has_next}
+                            hasPrev={has_prev}
+                            onPageChange={(page) =>
+                              trackingActions.goToPage(page)
+                            }
+                            onPageSizeChange={(nextPageSize) =>
+                              trackingActions.changePageSize(nextPageSize)
+                            }
+                            isLoading={isSearching}
+                            isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                          />
+                        </Suspense>
+                      ) : (
+                        <SearchPaginationFallback />
+                      )}
                     </>
                   )}
                 </div>
@@ -857,15 +948,17 @@ export default function Search() {
         />
       )}
 
-      {selectedAgreement && (
-        <AgreementModal
-          isOpen={!!selectedAgreement}
-          onClose={closeAgreement}
-          agreement_uuid={selectedAgreement.agreement_uuid}
-          targetSectionUuid={selectedAgreement.section_uuid}
-          agreementMetadata={selectedAgreement.metadata}
-        />
-      )}
+      {selectedAgreement && hasHydrated ? (
+        <Suspense fallback={null}>
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={closeAgreement}
+            agreement_uuid={selectedAgreement.agreement_uuid}
+            targetSectionUuid={selectedAgreement.section_uuid}
+            agreementMetadata={selectedAgreement.metadata}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

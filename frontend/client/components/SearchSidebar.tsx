@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   TRANSACTION_CONSIDERATION_OPTIONS,
   TRANSACTION_PRICE_OPTIONS,
@@ -186,12 +187,12 @@ export function SearchSidebar({
               content={
                 <>
                   Learn more about the taxonomy on the{" "}
-                  <a
-                    href="/taxonomy"
+                  <Link
+                    to="/taxonomy"
                     className="font-medium text-primary underline underline-offset-2"
                   >
                     Taxonomy page
-                  </a>
+                  </Link>
                   .
                 </>
               }

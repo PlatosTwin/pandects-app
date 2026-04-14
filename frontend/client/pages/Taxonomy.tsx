@@ -21,7 +21,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { logger } from "@/lib/logger";
 import {
@@ -334,16 +333,30 @@ export default function Taxonomy() {
 
       <div className="grid gap-6">
         <section aria-label="Taxonomy mode">
-          <Tabs
-            value={currentTab}
-            onValueChange={handleTabChange}
-            className="space-y-0"
+          <div
+            className="grid w-full grid-cols-2 rounded-md bg-muted p-1"
+            role="group"
+            aria-label="Taxonomy mode"
           >
-            <TabsList className="grid h-auto w-full grid-cols-2">
-              <TabsTrigger value="main">Main</TabsTrigger>
-              <TabsTrigger value="tax">Tax</TabsTrigger>
-            </TabsList>
-          </Tabs>
+            {(["main", "tax"] as const).map((tab) => {
+              const isActive = currentTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleTabChange(tab)}
+                  aria-pressed={isActive}
+                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    isActive
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {tab === "main" ? "Main" : "Tax"}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section aria-labelledby="taxonomy-search" role="search">
@@ -554,8 +567,8 @@ export default function Taxonomy() {
                 <Skeleton className="h-24 w-full" />
               </div>
             ) : taxonomyEntries.length === 0 ? (
-              <Card className="border-border/60 bg-card">
-                <CardContent className="py-6 text-sm text-foreground/80">
+                <Card className="border-border/60 bg-card">
+                  <CardContent className="py-6 text-sm text-foreground/90">
                   No taxonomy entries are available right now.
                 </CardContent>
               </Card>
@@ -586,10 +599,10 @@ export default function Taxonomy() {
                           <div className="text-xl font-semibold text-foreground">
                             {entry.label}
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/80">
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/90">
                             {!isMobile ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
-                                <span className="font-mono text-[11px] text-foreground/75">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
+                                <span className="font-mono text-[11px] text-foreground/90">
                                   {entry.id}
                                 </span>
                                 {renderCopyControl(entry.id, "Copy level 1 ID")}
@@ -651,8 +664,8 @@ export default function Taxonomy() {
                               <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                                 {!isMobile ? (
                                   <div className="mb-3">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/80">
-                                      <span className="font-mono text-[11px] text-foreground/75">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
+                                      <span className="font-mono text-[11px] text-foreground/90">
                                         {child.id}
                                       </span>
                                       {renderCopyControl(child.id, "Copy level 2 ID")}
@@ -674,8 +687,8 @@ export default function Taxonomy() {
                                         {leaf.label}
                                       </div>
                                       {!isMobile ? (
-                                        <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80">
-                                          <span className="font-mono text-xs text-foreground/75">
+                                        <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground/90">
+                                          <span className="font-mono text-xs text-foreground/90">
                                             {leaf.id}
                                           </span>
                                           {renderCopyControl(leaf.id, "Copy level 3 ID")}
