@@ -348,63 +348,66 @@ export default function Taxonomy() {
       </div>
 
       <div className="grid gap-6">
-        <section aria-label="Taxonomy mode">
-          <div
-            className="grid w-full grid-cols-2 rounded-md bg-muted p-1 sm:max-w-xs"
-            role="group"
-            aria-label="Taxonomy mode"
-          >
-            {(["main", "tax"] as const).map((tab) => {
-              const isActive = currentTab === tab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => handleTabChange(tab)}
-                  aria-pressed={isActive}
-                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {tab === "main" ? "Main" : "Tax"}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section aria-labelledby="taxonomy-search" role="search">
-          <div className="rounded-lg border border-border/60 bg-card p-4 shadow-sm">
-            <Label
-              id="taxonomy-search"
-              htmlFor="taxonomy-search-input"
-              className="text-sm font-semibold text-foreground"
-            >
-              {taxonomySearchLabel}
-            </Label>
-            <div className="relative mt-2">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                id="taxonomy-search-input"
-                value={searchQuery}
-                onChange={(event) => {
-                  setHasActivatedSearch(true);
-                  setSearchQuery(event.target.value);
-                }}
-                onFocus={() => setHasActivatedSearch(true)}
-                placeholder={taxonomySearchPlaceholder}
-                className="pl-9"
-                autoComplete="off"
-              />
+        <section aria-labelledby="taxonomy-controls" role="search">
+          <div className="flex flex-col gap-4 border-b border-border/50 pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="w-full lg:max-w-md xl:max-w-lg">
+              <Label
+                id="taxonomy-controls"
+                htmlFor="taxonomy-search-input"
+                className="sr-only"
+              >
+                {taxonomySearchLabel}
+              </Label>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="taxonomy-search-input"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setHasActivatedSearch(true);
+                    setSearchQuery(event.target.value);
+                  }}
+                  onFocus={() => setHasActivatedSearch(true)}
+                  placeholder={taxonomySearchPlaceholder}
+                  className="h-11 rounded-full border-border/70 bg-background pl-10 pr-4 text-sm shadow-none"
+                  autoComplete="off"
+                />
+              </div>
             </div>
+
+            <div className="flex items-center lg:justify-end">
+              <div
+                className="inline-grid grid-cols-2 rounded-full border border-border/80 bg-muted/35 p-1"
+                role="group"
+                aria-label="Taxonomy mode"
+              >
+                {(["main", "tax"] as const).map((tab) => {
+                  const isActive = currentTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => handleTabChange(tab)}
+                      aria-pressed={isActive}
+                      className={`inline-flex min-w-[6.75rem] items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        isActive
+                          ? "border border-primary/20 bg-primary/10 text-primary shadow-sm"
+                          : "text-foreground/60 hover:bg-background/70 hover:text-foreground"
+                      }`}
+                    >
+                      {tab === "main" ? "Main" : "Tax"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {hasQuery && (
               <div
-                className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3"
+                className="mt-1 rounded-xl border border-border/60 bg-muted/20 p-3 lg:mt-3"
                 aria-live="polite"
                 aria-atomic="true"
               >
@@ -492,7 +495,7 @@ export default function Taxonomy() {
           aria-describedby="taxonomy-overview-desc"
         >
           <Card className="border-border/60 bg-card">
-            <CardHeader>
+            <CardHeader className="pb-4">
               <h2
                 id="taxonomy-overview"
                 className="text-xl font-semibold leading-none tracking-tight"
@@ -516,37 +519,37 @@ export default function Taxonomy() {
                   <Skeleton className="h-20 w-full" />
                 </div>
               ) : (
-                <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
-                  <div className="rounded-lg border border-border/60 bg-card p-4">
+                <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Folder className="h-4 w-4" aria-hidden="true" />
                       Level 1 Categories
                     </div>
-                    <div className="mt-2 text-4xl font-bold text-foreground">
+                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
                       {totals.l1}
                     </div>
                   </div>
                   <div className="hidden justify-center text-muted-foreground sm:flex">
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-card p-4">
+                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Layers className="h-4 w-4" aria-hidden="true" />
                       Level 2 Groups
                     </div>
-                    <div className="mt-2 text-4xl font-bold text-foreground">
+                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
                       {totals.l2}
                     </div>
                   </div>
                   <div className="hidden justify-center text-muted-foreground sm:flex">
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-card p-4">
+                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       Level 3 Types
                     </div>
-                    <div className="mt-2 text-4xl font-bold text-foreground">
+                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
                       {totals.l3}
                     </div>
                   </div>
