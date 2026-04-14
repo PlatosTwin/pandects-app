@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
@@ -84,9 +85,11 @@ _STRUCTURED_FILTER_ARRAY_FIELDS = (
     "acquirer_pe",
 )
 
+_FieldOverrides = Mapping[str, Mapping[str, object]]
+
 
 def _merge_schema_instances(*schemas: Schema) -> Schema:
-    merged_fields: dict[str, ma_fields.Field] = {}
+    merged_fields: dict[str, ma_fields.Field[Any]] = {}
     for schema in schemas:
         for field_name, field in schema.fields.items():
             merged_fields[field_name] = field
@@ -120,7 +123,7 @@ def _one_of_choices(validators: list[object]) -> list[object] | None:
     return None
 
 
-def _field_json_schema(field: ma_fields.Field) -> dict[str, object]:
+def _field_json_schema(field: ma_fields.Field[Any]) -> dict[str, object]:
     schema: dict[str, object]
     if isinstance(field, ma_fields.List):
         item_schema = _field_json_schema(field.inner)
@@ -160,7 +163,7 @@ def _schema_input_schema(
     schema: Schema,
     *,
     additional_properties: bool = False,
-    field_overrides: dict[str, dict[str, object]] | None = None,
+    field_overrides: _FieldOverrides | None = None,
 ) -> dict[str, object]:
     properties: dict[str, object] = {}
     required: list[str] = []
@@ -184,7 +187,7 @@ def _schema_input_schema(
 def _schema_output_schema(
     schema: Schema,
     *,
-    field_overrides: dict[str, dict[str, object]] | None = None,
+    field_overrides: _FieldOverrides | None = None,
 ) -> dict[str, object]:
     return _schema_input_schema(schema, additional_properties=True, field_overrides=field_overrides)
 
@@ -250,8 +253,8 @@ def _filter_option_metadata() -> dict[str, dict[str, object]]:
     }
 
 
-def _structured_filter_properties(*, include_cursor: bool = False, include_xml: bool = False) -> dict[str, object]:
-    properties: dict[str, object] = {}
+def _structured_filter_properties(*, include_cursor: bool = False, include_xml: bool = False) -> dict[str, dict[str, object]]:
+    properties: dict[str, dict[str, object]] = {}
     if include_cursor:
         properties["cursor"] = {"type": ["string", "null"], "description": "Opaque cursor from a previous list_agreements call."}
     properties["page_size"] = {"type": "integer", "description": "Maximum number of results to return."}
@@ -1932,7 +1935,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema())
     structured_filter_overrides = _structured_filter_properties()
     agreements_list_overrides = _structured_filter_properties(include_cursor=True, include_xml=True)
-    search_agreements_overrides = {
+    search_agreements_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
         "query": {
             "type": "string",
@@ -1940,7 +1943,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "examples": ["Slack", "2020"],
         },
     }
-    sections_search_overrides = {
+    sections_search_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
         "metadata": _enum_array_schema(
             cast(tuple[str, ...], SECTIONS_RESULT_METADATA_FIELDS),
@@ -1948,7 +1951,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             examples=[["deal_type", "target_industry"]],
         ),
     }
-    list_agreement_sections_overrides = {
+    list_agreement_sections_overrides: dict[str, dict[str, object]] = {
         "sort_by": {
             "type": "string",
             "enum": list(_SECTION_LIST_SORT_FIELDS),

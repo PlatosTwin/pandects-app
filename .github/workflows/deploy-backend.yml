@@ -21,6 +21,6 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy Backend
-        run: flyctl deploy --remote-only --config backend/fly.toml --dockerfile backend/Dockerfile
+        run: flyctl deploy --remote-only --wait-timeout 600 --config backend/fly.toml --dockerfile backend/Dockerfile
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
