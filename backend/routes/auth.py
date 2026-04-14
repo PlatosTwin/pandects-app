@@ -840,9 +840,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return None
         return _ensure_zitadel_user_for_local_password_user(user=user, password=password)
 
-    def _linked_zitadel_subject_for_email(*, email: str):
+    def _linked_zitadel_subject_for_email(*, email: str, allow_unverified: bool = False):
         user = _local_user_by_email(email=email)
-        if user is None or user.email_verified_at is None:
+        if user is None:
+            return None
+        if user.email_verified_at is None and not allow_unverified:
             return None
         existing_link = deps.AuthExternalSubject.query.filter_by(
             user_id=user.id,
@@ -2572,7 +2574,7 @@ window.location.replace({json.dumps(login_url)});
             abort(400, description="Enter a valid email address.")
 
         try:
-            subject = _linked_zitadel_subject_for_email(email=email)
+            subject = _linked_zitadel_subject_for_email(email=email, allow_unverified=True)
             if isinstance(subject, str) and subject.strip():
                 _zitadel_api_json(
                     path=f"/v2/users/{subject}/password_reset",

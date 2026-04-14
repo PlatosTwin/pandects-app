@@ -45,8 +45,9 @@ export default function ResetPassword() {
       title="Reset password"
       subtitle="Request a Pandects password reset link for your email address."
       size="md"
+      className="max-w-2xl"
     >
-      <Card className="p-6">
+      <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {submitted ? (
             <Alert>
@@ -64,9 +65,11 @@ export default function ResetPassword() {
             </Alert>
           ) : null}
 
-          <form className="grid gap-4" onSubmit={submit}>
+          <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-2">
-              <Label htmlFor="reset-email">Email</Label>
+              <Label htmlFor="reset-email" className="text-sm font-medium text-foreground/90">
+                Email
+              </Label>
               <Input
                 id="reset-email"
                 type="email"
@@ -74,14 +77,17 @@ export default function ResetPassword() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
+                className="h-11 border-border/80 bg-background"
               />
             </div>
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Sending reset link…" : "Send reset link"}
-            </Button>
+            <div className="flex justify-center pt-1">
+              <Button type="submit" disabled={submitting} className="min-w-[10rem] rounded-full px-6">
+                {submitting ? "Sending reset link…" : "Send reset link"}
+              </Button>
+            </div>
           </form>
 
-          <div className="text-sm text-muted-foreground">
+          <div className="text-center text-sm text-muted-foreground">
             Remembered it?{" "}
             <Link
               to={`/login?next=${encodeURIComponent(nextPath)}`}

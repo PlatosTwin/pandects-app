@@ -1983,6 +1983,61 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(res.get_json(), {"status": "requested"})
         self.assertTrue(seen_reset["called"])
 
+    def test_password_reset_request_sends_reset_for_unverified_linked_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user_id = self._create_local_user(
+                email="unverified-reset@example.com",
+                password="password123",
+                verified=False,
+                legal=False,
+            )
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-unverified-reset-user",
+                )
+            )
+            db.session.commit()
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        seen_reset = {"called": False}
+
+        def _fake_oauth_fetch_json(
+            url: str,
+            *,
+            data: dict[str, str] | None = None,
+            json_body: dict[str, object] | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ):
+            self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
+            self.assertIsNone(data)
+            if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-unverified-reset-user/password_reset":
+                self.assertEqual(method, "POST")
+                self.assertIsInstance(json_body, dict)
+                assert json_body is not None
+                self.assertIn("/reset-password/confirm", json_body["sendLink"]["urlTemplate"])
+                seen_reset["called"] = True
+                return {"details": {}}
+            self.fail(f"Unexpected URL: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/password-reset/request",
+                json={"email": "unverified-reset@example.com"},
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "requested"})
+        self.assertTrue(seen_reset["called"])
+
     def test_password_login_requires_verified_email(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
