@@ -12,10 +12,10 @@ import {
   scheduleWhenBrowserIdle,
   scheduleAnalyticsScriptLoad,
 } from "@/lib/analytics";
-import Landing from "./pages/Landing";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 
+const Landing = lazy(() => import("./pages/Landing"));
 const SearchPage = lazy(() => import("./pages/Search"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));

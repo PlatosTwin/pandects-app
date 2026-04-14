@@ -30,7 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
-import { trackEvent } from "@/lib/analytics";
+import { scheduleWhenBrowserIdle, trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
@@ -221,6 +221,7 @@ export default function Search() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [shouldRenderDesktopSidebar, setShouldRenderDesktopSidebar] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth >= BREAKPOINT_LG;
@@ -261,8 +262,28 @@ export default function Search() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!isDesktopLayout) {
+      setShouldRenderDesktopSidebar(false);
+      return;
+    }
+
+    if (hasSearched) {
+      setShouldRenderDesktopSidebar(true);
+      return;
+    }
+
+    const cancelDeferredSidebar = scheduleWhenBrowserIdle(() => {
+      setShouldRenderDesktopSidebar(true);
+    }, 1800);
+
+    return cancelDeferredSidebar;
+  }, [hasSearched, isDesktopLayout]);
+
   const shouldLoadFilterData =
-    isDesktopLayout || isMobileFiltersOpen || hasSearched;
+    (isDesktopLayout && shouldRenderDesktopSidebar) ||
+    isMobileFiltersOpen ||
+    hasSearched;
 
   const {
     targets,
@@ -447,7 +468,7 @@ export default function Search() {
     <div className="w-full">
       <div className="flex min-h-full">
         {isDesktopLayout ? (
-          hasHydrated ? (
+          shouldRenderDesktopSidebar && hasHydrated ? (
             <Suspense fallback={<SearchSidebarFallback />}>
               <SearchSidebar
                 filters={filters}
