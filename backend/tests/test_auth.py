@@ -1476,7 +1476,7 @@ class AuthFlowTests(unittest.TestCase):
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 grant_calls.append((url, method, json_body))
                 return {"result": []}
-            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants":
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/zitadel-role-grant-user/grants":
                 grant_calls.append((url, method, json_body))
                 return {"id": "grant-123"}
             if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-role-grant-user/email/send":
@@ -1512,12 +1512,86 @@ class AuthFlowTests(unittest.TestCase):
                 ]
             },
         )
-        self.assertEqual(grant_calls[1][0], "https://pandects-test-zitadel.example.com/management/v1/users/grants")
+        self.assertEqual(
+            grant_calls[1][0],
+            "https://pandects-test-zitadel.example.com/management/v1/users/zitadel-role-grant-user/grants",
+        )
         self.assertEqual(grant_calls[1][1], "POST")
         self.assertEqual(
             grant_calls[1][2],
             {
-                "userId": "zitadel-role-grant-user",
+                "projectId": "pandects-project-123",
+                "roleKeys": [
+                    "agreements_read",
+                    "agreements_read_fulltext",
+                    "agreements_search",
+                    "sections_search",
+                ],
+            },
+        )
+
+    def test_password_signup_updates_existing_zitadel_project_grant_when_roles_are_missing(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        os.environ["AUTH_ZITADEL_PROJECT_ID"] = "pandects-project-123"
+        client = self.app.test_client()
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        grant_calls: list[tuple[str, str | None, dict[str, object] | None]] = []
+
+        def _fake_oauth_fetch_json(
+            url: str,
+            *,
+            data: dict[str, str] | None = None,
+            json_body: dict[str, object] | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ):
+            self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
+            self.assertIsNone(data)
+            if url == "https://pandects-test-zitadel.example.com/v2/users/human":
+                return {"userId": "zitadel-role-update-user"}
+            if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
+                grant_calls.append((url, method, json_body))
+                return {
+                    "result": [
+                        {
+                            "id": "grant-123",
+                            "roleKeys": ["agreements_read"],
+                        }
+                    ]
+                }
+            if (
+                url
+                == "https://pandects-test-zitadel.example.com/management/v1/users/zitadel-role-update-user/grants/grant-123"
+            ):
+                grant_calls.append((url, method, json_body))
+                return {"id": "grant-123"}
+            self.fail(f"Unexpected URL: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": "role-update@example.com",
+                    "password": "Secr3tP4ss!",
+                    "next": "/account",
+                },
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+            os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
+
+        self.assertEqual(res.status_code, 200)
+        signup_payload = res.get_json()
+        self.assertEqual(signup_payload["status"], "legal_required")
+        self.assertEqual(len(grant_calls), 2)
+        self.assertEqual(grant_calls[0][1], "POST")
+        self.assertEqual(grant_calls[1][1], "PUT")
+        self.assertEqual(
+            grant_calls[1][2],
+            {
                 "projectId": "pandects-project-123",
                 "roleKeys": [
                     "agreements_read",

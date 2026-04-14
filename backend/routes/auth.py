@@ -607,7 +607,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
         if grant_id:
             _zitadel_api_request(
-                path=f"/management/v1/users/grants/{grant_id}",
+                path=f"/management/v1/users/{user_id}/grants/{grant_id}",
                 method="PUT",
                 json_body={
                     "projectId": project_id,
@@ -617,10 +617,9 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return
 
         _zitadel_api_request(
-            path="/management/v1/users/grants",
+            path=f"/management/v1/users/{user_id}/grants",
             method="POST",
             json_body={
-                "userId": user_id,
                 "projectId": project_id,
                 "roleKeys": merged_role_keys,
             },
