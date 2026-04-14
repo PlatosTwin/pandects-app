@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, datetime
+from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Callable, cast
 
@@ -481,6 +483,16 @@ def _normalized_page(page: int) -> int:
 
 def _normalized_page_size(page_size: int) -> int:
     return page_size if 1 <= page_size <= 100 else 25
+
+
+def _json_compatible_value(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
 
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
@@ -981,37 +993,37 @@ def _list_agreements(
     for row in page_rows:
         row_map = deps._row_mapping_as_dict(row)
         item = {
-            "agreement_uuid": row_map.get("agreement_uuid"),
-            "year": row_map.get("year"),
-            "target": row_map.get("target"),
-            "acquirer": row_map.get("acquirer"),
-            "filing_date": row_map.get("filing_date"),
-            "prob_filing": row_map.get("prob_filing"),
-            "filing_company_name": row_map.get("filing_company_name"),
-            "filing_company_cik": row_map.get("filing_company_cik"),
-            "form_type": row_map.get("form_type"),
-            "exhibit_type": row_map.get("exhibit_type"),
-            "transaction_price_total": row_map.get("transaction_price_total"),
-            "transaction_price_stock": row_map.get("transaction_price_stock"),
-            "transaction_price_cash": row_map.get("transaction_price_cash"),
-            "transaction_price_assets": row_map.get("transaction_price_assets"),
-            "transaction_consideration": row_map.get("transaction_consideration"),
-            "target_type": row_map.get("target_type"),
-            "acquirer_type": row_map.get("acquirer_type"),
-            "target_industry": row_map.get("target_industry"),
-            "acquirer_industry": row_map.get("acquirer_industry"),
-            "announce_date": row_map.get("announce_date"),
-            "close_date": row_map.get("close_date"),
-            "deal_status": row_map.get("deal_status"),
-            "attitude": row_map.get("attitude"),
-            "deal_type": row_map.get("deal_type"),
-            "purpose": row_map.get("purpose"),
-            "target_pe": row_map.get("target_pe"),
-            "acquirer_pe": row_map.get("acquirer_pe"),
-            "url": row_map.get("url"),
+            "agreement_uuid": _json_compatible_value(row_map.get("agreement_uuid")),
+            "year": _json_compatible_value(row_map.get("year")),
+            "target": _json_compatible_value(row_map.get("target")),
+            "acquirer": _json_compatible_value(row_map.get("acquirer")),
+            "filing_date": _json_compatible_value(row_map.get("filing_date")),
+            "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
+            "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
+            "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
+            "form_type": _json_compatible_value(row_map.get("form_type")),
+            "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
+            "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
+            "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
+            "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
+            "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
+            "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
+            "target_type": _json_compatible_value(row_map.get("target_type")),
+            "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
+            "target_industry": _json_compatible_value(row_map.get("target_industry")),
+            "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
+            "announce_date": _json_compatible_value(row_map.get("announce_date")),
+            "close_date": _json_compatible_value(row_map.get("close_date")),
+            "deal_status": _json_compatible_value(row_map.get("deal_status")),
+            "attitude": _json_compatible_value(row_map.get("attitude")),
+            "deal_type": _json_compatible_value(row_map.get("deal_type")),
+            "purpose": _json_compatible_value(row_map.get("purpose")),
+            "target_pe": _json_compatible_value(row_map.get("target_pe")),
+            "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
+            "url": _json_compatible_value(row_map.get("url")),
         }
         if include_xml:
-            item["xml"] = row_map.get("xml")
+            item["xml"] = _json_compatible_value(row_map.get("xml"))
         results.append(item)
 
     next_cursor: str | None = None
@@ -1225,12 +1237,12 @@ def _search_agreements(
         verified_value = row_map.get("verified")
         results.append(
             {
-                "agreement_uuid": row_map.get("agreement_uuid"),
-                "year": row_map.get("year"),
-                "target": row_map.get("target"),
-                "acquirer": row_map.get("acquirer"),
-                "filing_date": row_map.get("filing_date"),
-                "url": row_map.get("url"),
+                "agreement_uuid": _json_compatible_value(row_map.get("agreement_uuid")),
+                "year": _json_compatible_value(row_map.get("year")),
+                "target": _json_compatible_value(row_map.get("target")),
+                "acquirer": _json_compatible_value(row_map.get("acquirer")),
+                "filing_date": _json_compatible_value(row_map.get("filing_date")),
+                "url": _json_compatible_value(row_map.get("url")),
                 "verified": bool(verified_value) if verified_value is not None else False,
             }
         )
@@ -1312,33 +1324,33 @@ def _get_agreement(
     xml_content_obj = row_map.get("xml")
     xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
     response = {
-        "year": row_map.get("year"),
-        "target": row_map.get("target"),
-        "acquirer": row_map.get("acquirer"),
-        "filing_date": row_map.get("filing_date"),
-        "prob_filing": row_map.get("prob_filing"),
-        "filing_company_name": row_map.get("filing_company_name"),
-        "filing_company_cik": row_map.get("filing_company_cik"),
-        "form_type": row_map.get("form_type"),
-        "exhibit_type": row_map.get("exhibit_type"),
-        "transaction_price_total": row_map.get("transaction_price_total"),
-        "transaction_price_stock": row_map.get("transaction_price_stock"),
-        "transaction_price_cash": row_map.get("transaction_price_cash"),
-        "transaction_price_assets": row_map.get("transaction_price_assets"),
-        "transaction_consideration": row_map.get("transaction_consideration"),
-        "target_type": row_map.get("target_type"),
-        "acquirer_type": row_map.get("acquirer_type"),
-        "target_industry": row_map.get("target_industry"),
-        "acquirer_industry": row_map.get("acquirer_industry"),
-        "announce_date": row_map.get("announce_date"),
-        "close_date": row_map.get("close_date"),
-        "deal_status": row_map.get("deal_status"),
-        "attitude": row_map.get("attitude"),
-        "deal_type": row_map.get("deal_type"),
-        "purpose": row_map.get("purpose"),
-        "target_pe": row_map.get("target_pe"),
-        "acquirer_pe": row_map.get("acquirer_pe"),
-        "url": row_map.get("url"),
+        "year": _json_compatible_value(row_map.get("year")),
+        "target": _json_compatible_value(row_map.get("target")),
+        "acquirer": _json_compatible_value(row_map.get("acquirer")),
+        "filing_date": _json_compatible_value(row_map.get("filing_date")),
+        "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
+        "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
+        "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
+        "form_type": _json_compatible_value(row_map.get("form_type")),
+        "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
+        "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
+        "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
+        "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
+        "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
+        "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
+        "target_type": _json_compatible_value(row_map.get("target_type")),
+        "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
+        "target_industry": _json_compatible_value(row_map.get("target_industry")),
+        "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
+        "announce_date": _json_compatible_value(row_map.get("announce_date")),
+        "close_date": _json_compatible_value(row_map.get("close_date")),
+        "deal_status": _json_compatible_value(row_map.get("deal_status")),
+        "attitude": _json_compatible_value(row_map.get("attitude")),
+        "deal_type": _json_compatible_value(row_map.get("deal_type")),
+        "purpose": _json_compatible_value(row_map.get("purpose")),
+        "target_pe": _json_compatible_value(row_map.get("target_pe")),
+        "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
+        "url": _json_compatible_value(row_map.get("url")),
     }
     if allow_fulltext:
         response["xml"] = xml_content
