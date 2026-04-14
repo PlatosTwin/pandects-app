@@ -331,6 +331,97 @@ export default function AgreementIndex() {
 
   return (
     <PageShell size="xl" title="Agreement Index">
+      <div
+        className="mb-10 grid gap-4 md:grid-cols-3"
+        aria-busy={summaryLoading}
+        aria-live="polite"
+      >
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          const value = summary?.[card.key] ?? null;
+          return (
+            <Card
+              key={card.key}
+              className="relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
+              <CardContent className="relative flex min-h-[8.75rem] items-center gap-4 p-6">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {card.label}
+                  </div>
+                  <div className="flex min-h-7 items-center text-2xl font-semibold tabular-nums text-foreground">
+                    {summaryLoading ? (
+                      <>
+                        <Skeleton className="h-7 w-24" />
+                        <span className="sr-only">Loading summary</span>
+                      </>
+                    ) : summaryError ? (
+                      "—"
+                    ) : (
+                      (value ?? 0).toLocaleString("en-US")
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {card.description}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Card className="mb-10 border-border/60 shadow-sm">
+        <CardContent className="p-6">
+          <Accordion
+            type="single"
+            collapsible
+            onValueChange={(value) => {
+              if (value === "staged") {
+                setHasLoadedOverview(true);
+              }
+            }}
+          >
+            <AccordionItem value="staged" className="border-border/60">
+              <AccordionTrigger
+                headingLevel="h2"
+                className="py-3 text-2xl font-semibold tracking-tight"
+              >
+                Agreement overview
+              </AccordionTrigger>
+              <AccordionContent
+                disableAnimation
+                className="pt-3"
+              >
+                {showSupplementaryPanels && hasLoadedOverview ? (
+                  <Suspense
+                    fallback={
+                      <div className="space-y-3">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-[260px] w-full" />
+                      </div>
+                    }
+                  >
+                    <AgreementIndexOverview />
+                  </Suspense>
+                ) : showSupplementaryPanels ? null : (
+                  <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-[260px] w-full" />
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/60 shadow-sm transition-shadow duration-200 hover:shadow-md">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -766,97 +857,6 @@ export default function AgreementIndex() {
               </PaginationContent>
             </Pagination>
           </div>
-        </CardContent>
-      </Card>
-
-      <div
-        className="mt-10 grid gap-4 md:grid-cols-3"
-        aria-busy={summaryLoading}
-        aria-live="polite"
-      >
-        {summaryCards.map((card) => {
-          const Icon = card.icon;
-          const value = summary?.[card.key] ?? null;
-          return (
-            <Card
-              key={card.key}
-              className="relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
-              <CardContent className="relative flex min-h-[8.75rem] items-center gap-4 p-6">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {card.label}
-                  </div>
-                  <div className="flex min-h-7 items-center text-2xl font-semibold tabular-nums text-foreground">
-                    {summaryLoading ? (
-                      <>
-                        <Skeleton className="h-7 w-24" />
-                        <span className="sr-only">Loading summary</span>
-                      </>
-                    ) : summaryError ? (
-                      "—"
-                    ) : (
-                      (value ?? 0).toLocaleString("en-US")
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {card.description}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Card className="mt-10 border-border/60 shadow-sm">
-        <CardContent className="p-6">
-          <Accordion
-            type="single"
-            collapsible
-            onValueChange={(value) => {
-              if (value === "staged") {
-                setHasLoadedOverview(true);
-              }
-            }}
-          >
-            <AccordionItem value="staged" className="border-border/60">
-              <AccordionTrigger
-                headingLevel="h2"
-                className="py-3 text-2xl font-semibold tracking-tight"
-              >
-                Agreement overview
-              </AccordionTrigger>
-              <AccordionContent
-                disableAnimation
-                className="pt-3"
-              >
-                {showSupplementaryPanels && hasLoadedOverview ? (
-                  <Suspense
-                    fallback={
-                      <div className="space-y-3">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-20 w-full" />
-                        <Skeleton className="h-[260px] w-full" />
-                      </div>
-                    }
-                  >
-                    <AgreementIndexOverview />
-                  </Suspense>
-                ) : showSupplementaryPanels ? null : (
-                  <div className="space-y-3">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-[260px] w-full" />
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
         </CardContent>
       </Card>
 

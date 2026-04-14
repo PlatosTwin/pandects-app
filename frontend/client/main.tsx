@@ -3,6 +3,7 @@ import "./global.css";
 import { Toaster } from "@/components/ui/toaster";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
@@ -60,46 +61,48 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Landing />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/bulk-data" element={<BulkData />} />
-            <Route path="/agreement-index" element={<AgreementIndex />} />
-            <Route path="/sources-methods" element={<SourcesMethods />} />
-            <Route path="/xml-schema" element={<XmlSchema />} />
-            <Route path="/taxonomy" element={<Taxonomy />} />
-            <Route path="/leaderboards" element={<Leaderboards />} />
-            <Route path="/trends-analyses" element={<TrendsAnalyses />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/feedback" element={<Feedback />} />
-            <Route path="/contribute" element={<Contribute />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/reset-password/confirm"
-              element={<ResetPasswordConfirm />}
-            />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/license" element={<License />} />
-            <Route path="/license/software" element={<SoftwareLicense />} />
-            <Route path="/license/data" element={<DataLicense />} />
-            <Route
-              path="/auth/zitadel/callback"
-              element={<AuthZitadelCallback />}
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Landing />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/bulk-data" element={<BulkData />} />
+              <Route path="/agreement-index" element={<AgreementIndex />} />
+              <Route path="/sources-methods" element={<SourcesMethods />} />
+              <Route path="/xml-schema" element={<XmlSchema />} />
+              <Route path="/taxonomy" element={<Taxonomy />} />
+              <Route path="/leaderboards" element={<Leaderboards />} />
+              <Route path="/trends-analyses" element={<TrendsAnalyses />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/contribute" element={<Contribute />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/reset-password/confirm"
+                element={<ResetPasswordConfirm />}
+              />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/license" element={<License />} />
+              <Route path="/license/software" element={<SoftwareLicense />} />
+              <Route path="/license/data" element={<DataLicense />} />
+              <Route
+                path="/auth/zitadel/callback"
+                element={<AuthZitadelCallback />}
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   );
 };
