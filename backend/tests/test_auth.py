@@ -2190,7 +2190,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "resend-verify@example.com")
 
-    def test_zitadel_email_notification_verification_is_ignored(self):
+    def test_zitadel_email_notification_verification_uses_pandects_email_sender(self):
         client = self.app.test_client()
         payload = {
             "contextInfo": {"recipientEmailAddress": "verify-target@example.com"},
@@ -2205,15 +2205,21 @@ class AuthFlowTests(unittest.TestCase):
                 headers=self._zitadel_signature_headers(payload),
             )
 
-        self.assertEqual(res.status_code, 202)
-        self.assertEqual(res.get_json(), {"status": "ignored"})
-        send_email.assert_not_called()
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
+        send_email.assert_called_once_with(
+            notification_type="verify-email",
+            to_email="verify-target@example.com",
+            action_url="http://localhost:8080/verify-email?user_id=u&code=c",
+            code="17UA42",
+        )
 
-    def test_zitadel_email_notification_reset_is_ignored(self):
+    def test_zitadel_email_notification_reset_uses_pandects_email_sender(self):
         client = self.app.test_client()
         payload = {
             "contextInfo": {"recipientEmailAddress": "reset-target@example.com"},
             "templateData": {"url": "http://localhost:8080/reset-password/confirm?user_id=u&code=c"},
+            "args": {"code": "95HQ2"},
         }
 
         with patch.object(auth_routes, "send_pandects_auth_email") as send_email:
@@ -2223,9 +2229,14 @@ class AuthFlowTests(unittest.TestCase):
                 headers=self._zitadel_signature_headers(payload),
             )
 
-        self.assertEqual(res.status_code, 202)
-        self.assertEqual(res.get_json(), {"status": "ignored"})
-        send_email.assert_not_called()
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), {"status": "sent"})
+        send_email.assert_called_once_with(
+            notification_type="reset-password",
+            to_email="reset-target@example.com",
+            action_url="http://localhost:8080/reset-password/confirm?user_id=u&code=c",
+            code="95HQ2",
+        )
 
     def test_zitadel_email_notification_rejects_invalid_signature(self):
         client = self.app.test_client()
