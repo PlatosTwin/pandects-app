@@ -398,6 +398,50 @@ class McpTests(unittest.TestCase):
                 "get_agreement_trends",
             ],
         )
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertEqual(res.get_json()["jsonrpc"], "2.0")
+
+    def test_tool_call_returns_jsonrpc_result_contract(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 77,
+                "method": "tools/call",
+                "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 77)
+        self.assertIn("result", body)
+        self.assertEqual(body["result"]["content"][0]["type"], "text")
+        self.assertIsInstance(body["result"]["content"][0]["text"], str)
+        structured = body["result"]["structuredContent"]
+        self.assertEqual(structured["results"][0]["agreement_uuid"], "a1")
+
+    def test_invalid_tool_arguments_return_jsonrpc_error_contract(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 78,
+                "method": "tools/call",
+                "params": {"name": "search_sections", "arguments": {"target_counsels": ["Wachtell"]}},
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 78)
+        self.assertEqual(body["error"]["code"], -32602)
+        self.assertEqual(body["error"]["message"], "Invalid tool arguments.")
+        self.assertIn("target_counsels", body["error"]["data"])
 
     def test_tools_list_advertises_structured_counsel_filters(self):
         client = self.app.test_client()
@@ -446,6 +490,73 @@ class McpTests(unittest.TestCase):
         agreement_tax_schema = tools["get_agreement_tax_clauses"]
         self.assertEqual(agreement_tax_schema["required"], ["agreement_uuid"])
         self.assertNotIn("focus_section_uuid", agreement_tax_schema["properties"])
+
+    def test_end_to_end_jsonrpc_workflow_from_initialize_to_retrieval(self):
+        client = self.app.test_client()
+        init_res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 90, "method": "initialize"},
+        )
+        self.assertEqual(init_res.status_code, 200)
+        self.assertEqual(init_res.get_json()["result"]["serverInfo"]["name"], "pandects-mcp")
+
+        tools_res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 91, "method": "tools/list"},
+        )
+        self.assertEqual(tools_res.status_code, 200)
+        tool_names = [tool["name"] for tool in tools_res.get_json()["result"]["tools"]]
+        self.assertIn("list_filter_options", tool_names)
+        self.assertIn("search_agreements", tool_names)
+
+        filter_res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 92,
+                "method": "tools/call",
+                "params": {"name": "list_filter_options", "arguments": {"fields": ["target_counsels"]}},
+            },
+        )
+        self.assertEqual(filter_res.status_code, 200)
+        filter_body = filter_res.get_json()["result"]["structuredContent"]
+        retrieval_param = filter_body["retrieval_parameter_map"]["target_counsels"]
+        canonical_name = filter_body["target_counsels"][0]
+
+        search_res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 93,
+                "method": "tools/call",
+                "params": {
+                    "name": "search_agreements",
+                    "arguments": {retrieval_param: [canonical_name]},
+                },
+            },
+        )
+        self.assertEqual(search_res.status_code, 200)
+        search_body = search_res.get_json()["result"]["structuredContent"]
+        agreement_uuid = search_body["results"][0]["agreement_uuid"]
+        self.assertEqual(agreement_uuid, "a1")
+
+        agreement_res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer(scope="agreements:read")},
+            json={
+                "jsonrpc": "2.0",
+                "id": 94,
+                "method": "tools/call",
+                "params": {"name": "get_agreement", "arguments": {"agreement_uuid": agreement_uuid}},
+            },
+        )
+        self.assertEqual(agreement_res.status_code, 200)
+        agreement_body = agreement_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(agreement_body["target"], "Target A")
 
     def test_search_agreements_tool(self):
         res = self._call_tool("search_agreements", {"query": "Target"})

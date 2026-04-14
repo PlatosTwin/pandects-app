@@ -22,6 +22,7 @@ from backend.schemas.public_api import (
     AgreementArgsSchema,
     AgreementsBulkArgsPayload,
     AgreementsBulkArgsSchema,
+    AgreementsIndexArgsSchema,
 )
 from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsArgsPayload, SectionsArgsSchema
 from backend.services.sections_service import run_sections
@@ -81,6 +82,15 @@ _STRUCTURED_FILTER_ARRAY_FIELDS = (
     "target_pe",
     "acquirer_pe",
 )
+
+
+def _merge_schema_instances(*schemas: Schema) -> Schema:
+    merged_fields: dict[str, ma_fields.Field] = {}
+    for schema in schemas:
+        for field_name, field in schema.fields.items():
+            merged_fields[field_name] = field
+    merged_type = Schema.from_dict(merged_fields, name="MergedSchema")
+    return cast(Schema, merged_type())
 
 
 def _array_schema_for_filter(field_name: str) -> dict[str, object]:
@@ -172,54 +182,61 @@ def _schema_input_schema(
 
 def _filter_option_metadata() -> dict[str, dict[str, object]]:
     return {
-        "targets": {"retrieval_parameter": "target", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "acquirers": {"retrieval_parameter": "acquirer", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "targets": {"retrieval_parameter": "target", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Target A"]]},
+        "acquirers": {"retrieval_parameter": "acquirer", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Acquirer A"]]},
         "transaction_price_totals": {
             "retrieval_parameter": "transaction_price_total",
             "applies_to": ["agreements", "sections"],
             "value_kind": "bucket",
             "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
+            "examples": [["100M - 250M"]],
         },
         "transaction_price_stocks": {
             "retrieval_parameter": "transaction_price_stock",
             "applies_to": ["agreements", "sections"],
             "value_kind": "bucket",
             "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
         "transaction_price_cashes": {
             "retrieval_parameter": "transaction_price_cash",
             "applies_to": ["agreements", "sections"],
             "value_kind": "bucket",
             "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
         "transaction_price_assets": {
             "retrieval_parameter": "transaction_price_assets",
             "applies_to": ["agreements", "sections"],
             "value_kind": "bucket",
             "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
-        "transaction_considerations": {"retrieval_parameter": "transaction_consideration", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "target_types": {"retrieval_parameter": "target_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "acquirer_types": {"retrieval_parameter": "acquirer_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "target_counsels": {"retrieval_parameter": "target_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "acquirer_counsels": {"retrieval_parameter": "acquirer_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "target_industries": {"retrieval_parameter": "target_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "acquirer_industries": {"retrieval_parameter": "acquirer_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "deal_statuses": {"retrieval_parameter": "deal_status", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "attitudes": {"retrieval_parameter": "attitude", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "deal_types": {"retrieval_parameter": "deal_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
-        "purposes": {"retrieval_parameter": "purpose", "applies_to": ["agreements", "sections"], "value_kind": "exact_string"},
+        "transaction_considerations": {"retrieval_parameter": "transaction_consideration", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "target_types": {"retrieval_parameter": "target_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "acquirer_types": {"retrieval_parameter": "acquirer_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "target_counsels": {"retrieval_parameter": "target_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Wachtell, Lipton, Rosen & Katz"]]},
+        "acquirer_counsels": {"retrieval_parameter": "acquirer_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "target_industries": {"retrieval_parameter": "target_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "acquirer_industries": {"retrieval_parameter": "acquirer_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "deal_statuses": {"retrieval_parameter": "deal_status", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "attitudes": {"retrieval_parameter": "attitude", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "deal_types": {"retrieval_parameter": "deal_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
+        "purposes": {"retrieval_parameter": "purpose", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
         "target_pes": {
             "retrieval_parameter": "target_pe",
             "applies_to": ["agreements", "sections"],
             "value_kind": "string_boolean",
             "allowed_values": ["true", "false"],
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
         "acquirer_pes": {
             "retrieval_parameter": "acquirer_pe",
             "applies_to": ["agreements", "sections"],
             "value_kind": "string_boolean",
             "allowed_values": ["true", "false"],
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
     }
 
@@ -275,36 +292,6 @@ class McpAgreementIdentifierSchema(Schema):
 
 class McpSectionArgsSchema(Schema):
     section_uuid = ma_fields.Str(required=True)
-
-
-class McpSearchAgreementsArgsSchema(Schema):
-    query = ma_fields.Str(load_default="")
-    page = ma_fields.Int(load_default=1)
-    page_size = ma_fields.Int(load_default=25)
-    sort_by = ma_fields.Str(load_default="year", validate=validate.OneOf(["year", "target", "acquirer"]))
-    sort_dir = ma_fields.Str(load_default="desc", validate=validate.OneOf(["asc", "desc"]))
-    year = ma_fields.List(ma_fields.Int(), load_default=[])
-    target = ma_fields.List(ma_fields.Str(), load_default=[])
-    acquirer = ma_fields.List(ma_fields.Str(), load_default=[])
-    transaction_price_total = ma_fields.List(ma_fields.Str(), load_default=[])
-    transaction_price_stock = ma_fields.List(ma_fields.Str(), load_default=[])
-    transaction_price_cash = ma_fields.List(ma_fields.Str(), load_default=[])
-    transaction_price_assets = ma_fields.List(ma_fields.Str(), load_default=[])
-    transaction_consideration = ma_fields.List(ma_fields.Str(), load_default=[])
-    target_type = ma_fields.List(ma_fields.Str(), load_default=[])
-    acquirer_type = ma_fields.List(ma_fields.Str(), load_default=[])
-    target_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
-    acquirer_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
-    target_industry = ma_fields.List(ma_fields.Str(), load_default=[])
-    acquirer_industry = ma_fields.List(ma_fields.Str(), load_default=[])
-    deal_status = ma_fields.List(ma_fields.Str(), load_default=[])
-    attitude = ma_fields.List(ma_fields.Str(), load_default=[])
-    deal_type = ma_fields.List(ma_fields.Str(), load_default=[])
-    purpose = ma_fields.List(ma_fields.Str(), load_default=[])
-    target_pe = ma_fields.List(ma_fields.Str(), load_default=[])
-    acquirer_pe = ma_fields.List(ma_fields.Str(), load_default=[])
-    agreement_uuid = ma_fields.Str(load_default=None, allow_none=True)
-    section_uuid = ma_fields.Str(load_default=None, allow_none=True)
 
 
 class McpListAgreementSectionsArgsSchema(Schema):
@@ -917,7 +904,10 @@ def _search_agreements(
     payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "agreements:search")
-    parsed_args = _validate_payload(McpSearchAgreementsArgsSchema(), payload)
+    parsed_args = _validate_payload(
+        _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema()),
+        payload,
+    )
     page = _normalized_page(cast(int, parsed_args["page"]))
     page_size = _normalized_page_size(cast(int, parsed_args["page_size"]))
     sort_by = cast(str, parsed_args["sort_by"])
@@ -971,10 +961,6 @@ def _search_agreements(
     list_filters = (
         ("target", agreements.target),
         ("acquirer", agreements.acquirer),
-        ("transaction_price_total", agreements.transaction_price_total),
-        ("transaction_price_stock", agreements.transaction_price_stock),
-        ("transaction_price_cash", agreements.transaction_price_cash),
-        ("transaction_price_assets", agreements.transaction_price_assets),
         ("transaction_consideration", agreements.transaction_consideration),
         ("target_type", agreements.target_type),
         ("acquirer_type", agreements.acquirer_type),
@@ -1833,6 +1819,7 @@ def _get_agreement_trends(
 
 
 def tool_definitions() -> list[dict[str, object]]:
+    search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema())
     structured_filter_overrides = _structured_filter_properties()
     agreements_list_overrides = _structured_filter_properties(include_cursor=True, include_xml=True)
     search_agreements_overrides = {
@@ -1863,7 +1850,7 @@ def tool_definitions() -> list[dict[str, object]]:
             "name": "search_agreements",
             "description": "Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
             "inputSchema": _schema_input_schema(
-                McpSearchAgreementsArgsSchema(),
+                search_agreements_schema,
                 field_overrides=search_agreements_overrides,
             ),
         },
