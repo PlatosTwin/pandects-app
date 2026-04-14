@@ -45,12 +45,16 @@ export default function BulkData() {
   const [latestSqlUrl, setLatestSqlUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchDumps = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(apiUrl("v1/dumps"));
+        const response = await fetch(apiUrl("v1/dumps"), {
+          signal: controller.signal,
+        });
         if (!response.ok) {
           trackEvent("api_error", {
             endpoint: "api/dumps",
@@ -80,6 +84,9 @@ export default function BulkData() {
 
         setDumps(sortedData);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
         if (import.meta.env.DEV) {
           logger.error("Error fetching dumps:", err);
         }
@@ -97,6 +104,9 @@ export default function BulkData() {
     };
 
     fetchDumps();
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const formatTimestamp = (timestamp: string): string => {
@@ -217,7 +227,7 @@ export default function BulkData() {
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
               <div>
-                <div className="mb-2 text-foreground/80">
+                <div className="mb-2 text-foreground/90">
                   # API call to get dumps info
                 </div>
                 <div className="whitespace-nowrap pr-10">
@@ -252,7 +262,7 @@ export default function BulkData() {
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="mb-2 text-foreground/80">
+                <div className="mb-2 text-foreground/90">
                   # Download latest dump
                 </div>
               <div className="whitespace-nowrap pr-10">
@@ -293,7 +303,7 @@ export default function BulkData() {
               )}
             </button>
             <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="mb-2 text-foreground/80">
+                <div className="mb-2 text-foreground/90">
                   # Verify file integrity
                 </div>
               <div className="whitespace-nowrap pr-10">
@@ -311,7 +321,7 @@ export default function BulkData() {
         <h2 className="text-xl font-semibold text-foreground mb-2">
           About the SQL Dump
         </h2>
-        <p className="prose max-w-none text-foreground/80">
+        <p className="prose max-w-none text-foreground/90">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
@@ -319,7 +329,7 @@ export default function BulkData() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="MariaDB Documentation (opens in a new tab)"
-            className="underline underline-offset-2"
+            className="font-medium underline decoration-foreground/60 underline-offset-2"
           >
             MariaDB Documentation
           </a>
@@ -333,7 +343,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads
           </h2>
-          <p className="mt-1 text-foreground/80">
+          <p className="mt-1 text-foreground/90">
             Database dumps hosted on Cloudflare, sorted by date (newest first)
           </p>
         </div>
@@ -416,7 +426,7 @@ export default function BulkData() {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-foreground/80">
+                        <span className="text-sm text-foreground/90">
                           {formatSize(dump.size_bytes)}
                         </span>
                       </TableCell>
@@ -497,16 +507,16 @@ export default function BulkData() {
                             </Badge>
                           )}
                       </div>
-                      <div className="text-xs text-foreground/80">
+                      <div className="text-xs text-foreground/90">
                         {formatSize(dump.size_bytes)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/90">
                         SHA256 hash
                       </div>
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="font-mono text-xs text-foreground/80">
+                        <span className="font-mono text-xs text-foreground/90">
                           {formatSha256(dump.sha256)}
                         </span>
                         <Button

@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { applySeoForLocation } from "@/lib/seo";
 import {
   installOutboundLinkTracking,
+  scheduleWhenBrowserIdle,
   trackPageview,
   trackTimeOnPage,
 } from "@/lib/analytics";
@@ -40,7 +41,17 @@ export function AppLayout() {
     );
   }, [location.hash, location.pathname, location.search]);
 
-  useEffect(() => installOutboundLinkTracking(), []);
+  useEffect(() => {
+    let cleanup = () => undefined;
+    const cancelScheduledInstall = scheduleWhenBrowserIdle(() => {
+      cleanup = installOutboundLinkTracking();
+    });
+
+    return () => {
+      cancelScheduledInstall();
+      cleanup();
+    };
+  }, []);
 
   useEffect(() => {
     const path = `${location.pathname}${location.search}${location.hash}`;

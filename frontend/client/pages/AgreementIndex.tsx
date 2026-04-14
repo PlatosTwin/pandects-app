@@ -1,4 +1,12 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  startTransition,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -121,6 +129,7 @@ const AGREEMENT_SUMMARY_CACHE_KEY = "agreement-index-summary:v1";
 const AGREEMENT_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function AgreementIndex() {
+  const [isPending, startPageTransition] = useTransition();
   const [summary, setSummary] = useState<AgreementIndexSummary | null>(() =>
     readSessionCache<AgreementIndexSummary>(
       AGREEMENT_SUMMARY_CACHE_KEY,
@@ -260,20 +269,24 @@ export default function AgreementIndex() {
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      setFilterQuery(filterInput);
-      setPage(1);
+      startTransition(() => {
+        setFilterQuery(filterInput);
+        setPage(1);
+      });
     }, 300);
     return () => window.clearTimeout(handle);
   }, [filterInput]);
 
   const handleSort = (column: SortColumn) => {
-    if (column === sort_by) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(column);
-      setSortDir("asc");
-    }
-    setPage(1);
+    startPageTransition(() => {
+      if (column === sort_by) {
+        setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      } else {
+        setSortBy(column);
+        setSortDir("asc");
+      }
+      setPage(1);
+    });
   };
 
   const pageItems = useMemo(() => {
@@ -422,6 +435,7 @@ export default function AgreementIndex() {
               <Badge
                 variant="secondary"
                 className="self-start tabular-nums sm:self-auto"
+                aria-busy={isPending}
               >
                 {total_count.toLocaleString("en-US")} agreements
               </Badge>
@@ -554,7 +568,7 @@ export default function AgreementIndex() {
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody aria-busy={loading}>
+              <TableBody aria-busy={loading || isPending}>
                 {isInitialAgreementLoad ? (
                   Array.from({ length: page_size }).map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
@@ -597,11 +611,13 @@ export default function AgreementIndex() {
                         <button
                           type="button"
                           onClick={() =>
-                            setSelectedAgreement({
-                              agreement_uuid: agreement.agreement_uuid,
-                              year: agreement.year ?? "",
-                              target: agreement.target ?? "",
-                              acquirer: agreement.acquirer ?? "",
+                            startTransition(() => {
+                              setSelectedAgreement({
+                                agreement_uuid: agreement.agreement_uuid,
+                                year: agreement.year ?? "",
+                                target: agreement.target ?? "",
+                                acquirer: agreement.acquirer ?? "",
+                              });
                             })
                           }
                           className="group inline-flex items-center gap-2 text-left text-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -709,11 +725,13 @@ export default function AgreementIndex() {
                         <button
                           type="button"
                           onClick={() =>
-                            setSelectedAgreement({
-                              agreement_uuid: agreement.agreement_uuid,
-                              year: agreement.year ?? "",
-                              target: agreement.target ?? "",
-                              acquirer: agreement.acquirer ?? "",
+                            startTransition(() => {
+                              setSelectedAgreement({
+                                agreement_uuid: agreement.agreement_uuid,
+                                year: agreement.year ?? "",
+                                target: agreement.target ?? "",
+                                acquirer: agreement.acquirer ?? "",
+                              });
                             })
                           }
                           className="mt-1 text-left font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -753,17 +771,21 @@ export default function AgreementIndex() {
           </div>
 
           <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground" aria-live="polite">
               Page {page} of {total_pages}
             </div>
-            <Pagination className="justify-end sm:justify-center">
+            <Pagination className="justify-end sm:justify-center" aria-busy={isPending}>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
                     onClick={(event) => {
                       event.preventDefault();
-                      if (page > 1) setPage(page - 1);
+                      if (page > 1) {
+                        startPageTransition(() => {
+                          setPage(page - 1);
+                        });
+                      }
                     }}
                     className={cn(
                       page === 1 && "pointer-events-none opacity-50",
@@ -783,7 +805,9 @@ export default function AgreementIndex() {
                         isActive={item === page}
                         onClick={(event) => {
                           event.preventDefault();
-                          setPage(item);
+                          startPageTransition(() => {
+                            setPage(item);
+                          });
                         }}
                       >
                         {item}
@@ -796,7 +820,11 @@ export default function AgreementIndex() {
                     href="#"
                     onClick={(event) => {
                       event.preventDefault();
-                      if (page < total_pages) setPage(page + 1);
+                      if (page < total_pages) {
+                        startPageTransition(() => {
+                          setPage(page + 1);
+                        });
+                      }
                     }}
                     className={cn(
                       page === total_pages && "pointer-events-none opacity-50",

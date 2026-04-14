@@ -5,6 +5,27 @@ let analyticsBootstrapped = false;
 let analyticsScriptLoaded = false;
 let analyticsScriptScheduled = false;
 
+export function scheduleWhenBrowserIdle(
+  callback: () => void,
+  timeout = 1500,
+) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  if ("requestIdleCallback" in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout });
+    return () => {
+      window.cancelIdleCallback(idleId);
+    };
+  }
+
+  const timeoutId = globalThis.setTimeout(callback, Math.min(timeout, 400));
+  return () => {
+    globalThis.clearTimeout(timeoutId);
+  };
+}
+
 export function bootstrapAnalytics() {
   if (typeof window === "undefined" || analyticsBootstrapped) return;
   analyticsBootstrapped = true;
@@ -36,6 +57,7 @@ export function scheduleAnalyticsScriptLoad() {
   }
 
   analyticsScriptScheduled = true;
+  bootstrapAnalytics();
 
   const listenerOptions: AddEventListenerOptions = {
     once: true,

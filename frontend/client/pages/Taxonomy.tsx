@@ -63,6 +63,10 @@ export default function Taxonomy() {
     currentTab === "tax"
       ? "Search clause types or taxonomy IDs"
       : "Search section types or taxonomy IDs";
+  const emptySearchMessage =
+    currentTab === "tax"
+      ? "No matching tax clause types yet."
+      : "No matching section types yet.";
   const taxonomyEntries = useMemo(
     () => (taxonomyTree ? buildTaxonomyEntries(taxonomyTree) : []),
     [taxonomyTree],
@@ -317,7 +321,10 @@ export default function Taxonomy() {
           API route. See the{" "}
           <a
             href={endpointDocsUrl}
-            className="text-primary underline underline-offset-2"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open taxonomy API docs in a new tab"
+            className="font-medium text-primary underline decoration-primary/60 underline-offset-2"
           >
             Docs
           </a>{" "}
@@ -339,7 +346,7 @@ export default function Taxonomy() {
           </Tabs>
         </section>
 
-        <section aria-labelledby="taxonomy-search">
+        <section aria-labelledby="taxonomy-search" role="search">
           <div className="rounded-lg border border-border/60 bg-card p-4 shadow-sm">
             <Label
               id="taxonomy-search"
@@ -379,8 +386,8 @@ export default function Taxonomy() {
                     <Skeleton className="h-4 w-3/4" />
                   </div>
                 ) : searchResults.length === 0 ? (
-                  <div className="text-sm text-foreground/80">
-                    No matching clause types yet.
+                  <div className="text-sm text-foreground/90">
+                    {emptySearchMessage}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -414,7 +421,7 @@ export default function Taxonomy() {
                               </div>
                               {result.l2 && (
                                 <div className="ml-1 mt-0.5 border-l border-foreground/35 pl-3">
-                                  <div className="relative leading-snug text-foreground/80">
+                                  <div className="relative leading-snug text-foreground/90">
                                     <span
                                       aria-hidden="true"
                                       className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/35"
@@ -482,7 +489,7 @@ export default function Taxonomy() {
               ) : (
                 <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Folder className="h-4 w-4" aria-hidden="true" />
                       Level 1 Categories
                     </div>
@@ -494,7 +501,7 @@ export default function Taxonomy() {
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Layers className="h-4 w-4" aria-hidden="true" />
                       Level 2 Groups
                     </div>
@@ -506,7 +513,7 @@ export default function Taxonomy() {
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-4">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       Level 3 Types
                     </div>

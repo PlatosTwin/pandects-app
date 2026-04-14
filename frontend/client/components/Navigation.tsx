@@ -1,91 +1,46 @@
 import { Link, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { ChevronDown, Menu } from "lucide-react";
-import { useMemo, useRef, useState, memo } from "react";
+import { Suspense, lazy, memo, useEffect, useRef, useState } from "react";
 import logo128Webp from "../../assets/logo-128.webp";
 import logo256Webp from "../../assets/logo-256.webp";
 import logo128Png from "../../assets/logo-128.png";
 import logo256Png from "../../assets/logo-256.png";
-import { Button } from "@/components/ui/button";
 import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
-import { AuthMenu } from "@/components/AuthMenu";
-import brandLinks from "@branding/links.json";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetDescription,
-  SheetTitle,
-  SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
+const NavigationDesktopMenus = lazy(
+  () => import("@/components/NavigationDesktopMenus"),
+);
+const NavigationMobileMenu = lazy(
+  () => import("@/components/NavigationMobileMenu"),
+);
+
+function DesktopNavigationFallback() {
+  return (
+    <div className="hidden items-center gap-1 md:flex">
+      <div className="flex items-center gap-1">
+        <div className="h-9 w-20 animate-pulse rounded-md bg-muted/70" />
+        <div className="h-9 w-16 animate-pulse rounded-md bg-muted/70" />
+        <div className="h-9 w-16 animate-pulse rounded-md bg-muted/70" />
+      </div>
+      <div className="ml-2 h-9 w-20 animate-pulse rounded-md bg-muted/70" />
+    </div>
+  );
+}
+
+function MobileNavigationFallback() {
+  return <div className="h-10 w-10 rounded-md bg-muted/70 md:hidden" aria-hidden="true" />;
+}
 
 function NavigationComponent() {
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const docsHomeUrl = `${docsUrl}/docs/guides/getting-started`;
-  const betaDisclaimer = `Pandects is in early development. Layout, API schema, and data organization may change.`;
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const betaDisclaimer =
+    "Pandects is in early development. Layout, API schema, and data organization may change.";
 
-  const isActive = (path: string) => location.pathname === path;
-  const navLinkBase =
-    "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-  const dataSeparatorClass = "bg-border";
-
-  const primaryLinks = useMemo(
-    () => [
-      { to: "/search", label: "Search", pandaTarget: "nav-search" },
-      {
-        to: docsHomeUrl,
-        label: "Docs",
-        pandaTarget: "nav-docs",
-        external: true,
-      },
-    ],
-    [],
-  );
-  const aboutLinks = useMemo(
-    () => [
-      { to: "/about", label: "About", pandaTarget: "nav-about" },
-      { to: "/feedback", label: "Feedback" },
-      { to: "/contribute", label: "Contribute", pandaTarget: "nav-contribute" },
-    ],
-    [],
-  );
-  const dataLinks = useMemo(
-    () => [
-      { type: "link", to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
-      { type: "link", to: "/agreement-index", label: "Agreement Index" },
-      { type: "link", to: "/sources-methods", label: "Sources & Methods" },
-      { type: "link", to: "/xml-schema", label: "XML Schema" },
-      { type: "link", to: "/taxonomy", label: "Taxonomy" },
-      { type: "separator", key: "data-divider" },
-      { type: "link", to: "/leaderboards", label: "Leaderboards" },
-      { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
-    ] as const,
-    [],
-  );
-  const dataNavLinks = dataLinks.filter((item) => item.type === "link");
-  const isDataActive = dataNavLinks.some((link) => isActive(link.to));
-  const isAboutActive = aboutLinks.some((link) => isActive(link.to));
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -131,340 +86,30 @@ function NavigationComponent() {
               Pandects
             </span>
           </Link>
-          <AlertDialog open={isBetaDialogOpen} onOpenChange={setIsBetaDialogOpen}>
-            <button
-              type="button"
-              onClick={() => setIsBetaDialogOpen(true)}
-              className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              aria-label="Read beta notice"
-            >
-              BETA
-            </button>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Beta Notice</AlertDialogTitle>
-                <AlertDialogDescription className="text-left">
-                  {betaDisclaimer}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogAction onClick={() => setIsBetaDialogOpen(false)}>
-                Got it
-              </AlertDialogAction>
-            </AlertDialogContent>
-          </AlertDialog>
+          <span
+            className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-900"
+            title={betaDisclaimer}
+            aria-label={`Beta notice. ${betaDisclaimer}`}
+          >
+            BETA
+          </span>
         </div>
 
-        {/* Desktop navigation */}
-        <div className="hidden items-center gap-1 md:flex">
-          <div className="flex items-center gap-1">
-            {primaryLinks.map((link) => (
-              link.external ? (
-                <a
-                  key={link.to}
-                  href={link.to}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-panda-target={link.pandaTarget}
-                  onClick={() =>
-                    trackEvent("nav_primary_click", {
-                      nav_item: link.label,
-                      from_path: location.pathname,
-                      to_path: link.to,
-                    })
-                  }
-                  className={cn(
-                    navLinkBase,
-                    "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  data-panda-target={link.pandaTarget}
-                  onClick={() =>
-                    trackEvent("nav_primary_click", {
-                      nav_item: link.label,
-                      from_path: location.pathname,
-                      to_path: link.to,
-                    })
-                  }
-                  aria-current={isActive(link.to) ? "page" : undefined}
-                  className={cn(
-                    navLinkBase,
-                    isActive(link.to)
-                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  {link.label}
-                </Link>
-              )
-            ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  data-panda-target="nav-bulk-data"
-                  className={cn(
-                    navLinkBase,
-                    "inline-flex items-center gap-1",
-                    isDataActive
-                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  Data
-                  <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                {dataLinks.map((item) =>
-                  item.type === "separator" ? (
-                    <DropdownMenuSeparator key={item.key} className={dataSeparatorClass} />
-                  ) : (
-                    <DropdownMenuItem key={item.to} asChild>
-                      <Link
-                        to={item.to}
-                        onClick={() =>
-                          trackEvent("nav_data_click", {
-                            nav_item: item.label,
-                            from_path: location.pathname,
-                            to_path: item.to,
-                          })
-                        }
-                        aria-current={isActive(item.to) ? "page" : undefined}
-                        className="text-foreground"
-                      >
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ),
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  data-panda-target="nav-about"
-                  className={cn(
-                    navLinkBase,
-                    "inline-flex items-center gap-1",
-                    isAboutActive
-                      ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  Project
-                  <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                {aboutLinks.map((link) => (
-                  <DropdownMenuItem key={link.to} asChild>
-                    <Link
-                      to={link.to}
-                      data-panda-target={link.pandaTarget}
-                      onClick={() =>
-                        trackEvent("nav_secondary_click", {
-                          nav_item: link.label,
-                          from_path: location.pathname,
-                          to_path: link.to,
-                        })
-                      }
-                      aria-current={isActive(link.to) ? "page" : undefined}
-                      className="text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="ml-2">
-            <AuthMenu />
-          </div>
-        </div>
-
-        {/* Mobile navigation */}
-        <div className="flex items-center md:hidden">
-          <div className="mr-2">
-            <AuthMenu />
-          </div>
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10"
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-[min(320px,100vw)] max-w-full p-0"
-            >
-              <div className="flex h-full flex-col">
-                <SheetHeader className="border-b p-4 text-left">
-                  <SheetTitle className="flex items-center gap-3">
-                    <picture>
-                      <source
-                        srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
-                        sizes="36px"
-                        type="image/webp"
-                      />
-                      <img
-                        src={logo128Png}
-                        alt="Pandects Logo"
-                        width={36}
-                        height={36}
-                        srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
-                        sizes="36px"
-                        decoding="async"
-                        className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
-                      />
-                    </picture>
-                    <span className="text-base font-semibold tracking-tight">
-                      Pandects
-                    </span>
-                  </SheetTitle>
-                  <SheetDescription className="sr-only">
-                    Primary navigation links and account access.
-                  </SheetDescription>
-                </SheetHeader>
-
-                <div className="flex-1 overflow-auto p-2">
-                  <div className="grid gap-1">
-                    {primaryLinks.map((link) => (
-                      <SheetClose asChild key={link.to}>
-                        {link.external ? (
-                          <a
-                            href={link.to}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() =>
-                              trackEvent("nav_primary_click", {
-                                nav_item: link.label,
-                                from_path: location.pathname,
-                                to_path: link.to,
-                              })
-                            }
-                            className={cn(
-                              navLinkBase,
-                              "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                            )}
-                          >
-                            {link.label}
-                          </a>
-                        ) : (
-                          <Link
-                            to={link.to}
-                            onClick={() =>
-                              trackEvent("nav_primary_click", {
-                                nav_item: link.label,
-                                from_path: location.pathname,
-                                to_path: link.to,
-                              })
-                            }
-                            aria-current={isActive(link.to) ? "page" : undefined}
-                            className={cn(
-                              navLinkBase,
-                              isActive(link.to)
-                                ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                            )}
-                          >
-                            {link.label}
-                          </Link>
-                        )}
-                      </SheetClose>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
-                    <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Data
-                    </div>
-                    <div className="grid gap-1">
-                      {dataLinks.map((item) =>
-                        item.type === "separator" ? (
-                          <div
-                            key={item.key}
-                            aria-hidden="true"
-                            className={cn("mx-2 my-1 h-px", dataSeparatorClass)}
-                          />
-                        ) : (
-                          <SheetClose asChild key={item.to}>
-                            <Link
-                              to={item.to}
-                              onClick={() =>
-                                trackEvent("nav_data_click", {
-                                  nav_item: item.label,
-                                  from_path: location.pathname,
-                                  to_path: item.to,
-                                })
-                              }
-                              aria-current={isActive(item.to) ? "page" : undefined}
-                              className={cn(
-                                navLinkBase,
-                                "pl-4",
-                                isActive(item.to)
-                                  ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                              )}
-                            >
-                              {item.label}
-                            </Link>
-                          </SheetClose>
-                        ),
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
-                    <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Project
-                    </div>
-                    <div className="grid gap-1">
-                      {aboutLinks.map((link) => (
-                      <SheetClose asChild key={link.to}>
-                        <Link
-                          to={link.to}
-                          data-panda-target={link.pandaTarget}
-                          onClick={() =>
-                            trackEvent("nav_secondary_click", {
-                              nav_item: link.label,
-                              from_path: location.pathname,
-                              to_path: link.to,
-                            })
-                          }
-                          aria-current={isActive(link.to) ? "page" : undefined}
-                          className={cn(
-                            navLinkBase,
-                            "pl-4",
-                            isActive(link.to)
-                              ? "bg-primary/10 text-primary font-medium border-l-2 border-primary"
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                          )}
-                        >
-                          {link.label}
-                        </Link>
-                      </SheetClose>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+        {hasHydrated ? (
+          <>
+            <Suspense fallback={<DesktopNavigationFallback />}>
+              <NavigationDesktopMenus />
+            </Suspense>
+            <Suspense fallback={<MobileNavigationFallback />}>
+              <NavigationMobileMenu />
+            </Suspense>
+          </>
+        ) : (
+          <>
+            <DesktopNavigationFallback />
+            <MobileNavigationFallback />
+          </>
+        )}
 
         <LazyPandaEasterEgg containerRef={navRef} />
       </nav>
