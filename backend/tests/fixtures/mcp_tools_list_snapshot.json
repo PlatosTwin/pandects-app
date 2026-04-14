@@ -2304,6 +2304,559 @@
     "annotations": {
       "pagination": "none",
       "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when you know the legal concept but not the right taxonomy id."
+    },
+    "description": "Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "type": "string"
+        },
+        "taxonomy": {
+          "enum": [
+            "clauses",
+            "tax_clauses"
+          ],
+          "type": "string"
+        },
+        "top_k": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "concept"
+      ],
+      "type": "object"
+    },
+    "name": "suggest_clause_families",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "type": "string"
+        },
+        "matches": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "matched_terms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "path": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "standard_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "standard_id",
+              "label",
+              "path",
+              "score",
+              "matched_terms",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "returned_count": {
+          "type": "integer"
+        },
+        "taxonomy": {
+          "enum": [
+            "clauses",
+            "tax_clauses"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "concept",
+        "taxonomy",
+        "matches",
+        "returned_count"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use after search_sections when you need a quick excerpt for comparison or quoting."
+    },
+    "description": "Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "focus_terms": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "max_chars": {
+          "type": "integer"
+        },
+        "section_uuid": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_uuid"
+      ],
+      "type": "object"
+    },
+    "name": "get_section_snippet",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreement_uuid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "article_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "matched_terms": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "section_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "section_uuid": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": "string"
+        },
+        "source_length": {
+          "type": "integer"
+        },
+        "standard_id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "agreement_uuid",
+        "section_uuid",
+        "standard_id",
+        "article_title",
+        "section_title",
+        "snippet",
+        "matched_terms",
+        "source_length"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use when the task is exploratory and you want the server to suggest the right sequence of taxonomy, retrieval, and snippet steps."
+    },
+    "description": "Plan an exploratory counsel comparison by normalizing counsel names, suggesting likely clause families, and returning the next MCP calls to make.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "type": "string"
+        },
+        "counsel_names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "side": {
+          "enum": [
+            "target",
+            "acquirer",
+            "either"
+          ],
+          "type": "string"
+        },
+        "top_k": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "concept",
+        "counsel_names"
+      ],
+      "type": "object"
+    },
+    "name": "plan_counsel_comparison",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "type": "string"
+        },
+        "counsel": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "canonical_name": {
+                "type": "string"
+              },
+              "counsel_id": {
+                "type": "integer"
+              },
+              "input_name": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "input_name",
+              "canonical_name",
+              "counsel_id",
+              "score"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "recommended_workflow": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "type": "object"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool",
+              "purpose",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "side": {
+          "enum": [
+            "target",
+            "acquirer",
+            "either"
+          ],
+          "type": "string"
+        },
+        "taxonomy_matches": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "matched_terms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "path": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "standard_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "standard_id",
+              "label",
+              "path",
+              "score",
+              "matched_terms",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "concept",
+        "side",
+        "counsel",
+        "taxonomy_matches",
+        "recommended_workflow"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
+        "sections:search"
+      ],
+      "selectionHint": "Use for lightweight comparative research across counsel without building the workflow manually."
+    },
+    "description": "Compare sample sections across one or more counsel using a concept or explicit taxonomy id, returning short snippets instead of whole sections.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "concept": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "counsel_names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "focus_terms": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sample_size": {
+          "type": "integer"
+        },
+        "side": {
+          "enum": [
+            "target",
+            "acquirer",
+            "either"
+          ],
+          "type": "string"
+        },
+        "standard_id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "counsel_names"
+      ],
+      "type": "object"
+    },
+    "name": "compare_counsel_clause_samples",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "comparisons": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "canonical_name": {
+                "type": "string"
+              },
+              "input_name": {
+                "type": "string"
+              },
+              "sample_count": {
+                "type": "integer"
+              },
+              "sample_sections": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "agreement_uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "article_title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "matched_terms": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "section_title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "section_uuid": {
+                      "type": "string"
+                    },
+                    "snippet": {
+                      "type": "string"
+                    },
+                    "standard_id": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "agreement_uuid",
+                    "section_uuid",
+                    "standard_id",
+                    "article_title",
+                    "section_title",
+                    "snippet",
+                    "matched_terms"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "side": {
+                "enum": [
+                  "target",
+                  "acquirer",
+                  "either"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "input_name",
+              "canonical_name",
+              "side",
+              "sample_count",
+              "sample_sections"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "concept": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "returned_count": {
+          "type": "integer"
+        },
+        "standard_id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "taxonomy_matches": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "matched_terms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "path": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "standard_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "standard_id",
+              "label",
+              "path",
+              "score",
+              "matched_terms",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "concept",
+        "standard_id",
+        "taxonomy_matches",
+        "comparisons",
+        "returned_count"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "pagination": "none",
+      "requiredScopes": [
         "agreements:search"
       ],
       "selectionHint": "Use for operational monitoring and to see which MCP tools are slow or error-prone."

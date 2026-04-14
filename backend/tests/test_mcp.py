@@ -241,10 +241,31 @@ class McpTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, url, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, deal_type, purpose, target_pe, acquirer_pe"
+                        ") VALUES ("
+                        "'a2', '2021-06-15', 'Company B', 'Buyer B', 1, 'http://example.com/a2', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'merger', 'strategic', 0, 0"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>HIDE</text></section>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>Material Adverse Effect means any effect except disproportionate effects on the Company relative to other participants in the industry.</text></section>"
+                        "</article></document>', 1, 'verified', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a2', '<document><article>"
+                        "<section uuid=\"00000000-0000-0000-0000-000000000004\"><text>Material Adverse Effect excludes changes affecting the industry generally, except to the extent they have a disproportionate effect on the Company.</text></section>"
                         "</article></document>', 1, 'verified', 1)"
                     )
                 )
@@ -262,6 +283,26 @@ class McpTests(unittest.TestCase):
                         "xml_content, section_standard_id, xml_version) VALUES "
                         "('a1', '00000000-0000-0000-0000-000000000002', "
                         "'ARTICLE II', 'Section 2', '<section>MORE</section>', '[\"s2\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a1', '00000000-0000-0000-0000-000000000003', "
+                        "'ARTICLE III', 'Material Adverse Effect', "
+                        "'<section><text>Material Adverse Effect means any effect except disproportionate effects on the Company relative to other participants in the industry.</text></section>', "
+                        "'[\"2.1\", \"2.1.1\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        "('a2', '00000000-0000-0000-0000-000000000004', "
+                        "'ARTICLE I', 'Material Adverse Effect', "
+                        "'<section><text>Material Adverse Effect excludes changes affecting the industry generally, except to the extent they have a disproportionate effect on the Company.</text></section>', "
+                        "'[\"2.1\", \"2.1.1\"]', 1)"
                     )
                 )
                 conn.execute(
@@ -302,6 +343,42 @@ class McpTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000003', 'a1', '2020-01-01', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Target A', 'Acquirer A', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a1', '[\"2.1\", \"2.1.1\"]', 'ARTICLE III', 'Material Adverse Effect'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search ("
+                        "section_uuid, agreement_uuid, filing_date, prob_filing, filing_company_name, "
+                        "filing_company_cik, form_type, exhibit_type, target, acquirer, "
+                        "transaction_price_total, transaction_price_stock, transaction_price_cash, "
+                        "transaction_price_assets, transaction_consideration, target_type, acquirer_type, "
+                        "target_industry, acquirer_industry, announce_date, close_date, deal_status, "
+                        "attitude, deal_type, purpose, target_pe, acquirer_pe, verified, url, "
+                        "section_standard_ids, article_title, section_title"
+                        ") VALUES ("
+                        "'00000000-0000-0000-0000-000000000004', 'a2', '2021-06-15', NULL, NULL, NULL, "
+                        "NULL, NULL, 'Company B', 'Buyer B', NULL, NULL, NULL, NULL, 'cash', 'public', "
+                        "'public', 'tech', 'tech', NULL, NULL, 'complete', 'friendly', 'merger', "
+                        "'strategic', 0, 0, 1, 'http://example.com/a2', '[\"2.1\", \"2.1.1\"]', 'ARTICLE I', 'Material Adverse Effect'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
                         "VALUES ('s1', '00000000-0000-0000-0000-000000000001', 'a1')"
                     )
@@ -310,6 +387,15 @@ class McpTests(unittest.TestCase):
                     text(
                         "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
                         "VALUES ('s2', '00000000-0000-0000-0000-000000000002', 'a1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('2.1', '00000000-0000-0000-0000-000000000003', 'a1'), "
+                        "('2.1.1', '00000000-0000-0000-0000-000000000003', 'a1'), "
+                        "('2.1', '00000000-0000-0000-0000-000000000004', 'a2'), "
+                        "('2.1.1', '00000000-0000-0000-0000-000000000004', 'a2')"
                     )
                 )
                 conn.execute(
@@ -340,7 +426,9 @@ class McpTests(unittest.TestCase):
                     text(
                         "INSERT INTO agreement_counsel (agreement_uuid, side, position, raw_name, counsel_id) VALUES "
                         "('a1', 'target', 1, 'Wachtell', 1), "
-                        "('a1', 'acquirer', 1, 'Skadden', 2)"
+                        "('a1', 'acquirer', 1, 'Skadden', 2), "
+                        "('a2', 'target', 1, 'Skadden', 2), "
+                        "('a2', 'acquirer', 1, 'Wachtell', 1)"
                     )
                 )
                 conn.execute(
@@ -350,12 +438,27 @@ class McpTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO taxonomy_l1 (standard_id, label) VALUES ('2', 'Definitions')"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO taxonomy_l2 (standard_id, label, parent_id) VALUES ('1.1', 'Fiduciary Out', '1')"
                     )
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO taxonomy_l2 (standard_id, label, parent_id) VALUES ('2.1', 'Material Adverse Effect', '2')"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO taxonomy_l3 (standard_id, label, parent_id) VALUES ('1.1.1', 'Change Of Recommendation', '1.1')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO taxonomy_l3 (standard_id, label, parent_id) VALUES ('2.1.1', 'Disproportionate Effects', '2.1')"
                     )
                 )
                 conn.execute(
@@ -570,6 +673,10 @@ class McpTests(unittest.TestCase):
                 "get_agreement_tax_clauses",
                 "get_section_tax_clauses",
                 "list_filter_options",
+                "suggest_clause_families",
+                "get_section_snippet",
+                "plan_counsel_comparison",
+                "compare_counsel_clause_samples",
                 "get_server_metrics",
                 "get_server_capabilities",
                 "get_clause_taxonomy",
@@ -703,6 +810,18 @@ class McpTests(unittest.TestCase):
         self.assertIn("deal_types", list_filter_options_schema["properties"]["fields"]["items"]["enum"])
         self.assertIn("transaction_price_totals", list_filter_options_schema["properties"]["fields"]["items"]["enum"])
 
+        concept_schema = tools["suggest_clause_families"]
+        self.assertEqual(concept_schema["properties"]["taxonomy"]["enum"], ["clauses", "tax_clauses"])
+
+        snippet_schema = tools["get_section_snippet"]
+        self.assertIn("focus_terms", snippet_schema["properties"])
+
+        comparison_plan_schema = tools["plan_counsel_comparison"]
+        self.assertEqual(comparison_plan_schema["properties"]["side"]["enum"], ["target", "acquirer", "either"])
+
+        comparison_schema = tools["compare_counsel_clause_samples"]
+        self.assertIn("sample_size", comparison_schema["properties"])
+
         capabilities_schema = tools["get_server_capabilities"]
         self.assertEqual(capabilities_schema["properties"], {})
 
@@ -748,7 +867,8 @@ class McpTests(unittest.TestCase):
         self.assertEqual(filter_res.status_code, 200)
         filter_body = filter_res.get_json()["result"]["structuredContent"]
         retrieval_param = filter_body["retrieval_parameter_map"]["target_counsels"]
-        canonical_name = filter_body["target_counsels"][0]
+        canonical_name = "Wachtell, Lipton, Rosen & Katz"
+        self.assertIn(canonical_name, filter_body["target_counsels"])
 
         search_res = client.post(
             "/mcp",
@@ -815,7 +935,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["agreement_uuid"], "a1")
-        self.assertEqual(payload["returned_count"], 2)
+        self.assertEqual(payload["returned_count"], 3)
         self.assertEqual(payload["results"][0]["section_uuid"], "00000000-0000-0000-0000-000000000001")
 
     def test_tax_clause_tools(self):
@@ -845,8 +965,14 @@ class McpTests(unittest.TestCase):
         )
         self.assertEqual(filter_res.status_code, 200)
         filter_payload = filter_res.get_json()["result"]["structuredContent"]
-        self.assertEqual(filter_payload["targets"], ["Target A"])
-        self.assertEqual(filter_payload["target_counsels"], ["Wachtell, Lipton, Rosen & Katz"])
+        self.assertEqual(filter_payload["targets"], ["Company B", "Target A"])
+        self.assertEqual(
+            filter_payload["target_counsels"],
+            [
+                "Skadden, Arps, Slate, Meagher & Flom LLP",
+                "Wachtell, Lipton, Rosen & Katz",
+            ],
+        )
         self.assertIn("0 - 100M", filter_payload["transaction_price_totals"])
         self.assertEqual(filter_payload["deal_types"], ["merger"])
         self.assertEqual(filter_payload["target_pes"], ["true", "false"])
@@ -886,6 +1012,58 @@ class McpTests(unittest.TestCase):
         naics_payload = naics_res.get_json()["result"]["structuredContent"]
         self.assertEqual(naics_payload["sectors"][0]["sector_code"], "11")
 
+    def test_concept_mapping_and_snippet_tools(self):
+        suggest_res = self._call_tool("suggest_clause_families", {"concept": "MAE carveouts", "top_k": 3})
+        self.assertEqual(suggest_res.status_code, 200)
+        suggest_payload = suggest_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(suggest_payload["matches"][0]["standard_id"], "2.1")
+        self.assertIn("Material Adverse Effect", suggest_payload["matches"][0]["path"])
+
+        snippet_res = self._call_tool(
+            "get_section_snippet",
+            {
+                "section_uuid": "00000000-0000-0000-0000-000000000003",
+                "focus_terms": ["disproportionate effects"],
+                "max_chars": 220,
+            },
+        )
+        self.assertEqual(snippet_res.status_code, 200)
+        snippet_payload = snippet_res.get_json()["result"]["structuredContent"]
+        self.assertIn("disproportionate effects", snippet_payload["snippet"].lower())
+        self.assertEqual(snippet_payload["matched_terms"], ["disproportionate effects"])
+
+    def test_counsel_comparison_tools(self):
+        plan_res = self._call_tool(
+            "plan_counsel_comparison",
+            {
+                "concept": "MAE carveouts",
+                "counsel_names": ["Wachtell", "Skadden"],
+                "side": "either",
+            },
+        )
+        self.assertEqual(plan_res.status_code, 200)
+        plan_payload = plan_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(plan_payload["taxonomy_matches"][0]["standard_id"], "2.1")
+        self.assertEqual(plan_payload["recommended_workflow"][1]["tool"], "compare_counsel_clause_samples")
+
+        compare_res = self._call_tool(
+            "compare_counsel_clause_samples",
+            {
+                "concept": "MAE carveouts",
+                "counsel_names": ["Wachtell", "Skadden"],
+                "side": "either",
+                "sample_size": 2,
+            },
+        )
+        self.assertEqual(compare_res.status_code, 200)
+        compare_payload = compare_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(compare_payload["standard_id"], ["2.1"])
+        self.assertEqual(compare_payload["returned_count"], 2)
+        canonical_names = [item["canonical_name"] for item in compare_payload["comparisons"]]
+        self.assertIn("Wachtell, Lipton, Rosen & Katz", canonical_names)
+        self.assertIn("Skadden, Arps, Slate, Meagher & Flom LLP", canonical_names)
+        self.assertTrue(all(item["sample_sections"] for item in compare_payload["comparisons"]))
+
     def test_server_capabilities_tool(self):
         res = self._call_tool("get_server_capabilities", {})
         self.assertEqual(res.status_code, 200)
@@ -906,6 +1084,8 @@ class McpTests(unittest.TestCase):
         self.assertEqual(get_agreement_tool["access"]["fulltext_scope"], "agreements:read_fulltext")
         workflow_names = [workflow["name"] for workflow in payload["workflows"]]
         self.assertIn("discover agreements by counsel", workflow_names)
+        self.assertIn("map a plain-English concept to clause samples", workflow_names)
+        self.assertIn("plan an exploratory counsel comparison", workflow_names)
 
     def test_server_metrics_tool(self):
         self._call_tool("search_agreements", {"query": "Target"})
@@ -961,12 +1141,33 @@ class McpTests(unittest.TestCase):
             client.list_tools()
 
             filter_payload = client.call_tool("list_filter_options", {"fields": ["target_counsels"]})
-            catalog_name = cast(list[str], filter_payload["target_counsels"])[0]
+            catalog_names = cast(list[str], filter_payload["target_counsels"])
+            catalog_name = "Wachtell, Lipton, Rosen & Katz"
+            self.assertIn(catalog_name, catalog_names)
             retrieval_param = cast(dict[str, str], filter_payload["retrieval_parameter_map"])["target_counsels"]
 
             agreements_payload = client.call_tool("search_agreements", {retrieval_param: [catalog_name]})
             agreement_results = cast(list[dict[str, object]], agreements_payload["results"])
             self.assertEqual(agreement_results[0]["agreement_uuid"], "a1")
+
+    def test_live_http_transport_concept_to_comparison_workflow(self):
+        with LiveMcpHttpClientHarness(self) as client:
+            client.initialize()
+            client.list_tools()
+
+            suggestions = client.call_tool("suggest_clause_families", {"concept": "MAE carveouts", "top_k": 2})
+            self.assertEqual(cast(list[dict[str, object]], suggestions["matches"])[0]["standard_id"], "2.1")
+
+            comparison = client.call_tool(
+                "compare_counsel_clause_samples",
+                {
+                    "concept": "MAE carveouts",
+                    "counsel_names": ["Wachtell", "Skadden"],
+                    "side": "either",
+                    "sample_size": 1,
+                },
+            )
+            self.assertEqual(cast(int, comparison["returned_count"]), 2)
 
     def test_live_http_transport_redaction_and_fulltext_workflow(self):
         with LiveMcpHttpClientHarness(self) as client:
@@ -1046,7 +1247,8 @@ class McpTests(unittest.TestCase):
         self.assertEqual(filter_res.status_code, 200)
         filter_payload = filter_res.get_json()["result"]["structuredContent"]
 
-        catalog_name = filter_payload["target_counsels"][0]
+        catalog_name = "Wachtell, Lipton, Rosen & Katz"
+        self.assertIn(catalog_name, filter_payload["target_counsels"])
         retrieval_param = filter_payload["retrieval_parameter_map"]["target_counsels"]
         self.assertEqual(retrieval_param, "target_counsel")
 
@@ -1098,6 +1300,23 @@ class McpTests(unittest.TestCase):
         )
         self.assertEqual(agreement_res.status_code, 200)
 
+    def test_chain_workflow_from_concept_to_snippet(self):
+        suggest_res = self._call_tool("suggest_clause_families", {"concept": "MAE carveouts"})
+        suggest_payload = suggest_res.get_json()["result"]["structuredContent"]
+        standard_id = suggest_payload["matches"][0]["standard_id"]
+
+        search_res = self._call_tool("search_sections", {"standard_id": [standard_id], "page_size": 10})
+        search_payload = search_res.get_json()["result"]["structuredContent"]
+        section_uuid = search_payload["results"][0]["section_uuid"]
+
+        snippet_res = self._call_tool(
+            "get_section_snippet",
+            {"section_uuid": section_uuid, "focus_terms": ["disproportionate effect"], "max_chars": 220},
+        )
+        self.assertEqual(snippet_res.status_code, 200)
+        snippet_payload = snippet_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(snippet_payload["section_uuid"], section_uuid)
+
     def test_search_sections_tool(self):
         client = self.app.test_client()
         res = client.post(
@@ -1113,7 +1332,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         structured = body["result"]["structuredContent"]
-        self.assertEqual(len(structured["results"]), 2)
+        self.assertEqual(len(structured["results"]), 4)
         self.assertEqual(structured["access"]["tier"], "mcp")
 
     def test_get_agreement_redacts_without_fulltext_scope(self):

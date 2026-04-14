@@ -2527,6 +2527,727 @@
       },
       "input_schema": {
         "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "taxonomy": {
+            "enum": [
+              "clauses",
+              "tax_clauses"
+            ],
+            "type": "string"
+          },
+          "top_k": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "concept"
+        ],
+        "type": "object"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "name": "suggest_clause_families",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "matched_terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "path": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "standard_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "standard_id",
+                "label",
+                "path",
+                "score",
+                "matched_terms",
+                "reason"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "returned_count": {
+            "type": "integer"
+          },
+          "taxonomy": {
+            "enum": [
+              "clauses",
+              "tax_clauses"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept",
+          "taxonomy",
+          "matches",
+          "returned_count"
+        ],
+        "type": "object"
+      },
+      "pagination": "none",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "concept": "MAE carveouts",
+            "matches": [
+              {
+                "label": "Material Adverse Effect",
+                "matched_terms": [
+                  "MAE",
+                  "disproportionate effects"
+                ],
+                "path": [
+                  "Definitions",
+                  "Material Adverse Effect"
+                ],
+                "reason": "Matched concept tokens and clause-family synonyms.",
+                "score": 0.93,
+                "standard_id": "2.1"
+              }
+            ],
+            "returned_count": 1,
+            "taxonomy": "clauses"
+          },
+          "description": "Ranked taxonomy suggestions for a concept."
+        }
+      ],
+      "selection_hint": "Use when you know the legal concept but not the right taxonomy id."
+    },
+    {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "focus_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_chars": {
+            "type": "integer"
+          },
+          "section_uuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_uuid"
+        ],
+        "type": "object"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "name": "get_section_snippet",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "agreement_uuid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "article_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matched_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "section_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "section_uuid": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "source_length": {
+            "type": "integer"
+          },
+          "standard_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agreement_uuid",
+          "section_uuid",
+          "standard_id",
+          "article_title",
+          "section_title",
+          "snippet",
+          "matched_terms",
+          "source_length"
+        ],
+        "type": "object"
+      },
+      "pagination": "none",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "agreement_uuid": "a1",
+            "article_title": "ARTICLE I",
+            "matched_terms": [
+              "disproportionate effects"
+            ],
+            "section_title": "Material Adverse Effect",
+            "section_uuid": "00000000-0000-0000-0000-000000000001",
+            "snippet": "...disproportionate effects on the Company relative to others in the industry...",
+            "source_length": 512,
+            "standard_id": [
+              "1.2"
+            ]
+          },
+          "description": "Focused section snippet."
+        }
+      ],
+      "selection_hint": "Use after search_sections when you need a quick excerpt for comparison or quoting."
+    },
+    {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "counsel_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "side": {
+            "enum": [
+              "target",
+              "acquirer",
+              "either"
+            ],
+            "type": "string"
+          },
+          "top_k": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "concept",
+          "counsel_names"
+        ],
+        "type": "object"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "name": "plan_counsel_comparison",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "counsel": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "canonical_name": {
+                  "type": "string"
+                },
+                "counsel_id": {
+                  "type": "integer"
+                },
+                "input_name": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "input_name",
+                "canonical_name",
+                "counsel_id",
+                "score"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "recommended_workflow": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "arguments": {
+                  "type": "object"
+                },
+                "purpose": {
+                  "type": "string"
+                },
+                "tool": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tool",
+                "purpose",
+                "arguments"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "side": {
+            "enum": [
+              "target",
+              "acquirer",
+              "either"
+            ],
+            "type": "string"
+          },
+          "taxonomy_matches": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "matched_terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "path": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "standard_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "standard_id",
+                "label",
+                "path",
+                "score",
+                "matched_terms",
+                "reason"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "side",
+          "counsel",
+          "taxonomy_matches",
+          "recommended_workflow"
+        ],
+        "type": "object"
+      },
+      "pagination": "none",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "concept": "MAE carveouts",
+            "counsel": [
+              {
+                "canonical_name": "Wachtell, Lipton, Rosen & Katz",
+                "counsel_id": 1,
+                "input_name": "Wachtell",
+                "score": 0.95
+              }
+            ],
+            "recommended_workflow": [
+              {
+                "arguments": {
+                  "concept": "MAE carveouts",
+                  "counsel_names": [
+                    "Wachtell, Lipton, Rosen & Katz"
+                  ],
+                  "sample_size": 3,
+                  "side": "target",
+                  "standard_id": [
+                    "2.1"
+                  ]
+                },
+                "purpose": "Pull sample sections for each counsel within the top-matching clause family.",
+                "tool": "compare_counsel_clause_samples"
+              }
+            ],
+            "side": "target",
+            "taxonomy_matches": [
+              {
+                "label": "Material Adverse Effect",
+                "matched_terms": [
+                  "MAE"
+                ],
+                "path": [
+                  "Definitions",
+                  "Material Adverse Effect"
+                ],
+                "reason": "Matched concept tokens and clause-family synonyms.",
+                "score": 0.93,
+                "standard_id": "2.1"
+              }
+            ]
+          },
+          "description": "Comparison workflow plan."
+        }
+      ],
+      "selection_hint": "Use when the task is exploratory and you want the server to suggest the right sequence of taxonomy, retrieval, and snippet steps."
+    },
+    {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counsel_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "focus_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sample_size": {
+            "type": "integer"
+          },
+          "side": {
+            "enum": [
+              "target",
+              "acquirer",
+              "either"
+            ],
+            "type": "string"
+          },
+          "standard_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "counsel_names"
+        ],
+        "type": "object"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "name": "compare_counsel_clause_samples",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comparisons": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "canonical_name": {
+                  "type": "string"
+                },
+                "input_name": {
+                  "type": "string"
+                },
+                "sample_count": {
+                  "type": "integer"
+                },
+                "sample_sections": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "agreement_uuid": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "article_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "matched_terms": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "section_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "section_uuid": {
+                        "type": "string"
+                      },
+                      "snippet": {
+                        "type": "string"
+                      },
+                      "standard_id": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "agreement_uuid",
+                      "section_uuid",
+                      "standard_id",
+                      "article_title",
+                      "section_title",
+                      "snippet",
+                      "matched_terms"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "side": {
+                  "enum": [
+                    "target",
+                    "acquirer",
+                    "either"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_name",
+                "canonical_name",
+                "side",
+                "sample_count",
+                "sample_sections"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "concept": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "returned_count": {
+            "type": "integer"
+          },
+          "standard_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "taxonomy_matches": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "matched_terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "path": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "standard_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "standard_id",
+                "label",
+                "path",
+                "score",
+                "matched_terms",
+                "reason"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "standard_id",
+          "taxonomy_matches",
+          "comparisons",
+          "returned_count"
+        ],
+        "type": "object"
+      },
+      "pagination": "none",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "comparisons": [
+              {
+                "canonical_name": "Wachtell, Lipton, Rosen & Katz",
+                "input_name": "Wachtell",
+                "sample_count": 1,
+                "sample_sections": [
+                  {
+                    "agreement_uuid": "a1",
+                    "article_title": "ARTICLE I",
+                    "matched_terms": [
+                      "fiduciary out"
+                    ],
+                    "section_title": "Fiduciary Out",
+                    "section_uuid": "00000000-0000-0000-0000-000000000001",
+                    "snippet": "...board may change its recommendation in response to a superior proposal...",
+                    "standard_id": [
+                      "1.1"
+                    ]
+                  }
+                ],
+                "side": "target"
+              }
+            ],
+            "concept": "fiduciary out",
+            "returned_count": 1,
+            "standard_id": [
+              "1.1"
+            ],
+            "taxonomy_matches": [
+              {
+                "label": "Fiduciary Out",
+                "matched_terms": [
+                  "fiduciary out"
+                ],
+                "path": [
+                  "Deal Protection",
+                  "Fiduciary Out"
+                ],
+                "reason": "Matched concept tokens and clause-family synonyms.",
+                "score": 1.0,
+                "standard_id": "1.1"
+              }
+            ]
+          },
+          "description": "Counsel comparison with snippets."
+        }
+      ],
+      "selection_hint": "Use for lightweight comparative research across counsel without building the workflow manually."
+    },
+    {
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "input_schema": {
+        "additionalProperties": false,
         "properties": {},
         "type": "object"
       },
@@ -3582,6 +4303,22 @@
         "get_clause_taxonomy",
         "search_sections",
         "get_section"
+      ]
+    },
+    {
+      "name": "map a plain-English concept to clause samples",
+      "steps": [
+        "suggest_clause_families",
+        "search_sections",
+        "get_section_snippet"
+      ]
+    },
+    {
+      "name": "plan an exploratory counsel comparison",
+      "steps": [
+        "plan_counsel_comparison",
+        "compare_counsel_clause_samples",
+        "get_section_snippet"
       ]
     },
     {

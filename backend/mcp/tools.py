@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
+from difflib import SequenceMatcher
 from decimal import Decimal
 from functools import lru_cache
+from html import unescape
 from typing import Any, Callable, cast
 
 from flask import abort
@@ -98,6 +101,11 @@ def _merge_schema_instances(*schemas: Schema) -> Schema:
             merged_fields[field_name] = field
     merged_type = Schema.from_dict(merged_fields, name="MergedSchema")
     return cast(Schema, merged_type())
+
+
+def _schema_from_fields(name: str, field_map: Mapping[str, ma_fields.Field[Any]]) -> Schema:
+    schema_type = Schema.from_dict(dict(field_map), name=name)
+    return cast(Schema, schema_type())
 
 
 def _array_schema_for_filter(field_name: str) -> dict[str, object]:
@@ -494,6 +502,330 @@ def _json_compatible_value(value: object) -> object:
         return float(value)
     return value
 
+
+@dataclass(frozen=True)
+class _TaxonomyEntry:
+    standard_id: str
+    label: str
+    path: tuple[str, ...]
+
+
+_WHITESPACE_RE = re.compile(r"\s+")
+_TAG_RE = re.compile(r"<[^>]+>")
+_CONCEPT_SYNONYM_HINTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        ("material adverse", "mae", "material adverse effect", "material adverse change"),
+        (
+            "mae",
+            "material adverse effect",
+            "material adverse change",
+            "mae carveouts",
+            "disproportionate effects",
+            "carveout provisions",
+        ),
+    ),
+    (
+        ("fiduciary", "recommendation", "superior proposal", "intervening event"),
+        (
+            "fiduciary out",
+            "change of recommendation",
+            "superior proposal",
+            "intervening event",
+            "matching rights",
+        ),
+    ),
+    (
+        ("no shop", "no-shop", "solicit", "solicitation"),
+        (
+            "no shop",
+            "no-shop",
+            "non solicitation",
+            "non-solicitation",
+            "matching rights",
+        ),
+    ),
+    (
+        ("specific performance", "equitable relief"),
+        ("specific performance", "equitable relief"),
+    ),
+    (
+        ("antitrust", "regulatory", "hell or high water", "efforts"),
+        ("antitrust efforts", "regulatory efforts", "hell or high water", "reasonable best efforts"),
+    ),
+)
+
+
+def _normalized_text(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    lowered = value.lower().replace("&", " and ")
+    cleaned = re.sub(r"[^a-z0-9]+", " ", lowered)
+    return _WHITESPACE_RE.sub(" ", cleaned).strip()
+
+
+def _normalized_tokens(value: object) -> set[str]:
+    normalized = _normalized_text(value)
+    if normalized == "":
+        return set()
+    return {token for token in normalized.split(" ") if token}
+
+
+def _taxonomy_entries(
+    *,
+    l1_model: object,
+    l2_model: object,
+    l3_model: object,
+    deps: ReferenceDataDeps,
+) -> list[_TaxonomyEntry]:
+    db = deps.db
+    l1_rows = cast(
+        list[tuple[object, object]],
+        db.session.query(
+            cast(Any, l1_model).standard_id,
+            cast(Any, l1_model).label,
+        ).all(),
+    )
+    l2_rows = cast(
+        list[tuple[object, object, object]],
+        db.session.query(
+            cast(Any, l2_model).standard_id,
+            cast(Any, l2_model).label,
+            cast(Any, l2_model).parent_id,
+        ).all(),
+    )
+    l3_rows = cast(
+        list[tuple[object, object, object]],
+        db.session.query(
+            cast(Any, l3_model).standard_id,
+            cast(Any, l3_model).label,
+            cast(Any, l3_model).parent_id,
+        ).all(),
+    )
+
+    l1_by_id = {
+        standard_id: label
+        for standard_id, label in l1_rows
+        if isinstance(standard_id, str) and isinstance(label, str)
+    }
+    l2_by_id = {
+        standard_id: (label, parent_id)
+        for standard_id, label, parent_id in l2_rows
+        if isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str)
+    }
+
+    entries: list[_TaxonomyEntry] = []
+    for standard_id, label in sorted(l1_by_id.items(), key=lambda item: item[1]):
+        entries.append(_TaxonomyEntry(standard_id=standard_id, label=label, path=(label,)))
+    for standard_id, (label, parent_id) in sorted(l2_by_id.items(), key=lambda item: item[1][0]):
+        parent_label = l1_by_id.get(parent_id)
+        if parent_label is None:
+            continue
+        entries.append(_TaxonomyEntry(standard_id=standard_id, label=label, path=(parent_label, label)))
+    for standard_id, label, parent_id in l3_rows:
+        if not (isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str)):
+            continue
+        parent_row = l2_by_id.get(parent_id)
+        if parent_row is None:
+            continue
+        parent_label, grandparent_id = parent_row
+        grandparent_label = l1_by_id.get(grandparent_id)
+        if grandparent_label is None:
+            continue
+        entries.append(
+            _TaxonomyEntry(
+                standard_id=standard_id,
+                label=label,
+                path=(grandparent_label, parent_label, label),
+            )
+        )
+    return sorted(entries, key=lambda entry: (len(entry.path), entry.path))
+
+
+def _taxonomy_alias_terms(entry: _TaxonomyEntry) -> tuple[str, ...]:
+    path_text = " ".join(entry.path)
+    normalized_path = _normalized_text(path_text)
+    aliases: set[str] = set()
+    for trigger_terms, alias_terms in _CONCEPT_SYNONYM_HINTS:
+        if any(trigger in normalized_path for trigger in trigger_terms):
+            aliases.update(alias_terms)
+    return tuple(sorted(aliases))
+
+
+def _score_taxonomy_entry(entry: _TaxonomyEntry, concept: str) -> tuple[float, list[str]]:
+    concept_normalized = _normalized_text(concept)
+    concept_tokens = _normalized_tokens(concept)
+    if concept_normalized == "":
+        return 0.0, []
+
+    search_terms = [entry.label, " > ".join(entry.path), *_taxonomy_alias_terms(entry)]
+    matched_terms: list[str] = []
+    best_ratio = 0.0
+    token_overlap_bonus = 0.0
+
+    for term in search_terms:
+        term_normalized = _normalized_text(term)
+        if term_normalized == "":
+            continue
+        ratio = SequenceMatcher(None, concept_normalized, term_normalized).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+        if concept_normalized in term_normalized or term_normalized in concept_normalized:
+            matched_terms.append(term)
+            best_ratio = max(best_ratio, 0.95)
+        overlap = concept_tokens & _normalized_tokens(term)
+        if overlap:
+            token_overlap_bonus = max(token_overlap_bonus, len(overlap) / max(len(concept_tokens), 1))
+            if term not in matched_terms:
+                matched_terms.append(term)
+
+    score = round((best_ratio * 0.7) + (token_overlap_bonus * 0.3), 4)
+    return score, matched_terms[:4]
+
+
+def _ranked_taxonomy_matches(
+    *,
+    deps: ReferenceDataDeps,
+    concept: str,
+    taxonomy: str,
+    top_k: int,
+) -> list[dict[str, object]]:
+    if taxonomy == "tax_clauses":
+        entries = _taxonomy_entries(
+            l1_model=deps.TaxClauseTaxonomyL1,
+            l2_model=deps.TaxClauseTaxonomyL2,
+            l3_model=deps.TaxClauseTaxonomyL3,
+            deps=deps,
+        )
+    else:
+        entries = _taxonomy_entries(
+            l1_model=deps.TaxonomyL1,
+            l2_model=deps.TaxonomyL2,
+            l3_model=deps.TaxonomyL3,
+            deps=deps,
+        )
+
+    scored: list[tuple[float, _TaxonomyEntry, list[str]]] = []
+    for entry in entries:
+        score, matched_terms = _score_taxonomy_entry(entry, concept)
+        if score > 0:
+            scored.append((score, entry, matched_terms))
+    scored.sort(key=lambda item: (-item[0], len(item[1].path), item[1].path))
+
+    results: list[dict[str, object]] = []
+    for score, entry, matched_terms in scored[:top_k]:
+        results.append(
+            {
+                "standard_id": entry.standard_id,
+                "label": entry.label,
+                "path": list(entry.path),
+                "score": score,
+                "matched_terms": matched_terms,
+                "reason": "Matched concept tokens and clause-family synonyms."
+                if matched_terms
+                else "Closest taxonomy path by label similarity.",
+            }
+        )
+    return results
+
+
+def _extract_text_from_xml(xml: object) -> str:
+    if not isinstance(xml, str):
+        return ""
+    text_content = unescape(_TAG_RE.sub(" ", xml))
+    return _WHITESPACE_RE.sub(" ", text_content).strip()
+
+
+def _focused_snippet(text_content: str, *, focus_terms: list[str], max_chars: int) -> tuple[str, list[str]]:
+    cleaned_text = _WHITESPACE_RE.sub(" ", text_content).strip()
+    if cleaned_text == "":
+        return "", []
+
+    lowered_text = cleaned_text.lower()
+    matched_terms: list[str] = []
+    best_index: int | None = None
+    for term in focus_terms:
+        normalized_term = term.strip().lower()
+        if normalized_term == "":
+            continue
+        index = lowered_text.find(normalized_term)
+        if index >= 0:
+            matched_terms.append(term)
+            if best_index is None or index < best_index:
+                best_index = index
+
+    if best_index is None:
+        snippet = cleaned_text[:max_chars].rstrip()
+        if len(cleaned_text) > len(snippet):
+            snippet = snippet.rstrip(" .,;:") + "..."
+        return snippet, []
+
+    start = max(best_index - (max_chars // 3), 0)
+    end = min(start + max_chars, len(cleaned_text))
+    if end - start < max_chars and start > 0:
+        start = max(end - max_chars, 0)
+    snippet = cleaned_text[start:end].strip()
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(cleaned_text):
+        snippet = snippet.rstrip(" .,;:") + "..."
+    return snippet, matched_terms
+
+
+def _counsel_rows(deps: ReferenceDataDeps) -> list[dict[str, object]]:
+    rows = cast(
+        list[tuple[object, object, object]],
+        deps.db.session.query(
+            deps.Counsel.counsel_id,
+            deps.Counsel.canonical_name,
+            deps.Counsel.canonical_name_normalized,
+        )
+        .order_by(deps.Counsel.canonical_name.asc(), deps.Counsel.counsel_id.asc())
+        .all(),
+    )
+    result: list[dict[str, object]] = []
+    for counsel_id, canonical_name, canonical_name_normalized in rows:
+        if isinstance(counsel_id, int) and isinstance(canonical_name, str):
+            result.append(
+                {
+                    "counsel_id": counsel_id,
+                    "canonical_name": canonical_name,
+                    "canonical_name_normalized": canonical_name_normalized if isinstance(canonical_name_normalized, str) else _normalized_text(canonical_name),
+                }
+            )
+    return result
+
+
+def _canonicalize_counsel_names(
+    deps: ReferenceDataDeps,
+    names: list[str],
+) -> list[dict[str, object]]:
+    catalog = _counsel_rows(deps)
+    resolved: list[dict[str, object]] = []
+    for input_name in names:
+        normalized_input = _normalized_text(input_name)
+        best_match: dict[str, object] | None = None
+        best_score = -1.0
+        for row in catalog:
+            canonical_name = cast(str, row["canonical_name"])
+            canonical_normalized = cast(str, row["canonical_name_normalized"])
+            score = SequenceMatcher(None, normalized_input, canonical_normalized).ratio()
+            if normalized_input == canonical_normalized:
+                score = 1.0
+            elif normalized_input and normalized_input in canonical_normalized:
+                score = max(score, 0.95)
+            elif canonical_normalized and canonical_normalized in normalized_input:
+                score = max(score, 0.9)
+            if score > best_score:
+                best_score = score
+                best_match = {
+                    "input_name": input_name,
+                    "canonical_name": canonical_name,
+                    "counsel_id": row["counsel_id"],
+                    "score": round(score, 4),
+                }
+        if best_match is not None:
+            resolved.append(best_match)
+    return resolved
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
     db = deps.db
@@ -1413,6 +1745,330 @@ def _get_section(
     )
 
 
+def _suggest_clause_families(
+    deps: ReferenceDataDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpSuggestClauseFamiliesArgs",
+            {
+                "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+                "taxonomy": ma_fields.Str(load_default="clauses", validate=validate.OneOf(["clauses", "tax_clauses"])),
+                "top_k": ma_fields.Int(load_default=5, validate=validate.Range(min=1, max=10)),
+            },
+        ),
+        payload,
+    )
+    concept = cast(str, parsed_args["concept"]).strip()
+    taxonomy = cast(str, parsed_args["taxonomy"])
+    top_k = cast(int, parsed_args["top_k"])
+    matches = _ranked_taxonomy_matches(deps=deps, concept=concept, taxonomy=taxonomy, top_k=top_k)
+    response = {
+        "concept": concept,
+        "taxonomy": taxonomy,
+        "matches": matches,
+        "returned_count": len(matches),
+    }
+    return McpToolResult(
+        text=f"Suggested {len(matches)} clause family match(es) for '{concept}'.",
+        structured_content=response,
+    )
+
+
+def _get_section_snippet(
+    deps: AgreementsDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpSectionSnippetArgs",
+            {
+                "section_uuid": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+                "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+                "max_chars": ma_fields.Int(load_default=400, validate=validate.Range(min=120, max=1200)),
+            },
+        ),
+        payload,
+    )
+    section_uuid = cast(str, parsed_args["section_uuid"]).strip()
+    if not deps._SECTION_ID_RE.match(section_uuid):
+        abort(400, description="Invalid section_uuid.")
+    row = (
+        deps.db.session.query(
+            deps.Sections.agreement_uuid.label("agreement_uuid"),
+            deps.Sections.section_uuid.label("section_uuid"),
+            deps.Sections.article_title.label("article_title"),
+            deps.Sections.section_title.label("section_title"),
+            deps._coalesced_section_standard_ids().label("section_standard_ids"),
+            deps.Sections.xml_content.label("xml_content"),
+        )
+        .filter(deps.Sections.section_uuid == section_uuid)
+        .first()
+    )
+    if row is None:
+        abort(404)
+
+    row_map = deps._row_mapping_as_dict(cast(object, row))
+    xml_text = _extract_text_from_xml(row_map.get("xml_content"))
+    focus_terms = [term for term in cast(list[str], parsed_args["focus_terms"]) if term.strip()]
+    snippet, matched_terms = _focused_snippet(
+        xml_text,
+        focus_terms=focus_terms,
+        max_chars=cast(int, parsed_args["max_chars"]),
+    )
+    response = {
+        "agreement_uuid": row_map.get("agreement_uuid"),
+        "section_uuid": section_uuid,
+        "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
+        "article_title": row_map.get("article_title"),
+        "section_title": row_map.get("section_title"),
+        "snippet": snippet,
+        "matched_terms": matched_terms,
+        "source_length": len(xml_text),
+    }
+    return McpToolResult(
+        text=f"Returned a focused snippet for section {section_uuid}.",
+        structured_content=response,
+    )
+
+
+def _search_sections_for_comparison(
+    deps: SectionsServiceDeps,
+    *,
+    principal: McpPrincipal,
+    standard_ids: list[str],
+    canonical_name: str,
+    side: str,
+    page_size: int,
+) -> list[dict[str, object]]:
+    payload: dict[str, object] = {
+        "standard_id": standard_ids,
+        "page": 1,
+        "page_size": page_size,
+        "sort_by": "year",
+        "sort_direction": "desc",
+    }
+    if side == "target":
+        payload["target_counsel"] = [canonical_name]
+    elif side == "acquirer":
+        payload["acquirer_counsel"] = [canonical_name]
+    else:
+        target_payload = dict(payload)
+        target_payload["target_counsel"] = [canonical_name]
+        acquirer_payload = dict(payload)
+        acquirer_payload["acquirer_counsel"] = [canonical_name]
+        target_results = cast(
+            list[dict[str, object]],
+            run_sections(
+                deps,
+                ctx=principal.access_context,
+                parsed_args=cast(
+                    SectionsArgsPayload,
+                    cast(object, _validate_payload(SectionsArgsSchema(), target_payload)),
+                ),
+            ).get("results", []),
+        )
+        acquirer_results = cast(
+            list[dict[str, object]],
+            run_sections(
+                deps,
+                ctx=principal.access_context,
+                parsed_args=cast(
+                    SectionsArgsPayload,
+                    cast(object, _validate_payload(SectionsArgsSchema(), acquirer_payload)),
+                ),
+            ).get("results", []),
+        )
+        deduped_results: list[dict[str, object]] = []
+        seen_section_uuids: set[str] = set()
+        for result in [*target_results, *acquirer_results]:
+            section_uuid = result.get("section_uuid")
+            if not isinstance(section_uuid, str) or section_uuid in seen_section_uuids:
+                continue
+            seen_section_uuids.add(section_uuid)
+            deduped_results.append(result)
+            if len(deduped_results) >= page_size:
+                break
+        return deduped_results
+
+    return cast(
+        list[dict[str, object]],
+        run_sections(
+            deps,
+            ctx=principal.access_context,
+            parsed_args=cast(
+                SectionsArgsPayload,
+                cast(object, _validate_payload(SectionsArgsSchema(), payload)),
+            ),
+        ).get("results", []),
+    )
+
+
+def _plan_counsel_comparison(
+    deps: ReferenceDataDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpCounselComparisonPlanArgs",
+            {
+                "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+                "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
+                "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
+                "top_k": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=5)),
+            },
+        ),
+        payload,
+    )
+    concept = cast(str, parsed_args["concept"]).strip()
+    side = cast(str, parsed_args["side"])
+    top_k = cast(int, parsed_args["top_k"])
+    counsel_names = [name for name in cast(list[str], parsed_args["counsel_names"]) if name.strip()]
+    canonical_counsel = _canonicalize_counsel_names(deps, counsel_names)
+    taxonomy_matches = _ranked_taxonomy_matches(deps=deps, concept=concept, taxonomy="clauses", top_k=top_k)
+    suggested_standard_ids = [cast(str, match["standard_id"]) for match in taxonomy_matches]
+
+    comparison_arguments: dict[str, object] = {
+        "concept": concept,
+        "counsel_names": [cast(str, item["canonical_name"]) for item in canonical_counsel],
+        "side": side,
+        "sample_size": 3,
+    }
+    if suggested_standard_ids:
+        comparison_arguments["standard_id"] = suggested_standard_ids[:1]
+
+    response = {
+        "concept": concept,
+        "side": side,
+        "counsel": canonical_counsel,
+        "taxonomy_matches": taxonomy_matches,
+        "recommended_workflow": [
+            {
+                "tool": "suggest_clause_families",
+                "purpose": "Refine the concept if the top clause family looks wrong.",
+                "arguments": {"concept": concept, "taxonomy": "clauses", "top_k": top_k},
+            },
+            {
+                "tool": "compare_counsel_clause_samples",
+                "purpose": "Pull sample sections for each counsel within the top-matching clause family.",
+                "arguments": comparison_arguments,
+            },
+            {
+                "tool": "get_section_snippet",
+                "purpose": "Zoom in on one section when you need a tighter excerpt around the matched concept.",
+                "arguments": {
+                    "section_uuid": "replace-with-section-uuid",
+                    "focus_terms": [concept],
+                    "max_chars": 400,
+                },
+            },
+        ],
+    }
+    return McpToolResult(
+        text=f"Planned a counsel-comparison workflow for '{concept}'.",
+        structured_content=response,
+    )
+
+
+def _compare_counsel_clause_samples(
+    sections_service_deps: SectionsServiceDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+    reference_data_deps: ReferenceDataDeps,
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpCounselClauseComparisonArgs",
+            {
+                "concept": ma_fields.Str(load_default="", allow_none=True),
+                "standard_id": ma_fields.List(ma_fields.Str(), load_default=[]),
+                "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
+                "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
+                "sample_size": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=10)),
+                "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+            },
+        ),
+        payload,
+    )
+    concept = cast(str, parsed_args["concept"] or "").strip()
+    side = cast(str, parsed_args["side"])
+    sample_size = cast(int, parsed_args["sample_size"])
+    focus_terms = [term for term in cast(list[str], parsed_args["focus_terms"]) if term.strip()]
+    counsel_names = [name for name in cast(list[str], parsed_args["counsel_names"]) if name.strip()]
+    taxonomy_matches: list[dict[str, object]] = []
+    standard_ids = [value for value in cast(list[str], parsed_args["standard_id"]) if value.strip()]
+    if not standard_ids and concept:
+        taxonomy_matches = _ranked_taxonomy_matches(
+            deps=reference_data_deps,
+            concept=concept,
+            taxonomy="clauses",
+            top_k=3,
+        )
+        standard_ids = [cast(str, taxonomy_matches[0]["standard_id"])] if taxonomy_matches else []
+    if concept and concept not in focus_terms:
+        focus_terms = [concept, *focus_terms]
+
+    comparisons: list[dict[str, object]] = []
+    for counsel in _canonicalize_counsel_names(reference_data_deps, counsel_names):
+        canonical_name = cast(str, counsel["canonical_name"])
+        results = _search_sections_for_comparison(
+            sections_service_deps,
+            principal=principal,
+            standard_ids=standard_ids,
+            canonical_name=canonical_name,
+            side=side,
+            page_size=sample_size,
+        )
+        sample_sections: list[dict[str, object]] = []
+        for result in results[:sample_size]:
+            xml_text = _extract_text_from_xml(result.get("xml"))
+            snippet, matched_terms = _focused_snippet(xml_text, focus_terms=focus_terms, max_chars=400)
+            sample_sections.append(
+                {
+                    "agreement_uuid": result.get("agreement_uuid"),
+                    "section_uuid": result.get("section_uuid"),
+                    "standard_id": result.get("standard_id"),
+                    "article_title": result.get("article_title"),
+                    "section_title": result.get("section_title"),
+                    "snippet": snippet,
+                    "matched_terms": matched_terms,
+                }
+            )
+        comparisons.append(
+            {
+                "input_name": counsel["input_name"],
+                "canonical_name": canonical_name,
+                "side": side,
+                "sample_count": len(sample_sections),
+                "sample_sections": sample_sections,
+            }
+        )
+
+    response = {
+        "concept": concept if concept else None,
+        "standard_id": standard_ids,
+        "taxonomy_matches": taxonomy_matches,
+        "comparisons": comparisons,
+        "returned_count": len(comparisons),
+    }
+    return McpToolResult(
+        text=f"Compared clause samples across {len(comparisons)} counsel entr{'' if len(comparisons) == 1 else 'ies'}.",
+        structured_content=response,
+    )
+
+
 def _list_agreement_sections(
     deps: SectionsServiceDeps,
     *,
@@ -2182,6 +2838,143 @@ def _get_section_output_schema() -> dict[str, object]:
     )
 
 
+def _taxonomy_match_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "standard_id": {"type": "string"},
+            "label": {"type": "string"},
+            "path": _array_of({"type": "string"}),
+            "score": {"type": "number"},
+            "matched_terms": _array_of({"type": "string"}),
+            "reason": {"type": "string"},
+        },
+        required=["standard_id", "label", "path", "score", "matched_terms", "reason"],
+        additional_properties=False,
+    )
+
+
+def _suggest_clause_families_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "concept": {"type": "string"},
+            "taxonomy": {"type": "string", "enum": ["clauses", "tax_clauses"]},
+            "matches": _array_of(_taxonomy_match_schema()),
+            "returned_count": {"type": "integer"},
+        },
+        required=["concept", "taxonomy", "matches", "returned_count"],
+        additional_properties=False,
+    )
+
+
+def _section_snippet_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "snippet": {"type": "string"},
+            "matched_terms": _array_of({"type": "string"}),
+            "source_length": {"type": "integer"},
+        },
+        required=[
+            "agreement_uuid",
+            "section_uuid",
+            "standard_id",
+            "article_title",
+            "section_title",
+            "snippet",
+            "matched_terms",
+            "source_length",
+        ],
+        additional_properties=False,
+    )
+
+
+def _plan_step_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "tool": {"type": "string"},
+            "purpose": {"type": "string"},
+            "arguments": {"type": "object"},
+        },
+        required=["tool", "purpose", "arguments"],
+        additional_properties=False,
+    )
+
+
+def _canonical_counsel_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "input_name": {"type": "string"},
+            "canonical_name": {"type": "string"},
+            "counsel_id": {"type": "integer"},
+            "score": {"type": "number"},
+        },
+        required=["input_name", "canonical_name", "counsel_id", "score"],
+        additional_properties=False,
+    )
+
+
+def _plan_counsel_comparison_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "concept": {"type": "string"},
+            "side": {"type": "string", "enum": ["target", "acquirer", "either"]},
+            "counsel": _array_of(_canonical_counsel_schema()),
+            "taxonomy_matches": _array_of(_taxonomy_match_schema()),
+            "recommended_workflow": _array_of(_plan_step_schema()),
+        },
+        required=["concept", "side", "counsel", "taxonomy_matches", "recommended_workflow"],
+        additional_properties=False,
+    )
+
+
+def _comparison_sample_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "snippet": {"type": "string"},
+            "matched_terms": _array_of({"type": "string"}),
+        },
+        required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms"],
+        additional_properties=False,
+    )
+
+
+def _comparison_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "input_name": {"type": "string"},
+            "canonical_name": {"type": "string"},
+            "side": {"type": "string", "enum": ["target", "acquirer", "either"]},
+            "sample_count": {"type": "integer"},
+            "sample_sections": _array_of(_comparison_sample_schema()),
+        },
+        required=["input_name", "canonical_name", "side", "sample_count", "sample_sections"],
+        additional_properties=False,
+    )
+
+
+def _compare_counsel_clause_samples_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "concept": {"type": ["string", "null"]},
+            "standard_id": _array_of({"type": "string"}),
+            "taxonomy_matches": _array_of(_taxonomy_match_schema()),
+            "comparisons": _array_of(_comparison_result_schema()),
+            "returned_count": {"type": "integer"},
+        },
+        required=["concept", "standard_id", "taxonomy_matches", "comparisons", "returned_count"],
+        additional_properties=False,
+    )
+
+
 def _metrics_output_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -2627,6 +3420,42 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "description": "Section list sort key.",
         },
     }
+    suggest_clause_families_schema = _schema_from_fields(
+        "McpSuggestClauseFamiliesArgs",
+        {
+            "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+            "taxonomy": ma_fields.Str(load_default="clauses", validate=validate.OneOf(["clauses", "tax_clauses"])),
+            "top_k": ma_fields.Int(load_default=5, validate=validate.Range(min=1, max=10)),
+        },
+    )
+    section_snippet_schema = _schema_from_fields(
+        "McpSectionSnippetArgs",
+        {
+            "section_uuid": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+            "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+            "max_chars": ma_fields.Int(load_default=400, validate=validate.Range(min=120, max=1200)),
+        },
+    )
+    plan_counsel_comparison_schema = _schema_from_fields(
+        "McpCounselComparisonPlanArgs",
+        {
+            "concept": ma_fields.Str(required=True, validate=validate.Length(min=1)),
+            "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
+            "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
+            "top_k": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=5)),
+        },
+    )
+    compare_counsel_clause_samples_schema = _schema_from_fields(
+        "McpCounselClauseComparisonArgs",
+        {
+            "concept": ma_fields.Str(load_default="", allow_none=True),
+            "standard_id": ma_fields.List(ma_fields.Str(), load_default=[]),
+            "counsel_names": ma_fields.List(ma_fields.Str(), required=True, validate=validate.Length(min=1)),
+            "side": ma_fields.Str(load_default="either", validate=validate.OneOf(["target", "acquirer", "either"])),
+            "sample_size": ma_fields.Int(load_default=3, validate=validate.Range(min=1, max=10)),
+            "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+        },
+    )
     return (
         McpToolSpec(
             name="search_agreements",
@@ -2803,6 +3632,84 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             redaction_behavior="none",
             fulltext_scope=None,
             handler=_list_filter_options,
+        ),
+        McpToolSpec(
+            name="suggest_clause_families",
+            description="Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search.",
+            input_schema=_schema_input_schema(suggest_clause_families_schema),
+            output_schema=_suggest_clause_families_output_schema(),
+            examples=(
+                {"description": "Find likely taxonomy nodes for MAE carveouts.", "arguments": {"concept": "MAE carveouts", "top_k": 3}},
+                {"description": "Map a tax concept to the tax-clause taxonomy.", "arguments": {"concept": "tax-free reorganization", "taxonomy": "tax_clauses"}},
+            ),
+            response_examples=(
+                {"description": "Ranked taxonomy suggestions for a concept.", "content": {"concept": "MAE carveouts", "taxonomy": "clauses", "returned_count": 1, "matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE", "disproportionate effects"], "reason": "Matched concept tokens and clause-family synonyms."}]}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use when you know the legal concept but not the right taxonomy id.",
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_suggest_clause_families,
+        ),
+        McpToolSpec(
+            name="get_section_snippet",
+            description="Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block.",
+            input_schema=_schema_input_schema(section_snippet_schema),
+            output_schema=_section_snippet_output_schema(),
+            examples=(
+                {"description": "Extract a short excerpt around a carveout phrase.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001", "focus_terms": ["disproportionate effects"], "max_chars": 350}},
+            ),
+            response_examples=(
+                {"description": "Focused section snippet.", "content": {"agreement_uuid": "a1", "section_uuid": "00000000-0000-0000-0000-000000000001", "standard_id": ["1.2"], "article_title": "ARTICLE I", "section_title": "Material Adverse Effect", "snippet": "...disproportionate effects on the Company relative to others in the industry...", "matched_terms": ["disproportionate effects"], "source_length": 512}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use after search_sections when you need a quick excerpt for comparison or quoting.",
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_get_section_snippet,
+        ),
+        McpToolSpec(
+            name="plan_counsel_comparison",
+            description="Plan an exploratory counsel comparison by normalizing counsel names, suggesting likely clause families, and returning the next MCP calls to make.",
+            input_schema=_schema_input_schema(plan_counsel_comparison_schema),
+            output_schema=_plan_counsel_comparison_output_schema(),
+            examples=(
+                {"description": "Plan a Kirkland vs. Wachtell comparison on carveouts.", "arguments": {"concept": "MAE carveouts", "counsel_names": ["Kirkland", "Wachtell"], "side": "target"}},
+            ),
+            response_examples=(
+                {"description": "Comparison workflow plan.", "content": {"concept": "MAE carveouts", "side": "target", "counsel": [{"input_name": "Wachtell", "canonical_name": "Wachtell, Lipton, Rosen & Katz", "counsel_id": 1, "score": 0.95}], "taxonomy_matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE"], "reason": "Matched concept tokens and clause-family synonyms."}], "recommended_workflow": [{"tool": "compare_counsel_clause_samples", "purpose": "Pull sample sections for each counsel within the top-matching clause family.", "arguments": {"concept": "MAE carveouts", "counsel_names": ["Wachtell, Lipton, Rosen & Katz"], "side": "target", "sample_size": 3, "standard_id": ["2.1"]}}]}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use when the task is exploratory and you want the server to suggest the right sequence of taxonomy, retrieval, and snippet steps.",
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_plan_counsel_comparison,
+        ),
+        McpToolSpec(
+            name="compare_counsel_clause_samples",
+            description="Compare sample sections across one or more counsel using a concept or explicit taxonomy id, returning short snippets instead of whole sections.",
+            input_schema=_schema_input_schema(compare_counsel_clause_samples_schema),
+            output_schema=_compare_counsel_clause_samples_output_schema(),
+            examples=(
+                {"description": "Compare target-counsel samples for a concept.", "arguments": {"concept": "fiduciary out", "counsel_names": ["Wachtell", "Skadden"], "side": "target", "sample_size": 2}},
+                {"description": "Compare counsel using a known taxonomy id.", "arguments": {"standard_id": ["1.1"], "counsel_names": ["Wachtell, Lipton, Rosen & Katz"], "sample_size": 3}},
+            ),
+            response_examples=(
+                {"description": "Counsel comparison with snippets.", "content": {"concept": "fiduciary out", "standard_id": ["1.1"], "taxonomy_matches": [{"standard_id": "1.1", "label": "Fiduciary Out", "path": ["Deal Protection", "Fiduciary Out"], "score": 1.0, "matched_terms": ["fiduciary out"], "reason": "Matched concept tokens and clause-family synonyms."}], "returned_count": 1, "comparisons": [{"input_name": "Wachtell", "canonical_name": "Wachtell, Lipton, Rosen & Katz", "side": "target", "sample_count": 1, "sample_sections": [{"agreement_uuid": "a1", "section_uuid": "00000000-0000-0000-0000-000000000001", "standard_id": ["1.1"], "article_title": "ARTICLE I", "section_title": "Fiduciary Out", "snippet": "...board may change its recommendation in response to a superior proposal...", "matched_terms": ["fiduciary out"]}]}]}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use for lightweight comparative research across counsel without building the workflow manually.",
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_compare_counsel_clause_samples,
         ),
         McpToolSpec(
             name="get_server_metrics",
@@ -3023,6 +3930,14 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "steps": ["get_clause_taxonomy", "search_sections", "get_section"],
             },
             {
+                "name": "map a plain-English concept to clause samples",
+                "steps": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+            },
+            {
+                "name": "plan an exploratory counsel comparison",
+                "steps": ["plan_counsel_comparison", "compare_counsel_clause_samples", "get_section_snippet"],
+            },
+            {
                 "name": "filter agreements exactly and paginate deeply",
                 "steps": ["list_filter_options", "list_agreements", "get_agreement"],
             },
@@ -3078,16 +3993,20 @@ def call_tool(
     if spec is None:
         raise KeyError(name)
     handler_kwargs: dict[str, object] = {"principal": principal}
-    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
+    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections"}:
         handler_kwargs["deps"] = sections_service_deps
-    if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog"}:
+    if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families", "plan_counsel_comparison"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "get_agreement", "get_section", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "plan_counsel_comparison"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
+        handler_kwargs["reference_data_deps"] = reference_data_deps
+    if name == "compare_counsel_clause_samples":
+        handler_kwargs["sections_service_deps"] = sections_service_deps
+        handler_kwargs["payload"] = arguments
         handler_kwargs["reference_data_deps"] = reference_data_deps
     result = spec.handler(**handler_kwargs)
     output_errors = _validate_output_against_schema(spec.output_schema, result.structured_content)
