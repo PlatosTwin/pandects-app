@@ -18,7 +18,6 @@ import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 import { TextFilter } from "@/components/TextFilter";
 import { Button } from "@/components/ui/button";
-import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
@@ -174,38 +173,12 @@ export function SearchSidebar({
         <NestedCheckboxFilter
           label="Section Type"
           labelAddon={
-            <AdaptiveTooltip
-              trigger={
-                <button
-                  type="button"
-                  className="tooltip-help-trigger"
-                  aria-label="Learn more about the taxonomy"
-                >
-                  ?
-                </button>
-              }
-              content={
-                <>
-                  Learn more about the taxonomy on the{" "}
-                  <Link
-                    to="/taxonomy"
-                    className="font-medium text-primary underline underline-offset-2"
-                  >
-                    Taxonomy page
-                  </Link>
-                  .
-                </>
-              }
-              tooltipProps={{
-                side: "top",
-                className: "max-w-[220px] text-xs",
-              }}
-              delayDuration={0}
-              popoverProps={{
-                side: "top",
-                className: "w-auto max-w-[220px] p-2 text-xs",
-              }}
-            />
+            <Link
+              to="/taxonomy"
+              className="text-xs font-medium text-primary underline decoration-primary/60 underline-offset-2"
+            >
+              Taxonomy
+            </Link>
           }
           data={clauseTypesNested}
           selectedValues={filters.clauseType || []}

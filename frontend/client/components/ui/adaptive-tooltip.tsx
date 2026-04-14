@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode, type ComponentProps } from "react"
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -22,8 +23,8 @@ interface AdaptiveTooltipProps {
   forceMode?: "tooltip" | "popover";
   /**
    * Delay duration for tooltip (only applies to Tooltip, not Popover).
-   * Note: This requires TooltipProvider to have delayDuration set.
-   * For per-tooltip delays, wrap in a TooltipProvider with delayDuration.
+ * Delay is applied through a colocated TooltipProvider so pages don't need a
+ * global provider just to support one tooltip.
    */
   delayDuration?: number;
 }
@@ -68,9 +69,11 @@ export function AdaptiveTooltip({
   }
 
   return (
-    <Tooltip {...(delayDuration !== undefined ? { delayDuration } : {})}>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <TooltipContent {...tooltipProps}>{content}</TooltipContent>
-    </Tooltip>
+    <TooltipProvider {...(delayDuration !== undefined ? { delayDuration } : {})}>
+      <Tooltip>
+        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+        <TooltipContent {...tooltipProps}>{content}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

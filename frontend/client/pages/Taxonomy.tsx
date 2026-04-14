@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
 import {
   buildTaxonomyEntries,
@@ -49,6 +50,7 @@ export default function Taxonomy() {
   >({});
   const [viewMode, setViewMode] = useState<TaxonomyViewMode>("tile");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [shouldRenderTree, setShouldRenderTree] = useState(false);
   const highlightTimerRef = useRef<number | null>(null);
   const endpointPath =
     currentTab === "tax" ? "/v1/taxonomy/tax-clauses" : "/v1/taxonomy";
@@ -128,6 +130,24 @@ export default function Taxonomy() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (isLoading || taxonomyEntries.length === 0) {
+      setShouldRenderTree(false);
+      return;
+    }
+
+    if (hasQuery) {
+      setShouldRenderTree(true);
+      return;
+    }
+
+    const cancelDeferredTree = scheduleWhenBrowserIdle(() => {
+      setShouldRenderTree(true);
+    }, 1800);
+
+    return cancelDeferredTree;
+  }, [hasQuery, isLoading, taxonomyEntries.length]);
 
   const renderHighlighted = (label: string) => {
     if (!hasQuery) {
@@ -217,6 +237,7 @@ export default function Taxonomy() {
     items.includes(value) ? items : [...items, value];
 
   const handleResultClick = (result: TaxonomySearchEntry) => {
+    setShouldRenderTree(true);
     const level1Id = result.l1Id;
     const level2Id = result.l2Id;
     const level3Id = result.l3Id;
@@ -510,7 +531,7 @@ export default function Taxonomy() {
             <CardContent>
               {isLoading ? (
                 <div
-                  className="grid gap-4 sm:grid-cols-3"
+                  className="grid min-h-[8.75rem] gap-4 sm:grid-cols-3"
                   role="status"
                   aria-live="polite"
                 >
@@ -609,10 +630,14 @@ export default function Taxonomy() {
 
           <div className="mt-4" aria-busy={isLoading}>
             {isLoading ? (
-              <div className="space-y-4" role="status" aria-live="polite">
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
+              <div
+                className="min-h-[28rem] space-y-4"
+                role="status"
+                aria-live="polite"
+              >
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
               </div>
             ) : taxonomyEntries.length === 0 ? (
               <Card className="border-border/60 bg-card">
@@ -620,6 +645,16 @@ export default function Taxonomy() {
                   No taxonomy entries are available right now.
                 </CardContent>
               </Card>
+            ) : !shouldRenderTree ? (
+              <div
+                className="min-h-[28rem] space-y-4"
+                role="status"
+                aria-live="polite"
+              >
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </div>
             ) : (
               viewMode === "tile" ? (
                 <Accordion
