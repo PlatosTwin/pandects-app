@@ -9,6 +9,7 @@ from etl.domain.gating import apply_gating
 from etl.utils.summary_data import refresh_summary_data
 
 _END_OF_JOB_REFRESH_ASSET_NAMES = {
+    "07_taxonomy_asset",
     "10_tx_metadata_asset",
     "10-02_regular_ingest_tx_metadata_web_search_asset",
     "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",

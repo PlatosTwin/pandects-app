@@ -42,6 +42,7 @@ class PostAssetRefreshTests(unittest.TestCase):
         db = SimpleNamespace(database="pdx", get_engine=lambda: SimpleNamespace(begin=lambda: _FakeBegin()))
 
         for asset_name in (
+            "07_taxonomy_asset",
             "10_tx_metadata_asset",
             "10-02_regular_ingest_tx_metadata_web_search_asset",
             "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",
@@ -75,7 +76,6 @@ class PostAssetRefreshTests(unittest.TestCase):
 
         for asset_name in (
             "03_tagging_asset",
-            "07_taxonomy_asset",
             "10-01_regular_ingest_tx_metadata_offline_asset",
             "10-03_ingestion_cleanup_a_tx_metadata_offline_asset",
             "10-05_ingestion_cleanup_b_tx_metadata_offline_asset",
