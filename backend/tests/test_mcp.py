@@ -1420,7 +1420,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertEqual(payload["id"], 6)
         self.assertEqual(payload["error"]["data"]["category"], "authorization")
-        self.assertEqual(payload["error"]["message"], "Missing required scope: agreements:read")
+        self.assertEqual(payload["error"]["message"], "You do not have permission to call this tool.")
 
     def test_zitadel_provider_falls_back_to_introspection_for_opaque_tokens(self):
         original_provider = os.environ.get("MCP_IDENTITY_PROVIDER")
