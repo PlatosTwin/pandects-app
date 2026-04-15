@@ -3,6 +3,7 @@ import logo256Webp from "../../assets/logo-256.webp";
 import logo128Png from "../../assets/logo-128.png";
 import logo256Png from "../../assets/logo-256.png";
 import { Button } from "@/components/ui/button";
+import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { Link } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
@@ -77,31 +78,49 @@ export default function Landing() {
               <span ref={updatedTextRef}>Updated{"\u00A0"}monthly</span>
             </div>
 
-            <button
-              type="button"
-              aria-label="About the Pandects name"
-              title="Pandects takes its name from Justinian's digest of Roman law."
-              className="mx-auto mb-8 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <picture>
-                <source
-                  srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
-                  sizes="(min-width: 640px) 128px, 96px"
-                  type="image/webp"
-                />
-                <img
-                  src={logo128Png}
-                  alt="Pandects Logo"
-                  width={128}
-                  height={128}
-                  srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
-                  sizes="(min-width: 640px) 128px, 96px"
-                  fetchpriority="high"
-                  decoding="async"
-                  className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/60 sm:h-32 sm:w-32"
-                />
-              </picture>
-            </button>
+            <AdaptiveTooltip
+              trigger={
+                <button
+                  type="button"
+                  aria-label="About the Pandects name"
+                  className="mx-auto mb-8 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <picture>
+                    <source
+                      srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
+                      sizes="(min-width: 640px) 128px, 96px"
+                      type="image/webp"
+                    />
+                    <img
+                      src={logo128Png}
+                      alt="Pandects Logo"
+                      width={128}
+                      height={128}
+                      srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
+                      sizes="(min-width: 640px) 128px, 96px"
+                      fetchpriority="high"
+                      decoding="async"
+                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/60 sm:h-32 sm:w-32"
+                    />
+                  </picture>
+                </button>
+              }
+              content={
+                <>
+                  What&apos;s behind the name? We took a page from Emperor Justinian,
+                  whose 6th-century compendium, the Pandects, distilled centuries
+                  of legal wisdom into a single, authoritative digest.
+                </>
+              }
+              tooltipProps={{
+                side: "top",
+                className: "max-w-xs border-transparent bg-foreground text-background",
+              }}
+              popoverProps={{
+                side: "top",
+                className: "w-auto max-w-xs border-transparent bg-foreground p-2 text-sm text-background",
+              }}
+            />
 
             <h1 className="mt-0 text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
             {"Search Thousands of M&A\u00A0Agreements"}

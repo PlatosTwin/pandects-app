@@ -6,6 +6,14 @@ import logo128Png from "../../assets/logo-128.png";
 import logo256Png from "../../assets/logo-256.png";
 import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { trackEvent } from "@/lib/analytics";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const NavigationDesktopMenus = lazy(
   () => import("@/components/NavigationDesktopMenus"),
@@ -35,6 +43,7 @@ function NavigationComponent() {
   const location = useLocation();
   const navRef = useRef<HTMLElement | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [isBetaDialogOpen, setIsBetaDialogOpen] = useState(false);
   const betaDisclaimer =
     "Pandects is in early development. Layout, API schema, and data organization may change.";
 
@@ -86,13 +95,27 @@ function NavigationComponent() {
               Pandects
             </span>
           </Link>
-          <span
-            className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-900"
-            title={betaDisclaimer}
-            aria-label={`Beta notice. ${betaDisclaimer}`}
-          >
-            BETA
-          </span>
+          <AlertDialog open={isBetaDialogOpen} onOpenChange={setIsBetaDialogOpen}>
+            <button
+              type="button"
+              onClick={() => setIsBetaDialogOpen(true)}
+              className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              aria-label="Read beta notice"
+            >
+              BETA
+            </button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Beta Notice</AlertDialogTitle>
+                <AlertDialogDescription className="text-left">
+                  {betaDisclaimer}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogAction onClick={() => setIsBetaDialogOpen(false)}>
+                Got it
+              </AlertDialogAction>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {hasHydrated ? (
