@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import jwt
 from sqlalchemy import text
+from werkzeug.exceptions import BadRequest
 from werkzeug.serving import BaseWSGIServer, make_server
 
 from backend.mcp.metrics import get_mcp_metrics_registry
@@ -652,6 +653,49 @@ class McpTests(unittest.TestCase):
         self.assertTrue(
             any("mcp_protected_resource_metadata_unavailable" in line for line in log_context.output)
         )
+
+    def test_permission_error_hides_runtime_details(self):
+        client = self.app.test_client()
+        with patch(
+            "backend.mcp.routes.call_tool",
+            side_effect=PermissionError("missing agreements:read scope for private tool"),
+        ):
+            with self.assertLogs("backend.mcp.routes", level="WARNING") as log_context:
+                res = client.post(
+                    "/mcp",
+                    headers={"Authorization": self._bearer()},
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": 80,
+                        "method": "tools/call",
+                        "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
+                    },
+                )
+        self.assertEqual(res.status_code, 403)
+        body = res.get_json()
+        self.assertEqual(body["error"]["message"], "You do not have permission to call this tool.")
+        self.assertEqual(body["error"]["data"]["category"], "authorization")
+        self.assertTrue(any("mcp_tool_permission_denied" in line for line in log_context.output))
+
+    def test_http_exception_hides_runtime_details(self):
+        client = self.app.test_client()
+        with patch(
+            "backend.mcp.routes.call_tool",
+            side_effect=BadRequest(description="raw backend details"),
+        ):
+            res = client.post(
+                "/mcp",
+                headers={"Authorization": self._bearer()},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 81,
+                    "method": "tools/call",
+                    "params": {"name": "search_agreements", "arguments": {"query": "Target"}},
+                },
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["error"]["message"], "Tool request was invalid.")
 
     def test_mcp_requires_bearer_token(self):
         client = self.app.test_client()

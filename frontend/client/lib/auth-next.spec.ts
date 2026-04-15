@@ -70,6 +70,22 @@ describe("nextPathHref", () => {
     );
   });
 
+  it("drops unsupported provider and prompt values for zitadel starts", () => {
+    expect(nextPathHref("/v1/auth/zitadel/start?next=/search&provider=github&prompt=consent")).toBe(
+      "https://api.pandects.org/v1/auth/zitadel/start?next=%2Fsearch",
+    );
+  });
+
+  it("keeps only supported oauth authorize query fields", () => {
+    expect(
+      nextPathHref(
+        "/v1/auth/oauth/authorize?client_id=client&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&response_type=code&state=abc&scope=openid&code_challenge=xyz&code_challenge_method=S256&next=%2Fsearch",
+      ),
+    ).toBe(
+      "https://api.pandects.org/v1/auth/oauth/authorize?client_id=client&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&response_type=code&state=abc&scope=openid&code_challenge=xyz&code_challenge_method=S256",
+    );
+  });
+
   it("falls back to /account for unapproved backend auth routes", () => {
     expect(nextPathHref("/v1/auth/logout")).toBe("/account");
   });

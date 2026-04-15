@@ -25,6 +25,9 @@ from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServi
 logger = logging.getLogger(__name__)
 metrics_registry = get_mcp_metrics_registry()
 PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE = "Protected resource metadata is unavailable right now."
+INVALID_JSON_RPC_PAYLOAD_MESSAGE = "Request body must be a JSON object."
+AUTHORIZATION_ERROR_MESSAGE = "You do not have permission to call this tool."
+BAD_TOOL_REQUEST_MESSAGE = "Tool request was invalid."
 
 
 @dataclass(frozen=True)
@@ -64,7 +67,7 @@ def _json_rpc_result(*, request_id: object, result: dict[str, object]) -> Respon
 def _ensure_object_payload() -> dict[str, object]:
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
-        raise ValueError("Request body must be a JSON object.")
+        raise ValueError(INVALID_JSON_RPC_PAYLOAD_MESSAGE)
     return cast(dict[str, object], body)
 
 
@@ -142,8 +145,8 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
 
         try:
             payload = _ensure_object_payload()
-        except ValueError as exc:
-            return _json_rpc_error(request_id=None, code=-32700, message=str(exc))
+        except ValueError:
+            return _json_rpc_error(request_id=None, code=-32700, message=INVALID_JSON_RPC_PAYLOAD_MESSAGE)
 
         request_id = payload.get("id")
         method = payload.get("method")
@@ -228,6 +231,16 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     data=exc.messages,
                 )
             except PermissionError as exc:
+                logger.warning(
+                    "mcp_tool_permission_denied",
+                    extra={
+                        "event": "mcp_tool_permission_denied",
+                        "tool_name": tool_name,
+                        "request_id": request_id,
+                        "scope_count": len(principal.scopes),
+                    },
+                    exc_info=exc,
+                )
                 _log_mcp_tool_event(
                     tool_name=tool_name,
                     outcome="error",
@@ -239,7 +252,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32003,
-                    message=str(exc),
+                    message=AUTHORIZATION_ERROR_MESSAGE,
                     data={"category": "authorization", "status_code": 403},
                     status_code=403,
                     www_authenticate='Bearer realm="pandects-mcp"',
@@ -277,11 +290,10 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     scope_count=len(principal.scopes),
                     error_category="http_exception",
                 )
-                description = exc.description if isinstance(exc.description, str) else "Request failed."
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32602 if exc.code == 400 else -32004,
-                    message=description,
+                    message=BAD_TOOL_REQUEST_MESSAGE if exc.code == 400 else "Tool request failed.",
                 )
             latency_ms = max(0, int((time.perf_counter() - started_at) * 1000))
             if tool_name == "get_server_metrics" and isinstance(result.structured_content, dict):
