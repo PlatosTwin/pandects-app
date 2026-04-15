@@ -103,6 +103,26 @@ export default function About() {
             <li>Accessibility improvements (keyboard, focus, contrast).</li>
             <li>ML model optimization.</li>
           </ul>
+          <p className="text-muted-foreground">
+            In the medium term, we hope to:
+          </p>
+          <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+            <li>
+              Taxonomize not just <em>tax</em> clauses but also important
+              clauses <em>generally</em>. Right now, in addition to tax
+              clauses, we taxonomize <em>sections</em>, but a single section
+              can have multiple important clauses within it.
+            </li>
+            <li>
+              Identify defined terms, including those relegated to appendices,
+              and make them searchable.
+            </li>
+            <li>
+              Develop a specific UI surface to help practitioners answer, "Is
+              this market?" or "What is market?" questions.
+            </li>
+            <li>Refine the section taxonomy.</li>
+          </ul>
         </section>
 
         <section
