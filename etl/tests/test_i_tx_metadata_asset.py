@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from dagster import AssetExecutionContext, build_op_context
 from openai import OpenAI
+from sqlalchemy.engine import Connection
 
 from etl.defs.resources import PipelineConfig, QueueRunMode
 from etl.defs.i_tx_metadata_asset import (
@@ -18,9 +19,11 @@ from etl.defs.i_tx_metadata_asset import (
     _counsel_offline_update_sql,
     _run_offline_mode,
     _run_web_search_mode,
+    _select_recent_pending_agreement_uuids_for_web_search,
     _web_search_missing_core_metadata_sql,
     ingestion_cleanup_a_tx_metadata_offline_asset,
     ingestion_cleanup_a_tx_metadata_web_search_asset,
+    regular_ingest_tx_metadata_web_search_asset,
     tx_metadata_asset,
 )
 from etl.domain.i_tx_metadata import (
@@ -221,19 +224,33 @@ class _FakeMetadataSelectionEngine:
 
 
 class _NoopConn:
-    pass
+    def __init__(self, *, scalar_rows: list[object] | None = None) -> None:
+        self.scalar_rows = scalar_rows or []
+        self.executed_sql: list[str] = []
+        self.params_history: list[dict[str, object]] = []
+
+    def execute(self, statement: object, params: dict[str, object] | None = None) -> _FakeResult:
+        self.executed_sql.append(str(statement))
+        self.params_history.append(dict(params or {}))
+        return _FakeResult(scalar_rows=self.scalar_rows)
 
 
 class _NoopEngine:
+    def __init__(self, conn: _NoopConn | None = None) -> None:
+        self._conn = conn or _NoopConn()
+
     def begin(self) -> _FakeBeginContext:
-        return _FakeBeginContext(_NoopConn())
+        return _FakeBeginContext(self._conn)
 
 
 class _FakeDbResource:
     database = "pdx"
 
+    def __init__(self, engine: _NoopEngine | None = None) -> None:
+        self._engine = engine or _NoopEngine()
+
     def get_engine(self) -> _NoopEngine:
-        return _NoopEngine()
+        return self._engine
 
 
 def _fake_web_search_output(search_count: int) -> list[object]:
@@ -1570,6 +1587,33 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         assert conn.last_select_params is not None
         self.assertEqual(conn.last_select_params["lim"], 12)
 
+    def test_run_web_search_mode_expands_limit_for_forced_verification_uuids(self) -> None:
+        conn = _FakeWebConn()
+        engine = _FakeWebEngine(conn)
+        context = SimpleNamespace(log=_FakeLog())
+        with (
+            patch(
+                "etl.defs.i_tx_metadata_asset._oai_client",
+                return_value=_FakeWebClient(response_text=self._valid_web_search_payload()),
+            ),
+            patch("etl.defs.i_tx_metadata_asset.refresh_latest_sections_search"),
+        ):
+            _ = _run_web_search_mode(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                engine=engine,
+                schema="pdx",
+                agreements_table="pdx.agreements",
+                batch_size=2,
+                force_include_agreement_uuids=[f"agreement-{idx}" for idx in range(5)],
+            )
+
+        assert conn.last_select_params is not None
+        self.assertEqual(conn.last_select_params["lim"], 5)
+        self.assertEqual(
+            conn.last_select_params["force_include_agreement_uuids"],
+            tuple(f"agreement-{idx}" for idx in range(5)),
+        )
+
     def test_run_web_search_mode_logs_failed_uuid_summary(self) -> None:
         conn = _FakeWebConn()
         engine = _FakeWebEngine(conn)
@@ -1701,6 +1745,59 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             stage_name="ingestion_cleanup_a_tx_metadata_web_search",
             complete_run=True,
         )
+
+    def test_select_recent_pending_agreement_uuids_for_web_search_queries_recent_non_gated_pending(self) -> None:
+        conn = _NoopConn(scalar_rows=["agreement-2", "agreement-1"])
+
+        selected = _select_recent_pending_agreement_uuids_for_web_search(
+            cast(Connection, cast(object, conn)),
+            "pdx",
+            lookback_years=1,
+        )
+
+        self.assertEqual(selected, ["agreement-2", "agreement-1"])
+        self.assertTrue(conn.executed_sql)
+        self.assertIn("COALESCE(a.gated, 0) = 0", conn.executed_sql[0])
+        self.assertIn("COALESCE(a.deal_status, '') = 'pending'", conn.executed_sql[0])
+        self.assertEqual(conn.params_history[0]["lookback_years"], 1)
+
+    def test_regular_ingest_web_search_asset_adds_recent_pending_verification_scope(self) -> None:
+        def _add_output_metadata(_metadata: object) -> None:
+            return None
+
+        context = SimpleNamespace(log=_FakeLog(), add_output_metadata=_add_output_metadata)
+        pipeline_config = PipelineConfig()
+        fake_db = _FakeDbResource()
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.should_skip_managed_stage", return_value=(False, None)),
+            patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=["scope-1"]),
+            patch(
+                "etl.defs.i_tx_metadata_asset._select_recent_pending_agreement_uuids_for_web_search",
+                return_value=["pending-1", "pending-2"],
+            ),
+            patch("etl.defs.i_tx_metadata_asset.run_pre_asset_gating", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.run_post_asset_refresh", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.mark_logical_run_stage_completed", return_value=None),
+            patch(
+                "etl.defs.i_tx_metadata_asset._run_web_search_mode",
+                return_value={"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": ["scope-1", "pending-1"]},
+            ) as run_web_search,
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_tx_metadata_web_search_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, fake_db),
+                pipeline_config=pipeline_config,
+                agreement_uuids=[],
+            )
+
+        self.assertEqual(result, ["pending-1", "scope-1"])
+        run_web_search.assert_called_once()
+        _, kwargs = run_web_search.call_args
+        self.assertEqual(kwargs["target_agreement_uuids"], ["pending-1", "pending-2", "scope-1"])
+        self.assertEqual(kwargs["force_include_agreement_uuids"], ["pending-1", "pending-2"])
 
 
 if __name__ == "__main__":

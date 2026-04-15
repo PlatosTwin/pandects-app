@@ -94,7 +94,7 @@ def _has_text_sql(column_sql: str) -> str:
     return f"{column_sql} IS NOT NULL AND TRIM({column_sql}) <> ''"
 
 
-def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:  # pyright: ignore[reportUnusedFunction]
+def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:
     consideration_sql = f"{alias}.transaction_consideration"
     price_total_sql = f"{alias}.transaction_price_total"
     price_cash_sql = f"{alias}.transaction_price_cash"
@@ -143,6 +143,31 @@ def _web_search_missing_core_metadata_sql(*, alias: str = "a") -> str:  # pyrigh
         f"                )\n"
         f"            )"
     )
+
+
+def _select_recent_pending_agreement_uuids_for_web_search(
+    conn: Connection,
+    schema: str,
+    *,
+    lookback_years: int = 1,
+) -> list[str]:
+    if lookback_years < 0:
+        raise ValueError("lookback_years must be >= 0.")
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT a.agreement_uuid
+            FROM {schema}.agreements a
+            WHERE COALESCE(a.gated, 0) = 0
+              AND COALESCE(a.deal_status, '') = 'pending'
+              AND a.filing_date IS NOT NULL
+              AND a.filing_date >= DATE_SUB(CURDATE(), INTERVAL :lookback_years YEAR)
+            ORDER BY a.filing_date DESC, a.agreement_uuid ASC
+            """
+        ),
+        {"lookback_years": lookback_years},
+    ).scalars().all()
+    return [str(row) for row in rows if row is not None]
 
 
 def _web_search_model_for_agreement(agreement_row: Dict[str, Any]) -> str:
@@ -908,7 +933,23 @@ def _run_managed_tx_metadata_web_search_asset(
         job_name=job_name,
         fallback_agreement_uuids=agreement_uuids,
     )
-    if not scope_uuids:
+
+    forced_verification_uuids: list[str] = []
+    if job_name == "regular_ingest":
+        with db.get_engine().begin() as conn:
+            forced_verification_uuids = _select_recent_pending_agreement_uuids_for_web_search(
+                conn,
+                db.database,
+            )
+        if forced_verification_uuids:
+            context.log.info(
+                "%s: adding %s recent pending agreements for end-of-job web-search verification.",
+                log_prefix,
+                len(forced_verification_uuids),
+            )
+
+    target_scope_uuids = sorted({*scope_uuids, *forced_verification_uuids})
+    if not target_scope_uuids:
         mark_logical_run_stage_completed(
             db=db,
             job_name=job_name,
@@ -927,7 +968,8 @@ def _run_managed_tx_metadata_web_search_asset(
         schema,
         agreements_table,
         pipeline_config.tx_metadata_agreement_batch_size,
-        target_agreement_uuids=scope_uuids,
+        target_agreement_uuids=target_scope_uuids,
+        force_include_agreement_uuids=forced_verification_uuids,
         log_prefix=log_prefix,
     )
     context.add_output_metadata(
@@ -1862,13 +1904,17 @@ def _run_web_search_mode(
     batch_size: int,
     target_agreement_uuids: list[str] | None = None,
     include_all_scoped_agreements: bool = False,
+    force_include_agreement_uuids: list[str] | None = None,
     log_prefix: str = "tx_metadata_asset (web_search)",
 ) -> Dict[str, Any]:
     """Web-search: select agreements needing metadata with names or URL context; sync API; update web columns."""
     if target_agreement_uuids is not None and not target_agreement_uuids:
         context.log.info("%s: explicit empty scope; no web-search work to run.", log_prefix)
         return {"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": []}
-    query_limit = max(batch_size, len(set(target_agreement_uuids))) if target_agreement_uuids else batch_size
+    forced_uuids = tuple(sorted({str(agreement_uuid) for agreement_uuid in (force_include_agreement_uuids or []) if agreement_uuid}))
+    scoped_uuids = tuple(sorted({str(agreement_uuid) for agreement_uuid in (target_agreement_uuids or []) if agreement_uuid}))
+    minimum_query_size = len(set(scoped_uuids) | set(forced_uuids))
+    query_limit = max(batch_size, minimum_query_size) if minimum_query_size else batch_size
     with engine.begin() as conn:
         assert_tables_exist(
             conn,
@@ -1876,10 +1922,11 @@ def _run_web_search_mode(
             table_names=("tx_metadata_web_failures",),
         )
 
-    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if target_agreement_uuids else ""
+    scope_clause = "AND a.agreement_uuid IN :agreement_uuids" if scoped_uuids else ""
     apply_default_candidate_filter = not (include_all_scoped_agreements and target_agreement_uuids)
+    forced_candidate_clause = " OR a.agreement_uuid IN :force_include_agreement_uuids" if forced_uuids else ""
     candidate_filter_clause = (
-        """
+        f"""
         (
             COALESCE(a.metadata, 0) = 0
             OR (
@@ -1888,10 +1935,11 @@ def _run_web_search_mode(
                     {_web_search_missing_core_metadata_sql(alias='a')}
                 )
             )
+            {forced_candidate_clause}
         )
         """
         if apply_default_candidate_filter
-        else "1 = 1"
+        else f"1 = 1{' OR a.agreement_uuid IN :force_include_agreement_uuids' if forced_uuids else ''}"
     )
     select_q = text(
         f"""
@@ -1942,12 +1990,16 @@ def _run_web_search_mode(
         LIMIT :lim
         """
     )
-    if target_agreement_uuids:
+    if scoped_uuids:
         select_q = select_q.bindparams(bindparam("agreement_uuids", expanding=True))
+    if forced_uuids:
+        select_q = select_q.bindparams(bindparam("force_include_agreement_uuids", expanding=True))
     with engine.begin() as conn:
         params: dict[str, object] = {"lim": query_limit}
-        if target_agreement_uuids:
-            params["agreement_uuids"] = tuple(sorted(set(target_agreement_uuids)))
+        if scoped_uuids:
+            params["agreement_uuids"] = scoped_uuids
+        if forced_uuids:
+            params["force_include_agreement_uuids"] = forced_uuids
         rows = conn.execute(select_q, params).mappings().fetchall()
     agreements = [dict(r) for r in rows]
     if not agreements:
