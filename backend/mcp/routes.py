@@ -24,6 +24,7 @@ from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServi
 
 logger = logging.getLogger(__name__)
 metrics_registry = get_mcp_metrics_registry()
+PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE = "Protected resource metadata is unavailable right now."
 
 
 @dataclass(frozen=True)
@@ -111,8 +112,14 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
         try:
             payload = mcp_protected_resource_metadata()
         except RuntimeError as exc:
+            logger.warning("mcp_protected_resource_metadata_unavailable", exc_info=exc)
             return make_response(
-                jsonify({"error": "Service Unavailable", "message": str(exc)}),
+                jsonify(
+                    {
+                        "error": "Service Unavailable",
+                        "message": PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
+                    }
+                ),
                 503,
             )
         return make_response(jsonify(payload), 200)

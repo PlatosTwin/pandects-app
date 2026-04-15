@@ -633,6 +633,26 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["resource"], self.mcp_runtime.mcp_resource_url())
         self.assertIn("http://localhost:5000/v1/auth/oauth", payload["authorization_servers"])
 
+    def test_protected_resource_metadata_hides_runtime_details(self):
+        client = self.app.test_client()
+        with patch(
+            "backend.mcp.routes.mcp_protected_resource_metadata",
+            side_effect=RuntimeError("OIDC discovery document missing jwks_uri."),
+        ):
+            with self.assertLogs("backend.mcp.routes", level="WARNING") as log_context:
+                res = client.get("/.well-known/oauth-protected-resource")
+        self.assertEqual(res.status_code, 503)
+        payload = res.get_json()
+        self.assertEqual(payload["error"], "Service Unavailable")
+        self.assertEqual(
+            payload["message"],
+            "Protected resource metadata is unavailable right now.",
+        )
+        self.assertNotIn("jwks_uri", payload["message"])
+        self.assertTrue(
+            any("mcp_protected_resource_metadata_unavailable" in line for line in log_context.output)
+        )
+
     def test_mcp_requires_bearer_token(self):
         client = self.app.test_client()
         res = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})

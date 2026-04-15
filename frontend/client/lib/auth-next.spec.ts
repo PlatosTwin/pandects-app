@@ -44,6 +44,10 @@ describe("nextPathRequiresDocumentNavigation", () => {
     expect(nextPathRequiresDocumentNavigation("/v1/auth/oauth/authorize?state=test")).toBe(true);
   });
 
+  it("rejects backend auth paths that are not approved browser navigations", () => {
+    expect(nextPathRequiresDocumentNavigation("/v1/auth/logout")).toBe(false);
+  });
+
   it("keeps normal app routes inside the SPA", () => {
     expect(nextPathRequiresDocumentNavigation("/search?query=test")).toBe(false);
   });
@@ -58,5 +62,15 @@ describe("nextPathHref", () => {
 
   it("keeps app routes relative", () => {
     expect(nextPathHref("/search?query=test")).toBe("/search?query=test");
+  });
+
+  it("sanitizes nested next parameters on backend auth routes", () => {
+    expect(nextPathHref("/v1/auth/zitadel/start?next=https://evil.example&provider=email")).toBe(
+      "https://api.pandects.org/v1/auth/zitadel/start?next=%2Faccount&provider=email",
+    );
+  });
+
+  it("falls back to /account for unapproved backend auth routes", () => {
+    expect(nextPathHref("/v1/auth/logout")).toBe("/account");
   });
 });
