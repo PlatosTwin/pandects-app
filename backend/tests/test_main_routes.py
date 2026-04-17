@@ -929,6 +929,26 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total_count, 488296)
         self.assertTrue(is_approximate)
 
+    def test_search_total_count_metadata_legacy_shim_forwards_auto_mode(self):
+        with patch.object(
+            self.app_module,
+            "_svc_sections_total_count_metadata",
+            return_value=(123, True, "table_estimate"),
+        ) as metadata_mock:
+            total_count, is_approximate = self.app_module._search_total_count_metadata(
+                query=object(),
+                page=2,
+                page_size=25,
+                item_count=25,
+                has_next=True,
+                has_filters=False,
+            )
+
+        metadata_mock.assert_called_once()
+        self.assertEqual(metadata_mock.call_args.kwargs["count_mode"], "auto")
+        self.assertEqual(total_count, 123)
+        self.assertTrue(is_approximate)
+
     def test_search_total_count_metadata_uses_query_estimate_for_filtered_search_beyond_page_one(self):
         with patch.object(self.app_module, "_estimated_query_row_count", return_value=240):
             total_count, is_approximate = self.app_module._search_total_count_metadata(
