@@ -77,6 +77,7 @@ etl/src/etl/utils/finish_ner_training_whitespace_sanitization.py
 etl/src/etl/utils/force_apply_whitespace_backfill_stale_rows.py
 etl/tests/test_preproc_diff_audit.py
 etl/tests/test_historical_agreement_dedupe.py
+etl/tests/test_audit_training_data_quality.py
 etl/src/etl/models/ner/audit_training_data_labels.py
 etl/src/etl/models/ner/audit_training_data_quality.py
 
