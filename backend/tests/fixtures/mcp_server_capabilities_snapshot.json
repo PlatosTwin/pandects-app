@@ -1,11 +1,433 @@
 {
+  "auth_help": {
+    "fulltext_scope": "agreements:read_fulltext",
+    "invalid_or_expired_token_message": "If credentials look stale, sign in again and resend the bearer token.",
+    "login_required": true,
+    "relogin_hint": "If a bearer token is missing, invalid, or expired, re-authenticate and retry the MCP call."
+  },
+  "concept_notes": [
+    {
+      "canonical_or_proxy": "proxy",
+      "concept": "no-shop",
+      "recommended_tools": [
+        "suggest_clause_families",
+        "get_clause_taxonomy",
+        "search_sections"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "No-shop style concepts are usually approached through clause-family taxonomy and section text rather than a dedicated normalized agreement field."
+    },
+    {
+      "canonical_or_proxy": "canonical",
+      "concept": "fiduciary out",
+      "recommended_tools": [
+        "get_clause_taxonomy",
+        "search_sections",
+        "get_section_snippet"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "This concept is represented primarily through taxonomy-assigned sections, then inspected in section text."
+    },
+    {
+      "canonical_or_proxy": "proxy",
+      "concept": "MAE carveouts",
+      "recommended_tools": [
+        "suggest_clause_families",
+        "search_sections",
+        "get_section_snippet"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "MAE carveouts are often proxied by Material Adverse Effect taxonomy nodes plus section text, especially disproportionate-effects language."
+    },
+    {
+      "canonical_or_proxy": "canonical",
+      "concept": "disproportionate effects",
+      "recommended_tools": [
+        "suggest_clause_families",
+        "search_sections",
+        "get_section_snippet"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "This concept is commonly represented by a specific descendant taxonomy node inside MAE definitions."
+    },
+    {
+      "canonical_or_proxy": "canonical",
+      "concept": "specific performance",
+      "recommended_tools": [
+        "suggest_clause_families",
+        "search_sections",
+        "get_section_snippet"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "Specific performance is typically represented through clause-family assignments and supporting section text."
+    },
+    {
+      "canonical_or_proxy": "proxy",
+      "concept": "antitrust efforts",
+      "recommended_tools": [
+        "suggest_clause_families",
+        "search_sections",
+        "get_section_snippet"
+      ],
+      "representation": "taxonomy_assignment",
+      "scope_note": "Antitrust-efforts concepts may span several nearby clause families and should be validated in the returned section text."
+    }
+  ],
+  "field_inventory": {
+    "agreement_fields": [
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "year",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "target",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "acquirer",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "transaction_consideration",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "target_type",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "acquirer_type",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "target_counsel",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "acquirer_counsel",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "target_industry",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "acquirer_industry",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "deal_status",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "attitude",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "deal_type",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "purpose",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "target_pe",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "acquirer_pe",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "agreement_uuid",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "filing_date",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "announce_date",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "close_date",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      },
+      {
+        "applies_to_tools": [
+          "search_agreements",
+          "list_agreements",
+          "get_agreement",
+          "search_sections"
+        ],
+        "name": "url",
+        "representation": "first_class_agreement_field",
+        "source_table_or_surface": "agreements"
+      }
+    ],
+    "section_fields": [
+      {
+        "applies_to_tools": [
+          "search_sections",
+          "get_section",
+          "get_section_snippet",
+          "list_agreement_sections"
+        ],
+        "name": "section_uuid",
+        "representation": "first_class_section_field",
+        "source_table_or_surface": "sections/latest_sections_search"
+      },
+      {
+        "applies_to_tools": [
+          "search_sections",
+          "get_section",
+          "get_section_snippet",
+          "list_agreement_sections"
+        ],
+        "name": "article_title",
+        "representation": "first_class_section_field",
+        "source_table_or_surface": "sections/latest_sections_search"
+      },
+      {
+        "applies_to_tools": [
+          "search_sections",
+          "get_section",
+          "get_section_snippet",
+          "list_agreement_sections"
+        ],
+        "name": "section_title",
+        "representation": "first_class_section_field",
+        "source_table_or_surface": "sections/latest_sections_search"
+      },
+      {
+        "applies_to_tools": [
+          "search_sections",
+          "get_section",
+          "get_section_snippet",
+          "list_agreement_sections"
+        ],
+        "name": "xml",
+        "representation": "first_class_section_field",
+        "source_table_or_surface": "sections/latest_sections_search"
+      }
+    ],
+    "taxonomy_assignment_fields": [
+      {
+        "applies_to_tools": [
+          "search_sections",
+          "get_section",
+          "suggest_clause_families",
+          "get_clause_taxonomy"
+        ],
+        "name": "standard_id",
+        "representation": "taxonomy_assignment",
+        "source_table_or_surface": "latest_sections_search_standard_ids"
+      }
+    ]
+  },
   "server": {
     "introspection_tool": "get_server_capabilities",
     "metrics_tool": "get_server_metrics",
     "name": "pandects-mcp",
     "primary_discovery_tool": "list_filter_options",
+    "resource_templates_supported": false,
+    "resources_supported": false,
     "transport": "http_jsonrpc"
   },
+  "tool_limitations": [
+    {
+      "do_not_use_for": "Do not use this tool when you already know the exact structured filters and expect deep pagination; prefer list_agreements.",
+      "tool": "search_agreements",
+      "use_when": "Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination."
+    },
+    {
+      "do_not_use_for": "Do not treat free-text query hits as normalized extracted facts beyond the documented agreement fields.",
+      "tool": "search_agreements",
+      "use_when": "Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination."
+    },
+    {
+      "do_not_use_for": "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
+      "tool": "search_sections",
+      "use_when": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+    },
+    {
+      "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+      "tool": "search_sections",
+      "use_when": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+    },
+    {
+      "do_not_use_for": "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years.",
+      "tool": "list_agreements",
+      "use_when": "Use when filters are already known and you expect to paginate deeply or export exact result sets."
+    },
+    {
+      "do_not_use_for": "Do not use this tool for bulk discovery or corpus filtering.",
+      "tool": "get_agreement",
+      "use_when": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
+    },
+    {
+      "do_not_use_for": "Do not send the pluralized catalog keys directly to retrieval tools; use retrieval_parameter_map to translate them.",
+      "tool": "list_filter_options",
+      "use_when": "Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names."
+    },
+    {
+      "do_not_use_for": "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
+      "tool": "suggest_clause_families",
+      "use_when": "Use when you know the legal concept but not the right taxonomy id."
+    },
+    {
+      "do_not_use_for": "Do not treat the snippet as the complete section; fetch get_section if exact full context matters.",
+      "tool": "get_section_snippet",
+      "use_when": "Use after search_sections when you need a quick excerpt for comparison or quoting."
+    },
+    {
+      "do_not_use_for": "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly.",
+      "tool": "get_server_capabilities",
+      "use_when": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
+    }
+  ],
   "tools": [
     {
       "access": {
@@ -300,14 +722,133 @@
         "mode": "page"
       },
       "name": "search_agreements",
+      "negative_guidance": [
+        "Do not use this tool when you already know the exact structured filters and expect deep pagination; prefer list_agreements.",
+        "Do not treat free-text query hits as normalized extracted facts beyond the documented agreement fields."
+      ],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
+          "count_metadata": {
+            "additionalProperties": false,
+            "properties": {
+              "exact_count_requested": {
+                "type": "boolean"
+              },
+              "method": {
+                "enum": [
+                  "query_count",
+                  "table_estimate",
+                  "filtered_lower_bound"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "exact",
+                  "estimated"
+                ],
+                "type": "string"
+              },
+              "planning_reliability": {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "method",
+              "planning_reliability",
+              "exact_count_requested"
+            ],
+            "type": "object"
+          },
           "has_next": {
             "type": "boolean"
           },
           "has_prev": {
             "type": "boolean"
+          },
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "applied_filters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "match_kind": {
+                      "type": "string"
+                    },
+                    "representation": {
+                      "enum": [
+                        "first_class_agreement_field",
+                        "first_class_section_field",
+                        "taxonomy_assignment",
+                        "derived_from_text",
+                        "not_represented"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "representation",
+                    "match_kind"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "heuristics_used": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "taxonomy_filters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "match_mode": {
+                      "enum": [
+                        "exact_node",
+                        "expanded_descendants"
+                      ],
+                      "type": "string"
+                    },
+                    "standard_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "standard_id",
+                    "match_mode"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "applied_filters",
+              "taxonomy_filters",
+              "heuristics_used",
+              "notes"
+            ],
+            "type": "object"
           },
           "next_num": {
             "type": [
@@ -392,6 +933,8 @@
         "required": [
           "results",
           "returned_count",
+          "count_metadata",
+          "interpretation",
           "page",
           "page_size",
           "total_count",
@@ -489,6 +1032,19 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "count_mode": {
+            "description": "Count strategy for pagination planning. Use `exact` when planning depends on a guaranteed total count.",
+            "enum": [
+              "auto",
+              "exact"
+            ],
+            "example": "auto",
+            "examples": [
+              "auto",
+              "exact"
+            ],
+            "type": "string"
           },
           "deal_status": {
             "items": {
@@ -763,6 +1319,10 @@
         "mode": "page"
       },
       "name": "search_sections",
+      "negative_guidance": [
+        "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+      ],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -785,11 +1345,126 @@
             ],
             "type": "object"
           },
+          "count_metadata": {
+            "additionalProperties": false,
+            "properties": {
+              "exact_count_requested": {
+                "type": "boolean"
+              },
+              "method": {
+                "enum": [
+                  "query_count",
+                  "table_estimate",
+                  "filtered_lower_bound"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "exact",
+                  "estimated"
+                ],
+                "type": "string"
+              },
+              "planning_reliability": {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "method",
+              "planning_reliability",
+              "exact_count_requested"
+            ],
+            "type": "object"
+          },
           "has_next": {
             "type": "boolean"
           },
           "has_prev": {
             "type": "boolean"
+          },
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "applied_filters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "match_kind": {
+                      "type": "string"
+                    },
+                    "representation": {
+                      "enum": [
+                        "first_class_agreement_field",
+                        "first_class_section_field",
+                        "taxonomy_assignment",
+                        "derived_from_text",
+                        "not_represented"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "representation",
+                    "match_kind"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "heuristics_used": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "taxonomy_filters": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "match_mode": {
+                      "enum": [
+                        "exact_node",
+                        "expanded_descendants"
+                      ],
+                      "type": "string"
+                    },
+                    "standard_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "standard_id",
+                    "match_mode"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "applied_filters",
+              "taxonomy_filters",
+              "heuristics_used",
+              "notes"
+            ],
+            "type": "object"
           },
           "next_num": {
             "type": [
@@ -898,6 +1573,8 @@
         "required": [
           "results",
           "access",
+          "count_metadata",
+          "interpretation",
           "page",
           "page_size",
           "total_count",
@@ -1195,6 +1872,9 @@
         "mode": "cursor"
       },
       "name": "list_agreements",
+      "negative_guidance": [
+        "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years."
+      ],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1497,6 +2177,7 @@
         "mode": "page"
       },
       "name": "list_agreement_sections",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1676,6 +2357,9 @@
         "mode": "none"
       },
       "name": "get_agreement",
+      "negative_guidance": [
+        "Do not use this tool for bulk discovery or corpus filtering."
+      ],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1902,6 +2586,7 @@
         "mode": "none"
       },
       "name": "get_section",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1986,6 +2671,7 @@
         "mode": "none"
       },
       "name": "get_agreement_tax_clauses",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2125,6 +2811,7 @@
         "mode": "none"
       },
       "name": "get_section_tax_clauses",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2285,6 +2972,9 @@
         "mode": "none"
       },
       "name": "list_filter_options",
+      "negative_guidance": [
+        "Do not send the pluralized catalog keys directly to retrieval tools; use retrieval_parameter_map to translate them."
+      ],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2551,6 +3241,9 @@
         "mode": "none"
       },
       "name": "suggest_clause_families",
+      "negative_guidance": [
+        "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it."
+      ],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2561,6 +3254,22 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "confidence": {
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ],
+                  "type": "string"
+                },
+                "fit": {
+                  "enum": [
+                    "canonical",
+                    "proxy",
+                    "broad_match"
+                  ],
+                  "type": "string"
+                },
                 "label": {
                   "type": "string"
                 },
@@ -2579,6 +3288,9 @@
                 "reason": {
                   "type": "string"
                 },
+                "scope_note": {
+                  "type": "string"
+                },
                 "score": {
                   "type": "number"
                 },
@@ -2592,6 +3304,9 @@
                 "path",
                 "score",
                 "matched_terms",
+                "fit",
+                "scope_note",
+                "confidence",
                 "reason"
               ],
               "type": "object"
@@ -2627,6 +3342,8 @@
             "concept": "MAE carveouts",
             "matches": [
               {
+                "confidence": "high",
+                "fit": "proxy",
                 "label": "Material Adverse Effect",
                 "matched_terms": [
                   "MAE",
@@ -2637,6 +3354,7 @@
                   "Material Adverse Effect"
                 ],
                 "reason": "Matched concept tokens and clause-family synonyms.",
+                "scope_note": "This taxonomy node is a reasonable proxy and may be broader or narrower than the requested concept.",
                 "score": 0.93,
                 "standard_id": "2.1"
               }
@@ -2681,6 +3399,9 @@
         "mode": "none"
       },
       "name": "get_section_snippet",
+      "negative_guidance": [
+        "Do not treat the snippet as the complete section; fetch get_section if exact full context matters."
+      ],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -2777,6 +3498,7 @@
         "mode": "none"
       },
       "name": "get_server_metrics",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": true,
         "properties": {
@@ -2882,9 +3604,203 @@
         "mode": "none"
       },
       "name": "get_server_capabilities",
+      "negative_guidance": [
+        "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
+      ],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
+          "auth_help": {
+            "additionalProperties": false,
+            "properties": {
+              "fulltext_scope": {
+                "type": "string"
+              },
+              "invalid_or_expired_token_message": {
+                "type": "string"
+              },
+              "login_required": {
+                "type": "boolean"
+              },
+              "relogin_hint": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "login_required",
+              "relogin_hint",
+              "fulltext_scope",
+              "invalid_or_expired_token_message"
+            ],
+            "type": "object"
+          },
+          "concept_notes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "canonical_or_proxy": {
+                  "enum": [
+                    "canonical",
+                    "proxy"
+                  ],
+                  "type": "string"
+                },
+                "concept": {
+                  "type": "string"
+                },
+                "recommended_tools": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "representation": {
+                  "enum": [
+                    "first_class_agreement_field",
+                    "first_class_section_field",
+                    "taxonomy_assignment",
+                    "derived_from_text",
+                    "not_represented"
+                  ],
+                  "type": "string"
+                },
+                "scope_note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "concept",
+                "recommended_tools",
+                "representation",
+                "canonical_or_proxy",
+                "scope_note"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "field_inventory": {
+            "additionalProperties": false,
+            "properties": {
+              "agreement_fields": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to_tools": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "representation": {
+                      "enum": [
+                        "first_class_agreement_field",
+                        "first_class_section_field",
+                        "taxonomy_assignment",
+                        "derived_from_text",
+                        "not_represented"
+                      ],
+                      "type": "string"
+                    },
+                    "source_table_or_surface": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "applies_to_tools",
+                    "source_table_or_surface",
+                    "representation"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "section_fields": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to_tools": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "representation": {
+                      "enum": [
+                        "first_class_agreement_field",
+                        "first_class_section_field",
+                        "taxonomy_assignment",
+                        "derived_from_text",
+                        "not_represented"
+                      ],
+                      "type": "string"
+                    },
+                    "source_table_or_surface": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "applies_to_tools",
+                    "source_table_or_surface",
+                    "representation"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "taxonomy_assignment_fields": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to_tools": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "representation": {
+                      "enum": [
+                        "first_class_agreement_field",
+                        "first_class_section_field",
+                        "taxonomy_assignment",
+                        "derived_from_text",
+                        "not_represented"
+                      ],
+                      "type": "string"
+                    },
+                    "source_table_or_surface": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "applies_to_tools",
+                    "source_table_or_surface",
+                    "representation"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "agreement_fields",
+              "section_fields",
+              "taxonomy_assignment_fields"
+            ],
+            "type": "object"
+          },
           "server": {
             "additionalProperties": false,
             "properties": {
@@ -2900,6 +3816,12 @@
               "primary_discovery_tool": {
                 "type": "string"
               },
+              "resource_templates_supported": {
+                "type": "boolean"
+              },
+              "resources_supported": {
+                "type": "boolean"
+              },
               "transport": {
                 "type": "string"
               }
@@ -2909,9 +3831,34 @@
               "primary_discovery_tool",
               "introspection_tool",
               "metrics_tool",
-              "transport"
+              "transport",
+              "resources_supported",
+              "resource_templates_supported"
             ],
             "type": "object"
+          },
+          "tool_limitations": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "do_not_use_for": {
+                  "type": "string"
+                },
+                "tool": {
+                  "type": "string"
+                },
+                "use_when": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tool",
+                "use_when",
+                "do_not_use_for"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "tools": {
             "items": {
@@ -3003,6 +3950,12 @@
                 "name": {
                   "type": "string"
                 },
+                "negative_guidance": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "output_schema": {
                   "type": "object"
                 },
@@ -3049,6 +4002,7 @@
                 "required_scopes",
                 "pagination",
                 "selection_hint",
+                "negative_guidance",
                 "examples",
                 "response_examples",
                 "access",
@@ -3085,6 +4039,10 @@
         },
         "required": [
           "server",
+          "auth_help",
+          "field_inventory",
+          "concept_notes",
+          "tool_limitations",
           "tools",
           "workflows"
         ],
@@ -3133,6 +4091,7 @@
         "mode": "none"
       },
       "name": "get_clause_taxonomy",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": {
           "additionalProperties": false,
@@ -3213,6 +4172,7 @@
         "mode": "none"
       },
       "name": "get_tax_clause_taxonomy",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": {
           "additionalProperties": false,
@@ -3293,6 +4253,7 @@
         "mode": "none"
       },
       "name": "get_counsel_catalog",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -3356,6 +4317,7 @@
         "mode": "none"
       },
       "name": "get_naics_catalog",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -3451,6 +4413,7 @@
         "mode": "none"
       },
       "name": "get_agreements_summary",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -3503,6 +4466,7 @@
         "mode": "none"
       },
       "name": "get_agreement_trends",
+      "negative_guidance": [],
       "output_schema": {
         "additionalProperties": false,
         "properties": {

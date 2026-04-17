@@ -138,7 +138,13 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 request_id=request_id,
                 code=-32001 if exc.status_code == 401 else -32003,
                 message=exc.message,
-                data={"category": "authentication", "status_code": exc.status_code},
+                data={
+                    "category": "authentication",
+                    "status_code": exc.status_code,
+                    "reason": exc.reason,
+                    "action": exc.action,
+                    "client_message": exc.client_message,
+                },
                 status_code=exc.status_code,
                 www_authenticate=exc.www_authenticate,
             )

@@ -163,12 +163,17 @@ def _normalized_capabilities_snapshot(payload: dict[str, object]) -> dict[str, o
     tools = cast(list[dict[str, object]], payload["tools"])
     return {
         "server": payload["server"],
+        "auth_help": payload["auth_help"],
+        "field_inventory": payload["field_inventory"],
+        "concept_notes": payload["concept_notes"],
+        "tool_limitations": payload["tool_limitations"],
         "tools": [
             {
                 "name": tool["name"],
                 "required_scopes": tool["required_scopes"],
                 "pagination": tool["pagination"],
                 "selection_hint": tool["selection_hint"],
+                "negative_guidance": tool["negative_guidance"],
                 "response_examples": tool["response_examples"],
                 "access": tool["access"],
                 "limits": tool["limits"],
@@ -706,6 +711,9 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertEqual(payload["id"], 1)
         self.assertEqual(payload["error"]["data"]["category"], "authentication")
+        self.assertEqual(payload["error"]["data"]["reason"], "missing_token")
+        self.assertEqual(payload["error"]["data"]["action"], "login")
+        self.assertIn("Sign in", payload["error"]["data"]["client_message"])
 
     def test_initialize_and_tools_list(self):
         client = self.app.test_client()
@@ -853,16 +861,20 @@ class McpTests(unittest.TestCase):
         self.assertIn("examples", search_agreements_tool)
         self.assertIn("outputSchema", search_agreements_tool)
         self.assertIn("returned_count", search_agreements_tool["outputSchema"]["properties"])
+        self.assertIn("count_metadata", search_agreements_tool["outputSchema"]["properties"])
+        self.assertIn("interpretation", search_agreements_tool["outputSchema"]["properties"])
         self.assertEqual(search_agreements_tool["annotations"]["pagination"], "page")
         self.assertIn("agreements:search", search_agreements_tool["annotations"]["requiredScopes"])
 
         search_sections_schema = tools["search_sections"]
         self.assertIn("target_counsel", search_sections_schema["properties"])
         self.assertIn("acquirer_counsel", search_sections_schema["properties"])
+        self.assertEqual(search_sections_schema["properties"]["count_mode"]["enum"], ["auto", "exact"])
         self.assertNotIn("target_counsels", search_sections_schema["properties"])
         self.assertNotIn("acquirer_counsels", search_sections_schema["properties"])
         self.assertIn("deal_type", search_sections_schema["properties"]["metadata"]["items"]["enum"])
         self.assertEqual(search_sections_schema["properties"]["sort_direction"]["enum"], ["asc", "desc"])
+        self.assertIn("count_metadata", next(tool for tool in res.get_json()["result"]["tools"] if tool["name"] == "search_sections")["outputSchema"]["properties"])
 
         list_agreements_schema = tools["list_agreements"]
         self.assertIn("target_counsel", list_agreements_schema["properties"])
@@ -965,6 +977,26 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["page"], 1)
         self.assertEqual(payload["returned_count"], 1)
         self.assertEqual(payload["results"][0]["agreement_uuid"], "a1")
+        self.assertEqual(payload["count_metadata"]["mode"], "exact")
+        self.assertEqual(payload["count_metadata"]["method"], "query_count")
+        self.assertEqual(payload["interpretation"]["heuristics_used"], ["prefix_name_match"])
+
+    def test_search_agreements_interpretation_marks_exact_filters(self):
+        res = self._call_tool(
+            "search_agreements",
+            {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        applied_filters = payload["interpretation"]["applied_filters"]
+        self.assertIn(
+            {
+                "field": "target_counsel",
+                "representation": "first_class_agreement_field",
+                "match_kind": "exact_metadata_filter",
+            },
+            applied_filters,
+        )
 
     def test_search_agreements_supports_counsel_filters(self):
         res = self._call_tool(
@@ -1074,6 +1106,9 @@ class McpTests(unittest.TestCase):
         suggest_payload = suggest_res.get_json()["result"]["structuredContent"]
         self.assertEqual(suggest_payload["matches"][0]["standard_id"], "2.1")
         self.assertIn("Material Adverse Effect", suggest_payload["matches"][0]["path"])
+        self.assertIn(suggest_payload["matches"][0]["fit"], ["canonical", "proxy", "broad_match"])
+        self.assertIn(suggest_payload["matches"][0]["confidence"], ["high", "medium", "low"])
+        self.assertIsInstance(suggest_payload["matches"][0]["scope_note"], str)
 
         snippet_res = self._call_tool(
             "get_section_snippet",
@@ -1095,6 +1130,13 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
         self.assertEqual(payload["server"]["metrics_tool"], "get_server_metrics")
         self.assertEqual(payload["server"]["transport"], "http_jsonrpc")
+        self.assertFalse(payload["server"]["resources_supported"])
+        self.assertFalse(payload["server"]["resource_templates_supported"])
+        self.assertTrue(payload["auth_help"]["login_required"])
+        self.assertEqual(payload["auth_help"]["fulltext_scope"], "agreements:read_fulltext")
+        self.assertTrue(payload["field_inventory"]["agreement_fields"])
+        self.assertTrue(payload["concept_notes"])
+        self.assertTrue(payload["tool_limitations"])
         search_agreements_tool = next(tool for tool in payload["tools"] if tool["name"] == "search_agreements")
         self.assertEqual(search_agreements_tool["pagination"], "page")
         self.assertEqual(search_agreements_tool["limits"]["default_page_size"], 25)
@@ -1103,6 +1145,7 @@ class McpTests(unittest.TestCase):
         self.assertTrue(search_agreements_tool["response_examples"])
         self.assertIn("agreements:search", search_agreements_tool["required_scopes"])
         self.assertTrue(search_agreements_tool["examples"])
+        self.assertTrue(search_agreements_tool["negative_guidance"])
         get_agreement_tool = next(tool for tool in payload["tools"] if tool["name"] == "get_agreement")
         self.assertEqual(get_agreement_tool["access"]["redaction"], "redacted_without_fulltext_scope")
         self.assertEqual(get_agreement_tool["access"]["fulltext_scope"], "agreements:read_fulltext")
@@ -1355,6 +1398,61 @@ class McpTests(unittest.TestCase):
         structured = body["result"]["structuredContent"]
         self.assertEqual(len(structured["results"]), 4)
         self.assertEqual(structured["access"]["tier"], "mcp")
+        self.assertEqual(structured["count_metadata"]["mode"], "exact")
+        self.assertEqual(structured["count_metadata"]["method"], "query_count")
+        self.assertEqual(structured["count_metadata"]["planning_reliability"], "high")
+        self.assertEqual(structured["interpretation"]["taxonomy_filters"], [])
+
+    def test_search_sections_exact_count_mode_returns_exact_metadata(self):
+        res = self._call_tool(
+            "search_sections",
+            {"standard_id": ["2.1"], "count_mode": "exact", "page_size": 10},
+            scope="sections:search",
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["total_count"], 2)
+        self.assertFalse(payload["total_count_is_approximate"])
+        self.assertEqual(payload["count_metadata"]["mode"], "exact")
+        self.assertEqual(payload["count_metadata"]["method"], "query_count")
+        self.assertEqual(payload["count_metadata"]["planning_reliability"], "high")
+        self.assertTrue(payload["count_metadata"]["exact_count_requested"])
+        self.assertEqual(
+            payload["interpretation"]["taxonomy_filters"],
+            [{"standard_id": "2.1", "match_mode": "expanded_descendants"}],
+        )
+
+    def test_search_sections_default_count_mode_and_interpretation(self):
+        res = self._call_tool(
+            "search_sections",
+            {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 10},
+            scope="sections:search",
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["count_metadata"]["exact_count_requested"], False)
+        self.assertIn(
+            {
+                "field": "target_counsel",
+                "representation": "first_class_agreement_field",
+                "match_kind": "exact_metadata_filter",
+            },
+            payload["interpretation"]["applied_filters"],
+        )
+        self.assertEqual(payload["interpretation"]["heuristics_used"], [])
+
+    def test_search_sections_auto_count_can_return_estimate_for_paginated_filtered_search(self):
+        res = self._call_tool(
+            "search_sections",
+            {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page": 2, "page_size": 1},
+            scope="sections:search",
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertTrue(payload["total_count_is_approximate"])
+        self.assertEqual(payload["count_metadata"]["mode"], "estimated")
+        self.assertEqual(payload["count_metadata"]["method"], "filtered_lower_bound")
+        self.assertEqual(payload["count_metadata"]["planning_reliability"], "low")
 
     def test_get_agreement_redacts_without_fulltext_scope(self):
         client = self.app.test_client()
@@ -1473,6 +1571,22 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertEqual(payload["id"], 7)
         self.assertEqual(payload["error"]["data"]["category"], "authentication")
+        self.assertEqual(payload["error"]["data"]["reason"], "unlinked_subject")
+        self.assertEqual(payload["error"]["data"]["action"], "contact_support")
+
+    def test_invalid_token_error_includes_relogin_guidance(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": "Bearer definitely-not-a-valid-token"},
+            json={"jsonrpc": "2.0", "id": 8, "method": "initialize"},
+        )
+        self.assertEqual(res.status_code, 401)
+        payload = res.get_json()
+        self.assertEqual(payload["error"]["data"]["category"], "authentication")
+        self.assertEqual(payload["error"]["data"]["reason"], "expired_token")
+        self.assertEqual(payload["error"]["data"]["action"], "relogin")
+        self.assertIn("Sign in again", payload["error"]["data"]["client_message"])
 
     def test_normalized_external_identity_supports_scope_and_scp_claims(self):
         normalized_from_scope = self.mcp_runtime._normalize_external_identity(

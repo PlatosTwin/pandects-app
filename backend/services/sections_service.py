@@ -104,8 +104,9 @@ def sections_total_count_metadata(
     item_count: int,
     has_next: bool,
     has_filters: bool,
-) -> tuple[int, bool]:
-    """Return `(total_count, is_approximate)` without forcing expensive exact counts.
+    count_mode: str,
+) -> tuple[int, bool, str]:
+    """Return `(total_count, is_approximate, method)` without forcing exact counts unless requested.
 
     Filtered searches prefer conservative lower bounds once the user paginates past the
     first page. Unfiltered searches can fall back to the table-level estimate because the
@@ -113,29 +114,123 @@ def sections_total_count_metadata(
     """
     estimated_query_row_count_fn = deps._estimated_query_row_count
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
+    if count_mode == "exact":
+        exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+        return exact_total, False, "query_count"
 
     if has_filters:
         if page <= 1:
             exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
-            return exact_total, False
+            return exact_total, False, "query_count"
 
         exact_total = ((page - 1) * page_size) + item_count
         if not has_next:
-            return exact_total, False
+            return exact_total, False, "query_count"
 
         minimum_total = exact_total + 1
         estimate = estimated_query_row_count_fn(query)
         if estimate is not None:
             adjusted_estimate = max(minimum_total, estimate)
-            return adjusted_estimate, True
+            return adjusted_estimate, True, "table_estimate"
 
-        return minimum_total, True
+        return minimum_total, True, "filtered_lower_bound"
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:
         table_rows = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+        total_count = max(item_count, table_rows)
+        return total_count, False, "query_count"
     total_count = max(item_count, table_rows)
-    return total_count, True
+    return total_count, True, "table_estimate"
+
+
+def _sections_count_metadata_payload(
+    *,
+    total_count_is_approximate: bool,
+    count_method: str,
+    exact_count_requested: bool,
+) -> dict[str, object]:
+    planning_reliability = "high"
+    if total_count_is_approximate:
+        planning_reliability = "medium" if count_method == "table_estimate" else "low"
+    return {
+        "mode": "estimated" if total_count_is_approximate else "exact",
+        "method": count_method,
+        "planning_reliability": planning_reliability,
+        "exact_count_requested": exact_count_requested,
+    }
+
+
+def _sections_interpretation_payload(
+    *,
+    parsed_args: SectionsArgsPayload,
+    standard_ids_expanded: bool,
+    total_count_is_approximate: bool,
+    count_method: str,
+) -> dict[str, object]:
+    applied_filters: list[dict[str, str]] = []
+    for field_name in (
+        "year",
+        "target",
+        "acquirer",
+        "transaction_price_total",
+        "transaction_price_stock",
+        "transaction_price_cash",
+        "transaction_price_assets",
+        "transaction_consideration",
+        "target_type",
+        "acquirer_type",
+        "target_counsel",
+        "acquirer_counsel",
+        "target_industry",
+        "acquirer_industry",
+        "deal_status",
+        "attitude",
+        "deal_type",
+        "purpose",
+        "target_pe",
+        "acquirer_pe",
+        "agreement_uuid",
+        "section_uuid",
+    ):
+        raw_value = parsed_args[field_name]
+        if isinstance(raw_value, list):
+            if not raw_value:
+                continue
+        elif raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+            continue
+        representation = "first_class_section_field" if field_name == "section_uuid" else "first_class_agreement_field"
+        applied_filters.append(
+            {
+                "field": field_name,
+                "representation": representation,
+                "match_kind": "exact_metadata_filter",
+            }
+        )
+
+    taxonomy_filters = [
+        {
+            "standard_id": standard_id,
+            "match_mode": "expanded_descendants" if standard_ids_expanded else "exact_node",
+        }
+        for standard_id in parsed_args["standard_id"]
+        if standard_id
+    ]
+
+    notes: list[str] = []
+    if taxonomy_filters:
+        notes.append("Taxonomy filters reflect clause-family assignments and may act as proxies for broader legal concepts.")
+    if total_count_is_approximate:
+        notes.append("Counts are approximate under the current mode; use count_mode=exact when pagination certainty matters.")
+    elif count_method == "query_count":
+        notes.append("Counts were computed exactly from the current filtered query.")
+
+    return {
+        "applied_filters": applied_filters,
+        "taxonomy_filters": taxonomy_filters,
+        "heuristics_used": [],
+        "notes": notes,
+    }
 
 
 def run_sections(
@@ -181,6 +276,7 @@ def run_sections(
     requested_metadata_fields = dedupe_preserve_order(parsed_args["metadata"])
     agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
+    count_mode = parsed_args["count_mode"]
     sort_by = parsed_args["sort_by"]
     sort_direction = parsed_args["sort_direction"]
     page = parsed_args["page"]
@@ -235,10 +331,12 @@ def run_sections(
     if transaction_price_assets_filter is not None:
         q = q.filter(transaction_price_assets_filter)
 
+    standard_ids_expanded = False
     if standard_ids:
         standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
         expanded_standard_ids = list(expand_taxonomy_cached(standard_ids_key))
         if expanded_standard_ids:
+            standard_ids_expanded = set(expanded_standard_ids) != set(standard_ids_key)
             q = q.filter(standard_id_filter_expr(expanded_standard_ids))
 
     if target_types:
@@ -332,6 +430,8 @@ def run_sections(
             transaction_considerations,
             target_types,
             acquirer_types,
+            target_counsels,
+            acquirer_counsels,
             target_industries,
             acquirer_industries,
             deal_statuses,
@@ -344,7 +444,7 @@ def run_sections(
             section_uuid and section_uuid.strip(),
         )
     )
-    total_count, total_count_is_approximate = sections_total_count_metadata(
+    total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
         deps,
         query=q,
         page=page,
@@ -352,6 +452,7 @@ def run_sections(
         item_count=item_count,
         has_next=has_next,
         has_filters=has_filters,
+        count_mode=count_mode,
     )
 
     section_uuids = [
@@ -471,6 +572,17 @@ def run_sections(
             if ctx.is_authenticated
             else "Limited mode: sign in to view clause text, unlock full pagination, and use the MCP server.",
         },
+        "count_metadata": _sections_count_metadata_payload(
+            total_count_is_approximate=total_count_is_approximate,
+            count_method=count_method,
+            exact_count_requested=count_mode == "exact",
+        ),
+        "interpretation": _sections_interpretation_payload(
+            parsed_args=parsed_args,
+            standard_ids_expanded=standard_ids_expanded,
+            total_count_is_approximate=total_count_is_approximate,
+            count_method=count_method,
+        ),
         **meta,
     }
 

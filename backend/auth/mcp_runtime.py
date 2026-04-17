@@ -20,11 +20,42 @@ from backend.models import AuthExternalSubject, AuthOAuthSigningKey, AuthUser
 
 
 class McpAuthError(Exception):
-    def __init__(self, *, status_code: int, message: str, www_authenticate: str):
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        message: str,
+        www_authenticate: str,
+        reason: str | None = None,
+        action: str | None = None,
+        client_message: str | None = None,
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.message = message
         self.www_authenticate = www_authenticate
+        self.reason = reason
+        self.action = action
+        self.client_message = client_message
+
+
+def _auth_error(
+    *,
+    status_code: int,
+    message: str,
+    www_authenticate: str,
+    reason: str,
+    action: str,
+    client_message: str,
+) -> McpAuthError:
+    return McpAuthError(
+        status_code=status_code,
+        message=message,
+        www_authenticate=www_authenticate,
+        reason=reason,
+        action=action,
+        client_message=client_message,
+    )
 
 
 @dataclass(frozen=True)
@@ -230,24 +261,30 @@ def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
             continue
         subject = payload.get("sub")
         if not isinstance(subject, str) or not subject.strip():
-            raise McpAuthError(
+            raise _auth_error(
                 status_code=401,
                 message="Bearer token missing subject.",
                 www_authenticate=_bearer_challenge(
                     error="invalid_token",
                     description="The OAuth access token did not include a subject.",
                 ),
+                reason="invalid_token",
+                action="relogin",
+                client_message="Your access token is missing a subject claim. Sign in again and retry.",
             )
         scope_set = _scope_set(payload)
         user = db.session.get(AuthUser, subject.strip())
         if user is None or user.email_verified_at is None:
-            raise McpAuthError(
+            raise _auth_error(
                 status_code=401,
                 message="Linked Pandects account is not verified.",
                 www_authenticate=_bearer_challenge(
                     error="invalid_token",
                     description="The token subject is not linked to a verified Pandects user.",
                 ),
+                reason="unverified_account",
+                action="verify_account",
+                client_message="The linked Pandects account is not verified. Verify the account, then sign in again.",
             )
         return McpPrincipal(
             access_context=AccessContext(tier="mcp", user_id=user.id),
@@ -366,22 +403,28 @@ def _decode_access_token(token: str) -> dict[str, object]:
             leeway=60,
         )
     except InvalidTokenError as exc:
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Invalid bearer token.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The bearer access token is invalid or expired.",
             ),
+            reason="expired_token",
+            action="relogin",
+            client_message="Your access token is invalid or expired. Sign in again and retry.",
         ) from exc
     if not isinstance(payload_obj, dict):
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Invalid bearer token.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The bearer access token payload was invalid.",
             ),
+            reason="invalid_token",
+            action="relogin",
+            client_message="Your access token payload was invalid. Sign in again and retry.",
         )
     return cast(dict[str, object], payload_obj)
 
@@ -442,13 +485,16 @@ def _introspect_access_token(token: str) -> dict[str, object]:
         raise RuntimeError("MCP token introspection returned invalid data.")
     active = payload_obj.get("active")
     if active is not True:
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Invalid bearer token.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The bearer access token is invalid or expired.",
             ),
+            reason="expired_token",
+            action="relogin",
+            client_message="Your access token is invalid or expired. Sign in again and retry.",
         )
     return cast(dict[str, object], payload_obj)
 
@@ -457,22 +503,28 @@ def _normalize_external_identity(payload: dict[str, object]) -> ExternalIdentity
     issuer = payload.get("iss")
     subject = payload.get("sub")
     if not isinstance(issuer, str) or not issuer.strip():
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Bearer token missing issuer.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The bearer access token is missing an issuer claim.",
             ),
+            reason="invalid_token",
+            action="relogin",
+            client_message="Your access token is missing an issuer claim. Sign in again and retry.",
         )
     if not isinstance(subject, str) or not subject.strip():
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Bearer token missing subject.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The bearer access token is missing a subject claim.",
             ),
+            reason="invalid_token",
+            action="relogin",
+            client_message="Your access token is missing a subject claim. Sign in again and retry.",
         )
     return ExternalIdentity(
         issuer=issuer.rstrip("/"),
@@ -558,26 +610,32 @@ def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
     except SQLAlchemyError as exc:
         raise RuntimeError("Auth backend is unavailable right now.") from exc
     if mapping is None:
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="No linked Pandects account for this token.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The token subject is not linked to a verified Pandects user.",
             ),
+            reason="unlinked_subject",
+            action="contact_support",
+            client_message="This access token is not linked to a Pandects account. Link your account or contact support.",
         )
     try:
         user = db.session.get(AuthUser, mapping.user_id)
     except SQLAlchemyError as exc:
         raise RuntimeError("Auth backend is unavailable right now.") from exc
     if user is None or user.email_verified_at is None:
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Linked Pandects account is not verified.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="The token subject is not linked to a verified Pandects user.",
             ),
+            reason="unverified_account",
+            action="verify_account",
+            client_message="The linked Pandects account is not verified. Verify the account, then sign in again.",
         )
     return cast(AuthUser, user)
 
@@ -590,28 +648,37 @@ def authenticate_mcp_request() -> McpPrincipal:
             status_code=503,
             message=str(exc),
             www_authenticate=_bearer_challenge(),
+            reason="invalid_token",
+            action="contact_support",
+            client_message="Authentication is temporarily unavailable. Retry shortly or contact support if the issue persists.",
         ) from exc
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Bearer token required.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="Send an OAuth access token in the Authorization header.",
             ),
+            reason="missing_token",
+            action="login",
+            client_message="No bearer token was provided. Sign in and send the access token in the Authorization header.",
         )
 
     token = auth_header.removeprefix("Bearer ").strip()
     if not token:
-        raise McpAuthError(
+        raise _auth_error(
             status_code=401,
             message="Bearer token required.",
             www_authenticate=_bearer_challenge(
                 error="invalid_token",
                 description="Send an OAuth access token in the Authorization header.",
             ),
+            reason="missing_token",
+            action="login",
+            client_message="No bearer token was provided. Sign in and send the access token in the Authorization header.",
         )
 
     try:
@@ -630,6 +697,9 @@ def authenticate_mcp_request() -> McpPrincipal:
             status_code=503,
             message=str(exc),
             www_authenticate=_bearer_challenge(),
+            reason="invalid_token",
+            action="contact_support",
+            client_message="Authentication is temporarily unavailable. Retry shortly or contact support if the issue persists.",
         ) from exc
 
     return McpPrincipal(

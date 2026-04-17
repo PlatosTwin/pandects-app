@@ -90,6 +90,19 @@ _STRUCTURED_FILTER_ARRAY_FIELDS = (
     "target_pe",
     "acquirer_pe",
 )
+_FIELD_REPRESENTATION_VALUES = (
+    "first_class_agreement_field",
+    "first_class_section_field",
+    "taxonomy_assignment",
+    "derived_from_text",
+    "not_represented",
+)
+_COUNT_MODE_VALUES = ("auto", "exact")
+_COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
+_COUNT_RELIABILITY_VALUES = ("high", "medium", "low")
+_TAXONOMY_MATCH_MODE_VALUES = ("exact_node", "expanded_descendants")
+_CLAUSE_FIT_VALUES = ("canonical", "proxy", "broad_match")
+_CLAUSE_CONFIDENCE_VALUES = ("high", "medium", "low")
 
 _FieldOverrides = Mapping[str, Mapping[str, object]]
 
@@ -387,6 +400,7 @@ class McpToolSpec:
     response_examples: tuple[dict[str, object], ...]
     scopes: tuple[str, ...]
     selection_hint: str
+    negative_guidance: tuple[str, ...]
     pagination: str
     access_behavior: str
     redaction_behavior: str
@@ -501,6 +515,80 @@ def _json_compatible_value(value: object) -> object:
     if isinstance(value, Decimal):
         return float(value)
     return value
+
+
+def _count_metadata_payload(
+    *,
+    mode: str,
+    method: str,
+    planning_reliability: str,
+    exact_count_requested: bool,
+) -> dict[str, object]:
+    return {
+        "mode": mode,
+        "method": method,
+        "planning_reliability": planning_reliability,
+        "exact_count_requested": exact_count_requested,
+    }
+
+
+def _interpretation_payload(
+    *,
+    applied_filters: list[dict[str, str]],
+    taxonomy_filters: list[dict[str, str]] | None = None,
+    heuristics_used: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "applied_filters": applied_filters,
+        "taxonomy_filters": taxonomy_filters or [],
+        "heuristics_used": heuristics_used or [],
+        "notes": notes or [],
+    }
+
+
+def _agreement_filter_interpretation(parsed_args: AgreementsBulkArgsPayload, *, query: str) -> dict[str, object]:
+    applied_filters: list[dict[str, str]] = []
+    for field_name in _STRUCTURED_FILTER_ARRAY_FIELDS:
+        values = cast(list[object], parsed_args[field_name])
+        if values:
+            applied_filters.append(
+                {
+                    "field": field_name,
+                    "representation": "first_class_agreement_field",
+                    "match_kind": "exact_metadata_filter",
+                }
+            )
+    for field_name in ("agreement_uuid", "section_uuid"):
+        value = parsed_args.get(field_name)
+        if isinstance(value, str) and value.strip():
+            applied_filters.append(
+                {
+                    "field": field_name,
+                    "representation": "first_class_agreement_field" if field_name == "agreement_uuid" else "first_class_section_field",
+                    "match_kind": "exact_metadata_filter",
+                }
+            )
+    heuristics_used: list[str] = []
+    notes: list[str] = []
+    if query:
+        if query.isdigit():
+            applied_filters.append(
+                {
+                    "field": "query",
+                    "representation": "first_class_agreement_field",
+                    "match_kind": "year_prefix_query",
+                }
+            )
+            notes.append("The free-text query was interpreted as a 4-digit agreement year.")
+        else:
+            heuristics_used.append("prefix_name_match")
+            notes.append("The free-text query uses prefix matching on target and acquirer names.")
+    return _interpretation_payload(
+        applied_filters=applied_filters,
+        heuristics_used=heuristics_used,
+        notes=notes,
+    )
 
 
 @dataclass(frozen=True)
@@ -682,6 +770,32 @@ def _score_taxonomy_entry(entry: _TaxonomyEntry, concept: str) -> tuple[float, l
     return score, matched_terms[:4]
 
 
+def _taxonomy_fit(score: float, *, matched_terms: list[str], entry: _TaxonomyEntry, concept: str) -> str:
+    concept_normalized = _normalized_text(concept)
+    entry_label = _normalized_text(entry.label)
+    if concept_normalized and concept_normalized in entry_label:
+        return "canonical"
+    if matched_terms and score >= 0.75:
+        return "proxy"
+    return "broad_match"
+
+
+def _taxonomy_confidence(score: float) -> str:
+    if score >= 0.85:
+        return "high"
+    if score >= 0.6:
+        return "medium"
+    return "low"
+
+
+def _taxonomy_scope_note(*, fit: str) -> str:
+    if fit == "canonical":
+        return "This taxonomy node is a close canonical match for the concept."
+    if fit == "proxy":
+        return "This taxonomy node is a reasonable proxy and may be broader or narrower than the requested concept."
+    return "This taxonomy node is a broad semantic match and should be verified before treating it as canonical."
+
+
 def _ranked_taxonomy_matches(
     *,
     deps: ReferenceDataDeps,
@@ -713,6 +827,7 @@ def _ranked_taxonomy_matches(
 
     results: list[dict[str, object]] = []
     for score, entry, matched_terms in scored[:top_k]:
+        fit = _taxonomy_fit(score, matched_terms=matched_terms, entry=entry, concept=concept)
         results.append(
             {
                 "standard_id": entry.standard_id,
@@ -720,6 +835,9 @@ def _ranked_taxonomy_matches(
                 "path": list(entry.path),
                 "score": score,
                 "matched_terms": matched_terms,
+                "fit": fit,
+                "scope_note": _taxonomy_scope_note(fit=fit),
+                "confidence": _taxonomy_confidence(score),
                 "reason": "Matched concept tokens and clause-family synonyms."
                 if matched_terms
                 else "Closest taxonomy path by label similarity.",
@@ -1526,6 +1644,16 @@ def _search_agreements(
     response = {
         "results": results,
         "returned_count": len(results),
+        "count_metadata": _count_metadata_payload(
+            mode="exact",
+            method="query_count",
+            planning_reliability="high",
+            exact_count_requested=False,
+        ),
+        "interpretation": _agreement_filter_interpretation(
+            cast(AgreementsBulkArgsPayload, cast(object, parsed_args)),
+            query=query,
+        ),
         **meta,
     }
     return McpToolResult(
@@ -2444,17 +2572,80 @@ def _list_section_result_schema() -> dict[str, object]:
     )
 
 
+def _count_metadata_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "mode": {"type": "string", "enum": ["exact", "estimated"]},
+            "method": {"type": "string", "enum": list(_COUNT_METHOD_VALUES)},
+            "planning_reliability": {"type": "string", "enum": list(_COUNT_RELIABILITY_VALUES)},
+            "exact_count_requested": {"type": "boolean"},
+        },
+        required=["mode", "method", "planning_reliability", "exact_count_requested"],
+        additional_properties=False,
+    )
+
+
+def _interpretation_filter_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "field": {"type": "string"},
+            "representation": {"type": "string", "enum": list(_FIELD_REPRESENTATION_VALUES)},
+            "match_kind": {"type": "string"},
+        },
+        required=["field", "representation", "match_kind"],
+        additional_properties=False,
+    )
+
+
+def _taxonomy_filter_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "standard_id": {"type": "string"},
+            "match_mode": {"type": "string", "enum": list(_TAXONOMY_MATCH_MODE_VALUES)},
+        },
+        required=["standard_id", "match_mode"],
+        additional_properties=False,
+    )
+
+
+def _interpretation_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "applied_filters": _array_of(_interpretation_filter_schema()),
+            "taxonomy_filters": _array_of(_taxonomy_filter_schema()),
+            "heuristics_used": _array_of({"type": "string"}),
+            "notes": _array_of({"type": "string"}),
+        },
+        required=["applied_filters", "taxonomy_filters", "heuristics_used", "notes"],
+        additional_properties=False,
+    )
+
+
 def _search_agreements_output_schema() -> dict[str, object]:
     properties = _pagination_response_properties()
     properties.update(
         {
             "returned_count": {"type": "integer"},
             "results": _array_of(_agreement_search_result_schema()),
+            "count_metadata": _count_metadata_schema(),
+            "interpretation": _interpretation_schema(),
         }
     )
     return _object_schema(
         properties,
-        required=["results", "returned_count", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+        required=[
+            "results",
+            "returned_count",
+            "count_metadata",
+            "interpretation",
+            "page",
+            "page_size",
+            "total_count",
+            "total_pages",
+            "has_next",
+            "has_prev",
+            "total_count_is_approximate",
+        ],
     )
 
 
@@ -2464,11 +2655,25 @@ def _search_sections_output_schema() -> dict[str, object]:
         {
             "results": _array_of(_section_result_schema()),
             "access": _access_schema(),
+            "count_metadata": _count_metadata_schema(),
+            "interpretation": _interpretation_schema(),
         }
     )
     return _object_schema(
         properties,
-        required=["results", "access", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+        required=[
+            "results",
+            "access",
+            "count_metadata",
+            "interpretation",
+            "page",
+            "page_size",
+            "total_count",
+            "total_pages",
+            "has_next",
+            "has_prev",
+            "total_count_is_approximate",
+        ],
     )
 
 
@@ -2560,9 +2765,22 @@ def _taxonomy_match_schema() -> dict[str, object]:
             "path": _array_of({"type": "string"}),
             "score": {"type": "number"},
             "matched_terms": _array_of({"type": "string"}),
+            "fit": {"type": "string", "enum": list(_CLAUSE_FIT_VALUES)},
+            "scope_note": {"type": "string"},
+            "confidence": {"type": "string", "enum": list(_CLAUSE_CONFIDENCE_VALUES)},
             "reason": {"type": "string"},
         },
-        required=["standard_id", "label", "path", "score", "matched_terms", "reason"],
+        required=[
+            "standard_id",
+            "label",
+            "path",
+            "score",
+            "matched_terms",
+            "fit",
+            "scope_note",
+            "confidence",
+            "reason",
+        ],
         additional_properties=False,
     )
 
@@ -2953,6 +3171,7 @@ def _tool_capabilities_output_schema() -> dict[str, object]:
             "required_scopes": _array_of({"type": "string"}),
             "pagination": {"type": "string", "enum": ["page", "cursor", "none"]},
             "selection_hint": {"type": "string"},
+            "negative_guidance": _array_of({"type": "string"}),
             "examples": _array_of(_tool_example_schema()),
             "response_examples": _array_of(_tool_response_example_schema()),
             "access": _tool_access_metadata_schema(),
@@ -2973,6 +3192,7 @@ def _tool_capabilities_output_schema() -> dict[str, object]:
             "required_scopes",
             "pagination",
             "selection_hint",
+            "negative_guidance",
             "examples",
             "response_examples",
             "access",
@@ -2995,6 +3215,75 @@ def _workflow_output_schema() -> dict[str, object]:
     )
 
 
+def _auth_help_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "login_required": {"type": "boolean"},
+            "relogin_hint": {"type": "string"},
+            "fulltext_scope": {"type": "string"},
+            "invalid_or_expired_token_message": {"type": "string"},
+        },
+        required=[
+            "login_required",
+            "relogin_hint",
+            "fulltext_scope",
+            "invalid_or_expired_token_message",
+        ],
+        additional_properties=False,
+    )
+
+
+def _field_inventory_item_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "name": {"type": "string"},
+            "applies_to_tools": _array_of({"type": "string"}),
+            "source_table_or_surface": {"type": "string"},
+            "representation": {"type": "string", "enum": list(_FIELD_REPRESENTATION_VALUES)},
+        },
+        required=["name", "applies_to_tools", "source_table_or_surface", "representation"],
+        additional_properties=False,
+    )
+
+
+def _field_inventory_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_fields": _array_of(_field_inventory_item_schema()),
+            "section_fields": _array_of(_field_inventory_item_schema()),
+            "taxonomy_assignment_fields": _array_of(_field_inventory_item_schema()),
+        },
+        required=["agreement_fields", "section_fields", "taxonomy_assignment_fields"],
+        additional_properties=False,
+    )
+
+
+def _concept_note_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "concept": {"type": "string"},
+            "recommended_tools": _array_of({"type": "string"}),
+            "representation": {"type": "string", "enum": list(_FIELD_REPRESENTATION_VALUES)},
+            "canonical_or_proxy": {"type": "string", "enum": ["canonical", "proxy"]},
+            "scope_note": {"type": "string"},
+        },
+        required=["concept", "recommended_tools", "representation", "canonical_or_proxy", "scope_note"],
+        additional_properties=False,
+    )
+
+
+def _tool_limitation_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "tool": {"type": "string"},
+            "use_when": {"type": "string"},
+            "do_not_use_for": {"type": "string"},
+        },
+        required=["tool", "use_when", "do_not_use_for"],
+        additional_properties=False,
+    )
+
+
 def _server_capabilities_output_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -3005,6 +3294,8 @@ def _server_capabilities_output_schema() -> dict[str, object]:
                     "introspection_tool": {"type": "string"},
                     "metrics_tool": {"type": "string"},
                     "transport": {"type": "string"},
+                    "resources_supported": {"type": "boolean"},
+                    "resource_templates_supported": {"type": "boolean"},
                 },
                 required=[
                     "name",
@@ -3012,13 +3303,27 @@ def _server_capabilities_output_schema() -> dict[str, object]:
                     "introspection_tool",
                     "metrics_tool",
                     "transport",
+                    "resources_supported",
+                    "resource_templates_supported",
                 ],
                 additional_properties=False,
             ),
+            "auth_help": _auth_help_schema(),
+            "field_inventory": _field_inventory_schema(),
+            "concept_notes": _array_of(_concept_note_schema()),
+            "tool_limitations": _array_of(_tool_limitation_schema()),
             "tools": _array_of(_tool_capabilities_output_schema()),
             "workflows": _array_of(_workflow_output_schema()),
         },
-        required=["server", "tools", "workflows"],
+        required=[
+            "server",
+            "auth_help",
+            "field_inventory",
+            "concept_notes",
+            "tool_limitations",
+            "tools",
+            "workflows",
+        ],
         additional_properties=False,
     )
 
@@ -3038,6 +3343,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     }
     sections_search_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
+        "count_mode": {
+            "type": "string",
+            "enum": list(_COUNT_MODE_VALUES),
+            "description": "Count strategy for pagination planning. Use `exact` when planning depends on a guaranteed total count.",
+            "examples": ["auto", "exact"],
+        },
         "metadata": _enum_array_schema(
             cast(tuple[str, ...], SECTIONS_RESULT_METADATA_FIELDS),
             description="Agreement metadata fields to include under results[].metadata.",
@@ -3082,6 +3393,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination.",
+            negative_guidance=(
+                "Do not use this tool when you already know the exact structured filters and expect deep pagination; prefer list_agreements.",
+                "Do not treat free-text query hits as normalized extracted facts beyond the documented agreement fields.",
+            ),
             pagination="page",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3090,18 +3405,23 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="search_sections",
-            description="Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
+            description="Search sections across the corpus when you are looking for clause language samples, taxonomy-linked sections, or text to read. This is not a normalized document-facts surface.",
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
                 {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
+                {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["2.1"], "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
                 {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
             selection_hint="Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
+            negative_guidance=(
+                "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
+                "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+            ),
             pagination="page",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3122,6 +3442,9 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use when filters are already known and you expect to paginate deeply or export exact result sets.",
+            negative_guidance=(
+                "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years.",
+            ),
             pagination="cursor",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3141,6 +3464,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use after identifying an agreement and before calling get_section on one section UUID.",
+            negative_guidance=(),
             pagination="page",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3161,6 +3485,9 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:read",),
             selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
+            negative_guidance=(
+                "Do not use this tool for bulk discovery or corpus filtering.",
+            ),
             pagination="none",
             access_behavior="partial_access_with_redaction",
             redaction_behavior="redacted_without_fulltext_scope",
@@ -3180,6 +3507,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:read",),
             selection_hint="Use when you already have a section UUID and want the exact section payload.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3199,6 +3527,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:read",),
             selection_hint="Use for agreement-level tax clause extraction once you know the agreement UUID.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3218,6 +3547,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:read",),
             selection_hint="Use for section-level tax clause extraction when you already have a section UUID.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3238,6 +3568,9 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
+            negative_guidance=(
+                "Do not send the pluralized catalog keys directly to retrieval tools; use retrieval_parameter_map to translate them.",
+            ),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3246,7 +3579,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="suggest_clause_families",
-            description="Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search.",
+            description="Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search. Suggestions may be canonical matches or broader/narrower proxies.",
             input_schema=_schema_input_schema(suggest_clause_families_schema),
             output_schema=_suggest_clause_families_output_schema(),
             examples=(
@@ -3254,10 +3587,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Map a tax concept to the tax-clause taxonomy.", "arguments": {"concept": "tax-free reorganization", "taxonomy": "tax_clauses"}},
             ),
             response_examples=(
-                {"description": "Ranked taxonomy suggestions for a concept.", "content": {"concept": "MAE carveouts", "taxonomy": "clauses", "returned_count": 1, "matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE", "disproportionate effects"], "reason": "Matched concept tokens and clause-family synonyms."}]}},
+                {"description": "Ranked taxonomy suggestions for a concept.", "content": {"concept": "MAE carveouts", "taxonomy": "clauses", "returned_count": 1, "matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE", "disproportionate effects"], "fit": "proxy", "scope_note": "This taxonomy node is a reasonable proxy and may be broader or narrower than the requested concept.", "confidence": "high", "reason": "Matched concept tokens and clause-family synonyms."}]}},
             ),
             scopes=("sections:search",),
             selection_hint="Use when you know the legal concept but not the right taxonomy id.",
+            negative_guidance=(
+                "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
+            ),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3266,7 +3602,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section_snippet",
-            description="Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block.",
+            description="Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block. This is a reading aid, not a canonical extracted-facts surface.",
             input_schema=_schema_input_schema(section_snippet_schema),
             output_schema=_section_snippet_output_schema(),
             examples=(
@@ -3277,6 +3613,9 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use after search_sections when you need a quick excerpt for comparison or quoting.",
+            negative_guidance=(
+                "Do not treat the snippet as the complete section; fetch get_section if exact full context matters.",
+            ),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3296,6 +3635,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use for operational monitoring and to see which MCP tools are slow or error-prone.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3304,7 +3644,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_server_capabilities",
-            description="Explain available MCP tools, selection guidance, pagination styles, scope requirements, and example workflows for this server.",
+            description="Explain available MCP tools, selection guidance, pagination styles, scope requirements, and corpus semantics for this server. Use it to learn which concepts are first-class, taxonomy-based proxies, text-derived, or not represented.",
             input_schema=_empty_schema(),
             output_schema=_server_capabilities_output_schema(),
             examples=(
@@ -3315,6 +3655,9 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
+            negative_guidance=(
+                "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly.",
+            ),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3335,6 +3678,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use when you need valid standard_id values for section taxonomy filtering.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3355,6 +3699,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3375,6 +3720,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3395,6 +3741,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("sections:search",),
             selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3412,6 +3759,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3432,6 +3780,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             ),
             scopes=("agreements:search",),
             selection_hint="Use for aggregated corpus analytics rather than document retrieval.",
+            negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
@@ -3446,6 +3795,125 @@ def _tool_spec_map() -> dict[str, McpToolSpec]:
     return {spec.name: spec for spec in _tool_specs()}
 
 
+def _field_inventory_payload() -> dict[str, object]:
+    return {
+        "agreement_fields": [
+            {
+                "name": field_name,
+                "applies_to_tools": ["search_agreements", "list_agreements", "get_agreement", "search_sections"],
+                "source_table_or_surface": "agreements",
+                "representation": "first_class_agreement_field",
+            }
+            for field_name in (
+                "year",
+                "target",
+                "acquirer",
+                "transaction_consideration",
+                "target_type",
+                "acquirer_type",
+                "target_counsel",
+                "acquirer_counsel",
+                "target_industry",
+                "acquirer_industry",
+                "deal_status",
+                "attitude",
+                "deal_type",
+                "purpose",
+                "target_pe",
+                "acquirer_pe",
+                "agreement_uuid",
+                "filing_date",
+                "announce_date",
+                "close_date",
+                "url",
+            )
+        ],
+        "section_fields": [
+            {
+                "name": field_name,
+                "applies_to_tools": ["search_sections", "get_section", "get_section_snippet", "list_agreement_sections"],
+                "source_table_or_surface": "sections/latest_sections_search",
+                "representation": "first_class_section_field",
+            }
+            for field_name in (
+                "section_uuid",
+                "article_title",
+                "section_title",
+                "xml",
+            )
+        ],
+        "taxonomy_assignment_fields": [
+            {
+                "name": "standard_id",
+                "applies_to_tools": ["search_sections", "get_section", "suggest_clause_families", "get_clause_taxonomy"],
+                "source_table_or_surface": "latest_sections_search_standard_ids",
+                "representation": "taxonomy_assignment",
+            }
+        ],
+    }
+
+
+def _concept_notes_payload() -> list[dict[str, object]]:
+    return [
+        {
+            "concept": "no-shop",
+            "recommended_tools": ["suggest_clause_families", "get_clause_taxonomy", "search_sections"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "proxy",
+            "scope_note": "No-shop style concepts are usually approached through clause-family taxonomy and section text rather than a dedicated normalized agreement field.",
+        },
+        {
+            "concept": "fiduciary out",
+            "recommended_tools": ["get_clause_taxonomy", "search_sections", "get_section_snippet"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "canonical",
+            "scope_note": "This concept is represented primarily through taxonomy-assigned sections, then inspected in section text.",
+        },
+        {
+            "concept": "MAE carveouts",
+            "recommended_tools": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "proxy",
+            "scope_note": "MAE carveouts are often proxied by Material Adverse Effect taxonomy nodes plus section text, especially disproportionate-effects language.",
+        },
+        {
+            "concept": "disproportionate effects",
+            "recommended_tools": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "canonical",
+            "scope_note": "This concept is commonly represented by a specific descendant taxonomy node inside MAE definitions.",
+        },
+        {
+            "concept": "specific performance",
+            "recommended_tools": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "canonical",
+            "scope_note": "Specific performance is typically represented through clause-family assignments and supporting section text.",
+        },
+        {
+            "concept": "antitrust efforts",
+            "recommended_tools": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+            "representation": "taxonomy_assignment",
+            "canonical_or_proxy": "proxy",
+            "scope_note": "Antitrust-efforts concepts may span several nearby clause families and should be validated in the returned section text.",
+        },
+    ]
+
+
+def _tool_limitations_payload(specs: tuple[McpToolSpec, ...]) -> list[dict[str, object]]:
+    limitations: list[dict[str, object]] = []
+    for spec in specs:
+        for note in spec.negative_guidance:
+            limitations.append(
+                {
+                    "tool": spec.name,
+                    "use_when": spec.selection_hint,
+                    "do_not_use_for": note,
+                }
+            )
+    return limitations
+
+
 def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
     return {
         "name": spec.name,
@@ -3455,6 +3923,7 @@ def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
         "examples": list(spec.examples),
         "annotations": {
             "selectionHint": spec.selection_hint,
+            "negativeGuidance": list(spec.negative_guidance),
             "pagination": spec.pagination,
             "requiredScopes": list(spec.scopes),
         },
@@ -3470,7 +3939,18 @@ def _server_capabilities_payload() -> dict[str, object]:
             "introspection_tool": "get_server_capabilities",
             "metrics_tool": "get_server_metrics",
             "transport": "http_jsonrpc",
+            "resources_supported": False,
+            "resource_templates_supported": False,
         },
+        "auth_help": {
+            "login_required": True,
+            "relogin_hint": "If a bearer token is missing, invalid, or expired, re-authenticate and retry the MCP call.",
+            "fulltext_scope": "agreements:read_fulltext",
+            "invalid_or_expired_token_message": "If credentials look stale, sign in again and resend the bearer token.",
+        },
+        "field_inventory": _field_inventory_payload(),
+        "concept_notes": _concept_notes_payload(),
+        "tool_limitations": _tool_limitations_payload(specs),
         "tools": [
             {
                 "name": spec.name,
@@ -3478,6 +3958,7 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "required_scopes": list(spec.scopes),
                 "pagination": spec.pagination,
                 "selection_hint": spec.selection_hint,
+                "negative_guidance": list(spec.negative_guidance),
                 "examples": list(spec.examples),
                 "response_examples": list(spec.response_examples),
                 "access": {

@@ -47,6 +47,7 @@ Use these when the client needs to search clause language across the corpus, nav
 - `suggest_clause_families`
 
 Use this when the client knows the business or legal concept but does not know the right taxonomy `standard_id` yet. The tool returns ranked clause-family candidates with their taxonomy paths and matched terms.
+Each match also reports whether it is a canonical fit, a proxy, or a broader semantic match.
 
 ### Tax Clause Research
 
@@ -105,9 +106,14 @@ The current MCP tools are:
 - `search_agreements` is the discovery-oriented agreement search
 - `list_agreements` is the exact-filter, cursor-based agreement listing surface
 - `list_agreement_sections` is an MCP convenience tool for within-agreement navigation
-- `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids
-- `get_section_snippet` is a focused reading aid, not a replacement for `get_section`
+- `search_sections` is a clause-language retrieval surface, not a normalized document-facts surface
+- `search_sections` exposes `count_mode` and returns `count_metadata` plus `interpretation` so clients can tell when totals are exact versus estimated and when taxonomy is acting as a proxy
+- `search_agreements` returns exact totals today and also includes `count_metadata` plus `interpretation`
+- `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies
+- `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
 - `get_agreement` preserves the current redaction and full-text access behavior
+- `get_server_capabilities` is the main machine-readable semantics surface; it includes auth guidance, field inventory, concept notes, and negative guidance about when not to use a tool
+- The server explicitly reports that MCP resources and resource templates are not currently supported
 - The MCP intentionally does not currently expose built-in comparison-orchestration tools; comparison flows are expected to compose the primitive retrieval tools
 
 ## Authentication
@@ -115,6 +121,7 @@ The current MCP tools are:
 - MCP uses normal Pandects account login
 - MCP does not use Pandects API keys
 - `codex mcp add` only registers the server; in Codex, `codex mcp login <name>` starts OAuth
+- Auth failures return structured remediation metadata so clients can distinguish missing-token, expired-token, unverified-account, and unlinked-subject cases
 
 ## Related Pages
 

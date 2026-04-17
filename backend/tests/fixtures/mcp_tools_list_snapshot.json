@@ -1,6 +1,10 @@
 [
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not use this tool when you already know the exact structured filters and expect deep pagination; prefer list_agreements.",
+        "Do not treat free-text query hits as normalized extracted facts beyond the documented agreement fields."
+      ],
       "pagination": "page",
       "requiredScopes": [
         "agreements:search"
@@ -292,11 +296,126 @@
     "outputSchema": {
       "additionalProperties": true,
       "properties": {
+        "count_metadata": {
+          "additionalProperties": false,
+          "properties": {
+            "exact_count_requested": {
+              "type": "boolean"
+            },
+            "method": {
+              "enum": [
+                "query_count",
+                "table_estimate",
+                "filtered_lower_bound"
+              ],
+              "type": "string"
+            },
+            "mode": {
+              "enum": [
+                "exact",
+                "estimated"
+              ],
+              "type": "string"
+            },
+            "planning_reliability": {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode",
+            "method",
+            "planning_reliability",
+            "exact_count_requested"
+          ],
+          "type": "object"
+        },
         "has_next": {
           "type": "boolean"
         },
         "has_prev": {
           "type": "boolean"
+        },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "applied_filters": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "match_kind": {
+                    "type": "string"
+                  },
+                  "representation": {
+                    "enum": [
+                      "first_class_agreement_field",
+                      "first_class_section_field",
+                      "taxonomy_assignment",
+                      "derived_from_text",
+                      "not_represented"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "representation",
+                  "match_kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "heuristics_used": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "taxonomy_filters": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "match_mode": {
+                    "enum": [
+                      "exact_node",
+                      "expanded_descendants"
+                    ],
+                    "type": "string"
+                  },
+                  "standard_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "standard_id",
+                  "match_mode"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "applied_filters",
+            "taxonomy_filters",
+            "heuristics_used",
+            "notes"
+          ],
+          "type": "object"
         },
         "next_num": {
           "type": [
@@ -381,6 +500,8 @@
       "required": [
         "results",
         "returned_count",
+        "count_metadata",
+        "interpretation",
         "page",
         "page_size",
         "total_count",
@@ -394,13 +515,17 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+      ],
       "pagination": "page",
       "requiredScopes": [
         "sections:search"
       ],
       "selectionHint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
     },
-    "description": "Search sections across the corpus when you are looking for clause language patterns or taxonomy matches.",
+    "description": "Search sections across the corpus when you are looking for clause language samples, taxonomy-linked sections, or text to read. This is not a normalized document-facts surface.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -460,6 +585,19 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "count_mode": {
+          "description": "Count strategy for pagination planning. Use `exact` when planning depends on a guaranteed total count.",
+          "enum": [
+            "auto",
+            "exact"
+          ],
+          "example": "auto",
+          "examples": [
+            "auto",
+            "exact"
+          ],
+          "type": "string"
         },
         "deal_status": {
           "items": {
@@ -751,11 +889,126 @@
           ],
           "type": "object"
         },
+        "count_metadata": {
+          "additionalProperties": false,
+          "properties": {
+            "exact_count_requested": {
+              "type": "boolean"
+            },
+            "method": {
+              "enum": [
+                "query_count",
+                "table_estimate",
+                "filtered_lower_bound"
+              ],
+              "type": "string"
+            },
+            "mode": {
+              "enum": [
+                "exact",
+                "estimated"
+              ],
+              "type": "string"
+            },
+            "planning_reliability": {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode",
+            "method",
+            "planning_reliability",
+            "exact_count_requested"
+          ],
+          "type": "object"
+        },
         "has_next": {
           "type": "boolean"
         },
         "has_prev": {
           "type": "boolean"
+        },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "applied_filters": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "match_kind": {
+                    "type": "string"
+                  },
+                  "representation": {
+                    "enum": [
+                      "first_class_agreement_field",
+                      "first_class_section_field",
+                      "taxonomy_assignment",
+                      "derived_from_text",
+                      "not_represented"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "representation",
+                  "match_kind"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "heuristics_used": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "taxonomy_filters": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "match_mode": {
+                    "enum": [
+                      "exact_node",
+                      "expanded_descendants"
+                    ],
+                    "type": "string"
+                  },
+                  "standard_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "standard_id",
+                  "match_mode"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "applied_filters",
+            "taxonomy_filters",
+            "heuristics_used",
+            "notes"
+          ],
+          "type": "object"
         },
         "next_num": {
           "type": [
@@ -864,6 +1117,8 @@
       "required": [
         "results",
         "access",
+        "count_metadata",
+        "interpretation",
         "page",
         "page_size",
         "total_count",
@@ -877,6 +1132,9 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years."
+      ],
       "pagination": "cursor",
       "requiredScopes": [
         "agreements:search"
@@ -1362,6 +1620,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "page",
       "requiredScopes": [
         "sections:search"
@@ -1536,6 +1795,9 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not use this tool for bulk discovery or corpus filtering."
+      ],
       "pagination": "none",
       "requiredScopes": [
         "agreements:read"
@@ -1749,6 +2011,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:read"
@@ -1815,6 +2078,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:read"
@@ -1931,6 +2195,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:read"
@@ -2047,6 +2312,9 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not send the pluralized catalog keys directly to retrieval tools; use retrieval_parameter_map to translate them."
+      ],
       "pagination": "none",
       "requiredScopes": [
         "agreements:search"
@@ -2302,13 +2570,16 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it."
+      ],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
       ],
       "selectionHint": "Use when you know the legal concept but not the right taxonomy id."
     },
-    "description": "Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search.",
+    "description": "Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search. Suggestions may be canonical matches or broader/narrower proxies.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2342,6 +2613,22 @@
           "items": {
             "additionalProperties": false,
             "properties": {
+              "confidence": {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              },
+              "fit": {
+                "enum": [
+                  "canonical",
+                  "proxy",
+                  "broad_match"
+                ],
+                "type": "string"
+              },
               "label": {
                 "type": "string"
               },
@@ -2360,6 +2647,9 @@
               "reason": {
                 "type": "string"
               },
+              "scope_note": {
+                "type": "string"
+              },
               "score": {
                 "type": "number"
               },
@@ -2373,6 +2663,9 @@
               "path",
               "score",
               "matched_terms",
+              "fit",
+              "scope_note",
+              "confidence",
               "reason"
             ],
             "type": "object"
@@ -2401,13 +2694,16 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not treat the snippet as the complete section; fetch get_section if exact full context matters."
+      ],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
       ],
       "selectionHint": "Use after search_sections when you need a quick excerpt for comparison or quoting."
     },
-    "description": "Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block.",
+    "description": "Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block. This is a reading aid, not a canonical extracted-facts surface.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2488,6 +2784,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:search"
@@ -2568,13 +2865,16 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [
+        "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
+      ],
       "pagination": "none",
       "requiredScopes": [
         "agreements:search"
       ],
       "selectionHint": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
     },
-    "description": "Explain available MCP tools, selection guidance, pagination styles, scope requirements, and example workflows for this server.",
+    "description": "Explain available MCP tools, selection guidance, pagination styles, scope requirements, and corpus semantics for this server. Use it to learn which concepts are first-class, taxonomy-based proxies, text-derived, or not represented.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
@@ -2584,6 +2884,197 @@
     "outputSchema": {
       "additionalProperties": false,
       "properties": {
+        "auth_help": {
+          "additionalProperties": false,
+          "properties": {
+            "fulltext_scope": {
+              "type": "string"
+            },
+            "invalid_or_expired_token_message": {
+              "type": "string"
+            },
+            "login_required": {
+              "type": "boolean"
+            },
+            "relogin_hint": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "login_required",
+            "relogin_hint",
+            "fulltext_scope",
+            "invalid_or_expired_token_message"
+          ],
+          "type": "object"
+        },
+        "concept_notes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "canonical_or_proxy": {
+                "enum": [
+                  "canonical",
+                  "proxy"
+                ],
+                "type": "string"
+              },
+              "concept": {
+                "type": "string"
+              },
+              "recommended_tools": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "representation": {
+                "enum": [
+                  "first_class_agreement_field",
+                  "first_class_section_field",
+                  "taxonomy_assignment",
+                  "derived_from_text",
+                  "not_represented"
+                ],
+                "type": "string"
+              },
+              "scope_note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "concept",
+              "recommended_tools",
+              "representation",
+              "canonical_or_proxy",
+              "scope_note"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "field_inventory": {
+          "additionalProperties": false,
+          "properties": {
+            "agreement_fields": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "applies_to_tools": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "representation": {
+                    "enum": [
+                      "first_class_agreement_field",
+                      "first_class_section_field",
+                      "taxonomy_assignment",
+                      "derived_from_text",
+                      "not_represented"
+                    ],
+                    "type": "string"
+                  },
+                  "source_table_or_surface": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "applies_to_tools",
+                  "source_table_or_surface",
+                  "representation"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "section_fields": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "applies_to_tools": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "representation": {
+                    "enum": [
+                      "first_class_agreement_field",
+                      "first_class_section_field",
+                      "taxonomy_assignment",
+                      "derived_from_text",
+                      "not_represented"
+                    ],
+                    "type": "string"
+                  },
+                  "source_table_or_surface": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "applies_to_tools",
+                  "source_table_or_surface",
+                  "representation"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "taxonomy_assignment_fields": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "applies_to_tools": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "representation": {
+                    "enum": [
+                      "first_class_agreement_field",
+                      "first_class_section_field",
+                      "taxonomy_assignment",
+                      "derived_from_text",
+                      "not_represented"
+                    ],
+                    "type": "string"
+                  },
+                  "source_table_or_surface": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "applies_to_tools",
+                  "source_table_or_surface",
+                  "representation"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "agreement_fields",
+            "section_fields",
+            "taxonomy_assignment_fields"
+          ],
+          "type": "object"
+        },
         "server": {
           "additionalProperties": false,
           "properties": {
@@ -2599,6 +3090,12 @@
             "primary_discovery_tool": {
               "type": "string"
             },
+            "resource_templates_supported": {
+              "type": "boolean"
+            },
+            "resources_supported": {
+              "type": "boolean"
+            },
             "transport": {
               "type": "string"
             }
@@ -2608,9 +3105,34 @@
             "primary_discovery_tool",
             "introspection_tool",
             "metrics_tool",
-            "transport"
+            "transport",
+            "resources_supported",
+            "resource_templates_supported"
           ],
           "type": "object"
+        },
+        "tool_limitations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "do_not_use_for": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              },
+              "use_when": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool",
+              "use_when",
+              "do_not_use_for"
+            ],
+            "type": "object"
+          },
+          "type": "array"
         },
         "tools": {
           "items": {
@@ -2702,6 +3224,12 @@
               "name": {
                 "type": "string"
               },
+              "negative_guidance": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
               "output_schema": {
                 "type": "object"
               },
@@ -2748,6 +3276,7 @@
               "required_scopes",
               "pagination",
               "selection_hint",
+              "negative_guidance",
               "examples",
               "response_examples",
               "access",
@@ -2784,6 +3313,10 @@
       },
       "required": [
         "server",
+        "auth_help",
+        "field_inventory",
+        "concept_notes",
+        "tool_limitations",
         "tools",
         "workflows"
       ],
@@ -2792,6 +3325,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
@@ -2855,6 +3389,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
@@ -2918,6 +3453,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
@@ -2962,6 +3498,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
@@ -3034,6 +3571,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:search"
@@ -3070,6 +3608,7 @@
   },
   {
     "annotations": {
+      "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "agreements:search"

@@ -58,6 +58,7 @@ class SectionsArgsPayload(TypedDict):
     metadata: list[str]
     agreement_uuid: str | None
     section_uuid: str | None
+    count_mode: str
     sort_by: str
     sort_direction: str
     page: int
@@ -139,6 +140,17 @@ class SectionsArgsSchema(Schema):
         metadata={
             "description": "Filter to one section UUID.",
             "example": "5e59453aaa9255c4",
+        },
+    )
+    count_mode = fields.Str(
+        load_default="auto",
+        validate=validate.OneOf(["auto", "exact"]),
+        metadata={
+            "description": (
+                "Count strategy for pagination planning. `auto` may return estimates "
+                "for broad or paginated searches; `exact` forces an exact total count."
+            ),
+            "example": "auto",
         },
     )
     sort_by = fields.Str(
@@ -230,6 +242,8 @@ class SectionsResponseSchema(Schema):
     page_size = fields.Int()
     total_count = fields.Int()
     total_count_is_approximate = fields.Bool()
+    count_metadata = fields.Dict()
+    interpretation = fields.Dict()
     total_pages = fields.Int()
     has_next = fields.Bool()
     has_prev = fields.Bool()
