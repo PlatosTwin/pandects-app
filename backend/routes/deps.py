@@ -192,6 +192,9 @@ class AgreementsDeps:
     Clauses: Any
     Counsel: Any
     Sections: Any
+    TaxonomyL1: Any
+    TaxonomyL2: Any
+    TaxonomyL3: Any
     TaxClauseAssignment: Any
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int

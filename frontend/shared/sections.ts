@@ -72,6 +72,7 @@ export interface FilterOptionsResponse {
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
+  clause_types?: Record<string, unknown>;
 }
 
 // Filter options (to be populated from API)

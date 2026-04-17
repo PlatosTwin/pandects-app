@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import text
 from sqlalchemy.dialects import mysql as mysql_dialect
@@ -846,7 +846,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000004")
 
-    def test_search_marks_total_count_as_approximate_when_more_pages_exist(self):
+    def test_search_returns_exact_total_count_for_filtered_first_page(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
             with engine.begin() as conn:
@@ -904,9 +904,9 @@ class MainRoutesTests(unittest.TestCase):
         body = res.get_json()
         self.assertEqual(len(body.get("results", [])), 5)
         self.assertTrue(body.get("has_next"))
-        self.assertTrue(body.get("total_count_is_approximate"))
-        self.assertGreaterEqual(body.get("total_count"), 6)
-        self.assertGreaterEqual(body.get("total_pages"), 2)
+        self.assertFalse(body.get("total_count_is_approximate"))
+        self.assertEqual(body.get("total_count"), 10)
+        self.assertEqual(body.get("total_pages"), 2)
 
     def test_search_total_count_metadata_uses_table_estimate_for_unfiltered_search(self):
         with (
@@ -942,6 +942,26 @@ class MainRoutesTests(unittest.TestCase):
 
         self.assertEqual(total_count, 240)
         self.assertTrue(is_approximate)
+
+    def test_search_total_count_metadata_uses_exact_count_for_filtered_first_page(self):
+        query = MagicMock()
+        ordered_query = MagicMock()
+        query.order_by.return_value = ordered_query
+        ordered_query.count.return_value = 37
+
+        total_count, is_approximate = self.app_module._search_total_count_metadata(
+            query=query,
+            page=1,
+            page_size=25,
+            item_count=25,
+            has_next=True,
+            has_filters=True,
+        )
+
+        query.order_by.assert_called_once_with(None)
+        ordered_query.count.assert_called_once_with()
+        self.assertEqual(total_count, 37)
+        self.assertFalse(is_approximate)
 
     def test_search_total_count_metadata_preserves_filtered_lower_bound_when_estimate_is_too_small(self):
         with patch.object(self.app_module, "_estimated_query_row_count", return_value=120):
@@ -1193,6 +1213,8 @@ class MainRoutesTests(unittest.TestCase):
         )
         self.assertIn("Goodwin Procter", body.get("target_counsels", []))
         self.assertIn("Wiggin & Dana", body.get("acquirer_counsels", []))
+        self.assertIn("clause_types", body)
+        self.assertIsInstance(body.get("clause_types"), dict)
 
     def test_filter_options_can_limit_fields(self):
         self.app_module._filter_options_cache["payload"] = None
@@ -1209,6 +1231,16 @@ class MainRoutesTests(unittest.TestCase):
         )
         self.assertIn("Goodwin Procter", body.get("target_counsels", []))
         self.assertIn("tech", body.get("acquirer_industries", []))
+
+    def test_filter_options_can_request_clause_types(self):
+        self.app_module._filter_options_cache["payload"] = None
+        self.app_module._filter_options_cache["ts"] = 0
+        client = self.app.test_client()
+        res = client.get("/v1/filter-options?fields=clause_types")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(set(body.keys()), {"clause_types"})
+        self.assertIsInstance(body.get("clause_types"), dict)
 
     def test_filter_option_values_endpoint_searches_targets(self):
         client = self.app.test_client()

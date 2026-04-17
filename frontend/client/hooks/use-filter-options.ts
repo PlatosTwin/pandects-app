@@ -4,6 +4,7 @@ import { FilterOptionsResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
 import { authFetch } from "@/lib/auth-fetch";
+import type { ClauseTypeTree } from "@/lib/clause-types";
 
 const FILTER_OPTIONS_CACHE_KEY = "filterOptions:v2";
 const LEGACY_FILTER_OPTIONS_CACHE_KEY = "filterOptions";
@@ -15,6 +16,7 @@ interface UseFilterOptionsReturn {
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
+  clause_types: ClauseTypeTree;
   isLoading: boolean;
   error: string | null;
 }
@@ -36,6 +38,15 @@ function cacheKeyForFields(fields?: Array<keyof FilterOptionsResponse>) {
   return `${FILTER_OPTIONS_CACHE_KEY}:${normalizedFields.join(",")}`;
 }
 
+function parseClauseTypes(
+  value: FilterOptionsResponse["clause_types"],
+): ClauseTypeTree {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as ClauseTypeTree;
+  }
+  return {};
+}
+
 export function useFilterOptions(
   options: UseFilterOptionsOptions = {},
 ): UseFilterOptionsReturn {
@@ -49,6 +60,7 @@ export function useFilterOptions(
   const [acquirer_counsels, setAcquirerCounsels] = useState<string[]>([]);
   const [target_industries, setTargetIndustries] = useState<string[]>([]);
   const [acquirer_industries, setAcquirerIndustries] = useState<string[]>([]);
+  const [clause_types, setClauseTypes] = useState<ClauseTypeTree>({});
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +81,7 @@ export function useFilterOptions(
         setAcquirerCounsels(parsed.acquirer_counsels || []);
         setTargetIndustries(parsed.target_industries || []);
         setAcquirerIndustries(parsed.acquirer_industries || []);
+        setClauseTypes(parseClauseTypes(parsed.clause_types));
         setIsLoading(false);
         return;
       } catch (e) {
@@ -108,6 +121,7 @@ export function useFilterOptions(
         setAcquirerCounsels(data.acquirer_counsels || []);
         setTargetIndustries(data.target_industries || []);
         setAcquirerIndustries(data.acquirer_industries || []);
+        setClauseTypes(parseClauseTypes(data.clause_types));
 
         // Cache in sessionStorage for future use
         sessionStorage.setItem(cacheKey, JSON.stringify(data));
@@ -133,6 +147,7 @@ export function useFilterOptions(
         setAcquirerCounsels([]);
         setTargetIndustries([]);
         setAcquirerIndustries([]);
+        setClauseTypes({});
       } finally {
         setIsLoading(false);
       }
@@ -153,6 +168,7 @@ export function useFilterOptions(
     acquirer_counsels,
     target_industries,
     acquirer_industries,
+    clause_types,
     isLoading,
     error,
   };

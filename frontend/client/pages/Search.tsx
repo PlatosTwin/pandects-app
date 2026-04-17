@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useSections } from "@/hooks/use-sections";
 import { useFilterOptions } from "@/hooks/use-filter-options";
-import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ErrorModal from "@/components/ErrorModal";
@@ -292,27 +291,22 @@ export default function Search() {
     acquirer_counsels,
     target_industries,
     acquirer_industries,
+    clause_types,
     isLoading: isLoadingFilterOptions,
     error: filterOptionsError,
   } = useFilterOptions({
-    deferMs: 1200,
     enabled: shouldLoadFilterData,
     fields: [
       "target_counsels",
       "acquirer_counsels",
       "target_industries",
       "acquirer_industries",
+      "clause_types",
     ],
   });
 
-  // Static years data (not dynamic for now)
   const years = AVAILABLE_YEARS;
-
-  const { taxonomyTree, isLoading: isLoadingTaxonomy } = useTaxonomy({
-    deferMs: 1200,
-    enabled: shouldLoadFilterData,
-  });
-  const clauseTypesNested: ClauseTypeTree = taxonomyTree ?? {};
+  const clauseTypesNested: ClauseTypeTree = clause_types;
 
   const clauseTypePathByStandardId = useMemo(
     () => indexClauseTypePaths(clauseTypesNested),
@@ -482,7 +476,7 @@ export default function Search() {
                 clauseTypesNested={clauseTypesNested}
                 clauseTypeLabelById={clauseTypeLabelById}
                 isLoadingFilterOptions={isLoadingFilterOptions}
-                isLoadingTaxonomy={isLoadingTaxonomy}
+                isLoadingTaxonomy={isLoadingFilterOptions}
                 onToggleFilterValue={toggleFilterValue}
                 onTextFilterChange={trackingActions.setTextFilterValue}
                 onClearFilters={clearFilters}
@@ -541,7 +535,7 @@ export default function Search() {
                           clauseTypesNested={clauseTypesNested}
                           clauseTypeLabelById={clauseTypeLabelById}
                           isLoadingFilterOptions={isLoadingFilterOptions}
-                          isLoadingTaxonomy={isLoadingTaxonomy}
+                          isLoadingTaxonomy={isLoadingFilterOptions}
                           onToggleFilterValue={toggleFilterValue}
                           onTextFilterChange={trackingActions.setTextFilterValue}
                           onClearFilters={clearFilters}

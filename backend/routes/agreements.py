@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from decimal import Decimal
 from datetime import date, datetime
 from threading import Lock
@@ -1316,6 +1317,75 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         )
 
     def get_filter_options() -> tuple[Response, int] | Response:
+        def build_clause_types_payload() -> dict[str, object]:
+            l1_rows = (
+                deps.db.session.query(
+                    deps.TaxonomyL1.standard_id,
+                    deps.TaxonomyL1.label,
+                ).all()
+            )
+            l2_rows = (
+                deps.db.session.query(
+                    deps.TaxonomyL2.standard_id,
+                    deps.TaxonomyL2.label,
+                    deps.TaxonomyL2.parent_id,
+                ).all()
+            )
+            l3_rows = (
+                deps.db.session.query(
+                    deps.TaxonomyL3.standard_id,
+                    deps.TaxonomyL3.label,
+                    deps.TaxonomyL3.parent_id,
+                ).all()
+            )
+
+            l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
+            for standard_id, label, parent_id in l2_rows:
+                if (
+                    not isinstance(standard_id, str)
+                    or not isinstance(label, str)
+                    or not isinstance(parent_id, str)
+                ):
+                    raise ValueError("taxonomy_l2 has invalid parent_id or label.")
+                l2_by_parent[parent_id].append((standard_id, label))
+
+            l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
+            for standard_id, label, parent_id in l3_rows:
+                if (
+                    not isinstance(standard_id, str)
+                    or not isinstance(label, str)
+                    or not isinstance(parent_id, str)
+                ):
+                    raise ValueError("taxonomy_l3 has invalid parent_id or label.")
+                l3_by_parent[parent_id].append((standard_id, label))
+
+            validated_l1_rows: list[tuple[str, str]] = []
+            for standard_id, label in l1_rows:
+                if not isinstance(standard_id, str) or not isinstance(label, str):
+                    raise ValueError("taxonomy_l1 has invalid standard_id or label.")
+                validated_l1_rows.append((standard_id, label))
+
+            tree: dict[str, object] = {}
+            for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda row: row[1]):
+                l2_children: dict[str, object] = {}
+                for l2_standard_id, l2_label in sorted(
+                    l2_by_parent.get(l1_standard_id, []),
+                    key=lambda row: row[1],
+                ):
+                    l3_children: dict[str, object] = {}
+                    for l3_standard_id, l3_label in sorted(
+                        l3_by_parent.get(l2_standard_id, []),
+                        key=lambda row: row[1],
+                    ):
+                        l3_children[l3_label] = {"id": l3_standard_id}
+                    l2_children[l2_label] = {
+                        "id": l2_standard_id,
+                        "children": l3_children,
+                    }
+                tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
+
+            return tree
+
         allowed_fields = {
             "targets",
             "acquirers",
@@ -1323,6 +1393,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             "acquirer_counsels",
             "target_industries",
             "acquirer_industries",
+            "clause_types",
         }
         requested_fields_raw = [
             field.strip()
@@ -1342,6 +1413,7 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "acquirer_counsels",
                 "target_industries",
                 "acquirer_industries",
+                "clause_types",
             )
 
         now = deps.time.time()
@@ -1359,28 +1431,41 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
             return resp, 200
 
         db = deps.db
-        rows = (
-            db.session.execute(
-                text(
-                    f"""
-                    SELECT field_name, option_value
-                    FROM {deps._schema_prefix()}agreement_filter_option_summary
-                    WHERE field_name IN :field_names
-                    ORDER BY field_name ASC, option_value ASC
-                    """
-                ).bindparams(bindparam("field_names", expanding=True)),
-                {"field_names": list(requested_fields)},
-            )
-            .mappings()
-            .all()
+        summary_fields = tuple(
+            field_name for field_name in requested_fields if field_name != "clause_types"
         )
-        payload: dict[str, list[str]] = {field_name: [] for field_name in requested_fields}
-        for row in rows:
-            row_dict = deps._row_mapping_as_dict(cast(object, row))
-            field_name = row_dict.get("field_name")
-            option_value = row_dict.get("option_value")
-            if isinstance(field_name, str) and isinstance(option_value, str):
-                payload.setdefault(field_name, []).append(option_value)
+        payload: dict[str, object] = {}
+
+        if summary_fields:
+            rows = (
+                db.session.execute(
+                    text(
+                        f"""
+                        SELECT field_name, option_value
+                        FROM {deps._schema_prefix()}agreement_filter_option_summary
+                        WHERE field_name IN :field_names
+                        ORDER BY field_name ASC, option_value ASC
+                        """
+                    ).bindparams(bindparam("field_names", expanding=True)),
+                    {"field_names": list(summary_fields)},
+                )
+                .mappings()
+                .all()
+            )
+            for field_name in summary_fields:
+                payload[field_name] = []
+
+            for row in rows:
+                row_dict = deps._row_mapping_as_dict(cast(object, row))
+                field_name = row_dict.get("field_name")
+                option_value = row_dict.get("option_value")
+                if isinstance(field_name, str) and isinstance(option_value, str):
+                    field_values = payload.setdefault(field_name, [])
+                    if isinstance(field_values, list):
+                        field_values.append(option_value)
+
+        if "clause_types" in requested_fields:
+            payload["clause_types"] = build_clause_types_payload()
 
         if not requested_fields_raw:
             with deps._filter_options_lock:

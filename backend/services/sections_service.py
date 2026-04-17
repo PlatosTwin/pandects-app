@@ -115,6 +115,10 @@ def sections_total_count_metadata(
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
 
     if has_filters:
+        if page <= 1:
+            exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+            return exact_total, False
+
         exact_total = ((page - 1) * page_size) + item_count
         if not has_next:
             return exact_total, False
