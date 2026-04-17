@@ -302,7 +302,7 @@ def normalize_text(text: str) -> str:
     Normalize text by handling whitespace and newlines consistently.
 
     Process:
-    1. Replace non-breaking spaces with regular spaces.
+    1. Replace Unicode horizontal whitespace with regular spaces.
     2. Temporarily collapse any cluster of two or more newlines
        (even if separated by spaces/tabs) into a placeholder.
     3. Replace all remaining single newlines with a space.
@@ -316,9 +316,10 @@ def normalize_text(text: str) -> str:
         The normalized text.
     """
     text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", text)
-    # Remove invisible zero-width separator characters that leak from SEC markup and
-    # cause token-boundary drift (e.g., "A\u200bB").
-    text = re.sub(r"[\u200B\u200C\u200D\u2060\uFEFF]", "", text)
+    # Remove invisible format-control characters that leak from SEC markup and
+    # cause token-boundary drift (e.g., "A\u200bB" or hidden bidi marks).
+    text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", "", text)
+    text = re.sub(r"[^\S\r\n\t]+", " ", text)
 
     # Collapse multi-newline clusters into a placeholder
     placeholder = "__NL__"
@@ -329,6 +330,9 @@ def normalize_text(text: str) -> str:
     text = text.replace(placeholder, "\n\n")
     # Collapse multiple spaces to one
     text = re.sub(r" {2,}", " ", text)
+    # Drop line-final horizontal whitespace introduced by HTML block boundaries
+    # without changing the underlying newline style.
+    text = re.sub(r"[ \t]+(?=(?:\r\n|\r|\n))", "", text)
 
     return text.strip()
 
@@ -568,6 +572,10 @@ def strip_formatting_tags(
         raw = raw.replace("\u00a0", " ").replace("\xa0", " ")
         return re.sub(r"\s+", " ", raw).strip()
 
+    def _collapse_inline_formatting_whitespace(text: str) -> str:
+        text = text.replace("\u00a0", " ").replace("\xa0", " ")
+        return re.sub(r"\s+", " ", text)
+
     def _is_whitespace_insertion_only(source_text: str, target_text: str) -> bool:
         source_text = source_text.replace("\u00a0", " ").replace("\xa0", " ")
         target_text = target_text.replace("\u00a0", " ").replace("\xa0", " ")
@@ -717,6 +725,12 @@ def strip_formatting_tags(
                     tag_text = collapsed_br_text
                 elif not tag_text.strip():
                     tag_text = _line_break_text_from_tag(tag)
+            elif "\n" in tag_text or "\r" in tag_text:
+                # Inline formatting tags often carry source indentation/newlines that
+                # are not visible in the rendered document. Collapse them here so
+                # display-single-line phrases like "The Merger" do not become
+                # paragraph breaks downstream.
+                tag_text = _collapse_inline_formatting_whitespace(tag_text)
             tag_text = _quote_only_tag_text(tag_text)
             tag_text = _trim_tag_text_at_quote_edges(
                 tag_text,

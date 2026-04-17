@@ -473,6 +473,18 @@ class PreProcessingTests(unittest.TestCase):
 
         self.assertEqual(text, "ARTICLE II THE MERGERS")
 
+    def test_format_content_collapses_source_newlines_inside_inline_formatting_tag(self) -> None:
+        html = (
+            "<div style='text-align:justify;text-indent:36pt'>"
+            "<font>1.1.</font> <font><u>The\n\n\n\n          Merger</u></font>. Upon the terms."
+            "</div>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertIn("1.1. The Merger. Upon the terms.", text)
+        self.assertNotIn("The\n\nMerger", text)
+
     def test_format_content_preserves_article_heading_space_for_nested_malformed_inline_tags(self) -> None:
         html = (
             "<p>"
@@ -530,6 +542,40 @@ class PreProcessingTests(unittest.TestCase):
         normalized = normalize_text(dirty)
 
         self.assertEqual(normalized, "ABCDEF")
+
+    def test_normalize_text_strips_bidi_format_controls(self) -> None:
+        dirty = "A\u200eB\u200fC\u202aD\u202bE\u202cF\u202dG\u202eH"
+
+        normalized = normalize_text(dirty)
+
+        self.assertEqual(normalized, "ABCDEFGH")
+
+    def test_normalize_text_normalizes_unicode_horizontal_spaces(self) -> None:
+        dirty = "2.2\u00a0\u202f\u2007Rights of Former VBI Shareholders."
+
+        normalized = normalize_text(dirty)
+
+        self.assertEqual(normalized, "2.2 Rights of Former VBI Shareholders.")
+
+    def test_normalize_text_strips_line_final_spaces(self) -> None:
+        dirty = "Alpha. \n\nBeta\t \n\nGamma"
+
+        normalized = normalize_text(dirty)
+
+        self.assertEqual(normalized, "Alpha.\n\nBeta\n\nGamma")
+
+    def test_format_content_strips_trailing_space_before_paragraph_break(self) -> None:
+        html = (
+            "<p>“Accounts Receivable” means all in accordance with GAAP.\n</p> "
+            "<p>“Action” means any claim.</p>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(
+            text,
+            "“Accounts Receivable” means all in accordance with GAAP.\n\n“Action” means any claim.",
+        )
 
     def test_normalize_padded_quoted_terms_is_idempotent(self) -> None:
         text = (
