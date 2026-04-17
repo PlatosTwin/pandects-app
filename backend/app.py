@@ -586,7 +586,7 @@ def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     has_next: bool,
     has_filters: bool,
 ) -> tuple[int, bool]:
-    return _svc_sections_total_count_metadata(
+    total_count, is_approximate, _ = _svc_sections_total_count_metadata(
         _build_sections_service_deps(),
         query=query,
         page=page,
@@ -594,7 +594,9 @@ def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
         item_count=item_count,
         has_next=has_next,
         has_filters=has_filters,
+        count_mode="auto",
     )
+    return total_count, is_approximate
 
 
 def _auth_enumeration_delay() -> None:
