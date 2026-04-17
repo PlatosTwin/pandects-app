@@ -2624,10 +2624,10 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIn("/login?next=", body)
         self.assertNotIn("pandects.sessionToken", body)
         self.assertNotIn("/v1/auth/oauth/browser-session", body)
-        self.assertIn("%2Fv1%2Fauth%2Foauth%2Fauthorize%3Fclient_id%3D", body)
-        self.assertIn("%26redirect_uri%3Dhttps%253A%252F%252Fcodex.example.com%252Fcallback", body)
+        self.assertIn("%2Fv1%2Fauth%2Foauth%2Fauthorize", body)
+        self.assertNotIn("redirect_uri%3Dhttps%253A%252F%252Fcodex.example.com%252Fcallback", body)
 
-    def test_oauth_authorize_login_redirect_preserves_nested_oauth_query_params(self):
+    def test_oauth_authorize_login_redirect_resumes_pending_request_from_cookie(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
@@ -2658,12 +2658,105 @@ class AuthFlowTests(unittest.TestCase):
         parsed = urlparse(authorize.headers["Location"])
         self.assertEqual(parsed.path, "/login")
         next_path = parse_qs(parsed.query)["next"][0]
-        nested = urlparse(next_path)
-        nested_query = parse_qs(nested.query)
-        self.assertEqual(nested.path, "/v1/auth/oauth/authorize")
-        self.assertEqual(nested_query["client_id"], [client_id])
-        self.assertEqual(nested_query["redirect_uri"], ["https://codex.example.com/callback"])
-        self.assertEqual(nested_query["response_type"], ["code"])
+        self.assertEqual(next_path, "/v1/auth/oauth/authorize")
+
+        user_id = self._create_local_user(email="oauth-resume@example.com", verified=True, legal=True)
+        with self.app.app_context():
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|oauth-resume",
+                )
+            )
+            db.session.commit()
+
+        self._set_cookie_session(client, email="oauth-resume@example.com")
+        resumed = client.get("/v1/auth/oauth/authorize")
+        self.assertEqual(resumed.status_code, 302)
+        resumed_parsed = urlparse(resumed.headers["Location"])
+        self.assertEqual(resumed_parsed.scheme, "https")
+        self.assertEqual(resumed_parsed.netloc, "codex.example.com")
+        resumed_query = parse_qs(resumed_parsed.query)
+        self.assertIn("code", resumed_query)
+        self.assertEqual(resumed_query["state"], ["test-state"])
+
+    def test_oauth_authorize_ignores_pending_cookie_when_new_query_is_supplied(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+
+        partial = client.get(f"/v1/auth/oauth/authorize?client_id={client_id}")
+        self.assertEqual(partial.status_code, 400)
+        self.assertIn("Missing OAuth client_id or redirect_uri.", partial.get_data(as_text=True))
+
+    def test_oauth_authorize_legal_redirect_uses_constant_resume_path(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        user_id = self._create_local_user(email="oauth-legal@example.com", verified=True, legal=False)
+        with self.app.app_context():
+            db.session.add(
+                AuthExternalSubject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|oauth-legal",
+                )
+            )
+            db.session.commit()
+
+        self._set_cookie_session(client, email="oauth-legal@example.com")
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(parsed.path, "/login")
+        self.assertEqual(parse_qs(parsed.query)["next"], ["/v1/auth/oauth/authorize"])
 
     def test_oauth_register_accepts_refresh_token_metadata_for_public_code_clients(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
