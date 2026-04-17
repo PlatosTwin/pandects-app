@@ -576,7 +576,6 @@ def _estimated_latest_sections_search_table_rows() -> int | None:
     return _svc_estimated_latest_sections_search_table_rows(_build_sections_service_deps())
 
 
-# Tests still patch this legacy symbol directly, so keep it as a thin wrapper.
 def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     *,
     query: object,

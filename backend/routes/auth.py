@@ -59,6 +59,8 @@ _ZITADEL_PENDING_COOKIE_NAME = "pdcts_zitadel_pending"
 _ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
 _OAUTH_BROWSER_COOKIE_NAME = "pdcts_oauth_browser"
 _OAUTH_BROWSER_COOKIE_MAX_AGE = 60 * 20
+_OAUTH_AUTHORIZE_COOKIE_NAME = "pdcts_oauth_authorize"
+_OAUTH_AUTHORIZE_COOKIE_MAX_AGE = 60 * 20
 _ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 
 
@@ -88,6 +90,13 @@ def _oauth_browser_cookie_serializer() -> URLSafeTimedSerializer:
     if not secret:
         abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-browser-cookie")
+
+
+def _oauth_authorize_cookie_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("AUTH_SECRET_KEY")
+    if not secret:
+        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
+    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-authorize-cookie")
 
 
 def _zitadel_client_id() -> str:
@@ -407,6 +416,33 @@ def _clear_oauth_browser_cookie(resp) -> None:
     _clear_signed_cookie(
         name=_OAUTH_BROWSER_COOKIE_NAME,
         path="/v1/auth/oauth",
+        resp=resp,
+    )
+
+
+def _set_oauth_authorize_cookie(resp, payload: dict[str, str]) -> None:
+    _set_signed_cookie(
+        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
+        serializer=_oauth_authorize_cookie_serializer(),
+        payload=payload,
+        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
+        path="/v1/auth/oauth/authorize",
+        resp=resp,
+    )
+
+
+def _load_oauth_authorize_cookie() -> dict[str, str] | None:
+    return _load_signed_cookie(
+        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
+        serializer=_oauth_authorize_cookie_serializer(),
+        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
+    )
+
+
+def _clear_oauth_authorize_cookie(resp) -> None:
+    _clear_signed_cookie(
+        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
+        path="/v1/auth/oauth/authorize",
         resp=resp,
     )
 
@@ -1426,7 +1462,28 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             params["state"] = state.strip()
         return redirect(f"{redirect_uri}?{urlencode(params)}", code=302)
 
-    def _oauth_authorize_bridge_response(*, next_path: str):
+    def _oauth_authorize_pending_payload(
+        *,
+        client_id: str,
+        redirect_uri: str,
+        state: str | None,
+        scope: str,
+        code_challenge: str,
+        code_challenge_method: str,
+    ) -> dict[str, str]:
+        payload = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
+        }
+        if state:
+            payload["state"] = state
+        return payload
+
+    def _oauth_authorize_bridge_response(*, pending_payload: dict[str, str]):
+        next_path = "/v1/auth/oauth/authorize"
         login_url = f"{deps._frontend_base_url()}/login?{urlencode({'next': next_path})}"
         body = f"""<!doctype html>
 <html><body>
@@ -1438,6 +1495,11 @@ window.location.replace({json.dumps(login_url)});
         resp = make_response(body, 200)
         resp.headers["Content-Type"] = "text/html; charset=utf-8"
         resp.headers["Cache-Control"] = "no-store"
+        _set_oauth_authorize_cookie(resp, pending_payload)
+        return resp
+
+    def _oauth_response_with_pending_cookie_cleared(resp):
+        _clear_oauth_authorize_cookie(resp)
         return resp
 
     def _oauth_authenticated_user():
@@ -1572,45 +1634,78 @@ window.location.replace({json.dumps(login_url)});
     @auth_blp.get("/oauth/authorize")
     def oauth_authorize():
         deps._require_auth_db()
-        client_id = request.args.get("client_id", "").strip()
-        redirect_uri = request.args.get("redirect_uri", "").strip()
-        response_type = request.args.get("response_type", "").strip()
-        state = request.args.get("state", "").strip() or None
-        scope = _oauth_scope_string(request.args.get("scope"))
-        code_challenge = request.args.get("code_challenge", "").strip()
-        code_challenge_method = request.args.get("code_challenge_method", "").strip()
+        pending = _load_oauth_authorize_cookie()
+        resuming_pending = pending is not None and not request.args
+        client_id = request.args.get("client_id", "")
+        redirect_uri = request.args.get("redirect_uri", "")
+        response_type = request.args.get("response_type", "")
+        state_raw = request.args.get("state", "")
+        scope_raw = request.args.get("scope")
+        code_challenge = request.args.get("code_challenge", "")
+        code_challenge_method = request.args.get("code_challenge_method", "")
+        if resuming_pending:
+            client_id = pending.get("client_id", "")
+            redirect_uri = pending.get("redirect_uri", "")
+            state_raw = pending.get("state", "")
+            scope_raw = pending.get("scope")
+            code_challenge = pending.get("code_challenge", "")
+            code_challenge_method = pending.get("code_challenge_method", "")
+        client_id = client_id.strip()
+        redirect_uri = redirect_uri.strip()
+        response_type = "code" if resuming_pending else response_type.strip()
+        state = state_raw.strip() or None
+        scope = _oauth_scope_string(scope_raw)
+        code_challenge = code_challenge.strip()
+        code_challenge_method = code_challenge_method.strip()
         if not client_id or not redirect_uri:
-            return _oauth_error_response("Missing OAuth client_id or redirect_uri.")
+            resp = _oauth_error_response("Missing OAuth client_id or redirect_uri.")
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
         client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
         if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
-            return _oauth_error_response("Invalid OAuth client or redirect URI.")
+            resp = _oauth_error_response("Invalid OAuth client or redirect URI.")
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
         if response_type != "code":
-            return _oauth_redirect_error(redirect_uri, error="unsupported_response_type", state=state)
+            resp = _oauth_redirect_error(redirect_uri, error="unsupported_response_type", state=state)
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
         if not scope:
-            return _oauth_redirect_error(redirect_uri, error="invalid_scope", state=state)
+            resp = _oauth_redirect_error(redirect_uri, error="invalid_scope", state=state)
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
         if not code_challenge or code_challenge_method != "S256":
-            return _oauth_redirect_error(redirect_uri, error="invalid_request", state=state)
+            resp = _oauth_redirect_error(redirect_uri, error="invalid_request", state=state)
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
+        pending_payload = _oauth_authorize_pending_payload(
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            state=state,
+            scope=scope,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+        )
 
         user = _oauth_authenticated_user()
         if user is None:
-            next_path = f"/v1/auth/oauth/authorize?{urlencode({k: v for k, v in request.args.items() if isinstance(v, str)})}"
             if deps._auth_session_transport() == "bearer":
-                return _oauth_authorize_bridge_response(next_path=next_path)
-            return redirect(
-                f"{deps._frontend_base_url()}/login?{urlencode({'next': next_path})}",
+                return _oauth_authorize_bridge_response(pending_payload=pending_payload)
+            resp = redirect(
+                f"{deps._frontend_base_url()}/login?{urlencode({'next': '/v1/auth/oauth/authorize'})}",
                 code=302,
             )
+            _set_oauth_authorize_cookie(resp, pending_payload)
+            return resp
 
         if not deps._user_has_current_legal_acceptances(user_id=user.id):
-            return redirect(
-                f"{deps._frontend_base_url()}/login?{urlencode({'next': request.full_path.rstrip('?')})}",
+            resp = redirect(
+                f"{deps._frontend_base_url()}/login?{urlencode({'next': '/v1/auth/oauth/authorize'})}",
                 code=302,
             )
+            _set_oauth_authorize_cookie(resp, pending_payload)
+            return resp
         linked_subject = _ensure_linked_zitadel_subject_for_user(user=user)
         if not linked_subject:
             linked_subject = _linked_zitadel_subject_for_email(email=user.email)
         if not linked_subject:
-            return _oauth_error_response("Pandects could not link this account to MCP identity.", code=403)
+            resp = _oauth_error_response("Pandects could not link this account to MCP identity.", code=403)
+            return _oauth_response_with_pending_cookie_cleared(resp) if resuming_pending else resp
 
         raw_code = secrets.token_urlsafe(32)
         code = deps.AuthOAuthAuthorizationCode(
@@ -1630,6 +1725,7 @@ window.location.replace({json.dumps(login_url)});
             _params["state"] = state
         resp = redirect(f"{redirect_uri}?{urlencode(_params)}", code=302)
         _clear_oauth_browser_cookie(resp)
+        _clear_oauth_authorize_cookie(resp)
         return resp
 
     @auth_blp.post("/oauth/token")
