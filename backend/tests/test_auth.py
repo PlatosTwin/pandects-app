@@ -2624,6 +2624,46 @@ class AuthFlowTests(unittest.TestCase):
         self.assertIn("/login?next=", body)
         self.assertNotIn("pandects.sessionToken", body)
         self.assertNotIn("/v1/auth/oauth/browser-session", body)
+        self.assertIn("%2Fv1%2Fauth%2Foauth%2Fauthorize%3Fclient_id%3D", body)
+        self.assertIn("%26redirect_uri%3Dhttps%253A%252F%252Fcodex.example.com%252Fcallback", body)
+
+    def test_oauth_authorize_login_redirect_preserves_nested_oauth_query_params(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(parsed.path, "/login")
+        next_path = parse_qs(parsed.query)["next"][0]
+        nested = urlparse(next_path)
+        nested_query = parse_qs(nested.query)
+        self.assertEqual(nested.path, "/v1/auth/oauth/authorize")
+        self.assertEqual(nested_query["client_id"], [client_id])
+        self.assertEqual(nested_query["redirect_uri"], ["https://codex.example.com/callback"])
+        self.assertEqual(nested_query["response_type"], ["code"])
 
     def test_oauth_register_accepts_refresh_token_metadata_for_public_code_clients(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

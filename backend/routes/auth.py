@@ -1427,7 +1427,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         return redirect(f"{redirect_uri}?{urlencode(params)}", code=302)
 
     def _oauth_authorize_bridge_response(*, next_path: str):
-        login_url = f"{deps._frontend_base_url()}/login?next={quote(next_path, safe='/%?=&')}"
+        login_url = f"{deps._frontend_base_url()}/login?{urlencode({'next': next_path})}"
         body = f"""<!doctype html>
 <html><body>
 <script>
@@ -1597,13 +1597,13 @@ window.location.replace({json.dumps(login_url)});
             if deps._auth_session_transport() == "bearer":
                 return _oauth_authorize_bridge_response(next_path=next_path)
             return redirect(
-                f"{deps._frontend_base_url()}/login?next={quote(next_path, safe='/%?=&')}",
+                f"{deps._frontend_base_url()}/login?{urlencode({'next': next_path})}",
                 code=302,
             )
 
         if not deps._user_has_current_legal_acceptances(user_id=user.id):
             return redirect(
-                f"{deps._frontend_base_url()}/login?next={quote(request.full_path.rstrip('?'), safe='/%?=&')}",
+                f"{deps._frontend_base_url()}/login?{urlencode({'next': request.full_path.rstrip('?')})}",
                 code=302,
             )
         linked_subject = _ensure_linked_zitadel_subject_for_user(user=user)
