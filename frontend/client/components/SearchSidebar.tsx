@@ -94,6 +94,7 @@ export function SearchSidebar({
   className,
 }: SearchSidebarProps) {
   const [showContent, setShowContent] = useState(false);
+  const filterLoadingStatusId = React.useId();
   const toggleCollapse = onToggleCollapse ?? (() => {});
 
   // Control content visibility with proper timing
@@ -124,7 +125,23 @@ export function SearchSidebar({
 
 
   const filtersContent = (
-    <div className="space-y-8">
+    <div
+      className="space-y-8"
+      role="region"
+      aria-label="Search filters"
+      aria-busy={isLoadingFilterOptions}
+      aria-describedby={isLoadingFilterOptions ? filterLoadingStatusId : undefined}
+    >
+      {isLoadingFilterOptions ? (
+        <div
+          id={filterLoadingStatusId}
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+        >
+          Loading search filter options.
+        </div>
+      ) : null}
       {/* Year Filter */}
       <div>
         <CheckboxFilter
@@ -453,7 +470,9 @@ export function SearchSidebar({
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">{filtersContent}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
+          {filtersContent}
+        </div>
       </div>
     );
   }
