@@ -1644,6 +1644,7 @@ window.location.replace({json.dumps(login_url)});
         code_challenge = request.args.get("code_challenge", "")
         code_challenge_method = request.args.get("code_challenge_method", "")
         if resuming_pending:
+            assert pending is not None
             client_id = pending.get("client_id", "")
             redirect_uri = pending.get("redirect_uri", "")
             state_raw = pending.get("state", "")

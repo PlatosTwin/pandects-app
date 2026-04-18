@@ -4,6 +4,7 @@ import json
 import os
 from dataclasses import dataclass
 from base64 import b64encode
+from collections.abc import Mapping
 from functools import lru_cache
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
@@ -296,7 +297,7 @@ def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
     return None
 
 
-def _scope_set(payload: dict[str, object]) -> frozenset[str]:
+def _scope_set(payload: Mapping[str, object]) -> frozenset[str]:
     scopes: set[str] = set()
 
     from_scope = payload.get("scope")
