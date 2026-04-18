@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import time
+from uuid import uuid4
 from typing import Any, cast
 
 from flask import Blueprint, Flask, Response, jsonify, make_response, request
@@ -62,6 +63,18 @@ def _json_rpc_error(
 
 def _json_rpc_result(*, request_id: object, result: dict[str, object]) -> Response:
     return make_response(jsonify({"jsonrpc": "2.0", "id": request_id, "result": result}), 200)
+
+
+def _sse_retry_probe_response() -> Response:
+    event_id = uuid4().hex
+    response = make_response(
+        f"id: {event_id}\nretry: 1000\ndata:\n\n",
+        200,
+    )
+    response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 def _ensure_object_payload() -> dict[str, object]:
@@ -333,7 +346,30 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
             request_id=request_id,
             code=-32601,
             message=f"Method not found: {method}",
-        )
+                )
+
+    @mcp_blp.get("/mcp")
+    def mcp_sse_endpoint() -> Response:
+        try:
+            authenticate_mcp_request()
+        except McpAuthError as exc:
+            metrics_registry.record_auth_failure(status_code=exc.status_code)
+            return _json_rpc_error(
+                request_id=None,
+                code=-32001 if exc.status_code == 401 else -32003,
+                message=exc.message,
+                data={
+                    "category": "authentication",
+                    "status_code": exc.status_code,
+                    "reason": exc.reason,
+                    "action": exc.action,
+                    "client_message": exc.client_message,
+                },
+                status_code=exc.status_code,
+                www_authenticate=exc.www_authenticate,
+            )
+
+        return _sse_retry_probe_response()
 
     return mcp_blp
 

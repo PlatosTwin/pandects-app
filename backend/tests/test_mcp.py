@@ -715,6 +715,35 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["error"]["data"]["action"], "login")
         self.assertIn("Sign in", payload["error"]["data"]["client_message"])
 
+    def test_mcp_sse_probe_requires_bearer_token(self):
+        client = self.app.test_client()
+        res = client.get("/mcp", headers={"Accept": "text/event-stream"})
+        self.assertEqual(res.status_code, 401)
+        self.assertIn("WWW-Authenticate", res.headers)
+        payload = res.get_json()
+        self.assertEqual(payload["jsonrpc"], "2.0")
+        self.assertIsNone(payload["id"])
+        self.assertEqual(payload["error"]["data"]["category"], "authentication")
+        self.assertEqual(payload["error"]["data"]["reason"], "missing_token")
+        self.assertEqual(payload["error"]["data"]["action"], "login")
+
+    def test_mcp_sse_probe_returns_stream_for_authenticated_clients(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/mcp",
+            headers={
+                "Authorization": self._bearer(),
+                "Accept": "text/event-stream",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers["Cache-Control"], "no-store")
+        self.assertIn("text/event-stream", res.headers["Content-Type"])
+        body = res.get_data(as_text=True)
+        self.assertIn("id: ", body)
+        self.assertIn("retry: 1000", body)
+        self.assertIn("data:", body)
+
     def test_initialize_and_tools_list(self):
         client = self.app.test_client()
         res = client.post(
