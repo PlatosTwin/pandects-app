@@ -861,7 +861,7 @@ class NERTrainer:
             Validation loss
         """
         params = {
-            "lr": trial.suggest_float("lr", 1e-5, 1e-2, log=True),
+            "lr": trial.suggest_float("lr", 1e-5, 3e-4, log=True),
             "batch_size": trial.suggest_categorical("batch_size", [8, 16, 32]),
             "train_subsample_window": trial.suggest_categorical(
                 "train_subsample_window", [256, 512, 1024]

@@ -12,6 +12,7 @@ from etl.domain.b_pre_processing import (
     normalize_padded_quoted_terms,
     normalize_text,
     pre_process,
+    strip_rendered_navigation_chrome,
 )
 
 
@@ -534,7 +535,7 @@ class PreProcessingTests(unittest.TestCase):
 
         normalized = normalize_text(dirty)
 
-        self.assertEqual(normalized, "ABCD\tE\n\nF\rG")
+        self.assertEqual(normalized, "ABCD E\n\nF G")
 
     def test_normalize_text_strips_zero_width_separators(self) -> None:
         dirty = "A\u200bB\u200cC\u200dD\u2060E\ufeffF"
@@ -563,6 +564,13 @@ class PreProcessingTests(unittest.TestCase):
         normalized = normalize_text(dirty)
 
         self.assertEqual(normalized, "Alpha.\n\nBeta\n\nGamma")
+
+    def test_normalize_text_normalizes_crlf_and_tab_runs(self) -> None:
+        dirty = "Alpha\t\tBeta\r\n\r\nGamma\rDelta"
+
+        normalized = normalize_text(dirty)
+
+        self.assertEqual(normalized, "Alpha Beta\n\nGamma Delta")
 
     def test_format_content_strips_trailing_space_before_paragraph_break(self) -> None:
         html = (
@@ -609,6 +617,102 @@ class PreProcessingTests(unittest.TestCase):
                 '(the "WARN Act") and the Merger shall qualify as a "reorganization" '
                 'within the meaning of Section 368(a).'
             ),
+        )
+
+    def test_strip_rendered_navigation_chrome_removes_quicklinks_banner(self) -> None:
+        text = (
+            "EX-2.1 3 a2090849zex-2_1.htm EXHIBIT 2.1\n"
+            "QuickLinks -- Click here to rapidly navigate through this document\n\n"
+            "Execution Copy"
+        )
+
+        cleaned = strip_rendered_navigation_chrome(text)
+
+        self.assertEqual(
+            cleaned,
+            "EX-2.1 3 a2090849zex-2_1.htm EXHIBIT 2.1\n\nExecution Copy",
+        )
+
+    def test_strip_rendered_navigation_chrome_removes_split_quicklinks_banner(self) -> None:
+        text = "QuickLinks\n-- Click here to rapidly navigate through this document\n\nExhibit 2.1"
+
+        cleaned = strip_rendered_navigation_chrome(text)
+
+        self.assertEqual(cleaned, "Exhibit 2.1")
+
+    def test_strip_rendered_navigation_chrome_removes_back_to_contents_near_top(self) -> None:
+        text = "EX-2.1 2 foo.htm EXHIBIT 2.1\nBack to Contents\n\nARTICLE I\n\nTHE MERGER"
+
+        cleaned = strip_rendered_navigation_chrome(text)
+
+        self.assertEqual(cleaned, "EX-2.1 2 foo.htm EXHIBIT 2.1\n\nARTICLE I\n\nTHE MERGER")
+
+    def test_strip_rendered_navigation_chrome_keeps_table_of_contents_heading(self) -> None:
+        text = "EX-2.1 2 foo.htm EXHIBIT 2.1\n\nTABLE OF CONTENTS\n\nARTICLE I"
+
+        cleaned = strip_rendered_navigation_chrome(text)
+
+        self.assertEqual(cleaned, text)
+
+    def test_format_content_uses_legacy_html_formatter_by_default(self) -> None:
+        html = "<div>ARTICLE I</div><div>THE MERGER</div>"
+
+        with patch.object(
+            b_pre_processing,
+            "_format_html_content_legacy",
+            return_value="legacy-result",
+        ) as mock_legacy, patch.object(
+            b_pre_processing,
+            "_format_html_content_rendered",
+            return_value="rendered-result",
+        ) as mock_rendered, patch.dict("os.environ", {}, clear=False):
+            text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "legacy-result")
+        mock_legacy.assert_called_once_with(html)
+        mock_rendered.assert_not_called()
+
+    def test_format_content_uses_rendered_html_formatter_when_gated_on(self) -> None:
+        html = "<div>ARTICLE I</div><div>THE MERGER</div>"
+
+        with patch.object(
+            b_pre_processing,
+            "_format_html_content_legacy",
+            return_value="legacy-result",
+        ) as mock_legacy, patch.object(
+            b_pre_processing,
+            "_format_html_content_rendered",
+            return_value="rendered-result",
+        ) as mock_rendered, patch.dict(
+            "os.environ",
+            {"ETL_HTML_FORMATTER_MODE": "rendered"},
+            clear=False,
+        ):
+            text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(text, "rendered-result")
+        mock_rendered.assert_called_once_with(html)
+        mock_legacy.assert_not_called()
+
+    def test_rendered_html_text_cleanup_strips_navigation_chrome(self) -> None:
+        dumped_dom = (
+            "<html><body><pre id=\"rendered-text\">"
+            "EX-2.1 3 a2090849zex-2_1.htm EXHIBIT 2.1\n"
+            "QuickLinks -- Click here to rapidly navigate through this document\n\n"
+            "Execution Copy"
+            "</pre></body></html>"
+        )
+
+        with patch.object(
+            b_pre_processing.subprocess,
+            "run",
+            return_value=Mock(stdout=dumped_dom),
+        ):
+            text = b_pre_processing._render_visible_html_text("<div>ignored</div>")
+
+        self.assertEqual(
+            text,
+            "EX-2.1 3 a2090849zex-2_1.htm EXHIBIT 2.1\n\nExecution Copy",
         )
 
     def test_pull_agreement_content_retries_read_timeout(self) -> None:

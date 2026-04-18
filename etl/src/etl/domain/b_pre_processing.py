@@ -3,6 +3,8 @@
 import difflib
 import os
 import re
+import subprocess
+import tempfile
 import threading
 import time
 from collections import deque
@@ -51,9 +53,20 @@ _EXHIBIT_HEADING_PREFIX_RE = re.compile(
     r"(?i)^(?:exhibit|annex|appendix|schedule)\s+[A-Z0-9]+$"
 )
 _ROMAN_NUMERAL_RE = re.compile(r"(?i)^[IVXLCDM]+$")
-_HEADING_LABEL_LINE_TRAILING_SPACE_RE = re.compile(
-    r"(?im)^((?:article|exhibit|annex|appendix|schedule)\s+[A-Z0-9IVXLCDM.]+) \n\n"
+
+_RENDERED_QUICKLINKS_RE = re.compile(
+    r"(?i)^quicklinks(?:\s*--\s*click here to rapidly navigate through this document)?$"
 )
+_RENDERED_RAPID_NAV_RE = re.compile(
+    r"(?i)^--\s*click here to rapidly navigate through this document$"
+)
+_RENDERED_BACK_TO_CONTENTS_RE = re.compile(
+    r"(?i)^(?:back|return)\s+to\s+(?:the\s+)?(?:table of\s+)?contents$"
+)
+_HTML_FORMATTER_MODE_ENV = "ETL_HTML_FORMATTER_MODE"
+_HTML_FORMATTER_MODE_LEGACY = "legacy"
+_HTML_FORMATTER_MODE_RENDERED = "rendered"
+_DEFAULT_CHROME_BIN = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 
 class ClassifierProbs(TypedDict):
@@ -173,7 +186,7 @@ def _is_semantically_hidden_tag(tag: Tag) -> bool:
         )
         if display_match is not None:
             display_value = display_match.group(1).strip().lower()
-            if display_value == "none":
+            if display_value.split()[0] == "none":
                 return True
         visibility_match = re.search(
             r"(?:^|;)\s*visibility\s*:\s*([^;]+)",
@@ -302,12 +315,13 @@ def normalize_text(text: str) -> str:
     Normalize text by handling whitespace and newlines consistently.
 
     Process:
-    1. Replace Unicode horizontal whitespace with regular spaces.
-    2. Temporarily collapse any cluster of two or more newlines
+    1. Normalize all newline variants to ``\n``.
+    2. Replace Unicode and tab-based horizontal whitespace with regular spaces.
+    3. Temporarily collapse any cluster of two or more newlines
        (even if separated by spaces/tabs) into a placeholder.
-    3. Replace all remaining single newlines with a space.
-    4. Restore each placeholder back to a single newline.
-    5. Collapse runs of two or more spaces into a single space.
+    4. Replace all remaining single newlines with a space.
+    5. Restore each placeholder back to a single newline.
+    6. Collapse runs of horizontal whitespace into a single space.
 
     Args:
         text: The text to normalize.
@@ -315,11 +329,12 @@ def normalize_text(text: str) -> str:
     Returns:
         The normalized text.
     """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", text)
     # Remove invisible format-control characters that leak from SEC markup and
     # cause token-boundary drift (e.g., "A\u200bB" or hidden bidi marks).
     text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", "", text)
-    text = re.sub(r"[^\S\r\n\t]+", " ", text)
+    text = re.sub(r"[^\S\n]+", " ", text)
 
     # Collapse multi-newline clusters into a placeholder
     placeholder = "__NL__"
@@ -328,11 +343,13 @@ def normalize_text(text: str) -> str:
     text = text.replace("\n", " ")
     # Restore placeholders to single newlines
     text = text.replace(placeholder, "\n\n")
-    # Collapse multiple spaces to one
-    text = re.sub(r" {2,}", " ", text)
+    # Collapse multiple horizontal whitespace runs to one space
+    text = re.sub(r"[^\S\n]{2,}", " ", text)
     # Drop line-final horizontal whitespace introduced by HTML block boundaries
     # without changing the underlying newline style.
-    text = re.sub(r"[ \t]+(?=(?:\r\n|\r|\n))", "", text)
+    text = re.sub(r"[^\S\n]+(?=\n)", "", text)
+    # Drop line-initial horizontal whitespace (e.g. from indented <p> text nodes).
+    text = re.sub(r"(?<=\n)[^\S\n]+", "", text)
 
     return text.strip()
 
@@ -350,9 +367,6 @@ def normalize_padded_quoted_terms(text: str) -> str:
 def _normalize_padded_quoted_terms(text: str) -> str:
     return normalize_padded_quoted_terms(text)
 
-
-def _strip_heading_label_trailing_space_before_breaks(text: str) -> str:
-    return _HEADING_LABEL_LINE_TRAILING_SPACE_RE.sub(r"\1\n\n", text)
 
 
 def move_leading_quicklinks_to_footer(text: str) -> str:
@@ -389,6 +403,114 @@ def move_leading_quicklinks_to_footer(text: str) -> str:
     if not body:
         return "QuickLinks"
     return f"{body}\n\nQuickLinks"
+
+
+def strip_rendered_navigation_chrome(text: str, *, max_nonempty_lines: int = 5) -> str:
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    nonempty_indices = [i for i, line in enumerate(lines) if line.strip()]
+    if not nonempty_indices:
+        return text.strip()
+
+    removable_indices: set[int] = set()
+    top_indices = nonempty_indices[:max_nonempty_lines]
+
+    for pos, idx in enumerate(top_indices):
+        stripped = lines[idx].strip()
+        if _RENDERED_QUICKLINKS_RE.fullmatch(stripped):
+            removable_indices.add(idx)
+            if (
+                stripped.lower() == "quicklinks"
+                and pos + 1 < len(top_indices)
+                and _RENDERED_RAPID_NAV_RE.fullmatch(lines[top_indices[pos + 1]].strip())
+            ):
+                removable_indices.add(top_indices[pos + 1])
+            continue
+
+        if _RENDERED_RAPID_NAV_RE.fullmatch(stripped):
+            removable_indices.add(idx)
+            continue
+
+        if _RENDERED_BACK_TO_CONTENTS_RE.fullmatch(stripped):
+            removable_indices.add(idx)
+
+    if not removable_indices:
+        return text.strip()
+
+    cleaned = "\n".join(
+        line for idx, line in enumerate(lines) if idx not in removable_indices
+    )
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _normalize_rendered_visible_text(text: str) -> str:
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", "", text)
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r"[^\S\n]+(?=\n)", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return strip_rendered_navigation_chrome(text.strip())
+
+
+def _render_visible_html_text(content: str, *, timeout_seconds: int = 20) -> str:
+    chrome_bin = os.getenv("CHROME_BIN", _DEFAULT_CHROME_BIN)
+    wrapper = (
+        "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>"
+        f"{content}"
+        "<script>"
+        "window.addEventListener('load', () => {"
+        "  const renderedText = document.body.innerText;"
+        "  document.body.innerHTML = '<pre id=\"rendered-text\"></pre>';"
+        "  document.getElementById('rendered-text').textContent = renderedText;"
+        "});"
+        "</script></body></html>"
+    )
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".html", encoding="utf-8", delete=False
+    ) as tmp:
+        tmp.write(wrapper)
+        tmp_path = tmp.name
+    try:
+        proc = subprocess.run(
+            [
+                chrome_bin,
+                "--headless=new",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--allow-file-access-from-files",
+                "--virtual-time-budget=2000",
+                "--dump-dom",
+                f"file://{tmp_path}",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
+
+    dumped_dom = proc.stdout
+    soup = BeautifulSoup(dumped_dom, "html.parser")
+    pre = soup.find("pre", id="rendered-text")
+    if pre is None:
+        raise RuntimeError("Rendered text extraction failed: missing rendered-text marker.")
+    return _normalize_rendered_visible_text(pre.get_text())
+
+
+def _get_html_formatter_mode() -> str:
+    mode = os.getenv(_HTML_FORMATTER_MODE_ENV, _HTML_FORMATTER_MODE_LEGACY).strip().lower()
+    if mode in {"", _HTML_FORMATTER_MODE_LEGACY}:
+        return _HTML_FORMATTER_MODE_LEGACY
+    if mode == _HTML_FORMATTER_MODE_RENDERED:
+        return _HTML_FORMATTER_MODE_RENDERED
+    raise ValueError(
+        f"Unsupported {_HTML_FORMATTER_MODE_ENV} value: {mode!r}. "
+        f"Expected '{_HTML_FORMATTER_MODE_LEGACY}' or '{_HTML_FORMATTER_MODE_RENDERED}'."
+    )
 
 
 def strip_formatting_tags(
@@ -799,6 +921,7 @@ def strip_formatting_tags(
                     and not tag_starts_space
                     and (not split_word_boundary or heading_boundary)
                     and prev_last_char not in opening_quote_chars
+                    and prev_last_char not in no_space_after_chars
                     and not starts_with_closing_punct
                     and not starts_with_closing_quote
                     and not is_closing_quote_tag
@@ -1098,6 +1221,37 @@ def _should_use_relaxed_html_fallback(primary_text: str, relaxed_text: str) -> b
     )
 
 
+def _format_html_content_legacy(content: str) -> str:
+    html = BeautifulSoup(content, "html.parser")
+    cleaned = strip_formatting_tags(html)
+    cleaned = collapse_tables(cleaned)
+    cleaned = preserve_br_breaks(cleaned)
+    primary_text = move_leading_quicklinks_to_footer(_normalize_padded_quoted_terms(normalize_text(
+        block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
+    )))
+    if _has_fragmented_section_heads(primary_text):
+        sequence_preserved_text = move_leading_quicklinks_to_footer(
+            _normalize_padded_quoted_terms(normalize_text(
+                block_level_soup_preserve_sequence(cleaned)
+                .get_text(separator="\n\n", strip=False)
+                .strip()
+            ))
+        )
+        if not _has_fragmented_section_heads(sequence_preserved_text):
+            primary_text = sequence_preserved_text
+    if len(primary_text) <= 2000:
+        relaxed_text = move_leading_quicklinks_to_footer(
+            _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
+        )
+        if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
+            return relaxed_text
+    return primary_text
+
+
+def _format_html_content_rendered(content: str) -> str:
+    return _render_visible_html_text(content)
+
+
 def format_content(content: str, is_txt: bool, is_html: bool) -> str:
     """
     Format content based on its source type.
@@ -1116,35 +1270,10 @@ def format_content(content: str, is_txt: bool, is_html: bool) -> str:
     if is_txt:
         return normalize_text(content)
     elif is_html:
-        html = BeautifulSoup(content, "html.parser")
-        cleaned = strip_formatting_tags(html)
-        cleaned = collapse_tables(cleaned)
-        cleaned = preserve_br_breaks(cleaned)
-        primary_text = move_leading_quicklinks_to_footer(_normalize_padded_quoted_terms(normalize_text(
-            block_level_soup(cleaned).get_text(separator="\n\n", strip=False).strip()
-        )))
-        primary_text = _strip_heading_label_trailing_space_before_breaks(primary_text)
-        if _has_fragmented_section_heads(primary_text):
-            sequence_preserved_text = move_leading_quicklinks_to_footer(
-                _normalize_padded_quoted_terms(normalize_text(
-                    block_level_soup_preserve_sequence(cleaned)
-                    .get_text(separator="\n\n", strip=False)
-                    .strip()
-                ))
-            )
-            sequence_preserved_text = _strip_heading_label_trailing_space_before_breaks(
-                sequence_preserved_text
-            )
-            if not _has_fragmented_section_heads(sequence_preserved_text):
-                primary_text = sequence_preserved_text
-        if len(primary_text) <= 2000:
-            relaxed_text = move_leading_quicklinks_to_footer(
-                _normalize_padded_quoted_terms(_extract_relaxed_html_text(content))
-            )
-            relaxed_text = _strip_heading_label_trailing_space_before_breaks(relaxed_text)
-            if _should_use_relaxed_html_fallback(primary_text, relaxed_text):
-                return relaxed_text
-        return primary_text
+        mode = _get_html_formatter_mode()
+        if mode == _HTML_FORMATTER_MODE_RENDERED:
+            return _format_html_content_rendered(content)
+        return _format_html_content_legacy(content)
     else:
         raise RuntimeError("Unknown page source type.")
 
