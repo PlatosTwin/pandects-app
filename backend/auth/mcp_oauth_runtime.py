@@ -80,6 +80,8 @@ def mcp_oauth_metadata() -> dict[str, Any]:
         "token_endpoint": mcp_oauth_token_endpoint(),
         "registration_endpoint": mcp_oauth_registration_endpoint(),
         "jwks_uri": mcp_oauth_jwks_uri(),
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "token_endpoint_auth_methods_supported": ["none"],

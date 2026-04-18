@@ -2592,6 +2592,18 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(mcp.status_code, 200)
         self.assertEqual(mcp.get_json()["result"]["serverInfo"]["name"], "pandects-mcp")
 
+    def test_oauth_openid_configuration_includes_required_oidc_arrays(self):
+        client = self.app.test_client()
+
+        response = client.get("/v1/auth/oauth/.well-known/openid-configuration")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        payload = response.get_json()
+        self.assertEqual(payload["issuer"], "http://localhost:5000/v1/auth/oauth")
+        self.assertEqual(payload["subject_types_supported"], ["public"])
+        self.assertEqual(payload["id_token_signing_alg_values_supported"], ["RS256"])
+
     def test_oauth_authorize_returns_login_bridge_when_session_transport_is_bearer(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
