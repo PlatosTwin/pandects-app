@@ -52,6 +52,8 @@ import { authFetch } from "@/lib/auth-fetch";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
+import { Link } from "react-router-dom";
+import brandLinks from "@branding/links.json";
 
 const AgreementModal = lazy(() =>
   import("@/components/AgreementModal").then((mod) => ({
@@ -130,6 +132,7 @@ const AGREEMENT_SUMMARY_CACHE_KEY = "agreement-index-summary:v1";
 const AGREEMENT_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function AgreementIndex() {
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const [isPending, startPageTransition] = useTransition();
   const [summary, setSummary] = useState<AgreementIndexSummary | null>(() =>
     readSessionCache<AgreementIndexSummary>(
@@ -330,7 +333,45 @@ export default function AgreementIndex() {
     : "";
 
   return (
-    <PageShell size="xl" title="Agreement Index">
+    <PageShell
+      size="xl"
+      title="Agreement Index"
+      subtitle={
+        <>
+          Explore our deal dataset, then jump to{" "}
+          <Link
+            to="/search"
+            className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+          >
+            Search
+          </Link>{" "}
+          to try the UI,{" "}
+          <a
+            href={`${docsUrl}/docs/mcp/using`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+          >
+            Docs
+          </a>{" "}
+          to get started with the API or MCP,{" "}
+          <Link
+            to="/bulk-data"
+            className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+          >
+            Bulk Data
+          </Link>{" "}
+          for raw exports, or{" "}
+          <Link
+            to="/sources-methods"
+            className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary"
+          >
+            Sources &amp; Methods
+          </Link>{" "}
+          for pipeline details.
+        </>
+      }
+    >
       <div
         className="mb-10 grid gap-4 md:grid-cols-3"
         aria-busy={summaryLoading}

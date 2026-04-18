@@ -123,11 +123,11 @@ export default function Landing() {
             />
 
             <h1 className="mt-0 text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
-            {"Search Thousands of M&A\u00A0Agreements"}
+              {"Search Thousands of M&A\u00A0Agreements"}
             </h1>
 
             <p className="mt-4 text-base font-medium text-foreground/70 sm:text-xl">
-            The fastest way to query deal data.
+              The fastest way to query deal data, open-source.
             </p>
 
             <div className="mt-12 flex w-full flex-col items-center gap-3">
@@ -136,11 +136,11 @@ export default function Landing() {
                 className="w-full max-w-sm rounded-full px-8 py-3 text-base sm:w-auto"
               >
                 <Link
-                  to="/search"
+                  to="/agreement-index"
                   onClick={() =>
                     trackEvent("landing_cta_click", {
                       cta: "Explore Agreements",
-                      to_path: "/search",
+                      to_path: "/agreement-index",
                     })
                   }
                 >

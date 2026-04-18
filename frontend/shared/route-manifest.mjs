@@ -19,9 +19,9 @@ function defineRoute(route) {
 const ROUTE_MANIFEST = [
   defineRoute({
     pathname: "/",
-    title: "Pandects - Open-Source M&A Agreement Search & Data",
+    title: "Pandects - Open-Source M&A Data, Agreement Search, and SEC Dataset",
     description:
-      "Open-source M&A research platform with structured agreement data, clause taxonomy, API access, and downloadable SEC EDGAR merger agreement datasets.",
+      "Open-source M&A research platform with free access to structured SEC EDGAR merger agreement data, agreement search, clause taxonomy, API access, and downloadable datasets.",
     pageType: "WebSite",
     pageName: "Pandects",
     pageDescription:
@@ -50,8 +50,9 @@ const ROUTE_MANIFEST = [
   }),
   defineRoute({
     pathname: "/bulk-data",
-    title: "Bulk Data | Pandects",
-    description: "Download bulk datasets and exports from Pandects for research and analysis.",
+    title: "Bulk M&A Data Downloads | Pandects",
+    description:
+      "Download bulk M&A data exports and SQL dumps from Pandects for research, analysis, and local replication.",
     pageType: "WebPage",
     pageName: "Bulk Data",
     pageDescription: "Download bulk datasets and exports from Pandects for research and analysis.",
@@ -63,13 +64,13 @@ const ROUTE_MANIFEST = [
   }),
   defineRoute({
     pathname: "/agreement-index",
-    title: "Agreement Index | Pandects",
+    title: "Open-Source M&A Data | Agreement Index | Pandects",
     description:
-      "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
+      "Explore Pandects' open-source M&A dataset with free access to SEC EDGAR merger agreement coverage, dataset totals, and sortable agreement metadata across years and parties.",
     pageType: "CollectionPage",
-    pageName: "Agreement Index",
+    pageName: "Open-Source M&A Data Agreement Index",
     pageDescription:
-      "Explore the Pandects agreement index with dataset totals, pipeline coverage, and sortable agreement metadata across years and parties.",
+      "Explore Pandects' open-source M&A dataset with SEC EDGAR merger agreement coverage, dataset totals, and sortable agreement metadata across years and parties.",
     sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "agreement-index.html",
