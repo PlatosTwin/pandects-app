@@ -789,6 +789,201 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["jsonrpc"], "2.0")
         self.assertEqual(res.get_json()["jsonrpc"], "2.0")
 
+    def test_authorization_server_metadata_served_at_host_root(self):
+        client = self.app.test_client()
+        res = client.get("/.well-known/oauth-authorization-server")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIn("issuer", payload)
+        self.assertIn("registration_endpoint", payload)
+        self.assertIn("authorization_endpoint", payload)
+        self.assertIn("token_endpoint", payload)
+        self.assertIn("S256", payload["code_challenge_methods_supported"])
+
+    def test_authorization_server_metadata_served_at_rfc8414_path(self):
+        client = self.app.test_client()
+        res = client.get("/.well-known/oauth-authorization-server/v1/auth/oauth")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIn("registration_endpoint", payload)
+
+    def test_authorization_server_metadata_rejects_unknown_issuer_path(self):
+        client = self.app.test_client()
+        res = client.get("/.well-known/oauth-authorization-server/bogus/path")
+        self.assertEqual(res.status_code, 404)
+
+    def test_openid_configuration_served_at_host_root(self):
+        client = self.app.test_client()
+        res = client.get("/.well-known/openid-configuration")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertIn("issuer", payload)
+
+    def test_initialize_issues_session_id_and_protocol_version_header(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Mcp-Session-Id", res.headers)
+        self.assertTrue(res.headers["Mcp-Session-Id"].strip())
+        self.assertIn("MCP-Protocol-Version", res.headers)
+
+    def test_post_returns_sse_when_client_prefers_event_stream(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={
+                "Authorization": self._bearer(),
+                "Accept": "text/event-stream",
+            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/event-stream", res.headers["Content-Type"])
+        body = res.get_data(as_text=True)
+        self.assertIn("event: message", body)
+        self.assertIn('"jsonrpc":"2.0"', body)
+        self.assertIn('"result"', body)
+
+    def test_post_returns_json_when_client_prefers_application_json(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={
+                "Authorization": self._bearer(),
+                "Accept": "application/json, text/event-stream;q=0.9",
+            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("application/json", res.headers["Content-Type"])
+
+    def test_progress_token_streams_progress_notifications_then_result(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={
+                "Authorization": self._bearer(),
+                "Accept": "text/event-stream",
+            },
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_agreements_summary",
+                    "arguments": {},
+                    "_meta": {"progressToken": "progress-token-abc"},
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/event-stream", res.headers["Content-Type"])
+        body = res.get_data(as_text=True)
+        events = [block for block in body.split("\n\n") if block.strip()]
+        # Expect: start progress, complete progress, final result.
+        self.assertEqual(len(events), 3, body)
+        self.assertIn("notifications/progress", events[0])
+        self.assertIn("progress-token-abc", events[0])
+        self.assertIn("notifications/progress", events[1])
+        self.assertIn("progress-token-abc", events[1])
+        self.assertIn('"result"', events[2])
+        self.assertIn('"structuredContent"', events[2])
+
+    def test_progress_token_without_sse_preference_uses_regular_json(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={
+                "Authorization": self._bearer(),
+                "Accept": "application/json",
+            },
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_agreements_summary",
+                    "arguments": {},
+                    "_meta": {"progressToken": "progress-token-xyz"},
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("application/json", res.headers["Content-Type"])
+        self.assertIn("result", res.get_json())
+
+    def test_delete_mcp_requires_auth_and_returns_204(self):
+        client = self.app.test_client()
+        res = client.delete("/mcp")
+        self.assertEqual(res.status_code, 401)
+        res = client.delete("/mcp", headers={"Authorization": self._bearer()})
+        self.assertEqual(res.status_code, 204)
+
+    def test_prompts_list_and_get(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 1, "method": "prompts/list"},
+        )
+        self.assertEqual(res.status_code, 200)
+        prompts = res.get_json()["result"]["prompts"]
+        self.assertTrue(any(prompt["name"] == "compare_agreements" for prompt in prompts))
+
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "prompts/get",
+                "params": {
+                    "name": "compare_agreements",
+                    "arguments": {
+                        "agreement_a": "deal-a",
+                        "agreement_b": "deal-b",
+                        "focus": "MAE",
+                    },
+                },
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        messages = res.get_json()["result"]["messages"]
+        text = messages[0]["content"]["text"]
+        self.assertIn("deal-a", text)
+        self.assertIn("deal-b", text)
+        self.assertIn("MAE", text)
+
+    def test_resources_list_and_read(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 1, "method": "resources/list"},
+        )
+        self.assertEqual(res.status_code, 200)
+        uris = {resource["uri"] for resource in res.get_json()["result"]["resources"]}
+        self.assertIn("pandects://capabilities", uris)
+
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "resources/read",
+                "params": {"uri": "pandects://capabilities"},
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        contents = res.get_json()["result"]["contents"]
+        self.assertEqual(contents[0]["uri"], "pandects://capabilities")
+        self.assertIn("application/json", contents[0]["mimeType"])
+
     def test_tool_call_returns_jsonrpc_result_contract(self):
         client = self.app.test_client()
         with self.assertLogs("backend.mcp.routes", level="INFO") as log_context:

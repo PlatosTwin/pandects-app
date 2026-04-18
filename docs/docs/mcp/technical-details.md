@@ -113,8 +113,39 @@ The current MCP tools are:
 - `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
 - `get_agreement` preserves the current redaction and full-text access behavior
 - `get_server_capabilities` is the main machine-readable semantics surface; it includes auth guidance, field inventory, concept notes, and negative guidance about when not to use a tool
-- The server explicitly reports that MCP resources and resource templates are not currently supported
-- The MCP intentionally does not currently expose built-in comparison-orchestration tools; comparison flows are expected to compose the primitive retrieval tools
+- The server exposes a small set of MCP resources (`pandects://capabilities`, `pandects://auth-help`) that mirror `get_server_capabilities` for clients that prefer the `resources/read` primitive over calling a tool
+- The server exposes curated MCP prompts (`compare_agreements`, `clause_family_survey`, `deal_trend_brief`) as research templates; they orchestrate the primitive retrieval tools rather than introducing new functionality
+
+## Transport
+
+- `POST /mcp` is the primary JSON-RPC endpoint. It supports content negotiation: clients that advertise `Accept: text/event-stream` receive an SSE-framed response; clients that prefer `application/json` receive a plain JSON body. This matches the Streamable HTTP behaviour required by Claude Code.
+- `GET /mcp` returns an SSE retry probe for clients that opportunistically open a server-to-client stream.
+- `DELETE /mcp` is accepted as an authenticated session-termination signal and returns `204`.
+- `initialize` responses carry an `Mcp-Session-Id` header. The server is stateless, so the id is informational — clients are not required to echo it, but Claude Code does.
+- Every response carries an `MCP-Protocol-Version` header echoing the negotiated protocol version.
+- Advertised server capabilities: `tools`, `resources` (listChanged=false, subscribe=false), `prompts` (listChanged=false), and `logging` (`logging/setLevel` is accepted as a no-op).
+
+### Progress notifications
+
+When a `tools/call` request includes `params._meta.progressToken` **and** the client advertises `Accept: text/event-stream`, the server returns a multi-event SSE stream:
+
+1. `notifications/progress` with `progress=0`, `total=1`, and a `Starting <tool>` message
+2. `notifications/progress` with `progress=1`, `total=1`, and a `<tool> complete` message
+3. The final `tools/call` JSON-RPC result (or error)
+
+This keeps intermediary proxies and client UIs aware of in-flight work on long calls. Clients that do not set a progress token, or do not accept SSE, receive the usual single-response behaviour.
+
+### OAuth discovery and Dynamic Client Registration
+
+The server is protected by an embedded OAuth authorization server whose issuer lives under `/v1/auth/oauth`. To make OAuth discovery work with clients that implement RFC 8414 strictly (including Claude Code), authorization-server metadata is exposed at three locations:
+
+- `GET /.well-known/oauth-authorization-server` — host-root fallback
+- `GET /.well-known/oauth-authorization-server/v1/auth/oauth` — RFC 8414 host-root + issuer-path form
+- `GET /v1/auth/oauth/.well-known/oauth-authorization-server` — issuer-prefixed form (original)
+
+`GET /.well-known/openid-configuration` is also exposed at the host root for OIDC-leaning clients.
+
+The metadata document advertises `registration_endpoint` (`/v1/auth/oauth/register`), so compliant clients can self-register via Dynamic Client Registration (RFC 7591) without a manual out-of-band step. Only public, PKCE (S256), authorization-code clients are supported.
 
 ## Authentication
 

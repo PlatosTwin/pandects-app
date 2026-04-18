@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import logging
 import time
 from uuid import uuid4
 from typing import Any, cast
 
-from flask import Blueprint, Flask, Response, jsonify, make_response, request
+from flask import Blueprint, Flask, Response, jsonify, make_response, request, stream_with_context
 from marshmallow import ValidationError
 from werkzeug.exceptions import HTTPException
 
+from backend.auth.mcp_oauth_runtime import mcp_oauth_issuer, mcp_oauth_metadata
 from backend.auth.mcp_runtime import (
     McpAuthError,
     authenticate_mcp_request,
@@ -18,6 +20,7 @@ from backend.auth.mcp_runtime import (
     mcp_server_name,
     mcp_server_version,
 )
+from urllib.parse import urlparse
 from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.tools import McpOutputValidationError, call_tool, tool_definitions
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
@@ -38,6 +41,44 @@ class McpDeps:
     reference_data_deps: ReferenceDataDeps
 
 
+def _client_prefers_sse() -> bool:
+    accept_header = request.headers.get("Accept", "") or ""
+    if not accept_header:
+        return False
+    tokens = [token.strip().lower() for token in accept_header.split(",") if token.strip()]
+    has_sse = any(token.startswith("text/event-stream") for token in tokens)
+    has_json = any(token.startswith("application/json") or token.startswith("*/*") for token in tokens)
+    if not has_sse:
+        return False
+    if not has_json:
+        return True
+    for token in tokens:
+        media = token.split(";")[0].strip()
+        if media == "text/event-stream":
+            return True
+        if media in ("application/json", "*/*"):
+            return False
+    return False
+
+
+def _apply_protocol_headers(response: Response) -> Response:
+    try:
+        response.headers["MCP-Protocol-Version"] = mcp_protocol_version()
+    except Exception:  # pragma: no cover - defensive
+        pass
+    return response
+
+
+def _sse_envelope(payload: dict[str, object]) -> Response:
+    event_id = uuid4().hex
+    body = f"id: {event_id}\nevent: message\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
+    response = make_response(body, 200)
+    response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
 def _json_rpc_error(
     *,
     request_id: object,
@@ -55,14 +96,30 @@ def _json_rpc_error(
         "id": request_id,
         "error": error_payload,
     }
-    response = make_response(jsonify(payload), status_code)
+    if status_code == 200 and _client_prefers_sse():
+        response = _sse_envelope(payload)
+    else:
+        response = make_response(jsonify(payload), status_code)
     if www_authenticate is not None:
         response.headers["WWW-Authenticate"] = www_authenticate
-    return response
+    return _apply_protocol_headers(response)
 
 
-def _json_rpc_result(*, request_id: object, result: dict[str, object]) -> Response:
-    return make_response(jsonify({"jsonrpc": "2.0", "id": request_id, "result": result}), 200)
+def _json_rpc_result(
+    *,
+    request_id: object,
+    result: dict[str, object],
+    extra_headers: dict[str, str] | None = None,
+) -> Response:
+    payload: dict[str, object] = {"jsonrpc": "2.0", "id": request_id, "result": result}
+    if _client_prefers_sse():
+        response = _sse_envelope(payload)
+    else:
+        response = make_response(jsonify(payload), 200)
+    if extra_headers:
+        for key, value in extra_headers.items():
+            response.headers[key] = value
+    return _apply_protocol_headers(response)
 
 
 def _sse_retry_probe_response() -> Response:
@@ -74,7 +131,354 @@ def _sse_retry_probe_response() -> Response:
     response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Accel-Buffering"] = "no"
-    return response
+    return _apply_protocol_headers(response)
+
+
+def _issue_session_id() -> str:
+    return uuid4().hex
+
+
+def _extract_progress_token(params: dict[str, object]) -> object | None:
+    meta = params.get("_meta")
+    if not isinstance(meta, dict):
+        return None
+    token = meta.get("progressToken")
+    if isinstance(token, (str, int, float)) and str(token).strip():
+        return token
+    return None
+
+
+def _encode_sse_event(payload: dict[str, object]) -> str:
+    event_id = uuid4().hex
+    return (
+        f"id: {event_id}\n"
+        f"event: message\n"
+        f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
+    )
+
+
+def _stream_tool_call_response(
+    *,
+    request_id: object,
+    tool_name: str,
+    arguments: dict[str, object],
+    principal: Any,
+    deps: McpDeps,
+    progress_token: object,
+) -> Response:
+    def _progress_event(progress: float, total: float, message: str) -> dict[str, object]:
+        return {
+            "jsonrpc": "2.0",
+            "method": "notifications/progress",
+            "params": {
+                "progressToken": progress_token,
+                "progress": progress,
+                "total": total,
+                "message": message,
+            },
+        }
+
+    def generator() -> "Any":
+        yield _encode_sse_event(
+            _progress_event(0.0, 1.0, f"Starting {tool_name}")
+        )
+        started_at = time.perf_counter()
+        scope_count = len(getattr(principal, "scopes", []) or [])
+        try:
+            result = call_tool(
+                tool_name,
+                arguments=arguments,
+                principal=cast(Any, principal),
+                sections_service_deps=deps.sections_service_deps,
+                agreements_deps=deps.agreements_deps,
+                reference_data_deps=deps.reference_data_deps,
+            )
+        except KeyError:
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="error",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=scope_count,
+                error_category="unknown_tool",
+            )
+            yield _encode_sse_event(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"},
+                }
+            )
+            return
+        except ValidationError as exc:
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="error",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=scope_count,
+                error_category="validation",
+            )
+            yield _encode_sse_event(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid tool arguments.",
+                        "data": exc.messages,
+                    },
+                }
+            )
+            return
+        except PermissionError:
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="error",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=scope_count,
+                error_category="authorization",
+            )
+            yield _encode_sse_event(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32003,
+                        "message": AUTHORIZATION_ERROR_MESSAGE,
+                        "data": {"category": "authorization", "status_code": 403},
+                    },
+                }
+            )
+            return
+        except McpOutputValidationError as exc:
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="error",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=scope_count,
+                error_category="output_validation",
+            )
+            yield _encode_sse_event(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32603,
+                        "message": "Tool result violated the advertised output contract.",
+                        "data": exc.messages,
+                    },
+                }
+            )
+            return
+        except HTTPException as exc:
+            _log_mcp_tool_event(
+                tool_name=tool_name,
+                outcome="error",
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                request_id=request_id,
+                scope_count=scope_count,
+                error_category="http_exception",
+            )
+            yield _encode_sse_event(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32602 if exc.code == 400 else -32004,
+                        "message": BAD_TOOL_REQUEST_MESSAGE if exc.code == 400 else "Tool request failed.",
+                    },
+                }
+            )
+            return
+        latency_ms = max(0, int((time.perf_counter() - started_at) * 1000))
+        if tool_name == "get_server_metrics" and isinstance(result.structured_content, dict):
+            result = result.__class__(
+                text=result.text,
+                structured_content=metrics_registry.snapshot(),
+            )
+        _log_mcp_tool_event(
+            tool_name=tool_name,
+            outcome="ok",
+            latency_ms=latency_ms,
+            request_id=request_id,
+            scope_count=scope_count,
+        )
+        yield _encode_sse_event(
+            _progress_event(1.0, 1.0, f"{tool_name} complete")
+        )
+        yield _encode_sse_event(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "content": [{"type": "text", "text": result.text}],
+                    "structuredContent": result.structured_content,
+                },
+            }
+        )
+
+    response = Response(stream_with_context(generator()), status=200)
+    response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Accel-Buffering"] = "no"
+    return _apply_protocol_headers(response)
+
+
+_PROMPT_TEMPLATES: tuple[dict[str, object], ...] = (
+    {
+        "name": "compare_agreements",
+        "title": "Compare two M&A agreements",
+        "description": (
+            "Side-by-side comparison of two merger agreements on structure, "
+            "deal economics, and negotiated risk allocation. Pulls sections, "
+            "key clauses, and metadata via the MCP tools."
+        ),
+        "arguments": [
+            {"name": "agreement_a", "description": "Agreement UUID, SEC URL, or target name for deal A.", "required": True},
+            {"name": "agreement_b", "description": "Agreement UUID, SEC URL, or target name for deal B.", "required": True},
+            {"name": "focus", "description": "Optional focus area (e.g. 'MAE', 'closing conditions', 'termination fees').", "required": False},
+        ],
+        "template": (
+            "You are an M&A research analyst with access to the Pandects MCP server. "
+            "Compare the following two agreements and produce a structured comparison.\n\n"
+            "Agreement A: {agreement_a}\nAgreement B: {agreement_b}\n"
+            "Focus: {focus}\n\n"
+            "Workflow:\n"
+            "1. Resolve each identifier with `get_agreement` (or `search_agreements` if only a name is given).\n"
+            "2. Use `list_agreement_sections` and `get_section` to surface the sections relevant to the focus.\n"
+            "3. Call `get_agreement_tax_clauses` or `get_section_tax_clauses` for quantified clause positions.\n"
+            "4. Present a table: Deal A vs Deal B across structure, consideration, conditions, covenants, remedies, and the focus area.\n"
+            "5. Call out material divergences and explain likely negotiating rationale."
+        ),
+    },
+    {
+        "name": "clause_family_survey",
+        "title": "Survey a clause family across a filter",
+        "description": (
+            "Run a corpus-level survey of how a clause concept is drafted across "
+            "a filtered subset of agreements (by year, industry, deal type, etc.)."
+        ),
+        "arguments": [
+            {"name": "concept", "description": "Clause concept in plain language (e.g. 'material adverse effect carveouts').", "required": True},
+            {"name": "filters", "description": "Free-form filter hints (year range, industry, deal type, counsel).", "required": False},
+        ],
+        "template": (
+            "Task: Survey how '{concept}' is drafted across the filter '{filters}'.\n\n"
+            "1. Call `suggest_clause_families` with the concept to locate canonical taxonomy nodes.\n"
+            "2. Call `list_filter_options` to confirm which filter values exist for the hinted dimensions.\n"
+            "3. Call `search_sections` with the taxonomy match plus filters. Paginate until you have a representative sample.\n"
+            "4. Cluster returned sections by drafting pattern. Quote minimal verbatim excerpts via `get_section_snippet`.\n"
+            "5. Deliver: (a) the taxonomy nodes used, (b) prevalence of each drafting variant, (c) illustrative excerpts with citations."
+        ),
+    },
+    {
+        "name": "deal_trend_brief",
+        "title": "Brief on deal trends for a slice",
+        "description": (
+            "Produce a quantitative brief on deal activity for a given slice "
+            "(industry, year range, deal type). Combines summary counts, filters, and trend data."
+        ),
+        "arguments": [
+            {"name": "slice", "description": "Describe the slice (e.g. 'US tech M&A 2018-2024').", "required": True},
+        ],
+        "template": (
+            "Brief the slice: {slice}.\n\n"
+            "1. Start with `get_agreements_summary` and `get_agreement_trends` for corpus-wide counts.\n"
+            "2. Use `list_filter_options` to discover valid values for the slice's dimensions.\n"
+            "3. Use `list_agreements` with the slice filters; paginate for representative sample.\n"
+            "4. Call `search_sections` to spot-check drafting shifts for 2-3 clause families relevant to the slice.\n"
+            "5. Deliver a one-page brief: deal count, consideration mix, notable counsels, clause-level shifts."
+        ),
+    },
+)
+
+
+def _prompt_definitions() -> list[dict[str, object]]:
+    definitions: list[dict[str, object]] = []
+    for prompt in _PROMPT_TEMPLATES:
+        definitions.append(
+            {
+                "name": prompt["name"],
+                "title": prompt["title"],
+                "description": prompt["description"],
+                "arguments": prompt["arguments"],
+            }
+        )
+    return definitions
+
+
+def _render_prompt(name: str, arguments: dict[str, object]) -> dict[str, object] | None:
+    for prompt in _PROMPT_TEMPLATES:
+        if prompt["name"] != name:
+            continue
+        template = cast(str, prompt["template"])
+        rendered = template
+        for arg_def in cast(list[dict[str, object]], prompt["arguments"]):
+            arg_name = cast(str, arg_def["name"])
+            value = arguments.get(arg_name, "")
+            if not isinstance(value, str):
+                value = json.dumps(value)
+            rendered = rendered.replace("{" + arg_name + "}", value or "(unspecified)")
+        return {
+            "description": prompt["description"],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {"type": "text", "text": rendered},
+                }
+            ],
+        }
+    return None
+
+
+_RESOURCE_DEFINITIONS: tuple[dict[str, object], ...] = (
+    {
+        "uri": "pandects://capabilities",
+        "name": "Pandects MCP capabilities",
+        "description": (
+            "Server capabilities including tool inventory, required scopes, "
+            "field inventory, concept notes, and research workflows."
+        ),
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "pandects://auth-help",
+        "name": "Authentication help",
+        "description": "How to obtain and refresh bearer tokens for Pandects MCP.",
+        "mimeType": "application/json",
+    },
+)
+
+
+def _resource_definitions() -> list[dict[str, object]]:
+    return [dict(resource) for resource in _RESOURCE_DEFINITIONS]
+
+
+def _read_resource(uri: str) -> list[dict[str, object]] | None:
+    from backend.mcp.tools import _server_capabilities_payload
+
+    if uri == "pandects://capabilities":
+        payload = _server_capabilities_payload()
+        return [
+            {
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": json.dumps(payload, separators=(",", ":"), default=str),
+            }
+        ]
+    if uri == "pandects://auth-help":
+        payload = _server_capabilities_payload().get("auth_help", {})
+        return [
+            {
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": json.dumps(payload, separators=(",", ":"), default=str),
+            }
+        ]
+    return None
 
 
 def _ensure_object_payload() -> dict[str, object]:
@@ -122,6 +526,48 @@ def _log_mcp_tool_event(
 
 def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
     mcp_blp = Blueprint("mcp", "mcp")
+
+    def _oauth_authorization_server_metadata_response() -> Response:
+        try:
+            payload = cast(dict[str, object], dict(mcp_oauth_metadata()))
+        except RuntimeError as exc:
+            logger.warning("mcp_oauth_metadata_unavailable", exc_info=exc)
+            return make_response(
+                jsonify(
+                    {
+                        "error": "Service Unavailable",
+                        "message": PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
+                    }
+                ),
+                503,
+            )
+        response = make_response(jsonify(payload), 200)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    def _issuer_path_suffix() -> str:
+        try:
+            return urlparse(mcp_oauth_issuer()).path.strip("/")
+        except Exception:  # pragma: no cover - defensive
+            return ""
+
+    @mcp_blp.get("/.well-known/oauth-authorization-server")
+    def oauth_authorization_server_root_metadata() -> Response:
+        return _oauth_authorization_server_metadata_response()
+
+    @mcp_blp.get("/.well-known/oauth-authorization-server/<path:suffix>")
+    def oauth_authorization_server_pathed_metadata(suffix: str) -> Response:
+        expected = _issuer_path_suffix()
+        if expected and suffix.strip("/") != expected:
+            return make_response(
+                jsonify({"error": "Not Found", "message": "Unknown authorization server path."}),
+                404,
+            )
+        return _oauth_authorization_server_metadata_response()
+
+    @mcp_blp.get("/.well-known/openid-configuration")
+    def openid_configuration_root_metadata() -> Response:
+        return _oauth_authorization_server_metadata_response()
 
     @mcp_blp.get("/.well-known/oauth-protected-resource")
     def protected_resource_metadata() -> Response:
@@ -183,18 +629,76 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 request_id=request_id,
                 result={
                     "protocolVersion": mcp_protocol_version(),
-                    "capabilities": {"tools": {"listChanged": False}},
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "resources": {"listChanged": False, "subscribe": False},
+                        "prompts": {"listChanged": False},
+                        "logging": {},
+                    },
                     "serverInfo": {
                         "name": mcp_server_name(),
                         "version": mcp_server_version(),
                     },
+                    "instructions": (
+                        "Pandects MCP exposes M&A agreement and clause research tools. "
+                        "Start with get_server_capabilities for concept guidance and scope mapping, "
+                        "then list_filter_options or search_agreements/search_sections for discovery."
+                    ),
                 },
+                extra_headers={"Mcp-Session-Id": _issue_session_id()},
             )
         if method == "tools/list":
             return _json_rpc_result(
                 request_id=request_id,
                 result={"tools": tool_definitions()},
             )
+        if method == "prompts/list":
+            return _json_rpc_result(
+                request_id=request_id,
+                result={"prompts": _prompt_definitions()},
+            )
+        if method == "prompts/get":
+            prompt_name = params_obj.get("name")
+            if not isinstance(prompt_name, str) or not prompt_name.strip():
+                return _json_rpc_error(
+                    request_id=request_id, code=-32602, message="Prompt name is required."
+                )
+            arguments = params_obj.get("arguments")
+            arguments_dict = arguments if isinstance(arguments, dict) else {}
+            prompt_payload = _render_prompt(
+                prompt_name,
+                cast(dict[str, object], arguments_dict),
+            )
+            if prompt_payload is None:
+                return _json_rpc_error(
+                    request_id=request_id,
+                    code=-32602,
+                    message=f"Unknown prompt: {prompt_name}",
+                )
+            return _json_rpc_result(request_id=request_id, result=prompt_payload)
+        if method == "resources/list":
+            return _json_rpc_result(
+                request_id=request_id,
+                result={"resources": _resource_definitions()},
+            )
+        if method == "resources/read":
+            resource_uri = params_obj.get("uri")
+            if not isinstance(resource_uri, str) or not resource_uri.strip():
+                return _json_rpc_error(
+                    request_id=request_id, code=-32602, message="Resource uri is required."
+                )
+            resource_contents = _read_resource(resource_uri)
+            if resource_contents is None:
+                return _json_rpc_error(
+                    request_id=request_id,
+                    code=-32602,
+                    message=f"Unknown resource: {resource_uri}",
+                )
+            return _json_rpc_result(
+                request_id=request_id, result={"contents": resource_contents}
+            )
+        if method == "logging/setLevel":
+            return _json_rpc_result(request_id=request_id, result={})
         if method == "tools/call":
             tool_name = params_obj.get("name")
             arguments = params_obj.get("arguments", {})
@@ -209,6 +713,16 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     request_id=request_id,
                     code=-32602,
                     message="Tool arguments must be an object.",
+                )
+            progress_token = _extract_progress_token(params_obj)
+            if progress_token is not None and _client_prefers_sse():
+                return _stream_tool_call_response(
+                    request_id=request_id,
+                    tool_name=tool_name,
+                    arguments=cast(dict[str, object], arguments),
+                    principal=principal,
+                    deps=deps,
+                    progress_token=progress_token,
                 )
             started_at = time.perf_counter()
             try:
@@ -347,6 +861,30 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
             code=-32601,
             message=f"Method not found: {method}",
                 )
+
+    @mcp_blp.route("/mcp", methods=["DELETE"])
+    def mcp_session_delete() -> Response:
+        try:
+            authenticate_mcp_request()
+        except McpAuthError as exc:
+            metrics_registry.record_auth_failure(status_code=exc.status_code)
+            response = _json_rpc_error(
+                request_id=None,
+                code=-32001 if exc.status_code == 401 else -32003,
+                message=exc.message,
+                data={
+                    "category": "authentication",
+                    "status_code": exc.status_code,
+                    "reason": exc.reason,
+                    "action": exc.action,
+                    "client_message": exc.client_message,
+                },
+                status_code=exc.status_code,
+                www_authenticate=exc.www_authenticate,
+            )
+            return response
+        response = make_response("", 204)
+        return _apply_protocol_headers(response)
 
     @mcp_blp.get("/mcp")
     def mcp_sse_endpoint() -> Response:

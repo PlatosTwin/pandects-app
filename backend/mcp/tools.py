@@ -3381,7 +3381,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     return (
         McpToolSpec(
             name="search_agreements",
-            description="Discover agreements with text query and page-based results. Supports the same structured agreement filters as list_agreements, including counsel filters, but is best suited for interactive discovery rather than bulk exact retrieval.",
+            description="Find merger agreements by target/acquirer name, year, counsel, industry, deal type, or any of the standard M&A filters. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
             input_schema=_schema_input_schema(search_agreements_schema, field_overrides=search_agreements_overrides),
             output_schema=_search_agreements_output_schema(),
             examples=(
@@ -3405,7 +3405,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="search_sections",
-            description="Search sections across the corpus when you are looking for clause language samples, taxonomy-linked sections, or text to read. This is not a normalized document-facts surface.",
+            description="Search individual sections (clause-level text) across the corpus by taxonomy node, keywords, and the same M&A filters as search_agreements. Returns clause language and the agreement context, not extracted document-level facts. Pair with suggest_clause_families when you only know the concept in plain English.",
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
@@ -3430,7 +3430,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreements",
-            description="Retrieve agreements with exact structured filters and cursor pagination. Prefer this over search_agreements for bulk exact retrieval, especially when filters are already known.",
+            description="Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
             input_schema=_schema_input_schema(AgreementsBulkArgsSchema(), field_overrides=agreements_list_overrides),
             output_schema=_list_agreements_output_schema(),
             examples=(
@@ -3453,7 +3453,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreement_sections",
-            description="Navigate the sections inside one agreement before drilling into a specific section.",
+            description="List the article and section headings inside a single agreement so you can pick which section to fetch. Call after you have an agreement UUID, before get_section or get_section_snippet.",
             input_schema=_schema_input_schema(McpListAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
             output_schema=_list_agreement_sections_output_schema(),
             examples=(
@@ -3473,7 +3473,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement",
-            description="Fetch one agreement document, returning redacted XML unless full-text scope is present.",
+            description="Fetch one agreement by UUID, including its metadata (parties, counsel, consideration, deal status) and the agreement XML. XML is redacted to headings and structure unless the caller holds the full-text scope; metadata fields are always returned.",
             input_schema=_schema_input_schema(McpAgreementArgsSchema()),
             output_schema=_get_agreement_output_schema(),
             examples=(
@@ -3496,7 +3496,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section",
-            description="Fetch one section directly by section UUID when you already know the exact section to inspect.",
+            description="Fetch one section by UUID, returning its article/section titles, taxonomy assignments, and full XML content. Use after search_sections or list_agreement_sections; use get_section_snippet if you only need a short focused excerpt.",
             input_schema=_schema_input_schema(McpSectionArgsSchema()),
             output_schema=_get_section_output_schema(),
             examples=(
@@ -3516,7 +3516,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_tax_clauses",
-            description="Fetch extracted tax-module clauses for a specific agreement.",
+            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body.",
             input_schema=_schema_input_schema(McpAgreementIdentifierSchema()),
             output_schema=_get_agreement_tax_clauses_output_schema(),
             examples=(
@@ -3536,7 +3536,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section_tax_clauses",
-            description="Fetch extracted tax-module clauses for a specific section.",
+            description="Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it.",
             input_schema=_schema_input_schema(McpSectionArgsSchema()),
             output_schema=_get_section_tax_clauses_output_schema(),
             examples=(
@@ -3556,7 +3556,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_filter_options",
-            description="List valid filter values for agreement and section retrieval. Catalog groups are pluralized, while retrieval arguments are singular, for example target_counsels maps to target_counsel.",
+            description="List the valid values for every filter you can apply on search/list tools (counsels, industries, deal types, consideration, price buckets, PE flags, and more). The returned payload also includes retrieval_parameter_map, which maps each catalog key to the exact argument name used by the retrieval tools.",
             input_schema=_schema_input_schema(McpFilterOptionsArgsSchema()),
             output_schema=_list_filter_options_output_schema(),
             examples=(
@@ -3579,7 +3579,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="suggest_clause_families",
-            description="Map a plain-English concept to likely clause-family taxonomy nodes so you can choose the right standard_id before section search. Suggestions may be canonical matches or broader/narrower proxies.",
+            description="Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. Call before search_sections when you know the concept but not the taxonomy.",
             input_schema=_schema_input_schema(suggest_clause_families_schema),
             output_schema=_suggest_clause_families_output_schema(),
             examples=(
@@ -3602,7 +3602,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section_snippet",
-            description="Extract a focused plain-text snippet from one section, optionally centered on search terms, instead of returning the whole XML block. This is a reading aid, not a canonical extracted-facts surface.",
+            description="Return a short, plain-text excerpt from one section, optionally centered on focus terms. Useful for quoting and side-by-side comparison when the full section XML would be too noisy. Fetch get_section instead when you need the complete, authoritative text.",
             input_schema=_schema_input_schema(section_snippet_schema),
             output_schema=_section_snippet_output_schema(),
             examples=(
@@ -3624,7 +3624,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_server_metrics",
-            description="Return in-process MCP metrics, including per-tool call counts, latency buckets, error categories, and auth-failure counts since process start.",
+            description="Operator-oriented MCP telemetry: per-tool call counts, latency buckets, error categories, and auth-failure counts since the server started. Not needed for research workflows.",
             input_schema=_empty_schema(),
             output_schema=_metrics_output_schema(),
             examples=(
@@ -3644,7 +3644,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_server_capabilities",
-            description="Explain available MCP tools, selection guidance, pagination styles, scope requirements, and corpus semantics for this server. Use it to learn which concepts are first-class, taxonomy-based proxies, text-derived, or not represented.",
+            description="Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task.",
             input_schema=_empty_schema(),
             output_schema=_server_capabilities_output_schema(),
             examples=(
@@ -3666,7 +3666,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_clause_taxonomy",
-            description="Fetch the clause taxonomy tree used for section search standard IDs.",
+            description="Return the full clause-family taxonomy tree (L1 → L2 → L3) used for section-level search. Prefer suggest_clause_families when you want to look up a single concept; use this tool when you need the whole tree for browsing or planning.",
             input_schema=_empty_schema(),
             output_schema=_taxonomy_output_schema(),
             examples=(
@@ -3687,7 +3687,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_tax_clause_taxonomy",
-            description="Fetch the tax clause taxonomy tree used for tax-clause research.",
+            description="Return the full tax-clause taxonomy tree used for tax-structure research. Pair with get_agreement_tax_clauses or get_section_tax_clauses once you identify the right tax taxonomy nodes.",
             input_schema=_empty_schema(),
             output_schema=_taxonomy_output_schema(),
             examples=(
@@ -3708,7 +3708,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_counsel_catalog",
-            description="Fetch canonical counsel names for filter selection and normalization.",
+            description="Return the canonical list of law firms used as counsel filters. Use to resolve a firm's informal name into the canonical form required by target_counsel and acquirer_counsel filters.",
             input_schema=_empty_schema(),
             output_schema=_counsel_catalog_output_schema(),
             examples=(
@@ -3729,7 +3729,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_naics_catalog",
-            description="Fetch NAICS sectors and subsectors for industry reasoning and filter selection.",
+            description="Return the NAICS industry hierarchy (sectors and subsectors) used to normalize target_industry and acquirer_industry filters. Use when translating an industry description into the canonical label the filters accept.",
             input_schema=_empty_schema(),
             output_schema=_naics_catalog_output_schema(),
             examples=(
@@ -3750,7 +3750,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreements_summary",
-            description="Fetch high-level corpus counts for agreements, sections, and pages.",
+            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers.",
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
@@ -3768,7 +3768,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_trends",
-            description="Fetch ownership and industry trend analytics for the agreement corpus.",
+            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use for quick macro context; use list_agreements for row-level breakdowns.",
             input_schema=_empty_schema(),
             output_schema=_agreement_trends_output_schema(),
             examples=(
