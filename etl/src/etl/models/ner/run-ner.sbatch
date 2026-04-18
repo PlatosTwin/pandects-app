@@ -20,4 +20,4 @@ export NUM_WORKERS="${NUM_WORKERS:-3}"
 singularity exec --nv \
 	    --overlay /scratch/nmb9729/overlays/mna.ext3:ro \
 	    /share/apps/images/cuda12.6.3-cudnn9.5.1-ubuntu22.04.5.sif\
-	    /bin/bash -c "source /ext3/env.sh; cd /scratch/nmb9729/mna/ner && python ner.py tune --num-trials 12 --max-epochs 10 --split-version ${SPLIT_VERSION} --data-path ${DATA_PATH} --num-workers ${NUM_WORKERS}"
+	    /bin/bash -c "source /ext3/env.sh; cd /scratch/nmb9729/mna/ner && python ner.py tune --num-trials 12 --max-epochs 10 --split-version ${SPLIT_VERSION} --data-path ${DATA_PATH} --num-workers ${NUM_WORKERS} --boundary-head --boundary-loss-weight 0.10"

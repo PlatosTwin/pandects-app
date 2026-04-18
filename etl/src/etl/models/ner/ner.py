@@ -1558,6 +1558,8 @@ def run_hparam_tuning(
     seed: int,
     val_window: int = 510,
     val_stride: int = 256,
+    boundary_head: bool = False,
+    boundary_loss_weight: float = 0.0,
     git_commit: str | None = None,
     num_workers: int | None = None,
 ) -> dict[str, float | int]:
@@ -1575,6 +1577,8 @@ def run_hparam_tuning(
         seed=seed,
         val_window=val_window,
         val_stride=val_stride,
+        boundary_head=boundary_head,
+        boundary_loss_weight=boundary_loss_weight,
         num_workers=num_workers,
     )
     ner_trainer.load_data()
@@ -2203,6 +2207,8 @@ def _build_cli() -> argparse.ArgumentParser:
     _ = tune_parser.add_argument(
         "--model-name", type=str, default="answerdotai/ModernBERT-base"
     )
+    _ = tune_parser.add_argument("--boundary-head", action="store_true", default=False)
+    _ = tune_parser.add_argument("--boundary-loss-weight", type=float, default=0.0)
     _ = tune_parser.add_argument("--git-commit", type=str, default=None)
     _ = tune_parser.add_argument("--num-workers", type=int, default=0)
 
@@ -2348,6 +2354,8 @@ def main() -> None:
             max_epochs=args.max_epochs,
             split_version=args.split_version,
             seed=args.seed,
+            boundary_head=args.boundary_head,
+            boundary_loss_weight=args.boundary_loss_weight,
             git_commit=args.git_commit,
             num_workers=args.num_workers,
         )

@@ -373,6 +373,79 @@ def prf1_from_spans_lenient(
     return tp, fp, fn
 
 
+def _bootstrap_entity_f1_ci(
+    doc_spans: list[tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]],
+    n_bootstrap: int = 2000,
+    ci_level: float = 0.95,
+    seed: int = 0,
+) -> dict[str, object]:
+    """Bootstrap CI for entity-level F1 by resampling docs with replacement."""
+    if len(doc_spans) < 2:
+        return {}
+    rng = np.random.default_rng(seed)
+    n = len(doc_spans)
+
+    all_types: set[str] = set()
+    for pred_s, gold_s in doc_spans:
+        for _, _, t in pred_s:
+            all_types.add(t)
+        for _, _, t in gold_s:
+            all_types.add(t)
+
+    def _f1(tp_v: int, fp_v: int, fn_v: int) -> float:
+        p = tp_v / (tp_v + fp_v) if tp_v + fp_v else 0.0
+        r = tp_v / (tp_v + fn_v) if tp_v + fn_v else 0.0
+        return 2 * p * r / (p + r) if p + r else 0.0
+
+    micro_f1s: list[float] = []
+    type_f1s: dict[str, list[float]] = {t: [] for t in all_types}
+
+    for _ in range(n_bootstrap):
+        indices = rng.integers(0, n, size=n)
+        tp = fp = fn = 0
+        tpc: dict[str, int] = {}
+        fpc: dict[str, int] = {}
+        fnc: dict[str, int] = {}
+        for idx in indices:
+            pred_set = set(doc_spans[int(idx)][0])
+            gold_set = set(doc_spans[int(idx)][1])
+            matched = pred_set & gold_set
+            false_pos = pred_set - gold_set
+            false_neg = gold_set - pred_set
+            tp += len(matched)
+            fp += len(false_pos)
+            fn += len(false_neg)
+            for _, _, t in matched:
+                tpc[t] = tpc.get(t, 0) + 1
+            for _, _, t in false_pos:
+                fpc[t] = fpc.get(t, 0) + 1
+            for _, _, t in false_neg:
+                fnc[t] = fnc.get(t, 0) + 1
+        micro_f1s.append(_f1(tp, fp, fn))
+        for t in all_types:
+            type_f1s[t].append(_f1(tpc.get(t, 0), fpc.get(t, 0), fnc.get(t, 0)))
+
+    alpha = 1.0 - ci_level
+    lo_p = 100.0 * alpha / 2
+    hi_p = 100.0 * (1.0 - alpha / 2)
+    return {
+        "n_docs": n,
+        "n_bootstrap": n_bootstrap,
+        "ci_level": ci_level,
+        "micro": {
+            "f1_lo": float(np.percentile(micro_f1s, lo_p)),
+            "f1_hi": float(np.percentile(micro_f1s, hi_p)),
+        },
+        "per_type": {
+            t: {
+                "f1_lo": float(np.percentile(type_f1s[t], lo_p)),
+                "f1_hi": float(np.percentile(type_f1s[t], hi_p)),
+            }
+            for t in sorted(all_types)
+        },
+    }
+
+
 def _parse_bioes(tag: str) -> tuple[str, str | None]:
     # "O" -> ("O", None), "B-FOO" -> ("B","FOO"), etc.
     if tag == "O":
@@ -1875,6 +1948,7 @@ class NERTagger(pl.LightningModule):
         doc_with_entities = 0
         tp_nonempty = fp_nonempty = fn_nonempty = 0
         tp_nonempty_len = fp_nonempty_len = fn_nonempty_len = 0
+        doc_spans_all: list[tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]] = []
 
         for doc_id, gold_tags in gold_tags_by_doc.items():
             pred_tags = pred_tags_by_doc[doc_id]
@@ -1884,6 +1958,7 @@ class NERTagger(pl.LightningModule):
 
             pred_spans = tags_to_spans(pred_tags)
             gold_spans = tags_to_spans(gold_tags)
+            doc_spans_all.append((pred_spans, gold_spans))
             self._compute_entity_metrics(pred_tags, gold_tags, ent_counts)
             self._compute_entity_metrics_lenient(
                 pred_tags, gold_tags, ent_counts_lenient
@@ -2028,6 +2103,10 @@ class NERTagger(pl.LightningModule):
             "recall": nonempty_rec_len,
             "f1": nonempty_f1_len,
         }
+
+        bootstrap_ci = _bootstrap_entity_f1_ci(doc_spans_all)
+        if bootstrap_ci:
+            entity_metrics["bootstrap_ci"] = bootstrap_ci
 
         return {"token_level": token_metrics, "entity_level": entity_metrics}
 
