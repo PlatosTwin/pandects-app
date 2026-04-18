@@ -4,7 +4,7 @@ import base64
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, cast
+from typing import TypedDict, cast
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -12,6 +12,41 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 from backend.auth.runtime import public_api_base_url
+
+
+class McpOAuthMetadata(TypedDict):
+    issuer: str
+    authorization_endpoint: str
+    token_endpoint: str
+    registration_endpoint: str
+    jwks_uri: str
+    subject_types_supported: list[str]
+    id_token_signing_alg_values_supported: list[str]
+    response_types_supported: list[str]
+    grant_types_supported: list[str]
+    token_endpoint_auth_methods_supported: list[str]
+    code_challenge_methods_supported: list[str]
+    scopes_supported: list[str]
+
+
+class PublicJwk(TypedDict):
+    kty: str
+    kid: str
+    use: str
+    alg: str
+    n: str
+    e: str
+
+
+class AccessTokenClaims(TypedDict):
+    iss: str
+    sub: str
+    aud: str
+    scope: str
+    iat: int
+    nbf: int
+    exp: int
+    jti: str
 
 
 def _utc_now() -> datetime:
@@ -72,7 +107,7 @@ def mcp_oauth_authorization_code_ttl_seconds() -> int:
     return max(60, parsed)
 
 
-def mcp_oauth_metadata() -> dict[str, Any]:
+def mcp_oauth_metadata() -> McpOAuthMetadata:
     issuer = mcp_oauth_issuer()
     return {
         "issuer": issuer,
@@ -105,7 +140,7 @@ def generate_signing_keypair() -> tuple[str, str]:
     return secrets.token_urlsafe(18), private_pem
 
 
-def public_jwk_from_private_pem(*, kid: str, private_pem: str) -> dict[str, str]:
+def public_jwk_from_private_pem(*, kid: str, private_pem: str) -> PublicJwk:
     private_key = cast(
         RSAPrivateKey,
         serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None),
@@ -122,27 +157,30 @@ def public_jwk_from_private_pem(*, kid: str, private_pem: str) -> dict[str, str]
     }
 
 
-def encode_access_token(*, private_pem: str, kid: str, claims: dict[str, Any]) -> str:
+def encode_access_token(*, private_pem: str, kid: str, claims: AccessTokenClaims) -> str:
     return jwt.encode(
-        claims,
+        cast(dict[str, object], cast(object, claims)),
         private_pem,
         algorithm="RS256",
         headers={"kid": kid, "typ": "JWT"},
     )
 
 
-def decode_access_token(*, token: str, public_key_pem: str, audience: str) -> dict[str, Any]:
-    payload = jwt.decode(
+def decode_access_token(*, token: str, public_key_pem: str, audience: str) -> AccessTokenClaims:
+    payload_obj = cast(
+        object,
+        jwt.decode(
         token,
         public_key_pem,
         algorithms=["RS256"],
         issuer=mcp_oauth_issuer(),
         audience=audience,
         leeway=30,
+        ),
     )
-    if not isinstance(payload, dict):
+    if not isinstance(payload_obj, dict):
         raise jwt.InvalidTokenError("JWT payload was not an object.")
-    return payload
+    return cast(AccessTokenClaims, cast(object, payload_obj))
 
 
 def public_pem_from_private_pem(private_pem: str) -> str:
@@ -163,7 +201,7 @@ def access_token_claims(
     audience: str,
     scope: str,
     token_id: str,
-) -> dict[str, Any]:
+) -> AccessTokenClaims:
     now = _utc_now()
     exp = now + timedelta(seconds=mcp_oauth_access_token_ttl_seconds())
     return {
