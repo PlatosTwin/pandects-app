@@ -63,6 +63,76 @@ TAX_CLAUSE_TAXONOMY_L3_TABLE = "tax_clause_taxonomy_l3"
 TAX_MODULE_LLM_BATCHES_TABLE = "tax_module_llm_batches"
 TAX_MODULE_LLM_REQUEST_FILENAME = "tax_module_llm_requests.jsonl"
 TAX_MODULE_LLM_COMPLETION_WINDOW = "24h"
+TAX_SIGNAL_SQL_TERMS = (
+    "tax",
+    "tax-free",
+    "tax free",
+    "338",
+    "336",
+    "754",
+    "382",
+    "383",
+    "280g",
+    "409a",
+    "83(b)",
+    "firpta",
+    "withholding",
+    "backup withholding",
+    "transfer tax",
+    "transfer taxes",
+    "stamp tax",
+    "stamp taxes",
+    "sales tax",
+    "sales taxes",
+    "use tax",
+    "use taxes",
+    "conveyance tax",
+    "conveyance taxes",
+    "gains tax",
+    "gains taxes",
+    "gst/hst",
+    "gross-up",
+    "gross up",
+    "cfc",
+    "pfic",
+    "gilti",
+    "subpart f",
+    "net operating loss",
+    "nol",
+    "nols",
+    "carryback",
+    "carryforward",
+    "straddle period",
+    "straddle tax period",
+    "refund",
+    "refunds",
+    "tax credit",
+    "tax credits",
+    "refunds and credits",
+    "tax contest",
+    "contests related to taxes",
+    "audits and contests with respect to taxes",
+    "reorganization",
+    "368(a)",
+    "section 368",
+    "purchase price allocation",
+    "allocation of purchase price",
+    "entity classification election",
+    "entity classification elections",
+    "push-out election",
+    "push-out elections",
+    "golden parachute",
+    "parachute payment",
+    "parachute payments",
+    "cleansing vote",
+    "tax sharing",
+    "tax-sharing",
+    "irs ruling",
+    "israeli tax ruling",
+    "ruling request",
+    "reit",
+    "s corporation",
+)
 
 
 def _oai_client() -> "OpenAI":
@@ -126,6 +196,16 @@ def _tax_candidate_sql(
         "LOWER(COALESCE(s.article_title_normed, '')) LIKE '%tax%'",
     ]
     params: dict[str, object] = {}
+    for idx, term in enumerate(TAX_SIGNAL_SQL_TERMS):
+        key = f"tax_signal_like_{idx}"
+        conditions.append(
+            "("
+            + f"LOWER(COALESCE(s.section_title, s.section_title_normed, '')) LIKE :{key} "
+            + f"OR LOWER(COALESCE(s.article_title, s.article_title_normed, '')) LIKE :{key} "
+            + f"OR LOWER(COALESCE(s.xml_content, '')) LIKE :{key}"
+            + ")"
+        )
+        params[key] = f"%{term}%"
     if section_ids:
         for idx, standard_id in enumerate(sorted(section_ids)):
             key = f"sid_like_{idx}"
@@ -270,6 +350,7 @@ def _llm_rows_from_clauses(
                 "section_title": section_row.get("section_title"),
                 "clause_text": clause["clause_text"],
                 "anchor_label": clause["anchor_label"],
+                "source_method": str(clause.get("source_method") or "unknown"),
                 "context_type": clause["context_type"],
             }
         )

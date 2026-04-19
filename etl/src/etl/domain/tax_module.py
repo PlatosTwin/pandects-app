@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportExplicitAny=false
 from __future__ import annotations
 
 import json
@@ -12,6 +13,41 @@ _SPACE_RE = re.compile(r"\s+")
 _TEXT_BLOCK_RE = re.compile(r"<text>(.*?)</text>", re.DOTALL | re.IGNORECASE)
 _TOP_LEVEL_ENUMERATOR_RE = re.compile(r"^\(\s*([a-z])\s*\)\s*", re.IGNORECASE)
 _REP_CONTEXT_RE = re.compile(r"representations|warranties", re.IGNORECASE)
+_TAX_SIGNAL_RE = re.compile(
+    r"(?<![a-z0-9])(?:"
+    + r"tax|taxes|taxable|taxation|tax-free|"
+    + r"withholding|backup\s+withholding|firpta|"
+    + r"338|336|754|83\(b\)|382|383|280g|409a|"
+    + r"cfc|pfic|gilti|subpart\s+f|"
+    + r"transfer\s+tax|transfer\s+taxes|stamp\s+tax|stamp\s+taxes|sales\s+tax|sales\s+taxes|use\s+tax|use\s+taxes|"
+    + r"conveyance\s+tax|conveyance\s+taxes|gains\s+tax|gains\s+taxes|vat|gst/?hst|"
+    + r"net\s+operating\s+loss|nols?|carryback|carryforward|"
+    + r"straddle\s+period|straddle\s+tax\s+period|refunds?|tax\s+credits?|refunds?\s+and\s+credits?|"
+    + r"tax\s+contest|contests?\s+related\s+to\s+taxes|audits?\s+and\s+contests?\s+with\s+respect\s+to\s+taxes|"
+    + r"reorganization|tax-free\s+reorganization|368\(a\)|section\s+368|"
+    + r"purchase\s+price\s+allocation|allocation\s+of\s+purchase\s+price|"
+    + r"entity\s+classification\s+elections?|push-out\s+elections?|"
+    + r"golden\s+parachute|parachute\s+payments?|cleansing\s+vote|"
+    + r"tax\s+sharing|tax-sharing|"
+    + r"irs\s+ruling|israeli\s+tax\s+ruling|ruling\s+request|"
+    + r"reit|ric|s\s+corporation"
+    + r")(?![a-z0-9])",
+    re.IGNORECASE,
+)
+_SECTION_NUMBER_PREFIX_RE = re.compile(
+    r"^\s*(?:section|sec\.?)\s+\d+(?:\.\d+)+\.?\s*",
+    re.IGNORECASE,
+)
+_GENERIC_TAX_CONTAINER_TITLES = {
+    "tax",
+    "taxes",
+    "tax matters",
+    "certain tax matters",
+    "tax covenants",
+    "tax provisions",
+    "tax agreements",
+    "tax matters and tax covenants",
+}
 
 
 class TaxSectionRow(TypedDict):
@@ -57,6 +93,7 @@ class TaxModuleLLMRow(TypedDict):
     section_title: str | None
     clause_text: str
     anchor_label: str | None
+    source_method: str
     context_type: str
 
 
@@ -88,10 +125,37 @@ def context_type_for_article(article_title_normed: str | None) -> str:
     return "operative"
 
 
+def has_tax_signal(value: str | None) -> bool:
+    return bool(_TAX_SIGNAL_RE.search(value or ""))
+
+
+def _generic_tax_container_title(value: str | None) -> bool:
+    normalized = strip_tags_to_text(value or "").lower()
+    normalized = _SECTION_NUMBER_PREFIX_RE.sub("", normalized)
+    normalized = re.sub(r"^[\d.]+\s*", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip(" .:-\u2013\u2014")
+    return normalized in _GENERIC_TAX_CONTAINER_TITLES
+
+
+def is_topic_specific_tax_section(row: TaxSectionRow) -> bool:
+    section_title = row.get("section_title") or row.get("section_title_normed")
+    if not has_tax_signal(section_title):
+        return False
+    return not _generic_tax_container_title(section_title)
+
+
 def is_tax_related_section(row: TaxSectionRow, *, tax_standard_ids: set[str]) -> bool:
     section_title_normed = (row.get("section_title_normed") or "").strip().lower()
     article_title_normed = (row.get("article_title_normed") or "").strip().lower()
-    if "tax" in section_title_normed or "tax" in article_title_normed:
+    section_title = row.get("section_title") or section_title_normed
+    article_title = row.get("article_title") or article_title_normed
+    if (
+        "tax" in section_title_normed
+        or "tax" in article_title_normed
+        or has_tax_signal(section_title)
+        or has_tax_signal(article_title)
+        or has_tax_signal(row.get("xml_content"))
+    ):
         return True
 
     standard_ids = (
@@ -107,6 +171,14 @@ class _Block(TypedDict):
     raw_text: str
     plain_text: str
     enumerator: str | None
+
+
+class _ClauseCandidate(TypedDict):
+    anchor_label: str | None
+    start_char: int
+    end_char: int
+    clause_text: str
+    source_method: str
 
 
 def _top_level_enumerator(plain_text: str) -> str | None:
@@ -144,6 +216,36 @@ def _text_blocks(xml_content: str) -> list[_Block]:
     return blocks
 
 
+def _whole_section_clause(row: TaxSectionRow, *, source_method: str) -> list[TaxClauseRecord]:
+    xml_content = row["xml_content"]
+    clause_text = strip_tags_to_text(xml_content)
+    if clause_text == "":
+        return []
+    return [
+        {
+            "clause_uuid": _clause_uuid(
+                agreement_uuid=row["agreement_uuid"],
+                section_uuid=row["section_uuid"],
+                xml_version=row.get("xml_version"),
+                clause_order=1,
+                anchor_label=None,
+                clause_text=clause_text,
+            ),
+            "agreement_uuid": row["agreement_uuid"],
+            "section_uuid": row["section_uuid"],
+            "xml_version": row.get("xml_version"),
+            "module": "tax",
+            "clause_order": 1,
+            "anchor_label": None,
+            "start_char": 0,
+            "end_char": len(xml_content),
+            "clause_text": clause_text,
+            "source_method": source_method,
+            "context_type": context_type_for_article(row.get("article_title_normed")),
+        }
+    ]
+
+
 def _clause_uuid(
     *,
     agreement_uuid: str,
@@ -160,40 +262,94 @@ def _clause_uuid(
     return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
 
 
-def extract_tax_clauses(row: TaxSectionRow) -> list[TaxClauseRecord]:
-    xml_content = row["xml_content"]
-    blocks = _text_blocks(xml_content)
-    context_type = context_type_for_article(row.get("article_title_normed"))
+def _continues_previous_paragraph(previous_text: str, current_text: str) -> bool:
+    stripped_previous = previous_text.rstrip()
+    stripped_current = current_text.lstrip()
+    if stripped_previous == "" or stripped_current == "":
+        return False
+    if not stripped_previous.endswith((".", "?", "!", '"', "'", "\u201d", "\u2019", ")", "]")):
+        return True
+    first_char = stripped_current[0]
+    return first_char.islower() or first_char in ",;:)]"
 
-    if not blocks:
-        clause_text = strip_tags_to_text(xml_content)
-        if clause_text == "":
-            return []
-        return [
+
+def _paragraph_clause_candidates(blocks: list[_Block]) -> list[_ClauseCandidate]:
+    grouped_blocks: list[list[_Block]] = []
+    current_group: list[_Block] = []
+    for block in blocks:
+        if not current_group:
+            current_group = [block]
+            continue
+        if _continues_previous_paragraph(current_group[-1]["plain_text"], block["plain_text"]):
+            current_group.append(block)
+            continue
+        grouped_blocks.append(current_group)
+        current_group = [block]
+    if current_group:
+        grouped_blocks.append(current_group)
+
+    candidates: list[_ClauseCandidate] = []
+    for group in grouped_blocks:
+        clause_text = "\n\n".join(block["plain_text"] for block in group).strip()
+        if clause_text:
+            candidates.append(
+                {
+                    "anchor_label": None,
+                    "start_char": group[0]["start_char"],
+                    "end_char": group[-1]["end_char"],
+                    "clause_text": clause_text,
+                    "source_method": "paragraph_split",
+                }
+            )
+    return candidates
+
+
+def _tax_clause_records_from_candidates(
+    row: TaxSectionRow,
+    candidates: list[_ClauseCandidate],
+) -> list[TaxClauseRecord]:
+    out: list[TaxClauseRecord] = []
+    context_type = context_type_for_article(row.get("article_title_normed"))
+    for clause_order, clause in enumerate(candidates, start=1):
+        anchor_label = clause["anchor_label"]
+        clause_text = clause["clause_text"]
+        out.append(
             {
                 "clause_uuid": _clause_uuid(
                     agreement_uuid=row["agreement_uuid"],
                     section_uuid=row["section_uuid"],
                     xml_version=row.get("xml_version"),
-                    clause_order=1,
-                    anchor_label=None,
+                    clause_order=clause_order,
+                    anchor_label=anchor_label,
                     clause_text=clause_text,
                 ),
                 "agreement_uuid": row["agreement_uuid"],
                 "section_uuid": row["section_uuid"],
                 "xml_version": row.get("xml_version"),
                 "module": "tax",
-                "clause_order": 1,
-                "anchor_label": None,
-                "start_char": 0,
-                "end_char": len(xml_content),
+                "clause_order": clause_order,
+                "anchor_label": anchor_label,
+                "start_char": clause["start_char"],
+                "end_char": clause["end_char"],
                 "clause_text": clause_text,
-                "source_method": "whole_section_fallback",
+                "source_method": clause["source_method"],
                 "context_type": context_type,
             }
-        ]
+        )
+    return out
 
-    clauses: list[dict[str, Any]] = []
+
+def extract_tax_clauses(row: TaxSectionRow) -> list[TaxClauseRecord]:
+    xml_content = row["xml_content"]
+    blocks = _text_blocks(xml_content)
+
+    if not blocks:
+        return _whole_section_clause(row, source_method="whole_section_fallback")
+
+    if is_topic_specific_tax_section(row):
+        return _whole_section_clause(row, source_method="section_title_match")
+
+    clauses: list[_ClauseCandidate] = []
     pending_blocks: list[_Block] = []
     current_blocks: list[_Block] = []
     current_anchor: str | None = None
@@ -214,6 +370,7 @@ def extract_tax_clauses(row: TaxSectionRow) -> list[TaxClauseRecord]:
                 "start_char": current_blocks[0]["start_char"],
                 "end_char": current_blocks[-1]["end_char"],
                 "clause_text": clause_text,
+                "source_method": "enumerated_split",
             }
         )
         current_blocks = []
@@ -243,59 +400,12 @@ def extract_tax_clauses(row: TaxSectionRow) -> list[TaxClauseRecord]:
     flush_current()
 
     if not saw_top_level or not clauses:
-        clause_text = "\n\n".join(block["plain_text"] for block in blocks).strip()
-        return [
-            {
-                "clause_uuid": _clause_uuid(
-                    agreement_uuid=row["agreement_uuid"],
-                    section_uuid=row["section_uuid"],
-                    xml_version=row.get("xml_version"),
-                    clause_order=1,
-                    anchor_label=None,
-                    clause_text=clause_text,
-                ),
-                "agreement_uuid": row["agreement_uuid"],
-                "section_uuid": row["section_uuid"],
-                "xml_version": row.get("xml_version"),
-                "module": "tax",
-                "clause_order": 1,
-                "anchor_label": None,
-                "start_char": 0,
-                "end_char": len(xml_content),
-                "clause_text": clause_text,
-                "source_method": "whole_section_fallback",
-                "context_type": context_type,
-            }
-        ]
+        paragraph_candidates = _paragraph_clause_candidates(blocks)
+        if len(paragraph_candidates) <= 1:
+            return _whole_section_clause(row, source_method="whole_section_fallback")
+        return _tax_clause_records_from_candidates(row, paragraph_candidates)
 
-    out: list[TaxClauseRecord] = []
-    for clause_order, clause in enumerate(clauses, start=1):
-        anchor_label = clause["anchor_label"]
-        clause_text = str(clause["clause_text"])
-        out.append(
-            {
-                "clause_uuid": _clause_uuid(
-                    agreement_uuid=row["agreement_uuid"],
-                    section_uuid=row["section_uuid"],
-                    xml_version=row.get("xml_version"),
-                    clause_order=clause_order,
-                    anchor_label=anchor_label,
-                    clause_text=clause_text,
-                ),
-                "agreement_uuid": row["agreement_uuid"],
-                "section_uuid": row["section_uuid"],
-                "xml_version": row.get("xml_version"),
-                "module": "tax",
-                "clause_order": clause_order,
-                "anchor_label": anchor_label,
-                "start_char": int(clause["start_char"]),
-                "end_char": int(clause["end_char"]),
-                "clause_text": clause_text,
-                "source_method": "enumerated_split",
-                "context_type": context_type,
-            }
-        )
-    return out
+    return _tax_clause_records_from_candidates(row, clauses)
 
 
 _TAX_MODULE_RESPONSE_SCHEMA: dict[str, Any] = {
@@ -338,6 +448,7 @@ You will receive:
    - article_title
    - context_type (`operative` or `rep_warranty`)
    - anchor_label
+   - source_method (`section_title_match`, `enumerated_split`, `paragraph_split`, or `whole_section_fallback`)
    - clause_text
 
 Assign EACH clause to zero or more taxonomy categories using ONLY the provided taxonomy.
@@ -349,6 +460,9 @@ Assign EACH clause to zero or more taxonomy categories using ONLY the provided t
 - Be conservative with `rep_warranty` clauses. These often describe disclosure state rather than operative tax mechanics.
 - Do not ignore `rep_warranty` clauses. Tag them when the clause text clearly fits a tax subject in the taxonomy.
 - Favor operative tax mechanics for `operative` clauses, including transfer taxes, withholding, tax sharing, tax refunds, tax elections, tax treatment, tax cooperation, and indemnification-related tax mechanics.
+- If source_method is `section_title_match`, treat the section title as strong evidence that the entire extracted text belongs to that tax topic.
+- If source_method is `paragraph_split` or `enumerated_split`, classify only the extracted paragraph/subclause, not the surrounding section as a whole.
+- Do not penalize a paragraph for lacking a repeated tax term if the section_title or anchor_label clearly identifies the tax topic.
 
 # Output format
 Return a single JSON object and nothing else.
@@ -367,6 +481,7 @@ def build_tax_clause_prompt_payload(row: TaxModuleLLMRow) -> str:
         f"Article title: {(row.get('article_title') or 'N/A').strip() or 'N/A'}.\n"
         f"Section title: {(row.get('section_title') or 'N/A').strip() or 'N/A'}.\n"
         f"Anchor label: {(row.get('anchor_label') or 'N/A').strip() or 'N/A'}.\n"
+        f"Source method: {row['source_method']}.\n"
         f"Clause text: {row['clause_text']}\n"
     )
 

@@ -1,5 +1,5 @@
 """Scoped regular_ingest tax-module resume guards."""
-# pyright: reportAny=false
+# pyright: reportAny=false, reportPrivateUsage=false
 
 import unittest
 from types import SimpleNamespace
@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from dagster import AssetExecutionContext
 
-from etl.defs.k_tax_module_asset import regular_ingest_tax_module_asset
+from etl.defs.k_tax_module_asset import _tax_candidate_sql, regular_ingest_tax_module_asset
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.utils.batch_keys import agreement_batch_key
 
@@ -128,6 +128,22 @@ def _fallback_scope(
 
 
 class TaxModuleAssetTests(unittest.TestCase):
+    def test_tax_candidate_sql_includes_tax_code_signals(self) -> None:
+        candidate_sql, params = _tax_candidate_sql(
+            section_ids=set(),
+            standard_id_column_sql="COALESCE(s.section_standard_id_gold_label, s.section_standard_id, '')",
+        )
+
+        self.assertIn("s.xml_content", candidate_sql)
+        self.assertIn("s.section_title", candidate_sql)
+        self.assertIn("%338%", params.values())
+        self.assertIn("%firpta%", params.values())
+        self.assertIn("%purchase price allocation%", params.values())
+        self.assertIn("%golden parachute%", params.values())
+        self.assertNotIn("%credit%", params.values())
+        self.assertNotIn("%ric%", params.values())
+        self.assertNotIn("%vat%", params.values())
+
     def test_regular_ingest_tax_module_uses_scope_batch_key_for_resume_and_create(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
         db = _FakeDB()
