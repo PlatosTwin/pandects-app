@@ -13,7 +13,7 @@ from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
 from typing import cast
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -1435,7 +1435,30 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         raw_uris = getattr(client, "redirect_uris", None)
         if not isinstance(raw_uris, list):
             return False
-        return redirect_uri in [str(item).strip() for item in raw_uris if str(item).strip()]
+        registered = [str(item).strip() for item in raw_uris if str(item).strip()]
+        if redirect_uri in registered:
+            return True
+        # RFC 8252 §7.3: loopback redirect URIs must allow any port.
+        try:
+            req = urlparse(redirect_uri)
+        except Exception:
+            return False
+        _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+        if req.scheme != "http" or req.hostname not in _LOOPBACK_HOSTS:
+            return False
+        for reg_uri in registered:
+            try:
+                reg = urlparse(reg_uri)
+            except Exception:
+                continue
+            if (
+                reg.scheme == "http"
+                and reg.hostname in _LOOPBACK_HOSTS
+                and reg.path == req.path
+                and reg.query == req.query
+            ):
+                return True
+        return False
 
     def _oauth_active_signing_key():
         key = deps.AuthOAuthSigningKey.query.filter_by(active=True).first()
