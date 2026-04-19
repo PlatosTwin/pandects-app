@@ -1228,6 +1228,7 @@ def _run_xml_build_for_agreements(
                     p.agreement_uuid,
                     p.page_uuid,
                     p.page_order,
+                    p.raw_page_content,
                     coalesce(p.gold_label, p.source_page_type) as source_page_type,
                     case
                         when coalesce(p.gold_label, p.source_page_type) = 'body' then

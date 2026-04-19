@@ -10,6 +10,118 @@ from etl.domain import f_xml
 
 
 class XMLGenerationTests(unittest.TestCase):
+    def test_format_toc_html_like_screen_preserves_table_rows(self) -> None:
+        raw_html = """
+        <div><p>TABLE OF CONTENTS Page</p></div>
+        <table>
+          <tr><td>ARTICLE I THE MERGER</td><td>6</td></tr>
+          <tr><td>1.1</td><td>The Merger</td><td>6</td></tr>
+          <tr><td>1.2</td><td>The Closing</td><td>6</td></tr>
+        </table>
+        """
+
+        formatted = f_xml.format_toc_html_like_screen(raw_html, line_width=80)
+
+        self.assertIn("TABLE OF CONTENTS\n\nPage", formatted)
+        self.assertIn("ARTICLE I THE MERGER", formatted)
+        self.assertIn("1.1     The Merger", formatted)
+        self.assertIn("1.2     The Closing", formatted)
+        self.assertNotIn("ARTICLE I THE MERGER 6 1.1", formatted)
+
+    def test_generate_xml_reformats_html_toc_raw_page_content(self) -> None:
+        agreement_uuid = "11111111-1111-1111-1111-111111111111"
+        raw_toc_html = """
+        <div><p>TABLE OF CONTENTS Page</p></div>
+        <table>
+          <tr><td>ARTICLE I THE MERGER</td><td>6</td></tr>
+          <tr><td>1.1</td><td>The Merger</td><td>6</td></tr>
+          <tr><td>1.2</td><td>The Closing</td><td>6</td></tr>
+        </table>
+        """
+        df = pd.DataFrame(
+            [
+                {
+                    "agreement_uuid": agreement_uuid,
+                    "page_uuid": "toc-page",
+                    "page_order": 1,
+                    "raw_page_content": raw_toc_html,
+                    "source_page_type": "toc",
+                    "gold_label": None,
+                    "tagged_output": "TABLE OF CONTENTS Page ARTICLE I THE MERGER 6 1.1 The Merger 6 1.2 The Closing 6",
+                    "url": "https://example.com/agreement",
+                    "filing_date": date(2024, 1, 1),
+                    "source_is_txt": False,
+                    "source_is_html": True,
+                },
+                {
+                    "agreement_uuid": agreement_uuid,
+                    "page_uuid": "body-page",
+                    "page_order": 2,
+                    "raw_page_content": "<p>ARTICLE I</p>",
+                    "source_page_type": "body",
+                    "gold_label": None,
+                    "tagged_output": "<article>ARTICLE I</article>Body text",
+                    "url": "https://example.com/agreement",
+                    "filing_date": date(2024, 1, 1),
+                    "source_is_txt": False,
+                    "source_is_html": True,
+                },
+            ]
+        )
+
+        generated, failures = f_xml.generate_xml(df)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(len(generated), 1)
+        root = ET.fromstring(generated[0].xml)
+        toc = root.find("tableOfContents")
+        self.assertIsNotNone(toc)
+        assert toc is not None
+        toc_texts = [el.text or "" for el in toc.findall("text")]
+        self.assertIn("TABLE OF CONTENTS", toc_texts)
+        self.assertIn("Page", toc_texts)
+        self.assertTrue(any(text.startswith("1.1     The Merger") for text in toc_texts))
+        self.assertTrue(any(text.startswith("1.2     The Closing") for text in toc_texts))
+        self.assertNotIn(
+            "TABLE OF CONTENTS Page ARTICLE I THE MERGER 6 1.1 The Merger 6 1.2 The Closing 6",
+            toc_texts,
+        )
+
+    def test_generate_xml_uses_gold_label_for_toc_reformatting(self) -> None:
+        agreement_uuid = "11111111-1111-1111-1111-111111111111"
+        df = pd.DataFrame(
+            [
+                {
+                    "agreement_uuid": agreement_uuid,
+                    "page_uuid": "toc-page",
+                    "page_order": 1,
+                    "raw_page_content": """
+                    <table>
+                      <tr><td>1.1</td><td>The Merger</td><td>6</td></tr>
+                    </table>
+                    """,
+                    "source_page_type": "body",
+                    "gold_label": "toc",
+                    "tagged_output": "1.1 The Merger 6",
+                    "url": "https://example.com/agreement",
+                    "filing_date": date(2024, 1, 1),
+                    "source_is_txt": False,
+                    "source_is_html": True,
+                },
+            ]
+        )
+
+        generated, failures = f_xml.generate_xml(df)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(len(generated), 1)
+        root = ET.fromstring(generated[0].xml)
+        toc = root.find("tableOfContents")
+        self.assertIsNotNone(toc)
+        assert toc is not None
+        toc_texts = [el.text or "" for el in toc.findall("text")]
+        self.assertTrue(any(text.startswith("1.1     The Merger") for text in toc_texts))
+
     def test_generate_xml_skips_agreement_with_invalid_xml_token(self) -> None:
         valid_uuid = "11111111-1111-1111-1111-111111111111"
         invalid_uuid = "22222222-2222-2222-2222-222222222222"

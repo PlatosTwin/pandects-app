@@ -8,6 +8,9 @@ from typing import Any
 from datetime import date
 from xml.parsers.expat import ExpatError
 
+from bs4 import BeautifulSoup
+from bs4.element import Comment, Tag
+
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
 
@@ -108,6 +111,371 @@ def _iter_line_fragments(text_block: str) -> list[str]:
             if part and part.strip():
                 fragments.append(part.strip())
     return fragments
+
+
+def _normalize_toc_cell_text(text: str) -> str:
+    text = text.replace("\u00a0", " ").replace("\xa0", " ")
+    text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _toc_visible_text(tag: Tag) -> str:
+    return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
+
+
+def _split_toc_page_label(text: str) -> list[str]:
+    normalized = _normalize_toc_cell_text(text)
+    if not normalized:
+        return []
+
+    prefix_match = re.match(
+        r"^(?P<head>(?:TABLE OF CONTENTS|Table of Contents|CONTENTS|Contents)(?:\s+\([^)]+\))?)\s+Page\s+(?P<rest>.+)$",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if prefix_match:
+        return [
+            prefix_match.group("head").strip(),
+            "Page",
+            prefix_match.group("rest").strip(),
+        ]
+
+    if not normalized.endswith(" Page"):
+        return [normalized]
+
+    heading = normalized[: -len(" Page")].strip()
+    if not heading:
+        return [normalized]
+
+    heading_like = (
+        re.search(r"\bTABLE OF CONTENTS\b", heading, flags=re.IGNORECASE)
+        or re.fullmatch(r"CONTENTS(?:\s+\(CONTINUED\))?", heading, flags=re.IGNORECASE)
+        or re.fullmatch(
+            r"TABLE OF CONTENTS(?:\s+\(CONTINUED\))?",
+            heading,
+            flags=re.IGNORECASE,
+        )
+    )
+    if heading_like:
+        return [heading, "Page"]
+
+    return [normalized]
+
+
+def _append_toc_text_block(blocks: list[str], text: str) -> None:
+    blocks.extend(_split_toc_page_label(text))
+
+
+def _remove_toc_nonvisible_nodes(soup: BeautifulSoup) -> None:
+    for comment in soup.find_all(string=lambda node: isinstance(node, Comment)):
+        _ = comment.extract()
+    for tag in soup.find_all(["script", "style", "noscript", "template"]):
+        tag.decompose()
+    for tag in list(soup.find_all(True)):
+        style = str(tag.get("style") or "").lower().replace(" ", "")
+        hidden = (
+            tag.has_attr("hidden")
+            or str(tag.get("aria-hidden") or "").lower() == "true"
+            or "display:none" in style
+            or "visibility:hidden" in style
+        )
+        if hidden:
+            tag.decompose()
+
+
+def _format_toc_flat_row(text: str, *, line_width: int) -> str:
+    text = _normalize_toc_cell_text(text)
+    match = re.match(r"^(.*?)(?:\s+)(\d+|[ivxlcdm]+)$", text, flags=re.IGNORECASE)
+    if not match:
+        return text
+    left = match.group(1).strip()
+    page = match.group(2).strip()
+    left = re.sub(
+        r"^(Section\s+\d+(?:\.\d+)*)\s+",
+        lambda m: m.group(1).ljust(14),
+        left,
+    )
+    if len(left) + 2 + len(page) >= line_width:
+        return f"{left}  {page}"
+    return f"{left}{' ' * (line_width - len(left) - len(page))}{page}"
+
+
+def _format_toc_table_row(cells: list[Tag], *, line_width: int) -> str | None:
+    parts = [_toc_visible_text(cell) for cell in cells]
+    parts = [part for part in parts if part]
+    if not parts:
+        return None
+
+    if len(parts) == 1:
+        return parts[0]
+
+    page = parts[-1] if re.fullmatch(r"[ivxlcdmIVXLCDM]+|\d+[A-Za-z]?", parts[-1]) else ""
+    left_parts = parts[:-1] if page else parts
+
+    if len(left_parts) >= 2 and re.fullmatch(r"\d+(?:\.\d+)*[A-Za-z]?", left_parts[0]):
+        prefix = left_parts[0].ljust(8)
+        title = " ".join(left_parts[1:])
+    else:
+        prefix = ""
+        title = " ".join(left_parts)
+
+    left = f"{prefix}{title}".rstrip()
+    if not page:
+        return left
+
+    if len(left) + 2 + len(page) >= line_width:
+        return f"{left}  {page}"
+    return f"{left}{' ' * (line_width - len(left) - len(page))}{page}"
+
+
+def _toc_direct_block_texts(cell: Tag) -> list[str]:
+    blocks: list[str] = []
+    for child in cell.find_all(["div", "p"], recursive=False):
+        text = _toc_visible_text(child)
+        if text:
+            blocks.append(text)
+    if blocks:
+        return blocks
+    text = _toc_visible_text(cell)
+    return [text] if text else []
+
+
+def _format_toc_parallel_cell_rows(cells: list[Tag], *, line_width: int) -> list[str]:
+    if len(cells) < 2:
+        return []
+
+    page_blocks = _toc_direct_block_texts(cells[-1])
+    if len(page_blocks) <= 1:
+        return []
+    if not page_blocks or not all(
+        re.fullmatch(r"\d+|[ivxlcdm]+", page, flags=re.IGNORECASE)
+        for page in page_blocks
+    ):
+        return []
+
+    left_blocks: list[str] = []
+    for cell in cells[:-1]:
+        left_blocks.extend(_toc_direct_block_texts(cell))
+
+    if len(left_blocks) <= len(page_blocks):
+        return []
+
+    pages = [""] * (len(left_blocks) - len(page_blocks)) + page_blocks
+    lines: list[str] = []
+    for left, page in zip(left_blocks, pages):
+        if page:
+            lines.append(_format_toc_flat_row(f"{left} {page}", line_width=line_width))
+        else:
+            lines.append(left)
+    return lines
+
+
+def _toc_table_to_lines(table: Tag, *, line_width: int) -> list[str]:
+    lines: list[str] = []
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["td", "th"], recursive=False)
+        if not cells:
+            continue
+        parallel_lines = _format_toc_parallel_cell_rows(cells, line_width=line_width)
+        if parallel_lines:
+            lines.extend(parallel_lines)
+            continue
+        row = _format_toc_table_row(cells, line_width=line_width)
+        if row:
+            lines.append(row)
+    return lines
+
+
+def _toc_style_map(tag: Tag) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    style = str(tag.get("style") or "")
+    for part in style.split(";"):
+        if ":" not in part:
+            continue
+        key, value = part.split(":", 1)
+        parsed[key.strip().lower()] = value.strip().lower()
+    return parsed
+
+
+def _looks_like_positioned_toc_row(tag: Tag) -> bool:
+    if tag.name != "div":
+        return False
+    styles = _toc_style_map(tag)
+    if styles.get("overflow") != "hidden":
+        return False
+    if styles.get("position") != "relative":
+        return False
+    text = _toc_visible_text(tag)
+    if not re.search(r"\s(?:\d+|[ivxlcdm]+)$", text, flags=re.IGNORECASE):
+        return False
+    return bool(
+        re.match(
+            r"^(ARTICLE|Section|\d+(?:\.\d+)*)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def _positioned_toc_lines(soup: BeautifulSoup, *, line_width: int) -> list[str]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for row in soup.find_all(_looks_like_positioned_toc_row):
+        text = _toc_visible_text(row)
+        if text in seen:
+            continue
+        seen.add(text)
+        lines.append(_format_toc_flat_row(text, line_width=line_width))
+    return lines
+
+
+def _toc_heading_blocks(soup: BeautifulSoup) -> list[str]:
+    blocks: list[str] = []
+    for p in soup.find_all("p"):
+        text = _toc_visible_text(p)
+        if not text:
+            continue
+        split_text = _split_toc_page_label(text)
+        if split_text and re.fullmatch(
+            r"Table of Contents|TABLE OF CONTENTS|Contents|CONTENTS",
+            split_text[0],
+        ):
+            blocks.extend(split_text[:2])
+        elif text == "Page":
+            _append_toc_text_block(blocks, text)
+        if len(blocks) >= 2:
+            break
+    return blocks
+
+
+def _content_toc_table_lines(soup: BeautifulSoup, *, line_width: int) -> list[str]:
+    content_tables: list[list[str]] = []
+    for table in soup.find_all("table"):
+        lines = _toc_table_to_lines(table, line_width=line_width)
+        if not lines:
+            continue
+        entry_lines = [
+            line
+            for line in lines
+            if re.search(
+                r"\b(?:ARTICLE|Section|SECTION|\d+(?:\.\d+)+)\b",
+                line,
+                flags=re.IGNORECASE,
+            )
+        ]
+        reference_lines = [
+            line
+            for line in lines
+            if re.search(
+                r"\s(?:\d+|Preamble|Recitals|Section\s+\d|Article\s+\d)$",
+                line,
+                flags=re.IGNORECASE,
+            )
+        ]
+        if len(entry_lines) >= 3 or (len(lines) >= 5 and len(reference_lines) >= 3):
+            content_tables.append(lines)
+
+    if not content_tables:
+        return []
+
+    merged: list[str] = []
+    for table_idx, lines in enumerate(content_tables):
+        if table_idx:
+            merged.append("")
+        merged.extend(lines)
+    return merged
+
+
+def _wrap_toc_long_lines(text: str, *, line_width: int) -> str:
+    import textwrap
+
+    wrapped: list[str] = []
+    for line in text.splitlines():
+        item_splits = re.split(
+            r"\s+(?=(?:Exhibit|Schedule)\s+[A-Z0-9])",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if len(item_splits) >= 3:
+            for item in item_splits:
+                wrapped.extend(
+                    textwrap.wrap(
+                        item,
+                        width=line_width,
+                        subsequent_indent="    ",
+                        break_long_words=False,
+                        break_on_hyphens=False,
+                    )
+                )
+            continue
+        if len(line) <= line_width:
+            wrapped.append(line)
+            continue
+        if len(line) <= 180 and re.search(
+            r"\s(?:\d+|[ivxlcdm]+)$", line, flags=re.IGNORECASE
+        ):
+            wrapped.append(line)
+            continue
+        wrapped.extend(
+            textwrap.wrap(
+                line,
+                width=line_width,
+                subsequent_indent="    ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
+    return "\n".join(wrapped)
+
+
+def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
+    soup = BeautifulSoup(raw_html, "html.parser")
+    _remove_toc_nonvisible_nodes(soup)
+
+    positioned_lines = _positioned_toc_lines(soup, line_width=line_width)
+    if positioned_lines:
+        blocks = _toc_heading_blocks(soup)
+        blocks.append("\n".join(positioned_lines))
+        return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
+
+    table_lines = _content_toc_table_lines(soup, line_width=line_width)
+    if table_lines:
+        blocks = _toc_heading_blocks(soup)
+        blocks.append("\n".join(table_lines))
+        return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
+
+    blocks: list[str] = []
+    for child in (soup.body or soup).find_all(recursive=False):
+        if child.name == "table":
+            table_lines = _toc_table_to_lines(child, line_width=line_width)
+            if table_lines:
+                blocks.append("\n".join(table_lines))
+            continue
+        if child.find("table"):
+            for descendant in child.find_all(["div", "p", "table"], recursive=False):
+                if descendant.name == "table":
+                    table_lines = _toc_table_to_lines(descendant, line_width=line_width)
+                    if table_lines:
+                        blocks.append("\n".join(table_lines))
+                else:
+                    text = _toc_visible_text(descendant)
+                    if text:
+                        _append_toc_text_block(blocks, text)
+            continue
+        text = _toc_visible_text(child)
+        if text:
+            _append_toc_text_block(blocks, text)
+
+    if not blocks:
+        text = soup.get_text(separator="\n", strip=False)
+        text = "\n".join(_normalize_toc_cell_text(line) for line in text.splitlines())
+        return _wrap_toc_long_lines(
+            re.sub(r"\n{3,}", "\n\n", text).strip(),
+            line_width=line_width,
+        )
+
+    return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
 
 
 def convert_to_xml(
@@ -394,6 +762,27 @@ def collapse_text_into_definitions(xml_str: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
+def _has_text_value(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _xml_page_text(row: Any) -> str:
+    tagged_output = row.get("tagged_output")
+    gold_label = row.get("gold_label")
+    source_page_type = (
+        gold_label if _has_text_value(gold_label) else row.get("source_page_type")
+    )
+    if (
+        source_page_type == "toc"
+        and bool(row.get("source_is_html"))
+        and _has_text_value(row.get("raw_page_content"))
+    ):
+        formatted_toc = format_toc_html_like_screen(str(row.get("raw_page_content")))
+        if formatted_toc.strip():
+            return formatted_toc
+    return tagged_output if _has_text_value(tagged_output) else ""
+
+
 def generate_xml(
     df: Any, version_map: dict[str, int] | None = None
 ) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
@@ -460,6 +849,12 @@ def generate_xml(
                 temp = temp.sort_values(by=["page_order", "page_uuid"], kind="stable")
             else:
                 temp = temp.sort_values(by=["page_uuid"], kind="stable")
+            temp["_xml_page_type"] = temp["source_page_type"]
+            if "gold_label" in temp.columns:
+                gold_label_mask = temp["gold_label"].map(_has_text_value)
+                temp.loc[gold_label_mask, "_xml_page_type"] = temp.loc[
+                    gold_label_mask, "gold_label"
+                ]
 
             url = temp["url"].to_list()[0]
             announcement_date = temp["filing_date"].to_list()[0]
@@ -470,29 +865,29 @@ def generate_xml(
 
             # Containers by page type
             # frontMatter
-            fm_rows = temp[temp.get("source_page_type") == "front_matter"]
+            fm_rows = temp[temp["_xml_page_type"] == "front_matter"]
             if not fm_rows.empty:
                 fm_el = ET.SubElement(root, "frontMatter")
                 text_block = "\n".join(
-                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
+                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
                 )
                 add_text_nodes_simple(fm_el, text_block)
 
             # tableOfContents
-            toc_rows = temp[temp.get("source_page_type") == "toc"]
+            toc_rows = temp[temp["_xml_page_type"] == "toc"]
             if not toc_rows.empty:
                 toc_el = ET.SubElement(root, "tableOfContents")
                 text_block = "\n".join(
-                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
+                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
                 )
                 add_text_nodes_simple(toc_el, text_block)
 
             # body (preserve page order; parse headings across all body pages)
-            body_rows = temp[temp.get("source_page_type") == "body"]
+            body_rows = temp[temp["_xml_page_type"] == "body"]
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
                 body_text = "\n".join(
-                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
                 )
                 body_text = strip_subsection_section_tags(body_text)
                 tmp_xml = convert_to_xml(
@@ -515,20 +910,20 @@ def generate_xml(
                         body_el.append(child)
 
             # sigPages
-            sig_rows = temp[temp.get("source_page_type") == "sig"]
+            sig_rows = temp[temp["_xml_page_type"] == "sig"]
             if not sig_rows.empty:
                 sig_el = ET.SubElement(root, "sigPages")
                 text_block = "\n".join(
-                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
+                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
                 )
                 add_text_nodes_simple(sig_el, text_block)
 
             # backMatter
-            bm_rows = temp[temp.get("source_page_type") == "back_matter"]
+            bm_rows = temp[temp["_xml_page_type"] == "back_matter"]
             if not bm_rows.empty:
                 bm_el = ET.SubElement(root, "backMatter")
                 text_block = "\n".join(
-                    (f"{r['tagged_output'] or ''}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
+                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
                 )
                 add_text_nodes_simple(bm_el, text_block)
 

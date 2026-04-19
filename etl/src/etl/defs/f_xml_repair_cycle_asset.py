@@ -133,6 +133,7 @@ def post_repair_build_xml_asset(
                         p.agreement_uuid,
                         p.page_uuid,
                         p.page_order,
+                        p.raw_page_content,
                         COALESCE(p.gold_label, p.source_page_type) AS source_page_type,
                         CASE
                             WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN
@@ -640,6 +641,7 @@ def regular_ingest_post_repair_build_xml_asset(
                         p.agreement_uuid,
                         p.page_uuid,
                         p.page_order,
+                        p.raw_page_content,
                         COALESCE(p.gold_label, p.source_page_type) AS source_page_type,
                         CASE
                             WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN
@@ -1078,6 +1080,7 @@ def ingestion_cleanup_a_post_repair_build_xml_asset(
                         p.agreement_uuid,
                         p.page_uuid,
                         p.page_order,
+                        p.raw_page_content,
                         COALESCE(p.gold_label, p.source_page_type) AS source_page_type,
                         CASE
                             WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN
@@ -1532,6 +1535,7 @@ def ingestion_cleanup_b_post_repair_build_xml_asset(
                         p.agreement_uuid,
                         p.page_uuid,
                         p.page_order,
+                        p.raw_page_content,
                         COALESCE(p.gold_label, p.source_page_type) AS source_page_type,
                         CASE
                             WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN
