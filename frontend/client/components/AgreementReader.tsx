@@ -629,18 +629,14 @@ export function AgreementReader({
         ref={headerRef}
         className="sticky top-16 z-30 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
-        <div
-          className={cn(
-            "mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8",
-            headerCollapsed ? "py-2" : "space-y-3 py-3 sm:py-4",
-          )}
-        >
-          <div className="flex items-center gap-2">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
+          {/* Single row: back | title+subtitle | SEC filing */}
+          <div className="flex items-center gap-2 py-2 sm:py-2.5">
             <Button
               asChild
               variant="ghost"
               size="sm"
-              className="-ml-2 h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+              className="-ml-2 h-8 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
             >
               <Link
                 to={backTo || "/search"}
@@ -650,36 +646,31 @@ export function AgreementReader({
                 Back to results
               </Link>
             </Button>
-            {headerCollapsed ? (
-              <div className="ml-2 flex min-w-0 flex-1 items-center gap-2">
-                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Target
-                </span>
+            <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Target
+              </span>
+              <h1
+                className="min-w-0 truncate text-base font-semibold text-foreground sm:text-lg"
+                title={subtitle ? `${title} — ${subtitle}` : title}
+              >
+                {title}
+              </h1>
+              {subtitle ? (
                 <span
-                  className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-base"
-                  title={subtitle ? `${title} — ${subtitle}` : title}
+                  className="hidden min-w-0 shrink truncate text-sm text-muted-foreground sm:inline"
+                  title={subtitle}
                 >
-                  {title}
+                  · {subtitle}
                 </span>
-                {subtitle ? (
-                  <span
-                    className="hidden min-w-0 truncate text-sm text-muted-foreground sm:inline"
-                    title={subtitle}
-                  >
-                    · {subtitle}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             {agreement.url ? (
               <Button
                 asChild
                 variant="ghost"
                 size="sm"
-                className={cn(
-                  "hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:inline-flex",
-                  headerCollapsed ? "" : "ml-auto",
-                )}
+                className="hidden h-8 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:inline-flex"
               >
                 <a href={agreement.url} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -687,46 +678,16 @@ export function AgreementReader({
                 </a>
               </Button>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setHeaderCollapsed((value) => !value)}
-              aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
-              aria-expanded={!headerCollapsed}
-              className={cn(
-                "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                headerCollapsed || !agreement.url ? "" : "",
-                !headerCollapsed && !agreement.url ? "ml-auto" : "",
-              )}
-            >
-              {headerCollapsed ? (
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <ChevronUp className="h-4 w-4" aria-hidden="true" />
-              )}
-            </button>
           </div>
-          {headerCollapsed ? null : (
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 space-y-2">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Target
+
+          {/* Expanded: mobile subtitle + fact chips + mobile sheet buttons + redacted alert */}
+          {!headerCollapsed ? (
+            <div className="space-y-2 pb-2 sm:pb-2.5">
+              {subtitle ? (
+                <div className="truncate text-sm text-muted-foreground sm:hidden">
+                  {subtitle}
                 </div>
-                <h1
-                  className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
-                  title={title}
-                >
-                  {title}
-                </h1>
-                {subtitle ? (
-                  <div
-                    className="mt-0.5 truncate text-sm text-muted-foreground"
-                    title={subtitle}
-                  >
-                    {subtitle}
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
               {headerFacts.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {headerFacts.map((fact) => (
@@ -739,73 +700,96 @@ export function AgreementReader({
                   ))}
                 </div>
               ) : null}
-            </div>
-            {isMobile ? (
-              <div className="flex gap-2">
-                <Sheet open={isTocSheetOpen} onOpenChange={setIsTocSheetOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex-1 gap-2">
-                      <ListTree className="h-4 w-4" aria-hidden="true" />
-                      Contents
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-[min(360px,100vw)] p-0">
-                    <SheetTitle className="sr-only">Agreement contents</SheetTitle>
-                    <TableOfContents
-                      xmlContent={agreement.xml}
-                      targetSectionUuid={highlightedSection ?? undefined}
-                      onSectionClick={scrollToSection}
-                      className="h-full"
-                      scrollable={true}
-                    />
-                  </SheetContent>
-                </Sheet>
-                <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex-1 gap-2">
-                      <Info className="h-4 w-4" aria-hidden="true" />
-                      Search & details
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent
-                    side="right"
-                    className="w-[min(380px,100vw)] overflow-y-auto p-4"
-                  >
-                    <SheetTitle className="sr-only">Search and details</SheetTitle>
-                    <Tabs
-                      value={sidebarTab}
-                      onValueChange={(value) =>
-                        setSidebarTab(value === "details" ? "details" : "search")
-                      }
+              {isMobile ? (
+                <div className="flex gap-2 pt-0.5">
+                  <Sheet open={isTocSheetOpen} onOpenChange={setIsTocSheetOpen}>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1 gap-2">
+                        <ListTree className="h-4 w-4" aria-hidden="true" />
+                        Contents
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="w-[min(360px,100vw)] p-0">
+                      <SheetTitle className="sr-only">Agreement contents</SheetTitle>
+                      <TableOfContents
+                        xmlContent={agreement.xml}
+                        targetSectionUuid={highlightedSection ?? undefined}
+                        onSectionClick={scrollToSection}
+                        className="h-full"
+                        scrollable={true}
+                      />
+                    </SheetContent>
+                  </Sheet>
+                  <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1 gap-2">
+                        <Info className="h-4 w-4" aria-hidden="true" />
+                        Search & details
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent
+                      side="right"
+                      className="w-[min(380px,100vw)] overflow-y-auto p-4"
                     >
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="search">Search</TabsTrigger>
-                        <TabsTrigger value="details">Details</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="search" className="mt-4">
-                        {readerSearch}
-                      </TabsContent>
-                      <TabsContent value="details" className="mt-4">
-                        {readerDetails}
-                      </TabsContent>
-                    </Tabs>
-                  </SheetContent>
-                </Sheet>
-              </div>
-            ) : null}
-          </div>
-          )}
-          {!headerCollapsed && agreement.is_redacted ? (
-            <Alert className="border-amber-500/30 bg-amber-500/5 py-2.5 text-amber-900 dark:text-amber-100">
-              <FileSearch className="h-4 w-4" aria-hidden="true" />
-              <AlertTitle className="text-sm">Limited agreement text</AlertTitle>
-              <AlertDescription className="text-xs">
-                Full-text access is limited in anonymous mode. Your matched section
-                stays in view, but some surrounding text may be redacted.
-              </AlertDescription>
-            </Alert>
+                      <SheetTitle className="sr-only">Search and details</SheetTitle>
+                      <Tabs
+                        value={sidebarTab}
+                        onValueChange={(value) =>
+                          setSidebarTab(value === "details" ? "details" : "search")
+                        }
+                      >
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="search">Search</TabsTrigger>
+                          <TabsTrigger value="details">Details</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="search" className="mt-4">
+                          {readerSearch}
+                        </TabsContent>
+                        <TabsContent value="details" className="mt-4">
+                          {readerDetails}
+                        </TabsContent>
+                      </Tabs>
+                    </SheetContent>
+                  </Sheet>
+                </div>
+              ) : null}
+              {agreement.is_redacted ? (
+                <Alert className="border-amber-500/30 bg-amber-500/5 py-2.5 text-amber-900 dark:text-amber-100">
+                  <FileSearch className="h-4 w-4" aria-hidden="true" />
+                  <AlertTitle className="text-sm">Limited agreement text</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Full-text access is limited in anonymous mode. Your matched section
+                    stays in view, but some surrounding text may be redacted.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
           ) : null}
         </div>
+        {/* Full-width collapse bar */}
+        <button
+          type="button"
+          onClick={() => setHeaderCollapsed((v) => !v)}
+          aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
+          aria-expanded={!headerCollapsed}
+          className="group flex w-full items-center justify-center gap-2 border-t border-border/60 bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
+          <span className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide">
+            {headerCollapsed ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                Expand
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                Collapse
+              </>
+            )}
+          </span>
+          <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
+        </button>
       </div>
 
       {/* Main layout */}

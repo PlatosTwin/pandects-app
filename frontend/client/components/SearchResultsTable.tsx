@@ -416,13 +416,13 @@ export function SearchResultsTable({
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center pt-0 sm:min-h-0 sm:min-w-0 sm:pt-0.5">
+                      <div className="hidden shrink-0 items-center justify-center pt-0.5 sm:flex">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() =>
                             onToggleResultSelection(result.id)
                           }
-                          className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
+                          className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                           aria-label={`Select result ${resultNumber}`}
                         />
                       </div>

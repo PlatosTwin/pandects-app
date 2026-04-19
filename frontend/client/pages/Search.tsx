@@ -37,7 +37,6 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildSearchStateParams, parseSearchFilters } from "@/lib/url-params";
 import type { SearchMode } from "@shared/search";
 import type { TransactionSearchResult } from "@shared/transactions";
@@ -627,76 +626,48 @@ export default function Search() {
         ) : null}
 
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="border-b border-border px-4 py-4 sm:px-8 sm:py-6">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0 space-y-4">
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                    M&A Search
-                  </h1>
-                  <p
-                    className="mt-1 text-sm text-muted-foreground"
-                    aria-live="polite"
-                  >
-                    {searchMode === "sections"
-                      ? "Search section-level matches across the corpus."
-                      : "Search deals and review which matched sections brought each agreement into the result set."}
-                  </p>
+          {/* Row 1: title + tabs + mobile filters */}
+          <div className="border-b border-border px-4 py-3 sm:px-8">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <h1 className="shrink-0 text-xl font-semibold tracking-tight text-foreground">
+                  M&A Search
+                </h1>
+                <div
+                  role="radiogroup"
+                  aria-label="Search mode"
+                  className="flex h-8 items-center rounded-full border border-border bg-muted/40 p-0.5"
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                      e.preventDefault();
+                      void handleModeChange(
+                        searchMode === "sections" ? "transactions" : "sections",
+                      );
+                    }
+                  }}
+                >
+                  {(["sections", "transactions"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={searchMode === mode}
+                      tabIndex={searchMode === mode ? 0 : -1}
+                      onClick={() => void handleModeChange(mode)}
+                      className={cn(
+                        "h-7 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        searchMode === mode
+                          ? "bg-primary/10 text-primary shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {mode === "sections" ? "Sections" : "Deals"}
+                    </button>
+                  ))}
                 </div>
-                <Tabs value={searchMode} onValueChange={handleModeChange}>
-                  <TabsList
-                    className="inline-flex h-auto items-stretch gap-1 rounded-lg border border-border bg-muted/40 p-1"
-                    aria-label="Choose what to search"
-                  >
-                    <TabsTrigger
-                      value="sections"
-                      className="group flex h-auto min-w-[150px] items-center gap-2.5 rounded-md px-3 py-2 text-left data-[state=active]:bg-background data-[state=active]:shadow-sm sm:min-w-[200px]"
-                    >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
-                          searchMode === "sections"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground group-hover:bg-muted/80",
-                        )}
-                        aria-hidden="true"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </span>
-                      <span className="flex min-w-0 flex-col leading-tight">
-                        <span className="text-sm font-semibold">Sections</span>
-                        <span className="hidden text-xs font-normal text-muted-foreground sm:block">
-                          Section-level matches
-                        </span>
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="transactions"
-                      className="group flex h-auto min-w-[150px] items-center gap-2.5 rounded-md px-3 py-2 text-left data-[state=active]:bg-background data-[state=active]:shadow-sm sm:min-w-[200px]"
-                    >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
-                          searchMode === "transactions"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground group-hover:bg-muted/80",
-                        )}
-                        aria-hidden="true"
-                      >
-                        <Building2 className="h-4 w-4" />
-                      </span>
-                      <span className="flex min-w-0 flex-col leading-tight">
-                        <span className="text-sm font-semibold">Deals</span>
-                        <span className="hidden text-xs font-normal text-muted-foreground sm:block">
-                          Whole transactions
-                        </span>
-                      </span>
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
               </div>
 
-              <div className="lg:hidden">
+              <div className="lg:hidden shrink-0">
                 <Sheet
                   open={isMobileFiltersOpen}
                   onOpenChange={setIsMobileFiltersOpen}
@@ -713,7 +684,9 @@ export default function Search() {
                   >
                     <SheetTitle className="sr-only">Search filters</SheetTitle>
                     <SheetDescription className="sr-only">
-                      Filter agreement section results.
+                      {searchMode === "sections"
+                        ? "Filter agreement section results."
+                        : "Filter deal results."}
                     </SheetDescription>
                     {hasHydrated ? (
                       <Suspense fallback={<SearchSidebarFallback variant="sheet" />}>
@@ -747,8 +720,8 @@ export default function Search() {
             </div>
 
             {authStatus === "anonymous" && (
-              <div className="mt-4">
-                <Alert className="py-3 sm:py-4">
+              <div className="mt-3">
+                <Alert className="py-3">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
                   <div className="text-sm font-medium leading-none tracking-tight">
                     Limited mode
@@ -772,7 +745,7 @@ export default function Search() {
           </div>
 
           {filterOptionsError && (
-            <div className="mx-4 mt-4 sm:mx-8">
+            <div className="mx-4 mt-3 sm:mx-8">
               <Alert variant="destructive" role="alert">
                 <div className="text-sm font-medium leading-none tracking-tight">
                   Filter options error
@@ -782,237 +755,212 @@ export default function Search() {
             </div>
           )}
 
-          <div className="border-b border-border bg-muted/20 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                <Button
-                  onClick={() => void trackingActions.performSearch()}
-                  disabled={activeIsSearching}
-                  className="w-full gap-2 sm:w-auto"
-                  variant="default"
-                >
-                  <SearchIcon
-                    className={cn(
-                      "h-4 w-4",
-                      activeIsSearching && "animate-spin-custom"
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span>{activeIsSearching ? "Searching..." : "Search"}</span>
-                </Button>
+          {/* Row 2: actions + active filter chips */}
+          <div className="border-b border-border bg-muted/20 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => void trackingActions.performSearch()}
+                disabled={activeIsSearching}
+                className="gap-2 sm:w-auto"
+                variant="default"
+                size="sm"
+              >
+                <SearchIcon
+                  className={cn("h-4 w-4", activeIsSearching && "animate-spin-custom")}
+                  aria-hidden="true"
+                />
+                <span>{activeIsSearching ? "Searching..." : "Search"}</span>
+              </Button>
 
-                <div className="flex items-center gap-3">
-                  {(() => {
-                    const activeSelectedSize =
-                      searchMode === "sections"
-                        ? selectedResults.size
-                        : transactionSearch.selectedResults.size;
-                    const activeResultsLength =
-                      searchMode === "sections"
-                        ? searchResults.length
-                        : transactionSearch.results.length;
-                    const downloadDisabled =
-                      activeResultsLength === 0 && activeSelectedSize === 0;
-                    return (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-block">
-                            <Button
-                              onClick={() => trackingActions.downloadCSV()}
-                              disabled={downloadDisabled}
-                              variant="outline"
-                              size="sm"
-                              className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
-                              aria-label={
-                                downloadDisabled
-                                  ? "Download CSV (disabled: no results to download. Run a search first.)"
-                                  : "Download CSV"
-                              }
-                            >
-                              <Download className="h-4 w-4" aria-hidden="true" />
-                              <span>
-                                Download CSV
-                                {activeSelectedSize > 0 && ` (${activeSelectedSize})`}
-                              </span>
-                            </Button>
-                          </span>
-                        </TooltipTrigger>
-                        {downloadDisabled && (
-                          <TooltipContent>
-                            <p>No results to download. Run a search first.</p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    );
-                  })()}
-
-                  <Button
-                    onClick={trackingActions.clearFilters}
-                    variant="outline"
-                    size="sm"
-                    className="px-3 text-muted-foreground hover:text-foreground"
-                  >
-                    Reset filters
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {(filters.year.length > 0 ||
-            filters.target.length > 0 ||
-            filters.acquirer.length > 0 ||
-            filters.clauseType.length > 0 ||
-            filters.transaction_price_total.length > 0 ||
-            filters.transaction_price_stock.length > 0 ||
-            filters.transaction_price_cash.length > 0 ||
-            filters.transaction_price_assets.length > 0 ||
-            filters.transaction_consideration.length > 0 ||
-            filters.target_type.length > 0 ||
-            filters.acquirer_type.length > 0 ||
-            filters.target_counsel.length > 0 ||
-            filters.acquirer_counsel.length > 0 ||
-            filters.target_industry.length > 0 ||
-            filters.acquirer_industry.length > 0 ||
-            filters.deal_status.length > 0 ||
-            filters.attitude.length > 0 ||
-            filters.deal_type.length > 0 ||
-            filters.purpose.length > 0 ||
-            filters.target_pe.length > 0 ||
-            filters.acquirer_pe.length > 0 ||
-            filters.agreement_uuid ||
-            filters.section_uuid) && (
-            <div className="border-b border-border px-4 py-3 sm:px-8">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Active filters
-                </span>
-
-                {(
-                  [
-                    ["year", "Year", filters.year],
-                    ["target", "Target", filters.target],
-                    ["acquirer", "Acquirer", filters.acquirer],
-                    ["clauseType", "Section type", filters.clauseType],
-                    ["transaction_price_total", "Transaction price (total)", filters.transaction_price_total],
-                    ["transaction_price_stock", "Transaction price (stock)", filters.transaction_price_stock],
-                    ["transaction_price_cash", "Transaction price (cash)", filters.transaction_price_cash],
-                    ["transaction_price_assets", "Transaction price (assets)", filters.transaction_price_assets],
-                    ["transaction_consideration", "Transaction consideration", filters.transaction_consideration],
-                    ["target_type", "Target type", filters.target_type],
-                    ["acquirer_type", "Acquirer type", filters.acquirer_type],
-                    ["target_counsel", "Target counsel", filters.target_counsel],
-                    ["acquirer_counsel", "Acquirer counsel", filters.acquirer_counsel],
-                    ["target_industry", "Target industry", filters.target_industry],
-                    ["acquirer_industry", "Acquirer industry", filters.acquirer_industry],
-                    ["deal_status", "Deal status", filters.deal_status],
-                    ["attitude", "Attitude", filters.attitude],
-                    ["deal_type", "Deal type", filters.deal_type],
-                    ["purpose", "Purpose", filters.purpose],
-                    ["target_pe", "Target PE", filters.target_pe],
-                    ["acquirer_pe", "Acquirer PE", filters.acquirer_pe],
-                  ] as const
-                ).flatMap(([field, label, values]) =>
-                  values.map((value) => {
-                    // Only format hardcoded enum values, not database values
-                    const isHardcodedEnum = [
-                      "transaction_price_total",
-                      "transaction_price_stock",
-                      "transaction_price_cash",
-                      "transaction_price_assets",
-                      "transaction_consideration",
-                      "target_type",
-                      "acquirer_type",
-                      "deal_status",
-                      "attitude",
-                      "deal_type",
-                      "purpose",
-                      "target_pe",
-                      "acquirer_pe",
-                    ].includes(field);
-                    
-                    const displayValue =
-                      field === "clauseType"
-                        ? clauseTypeLabelById[value] ?? value
-                        : isHardcodedEnum
-                          ? formatFilterOption(value)
-                          : value;
-                    return (
-                      <Badge
-                        key={`${field}:${value}`}
-                        variant="outline"
-                        className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
-                      >
-                        <span className="text-muted-foreground">{label}:</span>
-                        <span className="truncate">{displayValue}</span>
-                        <button
-                          type="button"
-                          onClick={() => trackingActions.toggleFilterValue(field, value)}
-                          className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
-                          aria-label={`Remove ${label} filter: ${displayValue}`}
+              {(() => {
+                const activeSelectedSize =
+                  searchMode === "sections"
+                    ? selectedResults.size
+                    : transactionSearch.selectedResults.size;
+                const activeResultsLength =
+                  searchMode === "sections"
+                    ? searchResults.length
+                    : transactionSearch.results.length;
+                const downloadDisabled =
+                  activeResultsLength === 0 && activeSelectedSize === 0;
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="hidden sm:inline-block">
+                        <Button
+                          onClick={() => trackingActions.downloadCSV()}
+                          disabled={downloadDisabled}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            downloadDisabled
+                              ? "Download CSV (disabled: no results to download. Run a search first.)"
+                              : "Download CSV"
+                          }
                         >
-                          <X className="h-3 w-3" aria-hidden="true" />
-                        </button>
-                      </Badge>
-                    );
-                  })
-                )}
+                          <Download className="h-4 w-4" aria-hidden="true" />
+                          <span>
+                            Download CSV
+                            {activeSelectedSize > 0 && ` (${activeSelectedSize})`}
+                          </span>
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {downloadDisabled && (
+                      <TooltipContent>
+                        <p>No results to download. Run a search first.</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                );
+              })()}
 
-                {/* Text filters */}
-                {filters.agreement_uuid && (
-                  <Badge
-                    key="agreement_uuid"
-                    variant="outline"
-                    className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
-                  >
-                    <span className="text-muted-foreground">Agreement UUID:</span>
-                    <span className="truncate">{filters.agreement_uuid}</span>
-                    <button
-                      type="button"
-                      onClick={() => trackingActions.setTextFilterValue("agreement_uuid", "")}
-                      className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
-                      aria-label={`Remove Agreement UUID filter: ${filters.agreement_uuid}`}
-                    >
-                      <X className="h-3 w-3" aria-hidden="true" />
-                    </button>
-                  </Badge>
-                )}
+              <Button
+                onClick={trackingActions.clearFilters}
+                variant="outline"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Reset filters
+              </Button>
 
-                {filters.section_uuid && (
-                  <Badge
-                    key="section_uuid"
-                    variant="outline"
-                    className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
-                  >
-                    <span className="text-muted-foreground">Section UUID:</span>
-                    <span className="truncate">{filters.section_uuid}</span>
-                    <button
-                      type="button"
-                      onClick={() => trackingActions.setTextFilterValue("section_uuid", "")}
-                      className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6"
-                      aria-label={`Remove Section UUID filter: ${filters.section_uuid}`}
-                    >
-                      <X className="h-3 w-3" aria-hidden="true" />
-                    </button>
-                  </Badge>
-                )}
-
-                <div className="ml-auto">
+              {/* Active filter chips inline */}
+              {(filters.year.length > 0 ||
+                filters.target.length > 0 ||
+                filters.acquirer.length > 0 ||
+                filters.clauseType.length > 0 ||
+                filters.transaction_price_total.length > 0 ||
+                filters.transaction_price_stock.length > 0 ||
+                filters.transaction_price_cash.length > 0 ||
+                filters.transaction_price_assets.length > 0 ||
+                filters.transaction_consideration.length > 0 ||
+                filters.target_type.length > 0 ||
+                filters.acquirer_type.length > 0 ||
+                filters.target_counsel.length > 0 ||
+                filters.acquirer_counsel.length > 0 ||
+                filters.target_industry.length > 0 ||
+                filters.acquirer_industry.length > 0 ||
+                filters.deal_status.length > 0 ||
+                filters.attitude.length > 0 ||
+                filters.deal_type.length > 0 ||
+                filters.purpose.length > 0 ||
+                filters.target_pe.length > 0 ||
+                filters.acquirer_pe.length > 0 ||
+                filters.agreement_uuid ||
+                filters.section_uuid) && (
+                <>
+                  <div className="hidden h-5 w-0.5 shrink-0 rounded-full bg-border/80 sm:block" aria-hidden="true" />
+                  {(
+                    [
+                      ["year", "Year", filters.year],
+                      ["target", "Target", filters.target],
+                      ["acquirer", "Acquirer", filters.acquirer],
+                      ["clauseType", "Section type", filters.clauseType],
+                      ["transaction_price_total", "Price (total)", filters.transaction_price_total],
+                      ["transaction_price_stock", "Price (stock)", filters.transaction_price_stock],
+                      ["transaction_price_cash", "Price (cash)", filters.transaction_price_cash],
+                      ["transaction_price_assets", "Price (assets)", filters.transaction_price_assets],
+                      ["transaction_consideration", "Consideration", filters.transaction_consideration],
+                      ["target_type", "Target type", filters.target_type],
+                      ["acquirer_type", "Acquirer type", filters.acquirer_type],
+                      ["target_counsel", "Target counsel", filters.target_counsel],
+                      ["acquirer_counsel", "Acquirer counsel", filters.acquirer_counsel],
+                      ["target_industry", "Target industry", filters.target_industry],
+                      ["acquirer_industry", "Acquirer industry", filters.acquirer_industry],
+                      ["deal_status", "Status", filters.deal_status],
+                      ["attitude", "Attitude", filters.attitude],
+                      ["deal_type", "Deal type", filters.deal_type],
+                      ["purpose", "Purpose", filters.purpose],
+                      ["target_pe", "Target PE", filters.target_pe],
+                      ["acquirer_pe", "Acquirer PE", filters.acquirer_pe],
+                    ] as const
+                  ).flatMap(([field, label, values]) =>
+                    values.map((value) => {
+                      const isHardcodedEnum = [
+                        "transaction_price_total",
+                        "transaction_price_stock",
+                        "transaction_price_cash",
+                        "transaction_price_assets",
+                        "transaction_consideration",
+                        "target_type",
+                        "acquirer_type",
+                        "deal_status",
+                        "attitude",
+                        "deal_type",
+                        "purpose",
+                        "target_pe",
+                        "acquirer_pe",
+                      ].includes(field);
+                      const displayValue =
+                        field === "clauseType"
+                          ? clauseTypeLabelById[value] ?? value
+                          : isHardcodedEnum
+                            ? formatFilterOption(value)
+                            : value;
+                      return (
+                        <Badge
+                          key={`${field}:${value}`}
+                          variant="outline"
+                          className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
+                        >
+                          <span className="text-muted-foreground">{label}:</span>
+                          <span className="truncate">{displayValue}</span>
+                          <button
+                            type="button"
+                            onClick={() => trackingActions.toggleFilterValue(field, value)}
+                            className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-5 sm:w-5 sm:min-h-0 sm:min-w-0"
+                            aria-label={`Remove ${label} filter: ${displayValue}`}
+                          >
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        </Badge>
+                      );
+                    })
+                  )}
+                  {filters.agreement_uuid && (
+                    <Badge variant="outline" className="flex items-center gap-1 rounded-md bg-background px-2 py-1">
+                      <span className="text-muted-foreground">Agreement UUID:</span>
+                      <span className="truncate">{filters.agreement_uuid}</span>
+                      <button
+                        type="button"
+                        onClick={() => trackingActions.setTextFilterValue("agreement_uuid", "")}
+                        className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-5 sm:w-5 sm:min-h-0 sm:min-w-0"
+                        aria-label={`Remove Agreement UUID filter: ${filters.agreement_uuid}`}
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </Badge>
+                  )}
+                  {filters.section_uuid && (
+                    <Badge variant="outline" className="flex items-center gap-1 rounded-md bg-background px-2 py-1">
+                      <span className="text-muted-foreground">Section UUID:</span>
+                      <span className="truncate">{filters.section_uuid}</span>
+                      <button
+                        type="button"
+                        onClick={() => trackingActions.setTextFilterValue("section_uuid", "")}
+                        className="ml-1 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-5 sm:w-5 sm:min-h-0 sm:min-w-0"
+                        aria-label={`Remove Section UUID filter: ${filters.section_uuid}`}
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </Badge>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={trackingActions.clearFilters}
-                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
                   >
-                    Clear all filters
+                    Clear all
                   </Button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="flex-1 overflow-auto">
-            <div className="px-4 py-6 sm:px-8 sm:py-8">
+            <div className="px-4 py-4 sm:px-8 sm:py-5">
               {!activeHasSearched && (
                 <div className="mx-auto max-w-3xl space-y-4">
                   <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
@@ -1066,7 +1014,7 @@ export default function Search() {
               )}
 
               {activeHasSearched && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {activeTotalCount === 0 ? (
                     <div
                       className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
